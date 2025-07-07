@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Item.ThirdParty</id>
+    <version>8.0.6</version>
+    <title>Item.ThirdParty</title>
+    <authors>Item</authors>
+    <description>Common utility library.</description>
+    <copyright>Copyright © 2024 Unis, LLC. All rights reserved.</copyright>
+    <repository type="git" commit="174b1e7b4654b0b6704605f6475198a54f8fa7da" />
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="Asp.Versioning.Mvc" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Item.Common.Lib" version="8.0.2" exclude="Build,Analyzers" />
+        <dependency id="Microsoft.Extensions.Http.Polly" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Newtonsoft.Json" version="13.0.3" exclude="Build,Analyzers" />
+        <dependency id="Polly" version="8.2.0" exclude="Build,Analyzers" />
+        <dependency id="Polly.Extensions.Http" version="3.0.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

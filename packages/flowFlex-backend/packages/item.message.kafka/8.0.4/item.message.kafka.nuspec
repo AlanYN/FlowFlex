@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Item.Message.Kafka</id>
+    <version>8.0.4</version>
+    <title>Item.Message.Kafka</title>
+    <authors>Item</authors>
+    <description>Common utility library.</description>
+    <copyright>Copyright © 2024 Unis, LLC. All rights reserved.</copyright>
+    <repository type="git" commit="f6e120b031de8f80ce31f253b5412ace34369359" />
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="AWS.MSK.Auth" version="1.0.0" exclude="Build,Analyzers" />
+        <dependency id="AWSSDK.Core" version="3.7.303.19" exclude="Build,Analyzers" />
+        <dependency id="AWSSDK.S3" version="3.7.305.31" exclude="Build,Analyzers" />
+        <dependency id="Asp.Versioning.Mvc" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Confluent.Kafka" version="2.3.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

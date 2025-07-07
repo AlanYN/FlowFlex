@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Item.Infrastructure.Monitoring.Client</id>
+    <version>0.0.1-alpha</version>
+    <title>Item.Infrastructure.Monitoring.Client</title>
+    <authors>CaoMingZhe</authors>
+    <description>alpha.0.0.1 监听HttpClient</description>
+    <copyright>Copyright © 2024 Item. All rights reserved.</copyright>
+    <repository type="git" commit="85b9a43db75a88e161d180c1b5e8b9e6b82e1b65" />
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="Microsoft.AspNetCore.Mvc.NewtonsoftJson" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Serilog.AspNetCore" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Serilog.Expressions" version="4.0.0" exclude="Build,Analyzers" />
+        <dependency id="Serilog.Settings.Configuration" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Serilog.Sinks.File" version="5.0.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

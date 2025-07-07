@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Item.Infrastructure.Monitoring.Client</name>
+    </assembly>
+    <members>
+        <member name="P:Item.Infrastructure.Monitoring.Client.MonitoringClientOption.Path">
+            <summary>
+            Path
+            </summary>
+        </member>
+        <member name="P:Item.Infrastructure.Monitoring.Client.MonitoringClientOption.ModuleName">
+            <summary>
+            ModuleName
+            </summary>
+        </member>
+    </members>
+</doc>
