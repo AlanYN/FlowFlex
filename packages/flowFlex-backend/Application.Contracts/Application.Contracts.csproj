@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Extensions\**" />
+    <EmbeddedResource Remove="Extensions\**" />
+    <None Remove="Extensions\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Item.Excel.Lib" Version="8.0.2" />
+    <PackageReference Include="Item.Internal.Auth" Version="8.0.0" />
+    <PackageReference Include="Item.Message.Kafka" Version="8.0.4" />
+    <PackageReference Include="RulesEngine" Version="5.0.3" />
+    <PackageReference Include="Item.ThirdParty" Version="8.0.6" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Domain.Shared\Domain.Shared.csproj" />
+    <ProjectReference Include="..\Domain\Domain.csproj" />
+    <ProjectReference Include="..\SqlSugarDB\SqlSugarDB.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Dtos\Companies\" />
+    <Folder Include="Dtos\OW\StageCompletionLog\" />
+    <Folder Include="Dtos\OW\TenantDomainMapping\" />
+  </ItemGroup>
+
+</Project>

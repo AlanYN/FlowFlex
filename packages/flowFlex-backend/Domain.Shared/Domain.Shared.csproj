@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.Core" Version="4.0.0.14" />
+    <PackageReference Include="Item.Common.Lib" Version="8.0.6" />
+    <PackageReference Include="Item.Internal.ChangeLog" Version="8.0.23" />
+    <PackageReference Include="MediatR" Version="12.3.0" />
+    <PackageReference Include="NPOI" Version="2.7.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Extensions\Extensions\" />
+  </ItemGroup>
+
+</Project>

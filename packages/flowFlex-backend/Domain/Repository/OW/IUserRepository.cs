@@ -1,0 +1,43 @@
+using System;
+using System.Threading.Tasks;
+using FlowFlex.Domain.Entities.OW;
+
+namespace FlowFlex.Domain.Repository.OW
+{
+    /// <summary>
+    /// User repository interface
+    /// </summary>
+    public interface IUserRepository : IOwBaseRepository<User>
+    {
+        /// <summary>
+        /// Get user by email
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <returns>User</returns>
+        Task<User> GetByEmailAsync(string email);
+
+        /// <summary>
+        /// Check if email already exists
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <returns>Whether exists</returns>
+        Task<bool> EmailExistsAsync(string email);
+
+        /// <summary>
+        /// Update user last login information
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="loginTime">Login time</param>
+        /// <param name="loginIp">Login IP</param>
+        /// <returns>Whether update was successful</returns>
+        Task<bool> UpdateLastLoginInfoAsync(long userId, DateTimeOffset loginTime, string loginIp);
+
+        /// <summary>
+        /// Update user email verification status
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="verified">Whether verified</param>
+        /// <returns>Whether update was successful</returns>
+        Task<bool> UpdateEmailVerificationStatusAsync(long userId, bool verified);
+    }
+} 

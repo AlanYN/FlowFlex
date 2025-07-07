@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Repository\DynamicData\IDataValueRepository.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Domain.Shared\Domain.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Item.Excel.Lib" Version="8.0.0" />
+    <PackageReference Include="SqlSugarCore" Version="5.1.4.159-preview23" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Repository\Quote\" />
+  </ItemGroup>
+
+</Project>

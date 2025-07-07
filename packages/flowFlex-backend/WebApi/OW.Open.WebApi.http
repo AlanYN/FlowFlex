@@ -1,0 +1,6 @@
+@FlowFlex.WebApi_HostAddress = http://localhost:5115
+
+GET {{FlowFlex.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
