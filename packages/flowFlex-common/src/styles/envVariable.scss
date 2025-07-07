@@ -1,0 +1,74 @@
+:root {
+	--black-5: #ffffff0d;
+	--black-10: #ffffff1a;
+	--black-20: #ffffff33;
+	--black-30: #ffffff4d;
+	--black-40: #ffffff66;
+	--black-50: #ffffff80;
+	--black-60: #ffffff99;
+	--black-70: #ffffffb3;
+	--black-80: #ffffffcc;
+	--black-90: #ffffffe6;
+	--black-100: #ffffff;
+	--black-200: #333847;
+	--black-300: #f6f6f6; //*
+	--black-400: #ffffff; //*
+	--black-500: rgba(232, 232, 227, 1); //*
+	--black-600: #ffffff;
+	--black-700: #ffffff; //*
+	--el-border-radius-base: 8px;
+	--el-border-color-light: #e4e7ed;
+}
+
+:root.dark {
+	--black-5: #0000000d;
+	--black-10: #0000001a;
+	--black-20: #00000033;
+	--black-30: #0000004d;
+	--black-40: #00000066;
+	--black-50: #00000080;
+	--black-60: #00000099;
+	--black-70: #000000b3;
+	--black-80: #000000cc;
+	--black-90: #000000e6;
+	--black-100: #000000; //*
+	--black-150: #2b2f3b;
+	--black-200: #23262f;
+	--black-300: #21232b; //*
+	--black-400: #1b1c23; //*
+	--black-500: #121217; //*
+	--black-600: #f5f5f5;
+	--black-700: #333847; //*
+	--el-fill-color-blank: none;
+	--el-border-radius-base: 8px;
+}
+
+:root.blue {
+	--primary-50: #e6f1fa;
+	--primary-100: #cce2f6;
+	--primary-200: #99c5ec;
+	--primary-300: #66a8e3;
+	--primary-400: #338bd9;
+	--primary-500: #006ed0;
+	--primary-600: #0058a6;
+	--primary-700: #00427d;
+	--primary-800: #002c53;
+	--primary-900: #00162a;
+	--primary-reverse-500:#7e22ce;
+	--primary-500-rgb: 0, 110, 208; // RGB 值
+}
+
+:root.pruple {
+	--primary-50: #e9d9fd;
+	--primary-100: #d3b2fa;
+	--primary-200: #c89ff9;
+	--primary-300: #bc8bf8;
+	--primary-400: #b178f7;
+	--primary-500: #7e22ce;
+	--primary-600: #763bbe; // element组件颜色
+	--primary-700: #7a18f2;
+	--primary-800: #700de7;
+	--primary-900: #5d0bc1;
+	--primary-reverse-500:#006ed0;
+	--primary-500-rgb: 126, 34, 206; // RGB 值
+}

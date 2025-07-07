@@ -1,0 +1,1029 @@
+<template>
+	<div class="min-h-screen bg-gray-50">
+		<!-- Mobile sidebar -->
+		<div :class="['fixed inset-0 z-50 lg:hidden', sidebarOpen ? 'block' : 'hidden']">
+			<div class="fixed inset-0 bg-gray-600 bg-opacity-75" @click="sidebarOpen = false"></div>
+			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
+				<div class="flex h-16 items-center justify-between px-4 border-b">
+					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
+					<button @click="sidebarOpen = false" class="p-1 rounded-md hover:bg-gray-100">
+						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					</button>
+				</div>
+				<nav class="flex-1 space-y-1 px-2 py-4">
+					<div
+						v-for="item in navigation"
+						:key="item.name"
+						:class="[
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							currentView === item.view
+								? 'bg-blue-100 text-blue-900'
+								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+						]"
+						@click="
+							currentView = item.view;
+							sidebarOpen = false;
+						"
+					>
+						<component :is="item.icon" class="mr-3 h-5 w-5" />
+						{{ item.name }}
+					</div>
+				</nav>
+
+				<!-- Customer Info Card -->
+				<div class="p-4 border-t">
+					<div class="rounded-lg border bg-white p-4 shadow-sm">
+						<div class="flex items-center space-x-3">
+							<div class="bg-blue-100 p-2 rounded-full">
+								<svg
+									class="h-5 w-5 text-blue-600"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+									/>
+								</svg>
+							</div>
+							<div class="flex-1 min-w-0">
+								<p class="text-sm font-medium text-gray-900 truncate">
+									{{ customerData.companyName }}
+								</p>
+								<p class="text-xs text-gray-500 truncate">
+									{{ customerData.contactName }}
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Desktop sidebar -->
+		<div class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+			<div class="flex flex-col flex-grow bg-white border-r border-gray-200">
+				<div class="flex h-16 items-center px-4 border-b">
+					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
+				</div>
+				<nav class="flex-1 space-y-1 px-2 py-4">
+					<div
+						v-for="item in navigation"
+						:key="item.name"
+						:class="[
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							currentView === item.view
+								? 'bg-blue-100 text-blue-900'
+								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+						]"
+						@click="currentView = item.view"
+					>
+						<component :is="item.icon" class="mr-3 h-5 w-5" />
+						{{ item.name }}
+					</div>
+				</nav>
+
+				<!-- Customer Info Card -->
+				<div class="p-4 border-t">
+					<div class="rounded-lg border bg-white p-4 shadow-sm">
+						<div class="flex items-center space-x-3 mb-3">
+							<div class="bg-blue-100 p-2 rounded-full">
+								<svg
+									class="h-5 w-5 text-blue-600"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+									/>
+								</svg>
+							</div>
+							<div class="flex-1 min-w-0">
+								<p class="text-sm font-medium text-gray-900 truncate">
+									{{ customerData.companyName }}
+								</p>
+								<p class="text-xs text-gray-500 truncate">
+									{{ customerData.contactName }}
+								</p>
+							</div>
+						</div>
+						<div class="space-y-1">
+							<div class="flex items-center text-xs text-gray-500">
+								<svg
+									class="h-3 w-3 mr-1"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+									/>
+								</svg>
+								Account Manager: {{ customerData.accountManager }}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Main content -->
+		<div class="lg:pl-64">
+			<!-- Mobile header -->
+			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
+				<button @click="sidebarOpen = true" class="p-1 rounded-md hover:bg-gray-100">
+					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 6h16M4 12h16M4 18h16"
+						/>
+					</svg>
+				</button>
+				<h1 class="text-lg font-semibold">Customer Portal</h1>
+				<div></div>
+			</div>
+
+			<!-- Page content -->
+			<main class="flex-1 p-6">
+				<!-- Onboarding Progress View -->
+				<div v-if="currentView === 'progress'" class="space-y-6">
+					<!-- Header -->
+					<div>
+						<h1 class="text-2xl font-bold text-gray-900">Onboarding Progress</h1>
+						<p class="text-gray-600">Track your journey with us</p>
+					</div>
+
+					<!-- Overall Progress -->
+					<div class="rounded-lg border bg-white p-6 shadow-sm">
+						<div class="mb-6">
+							<div class="flex items-center mb-2">
+								<svg
+									class="mr-2 h-5 w-5 text-gray-700"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+									/>
+								</svg>
+								<h3 class="text-lg font-semibold text-gray-900">
+									Overall Progress
+								</h3>
+							</div>
+							<p class="text-sm text-gray-600">Your onboarding journey with us</p>
+						</div>
+						<div class="space-y-4">
+							<div class="flex items-center justify-between">
+								<span class="text-sm font-medium text-gray-700">Progress</span>
+								<span class="text-sm font-medium text-gray-700">
+									{{ progressPercentage }}%
+								</span>
+							</div>
+							<div class="w-full bg-gray-200 rounded-full h-3">
+								<div
+									class="bg-blue-600 h-3 rounded-full transition-all duration-300"
+									:style="{ width: progressPercentage + '%' }"
+								></div>
+							</div>
+							<div
+								class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600"
+							>
+								<div class="flex items-center space-x-2">
+									<svg
+										class="h-4 w-4"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+										/>
+									</svg>
+									<span>Started: {{ customerData.startDate }}</span>
+								</div>
+								<div class="flex items-center space-x-2">
+									<svg
+										class="h-4 w-4"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<span>
+										Est. Completion: {{ customerData.estimatedCompletion }}
+									</span>
+								</div>
+								<div class="flex items-center space-x-2">
+									<svg
+										class="h-4 w-4"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+										/>
+									</svg>
+									<span>
+										{{ completedStages }} of {{ totalStages }} stages completed
+									</span>
+								</div>
+							</div>
+							<div v-if="currentStageData" class="mt-4 p-3 bg-blue-50 rounded-lg">
+								<p class="text-sm font-medium text-blue-900">
+									Current Stage: {{ currentStageData.name }}
+								</p>
+								<p class="text-sm text-blue-700">
+									{{ currentStageData.description }}
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<!-- Next Steps - Action Required -->
+					<div class="rounded-lg border-2 border-orange-200 bg-orange-50 p-6 shadow-sm">
+						<div class="mb-6">
+							<div class="flex items-center mb-2 text-orange-800">
+								<svg
+									class="mr-2 h-5 w-5 text-orange-600"
+									fill="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+									/>
+								</svg>
+								<h3 class="text-lg font-semibold">Next Steps - Action Required</h3>
+							</div>
+							<p class="text-sm text-orange-700">
+								Complete these steps to continue your onboarding process
+							</p>
+						</div>
+						<div class="space-y-3">
+							<div
+								v-for="(stage, index) in nextSteps"
+								:key="stage.id"
+								class="flex items-center justify-between p-4 bg-white rounded-lg border border-orange-200 shadow-sm"
+							>
+								<div class="flex items-center space-x-3">
+									<div class="flex-shrink-0">
+										<div
+											class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
+											:style="{ backgroundColor: stage.color }"
+										>
+											{{ index + 1 }}
+										</div>
+									</div>
+									<div>
+										<p class="font-medium text-gray-900">{{ stage.name }}</p>
+										<p class="text-sm text-gray-600">{{ stage.description }}</p>
+										<span
+											v-if="stage.status === 'in_progress'"
+											class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1"
+										>
+											In Progress
+										</span>
+									</div>
+								</div>
+								<div class="flex items-center space-x-2">
+									<button
+										v-if="stage.editable"
+										@click="handleStageAction(stage)"
+										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+									>
+										{{ stage.status === 'in_progress' ? 'Continue' : 'Start' }}
+										<svg
+											class="ml-2 h-4 w-4"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M9 5l7 7-7 7"
+											/>
+										</svg>
+									</button>
+								</div>
+							</div>
+							<div v-if="nextSteps.length === 0" class="text-center py-6">
+								<svg
+									class="h-12 w-12 text-green-500 mx-auto mb-3"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								<p class="text-gray-600">
+									No immediate action required. We're working on the next steps!
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<!-- Stages Timeline -->
+					<div class="rounded-lg border bg-white p-6 shadow-sm">
+						<div class="mb-6">
+							<h3 class="text-lg font-semibold text-gray-900">Onboarding Stages</h3>
+							<p class="text-sm text-gray-600">
+								Track your progress through each stage
+							</p>
+						</div>
+						<div class="space-y-4">
+							<div
+								v-for="stage in customerStages"
+								:key="stage.id"
+								:class="[
+									'flex items-start space-x-4 p-4 rounded-lg border transition-colors',
+									stage.status === 'completed' && 'bg-green-50 border-green-200',
+									stage.status === 'in_progress' && 'bg-blue-50 border-blue-200',
+									stage.status === 'pending' && 'bg-gray-50 border-gray-200',
+								]"
+							>
+								<div class="flex-shrink-0 mt-1">
+									<svg
+										v-if="stage.status === 'completed'"
+										class="h-5 w-5 text-green-500"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<svg
+										v-else-if="stage.status === 'in_progress'"
+										class="h-5 w-5 text-blue-500"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<div
+										v-else
+										class="h-5 w-5 rounded-full border-2 border-gray-300"
+									></div>
+								</div>
+								<div class="flex-1 min-w-0">
+									<div class="flex items-center justify-between">
+										<h3 class="font-medium text-gray-900">
+											{{ stage.order }}. {{ stage.name }}
+										</h3>
+										<div class="flex items-center space-x-2">
+											<span
+												:class="[
+													'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
+													stage.status === 'completed' &&
+														'bg-green-100 text-green-700 border-green-300',
+													stage.status === 'in_progress' &&
+														'bg-blue-100 text-blue-700 border-blue-300',
+													stage.status === 'pending' &&
+														'bg-gray-100 text-gray-700 border-gray-300',
+												]"
+											>
+												{{ getStageStatusText(stage.status) }}
+											</span>
+											<button
+												v-if="stage.editable && stage.status !== 'pending'"
+												@click="handleStageAction(stage)"
+												class="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+											>
+												<svg
+													v-if="stage.status === 'completed'"
+													class="mr-1 h-3 w-3"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+													/>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+													/>
+												</svg>
+												<svg
+													v-else
+													class="mr-1 h-3 w-3"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+													/>
+												</svg>
+												{{ stage.status === 'completed' ? 'View' : 'Edit' }}
+											</button>
+										</div>
+									</div>
+									<p class="text-sm text-gray-600 mt-1">
+										{{ stage.description }}
+									</p>
+									<p
+										v-if="stage.completedDate"
+										class="text-xs text-green-600 mt-1"
+									>
+										Completed on {{ stage.completedDate }}
+									</p>
+									<div
+										v-if="stage.status === 'in_progress'"
+										class="mt-2 p-2 bg-blue-100 rounded text-sm text-blue-700 flex items-center"
+									>
+										<svg
+											class="h-4 w-4 mr-1"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+											/>
+										</svg>
+										Action required: Please complete this stage to continue
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Other Views -->
+				<MessageCenter v-else-if="currentView === 'messages'" />
+				<DocumentCenter v-else-if="currentView === 'documents'" />
+				<ContactUs v-else-if="currentView === 'contact'" />
+			</main>
+		</div>
+	</div>
+</template>
+
+<script>
+import MessageCenter from './components/MessageCenter.vue';
+import DocumentCenter from './components/DocumentCenter.vue';
+import ContactUs from './components/ContactUs.vue';
+
+// Icon components
+const HomeIcon = {
+	template: `
+		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+		</svg>
+	`,
+};
+
+const MessageSquareIcon = {
+	template: `
+		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+		</svg>
+	`,
+};
+
+const FileTextIcon = {
+	template: `
+		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+		</svg>
+	`,
+};
+
+const PhoneIcon = {
+	template: `
+		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+		</svg>
+	`,
+};
+
+export default {
+	name: 'OnboardPortal', // Change name to avoid conflicts
+	components: {
+		MessageCenter,
+		DocumentCenter,
+		ContactUs,
+		HomeIcon,
+		MessageSquareIcon,
+		FileTextIcon,
+		PhoneIcon,
+	},
+	data() {
+		return {
+			sidebarOpen: false,
+			currentView: 'progress',
+			navigation: [
+				{
+					name: 'Onboarding Progress',
+					view: 'progress',
+					icon: 'HomeIcon',
+				},
+				{
+					name: 'Message Center',
+					view: 'messages',
+					icon: 'MessageSquareIcon',
+				},
+				{
+					name: 'Document Center',
+					view: 'documents',
+					icon: 'FileTextIcon',
+				},
+				{
+					name: 'Contact Us',
+					view: 'contact',
+					icon: 'PhoneIcon',
+				},
+			],
+			customerData: {
+				id: 'CUST-001',
+				companyName: 'Acme Corporation',
+				contactName: 'John Doe',
+				email: 'john.doe@acmecorp.com',
+				phone: '+1 (555) 123-4567',
+				currentStage: 'questionnaire',
+				overallProgress: 45,
+				startDate: '2024-01-15',
+				estimatedCompletion: '2024-03-15',
+				accountManager: 'Sarah Johnson',
+				onboardingId: '1935974751679971328', // Add onboardingId to customer data
+			},
+			customerStages: [
+				{
+					id: 'warm_lead_created',
+					name: 'Warm Lead Created',
+					description: 'Initial lead information captured',
+					order: 1,
+					status: 'completed',
+					editable: false,
+					color: '#4f46e5',
+					completedDate: '2024-01-15',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'application_sent',
+					name: 'Customer Application Form Sent',
+					description: 'Send application form to customer',
+					order: 2,
+					status: 'completed',
+					editable: false,
+					color: '#0ea5e9',
+					completedDate: '2024-01-16',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'application_filled',
+					name: 'Application Filled By Customer',
+					description: 'Customer completes and returns application form',
+					order: 3,
+					status: 'completed',
+					editable: true,
+					color: '#10b981',
+					completedDate: '2024-01-20',
+					portalVisible: true,
+					portalEditable: true,
+				},
+				{
+					id: 'application_approved',
+					name: 'Application Approved By Sales',
+					description: 'Sales team reviews and approves application',
+					order: 4,
+					status: 'completed',
+					editable: false,
+					color: '#f59e0b',
+					completedDate: '2024-01-22',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'deal_sent',
+					name: 'Deal Sent/Sales Qualified Lead',
+					description: 'Deal terms sent to customer',
+					order: 5,
+					status: 'completed',
+					editable: false,
+					color: '#ec4899',
+					completedDate: '2024-01-23',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'questionnaire',
+					name: 'Customer Questionnaire',
+					description: 'Customer completes detailed questionnaire',
+					order: 6,
+					status: 'in_progress',
+					editable: true,
+					color: '#8b5cf6',
+					portalVisible: true,
+					portalEditable: true,
+				},
+				{
+					id: 'quote_signed',
+					name: 'Service Quote Signed',
+					description: 'Customer signs service quote',
+					order: 7,
+					status: 'pending',
+					editable: false,
+					color: '#06b6d4',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'msa_signed',
+					name: 'MSA Signed',
+					description: 'Master Service Agreement signed',
+					order: 8,
+					status: 'pending',
+					editable: false,
+					color: '#14b8a6',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'deal_closed',
+					name: 'Deal Closed Won',
+					description: 'Deal is officially closed',
+					order: 9,
+					status: 'pending',
+					editable: false,
+					color: '#22c55e',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'account_created',
+					name: 'Customer Account Created',
+					description: 'Create customer account in system',
+					order: 10,
+					status: 'pending',
+					editable: false,
+					color: '#a855f7',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'interface_setup',
+					name: 'Order Interface Setup',
+					description: 'Set up order interface for customer',
+					order: 11,
+					status: 'pending',
+					editable: true,
+					color: '#ef4444',
+					portalVisible: true,
+					portalEditable: true,
+				},
+				{
+					id: 'item_master',
+					name: 'Item Master Setup',
+					description: 'Set up item master data',
+					order: 12,
+					status: 'pending',
+					editable: true,
+					color: '#84cc16',
+					portalVisible: true,
+					portalEditable: true,
+				},
+				{
+					id: 'uat_testing',
+					name: 'System UAT Testing',
+					description: 'User acceptance testing',
+					order: 13,
+					status: 'pending',
+					editable: false,
+					color: '#10b981',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'training',
+					name: 'Operation Training And Go Live Confirmation',
+					description: 'Train operations team and confirm go-live',
+					order: 14,
+					status: 'pending',
+					editable: false,
+					color: '#0ea5e9',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'go_live',
+					name: 'Go Live And Monitoring',
+					description: 'System goes live with monitoring',
+					order: 15,
+					status: 'pending',
+					editable: false,
+					color: '#4f46e5',
+					portalVisible: true,
+					portalEditable: false,
+				},
+				{
+					id: 'completed',
+					name: 'Onboarding Completed',
+					description: 'Onboarding process completed',
+					order: 16,
+					status: 'pending',
+					editable: false,
+					color: '#22c55e',
+					portalVisible: true,
+					portalEditable: false,
+				},
+			],
+		};
+	},
+	computed: {
+		currentStageData() {
+			return this.customerStages.find((stage) => stage.status === 'in_progress');
+		},
+		completedStages() {
+			return this.customerStages.filter((stage) => stage.status === 'completed').length;
+		},
+		totalStages() {
+			return this.customerStages.length;
+		},
+		progressPercentage() {
+			if (this.totalStages === 0) return 0;
+			const percentage = (this.completedStages / this.totalStages) * 100;
+			// 四舍五入到整数，并确保不超过100%
+			return Math.min(Math.round(percentage), 100);
+		},
+		nextSteps() {
+			return this.customerStages
+				.filter(
+					(stage) =>
+						stage.status === 'in_progress' ||
+						(stage.status === 'pending' &&
+							stage.editable &&
+							this.customerStages.findIndex((s) => s.id === stage.id) <=
+								this.completedStages + 1)
+				)
+				.slice(0, 3);
+		},
+	},
+	mounted() {
+		// Initialize portal data
+		console.log('Portal mounted successfully');
+		// Add any initialization logic here if needed
+	},
+	methods: {
+		getStageStatusText(status) {
+			switch (status) {
+				case 'completed':
+					return 'Completed';
+				case 'in_progress':
+					return 'In Progress';
+				default:
+					return 'Pending';
+			}
+		},
+		handleStageAction(stage) {
+			// Navigate to onboard detail page with specific onboardingId
+			this.$router.push({
+				path: '/onboard/onboardDetail',
+				query: {
+					onboardingId: this.customerData.onboardingId,
+					stageId: stage.id, // Optional: pass current stage for context
+				},
+			});
+		},
+	},
+};
+</script>
+
+<style scoped>
+/* Ensure consistent border radius */
+.rounded-lg {
+	border-radius: 0.5rem;
+}
+
+.rounded-md {
+	border-radius: 0.375rem;
+}
+
+.rounded-full {
+	border-radius: 9999px;
+}
+
+/* Custom gradient background - removed as we're using solid colors */
+
+/* Smooth transitions */
+.transition-colors {
+	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
+}
+
+.transition-all {
+	transition-property: all;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
+}
+
+/* Focus styles */
+button:focus {
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+}
+
+/* Hover effects */
+button:hover {
+	transition: all 0.15s ease-in-out;
+}
+
+/* Shadow styles to match original */
+.shadow-sm {
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Ensure proper text colors */
+.text-gray-900 {
+	color: #111827;
+}
+
+.text-gray-700 {
+	color: #374151;
+}
+
+.text-gray-600 {
+	color: #4b5563;
+}
+
+.text-gray-500 {
+	color: #6b7280;
+}
+
+/* Background colors */
+.bg-gray-50 {
+	background-color: #f9fafb;
+}
+
+.bg-white {
+	background-color: #ffffff;
+}
+
+.bg-blue-50 {
+	background-color: #eff6ff;
+}
+
+.bg-blue-100 {
+	background-color: #dbeafe;
+}
+
+.bg-blue-600 {
+	background-color: #2563eb;
+}
+
+.bg-green-50 {
+	background-color: #f0fdf4;
+}
+
+.bg-green-100 {
+	background-color: #dcfce7;
+}
+
+.bg-orange-50 {
+	background-color: #fefce8;
+}
+
+.bg-orange-600 {
+	background-color: #ea580c;
+}
+
+.bg-orange-700 {
+	background-color: #c2410c;
+}
+
+/* Border colors */
+.border-gray-200 {
+	border-color: #e5e7eb;
+}
+
+.border-gray-300 {
+	border-color: #d1d5db;
+}
+
+.border-blue-200 {
+	border-color: #bfdbfe;
+}
+
+.border-blue-300 {
+	border-color: #93c5fd;
+}
+
+.border-green-200 {
+	border-color: #bbf7d0;
+}
+
+.border-green-300 {
+	border-color: #86efac;
+}
+
+.border-orange-200 {
+	border-color: #fed7aa;
+}
+
+/* Text colors */
+.text-blue-600 {
+	color: #2563eb;
+}
+
+.text-blue-700 {
+	color: #1d4ed8;
+}
+
+.text-blue-800 {
+	color: #1e40af;
+}
+
+.text-blue-900 {
+	color: #1e3a8a;
+}
+
+.text-green-500 {
+	color: #22c55e;
+}
+
+.text-green-600 {
+	color: #16a34a;
+}
+
+.text-green-700 {
+	color: #15803d;
+}
+
+.text-orange-600 {
+	color: #ea580c;
+}
+
+.text-orange-700 {
+	color: #b45309;
+}
+
+.text-orange-800 {
+	color: #92400e;
+}
+</style>

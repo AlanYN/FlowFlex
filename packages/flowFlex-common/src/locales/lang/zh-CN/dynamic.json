@@ -1,0 +1,108 @@
+{
+  "column": {
+    "fields": {
+      "address": "地址",
+      "annualRevenue": "年收入",
+      "companyName": "公司名称",
+      "createTime": "创建时间",
+      "description": "公司简介",
+      "email": "邮箱",
+      "employeeCount": "员工数量",
+      "industry": "行业",
+      "lastActivityDate": "最后活动时间",
+      "owner": "负责人",
+      "phoneNumber": "联系电话",
+      "status": "状态",
+      "tags": "标签",
+      "website": "网站"
+    },
+    "groups": {
+      "activityInfo": "活动信息",
+      "baseInfo": "基本信息",
+      "businessInfo": "业务信息",
+      "contactInfo": "联系信息"
+    },
+    "industry": {
+      "computerSoftware": "计算机软件",
+      "financialServices": "金融服务"
+    },
+    "status": {
+      "active": "活跃",
+      "inactive": "非活跃"
+    }
+  },
+  "companies-companiescardtotal": "Companies({0})",
+  "dialog": {
+    "cancel": "取消",
+    "close": "关闭",
+    "confirm": "确认",
+    "confirmDelete": "确认删除",
+    "confirmDeleteMessage": "确定要删除这条记录吗？",
+    "delete": "删除",
+    "edit": "编辑",
+    "operationFailed": "操作失败",
+    "operationSuccess": "操作成功",
+    "save": "保存",
+    "view": "查看"
+  },
+  "error": {
+    "deleteFailed": "删除失败",
+    "loadFailed": "加载失败",
+    "networkError": "网络错误",
+    "saveFailed": "保存失败",
+    "serverError": "服务器错误"
+  },
+  "filter": {
+    "addFilter": "添加筛选条件",
+    "and": "且",
+    "condition": "筛选条件",
+    "enterValue": "请输入值",
+    "operators": {
+      "after": "晚于",
+      "contains": "包含",
+      "equals": "等于"
+    },
+    "or": "或",
+    "selectField": "选择字段",
+    "selectOperator": "选择操作符",
+    "title": "筛选"
+  },
+  "form": {
+    "allColumns": "所有列",
+    "chooseColumns": "选择搜索列",
+    "findColumn": "查找列",
+    "itemColumns": "项目列",
+    "search": "搜索",
+    "searchPlaceholder": "请输入搜索内容",
+    "selected": "已选择",
+    "selectAtLeastOneColumn": "请至少选择一列进行搜索"
+  },
+  "table": {
+    "currentPage": "第 {page} 页",
+    "editColumns": "编辑列",
+    "filter": "筛选",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "pageSize": "每页 {size} 条",
+    "reset": "重置",
+    "searchColumns": "搜索列",
+    "selectedColumns": "已选列",
+    "sortAsc": "升序",
+    "sortDesc": "降序",
+    "sortNone": "不排序",
+    "total": "共 {total} 条"
+  },
+  "title": {
+    "columnConfig": "编辑列",
+    "description": "列表描述",
+    "filterConfig": "筛选配置",
+    "listName": "列表名称"
+  },
+  "validation": {
+    "invalidDate": "日期格式不正确",
+    "invalidEmail": "请输入有效的邮箱地址",
+    "invalidFormat": "格式不正确",
+    "invalidNumber": "请输入有效的数字",
+    "required": "此项为必填项"
+  }
+}

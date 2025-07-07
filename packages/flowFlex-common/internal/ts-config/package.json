@@ -1,0 +1,17 @@
+{
+	"name": "@uni/ts-config",
+	"version": "1.0.0",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"files": [
+		"base.json",
+		"node.json",
+		"vue-app.json",
+		"node-server.json"
+	],
+	"dependencies": {
+		"@types/node": "^20.10.6",
+		"vite": "^5.0.10"
+	}
+}

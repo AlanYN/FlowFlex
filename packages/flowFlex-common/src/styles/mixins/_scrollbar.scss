@@ -1,0 +1,44 @@
+@mixin scrollbar-with-color($color, $trackColor: transparent, $cornerColor: transparent) {
+	// firefox
+	scrollbar-color: $color $trackColor;
+
+	&::-webkit-scrollbar-thumb {
+		background-color: $color;
+	}
+
+	&::-webkit-scrollbar-track {
+		background-color: $trackColor;
+	}
+
+	&::-webkit-scrollbar-corner {
+		background-color: $cornerColor;
+	}
+}
+
+@mixin scrollbar-width($width) {
+	// firefox
+	scrollbar-width: auto;
+
+	&::-webkit-scrollbar {
+		width: $width;
+		height: $width;
+	}
+}
+
+@mixin scrollbar-width-thin() {
+	// firefox
+	scrollbar-width: thin;
+
+	&::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+}
+
+@mixin scrollbar-width-none() {
+	scrollbar-width: none;
+
+	&::-webkit-scrollbar {
+		width: 0;
+	}
+}

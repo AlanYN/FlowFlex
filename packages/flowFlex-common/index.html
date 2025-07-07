@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title><%= VITE_GLOB_APP_TITLE %></title>
+		<script type="module">
+			const faviconLink = document.createElement('link');
+			faviconLink.rel = 'icon';
+			faviconLink.href = '/favicon.svg';
+			document.head.appendChild(faviconLink);
+		</script>
+		<style>
+			html, body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+			}
+
+			#app-root {
+				width: 100%;
+				height: 100%;
+				overflow: auto;
+			}
+
+			/* 添加 item-theme 样式 */
+			.item-theme {
+				background-color: black !important;
+				background-image: radial-gradient(76.55% 50.7% at 50% 96.53%, #7447d033, #0000) !important;
+			}
+
+			.item-theme .app-loading {
+				background-color: black !important;
+			}
+
+			.item-theme .app-loading-title {
+				color: #753BBD !important;
+			}
+
+			.item-theme .dot i {
+				background-color: #753BBD !important;
+			}
+
+			/* 覆盖原有的颜色样式 */
+			.item-theme .app-loading-title:nth-child(1),
+			.item-theme .app-loading-title:nth-child(2),
+			.item-theme .app-loading-title:nth-child(3),
+			.item-theme .app-loading-title:nth-child(4) {
+				color: #753BBD !important;
+			}
+
+			.item-theme .dot i:nth-child(1),
+			.item-theme .dot i:nth-child(2),
+			.item-theme .dot i:nth-child(3),
+			.item-theme .dot i:nth-child(4) {
+				background-color: #753BBD !important;
+			}
+
+			.app-loading {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				background-color: #f4f7f9;
+			}
+
+			.app-loading .app-loading-wrap {
+				display: flex;
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				transform: translate3d(-50%, -50%, 0);
+			}
+
+			.app-loading .dots {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 98px;
+			}
+
+			.app-loading .app-loading-title {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				margin-top: 30px;
+				font-size: 30px;
+				gap: 10px;
+				animation: jump 1s infinite linear;
+			}
+
+			/* 设置每个字母的动画延迟 */
+			.app-loading-title:nth-child(1) {
+				color: #e1251b;
+				animation-delay: 0s;
+			}
+			.app-loading-title:nth-child(2) {
+				color: #00833e;
+				animation-delay: 0.25s;
+			}
+			.app-loading-title:nth-child(3) {
+				color: #238dc1;
+				animation-delay: 0.5s;
+			}
+			.app-loading-title:nth-child(4) {
+				color: #f7be00;
+				animation-delay: 0.75s;
+			}
+
+			.app-loading .app-loading-logo {
+				display: block;
+				width: 90px;
+				margin: 0 auto;
+				margin-bottom: 20px;
+			}
+
+			.dot {
+				display: inline-block;
+				position: relative;
+				box-sizing: border-box;
+				width: 48px;
+				height: 48px;
+				margin-top: 30px;
+				transform: rotate(45deg);
+				animation: ant-rotate 1.2s infinite linear;
+				font-size: 32px;
+			}
+
+			.dot i {
+				display: block;
+				position: absolute;
+				width: 20px;
+				height: 20px;
+				transform: scale(0.75);
+				transform-origin: 50% 50%;
+				animation: ant-spin-move 1s infinite linear alternate;
+				border-radius: 100%;
+				opacity: 0.3;
+			}
+
+			.dot i:nth-child(1) {
+				top: 0;
+				left: 0;
+				background-color: #e1251b;
+			}
+
+			.dot i:nth-child(2) {
+				top: 0;
+				right: 0;
+				animation-delay: 0.4s;
+				background-color: #00833e;
+			}
+
+			.dot i:nth-child(3) {
+				right: 0;
+				bottom: 0;
+				animation-delay: 0.8s;
+				background-color: #238dc1;
+			}
+
+			.dot i:nth-child(4) {
+				bottom: 0;
+				left: 0;
+				animation-delay: 1.2s;
+				background-color: #f7be00;
+			}
+
+			@keyframes ant-rotate {
+				to {
+					transform: rotate(405deg);
+				}
+			}
+
+			@keyframes ant-spin-move {
+				to {
+					opacity: 1;
+				}
+			}
+
+			@keyframes jump {
+				0% {
+					transform: translateY(0);
+				}
+				25% {
+					transform: translateY(-6px);
+				}
+				50% {
+					transform: translateY(0);
+				}
+				75% {
+					transform: translateY(6px);
+				}
+				100% {
+					transform: translateY(0);
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<!-- item-theme -->
+		<div id="app-root">
+			<div class="app-loading">
+				<div class="app-loading-wrap">
+					<div class="app-loading-dots">
+						<span class="dot dot-spin">
+							<i></i>
+							<i></i>
+							<i></i>
+							<i></i>
+						</span>
+					</div>
+					<div id="loading_text" class="app-loading-title"></div>
+				</div>
+			</div>
+		</div>
+		<script type="module">
+			const title = 'Loading...';
+	
+			// 获取插入内容的容器元素
+			const titleElement = document.getElementById('loading_text');
+
+			// 动态生成并插入子元素
+			title.split('').forEach(char => {
+				const div = document.createElement('div');
+				div.className = 'app-loading-title';
+				div.textContent = char;
+				titleElement.appendChild(div);
+			});
+		</script>
+		<script type="module" src="/src/main.ts"></script>
+	</body>
+	<link rel="prefetch" :href="<%= VITE_GLOB_SSOURL %>">
+</html>

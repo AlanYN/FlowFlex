@@ -1,0 +1,27 @@
+{
+  "messageRenderer": {
+    "thinking": "Thinking...",
+    "thoughtComplete": "Thought complete (took {time} seconds)",
+    "cancelResponse": "Cancel"
+  },
+  "editableField": {
+    "save": "Save",
+    "edit": "Edit",
+    "cancel": "Cancel"
+  },
+  "actionButton": {
+    "uploadFile": "Upload File",
+    "createNew": "Create New Lead",
+    "updateExisting": "Update Existing Lead",
+    "managingLeads": "How to manage my leads"
+  },
+  "generalText": {
+    "groupTitle": "You might need:",
+    "moreOptions": "You might also need:",
+    "helpText": "How can I help you? You can click on the common questions below or enter your question directly."
+  },
+  "errorText":{
+    "noResponse": "The server is abnormal. Please try again later.",
+    "responseCanceled": "Response canceled"
+  }
+} 

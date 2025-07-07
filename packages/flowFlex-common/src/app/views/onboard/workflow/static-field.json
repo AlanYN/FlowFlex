@@ -1,0 +1,129 @@
+{
+    "formFields": [
+      {
+        "label": "Lead ID",
+        "vIfKey": "LEADID",
+        "formProp": "leadId"
+      },
+      {
+        "label": "Lead Company Name",
+        "vIfKey": "COMPANYNAME",
+        "formProp": "companyName"
+      },
+      {
+        "label": "Contact Name",
+        "vIfKey": "CONTACTNAME",
+        "formProp": "contactName"
+      },
+      {
+        "label": "Contact Email",
+        "vIfKey": "CONTACTEMAIL",
+        "formProp": "contactEmail"
+      },
+      {
+        "label": "Contact Phone",
+        "vIfKey": "CONTACTPHONE",
+        "formProp": "contactPhone"
+      },
+      {
+        "label": "Life Cycle Stage",
+        "vIfKey": "LIFECYCLESTAGE",
+        "formProp": "lifeCycleStage"
+      },
+      {
+        "label": "Priority",
+        "vIfKey": "PRIORITY",
+        "formProp": "priority"
+      },
+      {
+        "label": "Requested Credit Limit",
+        "vIfKey": "REQUESTEDCREDITLIMIT",
+        "formProp": "requestedCreditLimit"
+      },
+      {
+        "label": "Approved Credit Limit",
+        "vIfKey": "APPROVEDCREDITLIMIT",
+        "formProp": "approvedCreditLimit"
+      },
+      {
+        "label": "Sales Approved Credit Limit",
+        "vIfKey": "SALESAPPROVEDCREDITLIMIT",
+        "formProp": "salesApprovedCreditLimit"
+      },
+      {
+        "label": "Sales Approval Notes",
+        "vIfKey": "SALESAPPROVALNOTES",
+        "formProp": "salesApprovalNotes"
+      },
+      {
+        "label": "Negative Balance Allowance (Prepaid)",
+        "vIfKey": "NEGATIVEBALANCEALLOWANCE",
+        "formProp": "negativeBalanceAllowance"
+      },
+      {
+        "label": "Low Balance Notification (Prepaid)",
+        "vIfKey": "LOWBALANCENOTIFICATION",
+        "formProp": "lowBalanceNotification"
+      },
+      {
+        "label": "Payment Term",
+        "vIfKey": "PAYMENTTERM",
+        "formProp": "paymentTerm"
+      },
+      {
+        "label": "Credit Score",
+        "vIfKey": "CREDITSCORE",
+        "formProp": "creditScore"
+      },
+      {
+        "label": "Approval Notes",
+        "vIfKey": "APPROVALNOTES",
+        "formProp": "approvalNotes"
+      },
+      {
+        "label": "Customer Code",
+        "vIfKey": "CUSTOMERCODE",
+        "formProp": "customerCode"
+      },
+      {
+        "label": "Customer Name",
+        "vIfKey": "CUSTOMERNAME",
+        "formProp": "customerName"
+      },
+      {
+        "label": "Status",
+        "vIfKey": "STATUS",
+        "formProp": "status"
+      },
+      {
+        "label": "Account Holder's Category",
+        "vIfKey": "ACCOUNTHOLDERCATEGORY",
+        "formProp": "accountHolderCategory"
+      },
+      {
+        "label": "Assignee",
+        "vIfKey": "ASSIGNEE",
+        "formProp": "assignee"
+      },
+      {
+        "label": "Assignee's Email",
+        "vIfKey": "ASSIGNEEEMAIL",
+        "formProp": "assigneeEmail"
+      },
+      {
+        "label": "Assignee's Phone Number",
+        "vIfKey": "ASSIGNEEPHONENUMBER",
+        "formProp": "assigneePhone"
+      },
+      {
+        "label": "Assignee's Responsible Location",
+        "vIfKey": "ASSIGNEELOCATION",
+        "formProp": "assigneeLocation"
+      },
+      {
+        "label": "Note",
+        "vIfKey": "NOTE",
+        "formProp": "accountHolderNote"
+      }
+    ]
+  }

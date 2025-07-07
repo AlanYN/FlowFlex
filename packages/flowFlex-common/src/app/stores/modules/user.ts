@@ -1,0 +1,305 @@
+import { defineStore } from 'pinia';
+import { store } from '@/stores';
+import { RoleEnum } from '@/enums/roleEnum';
+import { PageEnum } from '@/enums/pageEnum';
+import { ROLES_KEY, USER_INFO_KEY, TOKENOBJ_KEY, ISLOGIN_KEY } from '@/enums/cacheEnum';
+import { getAuthCache, setAuthCache } from '@/utils/auth';
+import { loginApi, userInfoApi, emailCodelogin } from '@/apis/login/user';
+import { useI18n } from '@/hooks/useI18n';
+import { router } from '@/router';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import type { TokenObj } from '@/apis/axios/axiosTransform';
+import { getFileUrl } from '@/apis/global';
+import { usePermissionStore } from '@/stores/modules/permission';
+// import { useGlobSetting } from '@/settings';
+import { menuRoles } from '@/stores/modules/menuFunction';
+import { passLogout } from '@/utils/threePartyLogin';
+import { h } from 'vue';
+import dayjs from 'dayjs';
+
+import { UserInfo, ILayout, UserState } from '#/config';
+
+// const globSetting = useGlobSetting();
+
+const { t } = useI18n();
+
+// 添加一个辅助函数来删除所有cookie
+function deleteAllCookies() {
+	const cookies = document.cookie.split(';');
+	for (let i = 0; i < cookies.length; i++) {
+		const cookie = cookies[i];
+		const eqPos = cookie.indexOf('=');
+		const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+		document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+	}
+}
+
+export const useUserStore = defineStore({
+	id: 'app-user',
+	state: (): UserState => ({
+		// user info
+		userInfo: null,
+		// token
+		token: undefined,
+		// roleList
+		roleList: [],
+		// Whether the login expired
+		sessionTimeout: false,
+		// Last fetch time
+		lastUpdateTime: 0,
+		//terminal
+		terminalCode: [],
+		// tokenArr
+		tokenObj: undefined,
+		layout: {},
+		isLogin: false,
+	}),
+	getters: {
+		getToken(state): string {
+			return (
+				state.tokenObj?.accessToken?.token ||
+				(getAuthCache<TokenObj>(TOKENOBJ_KEY)?.accessToken?.token as string)
+			);
+		},
+		getUserInfo(state): UserInfo {
+			return state.userInfo || getAuthCache<UserInfo>(USER_INFO_KEY) || {};
+		},
+		getTokenobj(state): TokenObj {
+			return state.tokenObj || getAuthCache<TokenObj>(TOKENOBJ_KEY);
+		},
+		getRoleList(state): RoleEnum[] {
+			return state.roleList.length > 0 ? state.roleList : getAuthCache<RoleEnum[]>(ROLES_KEY);
+		},
+		getSessionTimeout(state): boolean {
+			return !!state.sessionTimeout;
+		},
+		getLastUpdateTime(state): number {
+			return state.lastUpdateTime;
+		},
+		getLayout(state): ILayout {
+			return state.layout;
+		},
+		getIsLogin(state): boolean {
+			return state.isLogin || getAuthCache<boolean>(ISLOGIN_KEY);
+		},
+	},
+	actions: {
+		setRoleList(roleList: RoleEnum[]) {
+			this.roleList = roleList;
+			setAuthCache(ROLES_KEY, roleList);
+		},
+		setUserInfo(info: UserInfo | null) {
+			this.userInfo = info;
+			this.lastUpdateTime = new Date().getTime();
+			setAuthCache(USER_INFO_KEY, info);
+		},
+		setSessionTimeout(flag: boolean) {
+			this.sessionTimeout = flag;
+		},
+		setTokenobj(tokenObj: TokenObj | undefined) {
+			this.tokenObj = tokenObj;
+			setAuthCache(TOKENOBJ_KEY, tokenObj);
+		},
+		setLayout(layout: ILayout) {
+			this.layout = layout;
+		},
+		async setTerminalCode(info: any[]) {
+			this.terminalCode = info;
+		},
+		resetState() {
+			this.userInfo = null;
+			this.token = '';
+			this.roleList = [];
+			this.sessionTimeout = false;
+		},
+		setIsLogin(islogin) {
+			this.isLogin = islogin;
+			setAuthCache(ISLOGIN_KEY, islogin);
+		},
+		/**
+		 * @description: login
+		 */
+		async login(params, loginType = 'password') {
+			try {
+				const { goHome = true, ...loginParams } = params;
+				const data =
+					loginType === 'password'
+						? await loginApi(loginParams)
+						: await emailCodelogin(loginParams);
+				if (loginType === 'password') {
+					const { access_token, expires_in, refresh_token, token_type } = data;
+					const currentDate = dayjs(new Date()).unix();
+					if (access_token && access_token != '') {
+						this.setTokenobj({
+							accessToken: {
+								token: access_token,
+								expire: +currentDate + +expires_in,
+								tokenType: token_type,
+							},
+							refreshToken: refresh_token,
+						});
+						return this.afterLoginAction(goHome);
+					}
+				} else if (loginType === 'code') {
+					const { accessToken, expiresIn, tokenType, user } = data.data;
+					const currentDate = dayjs(new Date()).unix();
+					if (accessToken && accessToken != '') {
+						this.setTokenobj({
+							accessToken: {
+								token: accessToken,
+								expire: +currentDate + +expiresIn,
+								tokenType: tokenType,
+							},
+							refreshToken: accessToken,
+						});
+						return this.loginWithCode({
+							...user,
+							userName: user.username,
+							userId: user.id,
+						});
+					}
+				} else {
+					throw data;
+				}
+			} catch (error) {
+				return Promise.reject(error);
+			}
+		},
+		async afterLoginAction(goHome?: boolean) {
+			const userDate = await userInfoApi();
+			const userInfo: UserInfo = {
+				...userDate.data,
+				userId: userDate?.data?.userId,
+				// userName: userDate?.data?.firstName + userDate?.data?.lastName,
+				realName: `${userDate?.data?.firstName || ''}${
+					userDate?.data?.lastName
+						? ` ${userDate?.data?.lastName || ''}`
+						: `${userDate?.data?.lastName || ''}`
+				}`,
+				email: userDate?.data?.email,
+				desc: '',
+				roles: userDate?.data?.roleIds,
+			};
+			if (userInfo?.attachmentId) {
+				try {
+					const res = await getFileUrl(userInfo?.attachmentId);
+					if (res.code == '200' && res.data) {
+						userInfo.avatarUrl = res.data;
+					}
+				} catch {
+					userInfo.avatarUrl = '';
+				}
+			}
+			this.setUserInfo(userInfo);
+			const sessionTimeout = this.sessionTimeout;
+			if (sessionTimeout) {
+				this.setSessionTimeout(false);
+			} else {
+				const permissionStore = usePermissionStore();
+				if (!permissionStore.isDynamicAddedRoute) {
+					// console.log('buildRoutesAction');
+					try {
+						const routes = await permissionStore.buildRoutesAction();
+						routes.forEach((route) => {
+							router.addRoute(route as unknown as any);
+						});
+					} catch (error) {
+						console.log(error);
+					}
+					// !goHome && router.addRoute(PAGE_NOT_FOUND_ROUTE as unknown as any);
+					permissionStore.setDynamicAddedRoute(true);
+				}
+			}
+
+			goHome && (await router.replace(userInfo?.homePath || (PageEnum.BASE_HOME as string)));
+			return userInfo;
+		},
+		async loginWithCode(userInfo: UserInfo) {
+			this.setUserInfo(userInfo);
+			const permissionStore = usePermissionStore();
+			if (!permissionStore.isDynamicAddedRoute) {
+				// console.log('buildRoutesAction');
+				try {
+					const routes = await permissionStore.buildRoutesAction();
+					routes.forEach((route) => {
+						router.addRoute(route as unknown as any);
+					});
+				} catch (error) {
+					console.log(error);
+				}
+				// !goHome && router.addRoute(PAGE_NOT_FOUND_ROUTE as unknown as any);
+			}
+
+			await router.replace(PageEnum.BASE_HOME as string);
+			return userInfo;
+		},
+		/**
+		 * @description: logout
+		 */
+		async logout(goLogin = false, type = 'logout') {
+			const permissionStore = usePermissionStore();
+			permissionStore.resetState();
+			this.setTokenobj(undefined);
+			this.setSessionTimeout(false);
+			this.setUserInfo(null);
+			// 添加删除所有cookie的操作
+			deleteAllCookies();
+			goLogin && passLogout(type);
+		},
+
+		/**
+		 * @description: Confirm before logging out
+		 */
+		confirmLoginOut() {
+			const { t } = useI18n();
+			ElMessageBox({
+				title: t('sys.app.logoutTip'),
+				message: h('p', null, [h('span', null, t('sys.app.logoutMessage'))]),
+				showCancelButton: true,
+				confirmButtonText: t('sys.app.okText'),
+				cancelButtonText: t('sys.app.cancelText'),
+				closeOnClickModal: false,
+				distinguishCancelAndClose: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						const menuRolesStore = menuRoles();
+						menuRolesStore.cancelWatchForm();
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Loading...';
+						await this.logout(true);
+						instance.confirmButtonLoading = false;
+						done();
+					} else {
+						done();
+					}
+				},
+			});
+		},
+
+		/**
+		 * @description: 请重新登录 没有取消按钮
+		 */
+		againLogin() {
+			ElMessageBox.confirm(h('span', t('sys.app.logoutMessage')), t('sys.app.logoutTip'), {
+				confirmButtonText: 'OK',
+			})
+				.then(() => {
+					ElMessage({
+						type: 'success',
+						message: 'Delete completed',
+					});
+				})
+				.catch(() => {
+					ElMessage({
+						type: 'info',
+						message: 'Delete canceled',
+					});
+				});
+		},
+	},
+});
+
+// Need to be used outside the setup
+export function useUserStoreWithOut() {
+	return useUserStore(store);
+}

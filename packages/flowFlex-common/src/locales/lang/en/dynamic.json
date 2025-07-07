@@ -1,0 +1,107 @@
+{
+	"title": {
+		"listName": "List Name",
+		"description": "List Description",
+		"columnConfig": "Edit column",
+		"filterConfig": "Filter Configuration"
+	},
+	"table": {
+		"noData": "No Data",
+		"loading": "Loading...",
+		"editColumns": "Edit columns",
+		"searchColumns": "Search columns",
+		"selectedColumns": "Selected columns",
+		"reset": "Reset",
+		"total": "Total {total} items",
+		"pageSize": "{size} items per page",
+		"currentPage": "Page {page}",
+		"sortAsc": "Ascending",
+		"sortDesc": "Descending",
+		"sortNone": "No Sort",
+		"filter": "Filter"
+	},
+	"column": {
+		"groups": {
+			"baseInfo": "Basic Information",
+			"activityInfo": "Activity Information",
+			"contactInfo": "Contact Information",
+			"businessInfo": "Business Information"
+		},
+		"fields": {
+			"companyName": "Company Name",
+			"industry": "Industry",
+			"phoneNumber": "Phone Number",
+			"owner": "Owner",
+			"lastActivityDate": "Last Activity Date",
+			"createTime": "Create Time",
+			"status": "Status",
+			"address": "Address",
+			"email": "Email",
+			"website": "Website",
+			"description": "Description",
+			"employeeCount": "Employee Count",
+			"annualRevenue": "Annual Revenue",
+			"tags": "Tags"
+		},
+		"status": {
+			"active": "Active",
+			"inactive": "Inactive"
+		},
+		"industry": {
+			"computerSoftware": "Computer Software",
+			"financialServices": "Financial Services"
+		}
+	},
+	"filter": {
+		"title": "Filter",
+		"condition": "Filter Condition",
+		"selectField": "Select Field",
+		"selectOperator": "Select Operator",
+		"enterValue": "Enter Value",
+		"addFilter": "Add Filter",
+		"and": "AND",
+		"or": "OR",
+		"operators": {
+			"contains": "Contains",
+			"equals": "Equals",
+			"after": "After"
+		}
+	},
+	"dialog": {
+		"save": "Save",
+		"cancel": "Cancel",
+		"delete": "Delete",
+		"edit": "Edit",
+		"view": "View",
+		"confirm": "Confirm",
+		"confirmDelete": "Confirm Delete",
+		"confirmDeleteMessage": "Are you sure you want to delete this record?",
+		"operationSuccess": "Operation Successful",
+		"operationFailed": "Operation Failed",
+		"close": "Close"
+	},
+	"validation": {
+		"required": "This field is required",
+		"invalidFormat": "Invalid format",
+		"invalidDate": "Invalid date format",
+		"invalidNumber": "Please enter a valid number",
+		"invalidEmail": "Please enter a valid email address"
+	},
+	"form": {
+		"search": "Search",
+		"searchPlaceholder": "Enter search text",
+		"chooseColumns": "Choose columns to search",
+		"findColumn": "Find a column",
+		"allColumns": "All columns",
+		"selected": "selected",
+		"itemColumns": "Item columns",
+		"selectAtLeastOneColumn": "Please select at least one column to search"
+	},
+	"error": {
+		"loadFailed": "Load Failed",
+		"saveFailed": "Save Failed",
+		"deleteFailed": "Delete Failed",
+		"networkError": "Network Error",
+		"serverError": "Server Error"
+	}
+}

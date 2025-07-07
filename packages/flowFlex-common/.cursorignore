@@ -1,0 +1,34 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# 依赖目录
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 构建产物
+dist/
+build/
+out/
+coverage/
+
+# 临时文件
+*.log
+*.tmp
+*.temp
+
+# 环境配置
+.env
+.env.*
+.DS_Store
+
+# 编辑器配置
+.vscode/
+.idea/
+*.swp
+
+# 其他常见忽略项
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

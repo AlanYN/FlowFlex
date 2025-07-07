@@ -1,0 +1,401 @@
+// 暗黑主题
+.dark {
+	// 多选框
+	.el-checkbox {
+		.el-checkbox__input.is-checked + .el-checkbox__label {
+			@apply font-medium text-primary-500;
+		}
+		.el-checkbox__input .el-checkbox__inner {
+			@apply bg-gray-900 border-gray-900;
+		}
+		.el-checkbox__input.is-checked {
+			.el-checkbox__inner {
+				@apply bg-primary-500 border-primary-500;
+				&:after {
+					@apply border-white-100 border-2;
+				}
+			}
+		}
+	}
+
+	// 表格
+	.el-table.el-table--border {
+		border: 1px solid;
+		@apply border-black-500;
+
+		td {
+			@apply bg-black-400 border-solid border-black-500;
+		}
+
+		&:after,
+		.el-table__inner-wrapper::before {
+			@apply bg-black-400;
+		}
+
+		th.el-table__cell {
+			@apply bg-black-400;
+		}
+
+		th.el-table__cell.is-leaf {
+			height: 52px;
+			border-bottom: 1px solid;
+			@apply bg-black-200 border-black-400;
+			.cell {
+				@apply text-gray-300;
+			}
+		}
+		.el-table__cell {
+			// 单元格
+			.cell {
+				@apply text-white-100;
+			}
+		}
+	}
+
+	.el-table th.el-table__cell {
+		@apply bg-black-200;
+	}
+
+	.el-table tr {
+		@apply bg-black-400;
+	}
+
+	// 弹窗
+	.el-dialog {
+		@apply bg-black-400;
+		.el-dialog__header {
+			@apply border-gray-700;
+		}
+	}
+
+	// 选项卡
+	.el-tabs {
+		.el-tabs__header {
+			.el-tabs__nav-wrap {
+				&::after {
+					@apply bg-gray-900;
+				}
+			}
+			.el-tabs__item:not(.is-disabled):hover {
+				@apply text-primary-500;
+			}
+			.el-tabs__active-bar {
+				@apply bg-primary-500;
+			}
+		}
+	}
+
+	// 输入框相关初始化
+	.el-input {
+		.el-input__wrapper {
+			// @apply bg-primary-500;
+			@apply bg-black-200;
+			.el-input__inner {
+				@apply text-gray-100;
+			}
+		}
+	}
+
+	.el-range-editor.el-input__wrapper {
+		@apply bg-black-200;
+		.el-input__inner {
+			@apply text-gray-100;
+		}
+	}
+
+	.el-date-table td.end-date .el-date-table-cell__text,
+	.el-date-table td.start-date .el-date-table-cell__text {
+		@apply bg-primary-500;
+	}
+
+	.el-date-table td.current:not(.disabled) .el-date-table-cell__text {
+		@apply text-white;
+	}
+
+	.el-date-table td.current:not(.disabled) .el-date-table-cell__text {
+		@apply text-white;
+	}
+
+	.el-date-picker__header-label:hover {
+		@apply text-primary-500;
+	}
+
+	.el-year-table td.current:not(.disabled) .cell {
+		@apply bg-primary-500;
+	}
+	.el-month-table td.current:not(.disabled) .cell {
+		@apply bg-primary-500 text-white;
+	}
+
+	.el-year-table td .cell:hover {
+		@apply text-primary-500;
+	}
+
+	.el-month-table td .cell:hover {
+		@apply text-primary-500;
+	}
+
+	.el-time-panel__btn.confirm {
+		@apply text-primary-500;
+	}
+
+	// 下拉框相关初始化
+	.el-select {
+		.el-select__wrapper {
+			// @apply bg-primary-500;
+			@apply bg-black-200;
+		}
+		.el-input {
+			&.is-focus {
+				.el-select__wrapper {
+					box-shadow: 0 0 0 1px white inset !important;
+				}
+			}
+		}
+		.el-select__wrapper.is-disabled {
+			@apply bg-black-200;
+		}
+	}
+
+	// 按钮相关初始化
+	.el-button {
+		// @apply text-white-100 bg-primary-200;
+		&:hover {
+			@apply border-primary-500 bg-primary-200 text-white;
+		}
+		&.is-disabled {
+			@apply border-gray-600 bg-gray-600;
+			&:hover,
+			&:focus {
+				@apply border-gray-600 bg-gray-600 text-white-100;
+			}
+		}
+	}
+
+	.el-button.el-button--primary.is-link {
+		@apply text-primary-600 bg-none border-none;
+		&:hover {
+			@apply text-primary-600;
+		}
+		&:focus {
+			@apply text-primary-600 bg-none;
+		}
+	}
+
+	.el-button.el-button--primary:not(.is-link) {
+		@apply text-white border-primary-600 bg-primary-600;
+		&:hover {
+			@apply bg-primary-500 border-primary-500 text-white-100;
+		}
+		&.is-disabled {
+			@apply border-primary-300 bg-primary-300;
+			&:hover,
+			&:focus {
+				@apply border-primary-300 bg-primary-300 text-white-100;
+			}
+		}
+	}
+
+	.el-button--info {
+		@apply bg-gray-500 border-gray-500 text-gray-100;
+		&:hover,
+		&:focus {
+			@apply bg-primary-600 border-primary-600 text-white-100;
+		}
+	}
+
+	.el-button--default {
+		@apply  border-gray-500 ;
+		&:hover,
+		&:focus {
+			@apply bg-primary-600 border-primary-600 ;
+		}
+	}
+
+	// 切换开管相关初始化
+	.el-switch {
+		.el-switch__core {
+			.el-switch__action {
+				@apply bg-primary-50 text-primary-500;
+			}
+		}
+		&.is-checked {
+			.el-switch__core {
+				@apply bg-primary-500 border-primary-500;
+			}
+		}
+	}
+
+	// 表格编辑/新增表单场景样式
+	.table-from {
+		.el-form--label-top .el-form-item .el-form-item__label {
+			@apply text-gray-100;
+		}
+	}
+
+	// 自定义下拉框
+	.el-dropdown-menu {
+		@apply text-white-100 bg-primary-500;
+	}
+
+	// sidebar
+	.el-menu {
+		@apply bg-black-400;
+	}
+	.el-menu-item-group__title {
+		padding: 0;
+	}
+	.el-menu-item {
+		@apply bg-black-400;
+		& path {
+			@apply fill-white-100;
+		}
+		&.is-active {
+			@apply bg-primary-500 text-white-100;
+		}
+
+		&:hover {
+			@apply bg-primary-500 text-white-100;
+		}
+	}
+	.el-sub-menu {
+		@apply bg-black-400;
+		.el-menu-item {
+			@apply bg-black-400;
+		}
+		.el-sub-menu__title {
+			&:hover {
+				@apply bg-primary-500 text-white-100;
+			}
+		}
+		& path {
+			@apply fill-white-100;
+		}
+		&.is-active {
+			@apply text-white-100;
+			& .el-sub-menu__title {
+				@apply text-white-100 bg-primary-500;
+			}
+			& .el-menu-item {
+				@apply bg-black-400;
+				&.is-active {
+					@apply text-primary-500;
+				}
+				&:hover {
+					@apply bg-primary-500 text-white-100;
+				}
+			}
+		}
+	}
+
+	// 标签组件
+	.el-tag.el-tag--primary {
+		@apply bg-primary-500 text-white-100;
+	}
+
+	// 单选框
+	.el-radio__input.is-checked .el-radio__inner {
+		@apply bg-primary-500 border-primary-500;
+	}
+
+	.el-radio__inner {
+		&:hover {
+			@apply border-primary-500;
+		}
+	}
+
+	.el-radio__input.is-checked + .el-radio__label {
+		@apply text-primary-500;
+	}
+
+	.el-date-table {
+		td.current:not(.disabled) .el-date-table-cell__text {
+			@apply bg-primary-500;
+		}
+		td.today .el-date-table-cell__text {
+			@apply text-primary-500;
+		}
+		td.available:hover {
+			@apply text-primary-500;
+		}
+	}
+
+	.el-picker-panel__icon-btn {
+		&:hover {
+			@apply text-primary-500;
+		}
+	}
+
+	.el-loading-spinner .path {
+		@apply stroke-primary-500;
+	}
+
+	.el-select-dropdown__item.is-selected {
+		@apply text-primary-500;
+	}
+
+	.el-select__wrapper.is-focused {
+		box-shadow: 0 0 0 1px var(--primary-500);
+	}
+
+	.el-textarea__inner {
+		@apply bg-black-200;
+		&:focus {
+			box-shadow: 0 0 0 1px var(--primary-500) inset;
+		}
+	}
+
+	.el-select-dropdown.is-multiple .el-select-dropdown__item.is-selected {
+		&:after {
+			@apply bg-primary-500;
+		}
+	}
+
+	.el-check-tag.is-checked.el-check-tag--primary {
+		@apply bg-primary-500 text-white-100;
+	}
+
+	.company_check-button {
+		&:hover {
+			@apply bg-primary-500 text-white-100;
+		}
+	}
+
+	.el-link.el-link--primary {
+		@apply text-primary-500;
+	}
+
+	.el-link.el-link--primary.is-underline:hover:after {
+		@apply border-primary-500;
+	}
+
+	.el-loading-mask{
+		background-color: rgba(0, 0, 0, 0.9);
+	}
+
+	.customer-block{
+		transition: box-shadow 0.3s ease, background-color 0.3s ease;
+		@apply bg-black-400 p-4 rounded-xl ml-2 box-border;
+		&:hover {
+			box-shadow:0px 0px 12px rgba(225,225,225,0.12);
+		}
+	}
+
+	/* 增强 Light 效果的 tooltip 阴影 - 暗色主题 */
+	.el-popper.is-light {
+		box-shadow: 
+			0 25px 50px -12px rgba(0, 0, 0, 0.4),
+			0 12px 24px -6px rgba(0, 0, 0, 0.25),
+			0 6px 12px -3px rgba(0, 0, 0, 0.15) !important;
+		border: 1px solid rgba(255, 255, 255, 0.1) !important;
+		border-radius: 8px !important;
+	}
+
+	.el-popper.is-light .el-popper__arrow::before {
+		border-color: rgba(255, 255, 255, 0.1) !important;
+	}
+
+	.el-popper.is-light .el-popper__arrow::after {
+		border-color: #ffffff !important;
+	}
+}

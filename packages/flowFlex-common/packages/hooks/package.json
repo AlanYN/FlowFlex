@@ -1,0 +1,31 @@
+{
+  "name": "@uni/hooks",
+  "version": "1.0.0",
+  "license": "MIT",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "//build": "pnpm unbuild",
+    "//stub": "pnpm unbuild --stub",
+    "clean": "pnpm rimraf .turbo node_modules dist",
+    "lint": "pnpm eslint ."
+  },
+  "dependencies": {
+    "@vueuse/core": "^10.7.1",
+    "lodash-es": "^4.17.21",
+    "vue": "3.3.4"
+  },
+  "devDependencies": {
+    "@uni/types": "workspace:*"
+  }
+}
