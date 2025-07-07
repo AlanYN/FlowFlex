@@ -162,15 +162,15 @@ const AnswerApi = (
 ) => {
 	return {
 		// 问卷答案相关API
-		questionnaireAnswers: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/answers`,
-		saveAnswer: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/answer`,
-		getAnswer: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/answer`,
-		submitAnswer: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/submit`,
-		answerHistory: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/history`,
-		answerStatistics: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/statistics`,
-		updateAnswer: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/${answerId}`,
-		reviewAnswer: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/review`,
-		answersByStatus: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/by-status`,
+		questionnaireAnswers: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/answers`,
+		saveAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/answer`,
+		getAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/answer`,
+		submitAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/submit`,
+		answerHistory: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/history`,
+		answerStatistics: `${globSetting.apiProName}/ow/questionnaire-answers/v1/statistics`,
+		updateAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${answerId}`,
+		reviewAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/review`,
+		answersByStatus: `${globSetting.apiProName}/ow/questionnaire-answers/v1/by-status`,
 	};
 };
 
@@ -300,7 +300,7 @@ export function getStageQuestionnaire(stageId: string) {
  */
 export function getStageQuestionnairesBatch(stageIds: (string | number)[]) {
 	return defHttp.post({
-		url: `/${globSetting.apiProName}/ow/questionnaires/v1/batch/by-stages`,
+		url: `${globSetting.apiProName}/ow/questionnaires/v1/batch/by-stages`,
 		params: { stageIds },
 	});
 }
@@ -316,7 +316,7 @@ export function getQuestionnaireAnswersBatch(
 	stageIds: (string | number)[]
 ) {
 	return defHttp.post({
-		url: `/${globSetting.apiProName}/ow/questionnaire-answers/v1/batch/by-stages`,
+		url: `${globSetting.apiProName}/ow/questionnaire-answers/v1/batch/by-stages`,
 		params: { onboardingId, stageIds },
 	});
 }

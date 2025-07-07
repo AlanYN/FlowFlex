@@ -6,9 +6,9 @@ const globSetting = useGlobSetting();
 
 const Api = () => {
 	return {
-		commentApi: `/${globSetting.apiProName}/shared/v1/comments`,
+		commentApi: `${globSetting.apiProName}/shared/v1/comments`,
 
-		updateCommentCount: `/${globSetting.apiProName}/activities/v1/detail`,
+		updateCommentCount: `${globSetting.apiProName}/activities/v1/detail`,
 	};
 };
 
