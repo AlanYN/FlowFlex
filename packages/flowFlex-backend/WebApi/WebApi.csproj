@@ -15,13 +15,27 @@
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.12" />
     <PackageReference Include="Hangfire.Dashboard.BasicAuthorization" Version="1.0.2" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.20.9" />
-    <PackageReference Include="Item.BlobProvider" Version="8.0.0" />
-    <PackageReference Include="Item.Infrastructure.Monitoring.Client" Version="0.0.1-alpha" />
-    <PackageReference Include="Item.Internal.Framework" Version="8.0.3" />
-    <PackageReference Include="Item.Internal.Nacos" Version="8.0.0" />
-    <PackageReference Include="Item.Internal.StandardApi" Version="8.0.4" />
-    <PackageReference Include="Item.Common.Lib" Version="8.0.7" />
-    <PackageReference Include="Item.Message.RabbitMq" Version="8.0.0" />
+    <PackageReference Include="Item.BlobProvider" Version="8.0.0">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Infrastructure.Monitoring.Client" Version="0.0.1-alpha">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Internal.Framework" Version="8.0.3">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Internal.Nacos" Version="8.0.0">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Internal.StandardApi" Version="8.0.4">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Common.Lib" Version="8.0.7">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Message.RabbitMq" Version="8.0.0">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">

@@ -14,11 +14,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Item.Excel.Lib" Version="8.0.2" />
-    <PackageReference Include="Item.Internal.Auth" Version="8.0.0" />
-    <PackageReference Include="Item.Message.Kafka" Version="8.0.4" />
+    <PackageReference Include="Item.Excel.Lib" Version="8.0.2">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Internal.Auth" Version="8.0.0">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Message.Kafka" Version="8.0.4">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
     <PackageReference Include="RulesEngine" Version="5.0.3" />
-    <PackageReference Include="Item.ThirdParty" Version="8.0.6" />
+    <PackageReference Include="Item.ThirdParty" Version="8.0.6">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
   </ItemGroup>
 

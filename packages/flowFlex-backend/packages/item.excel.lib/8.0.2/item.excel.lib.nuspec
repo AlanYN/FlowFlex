@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Item.Excel.Lib</id>
+    <version>8.0.2</version>
+    <title>Item.Excel.Lib</title>
+    <authors>Item</authors>
+    <description>Common utility library.</description>
+    <copyright>Copyright © 2024 Unis, LLC. All rights reserved.</copyright>
+    <repository type="git" commit="02dc787276e3a1b0d52f33904d2bb55f3720b4d2" />
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="Item.Common.Lib" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="NPOI" version="2.6.2" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

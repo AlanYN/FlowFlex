@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Item.Internal.Nacos</id>
+    <version>8.0.0</version>
+    <title>Item.Internal.Nacos</title>
+    <authors>Item</authors>
+    <description>Common utility library.</description>
+    <copyright>Copyright © 2024 Unis, LLC. All rights reserved.</copyright>
+    <repository type="git" commit="bb4484409ef6dc9ccf7ab79c61e9313875ddad99" />
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="Asp.Versioning.Mvc" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Microsoft.Extensions.Configuration" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Microsoft.Extensions.Configuration.Json" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="nacos-sdk-csharp" version="1.3.8" exclude="Build,Analyzers" />
+        <dependency id="nacos-sdk-csharp.AspNetCore" version="1.3.8" exclude="Build,Analyzers" />
+        <dependency id="nacos-sdk-csharp.Extensions.Configuration" version="1.3.8" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

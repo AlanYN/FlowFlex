@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Item.BlobProvider</id>
+    <version>8.0.0</version>
+    <title>Item.BlobProvider</title>
+    <authors>Item</authors>
+    <description>Common utility library.</description>
+    <copyright>Copyright © 2024 Unis, LLC. All rights reserved.</copyright>
+    <repository type="git" commit="d94ded9b0c17295ef4406ee6c156d916606be0d3" />
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="AWS.MSK.Auth" version="1.0.0" exclude="Build,Analyzers" />
+        <dependency id="AWSSDK.Core" version="3.7.303.19" exclude="Build,Analyzers" />
+        <dependency id="AWSSDK.S3" version="3.7.305.31" exclude="Build,Analyzers" />
+        <dependency id="Aliyun.OSS.SDK.NetCore" version="2.14.1" exclude="Build,Analyzers" />
+        <dependency id="Asp.Versioning.Mvc" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="Asp.Versioning.Mvc.ApiExplorer" version="8.0.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

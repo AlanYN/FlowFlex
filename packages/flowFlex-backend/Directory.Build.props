@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <!-- 配置本地包路径 -->
+    <RestorePackagesPath>$(MSBuildThisFileDirectory)packages</RestorePackagesPath>
+    <RestorePackagesConfig>true</RestorePackagesConfig>
+  </PropertyGroup>
+  
+  <!-- 配置 Item.* 包的本地路径 -->
+  <PropertyGroup>
+    <ItemBlobProviderPath>$(MSBuildThisFileDirectory)packages\item.blobprovider</ItemBlobProviderPath>
+    <ItemInfrastructureMonitoringClientPath>$(MSBuildThisFileDirectory)packages\item.infrastructure.monitoring.client</ItemInfrastructureMonitoringClientPath>
+    <ItemInternalFrameworkPath>$(MSBuildThisFileDirectory)packages\item.internal.framework</ItemInternalFrameworkPath>
+    <ItemInternalNacosPath>$(MSBuildThisFileDirectory)packages\item.internal.nacos</ItemInternalNacosPath>
+    <ItemInternalStandardApiPath>$(MSBuildThisFileDirectory)packages\item.internal.standardapi</ItemInternalStandardApiPath>
+    <ItemCommonLibPath>$(MSBuildThisFileDirectory)packages\item.common.lib</ItemCommonLibPath>
+    <ItemMessageRabbitMqPath>$(MSBuildThisFileDirectory)packages\item.message.rabbitmq</ItemMessageRabbitMqPath>
+    <ItemEmailLibPath>$(MSBuildThisFileDirectory)packages\item.email.lib</ItemEmailLibPath>
+    <ItemExcelLibPath>$(MSBuildThisFileDirectory)packages\item.excel.lib</ItemExcelLibPath>
+    <ItemInternalAuthPath>$(MSBuildThisFileDirectory)packages\item.internal.auth</ItemInternalAuthPath>
+    <ItemMessageKafkaPath>$(MSBuildThisFileDirectory)packages\item.message.kafka</ItemMessageKafkaPath>
+    <ItemThirdPartyPath>$(MSBuildThisFileDirectory)packages\item.thirdparty</ItemThirdPartyPath>
+    <ItemRedisPath>$(MSBuildThisFileDirectory)packages\item.redis</ItemRedisPath>
+    <ItemInternalChangeLogPath>$(MSBuildThisFileDirectory)packages\item.internal.changelog</ItemInternalChangeLogPath>
+  </PropertyGroup>
+</Project> 
