@@ -103,7 +103,17 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 Console.WriteLine($"🔗 [DB Step 2] Preparing to execute SQL command");
                 Console.WriteLine($"🔗 [DB Step 3] SQL: {sql.Substring(0, Math.Min(100, sql.Length))}...");
                 
-                var result = await base.db.Ado.ExecuteCommandAsync(sql, parameters);
+                int result;
+                
+                // 检查参数类型，如果是SugarParameter数组，使用对应的方法
+                if (parameters is SugarParameter[] sugarParams)
+                {
+                    result = await base.db.Ado.ExecuteCommandAsync(sql, sugarParams);
+                }
+                else
+                {
+                    result = await base.db.Ado.ExecuteCommandAsync(sql, parameters);
+                }
                 
                 Console.WriteLine($"🔗 [DB Step 4] SQL execution completed with result: {result}");
                 Console.WriteLine($"🔗 [DB Step 5] Returning success: {result > 0}");
@@ -112,14 +122,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             }
             catch (Exception ex)
             {
-                // 记录详细的错误信息，但不让程序崩�?                Console.WriteLine($"�?ExecuteInsertWithJsonbAsync failed: {ex.Message}");
-                Console.WriteLine($"�?Exception type: {ex.GetType().Name}");
-                Console.WriteLine($"�?Stack trace: {ex.StackTrace}");
+                // 记录详细的错误信息，但不让程序崩溃
+                Console.WriteLine($"❌ ExecuteInsertWithJsonbAsync failed: {ex.Message}");
+                Console.WriteLine($"❌ Exception type: {ex.GetType().Name}");
                 
-                // 如果是内部异常，也记�?                if (ex.InnerException != null)
+                // 安全地访问StackTrace，避免空引用异常
+                if (!string.IsNullOrEmpty(ex.StackTrace))
                 {
-                    Console.WriteLine($"�?Inner exception: {ex.InnerException.Message}");
-                    Console.WriteLine($"�?Inner exception type: {ex.InnerException.GetType().Name}");
+                    Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+                }
+                
+                // 如果是内部异常，也记录
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"❌ Inner exception: {ex.InnerException.Message}");
+                    Console.WriteLine($"❌ Inner exception type: {ex.InnerException.GetType().Name}");
                 }
                 
                 // 返回 false 而不是抛出异常，让调用方决定如何处理

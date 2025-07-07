@@ -1,4 +1,5 @@
 using SqlSugar;
+using SqlSugar.DistributedSystem.Snowflake;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -71,8 +72,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             DateTimeOffset now = DateTimeOffset.Now;
             
-            // Generate timestamp-based ID
-            entity.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            // Generate snowflake ID to ensure uniqueness in batch operations
+            entity.Id = SnowFlakeSingle.Instance.NextId();
             
             // Set timestamps
             entity.CreateDate = now;

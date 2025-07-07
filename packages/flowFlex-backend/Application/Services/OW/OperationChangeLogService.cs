@@ -714,7 +714,9 @@ namespace FlowFlex.Application.Services.OW
                         create_date, modify_date, create_by, modify_by, create_user_id, modify_user_id
                     ) VALUES (
                         @Id, @TenantId, @OperationType, @BusinessModule, @BusinessId,
-                        @OnboardingId, @StageId, @OperationTitle, @OperationDescription,
+                        CASE WHEN @OnboardingId IS NULL THEN NULL ELSE @OnboardingId::bigint END,
+                        CASE WHEN @StageId IS NULL THEN NULL ELSE @StageId::bigint END,
+                        @OperationTitle, @OperationDescription,
                         CASE 
                             WHEN @BeforeData IS NULL OR @BeforeData = '' THEN NULL::jsonb 
                             ELSE @BeforeData::jsonb 
@@ -740,42 +742,43 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogInformation($"🗃️ [SQL Step 3] Preparing parameters...");
                 Console.WriteLine($"🗃️ [SQL Step 3] Preparing parameters...");
 
-                var parameters = new
+                // 使用SqlSugar参数对象，确保类型正确
+                var parameters = new List<SugarParameter>
                 {
-                    Id = operationLog.Id,
-                    TenantId = operationLog.TenantId,
-                    OperationType = operationLog.OperationType,
-                    BusinessModule = operationLog.BusinessModule,
-                    BusinessId = operationLog.BusinessId,
-                    OnboardingId = operationLog.OnboardingId,
-                    StageId = operationLog.StageId,
-                    OperationTitle = operationLog.OperationTitle,
-                    OperationDescription = operationLog.OperationDescription,
-                    BeforeData = string.IsNullOrEmpty(operationLog.BeforeData) ? null : operationLog.BeforeData,
-                    AfterData = string.IsNullOrEmpty(operationLog.AfterData) ? null : operationLog.AfterData,
-                    ChangedFields = string.IsNullOrEmpty(operationLog.ChangedFields) ? null : operationLog.ChangedFields,
-                    OperatorId = operationLog.OperatorId,
-                    OperatorName = operationLog.OperatorName,
-                    OperationTime = operationLog.OperationTime,
-                    IpAddress = operationLog.IpAddress,
-                    UserAgent = operationLog.UserAgent,
-                    OperationSource = operationLog.OperationSource,
-                    ExtendedData = string.IsNullOrEmpty(operationLog.ExtendedData) ? null : operationLog.ExtendedData,
-                    OperationStatus = operationLog.OperationStatus,
-                    ErrorMessage = operationLog.ErrorMessage,
-                    IsValid = operationLog.IsValid,
-                    CreateDate = operationLog.CreateDate,
-                    ModifyDate = operationLog.ModifyDate,
-                    CreateBy = operationLog.CreateBy,
-                    ModifyBy = operationLog.ModifyBy,
-                    CreateUserId = operationLog.CreateUserId,
-                    ModifyUserId = operationLog.ModifyUserId
+                    new SugarParameter("@Id", operationLog.Id),
+                    new SugarParameter("@TenantId", operationLog.TenantId ?? "default"),
+                    new SugarParameter("@OperationType", operationLog.OperationType),
+                    new SugarParameter("@BusinessModule", operationLog.BusinessModule),
+                    new SugarParameter("@BusinessId", operationLog.BusinessId),
+                    new SugarParameter("@OnboardingId", operationLog.OnboardingId, System.Data.DbType.Int64),
+                    new SugarParameter("@StageId", operationLog.StageId, System.Data.DbType.Int64),
+                    new SugarParameter("@OperationTitle", operationLog.OperationTitle),
+                    new SugarParameter("@OperationDescription", operationLog.OperationDescription),
+                    new SugarParameter("@BeforeData", string.IsNullOrEmpty(operationLog.BeforeData) ? null : operationLog.BeforeData),
+                    new SugarParameter("@AfterData", string.IsNullOrEmpty(operationLog.AfterData) ? null : operationLog.AfterData),
+                    new SugarParameter("@ChangedFields", string.IsNullOrEmpty(operationLog.ChangedFields) ? null : operationLog.ChangedFields),
+                    new SugarParameter("@OperatorId", operationLog.OperatorId),
+                    new SugarParameter("@OperatorName", operationLog.OperatorName),
+                    new SugarParameter("@OperationTime", operationLog.OperationTime),
+                    new SugarParameter("@IpAddress", operationLog.IpAddress),
+                    new SugarParameter("@UserAgent", operationLog.UserAgent),
+                    new SugarParameter("@OperationSource", operationLog.OperationSource),
+                    new SugarParameter("@ExtendedData", string.IsNullOrEmpty(operationLog.ExtendedData) ? null : operationLog.ExtendedData),
+                    new SugarParameter("@OperationStatus", operationLog.OperationStatus),
+                    new SugarParameter("@ErrorMessage", operationLog.ErrorMessage),
+                    new SugarParameter("@IsValid", operationLog.IsValid),
+                    new SugarParameter("@CreateDate", operationLog.CreateDate),
+                    new SugarParameter("@ModifyDate", operationLog.ModifyDate),
+                    new SugarParameter("@CreateBy", operationLog.CreateBy),
+                    new SugarParameter("@ModifyBy", operationLog.ModifyBy),
+                    new SugarParameter("@CreateUserId", operationLog.CreateUserId),
+                    new SugarParameter("@ModifyUserId", operationLog.ModifyUserId)
                 };
 
                 _logger.LogInformation($"🗃️ [SQL Step 4] Executing SQL command...");
                 Console.WriteLine($"🗃️ [SQL Step 4] Executing SQL command...");
 
-                var result = await _operationChangeLogRepository.ExecuteInsertWithJsonbAsync(sql, parameters);
+                var result = await _operationChangeLogRepository.ExecuteInsertWithJsonbAsync(sql, parameters.ToArray());
                 
                 _logger.LogInformation($"🗃️ [SQL Step 5] SQL execution completed with result: {result}");
                 Console.WriteLine($"🗃️ [SQL Step 5] SQL execution completed with result: {result}");

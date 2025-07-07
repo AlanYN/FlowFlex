@@ -46,7 +46,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             var sql = @"
                 CREATE TABLE IF NOT EXISTS __migration_history (
-                    id BIGINT PRIMARY KEY,
+                    id BIGSERIAL PRIMARY KEY,
                     migration_id VARCHAR(100) NOT NULL UNIQUE,
                     applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 );

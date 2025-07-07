@@ -49,13 +49,13 @@ namespace FlowFlex.Application.Services.OW
             UserContext userContext,
             IMediator mediator)
         {
-            _onboardingRepository = onboardingRepository;
-            _workflowRepository = workflowRepository;
-            _stageRepository = stageRepository;
-            _stageCompletionLogRepository = stageCompletionLogRepository;
-            _mapper = mapper;
-            _userContext = userContext;
-            _mediator = mediator;
+            _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
+            _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
+            _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
+            _stageCompletionLogRepository = stageCompletionLogRepository ?? throw new ArgumentNullException(nameof(stageCompletionLogRepository));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
+            _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
         }
 
         /// <summary>
@@ -63,19 +63,65 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<long> CreateAsync(OnboardingInputDto input)
         {
-            // Ensure the table exists before inserting
-            await _onboardingRepository.EnsureTableExistsAsync();
-
             try
             {
+                Console.WriteLine("=== OnboardingService.CreateAsync - Step 1: Method entry ===");
+                
+                // Check all injected dependencies
+                if (_onboardingRepository == null)
+                {
+                    Console.WriteLine("ERROR: _onboardingRepository is null!");
+                    throw new CRMException(ErrorCodeEnum.SystemError, "Onboarding repository is not available");
+                }
+                
+                if (_workflowRepository == null)
+                {
+                    Console.WriteLine("ERROR: _workflowRepository is null!");
+                    throw new CRMException(ErrorCodeEnum.SystemError, "Workflow repository is not available");
+                }
+                
+                if (_stageRepository == null)
+                {
+                    Console.WriteLine("ERROR: _stageRepository is null!");
+                    throw new CRMException(ErrorCodeEnum.SystemError, "Stage repository is not available");
+                }
+                
+                if (_mapper == null)
+                {
+                    Console.WriteLine("ERROR: _mapper is null!");
+                    throw new CRMException(ErrorCodeEnum.SystemError, "Mapper is not available");
+                }
+                
+                if (_userContext == null)
+                {
+                    Console.WriteLine("ERROR: _userContext is null!");
+                    throw new CRMException(ErrorCodeEnum.SystemError, "User context is not available");
+                }
+                
+                if (input == null)
+                {
+                    Console.WriteLine("ERROR: input parameter is null!");
+                    throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input parameter cannot be null");
+                }
+                
+                Console.WriteLine($"=== OnboardingService.CreateAsync - Step 2: All dependencies checked, input WorkflowId: {input.WorkflowId} ===");
+
+                // Ensure the table exists before inserting
+                Console.WriteLine("=== OnboardingService.CreateAsync - Step 3: Calling EnsureTableExistsAsync ===");
+                await _onboardingRepository.EnsureTableExistsAsync();
+                Console.WriteLine("=== OnboardingService.CreateAsync - Step 4: EnsureTableExistsAsync completed ===");
+
                 // Get tenant ID from UserContext (injected from HTTP headers via middleware)
                 string tenantId = _userContext?.TenantId ?? "default";
                 Console.WriteLine($"Using tenant ID from UserContext: {tenantId}");
 
                 // Handle default workflow selection if WorkflowId is not provided
+                Console.WriteLine($"=== OnboardingService.CreateAsync - Step 5: Checking WorkflowId - HasValue: {input.WorkflowId.HasValue}, Value: {input.WorkflowId?.ToString() ?? "null"} ===");
+                
                 if (!input.WorkflowId.HasValue || input.WorkflowId.Value <= 0)
                 {
                     Console.WriteLine("WorkflowId not provided or invalid, attempting to get default workflow...");
+                    
                     var defaultWorkflow = await _workflowRepository.GetDefaultWorkflowAsync();
 
                     if (defaultWorkflow != null && defaultWorkflow.IsValid && defaultWorkflow.IsActive)

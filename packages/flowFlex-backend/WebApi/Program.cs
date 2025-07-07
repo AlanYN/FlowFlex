@@ -27,9 +27,41 @@ var builder = WebApplication.CreateBuilder(args);
 // Set EPPlus license (EPPlus 8.x new setup method)
 ExcelPackage.License.SetNonCommercialPersonal("FlowFlex System");
 
-// Get all assemblies
-var assemblies = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "FlowFlex.*.dll")
-    .Select(Assembly.LoadFrom).ToList();
+// Get all assemblies - using a more reliable approach
+var assemblies = new List<Assembly>();
+try
+{
+    // Load assemblies by name to ensure they're properly loaded
+    assemblies.Add(typeof(FlowFlex.Application.Maps.UserMapProfile).Assembly); // Application assembly
+    assemblies.Add(typeof(FlowFlex.Domain.Entities.OW.User).Assembly); // Domain assembly
+    assemblies.Add(typeof(FlowFlex.Application.Contracts.Dtos.OW.User.UserDto).Assembly); // Application.Contracts assembly
+    
+    // Also try loading from files as fallback
+    var dllFiles = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "FlowFlex.*.dll");
+    foreach (var dllFile in dllFiles)
+    {
+        try
+        {
+            var assembly = Assembly.LoadFrom(dllFile);
+            if (!assemblies.Contains(assembly))
+            {
+                assemblies.Add(assembly);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail - some DLLs might not be loadable
+            Console.WriteLine($"Warning: Could not load assembly {dllFile}: {ex.Message}");
+        }
+    }
+}
+catch (Exception ex)
+{
+    // Fallback to current approach if type loading fails
+    Console.WriteLine($"Warning: Could not load assemblies by type, falling back to file loading: {ex.Message}");
+    assemblies = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "FlowFlex.*.dll")
+        .Select(Assembly.LoadFrom).ToList();
+}
 
 // Configure file upload limits
 builder.Services.Configure<IISServerOptions>(options =>
@@ -76,8 +108,28 @@ builder.Services.AddControllers(options =>
 // Register services (auto injection)
 builder.Services.AddService(builder.Configuration);
 
-// Register AutoMapper
-builder.Services.AddAutoMapper(assemblies);
+// Register AutoMapper with explicit profile configuration
+builder.Services.AddAutoMapper(config =>
+{
+    // Explicitly add all mapping profiles
+    config.AddProfile<FlowFlex.Application.Maps.UserMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.WorkflowMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.OnboardingMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.ChecklistMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.QuestionnaireMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.StageMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.WorkflowVersionMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.InternalNoteMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.StaticFieldValueMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.OnboardingFileMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.QuestionnaireAnswerMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.OperationChangeLogMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskCompletionMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.StageCompletionLogMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.StageVersionMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.QuestionnaireSectionMapProfile>();
+}, assemblies);
 
 // Configure options
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));

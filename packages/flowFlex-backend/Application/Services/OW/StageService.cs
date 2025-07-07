@@ -12,7 +12,8 @@ using System;
 using System.Linq;
 using FlowFlex.Domain.Repository;
 using FlowFlex.Domain.Shared.Models;
-using FlowFlex.Domain.Entities.Item;
+using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Application.Services.OW.Extensions;
 
 namespace FlowFlex.Application.Service.OW
@@ -26,19 +27,19 @@ namespace FlowFlex.Application.Service.OW
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IWorkflowVersionRepository _workflowVersionRepository;
         private readonly IMapper _mapper;
-        private readonly IOperateLogRepository _logRepository;
+        private readonly IOperationChangeLogService _operationLogService;
         private readonly UserContext _userContext;
 
         // 缓存键常量
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperateLogRepository logRepository, UserContext userContext)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperationChangeLogService operationLogService, UserContext userContext)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
             _workflowVersionRepository = workflowVersionRepository;
             _mapper = mapper;
-            _logRepository = logRepository;
+            _operationLogService = operationLogService;
             _userContext = userContext;
         }
 
@@ -111,22 +112,45 @@ namespace FlowFlex.Application.Service.OW
             {
                 // 缓存清理已移除
 
-                // 记录操作日志
-                await _logRepository.InsertAsync(new OperateLog
+                // 记录操作日志 - 使用 OperationChangeLogService 来正确处理 JSONB 字段
+                var beforeData = JsonSerializer.Serialize(new
                 {
-                    OperateKey = id.ToString(),
-                    OperateTitle = "Stage Update",
-                    OperateDescription = JsonSerializer.Serialize(new
-                    {
-                        OldName = stage.Name,
-                        NewName = input.Name,
-                        WorkflowId = input.WorkflowId,
-                        OperateType = "Update",
-                        BusinessType = "Stage"
-                    }),
-                    CreateBy = _userContext.UserName,
-                    CreateDate = DateTimeOffset.Now
+                    Name = stage.Name,
+                    WorkflowId = stage.WorkflowId,
+                    Description = stage.Description,
+                    Order = stage.Order
                 });
+                
+                var afterData = JsonSerializer.Serialize(new
+                {
+                    Name = input.Name,
+                    WorkflowId = input.WorkflowId,
+                    Description = input.Description,
+                    Order = input.Order
+                });
+                
+                var changedFields = new[]
+                {
+                    stage.Name != input.Name ? "Name" : null,
+                    stage.WorkflowId != input.WorkflowId ? "WorkflowId" : null,
+                    stage.Description != input.Description ? "Description" : null,
+                    stage.Order != input.Order ? "Order" : null
+                }.Where(x => x != null).ToList();
+
+                await _operationLogService.LogOperationAsync(
+                    OperationTypeEnum.OnboardingStatusChange,
+                    BusinessModuleEnum.Stage,
+                    id,
+                    null, // onboardingId
+                    null, // stageId
+                    "Stage Update",
+                    "Stage information updated",
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    null, // extendedData
+                    OperationStatusEnum.Success
+                );
             }
 
             return result;
@@ -512,30 +536,25 @@ namespace FlowFlex.Application.Service.OW
         public async Task<StageLogsDto> GetStageLogsAsync(long stageId, long onboardingId, int pageIndex = 1, int pageSize = 20)
         {
             // 这里只做示例实现，实际应根据业务表结构和日志表结构调整
-            // 假设操作日志表为 operate_log，OperateKey 关联 onboardingId-stageId
-            string operateKey = $"{onboardingId}-{stageId}";
-            // 这里建议后续可扩展为多条件查询
-            var allLogs = await _logRepository.GetListAsync(x => x.OperateKey == operateKey && x.IsValid);
-            var pagedLogs = allLogs.OrderByDescending(x => x.CreateDate)
-                                   .Skip((pageIndex - 1) * pageSize)
-                                   .Take(pageSize)
-                                   .ToList();
+            // 查询与该阶段相关的操作日志
+            var pagedResult = await _operationLogService.GetOperationLogsAsync(onboardingId, stageId, null, pageIndex, pageSize);
+            
             var result = new StageLogsDto
             {
-                Logs = pagedLogs.Select(log => new StageLogDto
+                Logs = pagedResult.Items.Select(log => new StageLogDto
                 {
                     LogId = log.Id,
-                    OperationType = log.OperateTitle,
-                    Description = log.OperateDescription,
-                    Details = string.Empty,
-                    OperatedBy = log.CreateBy,
-                    OperatedTime = log.CreateDate,
-                    OperatedTimeDisplay = log.CreateDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                    Result = string.Empty,
-                    LogTypeTag = log.OperateTitle
+                    OperationType = log.OperationType,
+                    Description = log.OperationDescription,
+                    Details = log.ExtendedData ?? string.Empty,
+                    OperatedBy = log.OperatorName,
+                    OperatedTime = log.OperationTime,
+                    OperatedTimeDisplay = log.OperationTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Result = log.OperationStatus,
+                    LogTypeTag = log.OperationType
                 }).ToList(),
-                TotalCount = allLogs.Count,
-                HasMore = allLogs.Count > pageIndex * pageSize
+                TotalCount = pagedResult.TotalCount,
+                HasMore = pagedResult.TotalCount > pageIndex * pageSize
             };
             return result;
         }

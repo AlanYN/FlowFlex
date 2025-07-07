@@ -37,6 +37,40 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CreateAsync([FromBody] OnboardingInputDto input)
         {
+            Console.WriteLine("=== OnboardingController.CreateAsync - Debug Info ===");
+            Console.WriteLine($"Input is null: {input == null}");
+            
+            if (input != null)
+            {
+                Console.WriteLine($"LeadId: '{input.LeadId}'");
+                Console.WriteLine($"LeadName: '{input.LeadName}'");
+                Console.WriteLine($"WorkflowId: {input.WorkflowId}");
+                Console.WriteLine($"ContactEmail: '{input.ContactEmail}'");
+            }
+            
+            Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
+            
+            if (!ModelState.IsValid)
+            {
+                Console.WriteLine("=== ModelState Errors ===");
+                foreach (var modelError in ModelState)
+                {
+                    Console.WriteLine($"Key: {modelError.Key}");
+                    foreach (var error in modelError.Value.Errors)
+                    {
+                        Console.WriteLine($"  Error: {error.ErrorMessage}");
+                    }
+                }
+            }
+            
+            // Check if input is null and return appropriate error
+            if (input == null)
+            {
+                Console.WriteLine("Input parameter is null, returning BadRequest");
+                return BadRequest("Request body is required and must contain valid JSON");
+            }
+            
+            Console.WriteLine("=== Calling OnboardingService.CreateAsync ===");
             long result = await _onboardingService.CreateAsync(input);
             return Success(result);
         }

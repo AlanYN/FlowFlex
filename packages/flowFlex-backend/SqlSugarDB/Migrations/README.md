@@ -31,20 +31,7 @@ This directory contains the database migration files for the FlowFlex project, u
   - `ff_workflow_version` - Workflow version table
   - `ff_stage_version` - Stage version table
 
-### 3. Demo Data Migration
-- **File**: `20250101000002_SeedDemoData.cs`
-- **Description**: Inserts comprehensive demo data for testing and demonstration purposes
-- **Included Data**:
-  - **Users**: 5 demo users (admin, hr, demo, manager, employee)
-  - **Workflows**: 3 sample workflows (Employee Onboarding, Customer Onboarding, Project Delivery)
-  - **Stages**: 12 workflow stages with proper dependencies
-  - **Checklists**: 5 template checklists for different processes
-  - **Checklist Tasks**: 20 detailed tasks with dependencies
-  - **Questionnaires**: 5 questionnaires for different purposes
-  - **Questionnaire Sections**: 12 sections with various question types
-  - **Onboarding Records**: 5 sample onboarding records in different states
-  - **Internal Notes**: 6 sample notes with different types and priorities
-  - **Operation Logs**: 7 sample operation logs showing system activities
+
 
 ## Usage
 
@@ -100,42 +87,15 @@ Complete foreign key constraint relationships are established to ensure data int
 ### 4. Index Optimization
 Indexes are created for commonly queried fields to improve query performance.
 
-## Demo Data
+## Data Management
 
-The demo data migration (`20250101000002_SeedDemoData.cs`) inserts comprehensive sample data:
+The migration system creates the database structure without any initial sample data. All data should be created through the application's proper business flows:
 
-### User Data
-- **Administrator**: admin@owopen.com (System Administrator)
-- **HR Manager**: hr@owopen.com (Human Resources Manager)
-- **Demo User**: demo@owopen.com (General Demo User)
-- **Manager**: manager@owopen.com (Department Manager)
-- **Employee**: employee@owopen.com (New Employee - Pending Status)
-
-### Sample Workflows
-- **Employee Onboarding Process**: Complete 5-stage employee onboarding workflow
-- **Customer Onboarding Process**: 3-stage customer registration and verification
-- **Project Delivery Process**: 4-stage project delivery and quality assurance
-
-### Sample Checklists
-- **Employee Onboarding Checklist**: 12 comprehensive onboarding tasks
-- **IT Setup Checklist**: 8 IT equipment and system setup tasks
-- **Customer Verification Checklist**: 6 compliance verification tasks
-- **Project Delivery Checklist**: 15 quality assurance tasks
-- **Security Compliance Checklist**: 10 security verification tasks
-
-### Sample Questionnaires
-- **Employee Satisfaction Survey**: 4-section employee engagement survey
-- **Performance Goals Assessment**: 3-section performance evaluation
-- **Customer Service Preferences**: 2-section service configuration
-- **Project Requirements Questionnaire**: 3-section project specification
-- **Training Feedback Survey**: Single-section training evaluation
-
-### Sample Onboarding Records
-- **John Smith** (Engineering - In Progress): 60% complete, currently in training stage
-- **Sarah Johnson** (Marketing - In Progress): 40% complete, currently in IT setup
-- **Michael Brown** (Sales - Completed): 100% complete, finished ahead of schedule
-- **Emily Davis** (Finance - Pending): 20% complete, pending documentation
-- **Customer ABC Corp** (Enterprise - In Progress): 70% complete, custom integration required
+- **Users**: Register through the application's user registration system
+- **Workflows**: Create through the workflow management interface
+- **Checklists**: Design through the checklist builder
+- **Questionnaires**: Build through the questionnaire designer
+- **Onboarding Records**: Create through the onboarding process
 
 ## Important Notes
 

@@ -2,6 +2,7 @@ using AutoMapper;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using System.Text.Json;
+using System.Linq;
 
 namespace FlowFlex.Application.Maps
 {
@@ -29,7 +30,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.QuestionnaireId, opt => opt.MapFrom(src => src.QuestionnaireId))
                 .ForMember(dest => dest.Color, opt => opt.MapFrom(src => src.Color))
                 .ForMember(dest => dest.RequiredFieldsJson, opt => opt.MapFrom(src => src.RequiredFieldsJson))
-                .ForMember(dest => dest.StaticFields, opt => opt.MapFrom(src => src.StaticFields))
+                .ForMember(dest => dest.StaticFields, opt => opt.MapFrom(src => ParseStaticFields(src.StaticFieldsJson)))
                 .ForMember(dest => dest.WorkflowVersion, opt => opt.MapFrom(src => src.WorkflowVersion))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => src.IsValid))
@@ -67,8 +68,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.StaticFieldsJson, opt => opt.Ignore())
-                .ForMember(dest => dest.StaticFields, opt => opt.Ignore());
+                .ForMember(dest => dest.StaticFieldsJson, opt => opt.MapFrom(src => SerializeStaticFields(src.StaticFields)))
+                .ForMember(dest => dest.StaticFields, opt => opt.MapFrom(src => src.StaticFields));
         }
 
         private static List<string> ParseStaticFields(string staticFieldsJson)
@@ -83,6 +84,21 @@ namespace FlowFlex.Application.Maps
             catch
             {
                 return new List<string>();
+            }
+        }
+
+        private static string SerializeStaticFields(List<string> staticFields)
+        {
+            if (staticFields == null || !staticFields.Any())
+                return null;
+
+            try
+            {
+                return JsonSerializer.Serialize(staticFields);
+            }
+            catch
+            {
+                return null;
             }
         }
     }
