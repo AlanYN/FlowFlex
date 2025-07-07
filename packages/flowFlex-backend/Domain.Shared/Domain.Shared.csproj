@@ -8,8 +8,12 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.Core" Version="4.0.0.14" />
-    <PackageReference Include="Item.Common.Lib" Version="8.0.6" />
-    <PackageReference Include="Item.Internal.ChangeLog" Version="8.0.23" />
+    <PackageReference Include="Item.Common.Lib" Version="8.0.6">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Internal.ChangeLog" Version="8.0.23">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
     <PackageReference Include="MediatR" Version="12.3.0" />
     <PackageReference Include="NPOI" Version="2.7.4" />
   </ItemGroup>

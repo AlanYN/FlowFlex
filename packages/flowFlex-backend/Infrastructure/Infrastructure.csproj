@@ -13,8 +13,12 @@
     <PackageReference Include="AWS.MSK.Auth" Version="1.0.0" />
     <PackageReference Include="AWSSDK.Core" Version="4.0.0.14" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.305.31" />
-    <PackageReference Include="Item.Common.Lib" Version="8.0.6" />
-    <PackageReference Include="Item.Redis" Version="8.0.1" />
+    <PackageReference Include="Item.Common.Lib" Version="8.0.6">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="Item.Redis" Version="8.0.1">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
     <PackageReference Include="JsonLogic.Net" Version="1.1.11" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />

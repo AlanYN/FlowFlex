@@ -15,7 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Item.Excel.Lib" Version="8.0.0" />
+    <PackageReference Include="Item.Excel.Lib" Version="8.0.0">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
     <PackageReference Include="SqlSugarCore" Version="5.1.4.159-preview23" />
   </ItemGroup>
 
