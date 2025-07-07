@@ -370,34 +370,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
         private static void InsertInitialData(ISqlSugarClient db)
         {
-            // Insert initial user data
-            db.Ado.ExecuteCommand(@"
-                INSERT INTO ff_users (tenant_id, email, username, password_hash, email_verified, status) VALUES
-                ('default', 'admin@owopen.com', 'admin', '$2a$11$dummy.hash.for.initial.setup', TRUE, 'active'),
-                ('default', 'demo@owopen.com', 'demo', '$2a$11$dummy.hash.for.demo.user', TRUE, 'active')
-                ON CONFLICT (email, tenant_id) DO NOTHING;
-            ");
-
-            // Insert sample workflows
-            db.Ado.ExecuteCommand(@"
-                INSERT INTO ff_workflow (tenant_id, name, description, status, version, is_active) VALUES
-                ('default', 'Employee Onboarding Process', 'Standard employee onboarding workflow', 'active', 1, TRUE),
-                ('default', 'Customer Survey', 'Customer satisfaction survey workflow', 'active', 1, TRUE);
-            ");
-
-            // Insert sample checklists
-            db.Ado.ExecuteCommand(@"
-                INSERT INTO ff_checklist (tenant_id, name, description, team, is_template, is_active) VALUES
-                ('default', 'Onboarding Checklist', 'Essential checklist items for new employee onboarding', 'HR', TRUE, TRUE),
-                ('default', 'Project Delivery Checklist', 'Quality checklist items before project delivery', 'Tech', TRUE, TRUE);
-            ");
-
-            // Insert sample questionnaires
-            db.Ado.ExecuteCommand(@"
-                INSERT INTO ff_questionnaire (tenant_id, name, description, status, is_active) VALUES
-                ('default', 'Employee Satisfaction Survey', 'Survey to understand employee satisfaction and suggestions', 'Published', TRUE),
-                ('default', 'Customer Service Quality Survey', 'Collect customer feedback on service quality', 'Published', TRUE);
-            ");
+            // No initial data insertion - let the application handle data creation through proper business flows
         }
     }
 } 

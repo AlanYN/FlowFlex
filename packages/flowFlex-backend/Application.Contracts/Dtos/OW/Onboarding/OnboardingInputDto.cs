@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
 {
@@ -21,7 +22,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 客户/线索ID
         /// </summary>
-        
         [StringLength(100)]
         public string LeadId { get; set; }
 
@@ -50,15 +50,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string ContactPerson { get; set; }
 
         /// <summary>
-        /// 联系人邮箱
+        /// 联系人邮箱（可选，格式验证会在非空时进行）
         /// </summary>
         [StringLength(200)]
-        [EmailAddress(ErrorMessage = "联系人邮箱格式不正确")]
         public string ContactEmail { get; set; }
 
         /// <summary>
         /// CRM Lead的Life Cycle Stage ID
         /// </summary>
+        [JsonConverter(typeof(NullableLongConverter))]
         public long? LifeCycleStageId { get; set; }
 
         /// <summary>
@@ -153,5 +153,71 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 是否激活
         /// </summary>
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// 验证邮箱格式（仅在邮箱不为空时验证）
+        /// </summary>
+        public bool IsValidContactEmail()
+        {
+            if (string.IsNullOrWhiteSpace(ContactEmail))
+                return true; // 空值被认为是有效的
+                
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(ContactEmail);
+                return addr.Address == ContactEmail;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Newtonsoft.Json 自定义转换器，用于处理空字符串到 nullable long 的转换
+    /// </summary>
+    public class NullableLongConverter : JsonConverter<long?>
+    {
+        public override void WriteJson(JsonWriter writer, long? value, JsonSerializer serializer)
+        {
+            if (value.HasValue)
+            {
+                writer.WriteValue(value.Value);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+        }
+
+        public override long? ReadJson(JsonReader reader, Type objectType, long? existingValue, bool hasExistingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null)
+            {
+                return null;
+            }
+            
+            if (reader.TokenType == JsonToken.String)
+            {
+                var stringValue = reader.Value?.ToString();
+                if (string.IsNullOrEmpty(stringValue))
+                {
+                    return null;
+                }
+                if (long.TryParse(stringValue, out var result))
+                {
+                    return result;
+                }
+                return null; // 无法解析时返回 null 而不是抛出异常
+            }
+            
+            if (reader.TokenType == JsonToken.Integer)
+            {
+                return Convert.ToInt64(reader.Value);
+            }
+            
+            return null;
+        }
     }
 }

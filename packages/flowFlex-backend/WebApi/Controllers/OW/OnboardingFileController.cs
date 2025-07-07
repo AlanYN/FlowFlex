@@ -41,10 +41,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadFileAsync(
             [FromRoute] long onboardingId,
-            long? stageId,
+            [FromForm] long? stageId,
             IFormFile formFile,
-            string category = "Document",
-            string description = "")
+            [FromForm] string category = "Document",
+            [FromForm] string description = "")
         {
             if (formFile == null || formFile.Length == 0)
             {
@@ -78,10 +78,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadMultipleFilesAsync(
             [FromRoute] long onboardingId,
-            long? stageId,
+            [FromForm] long? stageId,
             List<IFormFile> formFiles,
-            string category = "Document",
-            string description = "")
+            [FromForm] string category = "Document",
+            [FromForm] string description = "")
         {
             if (formFiles == null || formFiles.Count == 0)
             {

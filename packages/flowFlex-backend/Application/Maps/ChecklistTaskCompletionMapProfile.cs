@@ -5,7 +5,8 @@ using FlowFlex.Domain.Entities.OW;
 namespace FlowFlex.Application.Maps
 {
     /// <summary>
-    /// 检查清单任务完成记录映射配�?    /// </summary>
+    /// 检查清单任务完成记录映射配置
+    /// </summary>
     public class ChecklistTaskCompletionMapProfile : Profile
     {
         public ChecklistTaskCompletionMapProfile()
@@ -22,7 +23,19 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
 
-            // 实体到输出DTO的映�?            CreateMap<ChecklistTaskCompletion, ChecklistTaskCompletionOutputDto>();
+            // 实体到输出DTO的映射
+            CreateMap<ChecklistTaskCompletion, ChecklistTaskCompletionOutputDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.OnboardingId, opt => opt.MapFrom(src => src.OnboardingId))
+                .ForMember(dest => dest.LeadId, opt => opt.MapFrom(src => src.LeadId))
+                .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
+                .ForMember(dest => dest.TaskId, opt => opt.MapFrom(src => src.TaskId))
+                .ForMember(dest => dest.IsCompleted, opt => opt.MapFrom(src => src.IsCompleted))
+                .ForMember(dest => dest.CompletedTime, opt => opt.MapFrom(src => src.CompletedTime))
+                .ForMember(dest => dest.CompletionNotes, opt => opt.MapFrom(src => src.CompletionNotes))
+                .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source))
+                .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
+                .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy));
         }
     }
 } 
