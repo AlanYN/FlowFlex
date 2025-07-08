@@ -1,4 +1,3 @@
-![FlowFlex Logo](logo.png)
 <div align="center">
   <img src="logo.png" alt="FlowFlex Logo" width="300">
 </div>
