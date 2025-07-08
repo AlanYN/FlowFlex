@@ -72,7 +72,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.DependsOnTaskId, opt => opt.Ignore());
         }
     }
-} 
- 
+}
+
 
 

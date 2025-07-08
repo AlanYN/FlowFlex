@@ -101,7 +101,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var fullPath = Path.Combine(_webHostEnvironment.ContentRootPath, _options.LocalStoragePath, filePath);
-                
+
                 if (!File.Exists(fullPath))
                 {
                     throw new FileNotFoundException($"File not found: {filePath}");
@@ -125,7 +125,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var fullPath = Path.Combine(_webHostEnvironment.ContentRootPath, _options.LocalStoragePath, filePath);
-                
+
                 if (File.Exists(fullPath))
                 {
                     File.Delete(fullPath);
@@ -185,7 +185,7 @@ namespace FlowFlex.Application.Services.OW
             // Check file extension
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             var allowedExtensions = _options.AllowedExtensions.Split(',').Select(x => x.Trim().ToLowerInvariant()).ToArray();
-            
+
             if (!allowedExtensions.Contains(extension))
             {
                 return new FileValidationResult
@@ -262,7 +262,7 @@ namespace FlowFlex.Application.Services.OW
             var nameWithoutExtension = Path.GetFileNameWithoutExtension(originalFileName);
             var timestamp = DateTimeOffset.Now.Ticks;
             var hash = ComputeStringHash(nameWithoutExtension + timestamp);
-            
+
             return $"{timestamp}_{hash}{extension}";
         }
 
@@ -323,15 +323,15 @@ namespace FlowFlex.Application.Services.OW
         private bool IsValidMimeType(string contentType, string extension)
         {
             var expectedContentType = GetContentType($"file{extension}");
-            
+
             // Allow some common MIME type variants
             return contentType switch
             {
                 var ct when ct == expectedContentType => true,
                 "application/octet-stream" => true, // Generic binary type
-                var ct when ct.StartsWith("image/") && extension.StartsWith(".") && 
+                var ct when ct.StartsWith("image/") && extension.StartsWith(".") &&
                            new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension) => true,
-                var ct when ct.StartsWith("video/") && extension.StartsWith(".") && 
+                var ct when ct.StartsWith("video/") && extension.StartsWith(".") &&
                            new[] { ".mp4", ".avi", ".mov" }.Contains(extension) => true,
                 _ => false
             };
@@ -339,4 +339,4 @@ namespace FlowFlex.Application.Services.OW
 
         #endregion
     }
-} 
+}

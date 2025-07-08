@@ -13,14 +13,14 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Questionnaire ID
         /// </summary>
-        
+
         [SugarColumn(ColumnName = "questionnaire_id")]
         public long QuestionnaireId { get; set; }
 
         /// <summary>
         /// Section Name
         /// </summary>
-        
+
         [StringLength(100)]
         public string Title { get; set; }
 

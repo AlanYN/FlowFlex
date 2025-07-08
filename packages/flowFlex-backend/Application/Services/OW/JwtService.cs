@@ -126,13 +126,13 @@ namespace FlowFlex.Application.Services.OW
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var jwtToken = tokenHandler.ReadJwtToken(token);
-                
+
                 var userIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 if (userIdClaim != null && long.TryParse(userIdClaim.Value, out var userId))
                 {
                     return userId;
                 }
-                
+
                 return null;
             }
             catch
@@ -152,7 +152,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var jwtToken = tokenHandler.ReadJwtToken(token);
-                
+
                 var emailClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
                 return emailClaim?.Value;
             }
@@ -171,4 +171,4 @@ namespace FlowFlex.Application.Services.OW
             return _jwtOptions.ExpiryMinutes * 60;
         }
     }
-} 
+}

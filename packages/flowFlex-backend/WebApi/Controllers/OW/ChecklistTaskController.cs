@@ -24,14 +24,14 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// - Task assignment and responsibility management
     /// - Overdue tasks and pending tasks query
     /// </remarks>
- 
+
     [ApiController]
- 
+
     [Route("ow/checklist-tasks/v{version:apiVersion}")]
     [Route("ow/checklist-task/v{version:apiVersion}")] // Alternative route for compatibility
     [Display(Name = "ChecklistTask Management")]
     [Tags("ChecklistTask", "Onboard Workflow", "Task Items")]
-   
+
     public class ChecklistTaskController : Controllers.ControllerBase
     {
         private readonly IChecklistTaskService _checklistTaskService;
@@ -191,7 +191,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> GetDependencies(long checklistId)
         {
             // For now, return empty dependencies
-            // TODO: Implement actual dependency logic
+            // Dependency validation logic to be implemented
             var dependencies = new Dictionary<long, List<long>>();
             return Success(dependencies);
         }

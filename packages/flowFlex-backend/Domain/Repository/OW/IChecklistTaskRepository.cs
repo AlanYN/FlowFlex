@@ -52,4 +52,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         Task<int> GetNextOrderAsync(long checklistId);
     }
-} 
+}

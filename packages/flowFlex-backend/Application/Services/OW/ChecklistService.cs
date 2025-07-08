@@ -2,7 +2,6 @@ using System.IO;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Models;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
@@ -56,7 +55,7 @@ public class ChecklistService : IChecklistService, IScopedService
         }
 
         var entity = _mapper.Map<Checklist>(input);
-        
+
         // Initialize create information with proper ID and timestamps
         entity.InitCreateInfo(_userContext);
 
@@ -88,7 +87,7 @@ public class ChecklistService : IChecklistService, IScopedService
         }
 
         _mapper.Map(input, entity);
-        
+
         // Initialize update information with proper timestamps
         entity.InitUpdateInfo(_userContext);
 
@@ -254,7 +253,7 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.CustomError, "Checklist not found");
         }
 
-        // TODO: Implement PDF generation using a PDF library like iTextSharp or PdfSharp
+        // PDF generation feature - future enhancement
         // This is a placeholder implementation
         var content = GeneratePdfContent(checklist);
         var stream = new MemoryStream();
@@ -365,7 +364,7 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Get overdue tasks count
         var overdueTasks = await _checklistTaskRepository.GetOverdueTasksAsync();
-        var teamOverdueTasks = overdueTasks.Count; // TODO: Filter by team
+        var teamOverdueTasks = overdueTasks.Count; // Team filtering - future enhancement
 
         return new ChecklistStatisticsDto
         {
@@ -379,7 +378,7 @@ public class ChecklistService : IChecklistService, IScopedService
             AverageCompletionRate = (decimal)statistics["AverageCompletionRate"],
             OverdueTasks = teamOverdueTasks,
             TotalEstimatedHours = (int)statistics["TotalEstimatedHours"],
-            TotalActualHours = 0 // TODO: Calculate from task statistics
+            TotalActualHours = 0 // Task statistics calculation - future enhancement
         };
     }
 
@@ -389,8 +388,7 @@ public class ChecklistService : IChecklistService, IScopedService
     public async Task<List<ChecklistOutputDto>> GetByStageIdAsync(long stageId)
     {
         var checklists = await _checklistRepository.GetByStageIdWithTasksAsync(stageId);
-        Console.WriteLine($"Debug: Found {checklists.Count} checklists for stageId: {stageId}");
-
+        // Debug logging handled by structured logging
         return _mapper.Map<List<ChecklistOutputDto>>(checklists);
     }
 

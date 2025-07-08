@@ -6,4 +6,4 @@ namespace FlowFlex.Infrastructure.Services
     public interface ISingletonService
     {
     }
-} 
+}

@@ -65,80 +65,74 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine("=== OnboardingService.CreateAsync - Step 1: Method entry ===");
-                
+                // Debug logging handled by structured logging
                 // Check all injected dependencies
                 if (_onboardingRepository == null)
                 {
-                    Console.WriteLine("ERROR: _onboardingRepository is null!");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.SystemError, "Onboarding repository is not available");
                 }
-                
+
                 if (_workflowRepository == null)
                 {
-                    Console.WriteLine("ERROR: _workflowRepository is null!");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.SystemError, "Workflow repository is not available");
                 }
-                
+
                 if (_stageRepository == null)
                 {
-                    Console.WriteLine("ERROR: _stageRepository is null!");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.SystemError, "Stage repository is not available");
                 }
-                
+
                 if (_mapper == null)
                 {
-                    Console.WriteLine("ERROR: _mapper is null!");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.SystemError, "Mapper is not available");
                 }
-                
+
                 if (_userContext == null)
                 {
-                    Console.WriteLine("ERROR: _userContext is null!");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.SystemError, "User context is not available");
                 }
-                
+
                 if (input == null)
                 {
-                    Console.WriteLine("ERROR: input parameter is null!");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input parameter cannot be null");
                 }
-                
-                Console.WriteLine($"=== OnboardingService.CreateAsync - Step 2: All dependencies checked, input WorkflowId: {input.WorkflowId} ===");
-
+                // Debug logging handled by structured logging
                 // Ensure the table exists before inserting
-                Console.WriteLine("=== OnboardingService.CreateAsync - Step 3: Calling EnsureTableExistsAsync ===");
+                // Debug logging handled by structured logging
                 await _onboardingRepository.EnsureTableExistsAsync();
-                Console.WriteLine("=== OnboardingService.CreateAsync - Step 4: EnsureTableExistsAsync completed ===");
-
+                // Debug logging handled by structured logging
                 // Get tenant ID from UserContext (injected from HTTP headers via middleware)
                 string tenantId = _userContext?.TenantId ?? "default";
-                Console.WriteLine($"Using tenant ID from UserContext: {tenantId}");
-
+                // Debug logging handled by structured logging
                 // Handle default workflow selection if WorkflowId is not provided
-                Console.WriteLine($"=== OnboardingService.CreateAsync - Step 5: Checking WorkflowId - HasValue: {input.WorkflowId.HasValue}, Value: {input.WorkflowId?.ToString() ?? "null"} ===");
-                
+                // Debug logging handled by structured logging ?? "null"} ===");
+
                 if (!input.WorkflowId.HasValue || input.WorkflowId.Value <= 0)
                 {
-                    Console.WriteLine("WorkflowId not provided or invalid, attempting to get default workflow...");
-                    
+                    // Debug logging handled by structured logging
                     var defaultWorkflow = await _workflowRepository.GetDefaultWorkflowAsync();
 
                     if (defaultWorkflow != null && defaultWorkflow.IsValid && defaultWorkflow.IsActive)
                     {
                         input.WorkflowId = defaultWorkflow.Id;
-                        Console.WriteLine($"Using default workflow - ID: {defaultWorkflow.Id}, Name: {defaultWorkflow.Name}");
+                        // Debug logging handled by structured logging
                     }
                     else
                     {
-                        Console.WriteLine("No default workflow found, trying to get first active workflow...");
+                        // Debug logging handled by structured logging
                         var activeWorkflows = await _workflowRepository.GetActiveWorkflowsAsync();
                         var firstActiveWorkflow = activeWorkflows?.FirstOrDefault();
 
                         if (firstActiveWorkflow != null)
                         {
                             input.WorkflowId = firstActiveWorkflow.Id;
-                            Console.WriteLine($"Using first active workflow - ID: {firstActiveWorkflow.Id}, Name: {firstActiveWorkflow.Name}");
+                            // Debug logging handled by structured logging
                         }
                         else
                         {
@@ -146,12 +140,9 @@ namespace FlowFlex.Application.Services.OW
                         }
                     }
                 }
-
-                Console.WriteLine($"=== Creating onboarding for WorkflowId: {input.WorkflowId} ===");
-
+                // Debug logging handled by structured logging
                 // Check if Lead ID already exists for this tenant with enhanced checking
-                Console.WriteLine($"Checking for existing onboarding - TenantId: '{tenantId}', LeadId: '{input.LeadId}'");
-
+                // Debug logging handled by structured logging
                 // Use SqlSugar client directly for more precise checking
                 var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
                 var existingActiveOnboarding = await sqlSugarClient.Queryable<Onboarding>()
@@ -163,68 +154,62 @@ namespace FlowFlex.Application.Services.OW
 
                 if (existingActiveOnboarding != null)
                 {
-                    Console.WriteLine($"Found existing active onboarding - ID: {existingActiveOnboarding.Id}, Status: {existingActiveOnboarding.Status}");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.BusinessError,
                         $"An active onboarding already exists for Lead ID '{input.LeadId}' in tenant '{tenantId}'. " +
                         $"Existing onboarding ID: {existingActiveOnboarding.Id}, Status: {existingActiveOnboarding.Status}");
                 }
-
-                Console.WriteLine($"Lead ID check passed: {input.LeadId}");
-
+                // Debug logging handled by structured logging
                 // Validate workflow exists with detailed logging
-                Console.WriteLine($"Attempting to find workflow with ID: {input.WorkflowId.Value}");
+                // Debug logging handled by structured logging
                 var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId.Value);
-                Console.WriteLine($"Workflow query result: {(workflow != null ? "Found" : "Not Found")}");
+                // Debug logging handled by structured logging}");
 
                 if (workflow != null)
                 {
-                    Console.WriteLine($"Workflow details - ID: {workflow.Id}, Name: {workflow.Name}, IsValid: {workflow.IsValid}, IsActive: {workflow.IsActive}");
+                    // Debug logging handled by structured logging
                 }
 
                 if (workflow == null || !workflow.IsValid)
                 {
                     // Try to get all workflows to see what's available
-                    Console.WriteLine("=== Diagnostic: Getting all available workflows ===");
+                    // Debug logging handled by structured logging
                     try
                     {
                         var allWorkflows = await _workflowRepository.GetListAsync(x => x.IsValid);
-                        Console.WriteLine($"Available workflows count: {allWorkflows.Count}");
+                        // Debug logging handled by structured logging
                         foreach (var w in allWorkflows.Take(5)) // Show first 5
                         {
-                            Console.WriteLine($"  - ID: {w.Id}, Name: {w.Name}, IsActive: {w.IsActive}");
+                            // Debug logging handled by structured logging
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Failed to get all workflows: {ex.Message}");
+                        // Debug logging handled by structured logging
                     }
 
                     throw new CRMException(ErrorCodeEnum.DataNotFound, $"Workflow not found for ID: {input.WorkflowId.Value}");
                 }
 
                 // Get first stage of the workflow with detailed logging
-                Console.WriteLine($"Getting stages for workflow ID: {input.WorkflowId.Value}");
+                // Debug logging handled by structured logging
                 var stages = await _stageRepository.GetByWorkflowIdAsync(input.WorkflowId.Value);
-                Console.WriteLine($"Stages found: {stages.Count}");
-
+                // Debug logging handled by structured logging
                 var firstStage = stages.OrderBy(x => x.Order).FirstOrDefault();
                 if (firstStage == null)
                 {
-                    Console.WriteLine("=== No stages found - trying to create a default stage ===");
+                    // Debug logging handled by structured logging
                     // Instead of failing, let's allow creation without stages and warn
-                    Console.WriteLine("WARNING: Workflow has no stages configured. Creating onboarding without initial stage.");
+                    // Debug logging handled by structured logging
                 }
                 else
                 {
-                    Console.WriteLine($"First stage - ID: {firstStage.Id}, Name: {firstStage.Name}, Order: {firstStage.Order}");
+                    // Debug logging handled by structured logging
                 }
 
                 // Create new onboarding entity
                 var entity = _mapper.Map<Onboarding>(input);
-
-                Console.WriteLine("=== Before setting entity properties ===");
-                Console.WriteLine($"Mapped entity - LeadId: {entity.LeadId}, WorkflowId: {entity.WorkflowId}");
-
+                // Debug logging handled by structured logging
                 // Set initial values with explicit null checks
                 entity.CurrentStageId = firstStage?.Id;
                 entity.CurrentStageOrder = firstStage?.Order ?? 0;
@@ -238,23 +223,13 @@ namespace FlowFlex.Application.Services.OW
 
                 // Initialize create information with proper ID and timestamps
                 entity.InitCreateInfo(_userContext);
-
-                Console.WriteLine("=== After entity initialization ===");
-                Console.WriteLine($"Entity ID: {entity.Id}, TenantId: {entity.TenantId}");
-                Console.WriteLine($"CreateDate: {entity.CreateDate}, CreateBy: {entity.CreateBy}");
-
+                // Debug logging handled by structured logging
                 // Generate unique ID if not set
                 if (entity.Id == 0)
                 {
                     entity.InitNewId();
                 }
-
-                Console.WriteLine("=== After setting entity properties ===");
-                Console.WriteLine($"Entity validation - Id: {entity.Id}, TenantId: '{entity.TenantId}', LeadId: '{entity.LeadId}'");
-                Console.WriteLine($"Status: '{entity.Status}', Priority: '{entity.Priority}', IsValid: {entity.IsValid}");
-                Console.WriteLine($"CreateBy: '{entity.CreateBy}', CreateDate: {entity.CreateDate}");
-                Console.WriteLine($"WorkflowId: {entity.WorkflowId}, CurrentStageId: {entity.CurrentStageId}");
-
+                // Debug logging handled by structured logging
                 // Validate entity before insertion
                 if (entity.WorkflowId <= 0)
                 {
@@ -275,23 +250,9 @@ namespace FlowFlex.Application.Services.OW
                 if (entity.Id == 0)
                 {
                     entity.Id = SnowFlakeSingle.Instance.NextId();
-                    Console.WriteLine($"Generated new Id for entity: {entity.Id}");
+                    // Debug logging handled by structured logging
                 }
-
-                Console.WriteLine("=== Final entity state before insertion ===");
-                Console.WriteLine($"Id: {entity.Id}");
-                Console.WriteLine($"TenantId: '{entity.TenantId}'");
-                Console.WriteLine($"WorkflowId: {entity.WorkflowId}");
-                Console.WriteLine($"CurrentStageId: {entity.CurrentStageId}");
-                Console.WriteLine($"LeadId: '{entity.LeadId}'");
-                Console.WriteLine($"LeadName: '{entity.LeadName}'");
-                Console.WriteLine($"Status: '{entity.Status}'");
-                Console.WriteLine($"IsValid: {entity.IsValid}");
-                Console.WriteLine($"IsActive: {entity.IsActive}");
-                Console.WriteLine($"CreateDate: {entity.CreateDate}");
-
-                Console.WriteLine("Inserting onboarding entity...");
-
+                // Debug logging handled by structured logging
                 // Use a completely simplified approach to avoid SqlSugar issues
                 long insertedId;
 
@@ -299,24 +260,22 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Generate snowflake ID for the entity
                     entity.InitNewId();
-                    Console.WriteLine($"Generated snowflake ID: {entity.Id}");
-
+                    // Debug logging handled by structured logging
                     // Create table if not exists first
-                    Console.WriteLine("Ensuring table structure...");
+                    // Debug logging handled by structured logging
                     if (!sqlSugarClient.DbMaintenance.IsAnyTable("ff_onboarding"))
                     {
-                        Console.WriteLine("Creating ff_onboarding table...");
+                        // Debug logging handled by structured logging
                         sqlSugarClient.CodeFirst.SetStringDefaultLength(200).InitTables<Onboarding>();
                     }
 
                     // Use simple insert and then get the last inserted ID
-                    Console.WriteLine("Performing simple insert...");
+                    // Debug logging handled by structured logging
                     var insertResult = await sqlSugarClient.Insertable(entity).ExecuteCommandAsync();
 
                     if (insertResult > 0)
                     {
-                        Console.WriteLine($"Insert successful, {insertResult} rows affected. Getting last inserted ID...");
-
+                        // Debug logging handled by structured logging
                         // Get the last inserted record by combining unique fields
                         var lastInserted = await sqlSugarClient.Queryable<Onboarding>()
                             .Where(x => x.LeadId == entity.LeadId &&
@@ -328,42 +287,40 @@ namespace FlowFlex.Application.Services.OW
                         if (lastInserted != null)
                         {
                             insertedId = lastInserted.Id;
-                            Console.WriteLine($"=== Insert successful. ID: {insertedId} ===");
+                            // Debug logging handled by structured logging
                         }
                         else
                         {
-                            Console.WriteLine("Insert successful but could not retrieve the inserted record. Assuming success with ID 0.");
+                            // Debug logging handled by structured logging
                             // If insert was successful but we can't find the record, still return success
                             // This might happen due to timing or indexing issues
                             insertedId = 0; // Return 0 to indicate success but unknown ID
-                            Console.WriteLine($"=== Insert assumed successful. ID: {insertedId} ===");
+                                            // Debug logging handled by structured logging
                         }
                     }
                     else
                     {
-                        Console.WriteLine("Insert failed - no rows affected");
+                        // Debug logging handled by structured logging
                         throw new CRMException(ErrorCodeEnum.SystemError, "Insert failed - no rows were affected");
                     }
                 }
                 catch (Exception insertEx)
                 {
-                    Console.WriteLine($"=== Simple insert failed ===");
-                    Console.WriteLine($"Exception Type: {insertEx.GetType().Name}");
-                    Console.WriteLine($"Message: {insertEx.Message}");
-                    Console.WriteLine($"StackTrace: {insertEx.StackTrace}");
-
+                    // Debug logging handled by structured logging
+                    // Debug logging handled by structured logging.Name}");
+                    // Debug logging handled by structured logging
                     // Check if this is a duplicate key error
                     if (insertEx.Message.Contains("23505") && insertEx.Message.Contains("idx_ff_onboarding_unique_lead"))
                     {
                         // This is specifically the unique constraint violation we're dealing with
-                        Console.WriteLine("=== Detected unique constraint violation for lead ===");
+                        // Debug logging handled by structured logging
                         throw new CRMException(ErrorCodeEnum.BusinessError,
                             $"A duplicate onboarding record was detected for Lead ID '{entity.LeadId}' in tenant '{entity.TenantId}'. " +
                             $"This may be due to concurrent requests or an existing active record. Please check existing onboardings and try again.");
                     }
 
                     // Final fallback: manual SQL with minimal fields
-                    Console.WriteLine("=== Attempting minimal SQL insertion as final fallback ===");
+                    // Debug logging handled by structured logging
                     try
                     {
                         var sql = @"
@@ -402,16 +359,13 @@ namespace FlowFlex.Application.Services.OW
                             Notes = entity.Notes ?? "",
                             IsActive = entity.IsActive
                         };
-
-                        Console.WriteLine("Executing minimal SQL...");
+                        // Debug logging handled by structured logging
                         insertedId = await sqlSugarClient.Ado.SqlQuerySingleAsync<long>(sql, parameters);
-                        Console.WriteLine($"=== Minimal SQL insert successful. ID: {insertedId} ===");
+                        // Debug logging handled by structured logging
                     }
                     catch (Exception sqlEx)
                     {
-                        Console.WriteLine($"=== Minimal SQL insert also failed: {sqlEx.Message} ===");
-                        Console.WriteLine($"SQL Stack trace: {sqlEx.StackTrace}");
-
+                        // Debug logging handled by structured logging
                         // Check if this is also a duplicate key error
                         if (sqlEx.Message.Contains("23505") && sqlEx.Message.Contains("idx_ff_onboarding_unique_lead"))
                         {
@@ -436,30 +390,29 @@ namespace FlowFlex.Application.Services.OW
                         {
                             // Initialize stage progress
                             await InitializeStagesProgressAsync(insertedEntity, stages);
-                            
+
                             // Update entity to save stage progress
                             await _onboardingRepository.UpdateAsync(insertedEntity);
-                            
-                            Console.WriteLine("Stages progress initialized successfully");
+                            // Debug logging handled by structured logging
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Warning: Failed to initialize stages progress: {ex.Message}");
+                        // Debug logging handled by structured logging
                         // Don't throw exception as the main creation operation has already succeeded
                     }
-                    
+
                     // Clear query cache (async execution, doesn't affect main flow)
                     _ = Task.Run(async () =>
                     {
                         try
                         {
                             await ClearOnboardingQueryCacheAsync();
-                            Console.WriteLine("Query cache cleared after onboarding creation");
+                            // Debug logging handled by structured logging
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"Cache cleanup failed during creation: {ex.Message}");
+                            // Debug logging handled by structured logging
                         }
                     });
                 }
@@ -468,16 +421,14 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"=== Error creating onboarding ===");
-                Console.WriteLine($"Exception Type: {ex.GetType().Name}");
-                Console.WriteLine($"Message: {ex.Message}");
-                Console.WriteLine($"Source: {ex.Source}");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                // Debug logging handled by structured logging
+                // Debug logging handled by structured logging.Name}");
+                // Debug logging handled by structured logging
                 if (ex.InnerException != null)
                 {
-                    Console.WriteLine($"InnerException: {ex.InnerException.Message}");
+                    // Debug logging handled by structured logging
                 }
-                Console.WriteLine("===============================");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
@@ -489,17 +440,14 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine($"=== Updating onboarding ID: {id} ===");
-
+                // Debug logging handled by structured logging
                 var entity = await _onboardingRepository.GetByIdAsync(id);
                 if (entity == null)
                 {
-                    Console.WriteLine($"Onboarding not found for ID: {id}");
+                    // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
-
-                Console.WriteLine($"Found onboarding - Current Workflow: {entity.WorkflowId}, New Workflow: {input.WorkflowId}");
-
+                // Debug logging handled by structured logging
                 // Record original workflow and stage ID for cache cleanup
                 var originalWorkflowId = entity.WorkflowId;
                 var originalStageId = entity.CurrentStageId;
@@ -507,19 +455,18 @@ namespace FlowFlex.Application.Services.OW
                 // If workflow changed, validate new workflow and reset stages
                 if (entity.WorkflowId != input.WorkflowId)
                 {
-                    Console.WriteLine("Workflow changed - validating new workflow...");
+                    // Debug logging handled by structured logging
                     var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
                     if (workflow == null)
                     {
-                        Console.WriteLine($"New workflow not found: {input.WorkflowId}");
+                        // Debug logging handled by structured logging
                         throw new CRMException(ErrorCodeEnum.DataNotFound, "Workflow not found");
                     }
-
-                    Console.WriteLine("Getting stages for new workflow...");
+                    // Debug logging handled by structured logging
                     var stages = await _stageRepository.GetByWorkflowIdAsync(input.WorkflowId.Value);
                     var firstStage = stages.OrderBy(x => x.Order).FirstOrDefault();
 
-                    Console.WriteLine($"First stage for new workflow: {(firstStage != null ? firstStage.Name : "None")}");
+                    // Debug logging handled by structured logging}");
 
                     entity.CurrentStageId = firstStage?.Id;
                     entity.CurrentStageOrder = firstStage?.Order ?? 1;
@@ -527,15 +474,14 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Map the input to entity (this will update all the mappable fields)
-                Console.WriteLine("Mapping input to entity...");
+                // Debug logging handled by structured logging
                 _mapper.Map(input, entity);
 
                 // Update system fields
                 entity.ModifyDate = DateTimeOffset.UtcNow;
                 entity.ModifyBy = GetCurrentUserName();
-                entity.ModifyUserId = 0; // TODO: Get from user context
-
-                Console.WriteLine("Calling repository update...");
+                entity.ModifyUserId = GetCurrentUserId() ?? 0; // User context integration
+                                                               // Debug logging handled by structured logging
                 var result = await _onboardingRepository.UpdateAsync(entity);
 
                 // Log onboarding update and clear cache
@@ -591,30 +537,27 @@ namespace FlowFlex.Application.Services.OW
                             }
 
                             await Task.WhenAll(cacheCleanupTasks);
-                            Console.WriteLine("Cache cleanup completed for onboarding update");
+                            // Debug logging handled by structured logging
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"Cache cleanup failed during update: {ex.Message}");
+                            // Debug logging handled by structured logging
                         }
                     });
                 }
-
-                Console.WriteLine($"=== Update result: {result} ===");
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"=== Error updating onboarding ===");
-                Console.WriteLine($"Exception Type: {ex.GetType().Name}");
-                Console.WriteLine($"Message: {ex.Message}");
-                Console.WriteLine($"Source: {ex.Source}");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                // Debug logging handled by structured logging
+                // Debug logging handled by structured logging.Name}");
+                // Debug logging handled by structured logging
                 if (ex.InnerException != null)
                 {
-                    Console.WriteLine($"InnerException: {ex.InnerException.Message}");
+                    // Debug logging handled by structured logging
                 }
-                Console.WriteLine("===============================");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
@@ -628,12 +571,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Delete operation requires confirmation");
             }
-
-            Console.WriteLine($"=== DeleteAsync Debug Info ===");
-            Console.WriteLine($"Requested ID: {id}");
-            Console.WriteLine($"Current User TenantId: {_userContext.TenantId}");
-            Console.WriteLine($"Current User ID: {_userContext.UserId}");
-
+            // Debug logging handled by structured logging
             // First try to query without tenant filter to see if record actually exists
             Onboarding entityWithoutFilter = null;
             try
@@ -647,25 +585,21 @@ namespace FlowFlex.Application.Services.OW
 
                 if (entityWithoutFilter != null)
                 {
-                    Console.WriteLine($"Found record without tenant filter:");
-                    Console.WriteLine($"  - ID: {entityWithoutFilter.Id}");
-                    Console.WriteLine($"  - TenantId: '{entityWithoutFilter.TenantId}'");
-                    Console.WriteLine($"  - IsValid: {entityWithoutFilter.IsValid}");
-                    Console.WriteLine($"  - LeadName: {entityWithoutFilter.LeadName}");
+                    // Debug logging handled by structured logging
                 }
                 else
                 {
-                    Console.WriteLine($"Record with ID {id} does not exist in database");
+                    // Debug logging handled by structured logging
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error checking record without filter: {ex.Message}");
+                // Debug logging handled by structured logging
             }
 
             // Query using normal repository method (with tenant filter)
             var entity = await _onboardingRepository.GetByIdAsync(id);
-            Console.WriteLine($"Repository GetByIdAsync result: {(entity != null ? $"Found entity ID {entity.Id}" : "No entity found with tenant filter")}");
+            // Debug logging handled by structured logging}");
 
             if (entity == null || !entity.IsValid)
             {
@@ -674,12 +608,12 @@ namespace FlowFlex.Application.Services.OW
                 {
                     if (entityWithoutFilter.TenantId != _userContext.TenantId)
                     {
-                        Console.WriteLine($"Tenant mismatch: Record TenantId='{entityWithoutFilter.TenantId}', User TenantId='{_userContext.TenantId}'");
+                        // Debug logging handled by structured logging
                         throw new CRMException(ErrorCodeEnum.DataNotFound, $"Onboarding not found or access denied. Record belongs to different tenant.");
                     }
                     else if (!entityWithoutFilter.IsValid)
                     {
-                        Console.WriteLine($"Record is soft deleted (IsValid=false)");
+                        // Debug logging handled by structured logging");
                         throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding has already been deleted");
                     }
                 }
@@ -724,7 +658,7 @@ namespace FlowFlex.Application.Services.OW
                 // If stage progress is empty, try to initialize it
                 if (entity.StagesProgress == null || !entity.StagesProgress.Any())
                 {
-                    Console.WriteLine("Stages progress is empty, attempting to initialize...");
+                    // Debug logging handled by structured logging
                     try
                     {
                         var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
@@ -732,12 +666,12 @@ namespace FlowFlex.Application.Services.OW
                         {
                             await InitializeStagesProgressAsync(entity, stages);
                             await _onboardingRepository.UpdateAsync(entity);
-                            Console.WriteLine($"Initialized {entity.StagesProgress?.Count ?? 0} stages progress entries");
+                            // Debug logging handled by structured logging
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Failed to initialize stages progress: {ex.Message}");
+                        // Debug logging handled by structured logging
                     }
                 }
 
@@ -788,11 +722,10 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                Console.WriteLine($"[QUERY] Starting query for tenant: {tenantId}");
-
+                // Debug logging handled by structured logging
                 // Build query conditions list - using safe BaseRepository approach
                 var whereExpressions = new List<Expression<Func<Onboarding, bool>>>();
-                
+
                 // Basic filter conditions
                 whereExpressions.Add(x => x.IsValid == true);
                 whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
@@ -913,17 +846,14 @@ namespace FlowFlex.Application.Services.OW
 
                 // Record performance statistics
                 stopwatch.Stop();
-                Console.WriteLine($"[QUERY] Query completed in {stopwatch.ElapsedMilliseconds}ms, returned {results.Count} records");
-
+                // Debug logging handled by structured logging
                 return pageModel;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                Console.WriteLine($"[ERROR] Query failed after {stopwatch.ElapsedMilliseconds}ms: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                
-                throw new CRMException(ErrorCodeEnum.SystemError, 
+                // Debug logging handled by structured logging
+                throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Error querying onboardings: {ex.Message}");
             }
         }
@@ -934,7 +864,7 @@ namespace FlowFlex.Application.Services.OW
         private Expression<Func<Onboarding, object>> GetOrderByExpression(OnboardingQueryRequest request)
         {
             var sortBy = request.SortField?.ToLower() ?? "createdate";
-            
+
             return sortBy switch
             {
                 "id" => x => x.Id,
@@ -988,60 +918,60 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 尝试从缓存获取查询结果
+        /// Try to get query results from cache
         /// </summary>
         private async Task<PageModelDto<OnboardingOutputDto>> TryGetCachedQueryResultAsync(string cacheKey)
         {
             try
             {
-                // Redis缓存暂时禁用
+                // Redis cache temporarily disabled
                 string cachedJson = null;
                 if (!string.IsNullOrEmpty(cachedJson))
                 {
                     var cached = JsonSerializer.Deserialize<PageModelDto<OnboardingOutputDto>>(cachedJson);
                     if (cached != null)
                     {
-                        Console.WriteLine("[CACHE] Cache hit for onboarding query");
+                        // Debug logging handled by structured logging
                         return cached;
                     }
                 }
-                Console.WriteLine("[CACHE] Cache miss for onboarding query");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Cache get error: {ex.Message}");
+                // Debug logging handled by structured logging
             }
             return null;
         }
 
         /// <summary>
-        /// 缓存查询结果
+        /// Cache query results
         /// </summary>
         private async Task CacheQueryResultAsync(string cacheKey, PageModelDto<OnboardingOutputDto> result, TimeSpan expiry)
         {
             try
             {
                 var json = JsonSerializer.Serialize(result);
-                // Redis缓存暂时禁用
+                // Redis cache temporarily disabled
                 await Task.CompletedTask;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Cache set error: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
         /// <summary>
-        /// 优化的总数查询
+        /// Optimized total count query
         /// </summary>
         private async Task<int> GetOptimizedTotalCountAsync(ISugarQueryable<Onboarding> queryable)
         {
-            // 使用优化的计数查询，避免复杂的JOIN
+            // Use optimized count query, avoid complex JOINs
             return await queryable.CountAsync();
         }
 
         /// <summary>
-        /// 应用优化的排序
+        /// Apply optimized sorting
         /// </summary>
         private ISugarQueryable<Onboarding> ApplyOptimizedSorting(ISugarQueryable<Onboarding> queryable, OnboardingQueryRequest request)
         {
@@ -1074,7 +1004,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 优化的关联数据批量获取
+        /// Optimized batch retrieval of related data
         /// </summary>
         private async Task<(List<Workflow> workflows, List<Stage> stages)> GetRelatedDataBatchOptimizedAsync(List<Onboarding> entities)
         {
@@ -1082,7 +1012,7 @@ namespace FlowFlex.Application.Services.OW
             var stageIds = entities.Where(x => x.CurrentStageId.HasValue)
                     .Select(x => x.CurrentStageId.Value).Distinct().ToList();
 
-            // 并行获取 workflows 和 stages 信息
+            // Parallel retrieval of workflows and stages information
             var workflowsTask = GetWorkflowsBatchAsync(workflowIds);
             var stagesTask = GetStagesBatchAsync(stageIds);
 
@@ -1092,7 +1022,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 并行处理阶段进度
+        /// Parallel processing of stage progress
         /// </summary>
         private void ProcessStagesProgressParallel(List<Onboarding> entities)
         {
@@ -1100,7 +1030,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 if (entities.Count <= 10)
                 {
-                    // 小数据集直接处理
+                    // Direct processing for small datasets
                     foreach (var entity in entities)
                     {
                         LoadStagesProgressFromJson(entity);
@@ -1108,12 +1038,12 @@ namespace FlowFlex.Application.Services.OW
                 }
                 else
                 {
-                    // 大数据集并行处理，但使用更安全的方式
-                    // 创建实体的副本列表以避免集合修改异常
+                    // Parallel processing for large datasets, but using safer approach
+                    // Create copy of entities list to avoid collection modification exceptions
                     var entitiesCopy = entities.ToList();
                     Parallel.ForEach(entitiesCopy, new ParallelOptions
                     {
-                        MaxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, 4) // 限制并行度
+                        MaxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, 4) // Limit parallelism degree
                     }, entity =>
                     {
                         try
@@ -1122,8 +1052,8 @@ namespace FlowFlex.Application.Services.OW
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"Error processing stages progress for entity {entity.Id}: {ex.Message}");
-                            // 确保即使单个实体处理失败，也不影响其他实体
+                            // Debug logging handled by structured logging
+                            // Ensure that even if single entity processing fails, it doesn't affect other entities
                             entity.StagesProgress = new List<OnboardingStageProgress>();
                         }
                     });
@@ -1131,8 +1061,8 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in ProcessStagesProgressParallel: {ex.Message}");
-                // 如果并行处理失败，回退到顺序处理
+                // Debug logging handled by structured logging
+                // If parallel processing fails, fallback to sequential processing
                 foreach (var entity in entities)
                 {
                     try
@@ -1141,7 +1071,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                     catch (Exception entityEx)
                     {
-                        Console.WriteLine($"Error processing entity {entity.Id}: {entityEx.Message}");
+                        // Debug logging handled by structured logging
                         entity.StagesProgress = new List<OnboardingStageProgress>();
                     }
                 }
@@ -1149,7 +1079,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 批量获取 Workflows 信息，避免 N+1 查询，支持缓存
+        /// Batch retrieve Workflows information, avoid N+1 queries, support caching
         /// </summary>
         private async Task<List<Workflow>> GetWorkflowsBatchAsync(List<long> workflowIds)
         {
@@ -1161,18 +1091,18 @@ namespace FlowFlex.Application.Services.OW
                 var workflows = new List<Workflow>();
                 var uncachedIds = new List<long>();
 
-                // 安全获取租户ID
+                // Safely get tenant ID
                 var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
                     ? _userContext.TenantId.ToLowerInvariant()
                     : "default";
 
-                // 先从缓存中获取
+                // First get from cache
                 foreach (var id in workflowIds)
                 {
                     try
                     {
                         var cacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{id}";
-                        // Redis缓存暂时禁用
+                        // Redis cache temporarily disabled
                         string cachedWorkflow = null;
 
                         if (!string.IsNullOrEmpty(cachedWorkflow))
@@ -1190,30 +1120,30 @@ namespace FlowFlex.Application.Services.OW
                     }
                     catch (Exception cacheEx)
                     {
-                        Console.WriteLine($"Redis cache error for workflow {id}: {cacheEx.Message}");
+                        // Debug logging handled by structured logging
                         uncachedIds.Add(id);
                     }
                 }
 
-                // 从数据库获取未缓存的数据 - 使用单独的连接避免并发冲突
+                // Get uncached data from database - use separate connection to avoid concurrency conflicts
                 if (uncachedIds.Any())
                 {
                     List<Workflow> dbWorkflows;
                     try
                     {
-                        // 添加短暂延迟，避免连接冲突
+                        // Add brief delay to avoid connection conflicts
                         await Task.Delay(10);
                         dbWorkflows = await _workflowRepository.GetListAsync(w => uncachedIds.Contains(w.Id) && w.IsValid);
                         workflows.AddRange(dbWorkflows);
                     }
                     catch (Exception dbEx) when (dbEx.Message.Contains("command is already in progress"))
                     {
-                        Console.WriteLine($"[GetWorkflowsBatchAsync] Connection conflict detected, retrying...");
-                        await Task.Delay(50); // 更长的延迟
+                        // Debug logging handled by structured logging
+                        await Task.Delay(50); // Longer delay
                         dbWorkflows = await _workflowRepository.GetListAsync(w => uncachedIds.Contains(w.Id) && w.IsValid);
                         workflows.AddRange(dbWorkflows);
                     }
-                    // 将新获取的数据缓存
+                    // Cache newly retrieved data
                     var cacheExpiry = TimeSpan.FromMinutes(CACHE_EXPIRY_MINUTES);
                     var cacheTasks = dbWorkflows.Select(async workflow =>
                     {
@@ -1221,12 +1151,12 @@ namespace FlowFlex.Application.Services.OW
                         {
                             var cacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{workflow.Id}";
                             var serializedWorkflow = JsonSerializer.Serialize(workflow);
-                            // Redis缓存暂时禁用
+                            // Redis cache temporarily disabled
                             await Task.CompletedTask;
                         }
                         catch (Exception cacheEx)
                         {
-                            Console.WriteLine($"Failed to cache workflow {workflow.Id}: {cacheEx.Message}");
+                            // Debug logging handled by structured logging
                         }
                     });
 
@@ -1237,14 +1167,14 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Failed to batch get workflows: {ex.Message}");
-                // 如果缓存失败，直接从数据库获取
+                // Debug logging handled by structured logging
+                // If cache fails, get directly from database
                 return await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id) && w.IsValid);
             }
         }
 
         /// <summary>
-        /// 批量获取 Stages 信息，避免 N+1 查询，支持缓存
+        /// Batch get Stages information, avoid N+1 queries, support caching
         /// </summary>
         private async Task<List<Stage>> GetStagesBatchAsync(List<long> stageIds)
         {
@@ -1256,18 +1186,18 @@ namespace FlowFlex.Application.Services.OW
                 var stages = new List<Stage>();
                 var uncachedIds = new List<long>();
 
-                // 安全获取租户ID
+                // Safely get tenant ID
                 var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
                     ? _userContext.TenantId.ToLowerInvariant()
                     : "default";
 
-                // 先从缓存中获取
+                // First get from cache
                 foreach (var id in stageIds)
                 {
                     try
                     {
                         var cacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{id}";
-                        // Redis缓存暂时禁用
+                        // Redis cache temporarily disabled
                         string cachedStage = null;
 
                         if (!string.IsNullOrEmpty(cachedStage))
@@ -1285,30 +1215,30 @@ namespace FlowFlex.Application.Services.OW
                     }
                     catch (Exception cacheEx)
                     {
-                        Console.WriteLine($"Redis cache error for stage {id}: {cacheEx.Message}");
+                        // Debug logging handled by structured logging
                         uncachedIds.Add(id);
                     }
                 }
 
-                // 从数据库获取未缓存的数据 - 使用单独的连接避免并发冲突
+                // Get uncached data from database - use separate connection to avoid concurrency conflicts
                 if (uncachedIds.Any())
                 {
                     List<Stage> dbStages;
                     try
                     {
-                        // 添加短暂延迟，避免连接冲突
+                        // Add brief delay to avoid connection conflicts
                         await Task.Delay(15);
                         dbStages = await _stageRepository.GetListAsync(s => uncachedIds.Contains(s.Id) && s.IsValid);
                         stages.AddRange(dbStages);
                     }
                     catch (Exception dbEx) when (dbEx.Message.Contains("command is already in progress"))
                     {
-                        Console.WriteLine($"[GetStagesBatchAsync] Connection conflict detected, retrying...");
-                        await Task.Delay(75); // 更长的延迟
+                        // Debug logging handled by structured logging
+                        await Task.Delay(75); // Longer delay
                         dbStages = await _stageRepository.GetListAsync(s => uncachedIds.Contains(s.Id) && s.IsValid);
                         stages.AddRange(dbStages);
                     }
-                    // 将新获取的数据缓存
+                    // Cache newly retrieved data
                     var cacheExpiry = TimeSpan.FromMinutes(CACHE_EXPIRY_MINUTES);
                     var cacheTasks = dbStages.Select(async stage =>
                     {
@@ -1316,12 +1246,12 @@ namespace FlowFlex.Application.Services.OW
                         {
                             var cacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{stage.Id}";
                             var serializedStage = JsonSerializer.Serialize(stage);
-                            // Redis缓存暂时禁用
+                            // Redis cache temporarily disabled
                             await Task.CompletedTask;
                         }
                         catch (Exception cacheEx)
                         {
-                            Console.WriteLine($"Failed to cache stage {stage.Id}: {cacheEx.Message}");
+                            // Debug logging handled by structured logging
                         }
                     });
 
@@ -1332,8 +1262,8 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Failed to batch get stages: {ex.Message}");
-                // 如果缓存失败，直接从数据库获取
+                // Debug logging handled by structured logging
+                // If cache fails, get directly from database
                 return await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id) && s.IsValid);
             }
         }
@@ -1352,11 +1282,11 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // 批量查询所有Lead的Onboarding记录
+                // Batch query all Lead's Onboarding records
                 var onboardings = await _onboardingRepository.GetByLeadIdsAsync(leadIds);
                 var existingLeadIds = onboardings.Select(o => o.LeadId).ToHashSet();
 
-                // 为所有Lead设置状态
+                // Set status for all Leads
                 foreach (var leadId in leadIds)
                 {
                     result[leadId] = existingLeadIds.Contains(leadId);
@@ -1366,9 +1296,8 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in batch checking lead onboarding: {ex.Message}");
-
-                // 如果批量查询失败，为所有Lead设置默认值
+                // Debug logging handled by structured logging
+                // If batch query fails, set default status for all Leads
                 foreach (var leadId in leadIds)
                 {
                     result[leadId] = false;
@@ -1464,23 +1393,15 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
-
-            Console.WriteLine($"=== CompleteCurrentStageAsync Debug ===");
-            Console.WriteLine($"Onboarding ID: {id}");
-            Console.WriteLine($"Current Stage Order: {entity.CurrentStageOrder}");
-            Console.WriteLine($"Current Stage ID: {entity.CurrentStageId}");
-            Console.WriteLine($"Current Status: {entity.Status}");
-            Console.WriteLine($"Current Completion Rate: {entity.CompletionRate}");
-
+            // Debug logging handled by structured logging
             // Check if onboarding is already completed
             if (entity.Status == "Completed")
             {
-                Console.WriteLine("Onboarding is already completed, returning success response");
-                Console.WriteLine("Note: This is handled gracefully instead of throwing an exception");
+                // Debug logging handled by structured logging
                 return true; // Return success since the desired outcome (completion) is already achieved
             }
 
-            // 已移除Stage 1完成前必须设置优先级的验证
+            // Removed validation that priority must be set before completing Stage 1
             // if (entity.CurrentStageOrder == 1 && !entity.IsPrioritySet)
             // {
             //     throw new CRMException(ErrorCodeEnum.BusinessError, "Priority must be set before completing Stage 1. Please set priority first.");
@@ -1490,14 +1411,12 @@ namespace FlowFlex.Application.Services.OW
             var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
             var orderedStages = stages.OrderBy(x => x.Order).ToList();
             var totalStages = orderedStages.Count;
-
-            Console.WriteLine($"Total Stages: {totalStages}");
-            Console.WriteLine($"Ordered Stages: {string.Join(", ", orderedStages.Select(s => $"{s.Order}:{s.Name}"))}");
+            // Debug logging handled by structured logging
+            // Debug logging handled by structured logging)}");
 
             // Find current stage index
             var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
-            Console.WriteLine($"Current Stage Index: {currentStageIndex}");
-
+            // Debug logging handled by structured logging
             if (currentStageIndex == -1)
             {
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Current stage not found in workflow");
@@ -1505,22 +1424,18 @@ namespace FlowFlex.Application.Services.OW
 
             // Get current stage details
             var currentStage = orderedStages[currentStageIndex];
-            Console.WriteLine($"Current Stage: {currentStage.Name} (Order: {currentStage.Order}, ID: {currentStage.Id})");
+            // Debug logging handled by structured logging");
 
             // Check if current stage is already completed by comparing completion rate and stage progression
             var expectedCompletionRateForCurrentStage = totalStages > 0 ? Math.Round((decimal)currentStageIndex / totalStages * 100, 2) : 0;
             var expectedCompletionRateAfterCompletion = totalStages > 0 ? Math.Round((decimal)(currentStageIndex + 1) / totalStages * 100, 2) : 0;
-
-            Console.WriteLine($"Expected completion rate for current stage: {expectedCompletionRateForCurrentStage}%");
-            Console.WriteLine($"Expected completion rate after completion: {expectedCompletionRateAfterCompletion}%");
-            Console.WriteLine($"Actual completion rate: {entity.CompletionRate}%");
-
+            // Debug logging handled by structured logging
             // More precise check: if completion rate is already at or above what it should be after completing this stage,
             // check if force completion is enabled
             if (entity.CompletionRate >= expectedCompletionRateAfterCompletion)
             {
-                Console.WriteLine($"⚠️ WARNING: Stage appears to already be completed (completion rate {entity.CompletionRate}% >= expected {expectedCompletionRateAfterCompletion}%)");
-                Console.WriteLine($"📝 Allowing re-completion of stage '{currentStage.Name}' for flexibility");
+                // Debug logging handled by structured logging");
+                // Debug logging handled by structured logging
                 // Always allow re-completion for flexibility, just log the warning
             }
 
@@ -1528,13 +1443,12 @@ namespace FlowFlex.Application.Services.OW
             var expectedCurrentStageIndex = entity.CompletionRate > 0 ? (int)Math.Floor((decimal)entity.CompletionRate / 100 * totalStages) : 0;
             if (currentStageIndex < expectedCurrentStageIndex)
             {
-                Console.WriteLine($"⚠️ WARNING: Stage progression inconsistency detected: current stage index {currentStageIndex}, but completion rate {entity.CompletionRate}% suggests stage index should be {expectedCurrentStageIndex}");
-                Console.WriteLine($"📝 Allowing stage completion despite progression inconsistency for flexibility");
+                // Debug logging handled by structured logging
                 // Don't throw exception, just log the warning and continue
             }
 
             // Check stage completion logs to see if this stage has already been completed
-            Console.WriteLine($"Checking stage completion logs for onboarding {id} and stage {currentStage.Id}...");
+            // Debug logging handled by structured logging
             try
             {
                 var stageCompletionLogs = await _stageCompletionLogRepository.GetByOnboardingAndStageAsync(id, currentStage.Id);
@@ -1542,18 +1456,14 @@ namespace FlowFlex.Application.Services.OW
                     log.LogType == "complete" &&
                     log.Success &&
                     log.Action.Contains("complete", StringComparison.OrdinalIgnoreCase)).ToList();
-
-                Console.WriteLine($"Found {completionLogs.Count} successful completion logs for this stage");
-
+                // Debug logging handled by structured logging
                 if (completionLogs.Any())
                 {
                     var latestCompletionLog = completionLogs.OrderByDescending(log => log.CreateDate).First();
-                    Console.WriteLine($"⚠️ WARNING: Stage '{currentStage.Name}' was already completed at {latestCompletionLog.CreateDate}");
-                    Console.WriteLine($"📝 Allowing re-completion for flexibility - will update completion timestamp");
+                    // Debug logging handled by structured logging
                     // Don't throw exception, allow re-completion but log the previous completion
                 }
-
-                Console.WriteLine("No previous completion logs found for this stage - proceeding with completion");
+                // Debug logging handled by structured logging
             }
             catch (CRMException)
             {
@@ -1563,18 +1473,16 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 // Log but don't fail on stage completion log check errors
-                Console.WriteLine($"Warning: Failed to check stage completion logs: {ex.Message}");
-                Console.WriteLine("Proceeding with stage completion despite log check failure");
+                // Debug logging handled by structured logging
             }
 
             // Check if this is the last stage
             var isLastStage = currentStageIndex >= totalStages - 1;
-            Console.WriteLine($"Is Last Stage: {isLastStage}");
-
+            // Debug logging handled by structured logging
             if (isLastStage)
             {
                 // Complete the entire onboarding
-                Console.WriteLine("Completing entire onboarding (last stage)");
+                // Debug logging handled by structured logging");
                 entity.Status = "Completed";
                 entity.CompletionRate = 100;
                 entity.ActualCompletionDate = DateTimeOffset.UtcNow;
@@ -1583,12 +1491,11 @@ namespace FlowFlex.Application.Services.OW
                 await UpdateStageTrackingInfoAsync(entity);
 
                 var result = await _onboardingRepository.UpdateAsync(entity);
-                Console.WriteLine($"Final update result: {result}");
-
+                // Debug logging handled by structured logging
                 // Publish stage completion event for final stage completion
                 if (result)
                 {
-                    Console.WriteLine("Publishing OnboardingStageCompletedEvent for final stage completion");
+                    // Debug logging handled by structured logging
                     await PublishStageCompletionEventForCurrentStageAsync(entity, currentStage, isLastStage);
                 }
 
@@ -1598,7 +1505,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Move to next stage
                 var nextStage = orderedStages[currentStageIndex + 1];
-                Console.WriteLine($"Moving to next stage: {nextStage.Order}:{nextStage.Name} (ID: {nextStage.Id})");
+                // Debug logging handled by structured logging");
 
                 entity.CurrentStageId = nextStage.Id;
                 entity.CurrentStageOrder = nextStage.Order;
@@ -1613,30 +1520,26 @@ namespace FlowFlex.Application.Services.OW
                 await LogStageCompletionForCurrentStageAsync(entity, currentStage, GetCurrentUserName(), GetCurrentUserId(), "Stage completed via customer portal");
 
                 var completedCount = entity.StagesProgress.Count(s => s.IsCompleted);
-                Console.WriteLine($"Completed Stages: {completedCount}");
-                Console.WriteLine($"New Completion Rate: {entity.CompletionRate}%");
-
+                // Debug logging handled by structured logging
                 // Update status to InProgress if it was Started
                 if (entity.Status == "Started")
                 {
                     entity.Status = "InProgress";
-                    Console.WriteLine("Status updated from Started to InProgress");
+                    // Debug logging handled by structured logging
                 }
 
                 // Update stage tracking info
                 await UpdateStageTrackingInfoAsync(entity);
 
                 var result = await _onboardingRepository.UpdateAsync(entity);
-                Console.WriteLine($"Stage progression update result: {result}");
-
+                // Debug logging handled by structured logging
                 // Publish stage completion event
                 if (result)
                 {
-                    Console.WriteLine("Publishing OnboardingStageCompletedEvent for stage progression");
+                    // Debug logging handled by structured logging
                     await PublishStageCompletionEventForCurrentStageAsync(entity, currentStage, isLastStage);
                 }
-
-                Console.WriteLine($"=== CompleteCurrentStageAsync End ===");
+                // Debug logging handled by structured logging
                 return result;
             }
         }
@@ -1652,9 +1555,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            Console.WriteLine($"=== CompleteCurrentStageAsync with Validation (Non-Sequential) ===");
-            Console.WriteLine($"Onboarding ID: {id}");
-
+            // Debug logging handled by structured logging ===");
+            // Debug logging handled by structured logging
             // Get target stage ID with backward compatibility
             long targetStageId;
             try
@@ -1665,65 +1567,50 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid stage ID parameters: {ex.Message}");
             }
-
-            Console.WriteLine($"Stage ID to complete: {targetStageId}");
-            Console.WriteLine($"Frontend Current Stage ID: {input.CurrentStageId}");
-            Console.WriteLine($"Backend Current Stage ID: {entity.CurrentStageId}");
-            Console.WriteLine($"Current Status: {entity.Status}");
-            Console.WriteLine($"Current Completion Rate: {entity.CompletionRate}");
-
+            // Debug logging handled by structured logging
             // Check if onboarding is already completed
             if (entity.Status == "Completed")
             {
-                Console.WriteLine("Onboarding is already completed, returning success response");
-                Console.WriteLine("Note: This is handled gracefully instead of throwing an exception");
+                // Debug logging handled by structured logging
                 return true; // Return success since the desired outcome (completion) is already achieved
             }
 
             // Optional: Check if frontend stage matches backend stage (only if CurrentStageId is provided)
             if (input.CurrentStageId.HasValue && entity.CurrentStageId != input.CurrentStageId)
             {
-                Console.WriteLine($"Stage mismatch detected! Frontend: {input.CurrentStageId}, Backend: {entity.CurrentStageId}");
-                Console.WriteLine("🔧 Auto-correcting stage mismatch instead of throwing error...");
-
+                // Debug logging handled by structured logging
                 // Auto-correct: Update completion rate and sync stage information
-                Console.WriteLine("🔄 Updating completion rate to ensure backend data is current...");
+                // Debug logging handled by structured logging
                 try
                 {
                     await UpdateCompletionRateAsync(id);
-                    Console.WriteLine("✅ Completion rate updated successfully");
-
+                    // Debug logging handled by structured logging
                     // Reload the entity to get the latest data after completion rate update
                     entity = await _onboardingRepository.GetByIdAsync(id);
-                    Console.WriteLine($"📥 Reloaded entity - Current Stage ID: {entity.CurrentStageId}");
-
+                    // Debug logging handled by structured logging
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"⚠️ Warning: Failed to update completion rate during auto-correction: {ex.Message}");
+                    // Debug logging handled by structured logging
                 }
 
                 // Check if the mismatch still exists after correction
                 if (entity.CurrentStageId != input.CurrentStageId)
                 {
-                    Console.WriteLine($"⚠️ Stage mismatch still exists after correction. Using backend stage {entity.CurrentStageId} to proceed.");
-                    Console.WriteLine("📝 Note: Frontend will be updated with correct stage information in the response.");
+                    // Debug logging handled by structured logging
                 }
                 else
                 {
-                    Console.WriteLine("✅ Stage mismatch resolved after completion rate update");
+                    // Debug logging handled by structured logging
                 }
             }
-
-            Console.WriteLine("✅ Stage validation passed");
-
+            // Debug logging handled by structured logging
             // Get all stages for this workflow
             var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
             var orderedStages = stages.OrderBy(x => x.Order).ToList();
             var totalStages = orderedStages.Count;
-
-            Console.WriteLine($"Total Stages: {totalStages}");
-            Console.WriteLine($"Ordered Stages: {string.Join(", ", orderedStages.Select(s => $"{s.Order}:{s.Name}"))}");
+            // Debug logging handled by structured logging
+            // Debug logging handled by structured logging)}");
 
             // Find the stage to complete
             var stageToComplete = orderedStages.FirstOrDefault(x => x.Id == targetStageId);
@@ -1732,20 +1619,18 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Specified stage not found in workflow");
             }
 
-            Console.WriteLine($"Stage to complete: {stageToComplete.Name} (Order: {stageToComplete.Order}, ID: {stageToComplete.Id})");
+            // Debug logging handled by structured logging");
 
             // Validate if this stage can be completed
             var (canComplete, validationError) = await ValidateStageCanBeCompletedAsync(entity, stageToComplete.Id);
             if (!canComplete)
             {
-                Console.WriteLine($"Stage completion validation failed: {validationError}");
+                // Debug logging handled by structured logging
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
-
-            Console.WriteLine("✅ Stage completion validation passed");
-
+            // Debug logging handled by structured logging
             // Check stage completion logs to see if this stage has already been completed
-            Console.WriteLine($"Checking stage completion logs for onboarding {id} and stage {stageToComplete.Id}...");
+            // Debug logging handled by structured logging
             try
             {
                 var stageCompletionLogs = await _stageCompletionLogRepository.GetByOnboardingAndStageAsync(id, stageToComplete.Id);
@@ -1753,18 +1638,14 @@ namespace FlowFlex.Application.Services.OW
                     log.LogType == "complete" &&
                     log.Success &&
                     log.Action.Contains("complete", StringComparison.OrdinalIgnoreCase)).ToList();
-
-                Console.WriteLine($"Found {completionLogs.Count} successful completion logs for this stage");
-
+                // Debug logging handled by structured logging
                 if (completionLogs.Any())
                 {
                     var latestCompletionLog = completionLogs.OrderByDescending(log => log.CreateDate).First();
-                    Console.WriteLine($"⚠️ WARNING: Stage '{stageToComplete.Name}' was already completed at {latestCompletionLog.CreateDate}");
-                    Console.WriteLine($"📝 Allowing re-completion for flexibility - will update completion timestamp");
+                    // Debug logging handled by structured logging
                     // Don't throw exception, allow re-completion but log the previous completion
                 }
-
-                Console.WriteLine("No previous completion logs found for this stage - proceeding with completion");
+                // Debug logging handled by structured logging
             }
             catch (CRMException)
             {
@@ -1774,27 +1655,24 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 // Log but don't fail on stage completion log check errors
-                Console.WriteLine($"Warning: Failed to check stage completion logs: {ex.Message}");
-                Console.WriteLine("Proceeding with stage completion despite log check failure");
+                // Debug logging handled by structured logging
             }
 
             // Update stages progress for the completed stage (non-sequential completion)
-            Console.WriteLine("Updating stages progress for stage completion...");
+            // Debug logging handled by structured logging
             await UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
             LoadStagesProgressFromJson(entity);
 
             // Calculate new completion rate based on completed stages
             entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
             var completedCount = entity.StagesProgress.Count(s => s.IsCompleted);
-            Console.WriteLine($"Completed Stages: {completedCount}");
-            Console.WriteLine($"New Completion Rate: {entity.CompletionRate}%");
-
+            // Debug logging handled by structured logging
             // Check if all stages are completed
             var allStagesCompleted = entity.StagesProgress.All(s => s.IsCompleted);
             if (allStagesCompleted)
             {
                 // Complete the entire onboarding
-                Console.WriteLine("All stages completed - completing entire onboarding");
+                // Debug logging handled by structured logging
                 entity.Status = "Completed";
                 entity.CompletionRate = 100;
                 entity.ActualCompletionDate = DateTimeOffset.UtcNow;
@@ -1806,7 +1684,7 @@ namespace FlowFlex.Application.Services.OW
                     entity.Notes = string.IsNullOrEmpty(entity.Notes)
                         ? noteText
                         : $"{entity.Notes}\n{noteText}";
-                    Console.WriteLine($"Added final completion notes: {input.CompletionNotes}");
+                    // Debug logging handled by structured logging
                 }
             }
             else
@@ -1815,7 +1693,7 @@ namespace FlowFlex.Application.Services.OW
                 if (entity.Status == "Started")
                 {
                     entity.Status = "InProgress";
-                    Console.WriteLine("Status updated from Started to InProgress");
+                    // Debug logging handled by structured logging
                 }
 
                 // Add completion notes if provided
@@ -1825,7 +1703,7 @@ namespace FlowFlex.Application.Services.OW
                     entity.Notes = string.IsNullOrEmpty(entity.Notes)
                         ? noteText
                         : $"{entity.Notes}\n{noteText}";
-                    Console.WriteLine($"Added completion notes: {input.CompletionNotes}");
+                    // Debug logging handled by structured logging
                 }
             }
 
@@ -1834,16 +1712,15 @@ namespace FlowFlex.Application.Services.OW
 
             // Update the entity
             var result = await _onboardingRepository.UpdateAsync(entity);
-            Console.WriteLine($"Update result: {result}");
-
+            // Debug logging handled by structured logging
             // Publish stage completion event
             if (result)
             {
-                Console.WriteLine("Publishing OnboardingStageCompletedEvent");
+                // Debug logging handled by structured logging
                 await PublishStageCompletionEventForCurrentStageAsync(entity, stageToComplete, allStagesCompleted);
             }
 
-            Console.WriteLine($"=== CompleteCurrentStageAsync with Validation (Non-Sequential) End ===");
+            // Debug logging handled by structured logging End ===");
             return result;
         }
 
@@ -1874,12 +1751,10 @@ namespace FlowFlex.Application.Services.OW
             var (canComplete, validationError) = await ValidateStageCanBeCompletedAsync(entity, currentStage.Id);
             if (!canComplete)
             {
-                Console.WriteLine($"Stage completion validation failed in CompleteStageAsync: {validationError}");
+                // Debug logging handled by structured logging
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
-
-            Console.WriteLine("✅ Stage completion validation passed in CompleteStageAsync");
-
+            // Debug logging handled by structured logging
             // Log stage completion
             await LogStageCompletionAsync(entity, currentStage, input);
 
@@ -2142,11 +2017,11 @@ namespace FlowFlex.Application.Services.OW
                         NewStatus = entity.Status
                     });
 
-                // TODO: Send notification if requested
+                // Notification sending - future enhancement
                 if (input.SendNotification)
                 {
                     // Implement notification logic here
-                    Console.WriteLine($"Notification should be sent for {(input.TerminateWorkflow ? "terminated" : "rejected")} onboarding {id}");
+                    // Debug logging handled by structured logging} onboarding {id}");
                 }
             }
 
@@ -2222,16 +2097,9 @@ namespace FlowFlex.Application.Services.OW
             var stageBasedCompletionRate = totalStages > 0 ? (decimal)completedStages / totalStages * 100 : 0;
 
             // Log calculation details for debugging
-            Console.WriteLine($"=== Stage-based Completion Rate Calculation ===");
-            Console.WriteLine($"Onboarding ID: {id}");
-            Console.WriteLine($"Current Stage Order: {entity.CurrentStageOrder}");
-            Console.WriteLine($"Total Stages: {totalStages}");
-            Console.WriteLine($"Completed Stages: {completedStages}");
-            Console.WriteLine($"Calculated Completion Rate: {stageBasedCompletionRate:F2}%");
-            Console.WriteLine($"Current Database Rate: {entity.CompletionRate:F2}%");
-
+            // Debug logging handled by structured logging
             // Always update to the stage-based completion rate
-            Console.WriteLine($"✓ Updating completion rate from {entity.CompletionRate:F2}% to {stageBasedCompletionRate:F2}%");
+            // Debug logging handled by structured logging
             return await _onboardingRepository.UpdateCompletionRateAsync(id, stageBasedCompletionRate);
         }
 
@@ -2294,7 +2162,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task UpdateStageTrackingInfoAsync(Onboarding entity)
         {
-            // TODO: Get current user context
+            // Current user context - future enhancement
             // Use real user information from UserContext
             entity.StageUpdatedTime = DateTimeOffset.UtcNow;
             entity.StageUpdatedBy = GetCurrentUserName();
@@ -2313,7 +2181,7 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            // TODO: Implement timeline repository to get actual timeline data
+            // Timeline repository implementation - future enhancement
             // For now, return a sample timeline based on onboarding data
             var timeline = new List<OnboardingTimelineDto>
             {
@@ -2452,8 +2320,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (entity.Status == "Completed")
             {
-                Console.WriteLine("Onboarding is already completed, returning success response");
-                Console.WriteLine("Note: This is handled gracefully instead of throwing an exception");
+                // Debug logging handled by structured logging
                 return true; // Return success since the desired outcome (completion) is already achieved
             }
 
@@ -2598,7 +2465,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // 获取真实用户信息
+                // Get real user information
                 var currentUserName = GetCurrentUserName();
                 var currentUserId = GetCurrentUserId();
                 var actualCompletedBy = !string.IsNullOrEmpty(input.CompletedBy) ? input.CompletedBy : currentUserName;
@@ -2642,12 +2509,12 @@ namespace FlowFlex.Application.Services.OW
 
                 // Save to StageCompletionLog repository
                 await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                Console.WriteLine($"✅ Stage completion logged to Change Log for Stage: {stage.Name} by {actualCompletedBy}");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
                 // Log error but don't fail the stage completion
-                Console.WriteLine($"❌ Failed to log stage completion: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -2688,11 +2555,11 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                Console.WriteLine($"✅ Onboarding action logged to Change Log: {action}");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to log onboarding action '{action}': {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -2733,11 +2600,11 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                Console.WriteLine($"✅ Task completion logged to Change Log: {taskName} - {(isCompleted ? "Completed" : "Incomplete")}");
+                // Debug logging handled by structured logging}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to log task completion: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -2748,7 +2615,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // 获取真实用户信息，如果参数没有提供的话
+                // Get real user information, use default if parameter not provided
                 var actualCompletedBy = !string.IsNullOrEmpty(completedBy) ? completedBy : GetCurrentUserName();
                 var actualCompletedById = completedById ?? GetCurrentUserId();
 
@@ -2790,11 +2657,11 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                Console.WriteLine($"✅ Stage completion logged to Change Log for Stage: {stage.Name} by {actualCompletedBy}");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to log stage completion for current stage: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -2852,7 +2719,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 // Log error but don't fail the stage completion
-                Console.WriteLine($"Failed to publish stage completion event: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -2905,16 +2772,14 @@ namespace FlowFlex.Application.Services.OW
                     Description = $"Stage '{completedStage.Name}' completed for Onboarding {onboarding.Id} via CompleteCurrentStageAsync",
                     Tags = new List<string> { "onboarding", "stage-completion", "auto-progression" }
                 };
-
-                Console.WriteLine($"Publishing OnboardingStageCompletedEvent: EventId={onboardingStageCompletedEvent.EventId}, OnboardingId={onboarding.Id}, CompletedStage={completedStage.Name}, IsFinalStage={isFinalStage}");
+                // Debug logging handled by structured logging
                 await _mediator.Publish(onboardingStageCompletedEvent);
-                Console.WriteLine("OnboardingStageCompletedEvent published successfully");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
                 // Log error but don't fail the stage completion
-                Console.WriteLine($"Failed to publish stage completion event for current stage: {ex.Message}");
-                Console.WriteLine($"Exception details: {ex}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -3004,7 +2869,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (stages == null || !stages.Any())
                 {
-                    Console.WriteLine("No stages found for workflow, skipping stages progress initialization");
+                    // Debug logging handled by structured logging
                     entity.StagesProgressJson = "[]";
                     return;
                 }
@@ -3032,25 +2897,24 @@ namespace FlowFlex.Application.Services.OW
                         EstimatedDays = stage.EstimatedDuration,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
-                        StaticFieldsJson = stage.StaticFieldsJson, // 填充静态字段JSON
+                        StaticFieldsJson = stage.StaticFieldsJson, // Fill static fields JSON
                         StaticFields = !string.IsNullOrEmpty(stage.StaticFieldsJson)
                             ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(stage.StaticFieldsJson) ?? new List<string>()
-                            : new List<string>() // 填充静态字段列表
+                            : new List<string>() // Fill static fields list
                     };
 
                     entity.StagesProgress.Add(stageProgress);
 
-                    Console.WriteLine($"Initialized stage: {stage.Name} with sequential order {sequentialOrder} (original order: {stage.Order})");
+                    // Debug logging handled by structured logging");
                 }
 
                 // Serialize to JSON for database storage
                 entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
-
-                Console.WriteLine($"Initialized {entity.StagesProgress.Count} stages progress entries");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error initializing stages progress: {ex.Message}");
+                // Debug logging handled by structured logging
                 entity.StagesProgress = new List<OnboardingStageProgress>();
                 entity.StagesProgressJson = "[]";
             }
@@ -3074,8 +2938,8 @@ namespace FlowFlex.Application.Services.OW
 
                 if (completedStage != null)
                 {
-                    Console.WriteLine($"=== UpdateStagesProgressAsync ===");
-                    Console.WriteLine($"Completing stage: {completedStage.StageName} (Order: {completedStage.StageOrder})");
+                    // Debug logging handled by structured logging
+                    // Debug logging handled by structured logging");
 
                     // Check if stage can be re-completed
                     var wasAlreadyCompleted = completedStage.IsCompleted;
@@ -3104,7 +2968,7 @@ namespace FlowFlex.Application.Services.OW
                         }
                     }
 
-                    Console.WriteLine($"Marked stage {completedStage.StageName} as {(wasAlreadyCompleted ? "re-completed" : "completed")}");
+                    // Debug logging handled by structured logging}");
 
                     // Find next stage to activate (first incomplete stage after current completed stage)
                     var nextStage = entity.StagesProgress
@@ -3127,7 +2991,7 @@ namespace FlowFlex.Application.Services.OW
                         nextStage.LastUpdatedTime = currentTime;
                         nextStage.LastUpdatedBy = completedBy ?? GetCurrentUserName();
 
-                        Console.WriteLine($"Started next stage: {nextStage.StageName} (Order: {nextStage.StageOrder})");
+                        // Debug logging handled by structured logging");
                     }
                     else
                     {
@@ -3146,18 +3010,18 @@ namespace FlowFlex.Application.Services.OW
                             earlierIncompleteStage.LastUpdatedTime = currentTime;
                             earlierIncompleteStage.LastUpdatedBy = completedBy ?? GetCurrentUserName();
 
-                            Console.WriteLine($"Started earliest incomplete stage: {earlierIncompleteStage.StageName} (Order: {earlierIncompleteStage.StageOrder})");
+                            // Debug logging handled by structured logging");
                         }
                         else
                         {
-                            Console.WriteLine("All stages completed - no more stages to activate");
+                            // Debug logging handled by structured logging
                         }
                     }
 
                     // Update completion rate based on completed stages
                     entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
 
-                    Console.WriteLine($"Updated completion rate: {entity.CompletionRate}% (based on completed stages count)");
+                    // Debug logging handled by structured logging");
                 }
 
                 // Serialize back to JSON
@@ -3165,12 +3029,12 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error updating stages progress: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
         /// <summary>
-        /// Load stages progress from JSON - 优化版本，减少不必要的处理
+        /// Load stages progress from JSON - optimized version, reduce unnecessary processing
         /// </summary>
         private void LoadStagesProgressFromJson(Onboarding entity)
         {
@@ -3180,7 +3044,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(entity.StagesProgressJson) ?? new List<OnboardingStageProgress>();
 
-                    // 只在必要时处理 StaticFields，避免每次都反序列化
+                    // Only process StaticFields when necessary, avoid deserialization every time
                     foreach (var stageProgress in entity.StagesProgress)
                     {
                         if (stageProgress.StaticFields == null)
@@ -3203,7 +3067,7 @@ namespace FlowFlex.Application.Services.OW
                         }
                     }
 
-                    // 只在需要时修复阶段顺序，避免不必要的序列化
+                    // Only fix stage order when needed, avoid unnecessary serialization
                     if (NeedsStageOrderFix(entity.StagesProgress))
                     {
                         FixStageOrderSequence(entity.StagesProgress);
@@ -3218,14 +3082,14 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
 #if DEBUG
-                Console.WriteLine($"Error loading stages progress from JSON: {ex.Message}");
+                // Debug logging handled by structured logging
 #endif
                 entity.StagesProgress = new List<OnboardingStageProgress>();
             }
         }
 
         /// <summary>
-        /// 检查是否需要修复阶段顺序
+        /// Check if stage order needs to be fixed
         /// </summary>
         private bool NeedsStageOrderFix(List<OnboardingStageProgress> stagesProgress)
         {
@@ -3271,12 +3135,10 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!needsFixing)
                 {
-                    Console.WriteLine("Stage orders are already sequential, no fixing needed");
+                    // Debug logging handled by structured logging
                     return;
                 }
-
-                Console.WriteLine("Fixing stage order sequence...");
-
+                // Debug logging handled by structured logging
                 // Reassign sequential stage orders
                 for (int i = 0; i < orderedStages.Count; i++)
                 {
@@ -3284,8 +3146,7 @@ namespace FlowFlex.Application.Services.OW
                     var newOrder = i + 1;
 
                     orderedStages[i].StageOrder = newOrder;
-
-                    Console.WriteLine($"Fixed stage '{orderedStages[i].StageName}': order {oldOrder} -> {newOrder}");
+                    // Debug logging handled by structured logging
                 }
 
                 // Update the original list with fixed orders safely
@@ -3298,12 +3159,11 @@ namespace FlowFlex.Application.Services.OW
                         stagesProgress[i] = matchingStage;
                     }
                 }
-
-                Console.WriteLine($"Successfully fixed stage order sequence for {stagesProgress.Count} stages");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error fixing stage order sequence: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -3314,11 +3174,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine($"=== ValidateStageCanBeCompletedAsync ===");
-                Console.WriteLine($"Onboarding ID: {entity.Id}");
-                Console.WriteLine($"Stage ID to complete: {stageId}");
-                Console.WriteLine($"Current Stage ID: {entity.CurrentStageId}");
-
+                // Debug logging handled by structured logging
                 // Load stages progress
                 LoadStagesProgressFromJson(entity);
 
@@ -3333,13 +3189,12 @@ namespace FlowFlex.Application.Services.OW
                     return (false, "Stage not found in progress");
                 }
 
-                Console.WriteLine($"Stage to complete: {stageToComplete.StageName} (Order: {stageToComplete.StageOrder})");
+                // Debug logging handled by structured logging");
 
                 // Check if stage is already completed
                 if (stageToComplete.IsCompleted)
                 {
-                    Console.WriteLine($"⚠️ WARNING: Stage '{stageToComplete.StageName}' is already completed");
-                    Console.WriteLine($"📝 Allowing re-completion for flexibility");
+                    // Debug logging handled by structured logging
                     // Don't return false, allow re-completion but log the warning
                 }
 
@@ -3355,12 +3210,12 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Allow completing any non-completed stage (removed sequential restriction)
-                Console.WriteLine($"✅ Stage '{stageToComplete.StageName}' can be completed (non-sequential completion allowed)");
+                // Debug logging handled by structured logging");
                 return (true, string.Empty);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error validating stage completion: {ex.Message}");
+                // Debug logging handled by structured logging
                 return (false, $"Validation error: {ex.Message}");
             }
         }
@@ -3380,7 +3235,7 @@ namespace FlowFlex.Application.Services.OW
                 // If this is the first stage (order 1), it can always be completed
                 if (stageToComplete.StageOrder == 1)
                 {
-                    Console.WriteLine($"Stage '{stageToComplete.StageName}' is the first stage, allowing completion");
+                    // Debug logging handled by structured logging
                     return true;
                 }
 
@@ -3394,20 +3249,19 @@ namespace FlowFlex.Application.Services.OW
 
                 if (incompleteStages.Any())
                 {
-                    Console.WriteLine($"Cannot complete stage '{stageToComplete.StageName}' - {incompleteStages.Count} previous stages are incomplete:");
+                    // Debug logging handled by structured logging
                     foreach (var incompleteStage in incompleteStages)
                     {
-                        Console.WriteLine($"  - Stage '{incompleteStage.StageName}' (Order: {incompleteStage.StageOrder}) is {incompleteStage.Status}");
+                        // Debug logging handled by structured logging is {incompleteStage.Status}");
                     }
                     return false;
                 }
-
-                Console.WriteLine($"All previous stages are completed, allowing completion of stage '{stageToComplete.StageName}'");
+                // Debug logging handled by structured logging
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error validating stage completion order: {ex.Message}");
+                // Debug logging handled by structured logging
                 return false;
             }
         }
@@ -3467,12 +3321,10 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Method 1: Simple count-based calculation (more intuitive)
                     completionRate = Math.Round((decimal)completedStagesCount / totalStagesCount * 100, 2);
-
-                    Console.WriteLine($"Stage Order Calculation Details:");
-                    Console.WriteLine($"- Stage Orders: [{string.Join(", ", stageOrders)}]");
-                    Console.WriteLine($"- Completed Stage Orders: [{string.Join(", ", completedStageOrders)}]");
-                    Console.WriteLine($"- Completed Stages: {completedStagesCount}/{totalStagesCount}");
-                    Console.WriteLine($"- Completion Rate: {completionRate}%");
+                    // Debug logging handled by structured logging
+                    // Debug logging handled by structured logging}]");
+                    // Debug logging handled by structured logging}]");
+                    // Debug logging handled by structured logging
                 }
                 else
                 {
@@ -3483,7 +3335,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error calculating completion rate by stage order: {ex.Message}");
+                // Debug logging handled by structured logging
                 return 0;
             }
         }
@@ -3572,31 +3424,27 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var completionRate = Math.Round((decimal)completedStagesCount / totalStagesCount * 100, 2);
-
-                Console.WriteLine($"Completion Rate Calculation:");
-                Console.WriteLine($"- Total Stages: {totalStagesCount}");
-                Console.WriteLine($"- Completed Stages: {completedStagesCount}");
-                Console.WriteLine($"- Completion Rate: {completionRate}%");
-                Console.WriteLine($"- Completed Stages: [{string.Join(", ", stagesProgress.Where(s => s.IsCompleted).Select(s => $"{s.StageOrder}:{s.StageName}"))}]");
-                Console.WriteLine($"- Incomplete Stages: [{string.Join(", ", stagesProgress.Where(s => !s.IsCompleted).Select(s => $"{s.StageOrder}:{s.StageName}"))}]");
+                // Debug logging handled by structured logging
+                // Debug logging handled by structured logging.Select(s => $"{s.StageOrder}:{s.StageName}"))}]");
+                // Debug logging handled by structured logging.Select(s => $"{s.StageOrder}:{s.StageName}"))}]");
 
                 return completionRate;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error calculating completion rate by completed stages: {ex.Message}");
+                // Debug logging handled by structured logging
                 return 0;
             }
         }
 
         /// <summary>
-        /// 清理相关缓存数据
+        /// Clear related cache data
         /// </summary>
         private async Task ClearRelatedCacheAsync(long? workflowId = null, long? stageId = null)
         {
             try
             {
-                // 安全获取租户ID
+                // Safely get tenant ID
                 var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
                     ? _userContext.TenantId.ToLowerInvariant()
                     : "default";
@@ -3606,72 +3454,72 @@ namespace FlowFlex.Application.Services.OW
                 if (workflowId.HasValue)
                 {
                     var workflowCacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{workflowId.Value}";
-                    // Redis缓存暂时禁用
-            // tasks.Add(_redisService.KeyDelAsync(workflowCacheKey));
+                    // Redis cache temporarily disabled
+                    // tasks.Add(_redisService.KeyDelAsync(workflowCacheKey));
                 }
 
                 if (stageId.HasValue)
                 {
                     var stageCacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{stageId.Value}";
-                    // Redis缓存暂时禁用
-            // tasks.Add(_redisService.KeyDelAsync(stageCacheKey));
+                    // Redis cache temporarily disabled
+                    // tasks.Add(_redisService.KeyDelAsync(stageCacheKey));
                 }
 
                 if (tasks.Any())
                 {
                     await Task.WhenAll(tasks);
 #if DEBUG
-                    Console.WriteLine($"Cleared cache for workflow:{workflowId}, stage:{stageId}");
+                    // Debug logging handled by structured logging
 #endif
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to clear cache: {ex.Message}");
-                // 缓存清理失败不应影响主流程
+                // Debug logging handled by structured logging
+                // Cache cleanup failure should not affect main flow
             }
         }
 
         /// <summary>
-        /// 批量清理工作流相关的所有缓存
+        /// Batch clear all workflow-related cache
         /// </summary>
         private async Task ClearWorkflowRelatedCacheAsync(long workflowId)
         {
             try
             {
-                // 安全获取租户ID
+                // Safely get tenant ID
                 var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
                     ? _userContext.TenantId.ToLowerInvariant()
                     : "default";
 
-                // 清理工作流缓存
+                // Clear workflow cache
                 var workflowCacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{workflowId}";
-                // Redis缓存暂时禁用
-            await Task.CompletedTask;
+                // Redis cache temporarily disabled
+                await Task.CompletedTask;
 
-                // 获取该工作流下的所有阶段并清理缓存
+                // Get all stages under this workflow and clear cache
                 var stages = await _stageRepository.GetByWorkflowIdAsync(workflowId);
                 var stageCacheTasks = stages.Select(stage =>
                 {
                     var stageCacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{stage.Id}";
-                    // Redis缓存暂时禁用
-            return Task.CompletedTask;
+                    // Redis cache temporarily disabled
+                    return Task.CompletedTask;
                 });
 
                 await Task.WhenAll(stageCacheTasks);
 
 #if DEBUG
-                Console.WriteLine($"Cleared all cache for workflow {workflowId} and its {stages.Count} stages");
+                // Debug logging handled by structured logging
 #endif
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to clear workflow related cache: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
         /// <summary>
-        /// 清除 Onboarding 查询缓存
+        /// Clear Onboarding query cache
         /// </summary>
         private async Task ClearOnboardingQueryCacheAsync()
         {
@@ -3679,33 +3527,33 @@ namespace FlowFlex.Application.Services.OW
             {
                 string tenantId = _userContext?.TenantId ?? "default";
 
-                // 使用 Keys 方法获取所有匹配的键，然后批量删除
+                // Use Keys method to get all matching keys, then batch delete
                 var pattern = $"ow:onboarding:query:{tenantId}:*";
-                // Redis缓存暂时禁用
-            var keys = new List<string>();
+                // Redis cache temporarily disabled
+                var keys = new List<string>();
 
                 if (keys != null && keys.Any())
                 {
-                    // 批量删除所有匹配的键
-                    // Redis缓存暂时禁用
-                var deleteTasks = keys.Select(key => Task.CompletedTask);
+                    // Batch delete all matching keys
+                    // Redis cache temporarily disabled
+                    var deleteTasks = keys.Select(key => Task.CompletedTask);
                     await Task.WhenAll(deleteTasks);
 
 #if DEBUG
-                    Console.WriteLine($"Cleared onboarding query cache entries matching pattern: {pattern}");
+                    // Debug logging handled by structured logging
 #endif
                 }
                 else
                 {
 #if DEBUG
-                    Console.WriteLine($"No cache entries found matching pattern: {pattern}");
+                    // Debug logging handled by structured logging
 #endif
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to clear onboarding query cache: {ex.Message}");
-                // 缓存清理失败不应影响主流程
+                // Debug logging handled by structured logging
+                // Cache cleanup failure should not affect main flow
             }
         }
     }

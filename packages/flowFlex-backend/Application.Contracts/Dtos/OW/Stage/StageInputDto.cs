@@ -11,13 +11,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// <summary>
         /// Workflow Id
         /// </summary>
-        
+
         public long WorkflowId { get; set; }
 
         /// <summary>
         /// Stage name
         /// </summary>
-        
+
         [StringLength(100)]
         public string Name { get; set; }
 

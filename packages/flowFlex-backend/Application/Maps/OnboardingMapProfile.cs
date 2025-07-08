@@ -38,4 +38,4 @@ namespace FlowFlex.Application.Maps
                 .ForAllMembers(opt => opt.Ignore());
         }
     }
-} 
+}

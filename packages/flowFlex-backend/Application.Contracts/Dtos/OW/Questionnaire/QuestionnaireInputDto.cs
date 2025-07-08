@@ -12,7 +12,7 @@ public class QuestionnaireInputDto
     /// <summary>
     /// 问卷名称
     /// </summary>
-    
+
     [StringLength(100)]
     public string Name { get; set; }
 
@@ -133,7 +133,7 @@ public class NullableLongConverter : JsonConverter<long?>
         {
             return null;
         }
-        
+
         if (reader.TokenType == JsonToken.String)
         {
             var stringValue = reader.Value?.ToString();
@@ -147,12 +147,12 @@ public class NullableLongConverter : JsonConverter<long?>
             }
             return null; // 无法解析时返回 null 而不是抛出异常
         }
-        
+
         if (reader.TokenType == JsonToken.Integer)
         {
             return Convert.ToInt64(reader.Value);
         }
-        
+
         return null;
     }
 }

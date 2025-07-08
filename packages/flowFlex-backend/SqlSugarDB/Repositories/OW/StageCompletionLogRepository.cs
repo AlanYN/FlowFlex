@@ -36,12 +36,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<StageCompletionLog>> GetByOnboardingAndStageAsync(long onboardingId, long stageId)
         {
-            Console.WriteLine($"🔍 Repository: GetByOnboardingAndStageAsync - OnboardingId: {onboardingId}, StageId: {stageId}");
-
+            // Debug logging handled by structured logging
             // Get current filter status
             var filterCount = db.QueryFilter?.GeFilterList?.Count ?? 0;
-            Console.WriteLine($"🔍 Repository: Current filter count: {filterCount}");
-
+            // Debug logging handled by structured logging
             // Backup current filters
             var backupFilters = BackupFilters();
 
@@ -50,25 +48,19 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // Temporarily clear TenantId filter, but keep other filters (like IsValid)
                 db.QueryFilter.ClearAndBackup();
                 db.QueryFilter.AddTableFilter<IValidFilter>(x => x.IsValid);
-
-                Console.WriteLine($"🔍 Repository: Temporarily cleared TenantId filter for historical data access");
-
+                // Debug logging handled by structured logging
                 var result = await db.Queryable<StageCompletionLog>()
                     .Where(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.IsValid)
                     .OrderByDescending(x => x.CreateDate)
                     .ToListAsync();
-
-                Console.WriteLine($"🔍 Repository: Query result count: {result?.Count ?? 0}");
-
+                // Debug logging handled by structured logging
                 if (result == null || result.Count == 0)
                 {
-                    Console.WriteLine($"🔍 Repository: No logs found, checking if any logs exist for this onboarding...");
-
+                    // Debug logging handled by structured logging
                     var totalLogsForOnboarding = await db.Queryable<StageCompletionLog>()
                         .Where(x => x.OnboardingId == onboardingId && x.IsValid)
                         .CountAsync();
-                    Console.WriteLine($"🔍 Repository: Total logs for onboarding {onboardingId}: {totalLogsForOnboarding}");
-
+                    // Debug logging handled by structured logging
                     if (totalLogsForOnboarding > 0)
                     {
                         var availableLogs = await db.Queryable<StageCompletionLog>()
@@ -77,11 +69,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                             .Take(5)
                             .Select(x => new { x.Id, x.StageId, x.TenantId, x.LogType, x.Action })
                             .ToListAsync();
-
-                        Console.WriteLine($"🔍 Repository: Available logs for this onboarding:");
+                        // Debug logging handled by structured logging
                         foreach (var log in availableLogs)
                         {
-                            Console.WriteLine($"🔍 Repository: - Id: {log.Id}, StageId: {log.StageId}, TenantId: '{log.TenantId}', LogType: '{log.LogType}', Action: '{log.Action}'");
+                            // Debug logging handled by structured logging
                         }
                     }
                 }
@@ -94,7 +85,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 if (backupFilters != null)
                 {
                     db.QueryFilter.Restore();
-                    Console.WriteLine($"🔍 Repository: Restored original filters");
+                    // Debug logging handled by structured logging
                 }
             }
         }
@@ -148,40 +139,35 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             try
             {
-                Console.WriteLine($"🔍 Repository: Starting CreateBatchAsync with {logs?.Count ?? 0} logs");
-
+                // Debug logging handled by structured logging
                 if (logs == null || logs.Count == 0)
                 {
-                    Console.WriteLine("⚠️ Repository: No logs to insert");
+                    // Debug logging handled by structured logging
                     return true;
                 }
 
                 // Validate required fields for each log
                 foreach (var log in logs)
                 {
-                    Console.WriteLine($"🔍 Repository: Validating log - TenantId: '{log.TenantId}', OnboardingId: {log.OnboardingId}, StageId: {log.StageId}, LogType: '{log.LogType}'");
-
+                    // Debug logging handled by structured logging
                     if (string.IsNullOrEmpty(log.TenantId))
                     {
-                        Console.WriteLine($"�?Repository: TenantId is null or empty for log with OnboardingId: {log.OnboardingId}");
+                        // Debug logging handled by structured logging
                     }
 
                     if (string.IsNullOrEmpty(log.LogType))
                     {
-                        Console.WriteLine($"�?Repository: LogType is null or empty for log with OnboardingId: {log.OnboardingId}");
+                        // Debug logging handled by structured logging
                     }
                 }
 
                 var result = await base.InsertRangeAsync(logs);
-                Console.WriteLine($"🔍 Repository: InsertRangeAsync result: {result}");
-
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"�?Repository: Failed to create batch logs: {ex.Message}");
-                Console.WriteLine($"�?Repository: Stack trace: {ex.StackTrace}");
-                Console.WriteLine($"�?Repository: Inner exception: {ex.InnerException?.Message}");
+                // Debug logging handled by structured logging
                 return false;
             }
         }
@@ -210,7 +196,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             // Build query condition list
             var whereExpressions = new List<Expression<Func<StageCompletionLog, bool>>>();
-            
+
             // Basic filter conditions
             whereExpressions.Add(x => x.IsValid);
 

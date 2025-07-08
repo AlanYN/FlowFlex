@@ -1,1 +1,3 @@
 packages/flowFlex-backend/WebApi/wwwroot/
+*.cursorules
+packages/flowFlex-common/.cursor/mcp.json

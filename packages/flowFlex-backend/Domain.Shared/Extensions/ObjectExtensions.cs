@@ -23,10 +23,10 @@ public static class ObjectExtensions
     {
         if (value == null && target == null)
             return true;
-        
+
         if (value == null || target == null)
             return false;
-            
+
         return value.Equals(target);
     }
-} 
+}

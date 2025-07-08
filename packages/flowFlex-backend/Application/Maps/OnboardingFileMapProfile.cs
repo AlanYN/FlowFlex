@@ -74,4 +74,4 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ExtendedProperties, opt => opt.Ignore());
         }
     }
-} 
+}

@@ -10,7 +10,7 @@ public class DuplicateChecklistInputDto
     /// <summary>
     /// 新清单名称
     /// </summary>
-    
+
     [StringLength(100)]
     public string Name { get; set; }
 

@@ -19,21 +19,21 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Onboarding ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "onboarding_id")]
         public long OnboardingId { get; set; }
 
         /// <summary>
         /// Stage ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "stage_id")]
         public long StageId { get; set; }
 
         /// <summary>
         /// Static Field Name
         /// </summary>
-       
+
         [StringLength(100)]
         [SugarColumn(ColumnName = "field_name")]
         public string FieldName { get; set; }

@@ -40,4 +40,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <returns>Whether update was successful</returns>
         Task<bool> UpdateEmailVerificationStatusAsync(long userId, bool verified);
     }
-} 
+}

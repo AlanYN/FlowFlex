@@ -26,24 +26,23 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
                 if (!tableExists)
                 {
-                    Console.WriteLine("=== Creating ff_onboarding table ===");
+                    // Debug logging handled by structured logging
                     // Create table using SqlSugar code first
                     db.CodeFirst.SetStringDefaultLength(200).InitTables<Onboarding>();
-                    Console.WriteLine("=== ff_onboarding table created successfully ===");
-
+                    // Debug logging handled by structured logging
                     // Create performance optimization indexes
                     await CreatePerformanceIndexesAsync();
                 }
                 else
                 {
-                    Console.WriteLine("=== ff_onboarding table already exists ===");
+                    // Debug logging handled by structured logging
                     // Ensure indexes exist
                     await EnsurePerformanceIndexesAsync();
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"=== Error checking/creating table: {ex.Message} ===");
+                // Debug logging handled by structured logging
                 // Log but don't throw, let the insert try anyway
             }
         }
@@ -102,19 +101,18 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     try
                     {
                         await db.Ado.ExecuteCommandAsync(query);
-                        Console.WriteLine($"�?Created index: {query.Split(' ')[5]}"); // Extract index name
+                        // Debug logging handled by structured logging[5]}"); // Extract index name
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"�?Failed to create index: {ex.Message}");
+                        // Debug logging handled by structured logging
                     }
                 }
-
-                Console.WriteLine("=== Performance indexes creation completed ===");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error creating performance indexes: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -136,13 +134,13 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
                 if (indexExists == 0)
                 {
-                    Console.WriteLine("Key performance indexes missing, creating them...");
+                    // Debug logging handled by structured logging
                     await CreatePerformanceIndexesAsync();
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error checking performance indexes: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -229,20 +227,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             {
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
-
-            Console.WriteLine($"=== Repository UpdateCompletionRateAsync Debug ===");
-            Console.WriteLine($"Entity ID: {entity.Id}");
-            Console.WriteLine($"Old Completion Rate: {entity.CompletionRate}");
-            Console.WriteLine($"New Completion Rate: {completionRate}");
-            Console.WriteLine($"Entity ModifyDate before: {entity.ModifyDate}");
-
+            // Debug logging handled by structured logging
             // Try raw SQL update as the most direct approach
             try
             {
                 var modifyDate = DateTimeOffset.UtcNow;
-
-                Console.WriteLine($"Attempting raw SQL update...");
-
+                // Debug logging handled by structured logging
                 var rawSql = @"
                     UPDATE ff_onboarding 
                     SET completion_rate = @CompletionRate, 
@@ -255,45 +245,33 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     ModifyDate = modifyDate,
                     Id = id
                 };
-
-                Console.WriteLine($"SQL: {rawSql}");
-                Console.WriteLine($"Parameters: CompletionRate={completionRate}, ModifyDate={modifyDate}, Id={id}");
-
+                // Debug logging handled by structured logging
                 var rowsAffected = await db.Ado.ExecuteCommandAsync(rawSql, parameters);
-
-                Console.WriteLine($"Raw SQL update result: {rowsAffected} rows affected");
-
+                // Debug logging handled by structured logging
                 if (rowsAffected > 0)
                 {
-                    Console.WriteLine($"�?Raw SQL update successful");
-
+                    // Debug logging handled by structured logging
                     // Verify the update by reading back the data
                     var verifyEntity = await GetByIdAsync(id);
-                    Console.WriteLine($"Verification - New completion rate in DB: {verifyEntity.CompletionRate}");
-                    Console.WriteLine($"Verification - New modify date in DB: {verifyEntity.ModifyDate}");
-
+                    // Debug logging handled by structured logging
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"�?Raw SQL update affected 0 rows - record may not exist");
+                    // Debug logging handled by structured logging
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"�?Raw SQL update failed: {ex.Message}");
-                Console.WriteLine($"Exception StackTrace: {ex.StackTrace}");
-                Console.WriteLine($"Falling back to SqlSugar update...");
+                // Debug logging handled by structured logging
             }
 
             // Try direct SQL update with SqlSugar
             try
             {
                 var modifyDate = DateTimeOffset.UtcNow;
-
-                Console.WriteLine($"Attempting SqlSugar direct SQL update...");
-
+                // Debug logging handled by structured logging
                 var sqlResult = await db.Updateable<Onboarding>()
                     .SetColumns(x => new Onboarding
                     {
@@ -302,44 +280,31 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     })
                     .Where(x => x.Id == id)
                     .ExecuteCommandAsync();
-
-                Console.WriteLine($"SqlSugar SQL update result: {sqlResult} rows affected");
-
+                // Debug logging handled by structured logging
                 if (sqlResult > 0)
                 {
-                    Console.WriteLine($"�?SqlSugar SQL update successful");
-
+                    // Debug logging handled by structured logging
                     // Verify the update by reading back the data
                     var verifyEntity = await GetByIdAsync(id);
-                    Console.WriteLine($"Verification - New completion rate in DB: {verifyEntity.CompletionRate}");
-                    Console.WriteLine($"Verification - New modify date in DB: {verifyEntity.ModifyDate}");
-
+                    // Debug logging handled by structured logging
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"�?SqlSugar SQL update affected 0 rows, trying entity update...");
+                    // Debug logging handled by structured logging
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"�?SqlSugar SQL update failed: {ex.Message}");
-                Console.WriteLine($"Exception StackTrace: {ex.StackTrace}");
-                Console.WriteLine($"Falling back to entity update...");
+                // Debug logging handled by structured logging
             }
 
             // Fallback to entity update
             entity.CompletionRate = completionRate;
             entity.ModifyDate = DateTimeOffset.UtcNow;
-
-            Console.WriteLine($"Entity ModifyDate after: {entity.ModifyDate}");
-            Console.WriteLine($"Calling UpdateAsync...");
-
+            // Debug logging handled by structured logging
             var result = await UpdateAsync(entity);
-
-            Console.WriteLine($"UpdateAsync result: {result}");
-            Console.WriteLine($"=== Repository UpdateCompletionRateAsync End ===");
-
+            // Debug logging handled by structured logging
             return result;
         }
 

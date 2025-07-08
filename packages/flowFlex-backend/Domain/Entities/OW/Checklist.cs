@@ -7,13 +7,13 @@ namespace FlowFlex.Domain.Entities.OW;
 /// <summary>
 /// Checklist Entity - Task List
 /// </summary>
-    [SugarTable("ff_checklist")]
+[SugarTable("ff_checklist")]
 public class Checklist : EntityBaseCreateInfo
 {
     /// <summary>
     /// Checklist Name
     /// </summary>
-    
+
     [StringLength(100)]
     public string Name { get; set; }
 
@@ -46,17 +46,17 @@ public class Checklist : EntityBaseCreateInfo
     /// </summary>
     public bool IsTemplate { get; set; } = true;
 
-            /// <summary>
-        /// Template Source ID (if created from template instance)
-        /// </summary>
-        [SugarColumn(ColumnName = "template_id")]
-        public long? TemplateId { get; set; }
+    /// <summary>
+    /// Template Source ID (if created from template instance)
+    /// </summary>
+    [SugarColumn(ColumnName = "template_id")]
+    public long? TemplateId { get; set; }
 
-            /// <summary>
-        /// Completion Rate (0-100)
-        /// </summary>
-        [SugarColumn(ColumnName = "completion_rate")]
-        public decimal CompletionRate { get; set; } = 0;
+    /// <summary>
+    /// Completion Rate (0-100)
+    /// </summary>
+    [SugarColumn(ColumnName = "completion_rate")]
+    public decimal CompletionRate { get; set; } = 0;
 
     /// <summary>
     /// Total Task Count
@@ -78,17 +78,17 @@ public class Checklist : EntityBaseCreateInfo
     /// </summary>
     public bool IsActive { get; set; } = true;
 
-            /// <summary>
-        /// Associated Workflow ID (optional)
-        /// </summary>
-        [SugarColumn(ColumnName = "workflow_id")]
-        public long? WorkflowId { get; set; }
+    /// <summary>
+    /// Associated Workflow ID (optional)
+    /// </summary>
+    [SugarColumn(ColumnName = "workflow_id")]
+    public long? WorkflowId { get; set; }
 
-            /// <summary>
-        /// Associated Stage ID (optional)
-        /// </summary>
-        [SugarColumn(ColumnName = "stage_id")]
-        public long? StageId { get; set; }
+    /// <summary>
+    /// Associated Stage ID (optional)
+    /// </summary>
+    [SugarColumn(ColumnName = "stage_id")]
+    public long? StageId { get; set; }
 
     /// <summary>
     /// Task Items Collection

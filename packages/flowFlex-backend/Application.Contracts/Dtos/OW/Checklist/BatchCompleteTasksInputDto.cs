@@ -12,7 +12,7 @@ public class BatchCompleteTasksInputDto
     /// <summary>
     /// List of task IDs to complete
     /// </summary>
-    
+
     public List<long> TaskIds { get; set; } = new List<long>();
 
     /// <summary>

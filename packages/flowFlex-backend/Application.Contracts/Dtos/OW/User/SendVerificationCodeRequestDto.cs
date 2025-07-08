@@ -15,4 +15,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [StringLength(100, ErrorMessage = "Email length cannot exceed 100 characters")]
         public string Email { get; set; }
     }
-} 
+}

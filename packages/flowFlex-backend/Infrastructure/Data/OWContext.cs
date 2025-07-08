@@ -53,4 +53,4 @@ public static class StringExtensions
 
         return string.Concat(input.Select((x, i) => i > 0 && char.IsUpper(x) ? "_" + x : x.ToString())).ToLower();
     }
-} 
+}

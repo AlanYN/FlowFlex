@@ -39,8 +39,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Use file storage service to save file
                 var result = await _fileStorageService.SaveFileAsync(
-                    attachment.FileData, 
-                    "attachments", 
+                    attachment.FileData,
+                    "attachments",
                     tenantId);
 
                 if (!result.Success)
@@ -95,7 +95,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<List<AttachmentOutputDto>> GetAttachmentsAsync(List<long> Ids, CancellationToken cancellationToken)
         {
             await Task.Delay(10, cancellationToken);
-            
+
             var result = new List<AttachmentOutputDto>();
             foreach (var id in Ids)
             {
@@ -159,14 +159,14 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var attachment = await GetAttachmentByIdAsync(id, CancellationToken.None);
-                
+
                 // Try to get real file from file storage
                 try
                 {
                     // Extract file path from AccessUrl
                     var filePath = attachment.AccessUrl.Replace("/uploads/", "");
                     var (stream, fileName, contentType) = await _fileStorageService.GetFileAsync(filePath);
-                    
+
                     attachment.FileType = contentType;
                     return (stream, attachment);
                 }
@@ -185,4 +185,4 @@ namespace FlowFlex.Application.Services.OW
             }
         }
     }
-} 
+}

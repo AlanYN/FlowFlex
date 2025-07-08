@@ -13,14 +13,14 @@ public class ChecklistTaskCompletion : EntityBaseCreateInfo
     /// <summary>
     /// Onboarding ID
     /// </summary>
-   
+
     [SugarColumn(ColumnName = "onboarding_id")]
     public long OnboardingId { get; set; }
 
     /// <summary>
     /// Lead ID
     /// </summary>
-   
+
     [StringLength(100)]
     [SugarColumn(ColumnName = "lead_id")]
     public string LeadId { get; set; }
@@ -28,14 +28,14 @@ public class ChecklistTaskCompletion : EntityBaseCreateInfo
     /// <summary>
     /// Checklist ID
     /// </summary>
-   
+
     [SugarColumn(ColumnName = "checklist_id")]
     public long ChecklistId { get; set; }
 
     /// <summary>
     /// Task ID
     /// </summary>
-   
+
     [SugarColumn(ColumnName = "task_id")]
     public long TaskId { get; set; }
 

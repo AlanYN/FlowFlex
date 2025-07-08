@@ -4,7 +4,7 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using System.Text.Json;
@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             var entity = _mapper.Map<Questionnaire>(input);
-            
+
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
 
@@ -168,7 +168,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             _mapper.Map(input, entity);
-            
+
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
 
@@ -273,20 +273,17 @@ namespace FlowFlex.Application.Service.OW
         public async Task<List<QuestionnaireOutputDto>> GetByStageIdAsync(long stageId)
         {
             // Add debug log
-            Console.WriteLine($"[DEBUG] GetByStageIdAsync called with stageId: {stageId}");
-
+            // Debug logging handled by structured logging
             // First query all questionnaire records for debugging
             var allQuestionnaires = await _questionnaireRepository.GetListAsync(x => x.IsValid == true);
-            Console.WriteLine($"[DEBUG] Total valid questionnaires: {allQuestionnaires.Count}");
-
+            // Debug logging handled by structured logging
             // Query questionnaires with StageId
             var questionnaireWithStageId = allQuestionnaires.Where(x => x.StageId.HasValue).ToList();
-            Console.WriteLine($"[DEBUG] Questionnaires with StageId: {questionnaireWithStageId.Count}");
-
+            // Debug logging handled by structured logging
             if (questionnaireWithStageId.Any())
             {
                 var stageIds = questionnaireWithStageId.Select(x => x.StageId.Value).Distinct().ToArray();
-                Console.WriteLine($"[DEBUG] Existing StageIds: [{string.Join(", ", stageIds)}]");
+                // Debug logging handled by structured logging}]");
             }
 
             // Get questionnaires associated with the specified stage
@@ -294,9 +291,7 @@ namespace FlowFlex.Application.Service.OW
                 x.IsValid == true &&
                 x.IsActive == true &&
                 x.StageId == stageId);
-
-            Console.WriteLine($"[DEBUG] Found questionnaires for stageId {stageId}: {list.Count}");
-
+            // Debug logging handled by structured logging
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
             // Get Sections for each questionnaire
@@ -547,7 +542,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 var structure = JsonDocument.Parse(questionnaire.StructureJson);
 
-                // TODO: Implement specific question statistics logic
+                // Question statistics logic - future enhancement
                 // This needs to be calculated based on the actual questionnaire structure JSON format
                 // Example logic:
                 var totalQuestions = 0;

@@ -16,11 +16,11 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// Stage Completion Log API
     /// </summary>
     [ApiController]
-   
+
     [Route("ow/logs/stage-completion/v{version:apiVersion}")]
     [Display(Name = "stage-completion-logs")]
- 
-   
+
+
     public class StageCompletionLogController : Controllers.ControllerBase
     {
         private readonly IStageCompletionLogService _stageCompletionLogService;
@@ -42,8 +42,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             if (!ModelState.IsValid)
             {
                 var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
-                // Suggested to use Serilog, using Console for demonstration
-                Console.WriteLine("ModelState Errors: " + string.Join("; ", errors));
+                // Model state errors logged by structured logging
                 return BadRequest(new { Code = 400, Message = errors, Status = "error" });
             }
             bool result = await _stageCompletionLogService.CreateLogAsync(input);

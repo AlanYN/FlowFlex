@@ -21,4 +21,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [StringLength(6, MinimumLength = 6, ErrorMessage = "Verification code must be 6 digits")]
         public string VerificationCode { get; set; } = string.Empty;
     }
-} 
+}

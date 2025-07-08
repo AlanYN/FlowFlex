@@ -60,7 +60,7 @@ namespace FlowFlex.Application.Services.OW
         {
             // Check if email already exists
             var existingUser = await _userRepository.GetByEmailAsync(request.Email);
-            
+
             if (existingUser != null)
             {
                 // If email already exists, check if it's an unverified user
@@ -112,7 +112,7 @@ namespace FlowFlex.Application.Services.OW
         {
             // Get user
             var user = await _userRepository.GetByEmailAsync(request.Email);
-            
+
             // Generate verification code
             var verificationCode = GenerateVerificationCode();
 
@@ -120,7 +120,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Generate tenant ID based on email domain
                 var tenantId = TenantHelper.GetTenantIdByEmail(request.Email);
-                
+
                 // If user doesn't exist, create temporary user record (for registration flow)
                 user = new User
                 {
@@ -133,7 +133,7 @@ namespace FlowFlex.Application.Services.OW
                     VerificationCodeExpiry = DateTimeOffset.Now.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
                     TenantId = tenantId // Set tenant ID
                 };
-                
+
                 // Initialize create information with proper ID and timestamps
                 user.InitCreateInfo(null);
 
@@ -172,7 +172,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new Exception("No verification code found for this user. Please request a new verification code.");
             }
-            
+
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
                 _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
@@ -259,7 +259,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new Exception("No verification code found for this user. Please request a new verification code.");
             }
-            
+
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
                 _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
@@ -429,4 +429,4 @@ namespace FlowFlex.Application.Services.OW
             return _mapper.Map<UserDto>(user);
         }
     }
-} 
+}

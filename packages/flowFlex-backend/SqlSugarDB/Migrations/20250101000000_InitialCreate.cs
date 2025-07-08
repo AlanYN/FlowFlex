@@ -18,37 +18,37 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             // Set timezone
             db.Ado.ExecuteCommand("SET timezone = 'UTC'");
-            
+
             // Create extensions
             db.Ado.ExecuteCommand("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"");
 
             // 1. Create users table
             CreateUsersTable(db);
-            
+
             // 2. Create workflow table
             CreateWorkflowTable(db);
-            
+
             // 3. Create stage table
             CreateStageTable(db);
-            
+
             // 4. Create checklist table
             CreateChecklistTable(db);
-            
+
             // 5. Create checklist task table
             CreateChecklistTaskTable(db);
-            
+
             // 6. Create checklist task completion table
             CreateChecklistTaskCompletionTable(db);
-            
+
             // 7. Create questionnaire table
             CreateQuestionnaireTable(db);
-            
+
             // 8. Create questionnaire section table
             CreateQuestionnaireSectionTable(db);
-            
+
             // 9. Create questionnaire answers table
             CreateQuestionnaireAnswersTable(db);
-            
+
             // 10. Create onboarding table
             CreateOnboardingTable(db);
         }
@@ -69,7 +69,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_stage CASCADE");
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_workflow CASCADE");
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_users CASCADE");
-            
+
             // Drop functions
             db.Ado.ExecuteCommand("DROP FUNCTION IF EXISTS update_modify_date()");
         }
@@ -102,7 +102,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX idx_users_tenant_id ON ff_users(tenant_id);
                 CREATE INDEX idx_users_status ON ff_users(status);
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -134,7 +134,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX idx_workflow_status ON ff_workflow(status);
                 CREATE INDEX idx_workflow_is_active ON ff_workflow(is_active);
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -177,7 +177,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 ADD CONSTRAINT fk_stage_workflow 
                 FOREIGN KEY (workflow_id) REFERENCES ff_workflow(id) ON DELETE CASCADE;
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -215,7 +215,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX idx_checklist_workflow_id ON ff_checklist(workflow_id);
                 CREATE INDEX idx_checklist_stage_id ON ff_checklist(stage_id);
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -262,7 +262,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 ADD CONSTRAINT fk_checklist_task_checklist 
                 FOREIGN KEY (checklist_id) REFERENCES ff_checklist(id) ON DELETE CASCADE;
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -295,7 +295,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX idx_checklist_task_completion_task_id ON ff_checklist_task_completion(task_id);
                 CREATE INDEX idx_checklist_task_completion_lead_id ON ff_checklist_task_completion(lead_id);
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -338,7 +338,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX idx_questionnaire_workflow_id ON ff_questionnaire(workflow_id);
                 CREATE INDEX idx_questionnaire_stage_id ON ff_questionnaire(stage_id);
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -373,7 +373,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 ADD CONSTRAINT fk_questionnaire_section_questionnaire 
                 FOREIGN KEY (questionnaire_id) REFERENCES ff_questionnaire(id) ON DELETE CASCADE;
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -411,7 +411,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX idx_questionnaire_answers_stage_id ON ff_questionnaire_answers(stage_id);
                 CREATE INDEX idx_questionnaire_answers_questionnaire_id ON ff_questionnaire_answers(questionnaire_id);
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
 
@@ -475,8 +475,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 ADD CONSTRAINT fk_onboarding_current_stage 
                 FOREIGN KEY (current_stage_id) REFERENCES ff_stage(id) ON DELETE SET NULL;
             ";
-            
+
             db.Ado.ExecuteCommand(sql);
         }
     }
-} 
+}

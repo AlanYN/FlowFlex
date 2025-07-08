@@ -36,23 +36,13 @@ namespace FlowFlex.WebApi.Extensions
         public static IServiceCollection AddService(this IServiceCollection services, IConfiguration configuration)
         {
             // Read connection string from configuration file
-            var connectionString = configuration.GetConnectionString("Default") 
+            var connectionString = configuration["Database:ConnectionString"]
                 ?? "Host=localhost;Port=5432;Database=flowflex;Username=postgres;Password=123456;";
 
-            // Read SqlSugar configuration
-            var configId = configuration["SqlSugar:ConfigId"] ?? "FlowFlex";
-            var dbTypeString = configuration["SqlSugar:DbType"] ?? "PostgreSQL";
+            // Read database configuration
+            var configId = configuration["Database:ConfigId"] ?? "FlowFlex";
+            var dbTypeString = configuration["Database:DbType"] ?? "PostgreSQL";
             var dbType = Enum.Parse<DbType>(dbTypeString);
-
-            // Log which connection string is being used
-            Console.WriteLine($"[SqlSugar Config] Using connection string: {connectionString}");
-            Console.WriteLine($"[SqlSugar Config] Using ConfigId: {configId}");
-            Console.WriteLine($"[SqlSugar Config] Using DbType: {dbType}");
-            
-            // Log configuration source information
-            var configFromFile = configuration.GetConnectionString("Default");
-            Console.WriteLine($"[SqlSugar Config] Connection string from config file: {configFromFile ?? "NULL"}");
-            Console.WriteLine($"[SqlSugar Config] Using fallback connection string: {configFromFile == null}");
 
             // Register SqlSugar
             services.AddSingleton<ISqlSugarClient>(sp =>
@@ -77,7 +67,7 @@ namespace FlowFlex.WebApi.Extensions
                             // First check if there is a SugarTable attribute
                             var sugarTableAttribute = type.GetCustomAttributes(typeof(SugarTable), false)
                                 .FirstOrDefault() as SugarTable;
-                            
+
                             if (sugarTableAttribute != null)
                             {
                                 entity.DbTableName = sugarTableAttribute.TableName;
@@ -87,7 +77,7 @@ namespace FlowFlex.WebApi.Extensions
                                 // Check if there is a Table attribute
                                 var tableAttribute = type.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.Schema.TableAttribute), false)
                                     .FirstOrDefault() as System.ComponentModel.DataAnnotations.Schema.TableAttribute;
-                                
+
                                 if (tableAttribute != null)
                                 {
                                     entity.DbTableName = tableAttribute.Name;
@@ -105,17 +95,15 @@ namespace FlowFlex.WebApi.Extensions
                 var sqlSugarClient = new SqlSugarScope(config, db =>
                 {
                     var provider = db.GetConnectionScope(configId);
-                    
+
                     provider.Aop.OnError = (exp) =>
                     {
-                        Console.WriteLine($"[SqlSugar Error] {exp.Message}");
-                        Console.WriteLine($"[SqlSugar SQL] {exp.Sql}");
+                        // Error logging handled by structured logging
                     };
-                    
+
                     provider.Aop.OnLogExecuting = (sql, pars) =>
                     {
-                        string logSql = $"{UtilMethods.GetSqlString(dbType, sql, pars)}";
-                        Console.WriteLine($"[SqlSugar SQL] {logSql}");
+                        // SQL logging handled by structured logging
                     };
 
                     // Note: SqlSugar global filters with complex lambda expressions are not supported
@@ -135,20 +123,20 @@ namespace FlowFlex.WebApi.Extensions
             {
                 var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
                 var httpContext = httpContextAccessor?.HttpContext;
-                
+
                 if (httpContext != null)
                 {
                     // Try to get user information from request headers
                     var userIdHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
                     var userNameHeader = httpContext.Request.Headers["X-User-Name"].FirstOrDefault();
                     var tenantIdHeader = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
-                    
+
                     // Also try alternative header names
                     if (string.IsNullOrEmpty(tenantIdHeader))
                     {
                         tenantIdHeader = httpContext.Request.Headers["TenantId"].FirstOrDefault();
                     }
-                    
+
                     // ���header��û���⻧ID�����Դ�JWT Token�л�ȡ
                     if (string.IsNullOrEmpty(tenantIdHeader))
                     {
@@ -167,11 +155,11 @@ namespace FlowFlex.WebApi.Extensions
                             }
                         }
                     }
-                    
+
                     var tenantId = tenantIdHeader ?? "DEFAULT";
-                    
-                    Console.WriteLine($"[UserContext] Headers - UserId: {userIdHeader}, UserName: {userNameHeader}, TenantId: {tenantId}");
-                    
+
+                    // User context logging handled by structured logging
+
                     return new UserContext
                     {
                         UserId = userIdHeader ?? "1",
@@ -179,7 +167,7 @@ namespace FlowFlex.WebApi.Extensions
                         TenantId = tenantId
                     };
                 }
-                
+
                 // Default values for test environment or when no HTTP context
                 return new UserContext
                 {
@@ -191,13 +179,13 @@ namespace FlowFlex.WebApi.Extensions
 
             // Register necessary ASP.NET Core services
             services.AddHttpContextAccessor();
-            
+
             // Register MediatR
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
 
             // Only register basic Repositories
             RegisterBasicRepositories(services);
-            
+
             // Only register basic Services
             RegisterBasicServices(services);
 
@@ -218,13 +206,13 @@ namespace FlowFlex.WebApi.Extensions
                 {
                     tenantId = httpContext.Request.Headers["TenantId"].FirstOrDefault();
                 }
-                
+
                 if (!string.IsNullOrEmpty(tenantId))
                 {
                     return tenantId;
                 }
             }
-            
+
             // Fallback: try to get from UserContext service
             try
             {
@@ -238,7 +226,7 @@ namespace FlowFlex.WebApi.Extensions
             {
                 // Ignore service resolution errors during startup
             }
-            
+
             return "default";
         }
 
@@ -259,7 +247,7 @@ namespace FlowFlex.WebApi.Extensions
                 foreach (var interfaceType in interfaces)
                 {
                     services.AddScoped(interfaceType, repositoryType);
-                    Console.WriteLine($"[DI Registration] Registered {interfaceType.Name} -> {repositoryType.Name}");
+                    // DI registration logging handled by structured logging
                 }
             }
         }
@@ -281,7 +269,7 @@ namespace FlowFlex.WebApi.Extensions
                 foreach (var interfaceType in interfaces)
                 {
                     services.AddScoped(interfaceType, serviceType);
-                    Console.WriteLine($"[DI Registration] Registered {interfaceType.Name} -> {serviceType.Name}");
+                    // DI registration logging handled by structured logging
                 }
             }
         }

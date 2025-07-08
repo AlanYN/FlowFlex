@@ -25,4 +25,4 @@ namespace FlowFlex.Application.Contracts.Options
         /// </summary>
         public int ExpiryMinutes { get; set; } = 60;
     }
-} 
+}

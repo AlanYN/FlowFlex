@@ -95,7 +95,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             // Build query condition list
             var whereExpressions = new List<Expression<Func<Questionnaire, bool>>>();
-            
+
             // Basic filter conditions
             whereExpressions.Add(x => x.IsValid == true);
 
@@ -220,8 +220,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // Basic JSON validation
                 JsonDocument.Parse(structureJson);
 
-                // TODO: Add more specific structure validation logic here
-                // For example, validate required fields, question types, etc.
+                // Additional structure validation can be implemented here
+                // Future enhancement: validate required fields, question types, etc.
 
                 return true;
             }

@@ -16,6 +16,7 @@ using FlowFlex.Application.Services.OW;
 using FlowFlex.WebApi.Extensions;
 using FlowFlex.WebApi.Middlewares;
 using FlowFlex.SqlSugarDB.Extensions;
+using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.Domain.Shared.JsonConverters;
 using System;
 using System.Linq;
@@ -35,7 +36,7 @@ try
     assemblies.Add(typeof(FlowFlex.Application.Maps.UserMapProfile).Assembly); // Application assembly
     assemblies.Add(typeof(FlowFlex.Domain.Entities.OW.User).Assembly); // Domain assembly
     assemblies.Add(typeof(FlowFlex.Application.Contracts.Dtos.OW.User.UserDto).Assembly); // Application.Contracts assembly
-    
+
     // Also try loading from files as fallback
     var dllFiles = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "FlowFlex.*.dll");
     foreach (var dllFile in dllFiles)
@@ -51,14 +52,14 @@ try
         catch (Exception ex)
         {
             // Log but don't fail - some DLLs might not be loadable
-            Console.WriteLine($"Warning: Could not load assembly {dllFile}: {ex.Message}");
+            // Assembly loading failed - continue with other assemblies
         }
     }
 }
 catch (Exception ex)
 {
     // Fallback to current approach if type loading fails
-    Console.WriteLine($"Warning: Could not load assemblies by type, falling back to file loading: {ex.Message}");
+    // Assembly loading by type failed - using file loading fallback
     assemblies = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "FlowFlex.*.dll")
         .Select(Assembly.LoadFrom).ToList();
 }
@@ -94,7 +95,7 @@ builder.Services.AddControllers(options =>
     options.SerializerSettings.DateTimeZoneHandling = Newtonsoft.Json.DateTimeZoneHandling.Utc;
     options.SerializerSettings.NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore;
     options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
-    
+
     // Add global converter for long to string
     options.SerializerSettings.Converters.Add(new LongToStringConverter());
     options.SerializerSettings.Converters.Add(new NullableLongToStringConverter());
@@ -137,12 +138,11 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection("FileStorage"));
 
 // Register JWT authentication
-var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
+var jwtSecretKey = builder.Configuration["Security:JwtSecretKey"];
+var jwtIssuer = builder.Configuration["Security:JwtIssuer"];
+var jwtAudience = builder.Configuration["Security:JwtAudience"];
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -151,9 +151,9 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtOptions.Issuer,
-        ValidAudience = jwtOptions.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey)),
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
         ClockSkew = TimeSpan.Zero
     };
 });
@@ -200,7 +200,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         return true;
     });
-    
+
     // Add custom Schema ID generator to resolve type conflicts with same name but different namespaces
     options.CustomSchemaIds(type =>
     {
@@ -212,7 +212,7 @@ builder.Services.AddSwaggerGen(options =>
             {
                 genericTypeName = genericTypeName.Substring(0, genericTypeName.IndexOf('`'));
             }
-            
+
             // Recursively handle generic parameters, including nested generic types
             string GetGenericArgName(Type argType)
             {
@@ -223,19 +223,19 @@ builder.Services.AddSwaggerGen(options =>
                     {
                         argGenericName = argGenericName.Substring(0, argGenericName.IndexOf('`'));
                     }
-                    
+
                     var nestedArgs = string.Join("_", argType.GetGenericArguments().Select(GetGenericArgName));
                     return $"{argGenericName}Of{nestedArgs}";
                 }
-                
+
                 // For non-generic types, use the full name (including namespace) to avoid conflicts
                 return argType.FullName?.Replace(".", "_") ?? argType.Name;
             }
-            
+
             var genericArgs = string.Join("_", type.GetGenericArguments().Select(GetGenericArgName));
             return $"{genericTypeName}Of{genericArgs}";
         }
-        
+
         // For specific conflicting types, add namespace prefix
         if (type.Name == "QuestionDto")
         {
@@ -244,11 +244,11 @@ builder.Services.AddSwaggerGen(options =>
             if (type.Namespace.Contains("Questionnaire"))
                 return "Questionnaire_QuestionDto";
         }
-        
+
         // Default to using the full name (including namespace) to avoid conflicts
         return type.FullName?.Replace(".", "_") ?? type.Name;
     });
-    
+
     // Add JWT authentication configuration
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -274,6 +274,10 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+// Register infrastructure services
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddGlobalExceptionHandling();
 
 // Register services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -310,7 +314,7 @@ var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uplo
 if (!Directory.Exists(uploadsPath))
 {
     Directory.CreateDirectory(uploadsPath);
-    Console.WriteLine($"Created upload directory: {uploadsPath}");
+    // Upload directory created successfully
 }
 
 // Configure file upload access
@@ -321,9 +325,9 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = ctx =>
     {
         // Add security headers
-        ctx.Context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-        ctx.Context.Response.Headers.Add("X-Frame-Options", "DENY");
-        
+        ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        ctx.Context.Response.Headers["X-Frame-Options"] = "DENY";
+
         // Set cache policy
         var headers = ctx.Context.Response.GetTypedHeaders();
         headers.CacheControl = new Microsoft.Net.Http.Headers.CacheControlHeaderValue
@@ -336,7 +340,7 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseRouting();
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.TenantMiddleware>();
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<FlowFlex.Infrastructure.Exceptions.GlobalExceptionHandlingMiddleware>();
 app.UseMiddleware<FileAccessMiddleware>();
 app.UseCors("AllowAll");
 
@@ -350,11 +354,12 @@ app.MapControllers();
 try
 {
     app.Services.InitializeDatabase();
-    Console.WriteLine("Database initialization successful!");
+    // Database initialization successful
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Database initialization failed: {ex.Message}");
+    // Database initialization failed - log the error
+    app.Logger.LogError(ex, "Database initialization failed");
     // In development environment, can choose to continue running, production environment should terminate
     if (!app.Environment.IsDevelopment())
     {

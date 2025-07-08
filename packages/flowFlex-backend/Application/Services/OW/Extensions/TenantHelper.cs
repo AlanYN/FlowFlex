@@ -21,7 +21,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
 
             // Extract email domain
             var domain = email.Split('@')[1].ToUpper();
-            
+
             // Generate tenant ID based on domain
             // Here we use domain as tenant ID, you can adjust the rules as needed
             return domain;
@@ -42,4 +42,4 @@ namespace FlowFlex.Application.Services.OW.Extensions
             return domain.ToUpper();
         }
     }
-} 
+}

@@ -14,4 +14,4 @@ public static class SqlSugarExtensions
         // This is just a placeholder method, actual SQL generation is handled by SqlSugar
         throw new NotSupportedException("Can only be used in expressions");
     }
-} 
+}

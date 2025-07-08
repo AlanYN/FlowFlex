@@ -31,4 +31,4 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Tasks, opt => opt.Ignore());
         }
     }
-} 
+}

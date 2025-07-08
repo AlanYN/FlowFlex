@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Contracts.IServices.OW
 {

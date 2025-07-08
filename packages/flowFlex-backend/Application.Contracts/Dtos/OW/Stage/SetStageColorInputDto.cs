@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// <summary>
         /// 阶段颜色
         /// </summary>
-        
+
         [StringLength(20)]
         public string Color { get; set; }
     }

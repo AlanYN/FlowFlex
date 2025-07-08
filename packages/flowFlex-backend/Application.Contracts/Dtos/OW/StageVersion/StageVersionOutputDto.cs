@@ -100,5 +100,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageVersion
         /// </summary>
         public string ModifyBy { get; set; }
     }
-} 
- 
+}

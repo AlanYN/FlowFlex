@@ -15,21 +15,21 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Username
         /// </summary>
-       
+
         [MaxLength(50)]
         public string Username { get; set; }
 
         /// <summary>
         /// Email Address
         /// </summary>
-       
+
         [MaxLength(100)]
         public string Email { get; set; }
 
         /// <summary>
         /// Password Hash
         /// </summary>
-       
+
         [MaxLength(255)]
         public string PasswordHash { get; set; }
 
@@ -68,4 +68,4 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "last_login_ip")]
         public string LastLoginIp { get; set; }
     }
-} 
+}

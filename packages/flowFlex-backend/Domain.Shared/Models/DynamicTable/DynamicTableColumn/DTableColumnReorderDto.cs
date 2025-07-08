@@ -10,7 +10,7 @@ public class DTableColumnReorderDto
     /// <summary>
     /// ID of the column being moved
     /// </summary>
-    
+
     public long MovedColumn { get; set; }
 
     /// <summary>

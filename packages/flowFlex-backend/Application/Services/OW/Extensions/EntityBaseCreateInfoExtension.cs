@@ -22,7 +22,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitCreateInfo(this EntityBaseCreateInfo createInfo, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Generate snowflake ID using entity's InitNewId method
             if (createInfo is IdEntityBase entityBase)
             {
@@ -33,17 +33,17 @@ namespace FlowFlex.Application.Services.OW.Extensions
                 // Fallback: generate a simple timestamp-based ID
                 createInfo.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             }
-            
+
             // Set timestamps
             createInfo.CreateDate = now;
             createInfo.ModifyDate = now;
-            
+
             // Set user information
             createInfo.CreateBy = userContext?.UserName ?? "SYSTEM";
             createInfo.ModifyBy = userContext?.UserName ?? "SYSTEM";
             createInfo.CreateUserId = ParseToLong(userContext?.UserId);
             createInfo.ModifyUserId = ParseToLong(userContext?.UserId);
-            
+
             // Set default values
             createInfo.IsValid = true;
             createInfo.TenantId = userContext?.TenantId ?? "DEFAULT";
@@ -72,7 +72,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
                 // Fallback: generate a simple timestamp-based ID
                 createInfo.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             }
-            
+
             createInfo.TenantId = tenantId;
             createInfo.CreateBy = createUserName;
             createInfo.CreateDate = createDate;
@@ -102,7 +102,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
                 // Fallback: generate a simple timestamp-based ID
                 createInfo.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             }
-            
+
             createInfo.TenantId = tenantId;
             createInfo.CreateBy = userName;
             createInfo.CreateDate = DateTimeOffset.Now;
@@ -121,10 +121,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitUpdateInfo(this EntityBaseCreateInfo createInfo, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Update timestamps
             createInfo.ModifyDate = now;
-            
+
             // Update user information
             createInfo.ModifyBy = userContext?.UserName ?? "SYSTEM";
             createInfo.ModifyUserId = ParseToLong(userContext?.UserId);
@@ -153,10 +153,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         {
             if (string.IsNullOrEmpty(value))
                 return 0;
-                
+
             if (long.TryParse(value, out long result))
                 return result;
-                
+
             return 0;
         }
 
@@ -168,20 +168,20 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitCreateInfo(this OwEntityBase entity, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Generate timestamp-based ID for OwEntityBase
             entity.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            
+
             // Set timestamps
             entity.CreateDate = now;
             entity.ModifyDate = now;
-            
+
             // Set user information
             entity.CreateBy = userContext?.UserName ?? "SYSTEM";
             entity.ModifyBy = userContext?.UserName ?? "SYSTEM";
             entity.CreateUserId = ParseToLong(userContext?.UserId);
             entity.ModifyUserId = ParseToLong(userContext?.UserId);
-            
+
             // Set default values
             entity.IsValid = true;
             entity.TenantId = userContext?.TenantId ?? "DEFAULT";
@@ -195,10 +195,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitUpdateInfo(this OwEntityBase entity, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Update timestamps
             entity.ModifyDate = now;
-            
+
             // Update user information
             entity.ModifyBy = userContext?.UserName ?? "SYSTEM";
             entity.ModifyUserId = ParseToLong(userContext?.UserId);
@@ -212,20 +212,20 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitCreateInfo(this User user, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Generate timestamp-based ID
             user.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            
+
             // Set timestamps
             user.CreateDate = now;
             user.ModifyDate = now;
-            
+
             // Set user information
             user.CreateBy = userContext?.UserName ?? "SYSTEM";
             user.ModifyBy = userContext?.UserName ?? "SYSTEM";
             user.CreateUserId = ParseToLong(userContext?.UserId);
             user.ModifyUserId = ParseToLong(userContext?.UserId);
-            
+
             // Set default values
             user.IsValid = true;
             user.TenantId = userContext?.TenantId ?? "DEFAULT";
@@ -239,10 +239,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitUpdateInfo(this User user, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Update timestamps
             user.ModifyDate = now;
-            
+
             // Update user information
             user.ModifyBy = userContext?.UserName ?? "SYSTEM";
             user.ModifyUserId = ParseToLong(userContext?.UserId);
@@ -256,20 +256,20 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitCreateInfo(this InternalNote note, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Generate timestamp-based ID
             note.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            
+
             // Set timestamps
             note.CreateDate = now;
             note.ModifyDate = now;
-            
+
             // Set user information
             note.CreateBy = userContext?.UserName ?? "SYSTEM";
             note.ModifyBy = userContext?.UserName ?? "SYSTEM";
             note.CreateUserId = ParseToLong(userContext?.UserId);
             note.ModifyUserId = ParseToLong(userContext?.UserId);
-            
+
             // Set default values
             note.IsValid = true;
             note.TenantId = userContext?.TenantId ?? "DEFAULT";
@@ -283,10 +283,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitUpdateInfo(this InternalNote note, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Update timestamps
             note.ModifyDate = now;
-            
+
             // Update user information
             note.ModifyBy = userContext?.UserName ?? "SYSTEM";
             note.ModifyUserId = ParseToLong(userContext?.UserId);
@@ -300,20 +300,20 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitCreateInfo(this OperationChangeLog log, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Generate timestamp-based ID
             log.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            
+
             // Set timestamps
             log.CreateDate = now;
             log.ModifyDate = now;
-            
+
             // Set user information
             log.CreateBy = userContext?.UserName ?? "SYSTEM";
             log.ModifyBy = userContext?.UserName ?? "SYSTEM";
             log.CreateUserId = ParseToLong(userContext?.UserId);
             log.ModifyUserId = ParseToLong(userContext?.UserId);
-            
+
             // Set default values
             log.IsValid = true;
             log.TenantId = userContext?.TenantId ?? "DEFAULT";
@@ -327,13 +327,13 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitUpdateInfo(this OperationChangeLog log, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Update timestamps
             log.ModifyDate = now;
-            
+
             // Update user information
             log.ModifyBy = userContext?.UserName ?? "SYSTEM";
             log.ModifyUserId = ParseToLong(userContext?.UserId);
         }
     }
-} 
+}

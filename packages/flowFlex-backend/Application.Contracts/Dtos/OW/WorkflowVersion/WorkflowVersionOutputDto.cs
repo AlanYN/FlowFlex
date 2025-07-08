@@ -90,5 +90,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.WorkflowVersion
         /// </summary>
         public string ModifyBy { get; set; }
     }
-} 
- 
+}

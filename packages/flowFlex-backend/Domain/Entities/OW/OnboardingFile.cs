@@ -13,7 +13,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Onboarding Primary Key ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "onboarding_id")]
         public long OnboardingId { get; set; }
 
@@ -26,14 +26,14 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Associated Attachment ID (from attachment table)
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "attachment_id")]
         public long AttachmentId { get; set; }
 
         /// <summary>
         /// Original File Name
         /// </summary>
-       
+
         [StringLength(255)]
         [SugarColumn(ColumnName = "original_file_name")]
         public string OriginalFileName { get; set; }
@@ -41,7 +41,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Stored File Name
         /// </summary>
-       
+
         [StringLength(255)]
         [SugarColumn(ColumnName = "stored_file_name")]
         public string StoredFileName { get; set; }

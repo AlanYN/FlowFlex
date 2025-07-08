@@ -97,4 +97,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <returns></returns>
         Task<List<Checklist>> GetByStageIdWithTasksAsync(long stageId);
     }
-} 
+}

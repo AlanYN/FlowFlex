@@ -38,4 +38,4 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy));
         }
     }
-} 
+}

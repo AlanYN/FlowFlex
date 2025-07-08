@@ -86,4 +86,4 @@ namespace FlowFlex.WebApi.Controllers
             return _userContextService.IsAuthenticated();
         }
     }
-} 
+}

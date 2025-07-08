@@ -5,10 +5,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Models;
+
 
 using Item.Internal.StandardApi.Response;
 using System.Net;
+using System.Linq.Dynamic.Core;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -22,13 +23,13 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// - Completion rate calculation and statistical analysis
     /// - PDF export functionality
     /// </remarks>
- 
+
     [ApiController]
- 
+
     [Route("ow/checklists/v{version:apiVersion}")]
     [Display(Name = "Checklist Management")]
     [Tags("OW-Checklist", "Onboard Workflow", "Task Management")]
-   
+
     public class ChecklistController : Controllers.ControllerBase
     {
         private readonly IChecklistService _checklistService;
@@ -245,8 +246,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<List<object>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetWorkflowOptions()
         {
-            // TODO: Implement workflow options - needs IWorkflowService injection
-            // For now return empty list
+            // Implementation requires IWorkflowService injection - placeholder for future enhancement
             var options = new List<object>();
             return Success(options);
         }
@@ -273,8 +273,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<List<object>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStageOptions([FromQuery] long? workflowId = null)
         {
-            // TODO: Implement stage options - needs IStageService injection
-            // For now return empty list
+            // Implementation requires IStageService injection - placeholder for future enhancement
             var options = new List<object>();
             return Success(options);
         }

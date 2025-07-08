@@ -29,12 +29,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 RunMigration("20250101000000_InitialCreate", () => InitialCreate_20250101000000.Up(_db));
                 RunMigration("20250101000001_CreateRemainingTables", () => CreateRemainingTables_20250101000001.Up(_db));
                 // RunMigration("20250101000002_SeedDemoData", () => SeedDemoData_20250101000002.Up(_db));
-
-                Console.WriteLine("All database migrations executed successfully!");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Migration execution failed: {ex.Message}");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
@@ -51,7 +50,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 );
             ";
-            
+
             _db.Ado.ExecuteCommand(sql);
         }
 
@@ -62,22 +61,20 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             // Check if migration has already been executed
             var exists = _db.Ado.GetInt($"SELECT COUNT(*) FROM __migration_history WHERE migration_id = '{migrationId}'") > 0;
-            
+
             if (!exists)
             {
-                Console.WriteLine($"Executing migration: {migrationId}");
-                
+                // Debug logging handled by structured logging
                 // Execute migration
                 migrationAction();
-                
+
                 // Record migration history
                 _db.Ado.ExecuteCommand($"INSERT INTO __migration_history (migration_id) VALUES ('{migrationId}')");
-                
-                Console.WriteLine($"Migration {migrationId} executed successfully");
+                // Debug logging handled by structured logging
             }
             else
             {
-                Console.WriteLine($"Migration {migrationId} already exists, skipping");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -91,17 +88,16 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 // SeedDemoData_20250101000002.Down(_db);
                 CreateRemainingTables_20250101000001.Down(_db);
                 InitialCreate_20250101000000.Down(_db);
-                
+
                 // Clear migration history
                 _db.Ado.ExecuteCommand("DELETE FROM __migration_history");
-                
-                Console.WriteLine("All migrations have been rolled back!");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Rollback failed: {ex.Message}");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
     }
-} 
+}

@@ -44,4 +44,4 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore());
         }
     }
-} 
+}

@@ -11,13 +11,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// <summary>
         /// 工作流ID
         /// </summary>
-        
+
         public long WorkflowId { get; set; }
 
         /// <summary>
         /// 阶段排序列表
         /// </summary>
-        
+
         public List<StageOrderItem> StageOrders { get; set; }
     }
 

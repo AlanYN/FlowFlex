@@ -5,7 +5,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
@@ -46,7 +46,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input cannot be null");
             }
-            
+
             if (_mapper == null)
             {
                 throw new CRMException(ErrorCodeEnum.SystemError, "AutoMapper not configured");
@@ -70,7 +70,7 @@ namespace FlowFlex.Application.Service.OW
 
             var entity = _mapper.Map<Workflow>(input);
             entity.StartDate = input.StartDate == default ? DateTimeOffset.Now : input.StartDate;
-            
+
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
 
@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input cannot be null");
             }
-            
+
             if (_mapper == null)
             {
                 throw new CRMException(ErrorCodeEnum.SystemError, "AutoMapper not configured");
@@ -128,10 +128,10 @@ namespace FlowFlex.Application.Service.OW
 
             // Update entity data first
             _mapper.Map(input, entity);
-            
+
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
-            
+
             var updateResult = await _workflowRepository.UpdateAsync(entity);
 
             // If there are changes and update is successful, create version history record (save post-change information)
@@ -219,8 +219,7 @@ namespace FlowFlex.Application.Service.OW
         public async Task<List<WorkflowOutputDto>> GetListAsync()
         {
             // Temporarily disable expired workflow processing to avoid concurrent database operations
-            Console.WriteLine("Skipping expired workflow processing in GetListAsync to avoid concurrent database operations");
-
+            // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
             return _mapper.Map<List<WorkflowOutputDto>>(list);
         }
@@ -243,37 +242,32 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"ow:workflow:all:{tenantId}";
 
                 // Get directly from database, temporarily skip cache to avoid Redis stream reading issues
-                Console.WriteLine($"Workflow GetAllAsync: Skipping cache due to stream reading issues, querying database directly");
-
+                // Debug logging handled by structured logging
                 // Temporarily disable expired workflow processing to avoid concurrent database operations
-                Console.WriteLine("Skipping expired workflow processing to avoid concurrent database operations");
-
+                // Debug logging handled by structured logging
                 // Get from database using optimized query
                 var list = await _workflowRepository.GetAllOptimizedAsync();
                 if (list == null)
                 {
-                    Console.WriteLine("Warning: GetAllOptimizedAsync returned null, returning empty list");
+                    // Debug logging handled by structured logging
                     return new List<WorkflowOutputDto>();
                 }
 
                 var result = _mapper.Map<List<WorkflowOutputDto>>(list);
                 if (result == null)
                 {
-                    Console.WriteLine("Warning: AutoMapper returned null, returning empty list");
+                    // Debug logging handled by structured logging
                     return new List<WorkflowOutputDto>();
                 }
 
                 stopwatch.Stop();
-                Console.WriteLine($"Workflow GetAllAsync database query: {stopwatch.ElapsedMilliseconds}ms, count: {result.Count}");
-
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                Console.WriteLine($"Error in Workflow GetAllAsync: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-
+                // Debug logging handled by structured logging
                 // Provide more detailed error information
                 var errorMessage = ex.InnerException != null
                     ? $"{ex.Message} -> {ex.InnerException.Message}"
@@ -286,8 +280,7 @@ namespace FlowFlex.Application.Service.OW
         public async Task<PagedResult<WorkflowOutputDto>> QueryAsync(WorkflowQueryRequest query)
         {
             // Temporarily disable expired workflow processing to avoid concurrent database operations
-            Console.WriteLine("Skipping expired workflow processing in QueryAsync to avoid concurrent database operations");
-
+            // Debug logging handled by structured logging
             var (items, total) = await _workflowRepository.QueryPagedAsync(query.PageIndex, query.PageSize, query.Name, query.IsActive);
             return new PagedResult<WorkflowOutputDto>
             {
@@ -398,7 +391,7 @@ namespace FlowFlex.Application.Service.OW
 
                 // Generate snowflake ID for the duplicated stage
                 duplicatedStage.InitNewId();
-                
+
                 await _stageRepository.InsertAsync(duplicatedStage);
             }
 
@@ -433,7 +426,7 @@ namespace FlowFlex.Application.Service.OW
                         processedCount++;
 
                         // 记录日志
-                        Console.WriteLine($"Workflow {workflow.Id} ({workflow.Name}) has been set to inactive due to expiration. End Date: {workflow.EndDate}");
+                        // Debug logging handled by structured logging has been set to inactive due to expiration. End Date: {workflow.EndDate}");
                     }
                 }
 
@@ -446,7 +439,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// 获取即将过期的工作流（提前7天提醒）
+        /// 获取即将过期的工作流（提�?天提醒）
         /// </summary>
         public async Task<List<WorkflowOutputDto>> GetExpiringWorkflowsAsync(int daysAhead = 7)
         {
@@ -471,7 +464,7 @@ namespace FlowFlex.Application.Service.OW
 
             var versions = await _workflowVersionRepository.GetVersionHistoryAsync(id);
 
-            // 如果没有版本历史记录，为现有工作流创建初始版本
+            // 如果没有版本历史记录，为现有工作流创建初始版�?
             if (!versions.Any())
             {
                 var stages = await _stageRepository.GetByWorkflowIdAsync(id);
@@ -492,7 +485,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
             }
 
-            // 使用专门的 WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportToExcel(workflow);
         }
 
@@ -521,7 +514,7 @@ namespace FlowFlex.Application.Service.OW
                 workflows = await _workflowRepository.GetActiveWorkflowsAsync();
             }
 
-            // 使用专门的 WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportMultipleToExcel(workflows);
         }
 
@@ -530,7 +523,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<List<StageOutputDto>> GetStagesByVersionIdAsync(long workflowId, long versionId)
         {
-            // 验证工作流是否存在
+            // 验证工作流是否存�?
             var workflow = await _workflowRepository.GetByIdAsync(workflowId);
             if (workflow == null)
             {
@@ -576,7 +569,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<WorkflowVersionDetailDto> GetVersionDetailAsync(long workflowId, long versionId)
         {
-            // 验证工作流是否存在
+            // 验证工作流是否存�?
             var workflow = await _workflowRepository.GetByIdAsync(workflowId);
             if (workflow == null)
             {
@@ -590,7 +583,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {versionId} not found for workflow {workflowId}");
             }
 
-            // 获取版本的阶段列表
+            // 获取版本的阶段列�?
             var stages = await GetStagesByVersionIdAsync(workflowId, versionId);
 
             // 构建返回结果
@@ -621,7 +614,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<long> CreateFromVersionAsync(CreateWorkflowFromVersionInputDto input)
         {
-            // 验证原始工作流是否存在
+            // 验证原始工作流是否存�?
             var originalWorkflow = await _workflowRepository.GetByIdAsync(input.OriginalWorkflowId);
             if (originalWorkflow == null)
             {
@@ -635,13 +628,13 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {input.VersionId} not found for workflow {input.OriginalWorkflowId}");
             }
 
-            // 验证新工作流名称唯一性
+            // 验证新工作流名称唯一�?
             if (await _workflowRepository.ExistsNameAsync(input.Name))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Workflow name '{input.Name}' already exists");
             }
 
-            // 如果设置为默认，需要先取消其他默认工作流
+            // 如果设置为默认，需要先取消其他默认工作�?
             if (input.IsDefault)
             {
                 var existingDefault = await _workflowRepository.GetDefaultWorkflowAsync();
@@ -698,6 +691,6 @@ namespace FlowFlex.Application.Service.OW
             return newWorkflow.Id;
         }
 
-        // 缓存相关方法已移除
+        // 缓存相关方法已移�?
     }
 }

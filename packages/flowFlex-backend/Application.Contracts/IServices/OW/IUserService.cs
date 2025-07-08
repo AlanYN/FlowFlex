@@ -55,7 +55,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <returns>User DTO</returns>
         Task<UserDto> GetCurrentUserAsync();
-        
+
         /// <summary>
         /// Get Current User Email
         /// </summary>
@@ -77,4 +77,4 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>User DTO</returns>
         Task<UserDto> CreateTestUserAsync(string email, string password);
     }
-} 
+}

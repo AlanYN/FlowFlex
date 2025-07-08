@@ -14,5 +14,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [MinLength(6, ErrorMessage = "密码长度不能少于6位")]
         public string NewPassword { get; set; }
     }
-} 
- 
+}

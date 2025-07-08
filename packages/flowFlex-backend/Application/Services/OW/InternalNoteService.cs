@@ -6,7 +6,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using FlowFlex.Application.Contracts.Dtos.OW.InternalNote;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -67,12 +67,12 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         }
 
         var entity = _mapper.Map<InternalNote>(input);
-        
+
         // Set default values
         entity.IsResolved = false;
         entity.Priority = string.IsNullOrEmpty(entity.Priority) ? "Medium" : entity.Priority;
         entity.NoteType = string.IsNullOrEmpty(entity.NoteType) ? "General" : entity.NoteType;
-        
+
         // Initialize create information with proper ID and timestamps
         entity.InitCreateInfo(_userContext);
 

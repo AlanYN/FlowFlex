@@ -74,4 +74,4 @@ namespace FlowFlex.Domain.Entities
         [JsonConverter(typeof(LongToStringConverter))]
         public long ModifyUserId { get; set; } = 0;
     }
-} 
+}

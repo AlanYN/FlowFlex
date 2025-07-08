@@ -11,7 +11,7 @@ public class ChecklistTaskCompletionInputDto
     /// <summary>
     /// Onboarding ID
     /// </summary>
-    
+
     public long OnboardingId { get; set; }
 
     /// <summary>
@@ -23,13 +23,13 @@ public class ChecklistTaskCompletionInputDto
     /// <summary>
     /// Checklist ID
     /// </summary>
-    
+
     public long ChecklistId { get; set; }
 
     /// <summary>
     /// Task ID
     /// </summary>
-    
+
     public long TaskId { get; set; }
 
     /// <summary>

@@ -125,4 +125,4 @@ namespace FlowFlex.Application.Contracts
         /// </summary>
         public string ErrorMessage { get; set; }
     }
-} 
+}

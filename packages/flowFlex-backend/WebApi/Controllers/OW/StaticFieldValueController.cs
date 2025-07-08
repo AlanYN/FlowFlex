@@ -12,12 +12,12 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Static field value management API - Includes static field value CRUD and content management functions
     /// </summary>
- 
+
     [ApiController]
- 
+
     [Route("ow/static-field-values/v{version:apiVersion}")]
     [Display(Name = "static field values")]
-   
+
     public class StaticFieldValueController : Controllers.ControllerBase
     {
         private readonly IStaticFieldValueService _staticFieldValueService;

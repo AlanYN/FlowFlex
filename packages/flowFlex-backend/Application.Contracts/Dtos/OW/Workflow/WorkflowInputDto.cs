@@ -11,7 +11,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         /// <summary>
         /// 流程名称
         /// </summary>
-        
+
         [StringLength(100)]
         public string Name { get; set; }
 

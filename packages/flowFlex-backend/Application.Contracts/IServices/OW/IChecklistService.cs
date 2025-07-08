@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Contracts.IServices.OW;
 

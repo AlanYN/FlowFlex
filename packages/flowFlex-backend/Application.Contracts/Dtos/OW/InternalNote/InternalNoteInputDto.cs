@@ -10,7 +10,7 @@ public class InternalNoteInputDto
     /// <summary>
     /// Onboarding ID
     /// </summary>
-    
+
     public long OnboardingId { get; set; }
 
     /// <summary>
@@ -27,7 +27,7 @@ public class InternalNoteInputDto
     /// <summary>
     /// 备注内容
     /// </summary>
-    
+
     [StringLength(4000)]
     public string Content { get; set; }
 

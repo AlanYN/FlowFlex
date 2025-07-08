@@ -134,7 +134,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     {
         // Build query condition list
         var whereExpressions = new List<Expression<Func<Checklist, bool>>>();
-        
+
         // Basic filter conditions
         whereExpressions.Add(x => x.IsValid == true);
 

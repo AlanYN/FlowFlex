@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// <summary>
         /// 新阶段名称
         /// </summary>
-        
+
         [StringLength(100)]
         public string Name { get; set; }
 

@@ -27,10 +27,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// </summary>
         public bool EmailVerified { get; set; }
 
-            /// <summary>
-    /// 最后登录时间
-    /// </summary>
-    public DateTimeOffset? LastLoginDate { get; set; }
+        /// <summary>
+        /// 最后登录时间
+        /// </summary>
+        public DateTimeOffset? LastLoginDate { get; set; }
 
         /// <summary>
         /// 用户状态
@@ -42,4 +42,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// </summary>
         public DateTimeOffset CreateDate { get; set; }
     }
-} 
+}

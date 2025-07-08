@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 目标Stage ID
         /// </summary>
-        
+
         public long StageId { get; set; }
 
         /// <summary>

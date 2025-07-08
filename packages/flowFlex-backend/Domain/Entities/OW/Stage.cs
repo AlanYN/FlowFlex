@@ -20,7 +20,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Stage Name
         /// </summary>
-        
+
         [StringLength(100)]
         public string Name { get; set; }
 

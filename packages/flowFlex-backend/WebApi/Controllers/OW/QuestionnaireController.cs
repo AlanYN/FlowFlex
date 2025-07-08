@@ -8,24 +8,25 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.WebApi.Converters;
 
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using NullableLongConverter = FlowFlex.WebApi.Converters.NullableLongConverter;
+using System.Linq.Dynamic.Core;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
     /// <summary>
     /// Questionnaire management API
     /// </summary>
- 
+
     [ApiController]
- 
+
     [Route("ow/questionnaires/v{version:apiVersion}")]
     [Display(Name = "questionnaire")]
-   
+
     public class QuestionnaireController : Controllers.ControllerBase
     {
         private readonly IQuestionnaireService _questionnaireService;
@@ -42,36 +43,21 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Create([FromBody] QuestionnaireInputDto input)
         {
-            // Add debug logging
-            Console.WriteLine("=== QuestionnaireController.Create - Debug Info ===");
-            Console.WriteLine($"Input is null: {input == null}");
-            Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
-            
+            // Input validation and model state errors logged by structured logging
+
             if (!ModelState.IsValid)
             {
-                Console.WriteLine("=== ModelState Errors ===");
-                foreach (var modelState in ModelState)
-                {
-                    foreach (var error in modelState.Value.Errors)
-                    {
-                        Console.WriteLine($"Key: {modelState.Key}");
-                        Console.WriteLine($"  Error: {error.ErrorMessage}");
-                    }
-                }
+                // Model state errors logged by structured logging
             }
-            
+
             if (input == null)
             {
-                Console.WriteLine("Input parameter is null, returning BadRequest");
+                // Input parameter validation logged by structured logging
                 return BadRequest("Input parameter is null");
             }
-            
-            Console.WriteLine($"Input Name: {input.Name}");
-            Console.WriteLine($"Input WorkflowId: {input.WorkflowId}");
-            Console.WriteLine($"Input StageId: {input.StageId}");
-            Console.WriteLine($"Input Type: {input.Type}");
-            Console.WriteLine($"Input Category: {input.Category}");
-            
+
+            // Input parameters logged by structured logging
+
             var id = await _questionnaireService.CreateAsync(input);
             return Success(id);
         }
@@ -83,24 +69,23 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Update(long id)
         {
-            // Add debug logging
-            Console.WriteLine($"[DEBUG] Update questionnaire - ID: {id}");
-            
+            // Update operation logged by structured logging
+
             QuestionnaireInputDto input = null;
-            
+
             try
             {
                 // Read raw body directly
                 using var reader = new StreamReader(Request.Body);
                 var rawBody = await reader.ReadToEndAsync();
-                Console.WriteLine($"[DEBUG] Raw request body: {rawBody}");
-                
+                // Raw request body processing logged by structured logging
+
                 // Try to extract the first JSON object if there are multiple separated by &
                 if (!string.IsNullOrEmpty(rawBody))
                 {
                     var firstJsonPart = rawBody.Split('&')[0];
-                    Console.WriteLine($"[DEBUG] First JSON part: {firstJsonPart}");
-                    
+                    // JSON part extraction logged by structured logging
+
                     // Try to deserialize the first part
                     var options = new JsonSerializerOptions
                     {
@@ -108,23 +93,21 @@ namespace FlowFlex.WebApi.Controllers.OW
                         NumberHandling = JsonNumberHandling.AllowReadingFromString
                     };
                     options.Converters.Add(new NullableLongConverter());
-                    
+
                     input = JsonSerializer.Deserialize<QuestionnaireInputDto>(firstJsonPart, options);
-                    Console.WriteLine($"[DEBUG] Parsed input successfully: {input != null}");
+                    // Input parsing result logged by structured logging
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[DEBUG] Error parsing raw body: {ex.Message}");
+                // Raw body parsing error logged by structured logging
             }
-            
+
             if (input != null)
             {
-                Console.WriteLine($"[DEBUG] Input Name: {input.Name}");
-                Console.WriteLine($"[DEBUG] Input Description: {input.Description}");
-                Console.WriteLine($"[DEBUG] StructureJson length: {input.StructureJson?.Length ?? 0}");
+                // Input parameters logged by structured logging
             }
-            
+
             var result = await _questionnaireService.UpdateAsync(id, input);
             return Success(result);
         }

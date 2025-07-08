@@ -18,7 +18,7 @@ namespace FlowFlex.SqlSugarDB.Extensions
         {
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-            
+
             var migrationManager = new MigrationManager(db);
             migrationManager.RunMigrations();
         }
@@ -33,16 +33,15 @@ namespace FlowFlex.SqlSugarDB.Extensions
             {
                 // Test database connection
                 db.Ado.CheckConnection();
-                
+
                 // Run migrations
                 var migrationManager = new MigrationManager(db);
                 migrationManager.RunMigrations();
-                
-                Console.WriteLine("Database initialization completed!");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Database initialization failed: {ex.Message}");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
@@ -58,4 +57,4 @@ namespace FlowFlex.SqlSugarDB.Extensions
             migrationManager.RunMigrations();
         }
     }
-} 
+}

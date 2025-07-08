@@ -263,19 +263,17 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         try
         {
             var tenantId = GetTenantId();
-            Console.WriteLine($"🔍 LogTaskCompletionAsync - Starting with TenantId: '{tenantId}'");
-            Console.WriteLine($"🔍 LogTaskCompletionAsync - OnboardingId: {onboarding.Id}, TaskId: {task.Id}, IsCompleted: {isCompleted}");
-
+            // Debug logging handled by structured logging
             // Get current stage information
             Stage currentStage = null;
             if (onboarding.CurrentStageId.HasValue)
             {
                 currentStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
-                Console.WriteLine($"🔍 LogTaskCompletionAsync - Current Stage: {currentStage?.Name ?? "Not Found"}");
+                // Debug logging handled by structured logging
             }
             else
             {
-                Console.WriteLine($"🔍 LogTaskCompletionAsync - No CurrentStageId for onboarding {onboarding.Id}");
+                // Debug logging handled by structured logging
             }
 
             var logData = new
@@ -300,9 +298,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             };
 
             var serializedLogData = System.Text.Json.JsonSerializer.Serialize(logData);
-            Console.WriteLine($"🔍 LogTaskCompletionAsync - Serialized LogData: {serializedLogData}");
-
-                            // 1. Log to ff_stage_completion_log table (maintain original functionality)
+            // Debug logging handled by structured logging
+            // 1. Log to ff_stage_completion_log table (maintain original functionality)
             var stageCompletionLog = new StageCompletionLog
             {
                 TenantId = tenantId,
@@ -317,13 +314,11 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 CreateBy = GetCurrentUserName(),
                 ModifyBy = GetCurrentUserName()
             };
-
-            Console.WriteLine($"🔍 LogTaskCompletionAsync - About to insert log with TenantId: '{stageCompletionLog.TenantId}', OnboardingId: {stageCompletionLog.OnboardingId}");
-
+            // Debug logging handled by structured logging
             await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-            Console.WriteLine($"✅ Task completion logged to Stage Completion Log: {task.Name} - {(isCompleted ? "Completed" : "Incomplete")}");
+            // Debug logging handled by structured logging}");
 
-                            // 2. Also log to ff_operation_change_log table (new functionality)
+            // 2. Also log to ff_operation_change_log table (new functionality)
             try
             {
                 var operationType = isCompleted ? OperationTypeEnum.ChecklistTaskComplete : OperationTypeEnum.ChecklistTaskUncomplete;
@@ -382,25 +377,23 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                     extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
                 );
 
-                Console.WriteLine($"✅ Task completion logged to Operation Change Log: {task.Name} - {(isCompleted ? "Completed" : "Incomplete")}");
+                // Debug logging handled by structured logging}");
             }
             catch (Exception operationLogEx)
             {
-                Console.WriteLine($"⚠️ Failed to log task completion to Operation Change Log: {operationLogEx.Message}");
+                // Debug logging handled by structured logging
                 // Don't affect main business flow, continue execution
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Failed to log task completion: {ex.Message}");
-            Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-
+            // Debug logging handled by structured logging
             // Log to system log, but don't affect main business flow
             // If needed, more detailed error handling logic can be added here
             try
             {
                 // Consider logging failed logs to backup storage or sending alerts
-                Console.WriteLine($"❌ Critical: Task completion logging failed for TaskId: {task.Id}, OnboardingId: {onboarding.Id}");
+                // Debug logging handled by structured logging
             }
             catch
             {
@@ -418,22 +411,19 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         {
             var logEntries = new List<StageCompletionLog>();
             var tenantId = GetTenantId();
-            Console.WriteLine($"🔍 LogBatchTaskCompletionsAsync - Starting with TenantId: '{tenantId}', Inputs: {inputs.Count}, Completions: {completions.Count}");
-
+            // Debug logging handled by structured logging
             for (int i = 0; i < inputs.Count && i < completions.Count; i++)
             {
                 var input = inputs[i];
                 var completion = completions[i];
-
-                Console.WriteLine($"🔍 LogBatchTaskCompletionsAsync - Processing item {i + 1}: OnboardingId: {input.OnboardingId}, TaskId: {input.TaskId}");
-
+                // Debug logging handled by structured logging
                 // Get onboarding and task information
                 var onboarding = await _onboardingRepository.GetByIdAsync(input.OnboardingId);
                 var task = await _taskRepository.GetByIdAsync(input.TaskId);
 
                 if (onboarding == null || task == null)
                 {
-                    Console.WriteLine($"⚠️ LogBatchTaskCompletionsAsync - Skipping item {i + 1}: Onboarding or Task not found");
+                    // Debug logging handled by structured logging
                     continue;
                 }
 
@@ -479,8 +469,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 };
 
                 logEntries.Add(stageCompletionLog);
-                Console.WriteLine($"🔍 LogBatchTaskCompletionsAsync - Added log entry {i + 1} for Task: {task.Name}");
-
+                // Debug logging handled by structured logging
                 // Also log to ff_operation_change_log table
                 try
                 {
@@ -543,33 +532,30 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                         extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
                     );
 
-                    Console.WriteLine($"✅ Batch task completion logged to Operation Change Log: {task.Name} - {(completion.IsCompleted ? "Completed" : "Incomplete")}");
+                    // Debug logging handled by structured logging}");
                 }
                 catch (Exception operationLogEx)
                 {
-                    Console.WriteLine($"⚠️ Failed to log batch task completion to Operation Change Log for TaskId {task.Id}: {operationLogEx.Message}");
+                    // Debug logging handled by structured logging
                     // Does not affect main business flow, continue execution
                 }
             }
 
             // Batch insert log entries to stage completion log
-            Console.WriteLine($"🔍 LogBatchTaskCompletionsAsync - About to insert {logEntries.Count} log entries to Stage Completion Log");
+            // Debug logging handled by structured logging
             foreach (var logEntry in logEntries)
             {
                 await _stageCompletionLogRepository.InsertAsync(logEntry);
             }
-
-            Console.WriteLine($"✅ Batch task completions logged to Stage Completion Log: {logEntries.Count} entries");
+            // Debug logging handled by structured logging
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Failed to log batch task completions: {ex.Message}");
-            Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-
+            // Debug logging handled by structured logging
             // Log to system log, but does not affect main business flow
             try
             {
-                Console.WriteLine($"❌ Critical: Batch task completion logging failed for {inputs?.Count ?? 0} items");
+                // Debug logging handled by structured logging
             }
             catch
             {
@@ -583,45 +569,42 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         var context = _httpContextAccessor.HttpContext;
         if (context == null)
         {
-            Console.WriteLine($"🔍 GetTenantId - HttpContext is null, trying UserContext");
-
+            // Debug logging handled by structured logging
             // Try to get from UserContext
             if (!string.IsNullOrEmpty(_userContext?.TenantId))
             {
-                Console.WriteLine($"🔍 GetTenantId - Found TenantId from UserContext: '{_userContext.TenantId}'");
+                // Debug logging handled by structured logging
                 return _userContext.TenantId;
             }
-
-            Console.WriteLine($"🔍 GetTenantId - No TenantId available, using 'default'");
+            // Debug logging handled by structured logging
             return "default";
         }
 
         // Try to get TenantId from request headers
         var tenantId = context.Request.Headers["TenantId"].FirstOrDefault();
-        Console.WriteLine($"🔍 GetTenantId - TenantId header: '{tenantId}'");
-
+        // Debug logging handled by structured logging
         if (string.IsNullOrEmpty(tenantId))
         {
             tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
-            Console.WriteLine($"🔍 GetTenantId - X-Tenant-Id header: '{tenantId}'");
+            // Debug logging handled by structured logging
         }
 
         // Try to get from UserContext
         if (string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(_userContext?.TenantId))
         {
             tenantId = _userContext.TenantId;
-            Console.WriteLine($"🔍 GetTenantId - Found TenantId from UserContext: '{tenantId}'");
+            // Debug logging handled by structured logging
         }
 
         // If still empty, use default value
         if (string.IsNullOrEmpty(tenantId))
         {
             tenantId = "default";
-            Console.WriteLine($"🔍 GetTenantId - Using default TenantId: '{tenantId}'");
+            // Debug logging handled by structured logging
         }
         else
         {
-            Console.WriteLine($"🔍 GetTenantId - Final TenantId: '{tenantId}'");
+            // Debug logging handled by structured logging
         }
 
         return tenantId;

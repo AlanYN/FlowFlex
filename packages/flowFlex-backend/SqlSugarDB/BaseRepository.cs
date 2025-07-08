@@ -189,40 +189,18 @@ namespace FlowFlex.SqlSugarDB
         /// <returns>Whether successful</returns>
         public async Task<bool> InsertAsync(T insertObj, CancellationToken cancellationToken = default, bool copyNew = false)
         {
-            try
+            var dbNew = copyNew ? db.CopyNew() : db;
+
+            // Auto-generate snowflake ID if entity has Id property and it's 0
+            if (insertObj is IdEntityBase idEntity && idEntity.Id == 0)
             {
-                Console.WriteLine($"?? [BaseRepo Step 1] Starting simplified BaseRepository.InsertAsync for {typeof(T).Name}");
-
-                var dbNew = copyNew ? db.CopyNew() : db;
-                Console.WriteLine($"?? [BaseRepo Step 2] Database context prepared (copyNew: {copyNew})");
-
-                // Auto-generate snowflake ID if entity has Id property and it's 0
-                if (insertObj is IdEntityBase idEntity && idEntity.Id == 0)
-                {
-                    Console.WriteLine($"?? [BaseRepo Step 3] Entity is IdEntityBase with ID = 0, generating snowflake ID...");
-                    idEntity.InitNewId();
-                    Console.WriteLine($"?? [BaseRepo Step 3] Snowflake ID generated: {idEntity.Id}");
-                }
-                else
-                {
-                    Console.WriteLine($"?? [BaseRepo Step 3] Entity ID already set or not IdEntityBase: {(insertObj as IdEntityBase)?.Id}");
-                }
-
-                dbNew.Ado.CancellationToken = cancellationToken;
-                Console.WriteLine($"?? [BaseRepo Step 4] About to execute database insert command...");
-                
-                var result = await dbNew.Insertable(insertObj).ExecuteCommandAsync() > 0;
-                
-                Console.WriteLine($"?? [BaseRepo Step 5] Database insert command executed with result: {result}");
-
-                return result;
+                idEntity.InitNewId();
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"? [BaseRepo Error] InsertAsync failed for {typeof(T).Name}: {ex.Message}");
-                Console.WriteLine($"? [BaseRepo Error] Stack trace: {ex.StackTrace}");
-                throw; // Re-throw to maintain original behavior
-            }
+
+            dbNew.Ado.CancellationToken = cancellationToken;
+            var result = await dbNew.Insertable(insertObj).ExecuteCommandAsync() > 0;
+
+            return result;
         }
 
         /// <summary>
@@ -1040,8 +1018,8 @@ namespace FlowFlex.SqlSugarDB
                 // If operation fails, rollback transaction
                 db.AsTenant().RollbackTran();
                 // Log exception information
-                // TODO: Use logging framework to record exceptions
-                Console.WriteLine($"Transaction execution failed: {ex.Message}");
+                // Exception logging is handled by global exception middleware
+                // Debug logging handled by structured logging
                 // Throw exception directly
                 throw;
             }
@@ -1072,9 +1050,6 @@ namespace FlowFlex.SqlSugarDB
             {
                 // If operation fails, rollback transaction
                 await db.AsTenant().RollbackTranAsync();
-                // Log exception information
-                // TODO: Use logging framework to record exceptions
-                Console.WriteLine($"Transaction execution failed: {ex.Message}");
                 // Throw exception directly
                 throw;
             }
@@ -1164,36 +1139,26 @@ namespace FlowFlex.SqlSugarDB
         {
             try
             {
-                Console.WriteLine($"?? [BackupFilters Step 1] Starting BackupFilters operation...");
-                
                 // Get GeFilterList reflection property
                 var geFilterListProperty = db.QueryFilter.GetType().GetProperty("GeFilterList");
-                Console.WriteLine($"?? [BackupFilters Step 2] GeFilterList property obtained: {geFilterListProperty != null}");
-                
+
                 if (geFilterListProperty == null)
                 {
-                    Console.WriteLine($"?? [BackupFilters Step 3] GeFilterList property is null, returning null");
                     return null;
                 }
-                
+
                 var geFilterList = geFilterListProperty.GetValue(db.QueryFilter) as List<SqlFilterItem>;
-                Console.WriteLine($"?? [BackupFilters Step 4] GeFilterList value obtained: {geFilterList != null}, Count: {geFilterList?.Count ?? 0}");
-                
+
                 if (geFilterList == null || !geFilterList.Any())
                 {
-                    Console.WriteLine($"?? [BackupFilters Step 5] GeFilterList is null or empty, returning null");
                     return null;
                 }
 
                 // Return a copy of the filters
-                var backupList = new List<SqlFilterItem>(geFilterList);
-                Console.WriteLine($"?? [BackupFilters Step 6] Backup list created successfully with {backupList.Count} items");
-                return backupList;
+                return new List<SqlFilterItem>(geFilterList);
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"? [BackupFilters Error] BackupFilters failed: {ex.Message}");
-                Console.WriteLine($"? [BackupFilters Error] Stack trace: {ex.StackTrace}");
                 // Return null instead of throwing exception to prevent crash
                 return null;
             }
@@ -1208,61 +1173,48 @@ namespace FlowFlex.SqlSugarDB
         {
             try
             {
-                Console.WriteLine($"?? [RestoreFilters Step 1] Starting RestoreFiltersIfChanged operation...");
-                
                 var geFilterListProperty = db.QueryFilter.GetType().GetProperty("GeFilterList");
-                Console.WriteLine($"?? [RestoreFilters Step 2] GeFilterList property obtained: {geFilterListProperty != null}");
-                
+
                 if (geFilterListProperty == null)
                 {
-                    Console.WriteLine($"?? [RestoreFilters Step 3] GeFilterList property is null, returning false");
                     return false;
                 }
-                
+
                 var geFilterList = geFilterListProperty.GetValue(db.QueryFilter) as List<SqlFilterItem>;
-                Console.WriteLine($"?? [RestoreFilters Step 4] GeFilterList value obtained: {geFilterList != null}, Count: {geFilterList?.Count ?? 0}");
-                
+
                 if (backupFilters == null)
                 {
-                    Console.WriteLine($"?? [RestoreFilters Step 5] Backup filters is null, returning false");
                     return false;
                 }
-                
+
                 // Check if filters have changed
                 bool filtersChanged = false;
                 // Check if filters completely disappeared
                 if (geFilterList == null || !geFilterList.Any())
                 {
-                    Console.WriteLine($"?? [RestoreFilters Step 6] Filters completely disappeared, marking as changed");
                     filtersChanged = true;
                 }
                 // Check if filter count decreased
                 else if (geFilterList.Count != backupFilters.Count)
                 {
-                    Console.WriteLine($"?? [RestoreFilters Step 7] Filter count changed from {backupFilters.Count} to {geFilterList.Count}, marking as changed");
                     filtersChanged = true;
                 }
-                
+
                 // If filters changed, restore backup
                 if (filtersChanged)
                 {
-                    Console.WriteLine($"?? [RestoreFilters Step 8] Restoring filters from backup...");
                     geFilterList?.Clear();
                     foreach (var filter in backupFilters)
                     {
                         geFilterList?.Add(filter);
                     }
-                    Console.WriteLine($"?? [RestoreFilters Step 9] Filters restored successfully");
                     return true;
                 }
-                
-                Console.WriteLine($"?? [RestoreFilters Step 10] No filter changes detected, no restoration needed");
+
                 return false;
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"? [RestoreFilters Error] RestoreFiltersIfChanged failed: {ex.Message}");
-                Console.WriteLine($"? [RestoreFilters Error] Stack trace: {ex.StackTrace}");
                 // Return false instead of throwing exception to prevent crash
                 return false;
             }

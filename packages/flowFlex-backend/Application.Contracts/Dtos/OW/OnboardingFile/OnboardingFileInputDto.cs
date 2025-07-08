@@ -11,7 +11,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// <summary>
         /// Onboarding ID
         /// </summary>
-        
+
         public long OnboardingId { get; set; }
 
         /// <summary>
@@ -22,7 +22,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// <summary>
         /// 上传的文件
         /// </summary>
-        
+
         public IFormFile FormFile { get; set; }
 
         /// <summary>
