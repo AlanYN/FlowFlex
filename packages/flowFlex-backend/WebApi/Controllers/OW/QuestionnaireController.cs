@@ -13,6 +13,7 @@ using FlowFlex.WebApi.Converters;
 
 using Item.Internal.StandardApi.Response;
 using System.Net;
+using NullableLongConverter = FlowFlex.WebApi.Converters.NullableLongConverter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -41,6 +42,36 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Create([FromBody] QuestionnaireInputDto input)
         {
+            // Add debug logging
+            Console.WriteLine("=== QuestionnaireController.Create - Debug Info ===");
+            Console.WriteLine($"Input is null: {input == null}");
+            Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
+            
+            if (!ModelState.IsValid)
+            {
+                Console.WriteLine("=== ModelState Errors ===");
+                foreach (var modelState in ModelState)
+                {
+                    foreach (var error in modelState.Value.Errors)
+                    {
+                        Console.WriteLine($"Key: {modelState.Key}");
+                        Console.WriteLine($"  Error: {error.ErrorMessage}");
+                    }
+                }
+            }
+            
+            if (input == null)
+            {
+                Console.WriteLine("Input parameter is null, returning BadRequest");
+                return BadRequest("Input parameter is null");
+            }
+            
+            Console.WriteLine($"Input Name: {input.Name}");
+            Console.WriteLine($"Input WorkflowId: {input.WorkflowId}");
+            Console.WriteLine($"Input StageId: {input.StageId}");
+            Console.WriteLine($"Input Type: {input.Type}");
+            Console.WriteLine($"Input Category: {input.Category}");
+            
             var id = await _questionnaireService.CreateAsync(input);
             return Success(id);
         }

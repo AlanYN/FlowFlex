@@ -30,7 +30,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IOperationChangeLogService _operationLogService;
         private readonly UserContext _userContext;
 
-        // 缓存键常量
+        // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
         public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperationChangeLogService operationLogService, UserContext userContext)
@@ -45,14 +45,14 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<long> CreateAsync(StageInputDto input)
         {
-            // 验证workflow是否存在
+            // Validate if workflow exists
             var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
             if (workflow == null)
             {
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {input.WorkflowId} not found");
             }
 
-            // 验证阶段名称在工作流中的唯一性
+            // Validate stage name uniqueness within workflow
             if (await _stageRepository.ExistsNameInWorkflowAsync(input.WorkflowId, input.Name))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Stage name '{input.Name}' already exists in this workflow");
@@ -60,13 +60,13 @@ namespace FlowFlex.Application.Service.OW
 
             var entity = _mapper.Map<Stage>(input);
 
-            // 如果没有指定排序，自动设置为最后
+            // If no order specified, automatically set to last
             if (entity.Order == 0)
             {
                 entity.Order = await _stageRepository.GetNextOrderAsync(input.WorkflowId);
             }
 
-            // 设置工作流版本
+            // Set workflow version
             entity.WorkflowVersion = workflow.Version.ToString();
 
             // Initialize create information with proper ID and timestamps
@@ -74,7 +74,7 @@ namespace FlowFlex.Application.Service.OW
 
             await _stageRepository.InsertAsync(entity);
 
-            // 创建新的 WorkflowVersion（新增阶段后）
+            // Create new WorkflowVersion (after adding stage)
             await CreateWorkflowVersionForStageChangeAsync(entity.WorkflowId, $"Stage '{entity.Name}' created");
 
             return entity.Id;
@@ -85,32 +85,32 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<bool> UpdateAsync(long id, StageInputDto input)
         {
-            // 获取当前阶段信息
+            // Get current stage information
             var stage = await _stageRepository.GetByIdAsync(id);
             if (stage == null)
             {
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
             }
 
-            // 验证阶段名称在工作流中的唯一性（排除当前阶段）
+            // Validate stage name uniqueness within workflow (excluding current stage)
             if (await _stageRepository.IsNameExistsInWorkflowAsync(input.WorkflowId, input.Name, id))
             {
                 throw new CRMException(ErrorCodeEnum.CustomError,
                     $"Stage name '{input.Name}' already exists in this workflow");
             }
 
-            // 映射更新数据
+            // Map update data
             _mapper.Map(input, stage);
             
             // Initialize update information with proper timestamps
             stage.InitUpdateInfo(_userContext);
 
-            // 更新数据库
+            // Update database
             var result = await _stageRepository.UpdateAsync(stage);
 
             if (result)
             {
-                // 缓存清理已移除
+                // Cache cleanup removed
 
                 // 记录操作日志 - 使用 OperationChangeLogService 来正确处理 JSONB 字段
                 var beforeData = JsonSerializer.Serialize(new
@@ -157,11 +157,11 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// 检测阶段是否有实际变更
+        /// Detect if stage has actual changes
         /// </summary>
         private bool HasStageChanges(Stage entity, StageInputDto input)
         {
-            // 比较各个字段是否有变化
+            // Compare if each field has changes
             if (entity.WorkflowId != input.WorkflowId) return true;
             if (entity.Name != input.Name) return true;
             if (entity.PortalName != input.PortalName) return true;
@@ -176,7 +176,7 @@ namespace FlowFlex.Application.Service.OW
             if (entity.Color != input.Color) return true;
             if (entity.RequiredFieldsJson != input.RequiredFieldsJson) return true;
 
-            // 比较 StaticFields 列表（通过 JSON 序列化比较）
+            // Compare StaticFields list (through JSON serialization comparison)
             var inputStaticFieldsJson = input.StaticFields != null && input.StaticFields.Any()
                 ? JsonSerializer.Serialize(input.StaticFields.OrderBy(x => x))
                 : null;
@@ -184,7 +184,7 @@ namespace FlowFlex.Application.Service.OW
                 ? entity.StaticFieldsJson
                 : null;
 
-            // 如果当前实体的 StaticFields 属性有值，使用它来生成 JSON 进行比较
+            // If current entity's StaticFields property has value, use it to generate JSON for comparison
             if (entity.StaticFields != null && entity.StaticFields.Any())
             {
                 currentStaticFieldsJson = JsonSerializer.Serialize(entity.StaticFields.OrderBy(x => x));
@@ -195,32 +195,32 @@ namespace FlowFlex.Application.Service.OW
                 return true;
             }
 
-            return false; // 没有变更
+            return false; // No changes
         }
 
         /// <summary>
-        /// 为阶段变更创建新的工作流版本
+        /// Create new workflow version for stage changes
         /// </summary>
         private async Task CreateWorkflowVersionForStageChangeAsync(long workflowId, string changeReason)
         {
-            // 获取工作流信息
+            // Get workflow information
             var workflow = await _workflowRepository.GetByIdAsync(workflowId);
             if (workflow == null)
             {
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
             }
 
-            // 获取当前所有阶段用于版本快照
+            // Get all current stages for version snapshot
             var currentStages = await _stageRepository.GetByWorkflowIdAsync(workflowId);
 
-            // 创建版本历史记录（包含阶段快照）
+            // Create version history record (including stage snapshot)
             await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(
                 workflow,
                 currentStages,
                 "Stage Updated",
                 $"{changeReason} - Workflow updated to version {workflow.Version + 1}");
 
-            // 更新工作流版本号
+            // Update workflow version number
             workflow.Version += 1;
             await _workflowRepository.UpdateAsync(workflow);
         }
@@ -277,7 +277,7 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // 安全地获取租户ID
+                // Safely get tenant ID
                 var tenantId = _userContext?.TenantId ?? "default";
                 if (string.IsNullOrWhiteSpace(tenantId))
                 {
@@ -286,17 +286,17 @@ namespace FlowFlex.Application.Service.OW
 
                 Console.WriteLine($"[StageService.GetAllAsync] Using tenant ID: '{tenantId}'");
 
-                // 构建缓存键，使用安全的租户ID
+                // Build cache key using safe tenant ID
                 var cacheKey = $"ow:stage:all:{tenantId.ToLowerInvariant()}";
 
-                // Redis缓存已移除，直接查询数据库
+                // Redis cache removed, query database directly
 
-                // 从数据库获取，使用优化查询
+                // Get from database using optimized query
                 Console.WriteLine("[StageService.GetAllAsync] Fetching from database...");
                 var stages = await _stageRepository.GetAllOptimizedAsync();
                 var result = _mapper.Map<List<StageOutputDto>>(stages);
 
-                // 缓存功能已移除
+                // Cache functionality removed
 
                 stopwatch.Stop();
                 Console.WriteLine($"[StageService.GetAllAsync] Database query completed: {stopwatch.ElapsedMilliseconds}ms, count: {result.Count}");
@@ -324,7 +324,7 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<bool> SortStagesAsync(SortStagesInputDto input)
         {
-            // 验证所有阶段都属于同一个工作流
+            // Validate all stages belong to the same workflow
             var stages = await _stageRepository.GetByWorkflowIdAsync(input.WorkflowId);
             var stageIds = input.StageOrders.Select(x => x.StageId).ToList();
 
@@ -333,11 +333,11 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Some stages do not belong to the specified workflow");
             }
 
-            // 批量更新排序
+            // Batch update order
             var orderUpdates = input.StageOrders.Select(x => (x.StageId, x.Order)).ToList();
             var result = await _stageRepository.BatchUpdateOrderAsync(orderUpdates);
 
-            // 如果排序更新成功，创建新的 WorkflowVersion
+            // If order update is successful, create new WorkflowVersion
             if (result)
             {
                 await CreateWorkflowVersionForStageChangeAsync(input.WorkflowId, "Stages reordered");

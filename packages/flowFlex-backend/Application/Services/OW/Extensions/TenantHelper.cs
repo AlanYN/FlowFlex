@@ -3,15 +3,15 @@ using System;
 namespace FlowFlex.Application.Services.OW.Extensions
 {
     /// <summary>
-    /// 租户帮助类
+    /// Tenant helper class
     /// </summary>
     public static class TenantHelper
     {
         /// <summary>
-        /// 根据邮箱地址获取租户ID
+        /// Get tenant ID by email address
         /// </summary>
-        /// <param name="email">邮箱地址</param>
-        /// <returns>租户ID</returns>
+        /// <param name="email">Email address</param>
+        /// <returns>Tenant ID</returns>
         public static string GetTenantIdByEmail(string email)
         {
             if (string.IsNullOrEmpty(email) || !email.Contains('@'))
@@ -19,19 +19,19 @@ namespace FlowFlex.Application.Services.OW.Extensions
                 return "DEFAULT";
             }
 
-            // 提取邮箱域名
+            // Extract email domain
             var domain = email.Split('@')[1].ToUpper();
             
-            // 根据域名生成租户ID
-            // 这里使用域名作为租户ID，您可以根据需要调整规则
+            // Generate tenant ID based on domain
+            // Here we use domain as tenant ID, you can adjust the rules as needed
             return domain;
         }
 
         /// <summary>
-        /// 根据邮箱域名获取租户ID
+        /// Get tenant ID by email domain
         /// </summary>
-        /// <param name="domain">邮箱域名</param>
-        /// <returns>租户ID</returns>
+        /// <param name="domain">Email domain</param>
+        /// <returns>Tenant ID</returns>
         public static string GetTenantIdByDomain(string domain)
         {
             if (string.IsNullOrEmpty(domain))

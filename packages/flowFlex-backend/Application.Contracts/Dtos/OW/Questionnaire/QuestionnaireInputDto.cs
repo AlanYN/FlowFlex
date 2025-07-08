@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 
@@ -51,6 +52,7 @@ public class QuestionnaireInputDto
     /// <summary>
     /// 模板来源ID
     /// </summary>
+    [JsonConverter(typeof(NullableLongConverter))]
     public long? TemplateId { get; set; }
 
     /// <summary>
@@ -93,15 +95,64 @@ public class QuestionnaireInputDto
     /// <summary>
     /// 关联的工作流ID
     /// </summary>
+    [JsonConverter(typeof(NullableLongConverter))]
     public long? WorkflowId { get; set; }
 
     /// <summary>
     /// 关联的阶段ID
     /// </summary>
+    [JsonConverter(typeof(NullableLongConverter))]
     public long? StageId { get; set; }
 
     /// <summary>
     /// 问卷分组
     /// </summary>
     public List<QuestionnaireSectionInputDto> Sections { get; set; } = new List<QuestionnaireSectionInputDto>();
+}
+
+/// <summary>
+/// Newtonsoft.Json 自定义转换器，用于处理空字符串到 nullable long 的转换
+/// </summary>
+public class NullableLongConverter : JsonConverter<long?>
+{
+    public override void WriteJson(JsonWriter writer, long? value, JsonSerializer serializer)
+    {
+        if (value.HasValue)
+        {
+            writer.WriteValue(value.Value);
+        }
+        else
+        {
+            writer.WriteNull();
+        }
+    }
+
+    public override long? ReadJson(JsonReader reader, Type objectType, long? existingValue, bool hasExistingValue, JsonSerializer serializer)
+    {
+        if (reader.TokenType == JsonToken.Null)
+        {
+            return null;
+        }
+        
+        if (reader.TokenType == JsonToken.String)
+        {
+            var stringValue = reader.Value?.ToString();
+            if (string.IsNullOrEmpty(stringValue))
+            {
+                return null;
+            }
+            if (long.TryParse(stringValue, out var result))
+            {
+                return result;
+            }
+            return null; // 无法解析时返回 null 而不是抛出异常
+        }
+        
+        if (reader.TokenType == JsonToken.Integer)
+        {
+            return Convert.ToInt64(reader.Value);
+        }
+        
+        return null;
+    }
 }

@@ -20,7 +20,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
-    /// Onboarding文件服务实现
+    /// Onboarding file service implementation
     /// </summary>
     public class OnboardingFileService : IOnboardingFileService, IScopedService
     {
@@ -356,7 +356,7 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "File not found");
                 }
 
-                // 软删除
+                // Soft delete
                 onboardingFile.IsValid = false;
                 onboardingFile.Status = "Deleted";
                 onboardingFile.ModifyBy = _userContext.UserId;
@@ -518,17 +518,17 @@ namespace FlowFlex.Application.Services.OW
 
                 statistics.TotalFileSizeFormatted = FormatFileSize(statistics.TotalFileSize);
 
-                // 按分类统计
+                // Statistics by category
                 statistics.FileCountByCategory = files
                     .GroupBy(f => f.Category)
                     .ToDictionary(g => g.Key, g => g.Count());
 
-                // 按文件类型统计
+                // Statistics by file type
                 statistics.FileCountByType = files
                     .GroupBy(f => f.FileExtension)
                     .ToDictionary(g => g.Key, g => g.Count());
 
-                // 最近上传的文件
+                // Recently uploaded files
                 statistics.RecentFiles = _mapper.Map<List<OnboardingFileOutputDto>>(
                     files.OrderByDescending(f => f.UploadedDate).Take(5).ToList());
 

@@ -134,27 +134,27 @@ namespace FlowFlex.Application.Service.OW
             
             var updateResult = await _workflowRepository.UpdateAsync(entity);
 
-            // 如果有变更且更新成功，则创建版本历史记录（保存变更后的信息）
+            // If there are changes and update is successful, create version history record (save post-change information)
             if (hasChanges && updateResult)
             {
-                // 获取更新后的阶段列表用于版本快照
+                // Get updated stage list for version snapshot
                 var updatedStages = await _stageRepository.GetByWorkflowIdAsync(id);
 
-                // 在更新后创建版本历史记录（包含阶段快照）- 保存变更后的信息
+                // Create version history record after update (including stage snapshot) - save post-change information
                 await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(entity, updatedStages, "Updated", $"Workflow updated to version {entity.Version}");
             }
 
-            // 缓存清理已移除
+            // Cache cleanup removed
 
             return updateResult;
         }
 
         /// <summary>
-        /// 检测工作流是否有实际变更
+        /// Detect if workflow has actual changes
         /// </summary>
         private bool HasWorkflowChanges(Workflow entity, WorkflowInputDto input)
         {
-            // 比较各个字段是否有变化
+            // Compare if each field has changes
             if (entity.Name != input.Name) return true;
             if (entity.Description != input.Description) return true;
             if (entity.IsDefault != input.IsDefault) return true;
@@ -164,7 +164,7 @@ namespace FlowFlex.Application.Service.OW
             if (entity.IsActive != input.IsActive) return true;
             if (entity.ConfigJson != input.ConfigJson) return true;
 
-            return false; // 没有变更
+            return false; // No changes
         }
 
         /// <summary>
@@ -200,7 +200,7 @@ namespace FlowFlex.Application.Service.OW
                 return false;
             }
 
-            // 检查是否有关联的阶段
+            // Check if there are associated stages
             var stages = await _stageRepository.GetByWorkflowIdAsync(id);
             if (stages.Any())
             {
@@ -218,7 +218,7 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<List<WorkflowOutputDto>> GetListAsync()
         {
-            // 暂时禁用过期工作流处理以避免并发数据库操作
+            // Temporarily disable expired workflow processing to avoid concurrent database operations
             Console.WriteLine("Skipping expired workflow processing in GetListAsync to avoid concurrent database operations");
 
             var list = await _workflowRepository.GetAllWorkflowsAsync();
@@ -234,21 +234,21 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // 安全获取租户ID
+                // Safely get tenant ID
                 var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
                     ? _userContext.TenantId.ToLowerInvariant()
                     : "default";
 
-                // 构建缓存键
+                // Build cache key
                 var cacheKey = $"ow:workflow:all:{tenantId}";
 
-                // 直接从数据库获取，暂时跳过缓存以避免Redis流读取问题
+                // Get directly from database, temporarily skip cache to avoid Redis stream reading issues
                 Console.WriteLine($"Workflow GetAllAsync: Skipping cache due to stream reading issues, querying database directly");
 
-                // 暂时禁用过期工作流处理以避免并发数据库操作
+                // Temporarily disable expired workflow processing to avoid concurrent database operations
                 Console.WriteLine("Skipping expired workflow processing to avoid concurrent database operations");
 
-                // 从数据库获取，使用优化查询
+                // Get from database using optimized query
                 var list = await _workflowRepository.GetAllOptimizedAsync();
                 if (list == null)
                 {
@@ -274,7 +274,7 @@ namespace FlowFlex.Application.Service.OW
                 Console.WriteLine($"Error in Workflow GetAllAsync: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
 
-                // 提供更详细的错误信息
+                // Provide more detailed error information
                 var errorMessage = ex.InnerException != null
                     ? $"{ex.Message} -> {ex.InnerException.Message}"
                     : ex.Message;
@@ -285,7 +285,7 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<PagedResult<WorkflowOutputDto>> QueryAsync(WorkflowQueryRequest query)
         {
-            // 暂时禁用过期工作流处理以避免并发数据库操作
+            // Temporarily disable expired workflow processing to avoid concurrent database operations
             Console.WriteLine("Skipping expired workflow processing in QueryAsync to avoid concurrent database operations");
 
             var (items, total) = await _workflowRepository.QueryPagedAsync(query.PageIndex, query.PageSize, query.Name, query.IsActive);
@@ -308,7 +308,7 @@ namespace FlowFlex.Application.Service.OW
             entity.Status = "active";
             var result = await _workflowRepository.UpdateAsync(entity);
 
-            // 缓存清理已移除
+            // Cache cleanup removed
 
             return result;
         }
@@ -325,7 +325,7 @@ namespace FlowFlex.Application.Service.OW
             entity.Status = "inactive";
             var result = await _workflowRepository.UpdateAsync(entity);
 
-            // 缓存清理已移除
+            // Cache cleanup removed
 
             return result;
         }

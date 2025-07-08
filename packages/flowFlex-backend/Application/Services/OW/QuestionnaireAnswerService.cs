@@ -340,7 +340,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 删除问卷答案
+        /// Delete questionnaire answer
         /// </summary>
         public async Task<bool> DeleteAnswerAsync(long answerId)
         {
@@ -543,34 +543,34 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 处理答案变更历史，为发生变更的问题答案添加变更人和时间
+        /// Process answer change history, add change person and time for changed question answers
         /// </summary>
-        /// <param name="oldAnswerJson">旧答案JSON</param>
-        /// <param name="newAnswerJson">新答案JSON</param>
-        /// <returns>更新后的答案JSON</returns>
+        /// <param name="oldAnswerJson">Old answer JSON</param>
+        /// <param name="newAnswerJson">New answer JSON</param>
+        /// <returns>Updated answer JSON</returns>
         private async Task<string> ProcessAnswerChangesAsync(string oldAnswerJson, string newAnswerJson)
         {
             try
             {
-                // 如果没有旧答案，直接为所有新答案添加创建信息
+                // If no old answer, directly add creation info for all new answers
                 if (string.IsNullOrWhiteSpace(oldAnswerJson))
                 {
                     return await AddChangeHistoryToNewAnswers(newAnswerJson);
                 }
 
-                // 解析旧答案和新答案
+                // Parse old and new answers
                 var oldAnswerData = JsonSerializer.Deserialize<JsonElement>(oldAnswerJson);
                 var newAnswerData = JsonSerializer.Deserialize<JsonElement>(newAnswerJson);
 
-                // 获取当前用户信息和时间
+                // Get current user info and time
                 string currentUser = GetCurrentUserName();
                 DateTimeOffset currentTime = DateTimeOffset.UtcNow;
 
-                // 检查是否有responses字段
+                // Check if responses field exists
                 if (!oldAnswerData.TryGetProperty("responses", out var oldResponses) ||
                     !newAnswerData.TryGetProperty("responses", out var newResponses))
                 {
-                    return newAnswerJson; // 如果结构不匹配，返回原始新答案
+                    return newAnswerJson; // If structure doesn't match, return original new answer
                 }
 
                 // 创建新的响应列表
@@ -699,7 +699,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 为新答案添加创建历史（只为有值的答案添加）
+        /// Add creation history for new answers (only add for answers with values)
         /// </summary>
         private async Task<string> AddChangeHistoryToNewAnswers(string newAnswerJson)
         {
@@ -722,12 +722,12 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var responseObj = JsonSerializer.Deserialize<Dictionary<string, object>>(response.GetRawText());
 
-                        // 检查答案是否有值
+                        // Check if answer has value
                         bool hasValue = HasResponseValue(response);
 
                         if (hasValue)
                         {
-                            // 只为有值的答案添加变更历史
+                            // Only add change history for answers with values
                             AddChangeHistory(responseObj, currentUser, currentTime, "created");
 
                             string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
@@ -759,7 +759,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 检查答案是否发生变更
+        /// Check if answer has changed
         /// </summary>
         private bool HasAnswerChanged(JsonElement oldResponse, JsonElement newResponse)
         {
@@ -812,7 +812,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 检查响应是否有值
+        /// Check if response has value
         /// </summary>
         private bool HasResponseValue(JsonElement response)
         {
@@ -854,7 +854,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 为响应对象添加变更历史
+        /// Add change history to response object
         /// </summary>
         private void AddChangeHistory(Dictionary<string, object> responseObj, string user, DateTimeOffset time, string action)
         {

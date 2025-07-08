@@ -481,18 +481,18 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 logEntries.Add(stageCompletionLog);
                 Console.WriteLine($"🔍 LogBatchTaskCompletionsAsync - Added log entry {i + 1} for Task: {task.Name}");
 
-                // 同时记录到 ff_operation_change_log 表
+                // Also log to ff_operation_change_log table
                 try
                 {
                     var operationType = completion.IsCompleted ? OperationTypeEnum.ChecklistTaskComplete : OperationTypeEnum.ChecklistTaskUncomplete;
                     var operationDescription = $"Checklist task '{task.Name}' has been {(completion.IsCompleted ? "completed" : "marked as incomplete")} by {GetCurrentUserName()} (Batch Operation)";
 
-                    // 准备 before_data 和 after_data
+                    // Prepare before_data and after_data
                     var beforeData = new
                     {
                         TaskId = task.Id,
                         TaskName = task.Name,
-                        IsCompleted = !completion.IsCompleted, // 相反的状态
+                        IsCompleted = !completion.IsCompleted, // Opposite status
                         CompletionNotes = "",
                         CompletedTime = (DateTimeOffset?)null
                     };
@@ -548,7 +548,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 catch (Exception operationLogEx)
                 {
                     Console.WriteLine($"⚠️ Failed to log batch task completion to Operation Change Log for TaskId {task.Id}: {operationLogEx.Message}");
-                    // 不影响主要业务流程，继续执行
+                    // Does not affect main business flow, continue execution
                 }
             }
 
@@ -566,14 +566,14 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             Console.WriteLine($"❌ Failed to log batch task completions: {ex.Message}");
             Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
 
-            // 记录到系统日志，但不影响主要业务流程
+            // Log to system log, but does not affect main business flow
             try
             {
                 Console.WriteLine($"❌ Critical: Batch task completion logging failed for {inputs?.Count ?? 0} items");
             }
             catch
             {
-                // 防止二次异常
+                // Prevent secondary exceptions
             }
         }
     }
@@ -585,7 +585,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         {
             Console.WriteLine($"🔍 GetTenantId - HttpContext is null, trying UserContext");
 
-            // 尝试从UserContext获取
+            // Try to get from UserContext
             if (!string.IsNullOrEmpty(_userContext?.TenantId))
             {
                 Console.WriteLine($"🔍 GetTenantId - Found TenantId from UserContext: '{_userContext.TenantId}'");
@@ -596,7 +596,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             return "default";
         }
 
-        // 尝试从请求头获取 TenantId
+        // Try to get TenantId from request headers
         var tenantId = context.Request.Headers["TenantId"].FirstOrDefault();
         Console.WriteLine($"🔍 GetTenantId - TenantId header: '{tenantId}'");
 
@@ -606,14 +606,14 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             Console.WriteLine($"🔍 GetTenantId - X-Tenant-Id header: '{tenantId}'");
         }
 
-        // 尝试从UserContext获取
+        // Try to get from UserContext
         if (string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(_userContext?.TenantId))
         {
             tenantId = _userContext.TenantId;
             Console.WriteLine($"🔍 GetTenantId - Found TenantId from UserContext: '{tenantId}'");
         }
 
-        // 如果还是为空，使用默认值
+        // If still empty, use default value
         if (string.IsNullOrEmpty(tenantId))
         {
             tenantId = "default";

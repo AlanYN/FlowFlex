@@ -10,7 +10,7 @@ using FlowFlex.Domain.Shared.Exceptions;
 using System.Text.Json;
 using System.Linq;
 using System;
-// using Item.Redis; // 已移除Redis依赖
+// using Item.Redis; // Redis dependency removed
 using System.Diagnostics;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Repository.OW;

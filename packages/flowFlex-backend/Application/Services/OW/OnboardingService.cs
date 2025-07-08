@@ -14,7 +14,7 @@ using System.Text;
 using System.IO;
 using System.Globalization;
 using Item.Excel.Lib;
-// using Item.Redis; // 暂时禁用Redis
+// using Item.Redis; // Temporarily disable Redis
 using System.Text.Json;
 using System.Diagnostics;
 using FlowFlex.Domain.Shared.Models;
@@ -35,10 +35,10 @@ namespace FlowFlex.Application.Services.OW
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly IMediator _mediator;
-        // 缓存键常量 - 暂时禁用Redis缓存
+        // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
-        private const int CACHE_EXPIRY_MINUTES = 30; // 缓存30分钟
+        private const int CACHE_EXPIRY_MINUTES = 30; // Cache for 30 minutes
 
         public OnboardingService(
             IOnboardingRepository onboardingRepository,
@@ -425,19 +425,19 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // 创建成功后初始化阶段进度
+                // Initialize stage progress after successful creation
                 if (insertedId > 0)
                 {
                     try
                     {
-                        // 重新获取插入的实体以确保我们有完整的数据
+                        // Re-fetch the inserted entity to ensure we have complete data
                         var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
                         if (insertedEntity != null)
                         {
-                            // 初始化阶段进度
+                            // Initialize stage progress
                             await InitializeStagesProgressAsync(insertedEntity, stages);
                             
-                            // 更新实体以保存阶段进度
+                            // Update entity to save stage progress
                             await _onboardingRepository.UpdateAsync(insertedEntity);
                             
                             Console.WriteLine("Stages progress initialized successfully");
@@ -446,10 +446,10 @@ namespace FlowFlex.Application.Services.OW
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Warning: Failed to initialize stages progress: {ex.Message}");
-                        // 不抛出异常，因为主要的创建操作已经成功
+                        // Don't throw exception as the main creation operation has already succeeded
                     }
                     
-                    // 清理查询缓存（异步执行，不影响主流程）
+                    // Clear query cache (async execution, doesn't affect main flow)
                     _ = Task.Run(async () =>
                     {
                         try
@@ -500,7 +500,7 @@ namespace FlowFlex.Application.Services.OW
 
                 Console.WriteLine($"Found onboarding - Current Workflow: {entity.WorkflowId}, New Workflow: {input.WorkflowId}");
 
-                // 记录原始的 workflow 和 stage ID，用于缓存清理
+                // Record original workflow and stage ID for cache cleanup
                 var originalWorkflowId = entity.WorkflowId;
                 var originalStageId = entity.CurrentStageId;
 
@@ -556,17 +556,17 @@ namespace FlowFlex.Application.Services.OW
                         UpdatedAt = DateTimeOffset.UtcNow
                     });
 
-                    // 清理相关缓存数据（异步执行，不影响主流程）
+                    // Clear related cache data (async execution, doesn't affect main flow)
                     _ = Task.Run(async () =>
                     {
                         try
                         {
                             var cacheCleanupTasks = new List<Task>();
 
-                            // 清理查询缓存
+                            // Clear query cache
                             cacheCleanupTasks.Add(ClearOnboardingQueryCacheAsync());
 
-                            // 如果 workflow 发生变化，清理原 workflow 和新 workflow 的缓存
+                            // If workflow changed, clear cache for both original and new workflow
                             if (originalWorkflowId != entity.WorkflowId)
                             {
                                 cacheCleanupTasks.Add(ClearRelatedCacheAsync(originalWorkflowId));
@@ -577,7 +577,7 @@ namespace FlowFlex.Application.Services.OW
                                 cacheCleanupTasks.Add(ClearRelatedCacheAsync(entity.WorkflowId));
                             }
 
-                            // 如果 stage 发生变化，清理相关 stage 缓存
+                            // If stage changed, clear related stage cache
                             if (originalStageId != entity.CurrentStageId)
                             {
                                 if (originalStageId.HasValue)
@@ -634,7 +634,7 @@ namespace FlowFlex.Application.Services.OW
             Console.WriteLine($"Current User TenantId: {_userContext.TenantId}");
             Console.WriteLine($"Current User ID: {_userContext.UserId}");
 
-            // 首先尝试不使用租户过滤器查询，看看记录是否真的存在
+            // First try to query without tenant filter to see if record actually exists
             Onboarding entityWithoutFilter = null;
             try
             {
@@ -663,13 +663,13 @@ namespace FlowFlex.Application.Services.OW
                 Console.WriteLine($"Error checking record without filter: {ex.Message}");
             }
 
-            // 使用正常的仓储方法查询（带租户过滤器）
+            // Query using normal repository method (with tenant filter)
             var entity = await _onboardingRepository.GetByIdAsync(id);
             Console.WriteLine($"Repository GetByIdAsync result: {(entity != null ? $"Found entity ID {entity.Id}" : "No entity found with tenant filter")}");
 
             if (entity == null || !entity.IsValid)
             {
-                // 如果记录存在但租户不匹配，给出更详细的错误信息
+                // If record exists but tenant doesn't match, provide more detailed error information
                 if (entityWithoutFilter != null)
                 {
                     if (entityWithoutFilter.TenantId != _userContext.TenantId)
@@ -687,7 +687,7 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            // 使用软删除而不是硬删除
+            // Use soft delete instead of hard delete
             entity.IsValid = false;
             entity.ModifyDate = DateTimeOffset.UtcNow;
             entity.ModifyBy = GetCurrentUserName();
@@ -695,7 +695,7 @@ namespace FlowFlex.Application.Services.OW
 
             var result = await _onboardingRepository.UpdateAsync(entity);
 
-            // 删除成功后清除相关缓存
+            // Clear related cache after successful deletion
             if (result)
             {
                 await ClearOnboardingQueryCacheAsync();
@@ -721,7 +721,7 @@ namespace FlowFlex.Application.Services.OW
                 // Load stages progress from JSON
                 LoadStagesProgressFromJson(entity);
 
-                // 如果阶段进度为空，尝试初始化它
+                // If stage progress is empty, try to initialize it
                 if (entity.StagesProgress == null || !entity.StagesProgress.Any())
                 {
                     Console.WriteLine("Stages progress is empty, attempting to initialize...");
@@ -790,14 +790,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 Console.WriteLine($"[QUERY] Starting query for tenant: {tenantId}");
 
-                // 构建查询条件列表 - 使用安全的BaseRepository方式
+                // Build query conditions list - using safe BaseRepository approach
                 var whereExpressions = new List<Expression<Func<Onboarding, bool>>>();
                 
-                // 基础过滤条件
+                // Basic filter conditions
                 whereExpressions.Add(x => x.IsValid == true);
                 whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
 
-                // 应用过滤条件
+                // Apply filter conditions
                 if (request.WorkflowId.HasValue && request.WorkflowId.Value > 0)
                 {
                     whereExpressions.Add(x => x.WorkflowId == request.WorkflowId.Value);
@@ -869,7 +869,7 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => x.CreateUserId == request.CreatedByUserId.Value);
                 }
 
-                // 确定排序字段和方向
+                // Determine sort field and direction
                 Expression<Func<Onboarding, object>> orderByExpression = GetOrderByExpression(request);
                 bool isAsc = GetSortDirection(request);
 
@@ -877,7 +877,7 @@ namespace FlowFlex.Application.Services.OW
                 var pageIndex = Math.Max(1, request.PageIndex > 0 ? request.PageIndex : 1);
                 var pageSize = Math.Max(1, Math.Min(100, request.PageSize > 0 ? request.PageSize : 10));
 
-                // 使用BaseRepository的安全分页方法
+                // Use BaseRepository's safe pagination method
                 var (pagedEntities, totalCount) = await _onboardingRepository.GetPageListAsync(
                     whereExpressions,
                     pageIndex,
@@ -886,20 +886,20 @@ namespace FlowFlex.Application.Services.OW
                     isAsc
                 );
 
-                // 批量获取 Workflow 和 Stage 信息以避免 N+1 查询
+                // Batch get Workflow and Stage information to avoid N+1 queries
                 var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(pagedEntities);
 
-                // 创建查找字典以提高查找性能
+                // Create lookup dictionaries to improve search performance
                 var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
                 var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
 
-                // 批量处理 JSON 反序列化
+                // Batch process JSON deserialization
                 ProcessStagesProgressParallel(pagedEntities);
 
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
 
-                // 使用字典快速填充 workflow 和 stage 名称
+                // Use dictionaries to quickly populate workflow and stage names
                 foreach (var result in results)
                 {
                     result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
@@ -911,7 +911,7 @@ namespace FlowFlex.Application.Services.OW
 
                 var pageModel = new PageModelDto<OnboardingOutputDto>(pageIndex, pageSize, results, totalCount);
 
-                // 记录性能统计
+                // Record performance statistics
                 stopwatch.Stop();
                 Console.WriteLine($"[QUERY] Query completed in {stopwatch.ElapsedMilliseconds}ms, returned {results.Count} records");
 
@@ -929,7 +929,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 获取排序表达式
+        /// Get sort expression
         /// </summary>
         private Expression<Func<Onboarding, object>> GetOrderByExpression(OnboardingQueryRequest request)
         {
@@ -957,7 +957,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 获取排序方向
+        /// Get sort direction
         /// </summary>
         private bool GetSortDirection(OnboardingQueryRequest request)
         {
@@ -966,7 +966,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 构建查询缓存键
+        /// Build query cache key
         /// </summary>
         private string BuildQueryCacheKey(OnboardingQueryRequest request, string tenantId)
         {
@@ -1475,8 +1475,9 @@ namespace FlowFlex.Application.Services.OW
             // Check if onboarding is already completed
             if (entity.Status == "Completed")
             {
-                Console.WriteLine("Onboarding is already completed, no action needed");
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
+                Console.WriteLine("Onboarding is already completed, returning success response");
+                Console.WriteLine("Note: This is handled gracefully instead of throwing an exception");
+                return true; // Return success since the desired outcome (completion) is already achieved
             }
 
             // 已移除Stage 1完成前必须设置优先级的验证
@@ -1674,8 +1675,9 @@ namespace FlowFlex.Application.Services.OW
             // Check if onboarding is already completed
             if (entity.Status == "Completed")
             {
-                Console.WriteLine("Onboarding is already completed, no action needed");
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
+                Console.WriteLine("Onboarding is already completed, returning success response");
+                Console.WriteLine("Note: This is handled gracefully instead of throwing an exception");
+                return true; // Return success since the desired outcome (completion) is already achieved
             }
 
             // Optional: Check if frontend stage matches backend stage (only if CurrentStageId is provided)
@@ -2450,7 +2452,9 @@ namespace FlowFlex.Application.Services.OW
 
             if (entity.Status == "Completed")
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
+                Console.WriteLine("Onboarding is already completed, returning success response");
+                Console.WriteLine("Note: This is handled gracefully instead of throwing an exception");
+                return true; // Return success since the desired outcome (completion) is already achieved
             }
 
             entity.Status = "Completed";
