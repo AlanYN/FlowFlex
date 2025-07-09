@@ -23,6 +23,22 @@ namespace FlowFlex.Application.Services.OW
         public JwtService(IOptions<JwtOptions> jwtOptions)
         {
             _jwtOptions = jwtOptions.Value;
+            
+            // Add validation to ensure configuration is loaded properly
+            if (string.IsNullOrEmpty(_jwtOptions.SecretKey))
+            {
+                throw new InvalidOperationException("JWT SecretKey is not configured properly. Please check the Security:JwtSecretKey setting in appsettings.json");
+            }
+            
+            if (string.IsNullOrEmpty(_jwtOptions.Issuer))
+            {
+                throw new InvalidOperationException("JWT Issuer is not configured properly. Please check the Security:JwtIssuer setting in appsettings.json");
+            }
+            
+            if (string.IsNullOrEmpty(_jwtOptions.Audience))
+            {
+                throw new InvalidOperationException("JWT Audience is not configured properly. Please check the Security:JwtAudience setting in appsettings.json");
+            }
         }
 
         /// <summary>

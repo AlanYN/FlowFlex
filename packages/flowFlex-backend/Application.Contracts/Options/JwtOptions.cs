@@ -11,12 +11,12 @@ namespace FlowFlex.Application.Contracts.Options
         public string SecretKey { get; set; }
 
         /// <summary>
-        /// 发行�?
+        /// 发行者
         /// </summary>
         public string Issuer { get; set; }
 
         /// <summary>
-        /// 接收�?
+        /// 接收者
         /// </summary>
         public string Audience { get; set; }
 

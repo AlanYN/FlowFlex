@@ -134,7 +134,17 @@ builder.Services.AddAutoMapper(config =>
 
 // Configure options
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+// Manually configure JwtOptions from Security section
+builder.Services.Configure<JwtOptions>(options =>
+{
+    options.SecretKey = builder.Configuration["Security:JwtSecretKey"];
+    options.Issuer = builder.Configuration["Security:JwtIssuer"];
+    options.Audience = builder.Configuration["Security:JwtAudience"];
+    if (int.TryParse(builder.Configuration["Security:JwtExpiryMinutes"], out var expiryMinutes))
+    {
+        options.ExpiryMinutes = expiryMinutes;
+    }
+});
 builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection("FileStorage"));
 
 // Register JWT authentication
