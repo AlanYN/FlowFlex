@@ -21,11 +21,8 @@ import { isoldEnvironment } from '@/utils/threePartyLogin';
 // import { ElMessage } from 'element-plus';
 import dayjs from 'dayjs';
 import qs from 'qs';
-import { useGlobSetting } from '@/settings';
 
 export * from './axiosTransform';
-
-const globSetting = useGlobSetting();
 
 /**
  * @description:  axios module
@@ -384,32 +381,17 @@ export class VAxios {
 	}
 
 	async getNewToken(parms): Promise<any> {
-		if (globSetting.environment == 'UNIS') {
-			return new Promise((resolve, reject) => {
-				const RefreshTokenUrl = UnisApi().getNewToken;
-				this.axiosInstance
-					.put(RefreshTokenUrl, parms)
-					.then((res) => {
-						console.log('换取token成功');
-						resolve(res);
-					})
-					.catch((err) => {
-						reject(err);
-					});
-			});
-		} else {
-			return new Promise((resolve, reject) => {
-				const RefreshTokenUrl = UnisApi().getIAMRefreshToken;
-				this.axiosInstance
-					.post(RefreshTokenUrl, { ...parms, clientId: globSetting.ssoCode })
-					.then((res) => {
-						console.log('换取token成功');
-						resolve(res);
-					})
-					.catch((err) => {
-						reject(err);
-					});
-			});
-		}
+		return new Promise((resolve, reject) => {
+			const RefreshTokenUrl = UnisApi().getNewToken;
+			this.axiosInstance
+				.put(RefreshTokenUrl, parms)
+				.then((res) => {
+					console.log('换取token成功');
+					resolve(res);
+				})
+				.catch((err) => {
+					reject(err);
+				});
+		});
 	}
 }

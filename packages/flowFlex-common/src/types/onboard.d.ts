@@ -68,6 +68,7 @@ export interface OnboardingItem {
 }
 
 export interface SearchParams {
+	workFlowId: string;
 	leadId: string;
 	leadName: string;
 	lifeCycleStageName: string;
@@ -85,6 +86,7 @@ export interface OnboardingQueryRequest {
 	currentStageId?: string;
 	updatedBy?: string;
 	priority?: string;
+	workFlowId?: string;
 	page: number;
 	size: number;
 	sort: string;

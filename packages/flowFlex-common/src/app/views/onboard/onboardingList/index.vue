@@ -72,6 +72,26 @@
 
 							<div class="space-y-2">
 								<label class="text-sm font-medium text-gray-700">
+									Onboard Work Flow
+								</label>
+								<el-select
+									v-model="searchParams.workFlowId"
+									placeholder="Select Work Flow"
+									clearable
+									class="w-full rounded-md"
+								>
+									<el-option label="All Work Flows" value="" />
+									<el-option
+										v-for="workflow in allWorkflows"
+										:key="workflow.id"
+										:label="workflow.name"
+										:value="workflow.id"
+									/>
+								</el-select>
+							</div>
+
+							<div class="space-y-2">
+								<label class="text-sm font-medium text-gray-700">
 									Onboard Stage
 								</label>
 								<el-select
@@ -222,6 +242,18 @@
 							<template #default="{ row }">
 								<div class="table-cell-content" :title="row.lifeCycleStageName">
 									{{ row.lifeCycleStageName }}
+								</div>
+							</template>
+						</el-table-column>
+						<el-table-column
+							prop="workflowName"
+							label="Work Flow"
+							sortable="custom"
+							min-width="200"
+						>
+							<template #default="{ row }">
+								<div class="table-cell-content" :title="row.workflowName">
+									{{ row.workflowName }}
 								</div>
 							</template>
 						</el-table-column>
@@ -598,6 +630,22 @@
 						<el-option label="Low" value="Low" />
 					</el-select>
 				</el-form-item>
+
+				<el-form-item label="Work flow" prop="workFlowId">
+					<el-select
+						v-model="formData.workFlowId"
+						placeholder="Select Work Flow"
+						clearable
+						class="w-full rounded-md"
+					>
+						<el-option
+							v-for="workflow in allWorkflows"
+							:key="workflow.id"
+							:label="workflow.name"
+							:value="workflow.id"
+						/>
+					</el-select>
+				</el-form-item>
 			</el-form>
 
 			<template #footer>
@@ -663,6 +711,7 @@ import { timeZoneConvert } from '@/hooks/time';
 import { useI18n } from '@/hooks/useI18n';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
+import { pick, omitBy, isNil } from 'lodash-es';
 
 const { t } = useI18n();
 
@@ -693,6 +742,7 @@ const formData = reactive({
 	priority: '',
 	ContactPerson: '',
 	ContactEmail: '',
+	workFlowId: '',
 });
 const formRules = {
 	leadId: [{ required: true, message: 'Lead ID is required', trigger: 'blur' }],
@@ -703,6 +753,7 @@ const formRules = {
 		{ required: true, message: 'Contact Email is required', trigger: 'blur' },
 		{ type: 'email', message: 'Please enter a valid email address', trigger: 'blur' },
 	], // 必填，且需要验证邮箱格式
+	workFlowId: [{ required: true, message: 'Work Flow is required', trigger: 'blur' }],
 };
 
 const changeLifeCycleStage = (value: string) => {
@@ -716,6 +767,7 @@ const saving = ref(false);
 
 // 搜索参数
 const searchParams = reactive<SearchParams>({
+	workFlowId: '',
 	leadId: '',
 	leadName: '',
 	lifeCycleStageName: '',
@@ -777,16 +829,19 @@ const loadOnboardingList = async (event?: any) => {
 			size: pageSize.value,
 			sort: event?.prop ? event.prop : '',
 			sortType: event?.isAsc ? 'asc' : 'desc',
+			...omitBy(
+				pick(searchParams, [
+					'leadId',
+					'leadName',
+					'lifeCycleStageName',
+					'currentStageId',
+					'updatedBy',
+					'priority',
+					'workFlowId',
+				]),
+				(value) => isNil(value) || value === ''
+			),
 		};
-
-		// 添加搜索条件
-		if (searchParams.leadId) queryParams.leadId = searchParams.leadId;
-		if (searchParams.leadName) queryParams.leadName = searchParams.leadName;
-		if (searchParams.lifeCycleStageName)
-			queryParams.lifeCycleStageName = searchParams.lifeCycleStageName;
-		if (searchParams.currentStageId) queryParams.currentStageId = searchParams.currentStageId;
-		if (searchParams.updatedBy) queryParams.updatedBy = searchParams.updatedBy;
-		if (searchParams.priority) queryParams.priority = searchParams.priority;
 
 		const response: ApiResponse<OnboardingItem> = await queryOnboardings(queryParams);
 
@@ -913,6 +968,7 @@ const handleEdit = (itemId: string) => {
 
 const handleNewOnboarding = () => {
 	if (allWorkflows.value.length > 0) {
+		formData.workFlowId = allWorkflows.value.find((item) => item.isDefault)?.id || '';
 		dialogVisible.value = true;
 	} else {
 		// End date已过期，显示警告提示

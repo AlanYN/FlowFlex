@@ -7,7 +7,6 @@
 			</el-icon>
 			<p class="text-gray-500">Loading preview...</p>
 		</div>
-
 		<div v-else-if="questionnaire" class="space-y-4 p-4">
 			<!-- 问卷基本信息 -->
 			<div class="questionnaire-header p-4 rounded-lg border">

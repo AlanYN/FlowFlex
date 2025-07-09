@@ -1,48 +1,16 @@
 <template>
 	<div class="create-questionnaire-container rounded-md">
 		<!-- 页面头部 -->
-		<div class="page-header rounded-md">
-			<div class="header-content">
-				<div class="header-left">
-					<el-button
-						type="primary"
-						link
-						class="back-button"
-						@click="handleGoBack"
-						size="small"
-					>
-						<el-icon class="back-icon"><Back /></el-icon>
-					</el-button>
-					<div class="header-info">
-						<h1 class="page-title">
-							{{ pageTitle }}
-						</h1>
-						<p class="page-description">
-							{{ pageDescription }}
-						</p>
-					</div>
-				</div>
-				<div class="header-actions">
-					<el-button
-						type="default"
-						class="preview-button"
-						@click="togglePreview"
-						:icon="currentTab === 'questions' ? View : Edit"
-					>
-						{{ currentTab === 'questions' ? 'Preview' : 'Edit' }}
-					</el-button>
-					<el-button
-						type="primary"
-						class="save-button"
-						@click="handleSaveQuestionnaire"
-						:loading="saving"
-						:icon="Document"
-					>
-						{{ isEditMode ? 'Update Questionnaire' : 'Save Questionnaire' }}
-					</el-button>
-				</div>
-			</div>
-		</div>
+		<QuestionnaireHeader
+			:title="pageTitle"
+			:description="pageDescription"
+			:current-tab="currentTab"
+			:saving="saving"
+			:is-edit-mode="isEditMode"
+			@go-back="handleGoBack"
+			@toggle-preview="togglePreview"
+			@save-questionnaire="handleSaveQuestionnaire"
+		/>
 
 		<!-- 主要内容区域 -->
 		<div class="main-content">
@@ -63,133 +31,45 @@
 					<el-scrollbar ref="configScrollbarRef">
 						<el-card class="config-card rounded-md">
 							<!-- 基本信息 -->
-							<div class="config-section">
-								<h3 class="section-title">Basic Information</h3>
-								<el-form :model="questionnaire" label-position="top">
-									<el-form-item label="Questionnaire Title" required>
-										<el-input
-											v-model="questionnaire.name"
-											placeholder="Enter questionnaire title"
-										/>
-									</el-form-item>
-									<el-form-item label="Description">
-										<el-input
-											v-model="questionnaire.description"
-											type="textarea"
-											:rows="3"
-											placeholder="Enter questionnaire description"
-										/>
-									</el-form-item>
-									<el-form-item label="Workflow">
-										<el-select
-											v-model="questionnaire.workflowId"
-											placeholder="Select workflow"
-											style="width: 100%"
-											@change="handleWorkflowChange"
-										>
-											<el-option
-												v-for="workflow in workflows"
-												:key="workflow.id"
-												:label="workflow.name"
-												:value="workflow.id"
-											/>
-										</el-select>
-									</el-form-item>
-									<el-form-item label="Stage">
-										<el-select
-											v-model="questionnaire.stageId"
-											placeholder="Select stage"
-											style="width: 100%"
-											:disabled="!questionnaire.workflowId || stagesLoading"
-											:loading="stagesLoading"
-										>
-											<el-option
-												v-for="stage in workflowStages"
-												:key="stage.id"
-												:label="stage.name"
-												:value="stage.id"
-											/>
-										</el-select>
-									</el-form-item>
-								</el-form>
-							</div>
+							<QuestionnaireBasicInfo
+								:questionnaire="{
+									name: questionnaire.name,
+									description: questionnaire.description,
+								}"
+								@update-questionnaire="updateBasicInfo"
+							/>
+
+							<el-divider />
+
+							<!-- 工作流阶段分配 -->
+							<WorkflowAssignments
+								:assignments="questionnaire.assignments"
+								:workflows="workflows"
+								@add-assignment="addAssignment"
+								@remove-assignment="removeAssignment"
+								@workflow-change="handleWorkflowChange"
+								@stage-change="handleStageChange"
+							/>
 
 							<el-divider />
 
 							<!-- 分区管理 -->
-							<div class="config-section">
-								<div class="section-header">
-									<h3 class="section-title">Sections</h3>
-									<el-button
-										type="primary"
-										size="small"
-										@click="handleAddSection"
-										:icon="Plus"
-									>
-										Add Section
-									</el-button>
-								</div>
-								<el-scrollbar max-height="300px" class="sections-list-container">
-									<div class="sections-list">
-										<div
-											v-for="(section, index) in questionnaire.sections"
-											:key="section.id"
-											class="section-item"
-											:class="{ active: currentSectionIndex === index }"
-											@click="setCurrentSection(index)"
-										>
-											<div class="section-info">
-												<div class="section-name">{{ section.title }}</div>
-												<div class="section-count">
-													{{ section.items.length }} items
-												</div>
-											</div>
-											<el-button
-												v-if="questionnaire.sections.length > 1"
-												type="primary"
-												link
-												size="small"
-												@click.stop="handleRemoveSection(index)"
-												:icon="Delete"
-												class="delete-btn"
-											/>
-										</div>
-									</div>
-								</el-scrollbar>
-							</div>
+							<SectionManager
+								:sections="questionnaire.sections"
+								:current-section-index="currentSectionIndex"
+								@add-section="handleAddSection"
+								@remove-section="handleRemoveSection"
+								@set-current-section="setCurrentSection"
+							/>
 
 							<el-divider />
 
 							<!-- 问题类型 -->
-							<div class="config-section">
-								<h3 class="section-title">Question Types</h3>
-								<div class="question-types-grid">
-									<div
-										v-for="type in questionTypes"
-										:key="type.id"
-										class="question-type-item"
-										@click="setNewQuestionType(type.id)"
-										:class="{ active: newQuestion.type === type.id }"
-									>
-										<el-icon class="type-icon">
-											<component :is="type.icon" />
-										</el-icon>
-										<div class="type-info">
-											<div class="type-content">
-												<span class="type-name">{{ type.name }}</span>
-												<el-tag
-													v-if="type.isNew"
-													size="small"
-													type="success"
-													class="type-new-tag"
-												>
-													New
-												</el-tag>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
+							<QuestionTypesPanel
+								:selected-type="pressentQuestionType"
+								:question-types="questionTypes"
+								@select-type="changeQuestionType"
+							/>
 						</el-card>
 					</el-scrollbar>
 				</div>
@@ -237,526 +117,22 @@
 									</div>
 
 									<!-- 问题列表 -->
-									<div class="questions-list">
-										<draggable
-											v-model="currentSection.items"
-											item-key="id"
-											handle=".drag-handle"
-											@change="handleQuestionDragEnd"
-											ghost-class="ghost-question"
-											class="questions-draggable"
-											:animation="300"
-										>
-											<template #item="{ element: item, index }">
-												<div class="question-item">
-													<div class="question-header">
-														<div class="question-left">
-															<div class="drag-handle">
-																<DragIcon class="drag-icon" />
-															</div>
-															<div class="question-info">
-																<div class="question-text">
-																	{{ item.question }}
-																</div>
-																<div class="question-meta">
-																	<el-tag
-																		size="small"
-																		class="card-tag"
-																	>
-																		{{
-																			getQuestionTypeName(
-																				item.type
-																			)
-																		}}
-																	</el-tag>
-																	<el-tag
-																		v-if="item.required"
-																		size="small"
-																		type="danger"
-																	>
-																		Required
-																	</el-tag>
-																</div>
-															</div>
-														</div>
-														<el-button
-															type="danger"
-															link
-															@click="handleRemoveQuestion(index)"
-															:icon="Delete"
-															class="delete-question-btn"
-														/>
-													</div>
-													<div
-														v-if="item.description"
-														class="question-description"
-													>
-														{{ item.description }}
-													</div>
-													<div
-														v-if="
-															item.options && item.options.length > 0
-														"
-														class="question-options"
-													>
-														<div class="options-label">Options:</div>
-														<div class="options-list">
-															<el-tag
-																v-for="option in item.options"
-																:key="option.id"
-																size="small"
-																class="option-tag"
-															>
-																{{ option.label }}
-															</el-tag>
-														</div>
-													</div>
-												</div>
-											</template>
-										</draggable>
-
-										<!-- 空状态 -->
-										<div
-											v-if="currentSection.items.length === 0"
-											class="empty-questions"
-										>
-											<el-empty description="No questions yet">
-												<template #image>
-													<el-icon size="48" color="var(--el-color-info)">
-														<Document />
-													</el-icon>
-												</template>
-											</el-empty>
-										</div>
-									</div>
+									<QuestionsList
+										:questions="currentSection.items"
+										:question-types="questionTypes"
+										@remove-question="handleRemoveQuestion"
+										@drag-end="handleQuestionDragEnd"
+									/>
 
 									<el-divider />
 
 									<!-- 新问题编辑器 -->
-									<div class="new-question-editor">
-										<h4 class="editor-title">Add New Question</h4>
-										<el-form :model="newQuestion" label-position="top">
-											<el-row :gutter="16">
-												<el-col :span="12">
-													<el-form-item label="Question Type">
-														<el-select
-															v-model="newQuestion.type"
-															placeholder="Select question type"
-															style="width: 100%"
-														>
-															<template #prefix>
-																<div
-																	v-if="newQuestion.type"
-																	class="type-option"
-																>
-																	<el-icon class="type-icon">
-																		<component
-																			:is="
-																				getQuestionTypeIcon(
-																					newQuestion.type
-																				)
-																			"
-																		/>
-																	</el-icon>
-																</div>
-															</template>
-															<el-option
-																v-for="type in questionTypes"
-																:key="type.id"
-																:label="type.name"
-																:value="type.id"
-															>
-																<div class="type-option">
-																	<el-icon class="type-icon">
-																		<component
-																			:is="type.icon"
-																		/>
-																	</el-icon>
-																	<span class="type-option-name">
-																		{{ type.name }}
-																	</span>
-																	<el-tag
-																		v-if="type.isNew"
-																		size="small"
-																		type="success"
-																		class="type-option-tag"
-																	>
-																		New
-																	</el-tag>
-																</div>
-															</el-option>
-														</el-select>
-													</el-form-item>
-												</el-col>
-												<el-col :span="12">
-													<el-form-item label="Required">
-														<el-switch v-model="newQuestion.required" />
-													</el-form-item>
-												</el-col>
-											</el-row>
-											<el-form-item label="Question Text" required>
-												<el-input
-													v-model="newQuestion.question"
-													placeholder="Enter question text"
-												/>
-											</el-form-item>
-											<el-form-item label="Question Description">
-												<el-input
-													v-model="newQuestion.description"
-													type="textarea"
-													:rows="2"
-													placeholder="Enter question description or help text"
-												/>
-											</el-form-item>
-
-											<!-- 选项编辑器 -->
-											<div
-												v-if="needsOptions(newQuestion.type)"
-												class="options-editor"
-											>
-												<div class="options-section">
-													<div class="options-header">
-														<label class="options-label">Options</label>
-													</div>
-
-													<div class="options-input-grid">
-														<div class="option-input-item">
-															<label class="input-label">Value</label>
-															<el-input
-																v-model="newOption.value"
-																placeholder="Option value"
-																class="option-input"
-															/>
-														</div>
-														<div class="option-input-item">
-															<label class="input-label">Label</label>
-															<div class="label-input-group">
-																<el-input
-																	v-model="newOption.label"
-																	placeholder="Option label"
-																	class="option-input"
-																/>
-																<el-button
-																	type="primary"
-																	@click="handleAddOption"
-																	:disabled="
-																		!newOption.value ||
-																		!newOption.label
-																	"
-																	class="add-option-btn"
-																>
-																	Add
-																</el-button>
-															</div>
-														</div>
-													</div>
-												</div>
-
-												<!-- 当前选项列表 -->
-												<div
-													v-if="newQuestion.options.length > 0"
-													class="current-options"
-												>
-													<div class="current-options-container">
-														<label class="current-options-label">
-															Current Options
-														</label>
-														<div class="options-list">
-															<div
-																v-for="option in newQuestion.options"
-																:key="option.id"
-																class="option-item"
-															>
-																<div class="option-content">
-																	<span class="option-label-text">
-																		{{ option.label }}
-																	</span>
-																	<span class="option-value-text">
-																		({{ option.value }})
-																	</span>
-																</div>
-																<el-button
-																	type="danger"
-																	link
-																	size="small"
-																	@click="
-																		handleRemoveOption(
-																			option.id
-																		)
-																	"
-																	:icon="Delete"
-																	class="delete-option-btn"
-																/>
-															</div>
-														</div>
-													</div>
-												</div>
-											</div>
-
-											<!-- 网格编辑器 -->
-											<div
-												v-if="needsGrid(newQuestion.type)"
-												class="grid-editor"
-											>
-												<div class="grid-section">
-													<div class="grid-header">
-														<label class="grid-label">
-															Grid Configuration
-														</label>
-													</div>
-
-													<!-- 行列编辑区域 - 左右布局 -->
-													<div class="grid-editor-layout">
-														<!-- 左侧：行编辑 -->
-														<div class="grid-column-editor">
-															<div class="grid-column-header">
-																<h4 class="grid-column-title">
-																	Rows
-																</h4>
-															</div>
-
-															<!-- 行列表 -->
-															<div class="grid-items-container">
-																<div
-																	v-for="(
-																		row, index
-																	) in newQuestion.rows"
-																	:key="row.id"
-																	class="grid-editor-item"
-																>
-																	<span class="grid-item-number">
-																		{{ index + 1 }}.
-																	</span>
-																	<span class="grid-item-label">
-																		{{ row.label }}
-																	</span>
-																	<el-button
-																		type="danger"
-																		text
-																		size="small"
-																		@click="
-																			handleRemoveRow(row.id)
-																		"
-																		class="grid-delete-btn"
-																	>
-																		<el-icon>
-																			<Close />
-																		</el-icon>
-																	</el-button>
-																</div>
-
-																<!-- 添加行输入 -->
-																<div class="grid-add-item">
-																	<span class="grid-item-number">
-																		{{
-																			newQuestion.rows
-																				.length + 1
-																		}}.
-																	</span>
-																	<el-input
-																		v-model="newRow.label"
-																		placeholder="Add row"
-																		class="grid-add-input"
-																		@keyup.enter="handleAddRow"
-																	/>
-																	<el-button
-																		type="primary"
-																		size="small"
-																		@click="handleAddRow"
-																		:disabled="
-																			!newRow.label.trim()
-																		"
-																	>
-																		Add
-																	</el-button>
-																</div>
-															</div>
-														</div>
-
-														<!-- 右侧：列编辑 -->
-														<div class="grid-column-editor">
-															<div class="grid-column-header">
-																<h4 class="grid-column-title">
-																	Columns
-																</h4>
-															</div>
-
-															<!-- 列列表 -->
-															<div class="grid-items-container">
-																<div
-																	v-for="column in newQuestion.columns"
-																	:key="column.id"
-																	class="grid-editor-item"
-																>
-																	<el-icon
-																		class="grid-column-icon"
-																	>
-																		<Check />
-																	</el-icon>
-																	<span class="grid-item-label">
-																		{{ column.label }}
-																	</span>
-																	<el-button
-																		type="danger"
-																		text
-																		size="small"
-																		@click="
-																			handleRemoveColumn(
-																				column.id
-																			)
-																		"
-																		class="grid-delete-btn"
-																	>
-																		<el-icon>
-																			<Close />
-																		</el-icon>
-																	</el-button>
-																</div>
-
-																<!-- 添加列输入 -->
-																<div class="grid-add-item">
-																	<el-icon
-																		class="grid-column-icon"
-																	>
-																		<Check />
-																	</el-icon>
-																	<el-input
-																		v-model="newColumn.label"
-																		placeholder="Add column"
-																		class="grid-add-input"
-																		@keyup.enter="
-																			handleAddColumn
-																		"
-																	/>
-																	<el-button
-																		type="primary"
-																		size="small"
-																		@click="handleAddColumn"
-																		:disabled="
-																			!newColumn.label.trim()
-																		"
-																	>
-																		Add
-																	</el-button>
-																</div>
-															</div>
-														</div>
-													</div>
-
-													<!-- 网格选项 -->
-													<div class="grid-options">
-														<el-checkbox
-															v-if="
-																newQuestion.type === 'checkbox_grid'
-															"
-															v-model="
-																newQuestion.requireOneResponsePerRow
-															"
-															class="grid-option-checkbox"
-														>
-															Require a response in each row
-														</el-checkbox>
-													</div>
-												</div>
-											</div>
-
-											<!-- 线性量表配置 -->
-											<div
-												v-if="needsLinearScale(newQuestion.type)"
-												class="linear-scale-editor"
-											>
-												<div class="linear-scale-section">
-													<div class="linear-scale-header">
-														<label class="linear-scale-label">
-															Linear Scale Configuration
-														</label>
-													</div>
-
-													<!-- 范围配置 -->
-													<div class="scale-range-config">
-														<div class="range-selectors">
-															<div class="range-item">
-																<label class="range-label">
-																	From
-																</label>
-																<el-select
-																	v-model="newQuestion.min"
-																	placeholder="Select minimum"
-																	class="range-select"
-																>
-																	<el-option
-																		v-for="num in [0, 1]"
-																		:key="num"
-																		:label="num.toString()"
-																		:value="num"
-																	/>
-																</el-select>
-															</div>
-															<div class="range-separator">to</div>
-															<div class="range-item">
-																<label class="range-label">
-																	To
-																</label>
-																<el-select
-																	v-model="newQuestion.max"
-																	placeholder="Select maximum"
-																	class="range-select"
-																>
-																	<el-option
-																		v-for="num in [
-																			2, 3, 4, 5, 6, 7, 8, 9,
-																			10,
-																		]"
-																		:key="num"
-																		:label="num.toString()"
-																		:value="num"
-																	/>
-																</el-select>
-															</div>
-														</div>
-													</div>
-
-													<!-- 标签配置 -->
-													<div class="scale-labels-config">
-														<div class="labels-grid">
-															<div class="label-item">
-																<label class="label-title">
-																	{{ newQuestion.min }}
-																</label>
-																<el-input
-																	v-model="newQuestion.minLabel"
-																	placeholder="Left label (optional)"
-																	class="label-input"
-																/>
-															</div>
-															<div class="label-item">
-																<label class="label-title">
-																	{{ newQuestion.max }}
-																</label>
-																<el-input
-																	v-model="newQuestion.maxLabel"
-																	placeholder="Right label (optional)"
-																	class="label-input"
-																/>
-															</div>
-														</div>
-													</div>
-												</div>
-											</div>
-
-											<el-button
-												type="primary"
-												@click="handleAddQuestion"
-												:disabled="
-													!newQuestion.question || !newQuestion.type
-												"
-												:icon="Plus"
-												class="add-question-btn"
-											>
-												Add Question
-											</el-button>
-										</el-form>
-									</div>
+									<QuestionEditor
+										:question-types="questionTypes"
+										:pressent-question-type="pressentQuestionType"
+										@change-question-type="changeQuestionType"
+										@add-question="handleAddQuestion"
+									/>
 								</el-card>
 							</TabPane>
 
@@ -777,11 +153,15 @@ import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
-import { Back, View, Edit, Document, Plus, Delete, Close, Check } from '@element-plus/icons-vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-import draggable from 'vuedraggable';
-import DragIcon from '@assets/svg/publicPage/drag.svg';
+import QuestionnaireHeader from './components/QuestionnaireHeader.vue';
+import QuestionnaireBasicInfo from './components/QuestionnaireBasicInfo.vue';
+import WorkflowAssignments from './components/WorkflowAssignments.vue';
+import SectionManager from './components/SectionManager.vue';
+import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
+import QuestionEditor from './components/QuestionEditor.vue';
+import QuestionsList from './components/QuestionsList.vue';
 
 // 引入API
 import {
@@ -811,7 +191,6 @@ const debouncedUpdateScrollbars = () => {
 const isEditMode = computed(() => !!route.query.questionnaireId);
 const questionnaireId = computed(() => route.query.questionnaireId as string);
 const loading = ref(false);
-const stagesLoading = ref(false); // 新增：stages加载状态
 
 // 加载问卷数据（编辑模式）
 const loadQuestionnaireData = async () => {
@@ -840,6 +219,21 @@ const loadQuestionnaireData = async () => {
 			questionnaire.workflowId = data.workflowId || '';
 			questionnaire.stageId = data.stageId || '';
 			questionnaire.isActive = data.isActive ?? true;
+
+			// 初始化工作流阶段分配 - 从旧的单一workflowId/stageId转换
+			if (data.workflowId && data.stageId) {
+				questionnaire.assignments = [
+					{
+						id: `assignment-${Date.now()}`,
+						workflowId: data.workflowId,
+						stageId: data.stageId,
+						stages: [],
+						stagesLoading: false,
+					},
+				];
+			} else {
+				questionnaire.assignments = [];
+			}
 
 			// 填充问卷结构 - 适配API返回的数据结构
 			if (structure?.sections && Array.isArray(structure.sections)) {
@@ -907,34 +301,64 @@ const fetchWorkflows = async () => {
 	}
 };
 
-// 获取阶段列表 - 修改为根据workflowId获取
-const fetchStages = async (workflowId?: string) => {
+// 监听workflow变化
+const handleWorkflowChange = async (assignment: any, index: number, workflowId: string) => {
+	// 更新workflowId
+	assignment.workflowId = workflowId;
+	// 清空当前选择的stage
+	assignment.stageId = '';
+	assignment.stages = [];
+
 	if (!workflowId) {
-		workflowStages.value = [];
 		return;
 	}
 
+	// 加载阶段数据
+	assignment.stagesLoading = true;
 	try {
-		stagesLoading.value = true;
 		const response = await getStagesByWorkflow(workflowId);
 		if (response.code === '200') {
-			workflowStages.value = response.data || [];
+			assignment.stages = response.data || [];
 		} else {
-			workflowStages.value = [];
+			assignment.stages = [];
 		}
 	} catch (error) {
-		workflowStages.value = [];
+		assignment.stages = [];
 	} finally {
-		stagesLoading.value = false;
+		assignment.stagesLoading = false;
 	}
 };
 
-// 监听workflow变化
-const handleWorkflowChange = async (workflowId: string) => {
-	// 清空当前选择的stage
-	questionnaire.stageId = '';
-	// 获取新的stages
-	await fetchStages(workflowId);
+// 监听stage变化
+const handleStageChange = (assignment: any, stageId: string) => {
+	assignment.stageId = stageId;
+};
+
+// 更新基本信息
+const updateBasicInfo = (basicInfo: { name: string; description: string }) => {
+	questionnaire.name = basicInfo.name;
+	questionnaire.description = basicInfo.description;
+};
+
+// 添加工作流阶段分配
+const addAssignment = () => {
+	const newAssignment = {
+		id: `assignment-${Date.now()}`,
+		workflowId: '',
+		stageId: '',
+		stages: [],
+		stagesLoading: false,
+	};
+	questionnaire.assignments.push(newAssignment);
+};
+
+// 删除工作流阶段分配
+const removeAssignment = (index: number) => {
+	if (questionnaire.assignments.length <= 1) {
+		ElMessage.warning('At least one assignment is required');
+		return;
+	}
+	questionnaire.assignments.splice(index, 1);
 };
 
 // 问题类型定义
@@ -1014,9 +438,6 @@ const questionTypes = [
 	},
 ];
 
-// 工作流阶段定义
-const workflowStages = ref<any[]>([]);
-
 // 工作流数据
 const workflows = ref<any[]>([]);
 
@@ -1041,9 +462,16 @@ const tabsConfig = [
 const questionnaire = reactive({
 	name: '',
 	description: '',
-	workflowId: '',
-	stageId: '',
+	workflowId: '', // 保留用于兼容性
+	stageId: '', // 保留用于兼容性
 	isActive: true,
+	assignments: [] as Array<{
+		id: string;
+		workflowId: string;
+		stageId: string;
+		stages: Array<{ id: string; name: string }>;
+		stagesLoading: boolean;
+	}>,
 	sections: [
 		{
 			id: `section-${Date.now()}`,
@@ -1092,17 +520,16 @@ const pageDescription = computed(() => {
 
 // 预览数据
 const previewData = computed(() => {
-	// 查找workflow和stage的名称
-	const workflow = workflows.value.find((w) => w.id === questionnaire.workflowId);
-	const stage = workflowStages.value.find((s) => s.id === questionnaire.stageId);
+	// 获取第一个工作流阶段分配用于显示
+	const firstAssignment = questionnaire.assignments[0];
+	const workflow = workflows.value.find((w) => w.id === firstAssignment?.workflowId);
+	const stage = firstAssignment?.stages?.find((s) => s.id === firstAssignment?.stageId);
 
 	return {
 		id: isEditMode.value ? questionnaireId.value : `0`,
 		name: questionnaire.name || 'Untitled Questionnaire',
 		title: questionnaire.name || 'Untitled Questionnaire',
 		description: questionnaire.description || '',
-		workflowId: questionnaire.workflowId,
-		stageId: questionnaire.stageId,
 		workflowName: workflow?.name || '',
 		stageName: stage?.name || '',
 		sections: questionnaire.sections || [],
@@ -1129,40 +556,9 @@ const previewData = computed(() => {
 		isActive: true,
 		createBy: 'Current User',
 		createDate: new Date().toISOString(),
+		// 添加工作流阶段分配信息
+		assignments: questionnaire.assignments,
 	};
-});
-
-// 新问题数据
-const newQuestion = reactive({
-	type: 'short_answer',
-	question: '',
-	description: '',
-	required: true,
-	options: [] as { id: string; value: string; label: string }[],
-	rows: [] as { id: string; label: string }[],
-	columns: [] as { id: string; label: string }[],
-	requireOneResponsePerRow: false,
-	// 线性量表相关字段
-	min: 1,
-	max: 5,
-	minLabel: '',
-	maxLabel: '',
-});
-
-// 新选项数据
-const newOption = reactive({
-	value: '',
-	label: '',
-});
-
-// 新行数据
-const newRow = reactive({
-	label: '',
-});
-
-// 新列数据
-const newColumn = reactive({
-	label: '',
 });
 
 // 方法定义
@@ -1205,138 +601,32 @@ const updateCurrentSection = () => {
 	questionnaire.sections[currentSectionIndex.value] = { ...currentSection.value };
 };
 
-const setNewQuestionType = (type: string) => {
-	newQuestion.type = type;
-	// 清空选项和网格数据
-	newQuestion.options = [];
-	newQuestion.rows = [];
-	newQuestion.columns = [];
-	newQuestion.requireOneResponsePerRow = false;
-
-	// 重置线性量表字段
-	newQuestion.min = 1;
-	newQuestion.max = 5;
-	newQuestion.minLabel = '';
-	newQuestion.maxLabel = '';
-
-	// 清空输入框
-	newOption.value = '';
-	newOption.label = '';
-	newRow.label = '';
-	newColumn.label = '';
+const pressentQuestionType = ref('short_answer');
+const changeQuestionType = (type: string) => {
+	pressentQuestionType.value = type;
 };
 
-const needsOptions = (type: string) => {
-	return ['multiple_choice', 'checkboxes', 'dropdown'].includes(type);
-};
-
-const needsGrid = (type: string) => {
-	return ['multiple_choice_grid', 'checkbox_grid'].includes(type);
-};
-
-const needsLinearScale = (type: string) => {
-	return type === 'linear_scale';
-};
-
-const handleAddOption = () => {
-	if (!newOption.value.trim() || !newOption.label.trim()) return;
-
-	newQuestion.options.push({
-		id: `option-${Date.now()}`,
-		value: newOption.value,
-		label: newOption.label,
-	});
-
-	newOption.value = '';
-	newOption.label = '';
-};
-
-const handleRemoveOption = (id: string) => {
-	newQuestion.options = newQuestion.options.filter((option) => option.id !== id);
-};
-
-const handleAddRow = () => {
-	if (!newRow.label.trim()) {
-		return;
-	}
-
-	const newRowData = {
-		id: `row-${Date.now()}`,
-		label: newRow.label,
-	};
-
-	newQuestion.rows.push(newRowData);
-	newRow.label = '';
-};
-
-const handleRemoveRow = (id: string) => {
-	newQuestion.rows = newQuestion.rows.filter((row) => row.id !== id);
-};
-
-const handleAddColumn = () => {
-	if (!newColumn.label.trim()) {
-		return;
-	}
-
-	const newColumnData = {
-		id: `column-${Date.now()}`,
-		label: newColumn.label,
-	};
-
-	newQuestion.columns.push(newColumnData);
-	newColumn.label = '';
-};
-
-const handleRemoveColumn = (id: string) => {
-	newQuestion.columns = newQuestion.columns.filter((column) => column.id !== id);
-};
-
-const handleAddQuestion = () => {
-	if (!newQuestion.question.trim() || !newQuestion.type) return;
+const handleAddQuestion = (questionData: any) => {
+	if (!questionData.question.trim() || !questionData.type) return;
 
 	const question = {
 		id: `question-${Date.now()}`,
-		...newQuestion,
-		options: [...newQuestion.options],
-		rows: [...newQuestion.rows],
-		columns: [...newQuestion.columns],
+		...questionData,
+		options: [...questionData.options],
+		rows: [...questionData.rows],
+		columns: [...questionData.columns],
 	};
 
 	questionnaire.sections[currentSectionIndex.value].items.push(question);
-
-	// 重置新问题表单，但保持问题类型不变
-	newQuestion.question = '';
-	newQuestion.description = '';
-	newQuestion.required = true;
-	newQuestion.options = [];
-	newQuestion.rows = [];
-	newQuestion.columns = [];
-	newQuestion.requireOneResponsePerRow = false;
-	// 重置线性量表字段
-	newQuestion.min = 1;
-	newQuestion.max = 5;
-	newQuestion.minLabel = '';
-	newQuestion.maxLabel = '';
-	// 不重置 newQuestion.type，保持当前选择的类型
 };
 
 const handleRemoveQuestion = (index: number) => {
 	questionnaire.sections[currentSectionIndex.value].items.splice(index, 1);
 };
 
-const handleQuestionDragEnd = () => {
-	// 拖拽结束后，问题顺序已经通过v-model自动更新
-	// 这里可以添加额外的逻辑，比如保存到服务器
-};
-
-const getQuestionTypeName = (type: string) => {
-	const questionType = questionTypes.find((t) => t.id === type);
-	return questionType ? questionType.name : type;
-};
-
-const getQuestionTypeIcon = (type: string) => {
-	const questionType = questionTypes.find((t) => t.id === type);
-	return questionType ? questionType.icon : 'Document';
+const handleQuestionDragEnd = (questions: any[]) => {
+	// 更新当前分区的问题列表
+	questionnaire.sections[currentSectionIndex.value].items = questions;
 };
 
 const handleSaveQuestionnaire = async () => {
@@ -1385,11 +675,14 @@ const handleSaveQuestionnaire = async () => {
 			0
 		);
 
+		// 为了向后兼容，使用第一个分配的 workflowId 和 stageId
+		const firstAssignment = questionnaire.assignments[0];
+
 		const params = {
 			name: questionnaire.name,
 			description: questionnaire.description,
-			workflowId: questionnaire.workflowId,
-			stageId: questionnaire.stageId,
+			workflowId: firstAssignment?.workflowId || '',
+			stageId: firstAssignment?.stageId || '',
 			isActive: questionnaire.isActive,
 			structureJson,
 			totalQuestions,
@@ -1397,6 +690,15 @@ const handleSaveQuestionnaire = async () => {
 			estimatedMinutes: Math.max(1, Math.ceil(totalQuestions * 0.5)),
 			category: 'custom',
 			type: 'questionnaire',
+			// 可以在这里添加新的字段来保存所有的工作流阶段分配
+			assignments: questionnaire.assignments
+				.filter((assignment) => assignment.workflowId && assignment.stageId)
+				?.map((item) => {
+					return {
+						workflowId: item.workflowId,
+						stageId: item.stageId,
+					};
+				}),
 		};
 
 		let result;
@@ -1458,12 +760,19 @@ const mapInternalTypeToApiType = (internalType: string): string => {
 };
 
 onMounted(async () => {
-	// 初始化数据 - 先加载问卷数据和工作流，不预加载stages
+	// 初始化数据 - 先加载问卷数据和工作流
 	await Promise.all([loadQuestionnaireData(), fetchWorkflows()]);
 
-	// 如果是编辑模式且已有workflowId，则加载对应的stages
-	if (isEditMode.value && questionnaire.workflowId) {
-		await fetchStages(questionnaire.workflowId);
+	// 如果没有工作流阶段分配，添加一个空的分配
+	if (questionnaire.assignments.length === 0) {
+		addAssignment();
+	}
+
+	// 为现有的分配加载阶段数据
+	for (const assignment of questionnaire.assignments) {
+		if (assignment.workflowId) {
+			await handleWorkflowChange(assignment, 0, assignment.workflowId);
+		}
 	}
 
 	debouncedUpdateScrollbars();
@@ -1475,92 +784,6 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	background-color: var(--el-bg-color-page);
-}
-
-.page-header {
-	background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
-	border-bottom: 1px solid var(--primary-200);
-	padding: 1.5rem 2rem;
-}
-
-.header-content {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	width: 100%;
-}
-
-.header-left {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-}
-
-.back-button {
-	background-color: transparent;
-	border: none;
-	color: var(--primary-700);
-	padding: 0.5rem;
-	margin-right: 1rem;
-	transition: all 0.2s;
-	min-height: 2rem;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.back-button:hover {
-	background-color: var(--primary-200);
-	color: var(--primary-700);
-}
-
-.back-icon {
-	font-size: 1.25rem;
-	width: 1.25rem;
-	height: 1.25rem;
-}
-
-.header-info {
-	display: flex;
-	flex-direction: column;
-}
-
-.page-title {
-	font-size: 1.875rem;
-	font-weight: 700;
-	color: var(--primary-800);
-	margin: 0;
-}
-
-.page-description {
-	color: var(--primary-600);
-	margin: 0.25rem 0 0 0;
-}
-
-.header-actions {
-	display: flex;
-	gap: 0.5rem;
-}
-
-.preview-button {
-	border-color: var(--primary-300);
-	color: var(--primary-700);
-	background-color: transparent;
-}
-
-.preview-button:hover {
-	background-color: var(--primary-100);
-	border-color: var(--primary-400);
-}
-
-.save-button {
-	background-color: var(--primary-600);
-	border-color: var(--primary-600);
-}
-
-.save-button:hover {
-	background-color: var(--primary-700);
-	border-color: var(--primary-700);
 }
 
 .main-content {
@@ -1624,131 +847,6 @@ onMounted(async () => {
 	margin-bottom: 1rem;
 }
 
-.sections-list-container {
-	width: 100%;
-}
-
-.sections-list {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	padding-right: 10px;
-}
-
-.section-item {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 0.75rem;
-	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
-	cursor: pointer;
-	transition: all 0.2s;
-}
-
-.section-item:hover {
-	border-color: var(--primary-300);
-	background-color: var(--primary-50);
-}
-
-.section-item.active {
-	border-color: var(--primary-500);
-	background-color: var(--primary-50);
-}
-
-.section-info {
-	flex: 1;
-	min-width: 0;
-}
-
-.section-name {
-	font-size: 0.875rem;
-	font-weight: 500;
-	color: var(--primary-800);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	flex: 1;
-	min-width: 0;
-	line-height: 1.25;
-	@apply dark:text-primary-200;
-}
-
-.section-count {
-	font-size: 0.75rem;
-	color: var(--primary-500);
-}
-
-.question-types-grid {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
-	gap: 0.5rem;
-}
-
-.question-type-item {
-	display: flex;
-	align-items: center;
-	padding: 0.75rem;
-	border: 1px solid var(--primary-100);
-	border-radius: 0.375rem;
-	cursor: pointer;
-	transition: all 0.2s;
-	min-height: 3rem;
-	width: 100%;
-	box-sizing: border-box;
-	@apply dark:border-black-200;
-}
-
-.question-type-item:hover {
-	background-color: var(--primary-50);
-	border-color: var(--primary-300);
-	@apply dark:bg-primary-800 dark:border-primary-500;
-}
-
-.question-type-item.active {
-	background-color: var(--primary-100);
-	border-color: var(--primary-500);
-	@apply dark:bg-primary-700 dark:border-primary-400;
-}
-
-.type-icon {
-	color: var(--primary-600);
-	margin-right: 0.5rem;
-}
-
-.type-info {
-	flex: 1;
-	min-width: 0;
-}
-
-.type-content {
-	display: flex;
-	align-items: center;
-	gap: 0.375rem;
-	min-height: 1.5rem;
-}
-
-.type-name {
-	font-size: 0.875rem;
-	font-weight: 500;
-	color: var(--primary-800);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	flex: 1;
-	min-width: 0;
-	line-height: 1.25;
-	@apply dark:text-primary-200;
-}
-
-.type-new-tag {
-	flex-shrink: 0;
-	font-size: 0.625rem;
-	height: 1.125rem;
-	line-height: 1;
-	padding: 0.125rem 0.25rem;
-}
-
 .editor-panel {
 	height: 100%;
 	overflow: hidden;
@@ -1784,373 +882,7 @@ onMounted(async () => {
 	border: 1px solid var(--primary-100);
 }
 
-.questions-list {
-	margin-bottom: 1.5rem;
-}
-
-.questions-draggable {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-}
-
-.question-item {
-	padding: 0.75rem;
-	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
-	background-color: white;
-	transition: all 0.2s ease;
-}
-
-.question-item:hover {
-	border-color: var(--primary-300);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.question-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 0.5rem;
-}
-
-.question-left {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	flex: 1;
-	min-width: 0;
-}
-
-.drag-handle {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.5rem;
-	height: 1.5rem;
-	cursor: move;
-	color: var(--primary-400);
-	transition: color 0.2s;
-	flex-shrink: 0;
-}
-
-.drag-handle:hover {
-	color: var(--primary-600);
-}
-
-.drag-handle:active {
-	cursor: grabbing;
-}
-
-.drag-icon {
-	width: 1rem;
-	height: 1rem;
-}
-
-.question-info {
-	flex: 1;
-	min-width: 0;
-}
-
-.question-text {
-	font-weight: 500;
-	color: var(--primary-800);
-	word-break: break-word;
-}
-
-.question-meta {
-	display: flex;
-	gap: 0.5rem;
-	flex-wrap: wrap;
-}
-
-.card-tag {
-	background-color: var(--primary-50);
-	color: var(--primary-700);
-	border-color: var(--primary-200);
-	@apply dark:bg-primary-800 dark:text-primary-200 dark:border-primary-600;
-}
-
-.question-description {
-	font-size: 0.875rem;
-	color: var(--el-text-color-regular);
-}
-
-.question-options {
-	margin-top: 0.5rem;
-}
-
-.options-label {
-	font-size: 0.75rem;
-	font-weight: 500;
-	color: var(--primary-700);
-	margin-bottom: 0.25rem;
-}
-
-.options-list {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.25rem;
-}
-
-.option-tag {
-	background-color: var(--primary-100);
-	color: var(--primary-700);
-	border-color: var(--primary-200);
-}
-
-.empty-questions {
-	text-align: center;
-	padding: 2rem;
-}
-
-.new-question-editor {
-	padding: 1rem;
-	background-color: var(--primary-50);
-	border-radius: 0.375rem;
-	border: 1px solid var(--primary-100);
-}
-
-.editor-title {
-	font-weight: 600;
-	color: var(--primary-800);
-	margin: 0 0 1rem 0;
-}
-
-/* 选项编辑器样式 */
-.options-editor {
-	margin-top: 1rem;
-}
-
-.options-section {
-	margin-bottom: 1rem;
-}
-
-.options-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-bottom: 1rem;
-}
-
-.options-label {
-	font-size: 0.875rem;
-	font-weight: 500;
-	color: var(--primary-700);
-}
-
-.options-input-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 0.5rem;
-}
-
-.option-input-item {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
-
-.input-label {
-	font-size: 0.875rem;
-	font-weight: 500;
-	color: var(--primary-700);
-}
-
-.label-input-group {
-	display: flex;
-	gap: 0.5rem;
-}
-
-.add-option-btn {
-	flex-shrink: 0;
-	background-color: var(--primary-600) !important;
-	border-color: var(--primary-600) !important;
-	color: white !important;
-}
-
-.add-option-btn:hover {
-	background-color: var(--primary-700) !important;
-	border-color: var(--primary-700) !important;
-}
-
-.add-option-btn:disabled {
-	background-color: var(--primary-200) !important;
-	border-color: var(--primary-200) !important;
-}
-
-/* 当前选项列表样式 */
-.current-options-container {
-	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
-	padding: 0.75rem;
-	background-color: var(--primary-50);
-}
-
-.current-options-label {
-	display: block;
-	margin-bottom: 0.5rem;
-	font-size: 0.875rem;
-	font-weight: 500;
-	color: var(--primary-700);
-}
-
-.options-list {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
-
-.option-content {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-}
-
-.option-label-text {
-	font-weight: 500;
-	color: var(--primary-800);
-}
-
-.option-value-text {
-	font-size: 0.875rem;
-	color: var(--primary-600);
-}
-
-.delete-option-btn {
-	color: var(--el-color-danger) !important;
-}
-
-.delete-option-btn:hover {
-	background-color: var(--el-color-danger-light-9) !important;
-}
-
-/* Add Question按钮样式 */
-.add-question-btn {
-	width: 100%;
-	margin-top: 1rem;
-	background-color: var(--primary-600) !important;
-	border-color: var(--primary-600) !important;
-	color: white !important;
-}
-
-.add-question-btn:hover {
-	background-color: var(--primary-700) !important;
-	border-color: var(--primary-700) !important;
-}
-
-.add-question-btn:disabled {
-	background-color: var(--primary-200) !important;
-	border-color: var(--primary-200) !important;
-}
-
-.type-option {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	width: 100%;
-}
-
-.type-option-name {
-	flex: 1;
-	min-width: 0;
-}
-
-.type-option-tag {
-	flex-shrink: 0;
-	font-size: 0.625rem;
-	height: 1.125rem;
-	line-height: 1;
-	padding: 0.125rem 0.25rem;
-}
-
-.option-input-group {
-	margin-bottom: 0.75rem;
-}
-
-.current-options {
-	margin-top: 0.75rem;
-}
-
-.option-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0.5rem;
-	border: 1px solid var(--primary-100);
-	border-radius: 0.375rem;
-	background-color: var(--el-bg-color);
-}
-
-.option-text {
-	font-weight: 500;
-	color: var(--primary-800);
-}
-
-.option-value {
-	font-size: 0.875rem;
-	color: var(--primary-500);
-	margin-left: 0.5rem;
-}
-
-.delete-btn:hover {
-	background-color: var(--el-color-danger-light-9);
-}
-
-.delete-question-btn {
-	color: var(--el-color-danger) !important;
-	flex-shrink: 0;
-}
-
-.delete-question-btn:hover {
-	background-color: var(--el-color-danger-light-9) !important;
-}
-
 /* 深色模式支持 */
-.dark .page-header {
-	background: linear-gradient(135deg, var(--primary-800) 0%, var(--primary-700) 100%);
-	border-bottom-color: var(--primary-600);
-}
-
-.dark .page-title {
-	color: var(--primary-100);
-}
-
-.dark .page-description {
-	color: var(--primary-200);
-}
-
-.dark .back-button {
-	background-color: transparent;
-	color: var(--primary-200);
-}
-
-.dark .back-button:hover {
-	background-color: var(--primary-600);
-	color: var(--primary-200);
-}
-
-.dark .preview-button {
-	border-color: var(--primary-600);
-	color: var(--primary-200);
-	background-color: transparent;
-}
-
-.dark .preview-button:hover {
-	background-color: var(--primary-700);
-	border-color: var(--primary-500);
-}
-
-.dark .save-button {
-	background-color: var(--primary-600);
-	border-color: var(--primary-600);
-}
-
-.dark .save-button:hover {
-	background-color: var(--primary-500);
-	border-color: var(--primary-500);
-}
-
 .dark .config-card {
 	border-color: var(--primary-600);
 	background-color: var(--primary-800);
@@ -2160,411 +892,8 @@ onMounted(async () => {
 	color: var(--primary-200);
 }
 
-.dark .section-item {
-	border-color: var(--primary-600);
-	background-color: var(--primary-800);
-}
-
-.dark .section-item:hover {
-	border-color: var(--primary-500);
-	background-color: var(--primary-700);
-}
-
-.dark .section-item.active {
-	border-color: var(--primary-400);
-	background-color: var(--primary-700);
-}
-
-.dark .section-name {
-	color: var(--primary-100);
-}
-
-.dark .section-count {
-	color: var(--primary-300);
-}
-
-.dark .question-type-item {
-	border-color: var(--primary-600);
-	background-color: var(--primary-800);
-}
-
-.dark .question-type-item:hover {
-	background-color: var(--primary-700);
-	border-color: var(--primary-500);
-}
-
-.dark .question-type-item.active {
-	background-color: var(--primary-600);
-	border-color: var(--primary-400);
-}
-
-.dark .type-name {
-	color: var(--primary-100);
-}
-
-.dark .questionnaire-header {
-	background: linear-gradient(135deg, var(--primary-700) 0%, var(--primary-600) 100%);
-	border-color: var(--primary-500);
-}
-
-.dark .questionnaire-title {
-	color: var(--primary-100);
-}
-
-.dark .questionnaire-description {
-	color: var(--primary-200);
-}
-
-/* 深色模式下的Section Editor样式 */
-.dark .editor-title {
-	color: var(--primary-200);
-}
-
 .dark .current-section-info {
 	background-color: var(--primary-700);
 	border-color: var(--primary-600);
-}
-
-.dark .question-item {
-	background-color: var(--primary-800);
-	border-color: var(--primary-600);
-}
-
-.dark .question-text {
-	color: var(--primary-100);
-}
-
-.dark .question-description {
-	color: var(--primary-300);
-}
-
-.dark .options-label {
-	color: var(--primary-200);
-}
-
-.dark .option-tag {
-	background-color: var(--primary-600);
-	color: var(--primary-200);
-	border-color: var(--primary-500);
-}
-
-.dark .new-question-editor {
-	background-color: var(--primary-700);
-	border-color: var(--primary-600);
-}
-
-/* 深色模式下的选项编辑器样式 */
-.dark .options-label,
-.dark .input-label,
-.dark .current-options-label {
-	color: var(--primary-200);
-}
-
-.dark .current-options-container {
-	background-color: var(--primary-700);
-	border-color: var(--primary-600);
-}
-
-/* 网格编辑器样式 */
-.grid-editor {
-	margin-top: 1.5rem;
-	padding: 1rem;
-	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
-	background-color: var(--primary-25);
-}
-
-.grid-section {
-	display: flex;
-	flex-direction: column;
-	gap: 1rem;
-}
-
-.grid-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 0.5rem;
-}
-
-.grid-label {
-	font-size: 0.875rem;
-	font-weight: 600;
-	color: var(--primary-800);
-}
-
-/* Google Form风格的网格编辑器布局 */
-.grid-editor-layout {
-	display: flex;
-	gap: 2rem;
-	margin-top: 1rem;
-}
-
-.grid-column-editor {
-	flex: 1;
-	min-width: 0;
-}
-
-.grid-column-header {
-	margin-bottom: 1rem;
-}
-
-.grid-column-title {
-	font-size: 1rem;
-	font-weight: 500;
-	color: var(--primary-800);
-	margin: 0;
-}
-
-.grid-items-container {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
-
-.grid-editor-item {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	padding: 0.5rem;
-	border-radius: 0.375rem;
-	transition: background-color 0.2s;
-}
-
-.grid-editor-item:hover {
-	background-color: var(--primary-25);
-}
-
-.grid-item-number {
-	font-size: 0.875rem;
-	color: var(--primary-600);
-	min-width: 1.5rem;
-}
-
-.grid-item-label {
-	flex: 1;
-	font-size: 0.875rem;
-	color: var(--primary-700);
-}
-
-.grid-column-icon {
-	color: var(--primary-500);
-	font-size: 1rem;
-}
-
-.grid-delete-btn {
-	opacity: 0.6;
-	transition: opacity 0.2s;
-}
-
-.grid-delete-btn:hover {
-	opacity: 1;
-}
-
-.grid-add-item {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	padding: 0.5rem;
-	border: 1px dashed var(--primary-200);
-	border-radius: 0.375rem;
-	margin-top: 0.5rem;
-}
-
-.grid-add-input {
-	flex: 1;
-}
-
-.grid-options {
-	margin-top: 1.5rem;
-	padding-top: 1rem;
-	border-top: 1px solid var(--primary-100);
-}
-
-.grid-option-checkbox {
-	font-size: 0.875rem;
-}
-
-/* 深色模式下的网格编辑器样式 */
-.dark .grid-editor {
-	background-color: var(--primary-700);
-	border-color: var(--primary-600);
-}
-
-.dark .grid-label {
-	color: var(--primary-200);
-}
-
-.dark .grid-column-title {
-	color: var(--primary-200);
-}
-
-.dark .grid-editor-item:hover {
-	background-color: var(--primary-600);
-}
-
-.dark .grid-item-number {
-	color: var(--primary-300);
-}
-
-.dark .grid-item-label {
-	color: var(--primary-200);
-}
-
-.dark .grid-column-icon {
-	color: var(--primary-400);
-}
-
-.dark .grid-add-item {
-	border-color: var(--primary-500);
-}
-
-.dark .grid-options {
-	border-top-color: var(--primary-600);
-}
-
-.dark .option-item {
-	background-color: var(--primary-800);
-	border-color: var(--primary-600);
-}
-
-.dark .option-label-text {
-	color: var(--primary-100);
-}
-
-.dark .option-value-text {
-	color: var(--primary-300);
-}
-
-/* 深色模式下的空状态样式 */
-.dark .empty-questions {
-	color: var(--primary-300);
-}
-
-/* 深色模式下的滚动条样式 */
-.dark .sections-list-container {
-	background-color: transparent;
-}
-
-/* 拖拽时的幽灵样式 */
-.ghost-question {
-	opacity: 0.6;
-	background: var(--primary-50, #f0f7ff);
-	border: 1px dashed var(--primary-500, #2468f2);
-}
-
-/* 深色模式下的拖拽样式 */
-.dark .question-item {
-	background-color: var(--primary-800);
-	border-color: var(--primary-600);
-}
-
-.dark .question-item:hover {
-	border-color: var(--primary-500);
-}
-
-.dark .drag-handle {
-	color: var(--primary-500);
-}
-
-.dark .drag-handle:hover {
-	color: var(--primary-400);
-}
-
-.dark .ghost-question {
-	background: var(--primary-700);
-	border: 1px dashed var(--primary-400);
-}
-
-/* 线性量表编辑器样式 */
-.linear-scale-editor {
-	margin-top: 1.5rem;
-	padding: 1rem;
-	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
-	background-color: var(--primary-25);
-	@apply dark:bg-primary-700 dark:border-primary-600;
-}
-
-.linear-scale-section {
-	display: flex;
-	flex-direction: column;
-	gap: 1rem;
-}
-
-.linear-scale-header {
-	margin-bottom: 0.5rem;
-}
-
-.linear-scale-label {
-	font-size: 0.875rem;
-	font-weight: 600;
-	color: var(--primary-800);
-	@apply dark:text-primary-200;
-}
-
-.scale-range-config {
-	margin-bottom: 1rem;
-}
-
-.range-selectors {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-}
-
-.range-item {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	min-width: 100px;
-}
-
-.range-label {
-	font-size: 0.875rem;
-	font-weight: 500;
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
-.range-select {
-	width: 100%;
-}
-
-.range-separator {
-	font-size: 0.875rem;
-	color: var(--primary-600);
-	margin-top: 1.5rem;
-	@apply dark:text-primary-400;
-}
-
-.scale-labels-config {
-	border-top: 1px solid var(--primary-100);
-	padding-top: 1rem;
-	@apply dark:border-primary-600;
-}
-
-.labels-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 1rem;
-}
-
-.label-item {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
-
-.label-title {
-	font-size: 0.875rem;
-	font-weight: 500;
-	color: var(--primary-700);
-	text-align: center;
-	@apply dark:text-primary-300;
-}
-
-.label-input {
-	width: 100%;
 }
 </style>
