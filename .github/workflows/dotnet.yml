@@ -21,8 +21,8 @@ jobs:
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
-      run: dotnet restore FlowFlex/packages/flowFlex-backend/FlowFlex.sln
+      run: dotnet restore packages/flowFlex-backend/FlowFlex.sln
     - name: Build
-      run: dotnet build FlowFlex/packages/flowFlex-backend/FlowFlex.sln --no-restore
+      run: dotnet build packages/flowFlex-backend/FlowFlex.sln --no-restore
   #  - name: Test
   #    run: dotnet test --no-build --verbosity normal
