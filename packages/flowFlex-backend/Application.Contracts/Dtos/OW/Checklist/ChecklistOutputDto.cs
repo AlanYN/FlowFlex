@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
+using FlowFlex.Application.Contracts.Dtos.OW.Common;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 
@@ -26,6 +27,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 ///   "isActive": true,
 ///   "createDate": "2024-01-15T10:30:00+08:00",
 ///   "createBy": "admin",
+///   "assignments": [
+///     {"workflowId": 1942226709378109440, "stageId": 1942226861090279424},
+///     {"workflowId": 1942226709378109440, "stageId": 1942226861090279425}
+///   ],
 ///   "tasks": []
 /// }
 /// </example>
@@ -137,32 +142,11 @@ public class ChecklistOutputDto
     public string CreateBy { get; set; }
 
     /// <summary>
-    /// 关联工作流ID（可选）
+    /// 关联的 workflow-stage 组合列表
     /// </summary>
-    /// <example>null</example>
-    [Description("关联的工作流ID")]
-    public long? WorkflowId { get; set; }
-
-    /// <summary>
-    /// 关联阶段ID（可选）
-    /// </summary>
-    /// <example>null</example>
-    [Description("关联的阶段ID")]
-    public long? StageId { get; set; }
-
-    /// <summary>
-    /// 工作流名称（只读）
-    /// </summary>
-    /// <example>Customer Onboarding Workflow</example>
-    [Description("关联工作流的名称")]
-    public string WorkflowName { get; set; }
-
-    /// <summary>
-    /// 阶段名称（只读）
-    /// </summary>
-    /// <example>Initial Setup</example>
-    [Description("关联阶段的名称")]
-    public string StageName { get; set; }
+    /// <example>[{"workflowId": 1942226709378109440, "stageId": 1942226861090279424}]</example>
+    [Description("清单关联的所有 workflow-stage 组合")]
+    public List<AssignmentDto> Assignments { get; set; } = new List<AssignmentDto>();
 
     /// <summary>
     /// 任务项列表

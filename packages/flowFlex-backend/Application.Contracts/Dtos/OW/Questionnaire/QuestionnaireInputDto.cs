@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using FlowFlex.Application.Contracts.Dtos.OW.Common;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 
@@ -93,16 +94,29 @@ public class QuestionnaireInputDto
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// 关联的工作流ID
+    /// 关联的工作流ID（向后兼容）
     /// </summary>
     [JsonConverter(typeof(NullableLongConverter))]
     public long? WorkflowId { get; set; }
 
     /// <summary>
-    /// 关联的阶段ID
+    /// 关联的阶段ID（向后兼容）
     /// </summary>
     [JsonConverter(typeof(NullableLongConverter))]
     public long? StageId { get; set; }
+
+    /// <summary>
+    /// 多个工作流和阶段的关联配置
+    /// </summary>
+    /// <example>
+    /// [
+    ///   {
+    ///     "workflowId": "1942226709378109440",
+    ///     "stageId": "1942226861090279424"
+    ///   }
+    /// ]
+    /// </example>
+    public List<AssignmentDto> Assignments { get; set; } = new List<AssignmentDto>();
 
     /// <summary>
     /// 问卷分组

@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel;
+using System.Collections.Generic;
+using FlowFlex.Application.Contracts.Dtos.OW.Common;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 
@@ -16,7 +18,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 ///   "isTemplate": true,
 ///   "templateId": null,
 ///   "estimatedHours": 40,
-///   "isActive": true
+///   "isActive": true,
+///   "assignments": [
+///     {
+///       "workflowId": "1942226709378109440",
+///       "stageId": "1942226861090279424"
+///     }
+///   ]
 /// }
 /// </example>
 public class ChecklistInputDto
@@ -92,16 +100,20 @@ public class ChecklistInputDto
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// 关联工作流ID（可选）
+    /// 多个工作流和阶段的关联配置
     /// </summary>
-    /// <example>null</example>
-    [Description("将清单关联到特定工作流，可选")]
-    public long? WorkflowId { get; set; }
-
-    /// <summary>
-    /// 关联阶段ID（可选）
-    /// </summary>
-    /// <example>null</example>
-    [Description("将清单关联到特定阶段，可选")]
-    public long? StageId { get; set; }
+    /// <example>
+    /// [
+    ///   {
+    ///     "workflowId": "1942226709378109440",
+    ///     "stageId": "1942226861090279424"
+    ///   },
+    ///   {
+    ///     "workflowId": "1942226709378109440",
+    ///     "stageId": "1942226861090279424"
+    ///   }
+    /// ]
+    /// </example>
+    [Description("清单关联到多个工作流和阶段的组合")]
+    public List<AssignmentDto> Assignments { get; set; } = new List<AssignmentDto>();
 }

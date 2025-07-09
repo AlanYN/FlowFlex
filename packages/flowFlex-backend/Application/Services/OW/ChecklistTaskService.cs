@@ -221,7 +221,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                 task.Id,
                 task.Name,
                 0, // Onboarding ID from context - future enhancement
-                checklist?.StageId,
+                checklist?.Assignments?.FirstOrDefault()?.StageId,
                 input.CompletionNotes,
                 input.ActualHours
             );
@@ -280,7 +280,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                 task.Id,
                 task.Name,
                 0, // Onboarding ID from context - future enhancement
-                checklist?.StageId,
+                checklist?.Assignments?.FirstOrDefault()?.StageId,
                 "Task marked as uncompleted"
             );
         }
@@ -347,7 +347,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                     task.Id,
                     task.Name,
                     0, // Onboarding ID from context - future enhancement
-                    checklist?.StageId,
+                    checklist?.Assignments?.FirstOrDefault()?.StageId,
                     input.CompletionNotes,
                     input.ActualHours
                 );

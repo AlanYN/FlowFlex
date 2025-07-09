@@ -123,11 +123,12 @@
 												<span
 													class="inline-flex items-center rounded-full border border-gray-300 px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-gray-700 mr-2 bg-white"
 												>
-													{{
-														checklist.totalTasks ||
-														checklist.tasks.length
-													}}
-													items
+																									{{
+													checklist.totalTasks ||
+													(checklist.tasks && checklist.tasks.length) ||
+													0
+												}}
+												items
 												</span>
 												<div
 													class="h-6 w-6 p-0 rounded-md hover:bg-gray-100 flex items-center justify-center"
@@ -663,11 +664,48 @@
 						</select>
 					</div>
 					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Workflow (Optional)</label>
+						<div class="flex items-center justify-between">
+							<label class="text-sm font-medium text-gray-700">Workflow & Stage Assignments</label>
+							<button
+								@click="addAssignment"
+								type="button"
+								class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+								</svg>
+								Add Assignment
+							</button>
+						</div>
+						<div v-if="formData.assignments.length === 0" class="text-sm text-gray-500 italic">
+							No assignments yet. Click "Add Assignment" to create one.
+						</div>
+						<div v-else class="space-y-3">
+							<div 
+								v-for="(assignment, index) in formData.assignments" 
+								:key="`assignment-${index}`"
+								class="border border-gray-200 rounded-lg p-4 bg-gray-50"
+							>
+								<div class="flex items-start justify-between mb-3">
+									<h4 class="text-sm font-medium text-gray-900">Assignment {{ index + 1 }}</h4>
+									<button
+										v-if="formData.assignments.length > 1"
+										@click="removeAssignment(index)"
+										type="button"
+										class="text-red-600 hover:text-red-800 p-1"
+									>
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+										</svg>
+									</button>
+								</div>
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+									<div>
+										<label class="text-xs font-medium text-gray-700 mb-1 block">Workflow</label>
 						<select
-							v-model="formData.workflow"
-							@change="handleWorkflowChange"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+											v-model="assignment.workflow"
+											@change="handleWorkflowChangeForAssignment(index)"
+											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 						>
 							<option value="">Select workflow</option>
 							<option
@@ -679,22 +717,26 @@
 							</option>
 						</select>
 					</div>
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Stage (Optional)</label>
+									<div>
+										<label class="text-xs font-medium text-gray-700 mb-1 block">Stage</label>
 						<select
-							v-model="formData.stage"
-							:disabled="!formData.workflow || stagesLoading"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+											v-model="assignment.stage"
+											:disabled="!assignment.workflow || stagesLoading"
+											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 						>
 							<option value="">Select stage</option>
 							<option
-								v-for="stage in filteredStages"
+												v-for="stage in getStagesForAssignment(assignment.workflow)"
 								:key="stage.id"
 								:value="stage.name"
 							>
 								{{ stage.name }}
 							</option>
 						</select>
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 				<div class="p-6 border-t border-gray-200 flex justify-end gap-3">
@@ -773,11 +815,48 @@
 						</select>
 					</div>
 					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Workflow (Optional)</label>
+						<div class="flex items-center justify-between">
+							<label class="text-sm font-medium text-gray-700">Workflow & Stage Assignments</label>
+							<button
+								@click="addAssignment"
+								type="button"
+								class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+								</svg>
+								Add Assignment
+							</button>
+						</div>
+						<div v-if="formData.assignments.length === 0" class="text-sm text-gray-500 italic">
+							No assignments yet. Click "Add Assignment" to create one.
+						</div>
+						<div v-else class="space-y-3">
+							<div 
+								v-for="(assignment, index) in formData.assignments" 
+								:key="`assignment-${index}`"
+								class="border border-gray-200 rounded-lg p-4 bg-gray-50"
+							>
+								<div class="flex items-start justify-between mb-3">
+									<h4 class="text-sm font-medium text-gray-900">Assignment {{ index + 1 }}</h4>
+									<button
+										v-if="formData.assignments.length > 1"
+										@click="removeAssignment(index)"
+										type="button"
+										class="text-red-600 hover:text-red-800 p-1"
+									>
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+										</svg>
+									</button>
+								</div>
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+									<div>
+										<label class="text-xs font-medium text-gray-700 mb-1 block">Workflow</label>
 						<select
-							v-model="formData.workflow"
-							@change="handleWorkflowChangeEdit"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+											v-model="assignment.workflow"
+											@change="handleWorkflowChangeForAssignment(index)"
+											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 						>
 							<option value="">Select workflow</option>
 							<option
@@ -789,22 +868,26 @@
 							</option>
 						</select>
 					</div>
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Stage (Optional)</label>
+									<div>
+										<label class="text-xs font-medium text-gray-700 mb-1 block">Stage</label>
 						<select
-							v-model="formData.stage"
-							:disabled="!formData.workflow || stagesLoading"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+											v-model="assignment.stage"
+											:disabled="!assignment.workflow || stagesLoading"
+											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 						>
 							<option value="">Select stage</option>
 							<option
-								v-for="stage in filteredStages"
+												v-for="stage in getStagesForAssignment(assignment.workflow)"
 								:key="stage.id"
 								:value="stage.name"
 							>
 								{{ stage.name }}
 							</option>
 						</select>
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 				<div class="p-6 border-t border-gray-200 flex justify-end gap-3">
@@ -956,6 +1039,7 @@ const formData = ref({
 	team: '',
 	workflow: '',
 	stage: '',
+	assignments: [],
 });
 
 // Loading 状态管理
@@ -1264,28 +1348,8 @@ const loadChecklists = async () => {
 		// 先设置基础数据，不加载任务（懒加载）
 		const processedChecklists = checklistData
 			.map((checklist) => {
-				// 根据workflowId和stageId查找对应的名称
-				let workflowName = checklist.workflowName || '';
-				let stageName = checklist.stageName || '';
-
-				if (checklist.workflowId && !workflowName) {
-					const workflow = workflows.value.find(
-						(w) => w.id.toString() === checklist.workflowId.toString()
-					);
-					workflowName = workflow ? workflow.name : '';
-				}
-
-				if (checklist.stageId && !stageName) {
-					const stage = stages.value.find(
-						(s) => s.id.toString() === checklist.stageId.toString()
-					);
-					stageName = stage ? stage.name : '';
-				}
-
 				return {
 					...checklist,
-					workflowName,
-					stageName,
 					tasks: [], // 初始化为空数组
 					tasksLoaded: false, // 标记任务是否已加载
 				};
@@ -1738,9 +1802,30 @@ const editChecklist = async (checklist) => {
 		workflowName = workflow ? workflow.name : '';
 	}
 
-	// 如果有workflow，先加载对应的stages
+	// 加载所有assignments需要的stages
+	const uniqueWorkflowIds = new Set();
+	
+	// 添加单个workflow（如果存在）
 	if (workflowName) {
-		await loadStagesByWorkflow(workflowName);
+		const workflow = workflows.value.find(w => w.name === workflowName);
+		if (workflow) {
+			uniqueWorkflowIds.add(workflow.id.toString());
+		}
+	}
+	
+	// 添加assignments中的workflows
+	(checklist.assignments || []).forEach(assignment => {
+		if (assignment.workflowId) {
+			uniqueWorkflowIds.add(assignment.workflowId.toString());
+		}
+	});
+
+	// 为每个唯一的workflow加载stages
+	for (const workflowId of uniqueWorkflowIds) {
+		const workflow = workflows.value.find(w => w.id.toString() === workflowId);
+		if (workflow) {
+			await loadStagesByWorkflow(workflow.name);
+		}
 	}
 
 	// 现在查找stage名称（stages已经加载）
@@ -1753,12 +1838,30 @@ const editChecklist = async (checklist) => {
 		}
 	}
 
+	// 处理assignments，转换为前端需要的格式
+	const assignments = (checklist.assignments || []).map(assignment => {
+		const workflow = workflows.value.find(w => w.id.toString() === assignment.workflowId.toString());
+		const stage = stages.value.find(s => s.id.toString() === assignment.stageId.toString());
+		
+		console.log(`Processing assignment: workflowId=${assignment.workflowId}, stageId=${assignment.stageId}`);
+		console.log(`Found workflow: ${workflow ? workflow.name : 'NOT FOUND'}`);
+		console.log(`Found stage: ${stage ? stage.name : 'NOT FOUND'}`);
+		
+		return {
+			workflow: workflow ? workflow.name : '',
+			stage: stage ? stage.name : ''
+		};
+	}).filter(assignment => assignment.workflow && assignment.stage);
+	
+	console.log(`Processed ${assignments.length} valid assignments out of ${(checklist.assignments || []).length} total assignments`);
+
 	formData.value = {
 		name: checklist.name,
 		description: checklist.description,
 		team: checklist.team,
 		workflow: workflowName,
 		stage: stageName,
+		assignments: assignments,
 	};
 
 	showEditDialog.value = true;
@@ -2163,11 +2266,11 @@ const exportPdfWithFrontend = async (checklist) => {
 				// 绘制列分隔线
 				pdf.line(margin + 15, y, margin + 15, y + 8);
 
-				// 添加复选框和任务名称
+				// 添加序号和任务名称
 				const taskName = String(task.name || `Task ${index + 1}`);
 				pdf.setTextColor(0, 0, 0);
 				pdf.setFontSize(12);
-				pdf.text('☐', margin + 6, y + 5.5);
+				pdf.text(`${index + 1}`, margin + 6, y + 5.5);
 				pdf.text(taskName, margin + 20, y + 5.5);
 
 				y += 8;
@@ -2237,9 +2340,9 @@ const exportBasicPdf = async (checklist) => {
 
 		const tasks = updatedChecklist.tasks || [];
 		if (tasks.length > 0) {
-			tasks.forEach((task, index) => {
-				content += `${index + 1}. ${task.name || 'Unnamed Task'}\n`;
-			});
+					tasks.forEach((task, index) => {
+			content += `${index + 1}. ${task.name || `Task ${index + 1}`}\n`;
+		});
 		} else {
 			content += 'No tasks available\n';
 		}
@@ -2339,10 +2442,10 @@ const createPdfContent = (checklist) => {
 		tasks.length > 0
 			? tasks
 					.map(
-						(task) => `
+						(task, index) => `
 			<tr>
-				<td class="task-cell">☐</td>
-				<td class="task-cell">${task.name || 'Unnamed Task'}</td>
+				<td class="task-cell">${index + 1}</td>
+				<td class="task-cell">${task.name || `Task ${index + 1}`}</td>
 			</tr>
 		`
 					)
@@ -2519,6 +2622,13 @@ const createPdfContent = (checklist) => {
 // 打开创建对话框并设置默认值
 const openCreateDialog = async () => {
 	showCreateDialog.value = true;
+	// 初始化assignments数组，默认包含一个空的assignment
+	formData.value.assignments = [
+		{
+			workflow: '',
+			stage: ''
+		}
+	];
 	// 设置默认workflow（只在活跃的workflow中查找）
 	const defaultWorkflow = filteredWorkflows.value.find((w) => w.isDefault);
 	if (defaultWorkflow) {
@@ -2536,6 +2646,12 @@ const closeCreateDialog = () => {
 		team: '',
 		workflow: '',
 		stage: '',
+		assignments: [
+			{
+				workflow: '',
+				stage: ''
+			}
+		],
 	};
 };
 
@@ -2545,6 +2661,17 @@ const createChecklistItem = async () => {
 	createLoading.value = true;
 	try {
 		console.log('Creating checklist with data:', formData.value);
+		
+		// 处理assignments，转换为后端需要的格式
+		const assignments = formData.value.assignments.map(assignment => {
+			const workflowId = filteredWorkflows.value.find((w) => w.name === assignment.workflow)?.id || '';
+			const stageId = stages.value.find((s) => s.name === assignment.stage)?.id || '';
+			return {
+				workflowId: String(workflowId),
+				stageId: String(stageId)
+			};
+		}).filter(assignment => assignment.workflowId && assignment.stageId);
+
 		const checklistData = {
 			name: formData.value.name.trim(),
 			description: formData.value.description || '',
@@ -2553,10 +2680,7 @@ const createChecklistItem = async () => {
 			status: 'Active',
 			isTemplate: false,
 			isActive: true,
-			workflowId: String(
-				filteredWorkflows.value.find((w) => w.name === formData.value.workflow)?.id || ''
-			),
-			stageId: String(stages.value.find((s) => s.name === formData.value.stage)?.id || ''),
+			assignments: assignments,
 		};
 
 		const newChecklist = await createChecklist(checklistData);
@@ -2590,6 +2714,12 @@ const closeEditDialog = () => {
 		team: '',
 		workflow: '',
 		stage: '',
+		assignments: [
+			{
+				workflow: '',
+				stage: ''
+			}
+		],
 	};
 };
 
@@ -2601,6 +2731,17 @@ const saveEditChecklist = async () => {
 
 	try {
 		console.log('Updating checklist with data:', formData.value);
+		
+		// 处理assignments，转换为后端需要的格式
+		const assignments = formData.value.assignments.map(assignment => {
+			const workflowId = filteredWorkflows.value.find((w) => w.name === assignment.workflow)?.id || '';
+			const stageId = stages.value.find((s) => s.name === assignment.stage)?.id || '';
+			return {
+				workflowId: String(workflowId),
+				stageId: String(stageId)
+			};
+		}).filter(assignment => assignment.workflowId && assignment.stageId);
+
 		const checklistData = {
 			name: formData.value.name.trim(),
 			description: formData.value.description || '',
@@ -2609,10 +2750,7 @@ const saveEditChecklist = async () => {
 			status: editingChecklist.value.status || 'Active',
 			isTemplate: editingChecklist.value.isTemplate || false,
 			isActive: editingChecklist.value.isActive !== false,
-			workflowId: String(
-				filteredWorkflows.value.find((w) => w.name === formData.value.workflow)?.id || ''
-			),
-			stageId: String(stages.value.find((s) => s.name === formData.value.stage)?.id || ''),
+			assignments: assignments,
 		};
 
 		await updateChecklist(originalChecklistId, checklistData);
@@ -2799,6 +2937,42 @@ onUnmounted(() => {
 	// 清理任务加载缓存
 	taskLoadingCache.clear();
 });
+
+const addAssignment = () => {
+	formData.value.assignments.push({
+		workflow: '',
+		stage: '',
+	});
+};
+
+const removeAssignment = (index) => {
+	// 确保至少保留一个 assignment
+	if (formData.value.assignments.length > 1) {
+		formData.value.assignments.splice(index, 1);
+	}
+};
+
+const handleWorkflowChangeForAssignment = async (index) => {
+	// 清空当前选择的stage
+	formData.value.assignments[index].stage = '';
+	// 根据选择的workflow加载对应的stages
+	await loadStagesByWorkflow(formData.value.assignments[index].workflow);
+};
+
+const getStagesForAssignment = (workflowName) => {
+	if (!workflowName) return [];
+	const selectedWorkflow = filteredWorkflows.value.find(
+		(w) => w.name === workflowName
+	);
+
+	if (!selectedWorkflow) return [];
+
+	const filtered = stages.value.filter((stage) => {
+		return stage.workflowId && stage.workflowId.toString() === selectedWorkflow.id.toString();
+	});
+
+	return filtered;
+};
 </script>
 
 <style scoped>

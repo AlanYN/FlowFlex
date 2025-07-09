@@ -265,6 +265,19 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Batch get checklists by stage IDs
+        /// </summary>
+        /// <param name="request">Batch request</param>
+        /// <returns>Batch checklist response</returns>
+        [HttpPost("batch/by-stages")]
+        [ProducesResponseType<SuccessResponse<BatchStageChecklistResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetByStageIdsBatch([FromBody] BatchStageChecklistRequest request)
+        {
+            var result = await _checklistService.GetByStageIdsBatchAsync(request);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Get stages for dropdown selection
         /// </summary>
         /// <param name="workflowId">Optional workflow ID to filter stages</param>

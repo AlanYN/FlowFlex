@@ -1,17 +1,14 @@
-using AutoMapper;
-using Microsoft.Extensions.Logging;
 using SqlSugar;
-using System.Linq.Expressions;
-using FlowFlex.SqlSugarDB;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
+using FlowFlex.SqlSugarDB.Context;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Enums.OW;
+using System.Linq.Expressions;
 
-namespace FlowFlex.SqlSugarDB.Implements.OW;
+namespace FlowFlex.SqlSugarDB.Repositories.OW;
 
 /// <summary>
-/// Checklist repository implementation
+/// Checklist Repository
 /// </summary>
 public class ChecklistRepository : BaseRepository<Checklist>, IChecklistRepository, IScopedService
 {
@@ -20,17 +17,13 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     }
 
     /// <summary>
-    /// Get checklist list by team
+    /// Get checklists by team
     /// </summary>
     public async Task<List<Checklist>> GetByTeamAsync(string team)
     {
-        var whereExpression = Expressionable.Create<Checklist>()
-            .AndIF(!string.IsNullOrEmpty(team), x => x.Team == team)
-            .And(x => x.IsValid == true)
-            .ToExpression();
-
         return await db.Queryable<Checklist>()
-            .Where(whereExpression)
+            .WhereIF(!string.IsNullOrEmpty(team), x => x.Team == team)
+            .Where(x => x.IsValid == true)
             .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
             .ToListAsync();
     }
@@ -47,7 +40,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     }
 
     /// <summary>
-    /// Get checklist instances by template
+    /// Get checklists by template ID
     /// </summary>
     public async Task<List<Checklist>> GetByTemplateIdAsync(long templateId)
     {
@@ -55,25 +48,6 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             .Where(x => x.TemplateId == templateId && x.IsValid == true)
             .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
             .ToListAsync();
-    }
-
-    /// <summary>
-    /// Update completion rate
-    /// </summary>
-    public async Task<bool> UpdateCompletionRateAsync(long id, decimal completionRate, int totalTasks, int completedTasks)
-    {
-        var result = await db.Updateable<Checklist>()
-            .SetColumns(x => new Checklist
-            {
-                CompletionRate = completionRate,
-                TotalTasks = totalTasks,
-                CompletedTasks = completedTasks,
-                ModifyDate = DateTimeOffset.Now
-            })
-            .Where(x => x.Id == id && x.IsValid == true)
-            .ExecuteCommandAsync();
-
-        return result > 0;
     }
 
     /// <summary>
@@ -93,26 +67,6 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             .CountAsync();
 
         return count > 0;
-    }
-
-    /// <summary>
-    /// Get checklist with tasks
-    /// </summary>
-    public async Task<Checklist> GetWithTasksAsync(long id)
-    {
-        var checklist = await db.Queryable<Checklist>()
-            .Where(x => x.Id == id && x.IsValid == true)
-            .FirstAsync();
-
-        if (checklist != null)
-        {
-            checklist.Tasks = await db.Queryable<ChecklistTask>()
-                .Where(x => x.ChecklistId == id && x.IsValid == true)
-                .OrderBy(x => x.Order)
-                .ToListAsync();
-        }
-
-        return checklist;
     }
 
     /// <summary>
@@ -168,23 +122,13 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             whereExpressions.Add(x => x.IsActive == isActive.Value);
         }
 
-        if (workflowId.HasValue)
-        {
-            whereExpressions.Add(x => x.WorkflowId == workflowId.Value);
-        }
-
-        if (stageId.HasValue)
-        {
-            whereExpressions.Add(x => x.StageId == stageId.Value);
-        }
+        // Note: workflowId and stageId filters are removed as these fields no longer exist
 
         // Determine sort field and direction
         Expression<Func<Checklist, object>> orderByExpression = sortField switch
         {
             "Name" => x => x.Name,
             "Team" => x => x.Team,
-            "CompletionRate" => x => x.CompletionRate,
-            "TotalTasks" => x => x.TotalTasks,
             _ => x => x.CreateDate
         };
 
@@ -216,9 +160,6 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
                 ActiveChecklists = SqlFunc.AggregateSum(SqlFunc.IIF(x.IsActive == true, 1, 0)),
                 TemplateCount = SqlFunc.AggregateSum(SqlFunc.IIF(x.IsTemplate == true, 1, 0)),
                 InstanceCount = SqlFunc.AggregateSum(SqlFunc.IIF(x.IsTemplate == false, 1, 0)),
-                TotalTasks = SqlFunc.AggregateSum(x.TotalTasks),
-                CompletedTasks = SqlFunc.AggregateSum(x.CompletedTasks),
-                AverageCompletionRate = SqlFunc.AggregateAvg(x.CompletionRate),
                 TotalEstimatedHours = SqlFunc.AggregateSum(x.EstimatedHours)
             })
             .FirstAsync();
@@ -229,72 +170,34 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             ["ActiveChecklists"] = statistics?.ActiveChecklists ?? 0,
             ["TemplateCount"] = statistics?.TemplateCount ?? 0,
             ["InstanceCount"] = statistics?.InstanceCount ?? 0,
-            ["TotalTasks"] = statistics?.TotalTasks ?? 0,
-            ["CompletedTasks"] = statistics?.CompletedTasks ?? 0,
-            ["AverageCompletionRate"] = statistics?.AverageCompletionRate ?? 0,
             ["TotalEstimatedHours"] = statistics?.TotalEstimatedHours ?? 0
         };
     }
 
     /// <summary>
-    /// Get checklists by stage ID
+    /// Get checklists by name
     /// </summary>
-    public async Task<List<Checklist>> GetByStageIdAsync(long stageId)
+    public async Task<List<Checklist>> GetByNamesAsync(List<string> names)
     {
-        return await db.Queryable<Checklist>()
-            .Where(x => x.StageId == stageId && x.IsValid == true)
-            .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
-            .ToListAsync();
-    }
-
-    /// <summary>
-    /// Get checklists by stage ID with tasks
-    /// </summary>
-    public async Task<List<Checklist>> GetByStageIdWithTasksAsync(long stageId)
-    {
-        var checklists = await db.Queryable<Checklist>()
-            .Where(x => x.StageId == stageId && x.IsValid == true)
-            .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
-            .ToListAsync();
-
-        // Load tasks for each checklist
-        foreach (var checklist in checklists)
+        if (names == null || !names.Any())
         {
-            checklist.Tasks = await db.Queryable<ChecklistTask>()
-                .Where(x => x.ChecklistId == checklist.Id && x.IsValid == true)
-                .OrderBy(x => x.Order)
-                .ToListAsync();
+            return new List<Checklist>();
         }
 
-        return checklists;
-    }
-
-    /// <summary>
-    /// Get checklists by workflow ID
-    /// </summary>
-    public async Task<List<Checklist>> GetByWorkflowIdAsync(long workflowId)
-    {
         return await db.Queryable<Checklist>()
-            .Where(x => x.WorkflowId == workflowId && x.IsValid == true)
+            .Where(x => names.Contains(x.Name) && x.IsValid == true)
             .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
             .ToListAsync();
     }
 
     /// <summary>
-    /// Update completion rate (simple version)
+    /// Get checklists by name
     /// </summary>
-    public async Task<bool> UpdateCompletionRateAsync(long checklistId, decimal completionRate, int completedTasks)
+    public async Task<List<Checklist>> GetByNameAsync(string name)
     {
-        var result = await db.Updateable<Checklist>()
-            .SetColumns(x => new Checklist
-            {
-                CompletionRate = completionRate,
-                CompletedTasks = completedTasks,
-                ModifyDate = DateTimeOffset.Now
-            })
-            .Where(x => x.Id == checklistId && x.IsValid == true)
-            .ExecuteCommandAsync();
-
-        return result > 0;
+        return await db.Queryable<Checklist>()
+            .Where(x => x.Name == name && x.IsValid == true)
+            .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
+            .ToListAsync();
     }
 }

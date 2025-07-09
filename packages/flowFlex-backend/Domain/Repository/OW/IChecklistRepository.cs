@@ -8,20 +8,6 @@ namespace FlowFlex.Domain.Repository.OW
     public interface IChecklistRepository : IBaseRepository<Checklist>
     {
         /// <summary>
-        /// Get checklists by workflow ID
-        /// </summary>
-        /// <param name="workflowId">Workflow ID</param>
-        /// <returns></returns>
-        Task<List<Checklist>> GetByWorkflowIdAsync(long workflowId);
-
-        /// <summary>
-        /// Get checklists by stage ID
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <returns></returns>
-        Task<List<Checklist>> GetByStageIdAsync(long stageId);
-
-        /// <summary>
         /// Get checklists by team
         /// </summary>
         /// <param name="team">Team name</param>
@@ -42,15 +28,6 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<Checklist>> GetByTemplateIdAsync(long templateId);
 
         /// <summary>
-        /// Update completion rate
-        /// </summary>
-        /// <param name="checklistId">Checklist ID</param>
-        /// <param name="completionRate">Completion rate</param>
-        /// <param name="completedTasks">Completed tasks count</param>
-        /// <returns></returns>
-        Task<bool> UpdateCompletionRateAsync(long checklistId, decimal completionRate, int completedTasks);
-
-        /// <summary>
         /// Check if name exists
         /// </summary>
         /// <param name="name">Name</param>
@@ -58,13 +35,6 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="excludeId">Exclude ID</param>
         /// <returns></returns>
         Task<bool> IsNameExistsAsync(string name, string team, long? excludeId = null);
-
-        /// <summary>
-        /// Get checklist with tasks by ID
-        /// </summary>
-        /// <param name="id">Checklist ID</param>
-        /// <returns></returns>
-        Task<Checklist> GetWithTasksAsync(long id);
 
         /// <summary>
         /// Get paged data
@@ -91,10 +61,17 @@ namespace FlowFlex.Domain.Repository.OW
         Task<Dictionary<string, object>> GetStatisticsByTeamAsync(string team);
 
         /// <summary>
-        /// Get checklists with tasks by stage ID
+        /// Get checklists by names
         /// </summary>
-        /// <param name="stageId">Stage ID</param>
+        /// <param name="names">List of checklist names</param>
         /// <returns></returns>
-        Task<List<Checklist>> GetByStageIdWithTasksAsync(long stageId);
+        Task<List<Checklist>> GetByNamesAsync(List<string> names);
+
+        /// <summary>
+        /// Get checklists by name
+        /// </summary>
+        /// <param name="name">Checklist name</param>
+        /// <returns></returns>
+        Task<List<Checklist>> GetByNameAsync(string name);
     }
 }

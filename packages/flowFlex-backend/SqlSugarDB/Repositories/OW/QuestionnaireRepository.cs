@@ -378,5 +378,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             return result > 0;
         }
+
+        /// <summary>
+        /// Get questionnaires by names
+        /// </summary>
+        public async Task<List<Questionnaire>> GetByNamesAsync(List<string> names)
+        {
+            if (names == null || !names.Any())
+            {
+                return new List<Questionnaire>();
+            }
+
+            return await db.Queryable<Questionnaire>()
+                .Where(x => x.IsValid == true && names.Contains(x.Name))
+                .OrderBy(x => x.Name)
+                .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
+                .ToListAsync();
+        }
     }
 }

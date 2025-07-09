@@ -78,4 +78,14 @@ public interface IChecklistService : IScopedService
     /// Get checklists by stage ID
     /// </summary>
     Task<List<ChecklistOutputDto>> GetByStageIdAsync(long stageId);
+
+    /// <summary>
+    /// Get checklists by multiple stage IDs
+    /// </summary>
+    Task<List<ChecklistOutputDto>> GetByStageIdsAsync(List<long> stageIds);
+
+    /// <summary>
+    /// Batch get checklists by stage IDs
+    /// </summary>
+    Task<BatchStageChecklistResponse> GetByStageIdsBatchAsync(BatchStageChecklistRequest request);
 }

@@ -1,5 +1,6 @@
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
+using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Domain.Entities.OW;
 
 namespace FlowFlex.Application.Maps
@@ -11,11 +12,12 @@ namespace FlowFlex.Application.Maps
     {
         public ChecklistMapProfile()
         {
+            // AssignmentDto 映射 - Domain to Contracts
+            CreateMap<FlowFlex.Domain.Entities.OW.AssignmentDto, FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+
             // Checklist 映射
             CreateMap<Checklist, ChecklistOutputDto>()
-                .ForMember(dest => dest.Tasks, opt => opt.MapFrom(src => src.Tasks))
-                .ForMember(dest => dest.WorkflowName, opt => opt.Ignore())
-                .ForMember(dest => dest.StageName, opt => opt.Ignore());
+                .ForMember(dest => dest.Assignments, opt => opt.MapFrom(src => src.Assignments));
 
             // InputDto -> Entity
             CreateMap<ChecklistInputDto, Checklist>()
@@ -28,7 +30,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.Tasks, opt => opt.Ignore());
+                .ForMember(dest => dest.Assignments, opt => opt.Ignore()) // Assignments handled separately
+                .ForMember(dest => dest.AssignmentsJson, opt => opt.Ignore()); // JSON field handled separately
         }
     }
 }

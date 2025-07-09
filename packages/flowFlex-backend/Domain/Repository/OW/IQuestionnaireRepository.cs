@@ -97,5 +97,12 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="stageId">Stage ID</param>
         /// <returns>List of questionnaires</returns>
         Task<List<Questionnaire>> GetByStageIdAsync(long stageId);
+
+        /// <summary>
+        /// Get questionnaires by names
+        /// </summary>
+        /// <param name="names">List of questionnaire names</param>
+        /// <returns>List of questionnaires</returns>
+        Task<List<Questionnaire>> GetByNamesAsync(List<string> names);
     }
 }

@@ -473,7 +473,7 @@ namespace FlowFlex.Infrastructure.Data
             }
         }
 
-                    // Optimized query methods
+        // Optimized query methods
 
         /// <summary>
         /// Get list of specified fields to reduce data transfer
@@ -507,7 +507,7 @@ namespace FlowFlex.Infrastructure.Data
         }
 
         /// <summary>
-        /// 批量查询，避免N+1问题
+        /// Batch query to avoid N+1 problem
         /// </summary>
         public virtual async Task<List<T>> GetByIdsAsync(IEnumerable<object> ids, CancellationToken cancellationToken = default)
         {
@@ -530,7 +530,7 @@ namespace FlowFlex.Infrastructure.Data
         }
 
         /// <summary>
-        /// 检查实体是否存在（只查询主键，性能更好）
+        /// Check if entity exists (only query primary key for better performance)
         /// </summary>
         public virtual async Task<bool> ExistsByIdAsync(object id, CancellationToken cancellationToken = default)
         {
@@ -552,7 +552,7 @@ namespace FlowFlex.Infrastructure.Data
         }
 
         /// <summary>
-        /// 获取最大值（用于排序字段等）
+        /// Get maximum value (for sorting fields, etc.)
         /// </summary>
         public virtual async Task<TResult> GetMaxAsync<TResult>(
             Expression<Func<T, TResult>> selector,
