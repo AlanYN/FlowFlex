@@ -23,6 +23,6 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore packages/flowFlex-backend/FlowFlex.sln
     - name: Build
-      run: dotnet build packages/flowFlex-backend/FlowFlex.sln --no-restore
+      run: dotnet build packages/flowFlex-backend/FlowFlex.sln --no-restore /clp:ErrorsOnly
   #  - name: Test
   #    run: dotnet test --no-build --verbosity normal
