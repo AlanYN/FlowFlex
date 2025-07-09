@@ -98,11 +98,11 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                Console.WriteLine($"✅ Static field value change logged: {fieldName} - {action}");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to log static field value change: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -183,7 +183,7 @@ namespace FlowFlex.Application.Services.OW
                 entity.Source = input.Source;
                 entity.IpAddress = input.IpAddress;
                 entity.UserAgent = input.UserAgent;
-                
+
                 // Initialize create/update information
                 entity.InitCreateInfo(_userContext);
 

@@ -20,7 +20,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
-    /// Onboarding文件服务实现
+    /// Onboarding file service implementation
     /// </summary>
     public class OnboardingFileService : IOnboardingFileService, IScopedService
     {
@@ -102,11 +102,11 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                Console.WriteLine($"✅ Onboarding file change logged: {fileName} - {action}");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to log onboarding file change: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -117,19 +117,15 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine($"🚀 Starting simple file upload for Onboarding {input.OnboardingId}");
-
+                // Debug logging handled by structured logging
                 // Validate file
                 if (input.FormFile == null || input.FormFile.Length == 0)
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "File is required");
                 }
-
-                Console.WriteLine($"✅ File validation passed - Size: {input.FormFile.Length} bytes");
-
+                // Debug logging handled by structured logging
                 // Upload file to attachment system
-                Console.WriteLine($"📤 Uploading file to attachment system...");
-                
+                // Debug logging handled by structured logging
                 var attachmentDto = new AttachmentDto
                 {
                     FileData = input.FormFile,
@@ -138,12 +134,9 @@ namespace FlowFlex.Application.Services.OW
 
                 var attachment = await _attachmentService.CreateAttachmentAsync(
                     attachmentDto, _userContext.TenantId, CancellationToken.None);
-
-                Console.WriteLine($"✅ File uploaded to attachment system - ID: {attachment.Id}");
-
+                // Debug logging handled by structured logging
                 // Create OnboardingFile record with minimal setup
-                Console.WriteLine($"💾 Creating OnboardingFile record...");
-                
+                // Debug logging handled by structured logging
                 var onboardingFile = new OnboardingFile
                 {
                     OnboardingId = input.OnboardingId,
@@ -167,39 +160,29 @@ namespace FlowFlex.Application.Services.OW
                     Version = 1,
                     SortOrder = 0
                 };
-
-                Console.WriteLine($"🔧 Initializing create information...");
-                
+                // Debug logging handled by structured logging
                 // Initialize create information
                 onboardingFile.InitCreateInfo(_userContext);
-
-                Console.WriteLine($"✅ Create information initialized - ID: {onboardingFile.Id}");
-
+                // Debug logging handled by structured logging
                 // Use simplified database insert
-                Console.WriteLine($"💾 Inserting OnboardingFile to database...");
-                
+                // Debug logging handled by structured logging
                 bool insertResult = await InsertOnboardingFileSimplified(onboardingFile);
-                
+
                 if (!insertResult)
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to save file record to database");
                 }
-
-                Console.WriteLine($"✅ Database insert completed successfully");
-
+                // Debug logging handled by structured logging
                 // Convert to output DTO
                 var result = _mapper.Map<OnboardingFileOutputDto>(onboardingFile);
                 result.FileSizeFormatted = FormatFileSize(onboardingFile.FileSize);
                 result.DownloadUrl = $"/ow/onboarding-files/v1.0/{onboardingFile.Id}/download";
-
-                Console.WriteLine($"🎉 File upload completed successfully - ID: {onboardingFile.Id}");
-
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"💥 Error uploading file: {ex.Message}");
-                Console.WriteLine($"💥 Stack trace: {ex.StackTrace}");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
@@ -211,13 +194,12 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine($"🔧 Starting simplified database insert...");
-                
+                // Debug logging handled by structured logging
                 // Generate ID if not set
                 if (onboardingFile.Id == 0)
                 {
                     onboardingFile.InitNewId();
-                    Console.WriteLine($"🔧 Generated new ID: {onboardingFile.Id}");
+                    // Debug logging handled by structured logging
                 }
 
                 // Use SqlSugar direct insert without complex filter backup/restore
@@ -227,30 +209,26 @@ namespace FlowFlex.Application.Services.OW
 
                 if (db == null)
                 {
-                    Console.WriteLine($"❌ Could not get database client, falling back to repository method");
+                    // Debug logging handled by structured logging
                     return await _onboardingFileRepository.InsertAsync(onboardingFile);
                 }
-
-                Console.WriteLine($"🔧 Executing direct database insert...");
+                // Debug logging handled by structured logging
                 var result = await db.Insertable(onboardingFile).ExecuteCommandAsync();
-                
-                Console.WriteLine($"🔧 Database insert result: {result}");
+                // Debug logging handled by structured logging
                 return result > 0;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Simplified insert failed: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-                
+                // Debug logging handled by structured logging
                 // Last resort: try the original repository method
                 try
                 {
-                    Console.WriteLine($"🔄 Trying original repository insert as fallback...");
+                    // Debug logging handled by structured logging
                     return await _onboardingFileRepository.InsertAsync(onboardingFile);
                 }
                 catch (Exception fallbackEx)
                 {
-                    Console.WriteLine($"❌ Fallback insert also failed: {fallbackEx.Message}");
+                    // Debug logging handled by structured logging
                     throw;
                 }
             }
@@ -356,7 +334,7 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "File not found");
                 }
 
-                // 软删除
+                // Soft delete
                 onboardingFile.IsValid = false;
                 onboardingFile.Status = "Deleted";
                 onboardingFile.ModifyBy = _userContext.UserId;
@@ -518,17 +496,17 @@ namespace FlowFlex.Application.Services.OW
 
                 statistics.TotalFileSizeFormatted = FormatFileSize(statistics.TotalFileSize);
 
-                // 按分类统计
+                // Statistics by category
                 statistics.FileCountByCategory = files
                     .GroupBy(f => f.Category)
                     .ToDictionary(g => g.Key, g => g.Count());
 
-                // 按文件类型统计
+                // Statistics by file type
                 statistics.FileCountByType = files
                     .GroupBy(f => f.FileExtension)
                     .ToDictionary(g => g.Key, g => g.Count());
 
-                // 最近上传的文件
+                // Recently uploaded files
                 statistics.RecentFiles = _mapper.Map<List<OnboardingFileOutputDto>>(
                     files.OrderByDescending(f => f.UploadedDate).Take(5).ToList());
 

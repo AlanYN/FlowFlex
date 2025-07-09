@@ -13,7 +13,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Onboarding ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "onboarding_id")]
         public long OnboardingId { get; set; }
 
@@ -33,7 +33,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Note Content
         /// </summary>
-       
+
         [StringLength(4000)]
         [SugarColumn(ColumnName = "content")]
         public string Content { get; set; } = string.Empty;

@@ -42,5 +42,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageVersion
         /// </summary>
         public DateTimeOffset? CreateDateEnd { get; set; }
     }
-} 
- 
+}

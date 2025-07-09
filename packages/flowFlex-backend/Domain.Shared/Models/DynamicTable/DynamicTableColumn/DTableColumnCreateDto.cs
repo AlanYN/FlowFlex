@@ -7,19 +7,19 @@ public class DTableColumnCreateDto
     /// <summary>
     /// Associated table ID
     /// </summary>
-    
+
     public long TableId { get; set; }
 
     /// <summary>
     /// Dynamic field ID
     /// </summary>
-    
+
     public long DynamicFieldId { get; set; }
 
     /// <summary>
     /// Display order
     /// </summary>
-    
+
     public int DisplayOrder { get; set; }
 
     /// <summary>

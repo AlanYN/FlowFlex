@@ -4,4 +4,4 @@ namespace FlowFlex.Domain.Shared
     /// Domain event base class
     /// </summary>
     public abstract class DomainEvent { }
-} 
+}

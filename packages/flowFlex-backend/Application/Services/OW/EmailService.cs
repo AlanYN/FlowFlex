@@ -140,7 +140,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                _logger.LogInformation("Preparing to send email: To={To}, Subject={Subject}, SmtpServer={SmtpServer}, Port={Port}", 
+                _logger.LogInformation("Preparing to send email: To={To}, Subject={Subject}, SmtpServer={SmtpServer}, Port={Port}",
                     to, subject, _emailOptions.SmtpServer, _emailOptions.SmtpPort);
 
                 var message = new MailMessage
@@ -164,17 +164,17 @@ namespace FlowFlex.Application.Services.OW
                     Timeout = 30000 // 30 seconds timeout
                 };
 
-                _logger.LogInformation("SMTP client configuration: Server={Server}, Port={Port}, EnableSsl={EnableSsl}, Username={Username}", 
+                _logger.LogInformation("SMTP client configuration: Server={Server}, Port={Port}, EnableSsl={EnableSsl}, Username={Username}",
                     _emailOptions.SmtpServer, _emailOptions.SmtpPort, _emailOptions.EnableSsl, _emailOptions.Username);
 
                 await client.SendMailAsync(message);
-                
+
                 _logger.LogInformation("Email sent successfully: To={To}, Subject={Subject}", to, subject);
                 return true;
             }
             catch (SmtpException smtpEx)
             {
-                _logger.LogError(smtpEx, "SMTP error sending email failed: To={To}, Subject={Subject}, StatusCode={StatusCode}, Message={Message}", 
+                _logger.LogError(smtpEx, "SMTP error sending email failed: To={To}, Subject={Subject}, StatusCode={StatusCode}, Message={Message}",
                     to, subject, smtpEx.StatusCode, smtpEx.Message);
                 return false;
             }
@@ -185,4 +185,4 @@ namespace FlowFlex.Application.Services.OW
             }
         }
     }
-} 
+}

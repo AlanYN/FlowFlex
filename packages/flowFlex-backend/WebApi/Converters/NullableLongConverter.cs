@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace FlowFlex.WebApi.Converters
 {
     /// <summary>
-    /// 可空长整型JSON转换器，支持空字符串转换为null
+    /// Nullable long integer JSON converter, supports empty string conversion to null
     /// </summary>
     public class NullableLongConverter : JsonConverter<long?>
     {
@@ -19,20 +19,20 @@ namespace FlowFlex.WebApi.Converters
             if (reader.TokenType == JsonTokenType.String)
             {
                 var stringValue = reader.GetString();
-                
-                // 如果是空字符串，返回null
+
+                // If empty string, return null
                 if (string.IsNullOrEmpty(stringValue))
                 {
                     return null;
                 }
 
-                // 尝试解析为长整型
+                // Try to parse as long integer
                 if (long.TryParse(stringValue, out var result))
                 {
                     return result;
                 }
 
-                // 如果解析失败，返回null
+                // If parsing fails, return null
                 return null;
             }
 
@@ -41,7 +41,7 @@ namespace FlowFlex.WebApi.Converters
                 return reader.GetInt64();
             }
 
-            // 其他情况返回null
+            // Return null for other cases
             return null;
         }
 
@@ -57,4 +57,4 @@ namespace FlowFlex.WebApi.Converters
             }
         }
     }
-} 
+}

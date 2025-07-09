@@ -35,5 +35,5 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>User email</returns>
         string GetEmailFromToken(string token);
     }
-} 
- 
+}
+

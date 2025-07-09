@@ -13,7 +13,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Operation Type
         /// </summary>
-       
+
         [StringLength(50)]
         [SugarColumn(ColumnName = "operation_type")]
         public string OperationType { get; set; }
@@ -21,7 +21,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Business Module
         /// </summary>
-       
+
         [StringLength(50)]
         [SugarColumn(ColumnName = "business_module")]
         public string BusinessModule { get; set; }
@@ -29,7 +29,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Business ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "business_id")]
         public long BusinessId { get; set; }
 
@@ -94,14 +94,14 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Operator ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "operator_id")]
         public long OperatorId { get; set; }
 
         /// <summary>
         /// Operator Name
         /// </summary>
-       
+
         [StringLength(100)]
         [SugarColumn(ColumnName = "operator_name")]
         public string OperatorName { get; set; }
@@ -109,7 +109,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Operation Time
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "operation_time")]
         public DateTimeOffset OperationTime { get; set; }
 

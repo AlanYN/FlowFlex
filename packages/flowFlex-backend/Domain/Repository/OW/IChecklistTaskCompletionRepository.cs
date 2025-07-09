@@ -37,4 +37,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         Task<(int totalTasks, int completedTasks)> GetCompletionStatsAsync(long onboardingId, long checklistId);
     }
-} 
+}

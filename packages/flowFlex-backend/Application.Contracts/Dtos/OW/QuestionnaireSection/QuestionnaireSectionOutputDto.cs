@@ -75,4 +75,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireSection
         /// </summary>
         public string ModifyBy { get; set; }
     }
-} 
+}

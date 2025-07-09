@@ -35,7 +35,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             // Build query condition list
             var whereExpressions = new List<Expression<Func<Stage, bool>>>();
-            
+
             // Basic filter conditions
             whereExpressions.Add(x => x.IsValid == true);
 

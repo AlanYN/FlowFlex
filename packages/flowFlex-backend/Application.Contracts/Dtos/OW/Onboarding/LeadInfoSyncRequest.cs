@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// Lead ID
         /// </summary>
-        
+
         public string LeadId { get; set; } = string.Empty;
 
         /// <summary>

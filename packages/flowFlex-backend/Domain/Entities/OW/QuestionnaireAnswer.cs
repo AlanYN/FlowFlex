@@ -15,7 +15,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Onboarding ID
         /// </summary>
-       
+
         [Column("onboarding_id")]
         [SugarColumn(ColumnName = "onboarding_id")]
         public long OnboardingId { get; set; }
@@ -23,7 +23,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Stage ID
         /// </summary>
-       
+
         [Column("stage_id")]
         [SugarColumn(ColumnName = "stage_id")]
         public long StageId { get; set; }
@@ -38,7 +38,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Answer JSON Data
         /// </summary>
-       
+
         [Column("answer_json", TypeName = "text")]
         [SugarColumn(ColumnName = "answer_json", ColumnDataType = "text")]
         public string AnswerJson { get; set; } = string.Empty;

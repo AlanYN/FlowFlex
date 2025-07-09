@@ -69,5 +69,5 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Version, opt => opt.MapFrom(src => src.Version));
         }
     }
-} 
- 
+}
+

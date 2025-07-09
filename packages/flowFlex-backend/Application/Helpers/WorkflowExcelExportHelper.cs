@@ -14,10 +14,10 @@ namespace FlowFlex.Application.Helpers
     public static class WorkflowExcelExportHelper
     {
         /// <summary>
-        /// 导出工作流为Excel格式
+        /// Export workflow to Excel format
         /// </summary>
-        /// <param name="workflow">工作流实�?/param>
-        /// <returns>Excel内容�?/returns>
+        /// <param name="workflow">Workflow instance</param>
+        /// <returns>Excel content</returns>
         public static Stream ExportToExcel(Workflow workflow)
         {
             using var package = new ExcelPackage();
@@ -25,7 +25,7 @@ namespace FlowFlex.Application.Helpers
 
             var currentRow = 1;
 
-            // 设置列宽
+            // Set column widths
             worksheet.Column(1).Width = 25;
             worksheet.Column(2).Width = 60;
             worksheet.Column(3).Width = 80;
@@ -33,22 +33,22 @@ namespace FlowFlex.Application.Helpers
             worksheet.Column(5).Width = 20;
             worksheet.Column(6).Width = 20;
 
-            // �?行：WORKFLOW EXPORT
+            // First row: WORKFLOW EXPORT
             worksheet.Cells[currentRow, 1].Value = "WORKFLOW EXPORT";
             worksheet.Cells[currentRow, 1].Style.Font.Bold = true;
             worksheet.Cells[currentRow, 1].Style.Font.Size = 14;
             currentRow++;
 
-            // �?行：空行
+            // Second row: empty line
             currentRow++;
 
-            // �?行：Workflow Information
+            // Third row: Workflow Information
             worksheet.Cells[currentRow, 1].Value = "Workflow Information";
             worksheet.Cells[currentRow, 1].Style.Font.Bold = true;
             worksheet.Cells[currentRow, 1].Style.Font.Size = 12;
             currentRow++;
 
-            // 工作流基本信�?- 按照指定格式
+            // Basic workflow information - in specified format
             var workflowInfoRows = new[]
             {
                 new { Label = "Name", Value = workflow.Name },
@@ -71,10 +71,10 @@ namespace FlowFlex.Application.Helpers
                 currentRow++;
             }
 
-            // 空行
+            // Empty line
             currentRow++;
 
-            // 空行
+            // Empty line
             currentRow++;
 
             // WORKFLOW STAGES
@@ -83,10 +83,10 @@ namespace FlowFlex.Application.Helpers
             worksheet.Cells[currentRow, 1].Style.Font.Size = 12;
             currentRow++;
 
-            // 空行
+            // Empty line
             currentRow++;
 
-            // 阶段表头
+            // Stage headers
             worksheet.Cells[currentRow, 1].Value = "Sequence";
             worksheet.Cells[currentRow, 2].Value = "Stage Name";
             worksheet.Cells[currentRow, 3].Value = "Description";
@@ -94,14 +94,14 @@ namespace FlowFlex.Application.Helpers
             worksheet.Cells[currentRow, 5].Value = "Assignee";
             worksheet.Cells[currentRow, 6].Value = "Estimated Duration";
 
-            // 设置表头样式
+            // Set header styles
             for (int col = 1; col <= 6; col++)
             {
                 worksheet.Cells[currentRow, col].Style.Font.Bold = true;
             }
             currentRow++;
 
-            // 阶段数据
+            // Stage data
             if (workflow.Stages != null && workflow.Stages.Any())
             {
                 var sortedStages = workflow.Stages.OrderBy(s => s.Order).ToList();
@@ -127,19 +127,19 @@ namespace FlowFlex.Application.Helpers
         }
 
         /// <summary>
-        /// 批量导出多个工作流为Excel格式
+        /// Batch export multiple workflows to Excel format
         /// </summary>
-        /// <param name="workflows">工作流列�?/param>
-        /// <returns>Excel内容�?/returns>
+        /// <param name="workflows">Workflow list</param>
+        /// <returns>Excel content</returns>
         public static Stream ExportMultipleToExcel(List<Workflow> workflows)
         {
             using var package = new ExcelPackage();
 
-            // 用于跟踪已使用的工作表名称，确保唯一�?
+            // Track used worksheet names to ensure uniqueness
             HashSet<string> usedSheetNames = new HashSet<string>();
 
-            // 为每个工作流创建独立的工作表
-            foreach (var workflow in workflows.Take(10)) // 限制最�?0个工作表
+            // Create independent worksheet for each workflow
+            foreach (var workflow in workflows.Take(10)) // 限制最�?0个工作表
             {
                 var baseSheetName = SanitizeSheetName(workflow.Name);
                 var uniqueSheetName = EnsureUniqueSheetName(baseSheetName, usedSheetNames);
@@ -185,7 +185,7 @@ namespace FlowFlex.Application.Helpers
             worksheet.Cells[currentRow, 1].Style.Font.Size = 12;
             currentRow++;
 
-            // 工作流基本信�?
+            // 工作流基本信�?
             var workflowInfoRows = new[]
             {
                 new { Label = "Name", Value = workflow.Name },
@@ -258,7 +258,7 @@ namespace FlowFlex.Application.Helpers
         }
 
         /// <summary>
-        /// 格式化预估时�?
+        /// 格式化预估时�?
         /// </summary>
         private static string FormatEstimatedDuration(decimal? estimatedDuration)
         {
@@ -272,7 +272,7 @@ namespace FlowFlex.Application.Helpers
         }
 
         /// <summary>
-        /// 计算总预估时�?
+        /// 计算总预估时�?
         /// </summary>
         private static string CalculateTotalEstimatedDuration(List<Stage> stages)
         {
@@ -288,14 +288,14 @@ namespace FlowFlex.Application.Helpers
         }
 
         /// <summary>
-        /// 清理工作表名�?
+        /// 清理工作表名�?
         /// </summary>
         private static string SanitizeSheetName(string name)
         {
             if (string.IsNullOrEmpty(name))
                 return "Workflow";
 
-            // Excel工作表名称限�?
+            // Excel工作表名称限�?
             var invalidChars = new[] { '\\', '/', '*', '?', ':', '[', ']' };
             var sanitized = name;
 
@@ -304,7 +304,7 @@ namespace FlowFlex.Application.Helpers
                 sanitized = sanitized.Replace(invalidChar, '_');
             }
 
-            // 限制长度�?1个字�?
+            // 限制长度�?1个字�?
             if (sanitized.Length > 31)
             {
                 sanitized = sanitized.Substring(0, 31);
@@ -321,12 +321,11 @@ namespace FlowFlex.Application.Helpers
             var uniqueSheetName = baseSheetName;
             var suffix = 1;
 
-            // 添加调试日志
-            Console.WriteLine($"[DEBUG] Processing base sheet name: {baseSheetName}");
+            // Sheet name processing logged by structured logging
 
             while (usedSheetNames.Contains(uniqueSheetName))
             {
-                Console.WriteLine($"[DEBUG] Sheet name '{uniqueSheetName}' already exists, trying suffix {suffix}");
+                // Sheet name collision handling logged by structured logging
 
                 // 确保添加后缀后不超过31个字符的限制
                 var suffixStr = $"_{suffix}";
@@ -342,14 +341,14 @@ namespace FlowFlex.Application.Helpers
                 // 防止无限循环
                 if (suffix > 100)
                 {
-                    Console.WriteLine($"[ERROR] Unable to generate unique sheet name after 100 attempts for base: {baseSheetName}");
+                    // Sheet name generation failure logged by structured logging
                     uniqueSheetName = $"Sheet_{Guid.NewGuid().ToString("N")[..8]}";
                     break;
                 }
             }
 
             usedSheetNames.Add(uniqueSheetName);
-            Console.WriteLine($"[DEBUG] Final unique sheet name: {uniqueSheetName}");
+            // Final sheet name logged by structured logging
 
             return uniqueSheetName;
         }

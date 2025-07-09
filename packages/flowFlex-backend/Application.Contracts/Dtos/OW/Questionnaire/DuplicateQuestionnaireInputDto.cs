@@ -10,7 +10,7 @@ public class DuplicateQuestionnaireInputDto
     /// <summary>
     /// 新问卷名称
     /// </summary>
-    
+
     [StringLength(100)]
     public string Name { get; set; }
 

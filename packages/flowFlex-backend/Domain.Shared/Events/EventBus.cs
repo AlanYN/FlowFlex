@@ -4,4 +4,4 @@ namespace FlowFlex.Domain.Shared.Events
     /// Event bus placeholder
     /// </summary>
     public static class EventBus { }
-} 
+}

@@ -25,7 +25,7 @@ namespace FlowFlex.WebApi.Middlewares
         private readonly JwtOptions _jwtOptions;
 
         public JwtAuthenticationMiddleware(
-            RequestDelegate next, 
+            RequestDelegate next,
             ILogger<JwtAuthenticationMiddleware> logger,
             IOptions<JwtOptions> jwtOptions)
         {
@@ -47,7 +47,7 @@ namespace FlowFlex.WebApi.Middlewares
 
                 // Extract JWT token
                 var token = ExtractToken(context);
-                
+
                 if (string.IsNullOrEmpty(token))
                 {
                     await HandleUnauthorizedAsync(context, "Missing authentication token");
@@ -56,7 +56,7 @@ namespace FlowFlex.WebApi.Middlewares
 
                 // Validate JWT token
                 var principal = ValidateToken(token);
-                
+
                 if (principal == null)
                 {
                     await HandleUnauthorizedAsync(context, "Invalid authentication token");
@@ -65,23 +65,23 @@ namespace FlowFlex.WebApi.Middlewares
 
                 // Set user context
                 context.User = principal;
-                
+
                 // Add user information to request headers
                 var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var userEmail = principal.FindFirst(ClaimTypes.Email)?.Value;
-                
+
                 if (!string.IsNullOrEmpty(userId))
                 {
                     context.Items["UserId"] = userId;
                 }
-                
+
                 if (!string.IsNullOrEmpty(userEmail))
                 {
                     context.Items["UserEmail"] = userEmail;
                 }
 
                 _logger.LogDebug("JWT authentication successful for user: {UserId}", userId);
-                
+
                 await _next(context);
             }
             catch (SecurityTokenExpiredException)
@@ -129,7 +129,7 @@ namespace FlowFlex.WebApi.Middlewares
         private static string ExtractToken(HttpContext context)
         {
             var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
-            
+
             if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
                 return authHeader.Substring("Bearer ".Length).Trim();
@@ -161,9 +161,9 @@ namespace FlowFlex.WebApi.Middlewares
                 };
 
                 var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
-                
+
                 // Ensure token is JWT token
-                if (validatedToken is not JwtSecurityToken jwtToken || 
+                if (validatedToken is not JwtSecurityToken jwtToken ||
                     !jwtToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
                 {
                     throw new SecurityTokenException("Invalid token algorithm");
@@ -200,8 +200,8 @@ namespace FlowFlex.WebApi.Middlewares
 
             var json = JsonSerializer.Serialize(response, options);
             await context.Response.WriteAsync(json);
-            
+
             _logger.LogWarning("Unauthorized request: {Message}, Path: {Path}", message, context.Request.Path);
         }
     }
-} 
+}

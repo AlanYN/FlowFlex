@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// <summary>
         /// 必填字段列表（逗号分隔）
         /// </summary>
-        
+
         public string RequiredFields { get; set; }
 
         /// <summary>

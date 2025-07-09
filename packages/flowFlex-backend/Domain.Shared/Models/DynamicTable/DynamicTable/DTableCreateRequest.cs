@@ -10,7 +10,7 @@ public class DTableCreateRequest
     /// <summary>
     /// Table name
     /// </summary>
-    
+
     public string TableName { get; set; }
 
     /// <summary>
@@ -21,12 +21,12 @@ public class DTableCreateRequest
     /// <summary>
     /// Module type
     /// </summary>
-    
+
     public int ModuleType { get; set; }
 
     /// <summary>
     /// Columns included in the table (field name list)
     /// </summary>
-    
+
     public List<string> Columns { get; set; }
 }

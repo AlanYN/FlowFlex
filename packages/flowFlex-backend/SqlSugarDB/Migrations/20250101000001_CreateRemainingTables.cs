@@ -246,13 +246,13 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Create indexes
             CreateIndexes(db);
-            
+
             // Create foreign key constraints
             CreateForeignKeys(db);
-            
+
             // Create triggers
             CreateTriggers(db);
-            
+
             // Insert initial data
             InsertInitialData(db);
         }
@@ -373,4 +373,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             // No initial data insertion - let the application handle data creation through proper business flows
         }
     }
-} 
+}

@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 优先级 (Low/Medium/High/Critical)
         /// </summary>
-        
+
         public string Priority { get; set; } = string.Empty;
 
         /// <summary>

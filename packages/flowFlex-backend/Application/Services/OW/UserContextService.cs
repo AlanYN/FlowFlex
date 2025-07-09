@@ -27,9 +27,9 @@ namespace FlowFlex.Application.Services.OW
         public long GetCurrentUserId()
         {
             // First try to get user ID from "sub" claim (JWT standard)
-            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier) 
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)
                             ?? _httpContextAccessor.HttpContext?.User?.FindFirst("sub");
-            
+
             if (userIdClaim == null || string.IsNullOrEmpty(userIdClaim.Value))
             {
                 return 0;
@@ -89,4 +89,4 @@ namespace FlowFlex.Application.Services.OW
             return _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
         }
     }
-} 
+}

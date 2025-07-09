@@ -35,4 +35,4 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Is authenticated</returns>
         bool IsAuthenticated();
     }
-} 
+}

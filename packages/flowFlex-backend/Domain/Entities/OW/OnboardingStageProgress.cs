@@ -10,7 +10,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Stage ID
         /// </summary>
-        
+
         public long StageId { get; set; }
 
         /// <summary>

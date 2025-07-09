@@ -36,4 +36,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [StringLength(6, MinimumLength = 6, ErrorMessage = "验证码必须是6位数字")]
         public string VerificationCode { get; set; }
     }
-} 
+}

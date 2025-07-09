@@ -6,7 +6,7 @@ public static class CustomerTagExtensions
     {
         if (tags == null || tags.Count == 0)
             return 0;
-            
+
         long result = tags[0];
         for (var i = 1; i < tags.Count; i++)
         {
@@ -30,4 +30,4 @@ public static class CustomerTagExtensions
 
         return tagsList;
     }
-} 
+}

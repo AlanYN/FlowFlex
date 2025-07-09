@@ -4,4 +4,4 @@ namespace FlowFlex.Domain.Manager
     /// Domain manager base class
     /// </summary>
     public abstract class Manager { }
-} 
+}

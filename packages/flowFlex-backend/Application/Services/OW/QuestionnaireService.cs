@@ -2,15 +2,16 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
+using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using System.Text.Json;
 using System.Linq;
 using System;
-// using Item.Redis; // 已移除Redis依赖
+// using Item.Redis; // Redis dependency removed
 using System.Diagnostics;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Repository.OW;
@@ -53,27 +54,44 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
             }
 
-            // Validate Workflow and Stage association uniqueness
-            if (input.WorkflowId.HasValue || input.StageId.HasValue)
+            // Determine assignments to use
+            var assignments = new List<(long? workflowId, long? stageId)>();
+            
+            if (input.Assignments != null && input.Assignments.Any())
             {
-                if (await _questionnaireRepository.IsWorkflowStageAssociationExistsAsync(input.WorkflowId, input.StageId))
-                {
-                    var existingQuestionnaire = await _questionnaireRepository.GetByWorkflowStageAssociationAsync(input.WorkflowId, input.StageId);
+                // Use assignments array (new approach)
+                assignments = input.Assignments.Select(a => ((long?)a.WorkflowId, (long?)a.StageId)).ToList();
+            }
+            else
+            {
+                // Use single WorkflowId/StageId (backward compatibility)
+                assignments.Add((input.WorkflowId, input.StageId));
+            }
 
-                    if (input.WorkflowId.HasValue && input.StageId.HasValue)
+            // Validate each assignment's uniqueness
+            foreach (var (workflowId, stageId) in assignments)
+            {
+                if (workflowId.HasValue || stageId.HasValue)
+                {
+                    if (await _questionnaireRepository.IsWorkflowStageAssociationExistsAsync(workflowId, stageId))
                     {
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {input.WorkflowId} and Stage ID {input.StageId}. Each workflow-stage combination can only have one questionnaire.");
-                    }
-                    else if (input.WorkflowId.HasValue)
-                    {
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {input.WorkflowId}. Each workflow can only have one questionnaire.");
-                    }
-                    else if (input.StageId.HasValue)
-                    {
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Stage ID {input.StageId}. Each stage can only have one questionnaire.");
+                        var existingQuestionnaire = await _questionnaireRepository.GetByWorkflowStageAssociationAsync(workflowId, stageId);
+
+                        if (workflowId.HasValue && stageId.HasValue)
+                        {
+                            throw new CRMException(ErrorCodeEnum.BusinessError,
+                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId} and Stage ID {stageId}. Each workflow-stage combination can only have one questionnaire.");
+                        }
+                        else if (workflowId.HasValue)
+                        {
+                            throw new CRMException(ErrorCodeEnum.BusinessError,
+                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId}. Each workflow can only have one questionnaire.");
+                        }
+                        else if (stageId.HasValue)
+                        {
+                            throw new CRMException(ErrorCodeEnum.BusinessError,
+                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Stage ID {stageId}. Each stage can only have one questionnaire.");
+                        }
                     }
                 }
             }
@@ -87,25 +105,36 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
-            var entity = _mapper.Map<Questionnaire>(input);
-            
-            // Initialize create information with proper ID and timestamps
-            entity.InitCreateInfo(_userContext);
+            var createdIds = new List<long>();
 
-            // Calculate question statistics
-            await CalculateQuestionStatistics(entity, input.Sections);
-
-            await _questionnaireRepository.InsertAsync(entity);
-
-            // Create Sections
-            if (input.Sections != null && input.Sections.Any())
+            // Create questionnaire for each assignment
+            foreach (var (workflowId, stageId) in assignments)
             {
-                await CreateSectionsAsync(entity.Id, input.Sections);
+                var entity = _mapper.Map<Questionnaire>(input);
+                entity.WorkflowId = workflowId;
+                entity.StageId = stageId;
+
+                // Initialize create information with proper ID and timestamps
+                entity.InitCreateInfo(_userContext);
+
+                // Calculate question statistics
+                await CalculateQuestionStatistics(entity, input.Sections);
+
+                await _questionnaireRepository.InsertAsync(entity);
+
+                // Create Sections
+                if (input.Sections != null && input.Sections.Any())
+                {
+                    await CreateSectionsAsync(entity.Id, input.Sections);
+                }
+
+                createdIds.Add(entity.Id);
             }
 
             // Cache removed, no need to clean up
 
-            return entity.Id;
+            // Return the first created ID for backward compatibility
+            return createdIds.FirstOrDefault();
         }
 
         public async Task<bool> UpdateAsync(long id, QuestionnaireInputDto input)
@@ -127,27 +156,44 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
             }
 
-            // Validate Workflow and Stage association uniqueness (exclude current record)
-            if (input.WorkflowId.HasValue || input.StageId.HasValue)
+            // Determine assignments to use
+            var assignments = new List<(long? workflowId, long? stageId)>();
+            
+            if (input.Assignments != null && input.Assignments.Any())
             {
-                if (await _questionnaireRepository.IsWorkflowStageAssociationExistsAsync(input.WorkflowId, input.StageId, id))
-                {
-                    var existingQuestionnaire = await _questionnaireRepository.GetByWorkflowStageAssociationAsync(input.WorkflowId, input.StageId, id);
+                // Use assignments array (new approach)
+                assignments = input.Assignments.Select(a => ((long?)a.WorkflowId, (long?)a.StageId)).ToList();
+            }
+            else
+            {
+                // Use single WorkflowId/StageId (backward compatibility)
+                assignments.Add((input.WorkflowId, input.StageId));
+            }
 
-                    if (input.WorkflowId.HasValue && input.StageId.HasValue)
+            // Validate each assignment's uniqueness (exclude current record)
+            foreach (var (workflowId, stageId) in assignments)
+            {
+                if (workflowId.HasValue || stageId.HasValue)
+                {
+                    if (await _questionnaireRepository.IsWorkflowStageAssociationExistsAsync(workflowId, stageId, id))
                     {
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {input.WorkflowId} and Stage ID {input.StageId}. Each workflow-stage combination can only have one questionnaire.");
-                    }
-                    else if (input.WorkflowId.HasValue)
-                    {
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {input.WorkflowId}. Each workflow can only have one questionnaire.");
-                    }
-                    else if (input.StageId.HasValue)
-                    {
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Stage ID {input.StageId}. Each stage can only have one questionnaire.");
+                        var existingQuestionnaire = await _questionnaireRepository.GetByWorkflowStageAssociationAsync(workflowId, stageId, id);
+
+                        if (workflowId.HasValue && stageId.HasValue)
+                        {
+                            throw new CRMException(ErrorCodeEnum.BusinessError,
+                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId} and Stage ID {stageId}. Each workflow-stage combination can only have one questionnaire.");
+                        }
+                        else if (workflowId.HasValue)
+                        {
+                            throw new CRMException(ErrorCodeEnum.BusinessError,
+                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId}. Each workflow can only have one questionnaire.");
+                        }
+                        else if (stageId.HasValue)
+                        {
+                            throw new CRMException(ErrorCodeEnum.BusinessError,
+                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Stage ID {stageId}. Each stage can only have one questionnaire.");
+                        }
                     }
                 }
             }
@@ -167,16 +213,56 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot modify structure of published questionnaire");
             }
 
-            _mapper.Map(input, entity);
+            // For simplicity, we'll update the current entity with the first assignment
+            // and create new entities for additional assignments
+            var firstAssignment = assignments.FirstOrDefault();
             
+            // Update the current entity
+            _mapper.Map(input, entity);
+            entity.WorkflowId = firstAssignment.workflowId;
+            entity.StageId = firstAssignment.stageId;
+
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
 
             // Recalculate question statistics
             await CalculateQuestionStatistics(entity, input.Sections);
 
-            var originalCategory = entity.Category;
-            return await _questionnaireRepository.UpdateAsync(entity);
+            var result = await _questionnaireRepository.UpdateAsync(entity);
+
+            // Update sections for the current entity
+            if (input.Sections != null)
+            {
+                await UpdateSectionsAsync(entity.Id, input.Sections);
+            }
+
+            // Create additional questionnaires for remaining assignments
+            if (assignments.Count > 1)
+            {
+                for (int i = 1; i < assignments.Count; i++)
+                {
+                    var (workflowId, stageId) = assignments[i];
+                    var additionalEntity = _mapper.Map<Questionnaire>(input);
+                    additionalEntity.WorkflowId = workflowId;
+                    additionalEntity.StageId = stageId;
+                    
+                    // Initialize create information
+                    additionalEntity.InitCreateInfo(_userContext);
+                    
+                    // Calculate question statistics
+                    await CalculateQuestionStatistics(additionalEntity, input.Sections);
+                    
+                    await _questionnaireRepository.InsertAsync(additionalEntity);
+
+                    // Create sections for the additional entity
+                    if (input.Sections != null && input.Sections.Any())
+                    {
+                        await CreateSectionsAsync(additionalEntity.Id, input.Sections);
+                    }
+                }
+            }
+
+            return result;
         }
 
         public async Task<bool> DeleteAsync(long id, bool confirm = false)
@@ -235,6 +321,9 @@ namespace FlowFlex.Application.Service.OW
             var sections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(id);
             result.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
 
+            // Fill assignments for the questionnaire
+            await FillAssignmentsAsync(new List<QuestionnaireOutputDto> { result });
+
             return result;
         }
 
@@ -267,26 +356,26 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
+            // Fill assignments for the questionnaires
+            await FillAssignmentsAsync(result);
+
             return result;
         }
 
         public async Task<List<QuestionnaireOutputDto>> GetByStageIdAsync(long stageId)
         {
             // Add debug log
-            Console.WriteLine($"[DEBUG] GetByStageIdAsync called with stageId: {stageId}");
-
+            // Debug logging handled by structured logging
             // First query all questionnaire records for debugging
             var allQuestionnaires = await _questionnaireRepository.GetListAsync(x => x.IsValid == true);
-            Console.WriteLine($"[DEBUG] Total valid questionnaires: {allQuestionnaires.Count}");
-
+            // Debug logging handled by structured logging
             // Query questionnaires with StageId
             var questionnaireWithStageId = allQuestionnaires.Where(x => x.StageId.HasValue).ToList();
-            Console.WriteLine($"[DEBUG] Questionnaires with StageId: {questionnaireWithStageId.Count}");
-
+            // Debug logging handled by structured logging
             if (questionnaireWithStageId.Any())
             {
                 var stageIds = questionnaireWithStageId.Select(x => x.StageId.Value).Distinct().ToArray();
-                Console.WriteLine($"[DEBUG] Existing StageIds: [{string.Join(", ", stageIds)}]");
+                // Debug logging handled by structured logging}]");
             }
 
             // Get questionnaires associated with the specified stage
@@ -294,9 +383,7 @@ namespace FlowFlex.Application.Service.OW
                 x.IsValid == true &&
                 x.IsActive == true &&
                 x.StageId == stageId);
-
-            Console.WriteLine($"[DEBUG] Found questionnaires for stageId {stageId}: {list.Count}");
-
+            // Debug logging handled by structured logging
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
             // Get Sections for each questionnaire
@@ -305,6 +392,9 @@ namespace FlowFlex.Application.Service.OW
                 var sections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(questionnaire.Id);
                 questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
             }
+
+            // Fill assignments for the questionnaires
+            await FillAssignmentsAsync(result);
 
             return result;
         }
@@ -347,6 +437,9 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
             }
+
+            // Fill assignments for the questionnaires
+            await FillAssignmentsAsync(result);
 
             return new PagedResult<QuestionnaireOutputDto>
             {
@@ -473,7 +566,12 @@ namespace FlowFlex.Application.Service.OW
         public async Task<List<QuestionnaireOutputDto>> GetTemplatesAsync()
         {
             var templates = await _questionnaireRepository.GetTemplatesAsync();
-            return _mapper.Map<List<QuestionnaireOutputDto>>(templates);
+            var result = _mapper.Map<List<QuestionnaireOutputDto>>(templates);
+            
+            // Fill assignments for the templates
+            await FillAssignmentsAsync(result);
+            
+            return result;
         }
 
         public async Task<long> CreateFromTemplateAsync(long templateId, QuestionnaireInputDto input)
@@ -547,7 +645,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 var structure = JsonDocument.Parse(questionnaire.StructureJson);
 
-                // TODO: Implement specific question statistics logic
+                // Question statistics logic - future enhancement
                 // This needs to be calculated based on the actual questionnaire structure JSON format
                 // Example logic:
                 var totalQuestions = 0;
@@ -630,6 +728,61 @@ namespace FlowFlex.Application.Service.OW
             }
 
             return response;
+        }
+
+        /// <summary>
+        /// Fill assignments for questionnaire output DTOs
+        /// </summary>
+        private async Task FillAssignmentsAsync(List<QuestionnaireOutputDto> questionnaires)
+        {
+            if (questionnaires == null || !questionnaires.Any())
+                return;
+
+            // Group questionnaires by name to find all assignments for each questionnaire
+            var questionnaireNames = questionnaires.Select(q => q.Name).Distinct().ToList();
+            
+            // Get all questionnaires with the same names to build assignments
+            var allQuestionnaires = await _questionnaireRepository.GetByNamesAsync(questionnaireNames);
+            
+            // Group by name to build assignments
+            var assignmentsByName = allQuestionnaires
+                .Where(q => q.WorkflowId.HasValue && q.StageId.HasValue)
+                .GroupBy(q => q.Name)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(q => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                    {
+                        WorkflowId = q.WorkflowId.Value,
+                        StageId = q.StageId.Value
+                    })
+                    .GroupBy(a => new { a.WorkflowId, a.StageId })
+                    .Select(ag => ag.First())
+                    .ToList()
+                );
+
+                    // Fill assignments for each questionnaire
+        foreach (var questionnaire in questionnaires)
+        {
+            if (assignmentsByName.TryGetValue(questionnaire.Name, out var assignments))
+            {
+                questionnaire.Assignments = assignments;
+            }
+            else
+            {
+                // If no assignments found by name, create assignment from current questionnaire's WorkflowId and StageId
+                if (questionnaire.WorkflowId.HasValue && questionnaire.StageId.HasValue)
+                {
+                                    questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>
+                {
+                    new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                        {
+                            WorkflowId = questionnaire.WorkflowId.Value,
+                            StageId = questionnaire.StageId.Value
+                        }
+                    };
+                }
+            }
+        }
         }
     }
 }

@@ -13,7 +13,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Workflow Name
         /// </summary>
-        
+
         [StringLength(100)]
         public string Name { get; set; }
 

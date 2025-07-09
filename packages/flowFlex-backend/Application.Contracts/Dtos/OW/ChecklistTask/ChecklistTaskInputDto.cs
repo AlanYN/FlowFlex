@@ -10,13 +10,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         /// <summary>
         /// 检查清单ID
         /// </summary>
-       
+
         public long ChecklistId { get; set; }
 
         /// <summary>
         /// 任务名称
         /// </summary>
-       
+
         [StringLength(200)]
         public string Name { get; set; }
 
@@ -44,7 +44,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         /// <summary>
         /// 任务类型
         /// </summary>
-       
+
         [StringLength(50)]
         public string TaskType { get; set; }
 
@@ -96,4 +96,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         /// </summary>
         public bool IsActive { get; set; }
     }
-} 
+}

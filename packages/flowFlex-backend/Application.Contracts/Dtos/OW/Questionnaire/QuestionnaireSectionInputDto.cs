@@ -21,7 +21,7 @@ public class QuestionnaireSectionInputDto
     /// <summary>
     /// Section title
     /// </summary>
-    
+
     [StringLength(100)]
     public string Title { get; set; }
 
@@ -82,13 +82,13 @@ public class QuestionInputDto
     /// <summary>
     /// Question text
     /// </summary>
-    
+
     public string Text { get; set; }
 
     /// <summary>
     /// Question type
     /// </summary>
-    
+
     public string Type { get; set; }
 
     /// <summary>

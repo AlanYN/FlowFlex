@@ -10,13 +10,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.WorkflowVersion
         /// <summary>
         /// 原始工作流ID
         /// </summary>
-       
+
         public long OriginalWorkflowId { get; set; }
 
         /// <summary>
         /// 工作流名称
         /// </summary>
-       
+
         [StringLength(100)]
         public string Name { get; set; }
 
@@ -34,7 +34,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.WorkflowVersion
         /// <summary>
         /// 状态
         /// </summary>
-       
+
         [StringLength(20)]
         public string Status { get; set; }
 
@@ -51,7 +51,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.WorkflowVersion
         /// <summary>
         /// 版本号
         /// </summary>
-       
+
         public int Version { get; set; }
 
         /// <summary>
@@ -73,9 +73,8 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.WorkflowVersion
         /// <summary>
         /// 变更类型
         /// </summary>
-       
+
         [StringLength(50)]
         public string ChangeType { get; set; }
     }
-} 
- 
+}

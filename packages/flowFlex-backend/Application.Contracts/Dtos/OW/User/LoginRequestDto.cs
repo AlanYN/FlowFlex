@@ -20,4 +20,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [Required(ErrorMessage = "密码不能为空")]
         public string Password { get; set; }
     }
-} 
+}

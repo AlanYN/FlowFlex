@@ -72,5 +72,5 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns></returns>
         Task<bool> RestoreVersionAsync(long versionId);
     }
-} 
- 
+}
+

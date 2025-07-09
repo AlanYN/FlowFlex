@@ -11,13 +11,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// <summary>
         /// 要合并的阶段ID列表
         /// </summary>
-        
+
         public List<long> StageIds { get; set; }
 
         /// <summary>
         /// 新阶段名称
         /// </summary>
-        
+
         [StringLength(100)]
         public string NewStageName { get; set; }
 

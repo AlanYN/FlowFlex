@@ -13,19 +13,19 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         /// <summary>
         /// 原始工作流ID
         /// </summary>
-        
+
         public long OriginalWorkflowId { get; set; }
 
         /// <summary>
         /// 版本ID
         /// </summary>
-        
+
         public long VersionId { get; set; }
 
         /// <summary>
         /// 新工作流名称
         /// </summary>
-        
+
         [StringLength(100)]
         public string Name { get; set; }
 

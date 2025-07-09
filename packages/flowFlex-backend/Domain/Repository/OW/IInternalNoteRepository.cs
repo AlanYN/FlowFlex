@@ -113,4 +113,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <returns>Note list</returns>
         Task<List<InternalNote>> GetMentionedNotesAsync(long userId, int days = 30);
     }
-} 
+}

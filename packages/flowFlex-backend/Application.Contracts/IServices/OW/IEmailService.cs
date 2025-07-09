@@ -23,4 +23,4 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Whether the email was sent successfully</returns>
         Task<bool> SendWelcomeEmailAsync(string to, string username);
     }
-} 
+}

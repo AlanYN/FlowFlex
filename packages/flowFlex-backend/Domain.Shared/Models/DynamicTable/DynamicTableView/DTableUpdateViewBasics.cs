@@ -6,9 +6,9 @@ namespace FlowFlex.Domain.Shared.Models;
 
 public class DTableUpdateViewBasics
 {
-    
+
     public string Name { get; set; }
 
-    
+
     public ViewShareTypeEnum ShareType { get; set; }
 }

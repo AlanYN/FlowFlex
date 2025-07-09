@@ -1,19 +1,29 @@
 using System.ComponentModel.DataAnnotations;
 using SqlSugar;
 using FlowFlex.Domain.Entities.Base;
+using System.Text.Json;
 
 namespace FlowFlex.Domain.Entities.OW;
 
 /// <summary>
+/// Simple Assignment DTO for domain use
+/// </summary>
+public class AssignmentDto
+{
+    public long WorkflowId { get; set; }
+    public long StageId { get; set; }
+}
+
+/// <summary>
 /// Checklist Entity - Task List
 /// </summary>
-    [SugarTable("ff_checklist")]
+[SugarTable("ff_checklist")]
 public class Checklist : EntityBaseCreateInfo
 {
     /// <summary>
     /// Checklist Name
     /// </summary>
-    
+
     [StringLength(100)]
     public string Name { get; set; }
 
@@ -32,67 +42,86 @@ public class Checklist : EntityBaseCreateInfo
     /// <summary>
     /// Checklist Type (Template/Instance)
     /// </summary>
-    [StringLength(20)]
-    public string Type { get; set; } = "Template";
+    [StringLength(50)]
+    public string Type { get; set; } = "Instance";
 
     /// <summary>
-    /// Checklist Status (Active/Inactive)
+    /// Checklist Status
     /// </summary>
-    [StringLength(20)]
+    [StringLength(50)]
     public string Status { get; set; } = "Active";
 
     /// <summary>
-    /// Is Template
+    /// Is Template Flag
     /// </summary>
-    public bool IsTemplate { get; set; } = true;
-
-            /// <summary>
-        /// Template Source ID (if created from template instance)
-        /// </summary>
-        [SugarColumn(ColumnName = "template_id")]
-        public long? TemplateId { get; set; }
-
-            /// <summary>
-        /// Completion Rate (0-100)
-        /// </summary>
-        [SugarColumn(ColumnName = "completion_rate")]
-        public decimal CompletionRate { get; set; } = 0;
+    public bool IsTemplate { get; set; } = false;
 
     /// <summary>
-    /// Total Task Count
+    /// Template ID (if created from template)
     /// </summary>
-    public int TotalTasks { get; set; } = 0;
+    public long? TemplateId { get; set; }
 
     /// <summary>
-    /// Completed Task Count
-    /// </summary>
-    public int CompletedTasks { get; set; } = 0;
-
-    /// <summary>
-    /// Estimated Completion Time (hours)
+    /// Estimated Hours to Complete
     /// </summary>
     public int EstimatedHours { get; set; } = 0;
 
     /// <summary>
-    /// Is Active
+    /// Is Active Flag
     /// </summary>
     public bool IsActive { get; set; } = true;
 
-            /// <summary>
-        /// Associated Workflow ID (optional)
-        /// </summary>
-        [SugarColumn(ColumnName = "workflow_id")]
-        public long? WorkflowId { get; set; }
-
-            /// <summary>
-        /// Associated Stage ID (optional)
-        /// </summary>
-        [SugarColumn(ColumnName = "stage_id")]
-        public long? StageId { get; set; }
+    /// <summary>
+    /// Assignments stored as JSON
+    /// </summary>
+    [SugarColumn(ColumnName = "assignments_json", ColumnDataType = "TEXT", IsNullable = true)]
+    public string? AssignmentsJson { get; set; }
 
     /// <summary>
-    /// Task Items Collection
+    /// Assignments property (not stored in database, computed from AssignmentsJson)
     /// </summary>
     [SugarColumn(IsIgnore = true)]
-    public List<ChecklistTask> Tasks { get; set; } = new List<ChecklistTask>();
+    public List<AssignmentDto> Assignments
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(AssignmentsJson))
+                return new List<AssignmentDto>();
+
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true
+                };
+                return JsonSerializer.Deserialize<List<AssignmentDto>>(AssignmentsJson, options) ?? new List<AssignmentDto>();
+            }
+            catch
+            {
+                return new List<AssignmentDto>();
+            }
+        }
+        set
+        {
+            if (value == null || !value.Any())
+            {
+                AssignmentsJson = null;
+                return;
+            }
+
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+                AssignmentsJson = JsonSerializer.Serialize(value, options);
+            }
+            catch
+            {
+                AssignmentsJson = null;
+            }
+        }
+    }
 }

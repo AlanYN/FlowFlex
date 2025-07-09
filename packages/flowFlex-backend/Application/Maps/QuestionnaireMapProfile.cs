@@ -26,7 +26,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.TotalQuestions, opt => opt.Ignore())
-                .ForMember(dest => dest.RequiredQuestions, opt => opt.Ignore());
+                .ForMember(dest => dest.RequiredQuestions, opt => opt.Ignore()); // Ignore assignments as they're handled separately
 
             // QuestionnaireSection entity to output DTO
             CreateMap<QuestionnaireSection, QuestionnaireSectionDto>();
@@ -44,4 +44,4 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore());
         }
     }
-} 
+}

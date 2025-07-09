@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Contracts.IServices.OW;
 
@@ -77,4 +78,14 @@ public interface IChecklistService : IScopedService
     /// Get checklists by stage ID
     /// </summary>
     Task<List<ChecklistOutputDto>> GetByStageIdAsync(long stageId);
+
+    /// <summary>
+    /// Get checklists by multiple stage IDs
+    /// </summary>
+    Task<List<ChecklistOutputDto>> GetByStageIdsAsync(List<long> stageIds);
+
+    /// <summary>
+    /// Batch get checklists by stage IDs
+    /// </summary>
+    Task<BatchStageChecklistResponse> GetByStageIdsBatchAsync(BatchStageChecklistRequest request);
 }

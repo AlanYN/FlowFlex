@@ -76,4 +76,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         Task<bool> DeleteAsync(long id);
     }
-} 
+}

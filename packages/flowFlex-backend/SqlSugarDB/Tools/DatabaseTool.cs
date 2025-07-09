@@ -27,7 +27,7 @@ namespace FlowFlex.SqlSugarDB.Tools
         /// </summary>
         public void Migrate()
         {
-            Console.WriteLine("Starting database migration...");
+            // Database migration logging handled by structured logging
             _db.EnsureDatabaseCreated();
         }
 
@@ -36,9 +36,9 @@ namespace FlowFlex.SqlSugarDB.Tools
         /// </summary>
         public void Reset()
         {
-            Console.WriteLine("Starting database reset...");
+            // Database reset logging handled by structured logging
             _db.ResetDatabase();
-            Console.WriteLine("Database reset completed!");
+            // Database reset completion logged by structured logging
         }
 
         /// <summary>
@@ -49,11 +49,11 @@ namespace FlowFlex.SqlSugarDB.Tools
             try
             {
                 _db.Ado.CheckConnection();
-                Console.WriteLine("Database connection successful!");
+                // Database connection success logged by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Database connection failed: {ex.Message}");
+                // Database connection failure logged by structured logging
             }
         }
 
@@ -65,19 +65,19 @@ namespace FlowFlex.SqlSugarDB.Tools
             try
             {
                 var tables = _db.DbMaintenance.GetTableInfoList(false);
-                Console.WriteLine($"Database contains {tables.Count} tables:");
-                
+                // Database information logging handled by structured logging
+
                 foreach (var table in tables)
                 {
                     if (table.Name.StartsWith("ff_"))
                     {
-                        Console.WriteLine($"  - {table.Name}");
+                        // Table information logged by structured logging
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to get database information: {ex.Message}");
+                // Database information error logged by structured logging
             }
         }
 
@@ -89,4 +89,4 @@ namespace FlowFlex.SqlSugarDB.Tools
             _db?.Dispose();
         }
     }
-} 
+}

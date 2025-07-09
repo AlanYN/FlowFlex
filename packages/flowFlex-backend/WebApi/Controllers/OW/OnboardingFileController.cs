@@ -12,12 +12,12 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Onboarding file management API
     /// </summary>
- 
+
     [ApiController]
-   
+
     [Route("ow/onboardings/{onboardingId}/files/v{version:apiVersion}")]
     [Display(Name = "onboarding-files")]
-   
+
     public class OnboardingFileController : Controllers.ControllerBase
     {
         private readonly IOnboardingFileService _onboardingFileService;
@@ -89,7 +89,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             }
 
             var results = new List<OnboardingFileOutputDto>();
-            
+
             foreach (var formFile in formFiles)
             {
                 var input = new OnboardingFileInputDto

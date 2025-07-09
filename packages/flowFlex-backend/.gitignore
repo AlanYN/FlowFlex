@@ -56,3 +56,9 @@ Thumbs.db
 *.user
 *.pubxml
 /.cr/personal
+
+# Ignore all files in packages directory except those starting with "item."
+packages/*
+!packages/item.*
+
+

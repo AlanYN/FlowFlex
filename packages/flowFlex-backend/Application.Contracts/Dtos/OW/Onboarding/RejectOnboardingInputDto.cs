@@ -10,7 +10,7 @@ public class RejectOnboardingInputDto
     /// <summary>
     /// 拒绝原因
     /// </summary>
-    
+
     [StringLength(1000)]
     public string RejectionReason { get; set; }
 

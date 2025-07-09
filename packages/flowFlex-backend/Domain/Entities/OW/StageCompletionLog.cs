@@ -15,14 +15,14 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Onboarding ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "onboarding_id")]
         public long OnboardingId { get; set; }
 
         /// <summary>
         /// Stage ID
         /// </summary>
-       
+
         [SugarColumn(ColumnName = "stage_id")]
         public long StageId { get; set; }
 
@@ -36,7 +36,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Log Type (start, complete, error, questionnaire_save_start, etc.)
         /// </summary>
-       
+
         [StringLength(50)]
         [SugarColumn(ColumnName = "log_type")]
         public string LogType { get; set; } = string.Empty;

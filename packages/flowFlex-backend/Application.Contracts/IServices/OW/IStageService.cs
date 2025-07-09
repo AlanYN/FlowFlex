@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Contracts.IServices.OW
 {

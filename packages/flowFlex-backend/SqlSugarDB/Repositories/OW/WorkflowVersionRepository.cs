@@ -157,20 +157,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         private void InitializeWorkflowVersion(WorkflowVersion entity)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            
+
             // Generate timestamp-based ID
             entity.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            
+
             // Set timestamps
             entity.CreateDate = now;
             entity.ModifyDate = now;
-            
+
             // Set user information
             entity.CreateBy = _userContext?.UserName ?? "SYSTEM";
             entity.ModifyBy = _userContext?.UserName ?? "SYSTEM";
             entity.CreateUserId = ParseToLong(_userContext?.UserId);
             entity.ModifyUserId = ParseToLong(_userContext?.UserId);
-            
+
             // Set default values
             entity.IsValid = true;
             entity.TenantId = _userContext?.TenantId ?? "DEFAULT";
@@ -183,10 +183,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             if (string.IsNullOrEmpty(value))
                 return 0;
-                
+
             if (long.TryParse(value, out long result))
                 return result;
-                
+
             return 0;
         }
     }

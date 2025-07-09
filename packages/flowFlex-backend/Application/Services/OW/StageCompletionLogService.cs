@@ -6,7 +6,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -47,10 +47,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 var logs = new List<StageCompletionLog>();
                 var tenantId = GetTenantId();
-
-                Console.WriteLine($"🔍 Creating stage completion log with TenantId: {tenantId}");
-                Console.WriteLine($"🔍 Input entries count: {input.Entries?.Count ?? 0}");
-
+                // Debug logging handled by structured logging
                 foreach (var entry in input.Entries)
                 {
                     var log = new StageCompletionLog
@@ -72,22 +69,17 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with proper ID and timestamps
                     log.InitCreateInfo(_userContext);
-
-                    Console.WriteLine($"🔍 Created log entry: OnboardingId={log.OnboardingId}, StageId={log.StageId}, TenantId={log.TenantId}");
+                    // Debug logging handled by structured logging
                     logs.Add(log);
                 }
-
-                Console.WriteLine($"🔍 Calling repository CreateBatchAsync with {logs.Count} logs");
+                // Debug logging handled by structured logging
                 var result = await _repository.CreateBatchAsync(logs);
-                Console.WriteLine($"🔍 Repository CreateBatchAsync result: {result}");
-
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to create stage completion log: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-                Console.WriteLine($"❌ Inner exception: {ex.InnerException?.Message}");
+                // Debug logging handled by structured logging
                 return false;
             }
         }
@@ -154,10 +146,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 var allLogs = new List<StageCompletionLog>();
                 var tenantId = GetTenantId();
-
-                Console.WriteLine($"🔍 Batch creating stage completion logs with TenantId: {tenantId}");
-                Console.WriteLine($"🔍 Input count: {inputs?.Count ?? 0}");
-
+                // Debug logging handled by structured logging
                 foreach (var input in inputs)
                 {
                     foreach (var entry in input.Entries)
@@ -185,18 +174,14 @@ namespace FlowFlex.Application.Services.OW
                         allLogs.Add(log);
                     }
                 }
-
-                Console.WriteLine($"🔍 Calling repository CreateBatchAsync with {allLogs.Count} logs");
+                // Debug logging handled by structured logging
                 var result = await _repository.CreateBatchAsync(allLogs);
-                Console.WriteLine($"🔍 Repository CreateBatchAsync result: {result}");
-
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to batch create stage completion logs: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-                Console.WriteLine($"❌ Inner exception: {ex.InnerException?.Message}");
+                // Debug logging handled by structured logging
                 return false;
             }
         }

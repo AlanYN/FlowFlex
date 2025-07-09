@@ -23,6 +23,22 @@ namespace FlowFlex.Application.Services.OW
         public JwtService(IOptions<JwtOptions> jwtOptions)
         {
             _jwtOptions = jwtOptions.Value;
+            
+            // Add validation to ensure configuration is loaded properly
+            if (string.IsNullOrEmpty(_jwtOptions.SecretKey))
+            {
+                throw new InvalidOperationException("JWT SecretKey is not configured properly. Please check the Security:JwtSecretKey setting in appsettings.json");
+            }
+            
+            if (string.IsNullOrEmpty(_jwtOptions.Issuer))
+            {
+                throw new InvalidOperationException("JWT Issuer is not configured properly. Please check the Security:JwtIssuer setting in appsettings.json");
+            }
+            
+            if (string.IsNullOrEmpty(_jwtOptions.Audience))
+            {
+                throw new InvalidOperationException("JWT Audience is not configured properly. Please check the Security:JwtAudience setting in appsettings.json");
+            }
         }
 
         /// <summary>
@@ -126,13 +142,13 @@ namespace FlowFlex.Application.Services.OW
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var jwtToken = tokenHandler.ReadJwtToken(token);
-                
+
                 var userIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 if (userIdClaim != null && long.TryParse(userIdClaim.Value, out var userId))
                 {
                     return userId;
                 }
-                
+
                 return null;
             }
             catch
@@ -152,7 +168,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var jwtToken = tokenHandler.ReadJwtToken(token);
-                
+
                 var emailClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
                 return emailClaim?.Value;
             }
@@ -171,4 +187,4 @@ namespace FlowFlex.Application.Services.OW
             return _jwtOptions.ExpiryMinutes * 60;
         }
     }
-} 
+}

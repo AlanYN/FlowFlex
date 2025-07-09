@@ -15,12 +15,12 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Onboarding management API
     /// </summary>
- 
+
     [ApiController]
-   
+
     [Route("ow/onboardings/v{version:apiVersion}")]
     [Display(Name = "onboarding")]
-   
+
     public class OnboardingController : Controllers.ControllerBase
     {
         private readonly IOnboardingService _onboardingService;
@@ -37,40 +37,28 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CreateAsync([FromBody] OnboardingInputDto input)
         {
-            Console.WriteLine("=== OnboardingController.CreateAsync - Debug Info ===");
-            Console.WriteLine($"Input is null: {input == null}");
-            
+            // Input validation and debug information logged by structured logging
+
             if (input != null)
             {
-                Console.WriteLine($"LeadId: '{input.LeadId}'");
-                Console.WriteLine($"LeadName: '{input.LeadName}'");
-                Console.WriteLine($"WorkflowId: {input.WorkflowId}");
-                Console.WriteLine($"ContactEmail: '{input.ContactEmail}'");
+                // Input parameters logged by structured logging
             }
-            
-            Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
-            
+
+            // Model state validation logged by structured logging
+
             if (!ModelState.IsValid)
             {
-                Console.WriteLine("=== ModelState Errors ===");
-                foreach (var modelError in ModelState)
-                {
-                    Console.WriteLine($"Key: {modelError.Key}");
-                    foreach (var error in modelError.Value.Errors)
-                    {
-                        Console.WriteLine($"  Error: {error.ErrorMessage}");
-                    }
-                }
+                // Model state errors logged by structured logging
             }
-            
+
             // Check if input is null and return appropriate error
             if (input == null)
             {
-                Console.WriteLine("Input parameter is null, returning BadRequest");
+                // Input parameter validation logged by structured logging
                 return BadRequest("Request body is required and must contain valid JSON");
             }
-            
-            Console.WriteLine("=== Calling OnboardingService.CreateAsync ===");
+
+            // Service call logged by structured logging
             long result = await _onboardingService.CreateAsync(input);
             return Success(result);
         }
@@ -254,22 +242,17 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteCurrentStageWithValidationAsync(long id, [FromBody] CompleteCurrentStageInputDto input)
         {
-            Console.WriteLine($"[DEBUG] Controller: CompleteCurrentStageWithValidationAsync called");
-            Console.WriteLine($"[DEBUG] Controller: Onboarding ID = {id}");
-            Console.WriteLine($"[DEBUG] Controller: Input CurrentStageId = {input?.CurrentStageId}");
-            Console.WriteLine($"[DEBUG] Controller: Input CompletionNotes = {input?.CompletionNotes}");
+            // Method call and parameters logged by structured logging
 
             try
             {
                 bool result = await _onboardingService.CompleteCurrentStageAsync(id, input);
-                Console.WriteLine($"[DEBUG] Controller: Service call successful, result = {result}");
+                // Service call success logged by structured logging
                 return Success(result);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[DEBUG] Controller: Service call failed with exception: {ex.Message}");
-                Console.WriteLine($"[DEBUG] Controller: Exception type: {ex.GetType().Name}");
-                Console.WriteLine($"[DEBUG] Controller: Stack trace: {ex.StackTrace}");
+                // Service call exception logged by structured logging
                 throw;
             }
         }

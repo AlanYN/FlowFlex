@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace FlowFlex.WebApi.Middlewares
 {
     /// <summary>
-    /// 租户中间�?- 确保每个请求都有正确的租户ID
+    /// Tenant Middleware - Ensure each request has the correct tenant ID
     /// </summary>
     public class TenantMiddleware
     {
@@ -20,63 +20,63 @@ namespace FlowFlex.WebApi.Middlewares
 
         public async Task InvokeAsync(HttpContext context)
         {
-            // 获取租户ID
+            // Get tenant ID
             var tenantId = GetTenantId(context);
-            
-            // 记录租户信息
+
+            // Log tenant information
             _logger.LogInformation($"[TenantMiddleware] Request: {context.Request.Method} {context.Request.Path}, TenantId: {tenantId}");
-            
-            // 确保租户ID在请求头�?
+
+            // Ensure tenant ID is in request headers
             if (!context.Request.Headers.ContainsKey("X-Tenant-Id"))
             {
-                context.Request.Headers.Add("X-Tenant-Id", tenantId);
+                context.Request.Headers["X-Tenant-Id"] = tenantId;
             }
-            
-            // 在响应头中添加租户ID（用于调试）
-            context.Response.Headers.Add("X-Response-Tenant-Id", tenantId);
-            
+
+            // Add tenant ID to response headers (for debugging)
+            context.Response.Headers["X-Response-Tenant-Id"] = tenantId;
+
             await _next(context);
         }
 
         private string GetTenantId(HttpContext context)
         {
-            // 尝试从多个来源获取租户ID
-            
-            // 1. �?X-Tenant-Id 头获�?
+            // Try to get tenant ID from multiple sources
+
+            // 1. Get from X-Tenant-Id header
             var tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
             if (!string.IsNullOrEmpty(tenantId))
             {
                 _logger.LogDebug($"[TenantMiddleware] Found TenantId from X-Tenant-Id header: {tenantId}");
                 return tenantId;
             }
-            
-            // 2. �?TenantId 头获�?
+
+            // 2. Get from TenantId header
             tenantId = context.Request.Headers["TenantId"].FirstOrDefault();
             if (!string.IsNullOrEmpty(tenantId))
             {
                 _logger.LogDebug($"[TenantMiddleware] Found TenantId from TenantId header: {tenantId}");
                 return tenantId;
             }
-            
-            // 3. 从查询参数获�?
+
+            // 3. Get from query parameters
             tenantId = context.Request.Query["tenantId"].FirstOrDefault();
             if (!string.IsNullOrEmpty(tenantId))
             {
                 _logger.LogDebug($"[TenantMiddleware] Found TenantId from query parameter: {tenantId}");
                 return tenantId;
             }
-            
-            // 4. 从JWT Token获取（如果有的话�?
-            // TODO: 实现从JWT Token中提取租户ID的逻辑
-            
-            // 5. 从用户邮箱域名推断租户ID（示例逻辑�?
+
+            // 4. Get from JWT Token (if available)
+            // Extract tenant ID from JWT token when authentication is implemented
+
+            // 5. Infer tenant ID from user email domain (example logic)
             var userEmail = context.Request.Headers["X-User-Email"].FirstOrDefault();
             if (!string.IsNullOrEmpty(userEmail))
             {
                 var domain = userEmail.Split('@').LastOrDefault();
                 if (!string.IsNullOrEmpty(domain))
                 {
-                    // 可以根据邮箱域名映射到租户ID
+                    // Can map email domain to tenant ID
                     tenantId = MapDomainToTenantId(domain);
                     if (!string.IsNullOrEmpty(tenantId))
                     {
@@ -85,31 +85,31 @@ namespace FlowFlex.WebApi.Middlewares
                     }
                 }
             }
-            
-            // 6. 默认租户ID
+
+            // 6. Default tenant ID
             tenantId = "default";
             _logger.LogDebug($"[TenantMiddleware] Using default TenantId: {tenantId}");
             return tenantId;
         }
 
         /// <summary>
-        /// 根据邮箱域名映射到租户ID
+        /// Map email domain to tenant ID
         /// </summary>
         private string MapDomainToTenantId(string domain)
         {
-            // 这里可以实现具体的域名到租户ID的映射逻辑
-            // 例如�?
+            // Here you can implement specific domain to tenant ID mapping logic
+            // For example:
             // - company1.com -> tenant1
             // - company2.com -> tenant2
             // - gmail.com -> personal
-            
+
             return domain switch
             {
                 "company1.com" => "tenant1",
                 "company2.com" => "tenant2",
                 "test.com" => "test",
-                _ => null // 返回null表示无法推断
+                _ => null // Return null indicates unable to infer
             };
         }
     }
-} 
+}

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System;
 
-namespace FlowFlex.Application.Contracts.Models
+namespace FlowFlex.Domain.Shared.Models
 {
     /// <summary>
     /// Paged result model

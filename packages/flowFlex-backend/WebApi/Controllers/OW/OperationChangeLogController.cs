@@ -5,8 +5,9 @@ using Item.Internal.StandardApi.Response;
 using System.Net;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Models;
+
 using FlowFlex.Domain.Shared.Enums.OW;
+using System.Linq.Dynamic.Core;
 
 
 namespace FlowFlex.WebApi.Controllers.OW
@@ -14,9 +15,9 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Operation change log controller
     /// </summary>
- 
+
     [ApiController]
-   
+
     [Route("ow/change-logs/v{version:apiVersion}")]
     [Display(Name = "Operation Change Logs")]
     public class OperationChangeLogController : Controllers.ControllerBase

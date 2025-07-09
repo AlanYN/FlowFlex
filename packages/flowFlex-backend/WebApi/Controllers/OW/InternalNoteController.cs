@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.InternalNote;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos;
-using FlowFlex.Application.Contracts.Models;
+
 using Item.Internal.StandardApi.Response;
 
 using FlowFlex.Domain.Shared.Attr;

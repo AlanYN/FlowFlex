@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
-using FlowFlex.Application.Contracts.Models;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Contracts.IServices.OW
 {

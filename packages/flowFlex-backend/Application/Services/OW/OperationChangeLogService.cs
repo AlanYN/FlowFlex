@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Models;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -279,17 +278,14 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 _logger.LogInformation($"📝 [Log Step 1] Starting to log file upload for file {fileId}");
-                Console.WriteLine($"📝 [Log Step 1] Starting to log file upload for file {fileId}");
-
+                // Debug logging handled by structured logging
                 _logger.LogInformation($"📝 [Log Step 2] Preparing operation title and description...");
-                Console.WriteLine($"📝 [Log Step 2] Preparing operation title and description...");
-                
+                // Debug logging handled by structured logging
                 string operationTitle = $"File Uploaded: {fileName}";
                 string operationDescription = $"File '{fileName}' has been uploaded successfully by {_userContext.UserName}";
 
                 _logger.LogInformation($"📝 [Log Step 3] Serializing extended data...");
-                Console.WriteLine($"📝 [Log Step 3] Serializing extended data...");
-                
+                // Debug logging handled by structured logging
                 var extendedData = JsonSerializer.Serialize(new
                 {
                     FileId = fileId,
@@ -302,8 +298,7 @@ namespace FlowFlex.Application.Services.OW
                 });
 
                 _logger.LogInformation($"📝 [Log Step 4] Calling LogOperationAsync...");
-                Console.WriteLine($"📝 [Log Step 4] Calling LogOperationAsync...");
-
+                // Debug logging handled by structured logging
                 var result = await LogOperationAsync(
                     OperationTypeEnum.FileUpload,
                     BusinessModuleEnum.File,
@@ -316,18 +311,15 @@ namespace FlowFlex.Application.Services.OW
                 );
 
                 _logger.LogInformation($"📝 [Log Step 5] LogOperationAsync completed with result: {result}");
-                Console.WriteLine($"📝 [Log Step 5] LogOperationAsync completed with result: {result}");
-
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Failed to log file upload operation for file {FileId}. Error: {ErrorMessage}", fileId, ex.Message);
-                
+                _logger.LogError(ex, "�?Failed to log file upload operation for file {FileId}. Error: {ErrorMessage}", fileId, ex.Message);
+
                 // Log detailed error information to console for debugging
-                Console.WriteLine($"❌ LogFileUploadAsync failed for file {fileId}: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-                
+                // Debug logging handled by structured logging
                 // Return false instead of throwing exception to ensure no program crash
                 return false;
             }
@@ -447,19 +439,16 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 _logger.LogInformation($"🔧 [Op Step 1] Starting LogOperationAsync for {operationType}");
-                Console.WriteLine($"🔧 [Op Step 1] Starting LogOperationAsync for {operationType}");
-
+                // Debug logging handled by structured logging
                 _logger.LogInformation($"🔧 [Op Step 2] Getting HTTP context information...");
-                Console.WriteLine($"🔧 [Op Step 2] Getting HTTP context information...");
-                
+                // Debug logging handled by structured logging
                 var httpContext = _httpContextAccessor.HttpContext;
                 string ipAddress = GetClientIpAddress(httpContext);
                 string userAgent = httpContext?.Request.Headers["User-Agent"].FirstOrDefault() ?? string.Empty;
                 string operationSource = GetOperationSource(httpContext);
 
                 _logger.LogInformation($"🔧 [Op Step 3] Creating OperationChangeLog entity...");
-                Console.WriteLine($"🔧 [Op Step 3] Creating OperationChangeLog entity...");
-
+                // Debug logging handled by structured logging
                 var operationLog = new OperationChangeLog
                 {
                     OperationType = operationType.ToString(),
@@ -484,34 +473,30 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 _logger.LogInformation($"🔧 [Op Step 4] Initializing create information...");
-                Console.WriteLine($"🔧 [Op Step 4] Initializing create information...");
-
+                // Debug logging handled by structured logging
                 // Initialize create information with proper ID and timestamps
                 operationLog.InitCreateInfo(_userContext);
 
                 _logger.LogInformation($"🔧 [Op Step 5] Entity created with ID: {operationLog.Id}");
-                Console.WriteLine($"🔧 [Op Step 5] Entity created with ID: {operationLog.Id}");
-
+                // Debug logging handled by structured logging
                 _logger.LogInformation($"🔧 [Op Step 6] Calling InsertOperationLogWithJsonbAsync...");
-                Console.WriteLine($"🔧 [Op Step 6] Calling InsertOperationLogWithJsonbAsync...");
-
+                // Debug logging handled by structured logging
                 // Use SqlSugar direct insertion with JSONB type handling
                 bool result = await InsertOperationLogWithJsonbAsync(operationLog);
 
                 _logger.LogInformation($"🔧 [Op Step 7] InsertOperationLogWithJsonbAsync completed with result: {result}");
-                Console.WriteLine($"🔧 [Op Step 7] InsertOperationLogWithJsonbAsync completed with result: {result}");
-
+                // Debug logging handled by structured logging
                 if (result)
                 {
-                    _logger.LogInformation("✅ Operation log recorded: {OperationType} for {BusinessModule} {BusinessId}",
+                    _logger.LogInformation("�?Operation log recorded: {OperationType} for {BusinessModule} {BusinessId}",
                         operationType, businessModule, businessId);
-                    Console.WriteLine($"✅ Operation log recorded: {operationType} for {businessModule} {businessId}");
+                    // Debug logging handled by structured logging
                 }
                 else
                 {
                     _logger.LogWarning("⚠️ Failed to record operation log: {OperationType} for {BusinessModule} {BusinessId}",
                         operationType, businessModule, businessId);
-                    Console.WriteLine($"⚠️ Failed to record operation log: {operationType} for {businessModule} {businessId}");
+                    // Debug logging handled by structured logging
                 }
 
                 return result;
@@ -520,12 +505,9 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogError(ex, "Error recording operation log: {OperationType} for {BusinessModule} {BusinessId}. Error: {ErrorMessage}",
                     operationType, businessModule, businessId, ex.Message);
-                
-                // 记录详细错误信息到控制台，便于调试
-                Console.WriteLine($"❌ LogOperationAsync failed: {operationType} for {businessModule} {businessId}");
-                Console.WriteLine($"❌ Error: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-                
+
+                // 记录详细错误信息到控制台，便于调�?
+                // Debug logging handled by structured logging
                 // 返回 false 而不是抛出异常，确保不会导致程序崩溃
                 return false;
             }
@@ -651,41 +633,33 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 _logger.LogInformation($"💾 [Insert Step 1] Starting InsertOperationLogWithJsonbAsync for ID: {operationLog.Id}");
-                Console.WriteLine($"💾 [Insert Step 1] Starting InsertOperationLogWithJsonbAsync for ID: {operationLog.Id}");
-
-                // 确保 JSON 字段正确处理 null 值
-                // 对于 JSONB 字段，null 应该保持为 null，而不是 "null" 字符串
-                // 只有当字段有实际内容时才设置值
-                
+                // Debug logging handled by structured logging
+                // 确保 JSON 字段正确处理 null �?                // 对于 JSONB 字段，null 应该保持�?null，而不�?"null" 字符�?                // 只有当字段有实际内容时才设置�?                
                 _logger.LogInformation($"💾 [Insert Step 2] Calling InsertOperationLogWithRawSqlAsync...");
-                Console.WriteLine($"💾 [Insert Step 2] Calling InsertOperationLogWithRawSqlAsync...");
-                
+                // Debug logging handled by structured logging
                 // 主要方法：使用原生SQL处理JSONB字段
                 var result = await InsertOperationLogWithRawSqlAsync(operationLog);
-                
+
                 _logger.LogInformation($"💾 [Insert Step 3] InsertOperationLogWithRawSqlAsync completed with result: {result}");
-                Console.WriteLine($"💾 [Insert Step 3] InsertOperationLogWithRawSqlAsync completed with result: {result}");
-                
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to insert operation log with JSONB handling using raw SQL. Error: {ErrorMessage}", ex.Message);
-                
-                // 记录详细错误信息到控制台
-                Console.WriteLine($"❌ InsertOperationLogWithJsonbAsync failed: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
 
+                // 记录详细错误信息到控制台
+                // Debug logging handled by structured logging
                 // Fallback: try using SqlSugar's standard method (though it may fail)
                 try
                 {
-                    Console.WriteLine("🔄 Trying fallback method with SqlSugar standard insertion...");
+                    // Debug logging handled by structured logging
                     return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
                 }
                 catch (Exception fallbackEx)
                 {
                     _logger.LogError(fallbackEx, "Fallback SqlSugar insertion also failed. Error: {ErrorMessage}", fallbackEx.Message);
-                    Console.WriteLine($"❌ Fallback method also failed: {fallbackEx.Message}");
+                    // Debug logging handled by structured logging
                     return false;
                 }
             }
@@ -698,12 +672,10 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                _logger.LogInformation($"🗃️ [SQL Step 1] Starting InsertOperationLogWithRawSqlAsync for ID: {operationLog.Id}");
-                Console.WriteLine($"🗃️ [SQL Step 1] Starting InsertOperationLogWithRawSqlAsync for ID: {operationLog.Id}");
-
-                _logger.LogInformation($"🗃️ [SQL Step 2] Preparing SQL statement...");
-                Console.WriteLine($"🗃️ [SQL Step 2] Preparing SQL statement...");
-                
+                _logger.LogInformation($"🗃�?[SQL Step 1] Starting InsertOperationLogWithRawSqlAsync for ID: {operationLog.Id}");
+                // Debug logging handled by structured logging
+                _logger.LogInformation($"🗃�?[SQL Step 2] Preparing SQL statement...");
+                // Debug logging handled by structured logging
                 string sql = @"
                     INSERT INTO ff_operation_change_log (
                         id, tenant_id, operation_type, business_module, business_id, 
@@ -740,9 +712,8 @@ namespace FlowFlex.Application.Services.OW
                     )";
 
                 _logger.LogInformation($"🗃️ [SQL Step 3] Preparing parameters...");
-                Console.WriteLine($"🗃️ [SQL Step 3] Preparing parameters...");
-
-                // 使用SqlSugar参数对象，确保类型正确
+                // Debug logging handled by structured logging
+                // Use SqlSugar parameter object to ensure correct type
                 var parameters = new List<SugarParameter>
                 {
                     new SugarParameter("@Id", operationLog.Id),
@@ -773,29 +744,27 @@ namespace FlowFlex.Application.Services.OW
                     new SugarParameter("@ModifyBy", operationLog.ModifyBy),
                     new SugarParameter("@CreateUserId", operationLog.CreateUserId),
                     new SugarParameter("@ModifyUserId", operationLog.ModifyUserId)
-                };
+                }
+                ;
 
                 _logger.LogInformation($"🗃️ [SQL Step 4] Executing SQL command...");
-                Console.WriteLine($"🗃️ [SQL Step 4] Executing SQL command...");
-
+                // Debug logging handled by structured logging
                 var result = await _operationChangeLogRepository.ExecuteInsertWithJsonbAsync(sql, parameters.ToArray());
-                
-                _logger.LogInformation($"🗃️ [SQL Step 5] SQL execution completed with result: {result}");
-                Console.WriteLine($"🗃️ [SQL Step 5] SQL execution completed with result: {result}");
 
+                _logger.LogInformation($"🗃️ [SQL Step 5] SQL execution completed with result: {result}");
+                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed in InsertOperationLogWithRawSqlAsync. Error: {ErrorMessage}", ex.Message);
-                Console.WriteLine($"❌ InsertOperationLogWithRawSqlAsync failed: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-                throw; // 重新抛出异常让上层处理
+                // Debug logging handled by structured logging
+                throw; // Re-throw exception for upper layer handling
             }
         }
 
         /// <summary>
-        /// 获取客户端IP地址
+        /// Get client IP address
         /// </summary>
         private string GetClientIpAddress(HttpContext context)
         {
@@ -815,7 +784,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 获取操作来源
+        /// Get operation source
         /// </summary>
         private string GetOperationSource(HttpContext context)
         {
@@ -840,19 +809,19 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 检查是否有实际的值变化
+        /// Check if there are actual value changes
         /// </summary>
         private bool HasMeaningfulValueChange(string beforeData, string afterData)
         {
-            // 如果两个值都为空或null，则没有变化
+            // If both values are empty or null, there is no change
             if (string.IsNullOrEmpty(beforeData) && string.IsNullOrEmpty(afterData))
                 return false;
 
-            // 如果其中一个为空，另一个不为空，则有变化
+            // If one is empty and the other is not, there is a change
             if (string.IsNullOrEmpty(beforeData) || string.IsNullOrEmpty(afterData))
                 return true;
 
-            // 标准化值进行比较
+            // Normalize values for comparison
             string normalizedBefore = NormalizeValue(beforeData);
             string normalizedAfter = NormalizeValue(afterData);
 
@@ -860,30 +829,30 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 标准化值，去除不必要的引号和空格
+        /// Normalize value, remove unnecessary quotes and spaces
         /// </summary>
         private string NormalizeValue(string value)
         {
             if (string.IsNullOrEmpty(value))
                 return string.Empty;
 
-            // 去除首尾空格
+            // Remove leading and trailing spaces
             value = value.Trim();
 
-            // 如果值被双引号包围，则去除引号
+            // If value is surrounded by double quotes, remove quotes
             if (value.StartsWith("\"") && value.EndsWith("\"") && value.Length >= 2)
             {
                 value = value.Substring(1, value.Length - 2);
             }
 
-            // 尝试解析为数字，如果是数字则标准化格式
+            // Try to parse as number, if it's a number then normalize format
             if (decimal.TryParse(value, out decimal decimalValue))
             {
-                // 对于数字，使用标准格式（去除不必要的小数点后的0）
+                // For numbers, use standard format (remove unnecessary decimal places)
                 return decimalValue.ToString("0.##");
             }
 
-            // 对于布尔值，标准化为小写
+            // For boolean values, normalize to lowercase
             if (bool.TryParse(value, out bool boolValue))
             {
                 return boolValue.ToString().ToLowerInvariant();
@@ -893,7 +862,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 获取变更字段列表
+        /// Get list of changed fields
         /// </summary>
         private List<string> GetChangedFields(Dictionary<string, object> beforeData, Dictionary<string, object> afterData)
         {
@@ -920,7 +889,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 格式化文件大小
+        /// Format file size
         /// </summary>
         private string FormatFileSize(long bytes)
         {
@@ -932,7 +901,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 获取枚举描述
+        /// Get enum description
         /// </summary>
         private string GetEnumDescription(Enum value)
         {
@@ -942,7 +911,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 获取相对时间显示
+        /// Get relative time display
         /// </summary>
         private string GetRelativeTimeDisplay(DateTimeOffset dateTime)
         {

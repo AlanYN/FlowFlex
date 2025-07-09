@@ -161,7 +161,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         {
             if (string.IsNullOrWhiteSpace(ContactEmail))
                 return true; // 空值被认为是有效的
-                
+
             try
             {
                 var addr = new System.Net.Mail.MailAddress(ContactEmail);
@@ -197,7 +197,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
             {
                 return null;
             }
-            
+
             if (reader.TokenType == JsonToken.String)
             {
                 var stringValue = reader.Value?.ToString();
@@ -211,12 +211,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
                 }
                 return null; // 无法解析时返回 null 而不是抛出异常
             }
-            
+
             if (reader.TokenType == JsonToken.Integer)
             {
                 return Convert.ToInt64(reader.Value);
             }
-            
+
             return null;
         }
     }

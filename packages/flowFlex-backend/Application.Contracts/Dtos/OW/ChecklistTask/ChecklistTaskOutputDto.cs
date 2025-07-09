@@ -130,4 +130,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         /// </summary>
         public string ModifyBy { get; set; }
     }
-} 
+}

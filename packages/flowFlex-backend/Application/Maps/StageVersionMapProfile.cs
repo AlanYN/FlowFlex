@@ -60,5 +60,5 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
         }
     }
-} 
- 
+}
+

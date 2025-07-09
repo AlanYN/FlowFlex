@@ -119,4 +119,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="userId">User ID</param>
         void SetModifyInfo(T entity, string userEmail, long userId = 0);
     }
-} 
+}

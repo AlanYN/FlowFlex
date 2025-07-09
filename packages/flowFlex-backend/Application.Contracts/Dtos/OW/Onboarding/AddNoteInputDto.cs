@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 备注内容
         /// </summary>
-        
+
         public string Content { get; set; } = string.Empty;
 
         /// <summary>

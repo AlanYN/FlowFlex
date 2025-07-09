@@ -23,7 +23,7 @@ public static class AttributeHelper
     {
         ArgumentNullException.ThrowIfNull(fieldInfo);
         ArgumentNullException.ThrowIfNull(attribute);
-        
+
         AddRuntimeAttribute(fieldInfo, attribute);
     }
 
@@ -65,4 +65,4 @@ public static class AttributeHelper
         }
         return null;
     }
-} 
+}

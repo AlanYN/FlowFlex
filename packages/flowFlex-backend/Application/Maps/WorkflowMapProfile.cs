@@ -56,4 +56,4 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Stages, opt => opt.Ignore());
         }
     }
-} 
+}

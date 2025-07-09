@@ -79,4 +79,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <returns>History version list</returns>
         Task<List<StaticFieldValue>> GetFieldHistoryAsync(long onboardingId, long stageId, string fieldName);
     }
-} 
+}

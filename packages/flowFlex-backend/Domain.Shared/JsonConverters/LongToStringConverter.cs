@@ -70,4 +70,4 @@ public class NullableLongToStringConverter : JsonConverter<long?>
 
         return Convert.ToInt64(reader.Value);
     }
-} 
+}

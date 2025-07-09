@@ -11,7 +11,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Questionnaire
         /// <summary>
         /// Stage ID列表
         /// </summary>
-        
+
         public List<long> StageIds { get; set; } = new List<long>();
     }
 }

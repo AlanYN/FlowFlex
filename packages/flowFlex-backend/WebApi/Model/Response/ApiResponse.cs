@@ -1,56 +1,14 @@
+// This file is now moved to Domain.Shared.Models.ApiResponse
+// Keep this file for backward compatibility, but use the one in Domain.Shared
+using FlowFlex.Domain.Shared.Models;
+
 namespace FlowFlex.WebApi.Model.Response
 {
     /// <summary>
-    /// API response model
+    /// API response model (legacy location - use FlowFlex.Domain.Shared.Models.ApiResponse instead)
     /// </summary>
     /// <typeparam name="T">Data type</typeparam>
-    public class ApiResponse<T>
+    public class ApiResponse<T> : FlowFlex.Domain.Shared.Models.ApiResponse<T>
     {
-        /// <summary>
-        /// Status code
-        /// </summary>
-        public int Code { get; set; }
-
-        /// <summary>
-        /// Message
-        /// </summary>
-        public string Message { get; set; }
-
-        /// <summary>
-        /// Data
-        /// </summary>
-        public T Data { get; set; }
-
-        /// <summary>
-        /// Create success response
-        /// </summary>
-        /// <param name="data">Data</param>
-        /// <param name="message">Message</param>
-        /// <returns>API response</returns>
-        public static ApiResponse<T> Success(T data, string message = "Operation successful")
-        {
-            return new ApiResponse<T>
-            {
-                Code = 200,
-                Message = message,
-                Data = data
-            };
-        }
-
-        /// <summary>
-        /// Create failure response
-        /// </summary>
-        /// <param name="message">Message</param>
-        /// <param name="errorCode">Error code</param>
-        /// <returns>API response</returns>
-        public static ApiResponse<T> Fail(string message = "Operation failed", int errorCode = 400)
-        {
-            return new ApiResponse<T>
-            {
-                Code = errorCode,
-                Message = message,
-                Data = default
-            };
-        }
     }
-} 
+}

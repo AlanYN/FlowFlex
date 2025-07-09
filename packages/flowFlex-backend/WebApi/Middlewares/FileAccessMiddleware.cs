@@ -112,11 +112,11 @@ namespace FlowFlex.WebApi.Middlewares
             // Check if file path contains user's tenant ID
             // File path format: /uploads/{tenantId}/{category}/{year}/{month}/{day}/{filename}
             var pathParts = filePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            
+
             if (pathParts.Length >= 2 && pathParts[0] == "uploads")
             {
                 var fileTenantId = pathParts[1];
-                
+
                 // Check if tenant ID matches
                 if (fileTenantId != tenantId)
                 {
@@ -126,7 +126,7 @@ namespace FlowFlex.WebApi.Middlewares
 
             // Can add more fine-grained permission checks
             // For example: check if user has permission to access specific category files
-            
+
             return true;
         }
 
@@ -136,7 +136,7 @@ namespace FlowFlex.WebApi.Middlewares
                 return false;
 
             var extension = Path.GetExtension(filePath).ToLowerInvariant();
-            
+
             // Dangerous file types
             var dangerousExtensions = new[]
             {
@@ -150,26 +150,26 @@ namespace FlowFlex.WebApi.Middlewares
         private void AddSecurityHeaders(HttpContext context)
         {
             var response = context.Response;
-            
+
             // Prevent content sniffing
-            response.Headers.Add("X-Content-Type-Options", "nosniff");
-            
+            response.Headers["X-Content-Type-Options"] = "nosniff";
+
             // Prevent display in iframe
-            response.Headers.Add("X-Frame-Options", "DENY");
-            
+            response.Headers["X-Frame-Options"] = "DENY";
+
             // XSS protection
-            response.Headers.Add("X-XSS-Protection", "1; mode=block");
-            
+            response.Headers["X-XSS-Protection"] = "1; mode=block";
+
             // Content security policy
-            response.Headers.Add("Content-Security-Policy", "default-src 'none'; img-src 'self'; media-src 'self'; object-src 'none';");
-            
+            response.Headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; media-src 'self'; object-src 'none';";
+
             // Disable caching for sensitive files
             var filePath = context.Request.Path.Value?.ToLowerInvariant();
             if (!string.IsNullOrEmpty(filePath) && IsSensitiveFile(filePath))
             {
-                response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
-                response.Headers.Add("Pragma", "no-cache");
-                response.Headers.Add("Expires", "0");
+                response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+                response.Headers["Pragma"] = "no-cache";
+                response.Headers["Expires"] = "0";
             }
         }
 
@@ -215,12 +215,12 @@ namespace FlowFlex.WebApi.Middlewares
 
         public static FileAccessResult Deny(int statusCode, string message)
         {
-            return new FileAccessResult 
-            { 
-                IsAllowed = false, 
-                StatusCode = statusCode, 
-                Message = message 
+            return new FileAccessResult
+            {
+                IsAllowed = false,
+                StatusCode = statusCode,
+                Message = message
             };
         }
     }
-} 
+}

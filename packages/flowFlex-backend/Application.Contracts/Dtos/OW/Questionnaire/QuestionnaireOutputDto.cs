@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Newtonsoft.Json;
 using Item.Common.Lib.JsonConverts;
+using FlowFlex.Application.Contracts.Dtos.OW.Common;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 
@@ -106,13 +108,21 @@ public class QuestionnaireOutputDto
     /// 关联的工作流ID
     /// </summary>
     [JsonConverter(typeof(ValueToStringConverter))]
+    [Description("关联的工作流ID - 向后兼容字段")]
     public long? WorkflowId { get; set; }
 
     /// <summary>
     /// 关联的阶段ID
     /// </summary>
     [JsonConverter(typeof(ValueToStringConverter))]
+    [Description("关联的阶段ID - 向后兼容字段")]
     public long? StageId { get; set; }
+
+    /// <summary>
+    /// 关联的 workflow-stage 组合列表
+    /// </summary>
+    [Description("问卷关联的所有 workflow-stage 组合")]
+    public List<AssignmentDto> Assignments { get; set; } = new List<AssignmentDto>();
 
     /// <summary>
     /// 问卷分组

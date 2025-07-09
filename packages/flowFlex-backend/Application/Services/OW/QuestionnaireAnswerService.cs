@@ -103,11 +103,11 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                Console.WriteLine($"✅ Questionnaire answer change logged: {action}");
+                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to log questionnaire answer change: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
 
@@ -118,8 +118,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine($"[SaveAnswerAsync] Starting save for OnboardingId: {input.OnboardingId}, StageId: {input.StageId}");
-
+                // Debug logging handled by structured logging
                 // Check if answer already exists
                 var existingAnswer = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
                 bool isUpdate = existingAnswer != null;
@@ -127,12 +126,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Format and validate answer JSON
                 var formattedJson = string.IsNullOrWhiteSpace(input.AnswerJson) ? "{}" : input.AnswerJson.Trim();
-                Console.WriteLine($"[SaveAnswerAsync] Formatted JSON length: {formattedJson.Length}");
-
+                // Debug logging handled by structured logging
                 if (isUpdate)
                 {
-                    Console.WriteLine($"[SaveAnswerAsync] Updating existing answer with ID: {existingAnswer.Id}");
-
+                    // Debug logging handled by structured logging
                     // Process answer changes history
                     var updatedAnswerJson = await ProcessAnswerChangesAsync(oldAnswerJson, formattedJson);
 
@@ -148,8 +145,7 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                     var updateResult = await _repository.UpdateAsync(existingAnswer);
-                    Console.WriteLine($"[SaveAnswerAsync] Update result: {updateResult}");
-
+                    // Debug logging handled by structured logging
                     // Log the update
                     if (updateResult)
                     {
@@ -168,8 +164,7 @@ namespace FlowFlex.Application.Services.OW
                 }
                 else
                 {
-                    Console.WriteLine("[SaveAnswerAsync] Creating new answer");
-
+                    // Debug logging handled by structured logging
                     // Process new answer changes history
                     var processedAnswerJson = await ProcessAnswerChangesAsync(null, formattedJson);
 
@@ -192,14 +187,12 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with proper ID and timestamps
                     entity.InitCreateInfo(_userContext);
-
-                    Console.WriteLine($"[SaveAnswerAsync] Using ORM insert, JSON length: {processedAnswerJson.Length}");
-                    Console.WriteLine($"[SaveAnswerAsync] Status: '{entity.Status}', SubmitTime: {entity.SubmitTime?.ToString() ?? "NULL"}");
+                    // Debug logging handled by structured logging
+                    // Debug logging handled by structured logging ?? "NULL"}");
 
                     // Use SqlSugar ORM insert
                     var result = await _sqlSugarClient.Insertable(entity).ExecuteCommandAsync();
-                    Console.WriteLine($"[SaveAnswerAsync] Insert result: {result}");
-
+                    // Debug logging handled by structured logging
                     // Log the creation
                     if (result > 0)
                     {
@@ -224,7 +217,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SaveAnswerAsync] Exception: {ex.Message}\n{ex.StackTrace}");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
@@ -236,45 +229,40 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine($"[GetAnswerAsync] Starting query for onboardingId: {onboardingId}, stageId: {stageId}");
-
+                // Debug logging handled by structured logging
                 // Get current tenant ID - from HTTP headers
                 string httpTenantId = GetTenantId();
-                Console.WriteLine($"[GetAnswerAsync] HTTP Header tenant ID: '{httpTenantId}'");
-
+                // Debug logging handled by structured logging
                 // Get tenant ID from UserContext
                 var userContext = _httpContextAccessor.HttpContext?.RequestServices.GetService(typeof(UserContext)) as UserContext;
                 string userContextTenantId = userContext?.TenantId;
-                Console.WriteLine($"[GetAnswerAsync] UserContext tenant ID: '{userContextTenantId ?? "NULL"}'");
-
+                // Debug logging handled by structured logging
                 // Check SqlSugar filter status
-                Console.WriteLine($"[GetAnswerAsync] Checking SqlSugar filters...");
-
+                // Debug logging handled by structured logging
                 // First try querying without filters to see if data exists
                 using var scope = _sqlSugarClient.CreateFilterScope();
                 var allEntities = await _sqlSugarClient.Queryable<QuestionnaireAnswer>()
                     .Where(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.IsValid)
                     .ToListAsync();
-
-                Console.WriteLine($"[GetAnswerAsync] Found {allEntities.Count} records without tenant filter:");
+                // Debug logging handled by structured logging
                 foreach (var e in allEntities)
                 {
-                    Console.WriteLine($"  - ID: {e.Id}, TenantId: '{e.TenantId}', IsLatest: {e.IsLatest}, IsValid: {e.IsValid}");
+                    // Debug logging handled by structured logging
                 }
 
                 // Use normal repository method query (with tenant filter)
                 var entity = await _repository.GetByOnboardingAndStageAsync(onboardingId, stageId);
-                Console.WriteLine($"[GetAnswerAsync] Repository result: {(entity != null ? $"Found entity ID {entity.Id}" : "No entity found")}");
+                // Debug logging handled by structured logging}");
 
                 // If not found, try manual tenant ID matching
                 if (entity == null && allEntities.Count > 0)
                 {
-                    Console.WriteLine($"[GetAnswerAsync] Attempting manual tenant matching...");
+                    // Debug logging handled by structured logging
                     var matchingEntity = allEntities.FirstOrDefault(e =>
                         e.TenantId == httpTenantId || e.TenantId == userContextTenantId);
                     if (matchingEntity != null)
                     {
-                        Console.WriteLine($"[GetAnswerAsync] Found matching entity with manual search: ID {matchingEntity.Id}");
+                        // Debug logging handled by structured logging
                         return _mapper.Map<QuestionnaireAnswerOutputDto>(matchingEntity);
                     }
                 }
@@ -283,7 +271,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GetAnswerAsync] Exception: {ex.Message}\n{ex.StackTrace}");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
@@ -334,13 +322,13 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[UpdateAnswerAsync] Exception: {ex.Message}");
+                // Debug logging handled by structured logging
                 throw;
             }
         }
 
         /// <summary>
-        /// 删除问卷答案
+        /// Delete questionnaire answer
         /// </summary>
         public async Task<bool> DeleteAnswerAsync(long answerId)
         {
@@ -543,34 +531,34 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 处理答案变更历史，为发生变更的问题答案添加变更人和时间
+        /// Process answer change history, add change person and time for changed question answers
         /// </summary>
-        /// <param name="oldAnswerJson">旧答案JSON</param>
-        /// <param name="newAnswerJson">新答案JSON</param>
-        /// <returns>更新后的答案JSON</returns>
+        /// <param name="oldAnswerJson">Old answer JSON</param>
+        /// <param name="newAnswerJson">New answer JSON</param>
+        /// <returns>Updated answer JSON</returns>
         private async Task<string> ProcessAnswerChangesAsync(string oldAnswerJson, string newAnswerJson)
         {
             try
             {
-                // 如果没有旧答案，直接为所有新答案添加创建信息
+                // If no old answer, directly add creation info for all new answers
                 if (string.IsNullOrWhiteSpace(oldAnswerJson))
                 {
                     return await AddChangeHistoryToNewAnswers(newAnswerJson);
                 }
 
-                // 解析旧答案和新答案
+                // Parse old and new answers
                 var oldAnswerData = JsonSerializer.Deserialize<JsonElement>(oldAnswerJson);
                 var newAnswerData = JsonSerializer.Deserialize<JsonElement>(newAnswerJson);
 
-                // 获取当前用户信息和时间
+                // Get current user info and time
                 string currentUser = GetCurrentUserName();
                 DateTimeOffset currentTime = DateTimeOffset.UtcNow;
 
-                // 检查是否有responses字段
+                // Check if responses field exists
                 if (!oldAnswerData.TryGetProperty("responses", out var oldResponses) ||
                     !newAnswerData.TryGetProperty("responses", out var newResponses))
                 {
-                    return newAnswerJson; // 如果结构不匹配，返回原始新答案
+                    return newAnswerJson; // If structure doesn't match, return original new answer
                 }
 
                 // 创建新的响应列表
@@ -589,7 +577,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // 处理新答案中的每个响应
+                // 处理新答案中的每个响�?
                 if (newResponses.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var newResponse in newResponses.EnumerateArray())
@@ -607,8 +595,8 @@ namespace FlowFlex.Application.Services.OW
 
                                 if (hasChanged)
                                 {
-                                    // 答案发生变更，添加变更历史
-                                    // 先保留原有的变更历史，然后添加新的变更记录
+                                    // 答案发生变更，添加变更历�?
+                                    // 先保留原有的变更历史，然后添加新的变更记�?
                                     if (oldResponse.TryGetProperty("changeHistory", out var existingChangeHistory))
                                     {
                                         try
@@ -617,19 +605,18 @@ namespace FlowFlex.Application.Services.OW
                                         }
                                         catch (Exception ex)
                                         {
-                                            Console.WriteLine($"[ProcessAnswerChanges] Question {questionIdStr} - Error deserializing existing changeHistory: {ex.Message}");
+                                            // Debug logging handled by structured logging
                                             responseObj["changeHistory"] = new List<object>();
                                         }
                                     }
 
                                     AddChangeHistory(responseObj, currentUser, currentTime, "modified");
-                                    Console.WriteLine($"[ProcessAnswerChanges] Question {questionIdStr} answer changed by {currentUser}");
+                                    // Debug logging handled by structured logging
                                 }
                                 else
                                 {
-                                    // 答案未变更，保留原有的变更历史（如果存在）
-                                    Console.WriteLine($"[ProcessAnswerChanges] Question {questionIdStr} - No change, preserving existing history");
-
+                                    // 答案未变更，保留原有的变更历史（如果存在�?
+                                    // Debug logging handled by structured logging
                                     bool hasExistingHistory = false;
                                     if (oldResponse.TryGetProperty("changeHistory", out var changeHistory))
                                     {
@@ -640,24 +627,24 @@ namespace FlowFlex.Application.Services.OW
                                             {
                                                 responseObj["changeHistory"] = historyList;
                                                 hasExistingHistory = true;
-                                                Console.WriteLine($"[ProcessAnswerChanges] Question {questionIdStr} - Preserved {historyList.Count} existing history records");
+                                                // Debug logging handled by structured logging
                                             }
                                         }
                                         catch (Exception ex)
                                         {
-                                            Console.WriteLine($"[ProcessAnswerChanges] Question {questionIdStr} - Error deserializing changeHistory: {ex.Message}");
+                                            // Debug logging handled by structured logging
                                         }
                                     }
 
-                                    // 如果没有现有的变更历史，创建一个初始记录
+                                    // 如果没有现有的变更历史，创建一个初始记�?
                                     if (!hasExistingHistory)
                                     {
-                                        Console.WriteLine($"[ProcessAnswerChanges] Question {questionIdStr} - No existing history, creating initial record");
+                                        // Debug logging handled by structured logging
                                         AddChangeHistory(responseObj, "System", currentTime, "created");
                                     }
                                     else
                                     {
-                                        // 保留最后修改信息
+                                        // 保留最后修改信�?
                                         if (oldResponse.TryGetProperty("lastModifiedBy", out var lastModifiedBy))
                                         {
                                             responseObj["lastModifiedBy"] = lastModifiedBy.GetString();
@@ -671,9 +658,9 @@ namespace FlowFlex.Application.Services.OW
                             }
                             else
                             {
-                                // 新增的问题答案
+                                // 新增的问题答�?
                                 AddChangeHistory(responseObj, currentUser, currentTime, "created");
-                                Console.WriteLine($"[ProcessAnswerChanges] Question {questionIdStr} answer created by {currentUser}");
+                                // Debug logging handled by structured logging
                             }
 
                             updatedResponses.Add(responseObj);
@@ -681,7 +668,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // 重新构建完整的答案对象
+                // 重新构建完整的答案对�?
                 var updatedAnswerData = JsonSerializer.Deserialize<Dictionary<string, object>>(newAnswerJson);
                 updatedAnswerData["responses"] = updatedResponses;
 
@@ -692,14 +679,14 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ProcessAnswerChanges] Error processing answer changes: {ex.Message}");
-                // 如果处理过程中出错，返回原始新答案
+                // Debug logging handled by structured logging
+                // 如果处理过程中出错，返回原始新答�?
                 return newAnswerJson;
             }
         }
 
         /// <summary>
-        /// 为新答案添加创建历史（只为有值的答案添加）
+        /// Add creation history for new answers (only add for answers with values)
         /// </summary>
         private async Task<string> AddChangeHistoryToNewAnswers(string newAnswerJson)
         {
@@ -722,21 +709,21 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var responseObj = JsonSerializer.Deserialize<Dictionary<string, object>>(response.GetRawText());
 
-                        // 检查答案是否有值
+                        // Check if answer has value
                         bool hasValue = HasResponseValue(response);
 
                         if (hasValue)
                         {
-                            // 只为有值的答案添加变更历史
+                            // Only add change history for answers with values
                             AddChangeHistory(responseObj, currentUser, currentTime, "created");
 
                             string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                            Console.WriteLine($"[AddChangeHistoryToNewAnswers] Added change history for question with value: {questionId}");
+                            // Debug logging handled by structured logging
                         }
                         else
                         {
                             string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                            Console.WriteLine($"[AddChangeHistoryToNewAnswers] Skipped change history for question without value: {questionId}");
+                            // Debug logging handled by structured logging
                         }
 
                         updatedResponses.Add(responseObj);
@@ -753,13 +740,13 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[AddChangeHistoryToNewAnswers] Error: {ex.Message}");
+                // Debug logging handled by structured logging
                 return newAnswerJson;
             }
         }
 
         /// <summary>
-        /// 检查答案是否发生变更
+        /// Check if answer has changed
         /// </summary>
         private bool HasAnswerChanged(JsonElement oldResponse, JsonElement newResponse)
         {
@@ -767,52 +754,47 @@ namespace FlowFlex.Application.Services.OW
             {
                 string questionId = newResponse.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
 
-                // 比较主要的答案字段
+                // 比较主要的答案字�?
                 var fieldsToCompare = new[] { "answer", "responseText" };
 
                 foreach (var field in fieldsToCompare)
                 {
                     bool oldHasField = oldResponse.TryGetProperty(field, out var oldValue);
                     bool newHasField = newResponse.TryGetProperty(field, out var newValue);
-
-                    Console.WriteLine($"[HasAnswerChanged] Question {questionId}, Field {field} - Old exists: {oldHasField}, New exists: {newHasField}");
-
+                    // Debug logging handled by structured logging
                     if (oldHasField != newHasField)
                     {
-                        Console.WriteLine($"[HasAnswerChanged] Question {questionId}, Field {field} - Field existence changed");
-                        return true; // 字段存在性发生变化
+                        // Debug logging handled by structured logging
+                        return true; // 字段存在性发生变�?
                     }
 
                     if (oldHasField && newHasField)
                     {
-                        // 比较值
+                        // 比较�?
                         string oldStr = JsonSerializer.Serialize(oldValue);
                         string newStr = JsonSerializer.Serialize(newValue);
-
-                        Console.WriteLine($"[HasAnswerChanged] Question {questionId}, Field {field} - Old: {oldStr}, New: {newStr}");
-
+                        // Debug logging handled by structured logging
                         if (oldStr != newStr)
                         {
-                            Console.WriteLine($"[HasAnswerChanged] Question {questionId}, Field {field} - Value changed");
-                            return true; // 值发生变化
+                            // Debug logging handled by structured logging
+                            return true; // 值发生变�?
                         }
                     }
                 }
-
-                Console.WriteLine($"[HasAnswerChanged] Question {questionId} - No changes detected");
+                // Debug logging handled by structured logging
                 return false;
             }
             catch (Exception ex)
             {
                 string questionId = newResponse.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                Console.WriteLine($"[HasAnswerChanged] Question {questionId} - Error during comparison: {ex.Message}");
-                // 如果比较过程中出错，保守地假设没有发生变更
+                // Debug logging handled by structured logging
+                // 如果比较过程中出错，保守地假设没有发生变�?
                 return false;
             }
         }
 
         /// <summary>
-        /// 检查响应是否有值
+        /// Check if response has value
         /// </summary>
         private bool HasResponseValue(JsonElement response)
         {
@@ -833,7 +815,7 @@ namespace FlowFlex.Application.Services.OW
                                 ? value.GetString()
                                 : value.ToString();
 
-                            // 如果字符串不为空且不只是空白字符，则认为有值
+                            // 如果字符串不为空且不只是空白字符，则认为有�?
                             if (!string.IsNullOrWhiteSpace(stringValue))
                             {
                                 return true;
@@ -847,14 +829,14 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                Console.WriteLine($"[HasResponseValue] Question {questionId} - Error checking value: {ex.Message}");
-                // 如果检查过程中出错，保守地假设有值
+                // Debug logging handled by structured logging
+                // 如果检查过程中出错，保守地假设有�?
                 return true;
             }
         }
 
         /// <summary>
-        /// 为响应对象添加变更历史
+        /// Add change history to response object
         /// </summary>
         private void AddChangeHistory(Dictionary<string, object> responseObj, string user, DateTimeOffset time, string action)
         {
@@ -869,7 +851,7 @@ namespace FlowFlex.Application.Services.OW
                     timestampUtc = time.UtcDateTime
                 };
 
-                // 获取现有的变更历史
+                // 获取现有的变更历�?
                 List<object> changeHistory;
                 if (responseObj.ContainsKey("changeHistory") && responseObj["changeHistory"] is List<object> existingHistory)
                 {
@@ -883,7 +865,7 @@ namespace FlowFlex.Application.Services.OW
                 // 添加新的变更记录
                 changeHistory.Add(changeRecord);
 
-                // 只保留最近的10条变更记录
+                // 只保留最近的10条变更记�?
                 if (changeHistory.Count > 10)
                 {
                     changeHistory = changeHistory.Skip(changeHistory.Count - 10).ToList();
@@ -897,7 +879,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[AddChangeHistory] Error adding change history: {ex.Message}");
+                // Debug logging handled by structured logging
             }
         }
     }

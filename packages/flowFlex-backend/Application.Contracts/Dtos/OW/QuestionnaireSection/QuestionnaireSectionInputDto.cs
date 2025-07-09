@@ -10,13 +10,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireSection
         /// <summary>
         /// 问卷ID
         /// </summary>
-       
+
         public long QuestionnaireId { get; set; }
 
         /// <summary>
         /// 部分名称
         /// </summary>
-       
+
         [StringLength(200)]
         public string SectionName { get; set; }
 
@@ -59,4 +59,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireSection
         /// </summary>
         public bool IsActive { get; set; }
     }
-} 
+}

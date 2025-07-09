@@ -10,19 +10,19 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageVersion
         /// <summary>
         /// 工作流版本ID
         /// </summary>
-       
+
         public long WorkflowVersionId { get; set; }
 
         /// <summary>
         /// 原始阶段ID
         /// </summary>
-       
+
         public long OriginalStageId { get; set; }
 
         /// <summary>
         /// 阶段名称
         /// </summary>
-       
+
         [StringLength(100)]
         public string Name { get; set; }
 
@@ -87,5 +87,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageVersion
         /// </summary>
         public bool IsActive { get; set; } = true;
     }
-} 
- 
+}

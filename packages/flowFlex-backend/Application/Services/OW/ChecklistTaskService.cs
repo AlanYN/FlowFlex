@@ -97,7 +97,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         // Validate dependent task if specified
         if (input.DependsOnTaskId.HasValue)
-            {
+        {
             var dependentTask = await _checklistTaskRepository.GetByIdAsync(input.DependsOnTaskId.Value);
             if (dependentTask == null || dependentTask.ChecklistId != existingTask.ChecklistId)
             {
@@ -220,8 +220,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             await _operationChangeLogService.LogChecklistTaskCompleteAsync(
                 task.Id,
                 task.Name,
-                0, // TODO: Get actual onboardingId from context
-                checklist?.StageId,
+                0, // Onboarding ID from context - future enhancement
+                checklist?.Assignments?.FirstOrDefault()?.StageId,
                 input.CompletionNotes,
                 input.ActualHours
             );
@@ -279,8 +279,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             await _operationChangeLogService.LogChecklistTaskUncompleteAsync(
                 task.Id,
                 task.Name,
-                0, // TODO: Get actual onboardingId from context
-                checklist?.StageId,
+                0, // Onboarding ID from context - future enhancement
+                checklist?.Assignments?.FirstOrDefault()?.StageId,
                 "Task marked as uncompleted"
             );
         }
@@ -346,8 +346,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                 await _operationChangeLogService.LogChecklistTaskCompleteAsync(
                     task.Id,
                     task.Name,
-                    0, // TODO: Get actual onboardingId from context
-                    checklist?.StageId,
+                    0, // Onboarding ID from context - future enhancement
+                    checklist?.Assignments?.FirstOrDefault()?.StageId,
                     input.CompletionNotes,
                     input.ActualHours
                 );

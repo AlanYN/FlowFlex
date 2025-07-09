@@ -45,4 +45,4 @@ namespace FlowFlex.Application.Contracts.Options
         /// </summary>
         public int VerificationCodeExpiryMinutes { get; set; } = 10;
     }
-} 
+}

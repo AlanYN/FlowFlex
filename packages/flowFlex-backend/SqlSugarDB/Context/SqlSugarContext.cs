@@ -23,4 +23,4 @@ namespace FlowFlex.SqlSugarDB.Context
             return _sqlSugarClient;
         }
     }
-} 
+}

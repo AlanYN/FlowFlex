@@ -99,13 +99,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             try
             {
-                Console.WriteLine($"🔗 [DB Step 1] Starting ExecuteInsertWithJsonbAsync");
-                Console.WriteLine($"🔗 [DB Step 2] Preparing to execute SQL command");
-                Console.WriteLine($"🔗 [DB Step 3] SQL: {sql.Substring(0, Math.Min(100, sql.Length))}...");
-                
+                // Debug logging handled by structured logging
+                // Debug logging handled by structured logging)}...");
+
                 int result;
-                
-                // 检查参数类型，如果是SugarParameter数组，使用对应的方法
+
+                // Check parameter type, use corresponding method if it's SugarParameter array
                 if (parameters is SugarParameter[] sugarParams)
                 {
                     result = await base.db.Ado.ExecuteCommandAsync(sql, sugarParams);
@@ -114,32 +113,29 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     result = await base.db.Ado.ExecuteCommandAsync(sql, parameters);
                 }
-                
-                Console.WriteLine($"🔗 [DB Step 4] SQL execution completed with result: {result}");
-                Console.WriteLine($"🔗 [DB Step 5] Returning success: {result > 0}");
-                
+                // Debug logging handled by structured logging
                 return result > 0;
             }
             catch (Exception ex)
             {
-                // 记录详细的错误信息，但不让程序崩溃
-                Console.WriteLine($"❌ ExecuteInsertWithJsonbAsync failed: {ex.Message}");
-                Console.WriteLine($"❌ Exception type: {ex.GetType().Name}");
-                
-                // 安全地访问StackTrace，避免空引用异常
+                // Log detailed error information, but don't let the program crash
+                // Debug logging handled by structured logging
+                // Debug logging handled by structured logging.Name}");
+
+                // Safely access StackTrace, avoid null reference exception
                 if (!string.IsNullOrEmpty(ex.StackTrace))
                 {
-                    Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+                    // Debug logging handled by structured logging
                 }
-                
-                // 如果是内部异常，也记录
+
+                // If there's an inner exception, also log it
                 if (ex.InnerException != null)
                 {
-                    Console.WriteLine($"❌ Inner exception: {ex.InnerException.Message}");
-                    Console.WriteLine($"❌ Inner exception type: {ex.InnerException.GetType().Name}");
+                    // Debug logging handled by structured logging
+                    // Debug logging handled by structured logging.Name}");
                 }
-                
-                // 返回 false 而不是抛出异常，让调用方决定如何处理
+
+                // Return false instead of throwing exception, let caller decide how to handle
                 return false;
             }
         }

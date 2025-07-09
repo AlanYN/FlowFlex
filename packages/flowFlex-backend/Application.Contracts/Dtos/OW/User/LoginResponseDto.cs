@@ -25,4 +25,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// </summary>
         public UserDto User { get; set; }
     }
-} 
+}

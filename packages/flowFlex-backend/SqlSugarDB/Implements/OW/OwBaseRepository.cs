@@ -62,7 +62,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             entity.CreateDate = DateTimeOffset.Now;
             entity.ModifyDate = DateTimeOffset.Now;
             entity.IsValid = true;
-            
+
             // Set default value if TenantId is empty
             if (string.IsNullOrEmpty(entity.TenantId))
             {
@@ -85,7 +85,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 entity.CreateDate = DateTimeOffset.Now;
                 entity.ModifyDate = DateTimeOffset.Now;
                 entity.IsValid = true;
-                
+
                 // Set default value if TenantId is empty
                 if (string.IsNullOrEmpty(entity.TenantId))
                 {
@@ -221,7 +221,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             entity.CreateBy = userEmail;
             entity.ModifyBy = userEmail;
-            
+
             if (userId > 0)
             {
                 entity.CreateUserId = userId;
@@ -238,11 +238,11 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public void SetModifyInfo(T entity, string userEmail, long userId = 0)
         {
             entity.ModifyBy = userEmail;
-            
+
             if (userId > 0)
             {
                 entity.ModifyUserId = userId;
             }
         }
     }
-} 
+}
