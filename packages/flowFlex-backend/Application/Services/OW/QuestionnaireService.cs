@@ -105,36 +105,35 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
-            var createdIds = new List<long>();
-
-            // Create questionnaire for each assignment
-            foreach (var (workflowId, stageId) in assignments)
+            // Create single questionnaire entity with all assignments
+            var entity = _mapper.Map<Questionnaire>(input);
+            
+            // Set assignments in JSON format
+            entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
             {
-                var entity = _mapper.Map<Questionnaire>(input);
-                entity.WorkflowId = workflowId;
-                entity.StageId = stageId;
+                WorkflowId = a.workflowId ?? 0,
+                StageId = a.stageId ?? 0
+            }).ToList();
 
-                // Initialize create information with proper ID and timestamps
-                entity.InitCreateInfo(_userContext);
+            // Note: WorkflowId and StageId fields have been removed - assignments are now stored in JSON
 
-                // Calculate question statistics
-                await CalculateQuestionStatistics(entity, input.Sections);
+            // Initialize create information with proper ID and timestamps
+            entity.InitCreateInfo(_userContext);
 
-                await _questionnaireRepository.InsertAsync(entity);
+            // Calculate question statistics
+            await CalculateQuestionStatistics(entity, input.Sections);
 
-                // Create Sections
-                if (input.Sections != null && input.Sections.Any())
-                {
-                    await CreateSectionsAsync(entity.Id, input.Sections);
-                }
+            await _questionnaireRepository.InsertAsync(entity);
 
-                createdIds.Add(entity.Id);
+            // Create Sections
+            if (input.Sections != null && input.Sections.Any())
+            {
+                await CreateSectionsAsync(entity.Id, input.Sections);
             }
 
             // Cache removed, no need to clean up
 
-            // Return the first created ID for backward compatibility
-            return createdIds.FirstOrDefault();
+            return entity.Id;
         }
 
         public async Task<bool> UpdateAsync(long id, QuestionnaireInputDto input)
@@ -213,14 +212,17 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot modify structure of published questionnaire");
             }
 
-            // For simplicity, we'll update the current entity with the first assignment
-            // and create new entities for additional assignments
-            var firstAssignment = assignments.FirstOrDefault();
-            
-            // Update the current entity
+            // Update the entity with all assignments
             _mapper.Map(input, entity);
-            entity.WorkflowId = firstAssignment.workflowId;
-            entity.StageId = firstAssignment.stageId;
+            
+            // Set assignments in JSON format
+            entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
+            {
+                WorkflowId = a.workflowId ?? 0,
+                StageId = a.stageId ?? 0
+            }).ToList();
+
+            // Note: WorkflowId and StageId fields have been removed - assignments are now stored in JSON
 
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
@@ -236,31 +238,8 @@ namespace FlowFlex.Application.Service.OW
                 await UpdateSectionsAsync(entity.Id, input.Sections);
             }
 
-            // Create additional questionnaires for remaining assignments
-            if (assignments.Count > 1)
-            {
-                for (int i = 1; i < assignments.Count; i++)
-                {
-                    var (workflowId, stageId) = assignments[i];
-                    var additionalEntity = _mapper.Map<Questionnaire>(input);
-                    additionalEntity.WorkflowId = workflowId;
-                    additionalEntity.StageId = stageId;
-                    
-                    // Initialize create information
-                    additionalEntity.InitCreateInfo(_userContext);
-                    
-                    // Calculate question statistics
-                    await CalculateQuestionStatistics(additionalEntity, input.Sections);
-                    
-                    await _questionnaireRepository.InsertAsync(additionalEntity);
-
-                    // Create sections for the additional entity
-                    if (input.Sections != null && input.Sections.Any())
-                    {
-                        await CreateSectionsAsync(additionalEntity.Id, input.Sections);
-                    }
-                }
-            }
+            // TODO: Clean up any historical duplicate questionnaire records with same name but different assignments
+            // This would be similar to what we did for Checklist
 
             return result;
         }
@@ -369,20 +348,9 @@ namespace FlowFlex.Application.Service.OW
             // First query all questionnaire records for debugging
             var allQuestionnaires = await _questionnaireRepository.GetListAsync(x => x.IsValid == true);
             // Debug logging handled by structured logging
-            // Query questionnaires with StageId
-            var questionnaireWithStageId = allQuestionnaires.Where(x => x.StageId.HasValue).ToList();
-            // Debug logging handled by structured logging
-            if (questionnaireWithStageId.Any())
-            {
-                var stageIds = questionnaireWithStageId.Select(x => x.StageId.Value).Distinct().ToArray();
-                // Debug logging handled by structured logging}]");
-            }
 
             // Get questionnaires associated with the specified stage
-            var list = await _questionnaireRepository.GetListAsync(x =>
-                x.IsValid == true &&
-                x.IsActive == true &&
-                x.StageId == stageId);
+            var list = await _questionnaireRepository.GetByStageIdAsync(stageId);
             // Debug logging handled by structured logging
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
@@ -480,8 +448,8 @@ namespace FlowFlex.Application.Service.OW
                 AllowMultipleSubmissions = sourceQuestionnaire.AllowMultipleSubmissions,
                 IsActive = true,
                 Version = 1,
-                WorkflowId = sourceQuestionnaire.WorkflowId,
-                StageId = sourceQuestionnaire.StageId
+                // Copy assignments from source questionnaire
+                Assignments = sourceQuestionnaire.Assignments
             };
 
             await _questionnaireRepository.InsertAsync(newQuestionnaire);
@@ -712,12 +680,26 @@ namespace FlowFlex.Application.Service.OW
             // Batch query all questionnaires for all stages
             var allQuestionnaires = await _questionnaireRepository.GetByStageIdsAsync(request.StageIds);
 
-            // Group by Stage ID
-            var groupedQuestionnaires = allQuestionnaires.GroupBy(q => q.StageId)
-                .ToDictionary(
-                    g => g.Key ?? 0,
-                    g => _mapper.Map<List<QuestionnaireOutputDto>>(g.ToList())
-                );
+            // Group by Stage ID from assignments
+            var groupedQuestionnaires = new Dictionary<long, List<QuestionnaireOutputDto>>();
+            
+            foreach (var questionnaire in allQuestionnaires)
+            {
+                var mappedQuestionnaire = _mapper.Map<QuestionnaireOutputDto>(questionnaire);
+                
+                // Check assignments for stage IDs
+                if (questionnaire.Assignments?.Any() == true)
+                {
+                    foreach (var assignment in questionnaire.Assignments)
+                    {
+                        if (!groupedQuestionnaires.ContainsKey(assignment.StageId))
+                        {
+                            groupedQuestionnaires[assignment.StageId] = new List<QuestionnaireOutputDto>();
+                        }
+                        groupedQuestionnaires[assignment.StageId].Add(mappedQuestionnaire);
+                    }
+                }
+            }
 
             // Ensure all requested Stage IDs have corresponding results (even if empty lists)
             foreach (var stageId in request.StageIds)
@@ -744,45 +726,36 @@ namespace FlowFlex.Application.Service.OW
             // Get all questionnaires with the same names to build assignments
             var allQuestionnaires = await _questionnaireRepository.GetByNamesAsync(questionnaireNames);
             
-            // Group by name to build assignments
+            // Group by name to build assignments from JSON field
             var assignmentsByName = allQuestionnaires
-                .Where(q => q.WorkflowId.HasValue && q.StageId.HasValue)
+                .Where(q => q.Assignments?.Any() == true)
                 .GroupBy(q => q.Name)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.Select(q => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
-                    {
-                        WorkflowId = q.WorkflowId.Value,
-                        StageId = q.StageId.Value
-                    })
-                    .GroupBy(a => new { a.WorkflowId, a.StageId })
-                    .Select(ag => ag.First())
-                    .ToList()
+                    g => g.SelectMany(q => q.Assignments ?? new List<QuestionnaireAssignmentDto>())
+                         .Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                         {
+                             WorkflowId = a.WorkflowId,
+                             StageId = a.StageId
+                         })
+                         .GroupBy(a => new { a.WorkflowId, a.StageId })
+                         .Select(ag => ag.First())
+                         .ToList()
                 );
 
-                    // Fill assignments for each questionnaire
-        foreach (var questionnaire in questionnaires)
-        {
-            if (assignmentsByName.TryGetValue(questionnaire.Name, out var assignments))
+            // Fill assignments for each questionnaire
+            foreach (var questionnaire in questionnaires)
             {
-                questionnaire.Assignments = assignments;
-            }
-            else
-            {
-                // If no assignments found by name, create assignment from current questionnaire's WorkflowId and StageId
-                if (questionnaire.WorkflowId.HasValue && questionnaire.StageId.HasValue)
+                if (assignmentsByName.TryGetValue(questionnaire.Name, out var assignments))
                 {
-                                    questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>
+                    questionnaire.Assignments = assignments;
+                }
+                else
                 {
-                    new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
-                        {
-                            WorkflowId = questionnaire.WorkflowId.Value,
-                            StageId = questionnaire.StageId.Value
-                        }
-                    };
+                    // If no assignments found, set empty list
+                    questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
                 }
             }
-        }
         }
     }
 }

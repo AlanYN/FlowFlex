@@ -1,9 +1,19 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using FlowFlex.Domain.Entities.Base;
 using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.OW
 {
+    /// <summary>
+    /// Simple assignment DTO for Questionnaire assignments
+    /// </summary>
+    public class QuestionnaireAssignmentDto
+    {
+        public long WorkflowId { get; set; }
+        public long StageId { get; set; }
+    }
+
     /// <summary>
     /// Onboard Questionnaire Entity - Dynamic questionnaire (supports multiple question types, table type, nested)
     /// </summary>
@@ -107,15 +117,50 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Associated Workflow ID
+        /// Assignments JSON storage for multiple workflow-stage assignments
         /// </summary>
-        [SugarColumn(ColumnName = "workflow_id")]
-        public long? WorkflowId { get; set; }
+        [SugarColumn(ColumnName = "assignments_json")]
+        public string? AssignmentsJson { get; set; }
 
         /// <summary>
-        /// Associated Stage ID
+        /// Computed property for Assignments (reads from AssignmentsJson)
         /// </summary>
-        [SugarColumn(ColumnName = "stage_id")]
-        public long? StageId { get; set; }
+        [SugarColumn(IsIgnore = true)]
+        public List<QuestionnaireAssignmentDto>? Assignments
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(AssignmentsJson))
+                    return new List<QuestionnaireAssignmentDto>();
+                
+                try
+                {
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    };
+                    return JsonSerializer.Deserialize<List<QuestionnaireAssignmentDto>>(AssignmentsJson, options) ?? new List<QuestionnaireAssignmentDto>();
+                }
+                catch
+                {
+                    return new List<QuestionnaireAssignmentDto>();
+                }
+            }
+            set
+            {
+                if (value == null || !value.Any())
+                {
+                    AssignmentsJson = null;
+                }
+                else
+                {
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    };
+                    AssignmentsJson = JsonSerializer.Serialize(value, options);
+                }
+            }
+        }
     }
 }

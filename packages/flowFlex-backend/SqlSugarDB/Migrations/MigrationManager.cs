@@ -30,6 +30,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 RunMigration("20250101000001_CreateRemainingTables", () => CreateRemainingTables_20250101000001.Up(_db));
                 RunMigration("20250101000002_AddAssignmentsJsonColumn", () => Migration_20250101000002_AddAssignmentsJsonColumn.Up(_db));
                 RunMigration("20250101000003_RemoveWorkflowStageColumns", () => Migration_20250101000003_RemoveWorkflowStageColumns.Up(_db));
+                RunMigration("20250101000004_AddQuestionnaireAssignmentsJsonColumn", () => Migration_20250101000004_AddQuestionnaireAssignmentsJsonColumn.Up(_db));
+                RunMigration("20250101000005_RemoveQuestionnaireWorkflowStageColumns", () => Migration_20250101000005_RemoveQuestionnaireWorkflowStageColumns.Up(_db));
                 // RunMigration("20250101000004_SeedDemoData", () => SeedDemoData_20250101000004.Up(_db));
                 // Debug logging handled by structured logging
             }

@@ -1,5 +1,6 @@
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
+using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Domain.Entities.OW;
 
 namespace FlowFlex.Application.Maps
@@ -11,8 +12,13 @@ namespace FlowFlex.Application.Maps
     {
         public QuestionnaireMapProfile()
         {
+            // AssignmentDto 映射 - 双向映射
+            CreateMap<QuestionnaireAssignmentDto, FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+            CreateMap<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto, QuestionnaireAssignmentDto>();
+
             // Questionnaire entity to output DTO
-            CreateMap<Questionnaire, QuestionnaireOutputDto>();
+            CreateMap<Questionnaire, QuestionnaireOutputDto>()
+                .ForMember(dest => dest.Assignments, opt => opt.MapFrom(src => src.Assignments));
 
             // Input DTO to Questionnaire entity
             CreateMap<QuestionnaireInputDto, Questionnaire>()
@@ -26,7 +32,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.TotalQuestions, opt => opt.Ignore())
-                .ForMember(dest => dest.RequiredQuestions, opt => opt.Ignore()); // Ignore assignments as they're handled separately
+                .ForMember(dest => dest.RequiredQuestions, opt => opt.Ignore())
+                .ForMember(dest => dest.Assignments, opt => opt.Ignore()); // Ignore assignments as they're handled separately in service
 
             // QuestionnaireSection entity to output DTO
             CreateMap<QuestionnaireSection, QuestionnaireSectionDto>();

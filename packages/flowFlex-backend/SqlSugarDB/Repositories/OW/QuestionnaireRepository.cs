@@ -93,7 +93,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             string sortField = "CreateDate",
             string sortDirection = "desc")
         {
-            // Build query condition list
+            // Build basic query condition list (without workflowId and stageId since they're in JSON now)
             var whereExpressions = new List<Expression<Func<Questionnaire, bool>>>();
 
             // Basic filter conditions
@@ -102,16 +102,6 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             if (!string.IsNullOrWhiteSpace(name))
             {
                 whereExpressions.Add(x => x.Name.ToLower().Contains(name.ToLower()));
-            }
-
-            if (workflowId.HasValue)
-            {
-                whereExpressions.Add(x => x.WorkflowId == workflowId.Value);
-            }
-
-            if (stageId.HasValue)
-            {
-                whereExpressions.Add(x => x.StageId == stageId.Value);
             }
 
             if (isTemplate.HasValue)
@@ -128,21 +118,51 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             Expression<Func<Questionnaire, object>> orderByExpression = sortField?.ToLower() switch
             {
                 "name" => x => x.Name,
-                "workflowid" => x => x.WorkflowId,
-                "stageid" => x => x.StageId,
+                "createdate" => x => x.CreateDate,
+                "modifydate" => x => x.ModifyDate,
                 _ => x => x.CreateDate
             };
 
             bool isAsc = sortDirection?.ToLower() == "asc";
 
-            // Use BaseRepository's safe pagination method
-            var (items, totalCount) = await GetPageListAsync(
-                whereExpressions,
-                pageIndex,
-                pageSize,
-                orderByExpression: orderByExpression,
-                isAsc: isAsc
-            );
+            // Get all matching questionnaires first
+            var query = db.Queryable<Questionnaire>();
+            
+            // Apply where conditions
+            foreach (var whereExpression in whereExpressions)
+            {
+                query = query.Where(whereExpression);
+            }
+            
+            var allItems = await query
+                .OrderBy(orderByExpression, isAsc ? SqlSugar.OrderByType.Asc : SqlSugar.OrderByType.Desc)
+                .ToListAsync();
+
+            // Filter by workflowId and stageId in memory (since they're in JSON now)
+            if (workflowId.HasValue || stageId.HasValue)
+            {
+                allItems = allItems.Where(q => 
+                {
+                    // Check if assignments contain the specified workflowId or stageId
+                    if (q.Assignments?.Any() == true)
+                    {
+                        return q.Assignments.Any(a => 
+                            (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
+                            (!stageId.HasValue || a.StageId == stageId.Value)
+                        );
+                    }
+                    return false;
+                }).ToList();
+            }
+
+            // Calculate total count
+            var totalCount = allItems.Count;
+
+            // Apply pagination
+            var items = allItems
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
 
             return (items, totalCount);
         }
@@ -232,7 +252,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
-        /// Get questionnaires by multiple stage IDs
+        /// Get questionnaires by multiple stage IDs (supports both old single StageId and new Assignments JSON)
         /// </summary>
         public async Task<List<Questionnaire>> GetByStageIdsAsync(List<long> stageIds)
         {
@@ -241,15 +261,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return new List<Questionnaire>();
             }
 
-            return await db.Queryable<Questionnaire>()
-                .Where(x => x.IsValid == true && x.IsActive == true && stageIds.Contains(x.StageId ?? 0))
-                .OrderBy(x => x.StageId, SqlSugar.OrderByType.Asc)
-                .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
+            // Get all questionnaires and filter by assignments in memory
+            // This is necessary because SqlSugar doesn't support JSON queries directly
+            var allQuestionnaires = await db.Queryable<Questionnaire>()
+                .Where(x => x.IsValid == true && x.IsActive == true)
                 .ToListAsync();
+
+            return allQuestionnaires.Where(q => 
+                // Check new Assignments JSON field
+                (q.Assignments?.Any(a => stageIds.Contains(a.StageId)) == true)
+            ).OrderByDescending(x => x.CreateDate).ToList();
         }
 
         /// <summary>
-        /// Check if workflow and stage association already exists
+        /// Check if workflow and stage association already exists (supports new Assignments JSON)
         /// </summary>
         public async Task<bool> IsWorkflowStageAssociationExistsAsync(long? workflowId, long? stageId, long? excludeId = null)
         {
@@ -259,37 +284,27 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return false;
             }
 
-            var query = db.Queryable<Questionnaire>()
-                .Where(x => x.IsValid == true);
+            // Get all questionnaires and check assignments in memory
+            var allQuestionnaires = await db.Queryable<Questionnaire>()
+                .Where(x => x.IsValid == true)
+                .WhereIF(excludeId.HasValue, x => x.Id != excludeId.Value)
+                .ToListAsync();
 
-            // Check WorkflowId and StageId combination
-            if (workflowId.HasValue && stageId.HasValue)
+            return allQuestionnaires.Any(q => 
             {
-                // Both have values, check complete match
-                query = query.Where(x => x.WorkflowId == workflowId.Value && x.StageId == stageId.Value);
-            }
-            else if (workflowId.HasValue)
-            {
-                // Only WorkflowId, check if questionnaire already exists in same Workflow
-                query = query.Where(x => x.WorkflowId == workflowId.Value);
-            }
-            else if (stageId.HasValue)
-            {
-                // Only StageId, check if questionnaire already exists in same Stage
-                query = query.Where(x => x.StageId == stageId.Value);
-            }
-
-            // Exclude current record (for update scenario)
-            if (excludeId.HasValue)
-            {
-                query = query.Where(x => x.Id != excludeId.Value);
-            }
-
-            return await query.AnyAsync();
+                if (q.Assignments?.Any() == true)
+                {
+                    return q.Assignments.Any(a => 
+                        (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
+                        (!stageId.HasValue || a.StageId == stageId.Value)
+                    );
+                }
+                return false;
+            });
         }
 
         /// <summary>
-        /// Get existing questionnaire with same workflow and stage association
+        /// Get existing questionnaire with same workflow and stage association (supports new Assignments JSON)
         /// </summary>
         public async Task<Questionnaire> GetByWorkflowStageAssociationAsync(long? workflowId, long? stageId, long? excludeId = null)
         {
@@ -299,55 +314,55 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return null;
             }
 
-            var query = db.Queryable<Questionnaire>()
-                .Where(x => x.IsValid == true);
+            // Get all questionnaires and check assignments in memory
+            var allQuestionnaires = await db.Queryable<Questionnaire>()
+                .Where(x => x.IsValid == true)
+                .WhereIF(excludeId.HasValue, x => x.Id != excludeId.Value)
+                .ToListAsync();
 
-            // Check WorkflowId and StageId combination
-            if (workflowId.HasValue && stageId.HasValue)
+            return allQuestionnaires.FirstOrDefault(q => 
             {
-                // Both have values, check complete match
-                query = query.Where(x => x.WorkflowId == workflowId.Value && x.StageId == stageId.Value);
-            }
-            else if (workflowId.HasValue)
-            {
-                // Only WorkflowId, check if questionnaire already exists in same Workflow
-                query = query.Where(x => x.WorkflowId == workflowId.Value);
-            }
-            else if (stageId.HasValue)
-            {
-                // Only StageId, check if questionnaire already exists in same Stage
-                query = query.Where(x => x.StageId == stageId.Value);
-            }
-
-            // Exclude current record (for update scenario)
-            if (excludeId.HasValue)
-            {
-                query = query.Where(x => x.Id != excludeId.Value);
-            }
-
-            return await query.FirstAsync();
+                if (q.Assignments?.Any() == true)
+                {
+                    return q.Assignments.Any(a => 
+                        (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
+                        (!stageId.HasValue || a.StageId == stageId.Value)
+                    );
+                }
+                return false;
+            });
         }
 
         /// <summary>
-        /// Get questionnaires by workflow ID
+        /// Get questionnaires by workflow ID (supports both old single WorkflowId and new Assignments JSON)
         /// </summary>
         public async Task<List<Questionnaire>> GetByWorkflowIdAsync(long workflowId)
         {
-            return await db.Queryable<Questionnaire>()
-                .Where(x => x.WorkflowId == workflowId && x.IsValid == true)
-                .OrderBy(x => x.CreateDate)
+            // Get all questionnaires and filter by assignments in memory
+            var allQuestionnaires = await db.Queryable<Questionnaire>()
+                .Where(x => x.IsValid == true)
                 .ToListAsync();
+
+            return allQuestionnaires.Where(q => 
+                // Check new Assignments JSON field
+                (q.Assignments?.Any(a => a.WorkflowId == workflowId) == true)
+            ).OrderBy(x => x.CreateDate).ToList();
         }
 
         /// <summary>
-        /// Get questionnaires by stage ID
+        /// Get questionnaires by stage ID (supports both old single StageId and new Assignments JSON)
         /// </summary>
         public async Task<List<Questionnaire>> GetByStageIdAsync(long stageId)
         {
-            return await db.Queryable<Questionnaire>()
-                .Where(x => x.StageId == stageId && x.IsValid == true)
-                .OrderBy(x => x.CreateDate)
+            // Get all questionnaires and filter by assignments in memory
+            var allQuestionnaires = await db.Queryable<Questionnaire>()
+                .Where(x => x.IsValid == true)
                 .ToListAsync();
+
+            return allQuestionnaires.Where(q => 
+                // Check new Assignments JSON field
+                (q.Assignments?.Any(a => a.StageId == stageId) == true)
+            ).OrderBy(x => x.CreateDate).ToList();
         }
 
         /// <summary>
