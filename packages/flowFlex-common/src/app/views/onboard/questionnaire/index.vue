@@ -160,15 +160,115 @@
 							<div class="space-y-3">
 								<div class="flex items-center justify-between text-sm">
 									<span class="card-label">Workflow:</span>
-									<span class="card-link">
-										{{ getWorkflowName(questionnaire.workflowId) }}
-									</span>
+									<div class="flex items-center space-x-2">
+										<!-- 显示前3个 -->
+										<span
+											class="card-link"
+											v-for="assignment in getDisplayedAssignments(
+												questionnaire.assignments,
+												'workflow'
+											)"
+											:key="assignment.workflowId"
+											:title="getWorkflowName(assignment.workflowId)"
+										>
+											{{ getWorkflowName(assignment.workflowId) }}
+										</span>
+										<!-- 显示剩余数量的按钮 -->
+										<el-popover
+											v-if="
+												questionnaire.assignments &&
+												getRemainingCount(
+													questionnaire.assignments,
+													'workflow'
+												) > 0
+											"
+											placement="top"
+											:width="300"
+											trigger="click"
+										>
+											<template #reference>
+												<span class="card-link-more">
+													+{{
+														getRemainingCount(
+															questionnaire.assignments,
+															'workflow'
+														)
+													}}
+												</span>
+											</template>
+											<div class="popover-content">
+												<h4 class="popover-title">More Workflows</h4>
+												<div class="popover-tags">
+													<span
+														class="popover-tag"
+														v-for="assignment in getRemainingAssignments(
+															questionnaire.assignments,
+															'workflow'
+														)"
+														:key="assignment.workflowId"
+													>
+														{{ getWorkflowName(assignment.workflowId) }}
+													</span>
+												</div>
+											</div>
+										</el-popover>
+									</div>
 								</div>
 								<div class="flex items-center justify-between text-sm">
 									<span class="card-label">Stage:</span>
-									<span class="card-link">
-										{{ getStageName(questionnaire.stageId) }}
-									</span>
+									<div class="flex items-center space-x-2">
+										<!-- 显示前3个 -->
+										<span
+											class="card-link"
+											v-for="assignment in getDisplayedAssignments(
+												questionnaire.assignments,
+												'stage'
+											)"
+											:key="assignment.stageId"
+											:title="getStageName(assignment.stageId)"
+										>
+											{{ getStageName(assignment.stageId) }}
+										</span>
+										<!-- 显示剩余数量的按钮 -->
+										<el-popover
+											v-if="
+												questionnaire.assignments &&
+												getRemainingCount(
+													questionnaire.assignments,
+													'stage'
+												) > 0
+											"
+											placement="top"
+											:width="300"
+											trigger="click"
+										>
+											<template #reference>
+												<span class="card-link-more">
+													+{{
+														getRemainingCount(
+															questionnaire.assignments,
+															'stage'
+														)
+													}}
+												</span>
+											</template>
+											<div class="popover-content">
+												<h4 class="popover-title">More Stages</h4>
+												<div class="popover-tags">
+													<span
+														class="popover-tag"
+														v-for="assignment in getRemainingAssignments(
+															questionnaire.assignments,
+															'stage'
+														)"
+														:key="assignment.stageId"
+													>
+														{{ getStageName(assignment.stageId) }}
+													</span>
+												</div>
+											</div>
+										</el-popover>
+									</div>
 								</div>
 								<div class="flex items-center justify-between text-sm">
 									<span class="card-label">Sections:</span>
@@ -363,19 +463,15 @@ const selectedQuestionnaireData = ref<any>(null);
 
 // 方法
 const getWorkflowName = (workflowId: string) => {
-	console.log('Getting workflow name for ID:', workflowId);
-	console.log('Available workflows:', workflows.value);
-
+	if (!workflowId) return defaultStr;
 	const workflow = workflows.value.find((w) => w.id === workflowId);
-	const result = workflow ? workflow.name : workflowId || defaultStr;
-
-	console.log('Workflow name result:', result);
-	return result;
+	return workflow?.name || workflowId;
 };
 
 const getStageName = (stageId: string) => {
+	if (!stageId) return defaultStr;
 	const stage = allStages.value.find((s) => s.id === stageId);
-	return stage ? stage.name : stageId || defaultStr;
+	return stage ? stage.name : stageId;
 };
 
 const getEmptyStateMessage = () => {
@@ -383,6 +479,53 @@ const getEmptyStateMessage = () => {
 		return 'Try adjusting your filters';
 	}
 	return 'No questionnaires have been created yet';
+};
+
+// 获取显示的分配数量（去重）
+const getDisplayedAssignments = (assignments: any[], type: 'workflow' | 'stage') => {
+	const displayedCount = 3; // 默认显示3个
+	if (!assignments || assignments.length === 0) {
+		return [];
+	}
+
+	// 根据类型进行去重
+	const uniqueAssignments = assignments.filter((assignment, index, self) => {
+		if (type === 'workflow') {
+			return index === self.findIndex((a) => a.workflowId === assignment.workflowId);
+		} else {
+			return index === self.findIndex((a) => a.stageId === assignment.stageId);
+		}
+	});
+
+	// 返回前N个去重后的数据
+	return uniqueAssignments.slice(0, displayedCount);
+};
+
+// 获取去重后的所有数据
+const getUniqueAssignments = (assignments: any[], type: 'workflow' | 'stage') => {
+	if (!assignments || assignments.length === 0) {
+		return [];
+	}
+
+	return assignments.filter((assignment, index, self) => {
+		if (type === 'workflow') {
+			return index === self.findIndex((a) => a.workflowId === assignment.workflowId);
+		} else {
+			return index === self.findIndex((a) => a.stageId === assignment.stageId);
+		}
+	});
+};
+
+// 获取剩余数量（去重后）
+const getRemainingCount = (assignments: any[], type: 'workflow' | 'stage') => {
+	const uniqueAssignments = getUniqueAssignments(assignments, type);
+	return Math.max(0, uniqueAssignments.length - 3);
+};
+
+// 获取剩余的标签（去重后，跳过前3个）
+const getRemainingAssignments = (assignments: any[], type: 'workflow' | 'stage') => {
+	const uniqueAssignments = getUniqueAssignments(assignments, type);
+	return uniqueAssignments.slice(3); // 跳过前3个，返回剩余的
 };
 
 // 初始化数据
@@ -580,26 +723,8 @@ const handlePreviewQuestionnaire = async (id: string) => {
 
 			// 构建完整的预览数据
 			const enrichedData = {
-				id: questionnaireData.id,
-				name: questionnaireData.name,
-				title: questionnaireData.name,
-				description: questionnaireData.description || '',
-				workflowId: questionnaireData.workflowId,
-				stageId: questionnaireData.stageId,
-				workflowName: getWorkflowName(questionnaireData.workflowId),
-				stageName: getStageName(questionnaireData.stageId),
+				...questionnaireData,
 				sections: adaptedSections,
-				totalQuestions: questionnaireData.totalQuestions || 0,
-				requiredQuestions: questionnaireData.requiredQuestions || 0,
-				status: questionnaireData.status || 'draft',
-				version: questionnaireData.version || '1.0',
-				allowMultipleSubmissions: questionnaireData.allowMultipleSubmissions || false,
-				isActive: questionnaireData.isActive ?? true,
-				createBy: questionnaireData.createBy || '',
-				createDate: questionnaireData.createDate || '',
-				modifyBy: questionnaireData.modifyBy || '',
-				modifyDate: questionnaireData.modifyDate || '',
-				category: questionnaireData.category || '',
 			};
 
 			// 直接使用处理好的数据，不需要额外的API调用
@@ -819,11 +944,57 @@ const handleLimitUpdate = () => {
 }
 
 .card-label {
-	@apply text-gray-500 dark:text-gray-400;
+	@apply text-gray-500 dark:text-gray-400 font-medium;
+	min-width: 70px;
 }
 
 .card-link {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2;
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	white-space: nowrap;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.card-link:hover {
+	@apply bg-primary-100 border-primary-300;
+}
+
+.card-link-more {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	white-space: nowrap;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.card-link-more:hover {
+	@apply bg-primary-100 border-primary-300;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+	.card-label {
+		min-width: 60px;
+		font-size: 12px;
+	}
+
+	.card-link,
+	.card-link-more {
+		font-size: 11px;
+		padding: 2px 6px;
+		max-width: 150px;
+	}
+
+	.popover-tag {
+		font-size: 11px;
+		padding: 2px 6px;
+		max-width: 150px;
+	}
+
+	.popover-title {
+		font-size: 12px;
+	}
 }
 
 .card-value {
@@ -1023,5 +1194,36 @@ const handleLimitUpdate = () => {
 /* 空状态在网格中的样式 */
 .questionnaire-grid .empty-state {
 	grid-column: 1 / -1; /* 占据整行 */
+}
+
+/* 弹窗内容样式 */
+.popover-content {
+	padding: 10px 15px;
+}
+
+.popover-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--primary-700);
+	@apply dark:text-primary-300;
+	margin-bottom: 10px;
+}
+
+.popover-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.popover-tag {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	white-space: nowrap;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.popover-tag:hover {
+	@apply bg-primary-100 border-primary-300;
 }
 </style>

@@ -25,19 +25,21 @@
 					Teams
 				</h2>
 				<div class="p-4 space-y-2">
-					<button
+					<el-button
 						v-for="team in teams"
 						:key="team.id"
 						@click="selectedTeam = team.id"
 						:class="[
-							'w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
+							'team-button w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
 							selectedTeam === team.id
-								? 'bg-gradient-to-r from-blue-100 to-blue-500 text-blue-900 font-medium'
+								? 'team-button-active bg-gradient-to-r from-blue-100 to-blue-500 text-blue-900 font-medium'
 								: 'text-gray-700 hover:bg-gray-100',
 						]"
+						plain
+						class="!justify-start !w-full !border-none !px-3 !py-2"
 					>
 						{{ team.name }}
-					</button>
+					</el-button>
 				</div>
 			</div>
 		</div>
@@ -48,45 +50,21 @@
 			<div class="p-4" style="padding-top: 0px">
 				<div class="flex items-center justify-between mb-6">
 					<h1 class="text-xl font-semibold" style="visibility: hidden">Checklists</h1>
-					<button
-						@click="openCreateDialog"
-						class="px-3 py-2 text-sm rounded-md flex items-center gap-1 text-white"
-						style="background-color: rgb(37, 99, 235)"
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 4v16m8-8H4"
-							/>
-						</svg>
+					<el-button @click="openCreateDialog" type="primary" size="default" icon="Plus">
 						New Checklist
-					</button>
+					</el-button>
 				</div>
 				<div class="bg-blue-50 rounded-lg p-4">
 					<div class="flex items-center justify-between mb-3">
 						<h2 class="text-lg font-medium text-gray-900">Checklists</h2>
-						<div class="relative w-64">
-							<svg
-								class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-								/>
-							</svg>
-							<input
-								v-model="searchQuery"
-								placeholder="Search checklists..."
-								class="pl-10 bg-white border-gray-300 rounded-md w-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-							/>
-						</div>
+						<el-input
+							v-model="searchQuery"
+							placeholder="Search checklists..."
+							style="width: 256px"
+							size="default"
+							prefix-icon="Search"
+							clearable
+						/>
 					</div>
 					<p class="text-sm text-gray-600">
 						Task checklists for different teams during the onboarding process
@@ -115,45 +93,28 @@
 												{{ checklist.name }}
 											</h3>
 											<div class="flex items-center gap-2">
-												<span
-													class="inline-flex items-center rounded-full border border-gray-300 px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-gray-700 mr-2 bg-white"
-												>
+												<el-tag size="small" type="info">
 													{{ checklist.team }}
-												</span>
-												<span
-													class="inline-flex items-center rounded-full border border-gray-300 px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-gray-700 mr-2 bg-white"
-												>
-																									{{
-													checklist.totalTasks ||
-													(checklist.tasks && checklist.tasks.length) ||
-													0
-												}}
-												items
-												</span>
-												<div
-													class="h-6 w-6 p-0 rounded-md hover:bg-gray-100 flex items-center justify-center"
-												>
-													<svg
-														:class="[
-															'w-4 h-4 transition-transform',
-															expandedChecklists.includes(
-																checklist.id
-															)
-																? 'rotate-90'
-																: '',
-														]"
-														fill="none"
-														stroke="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M9 5l7 7-7 7"
-														/>
-													</svg>
-												</div>
+												</el-tag>
+												<el-tag size="small" type="info">
+													{{
+														checklist.totalTasks ||
+														(checklist.tasks &&
+															checklist.tasks.length) ||
+														0
+													}}
+													items
+												</el-tag>
+												<el-button
+													size="small"
+													text
+													circle
+													:icon="
+														expandedChecklists.includes(checklist.id)
+															? 'ArrowDown'
+															: 'ArrowRight'
+													"
+												/>
 											</div>
 										</div>
 										<p class="text-sm text-gray-600 mb-1">
@@ -195,244 +156,91 @@
 							<!-- 任务部分 -->
 							<div
 								v-if="expandedChecklists.includes(checklist.id)"
-								class="p-4 bg-white border-t border-gray-100 rounded-lg"
+								class="p-4 bg-white border-t border-gray-100 rounded-lg tasks-content"
 							>
-								<!-- 加载状态 -->
 								<div
-									v-if="!checklist.tasksLoaded"
-									class="flex flex-col justify-center items-center py-8"
+									class="flex items-center justify-center"
+									v-if="
+										!checklist.tasksLoaded ||
+										(isDragging && draggingChecklistId === checklist.id)
+									"
 								>
-									<div class="flex items-center mb-3">
-										<svg
-											class="animate-spin h-6 w-6 text-blue-500"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<circle
-												class="opacity-25"
-												cx="12"
-												cy="12"
-												r="10"
-												stroke="currentColor"
-												stroke-width="4"
-											/>
-											<path
-												class="opacity-75"
-												fill="currentColor"
-												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-											/>
-										</svg>
-										<span class="ml-2 text-gray-600">Loading tasks...</span>
-									</div>
-									<button
-										@click="forceStopLoading(checklist)"
-										class="text-xs text-gray-500 hover:text-gray-700 underline"
-									>
-										Taking too long? Click to skip loading
-									</button>
+									{{
+										!checklist.tasksLoaded
+											? 'Loading tasks...'
+											: 'Updating task order...'
+									}}
 								</div>
-
-								<!-- 任务内容 -->
-								<div v-else>
+								<!-- 任务已加载完成时显示 -->
+								<div v-if="checklist.tasksLoaded">
 									<div class="flex items-center justify-between mb-4">
 										<h4 class="text-sm font-medium text-gray-900">Tasks</h4>
 										<div class="flex items-center gap-2">
-											<div class="relative">
-												<button
-													@click="toggleDropdown(checklist.id)"
-													:data-checklist-id="checklist.id"
-													class="h-8 w-8 p-0 rounded-md hover:bg-gray-100 flex items-center justify-center"
-												>
-													<svg
-														class="w-4 h-4"
-														fill="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<circle cx="5" cy="12" r="2" />
-														<circle cx="12" cy="12" r="2" />
-														<circle cx="19" cy="12" r="2" />
-													</svg>
-												</button>
-												<div
-													v-if="activeDropdown === checklist.id"
-													:class="getDropdownClasses(checklist.id)"
-													class="dropdown-menu absolute w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50"
-												>
-													<button
-														@click="editChecklist(checklist)"
-														class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-													>
-														<svg
-															class="w-4 h-4"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-															/>
-														</svg>
-														Edit Checklist
-													</button>
-													<button
-														@click="deleteChecklistItem(checklist.id)"
-														:disabled="deleteLoading"
-														class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
-													>
-														<svg
-															v-if="deleteLoading"
-															class="w-4 h-4 animate-spin"
-															fill="none"
-															viewBox="0 0 24 24"
-														>
-															<circle
-																class="opacity-25"
-																cx="12"
-																cy="12"
-																r="10"
-																stroke="currentColor"
-																stroke-width="4"
-															/>
-															<path
-																class="opacity-75"
-																fill="currentColor"
-																d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-															/>
-														</svg>
-														<svg
-															v-else
-															class="w-4 h-4"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-															/>
-														</svg>
-														{{
-															deleteLoading
-																? 'Deleting...'
-																: 'Delete Checklist'
-														}}
-													</button>
-													<hr class="my-1" />
-													<button
-														@click="exportChecklistItem(checklist)"
-														:disabled="exportLoading"
-														class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
-													>
-														<svg
-															v-if="exportLoading"
-															class="w-4 h-4 animate-spin"
-															fill="none"
-															viewBox="0 0 24 24"
-														>
-															<circle
-																class="opacity-25"
-																cx="12"
-																cy="12"
-																r="10"
-																stroke="currentColor"
-																stroke-width="4"
-															/>
-															<path
-																class="opacity-75"
-																fill="currentColor"
-																d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-															/>
-														</svg>
-														<svg
-															v-else
-															class="w-4 h-4"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-															/>
-														</svg>
-														{{
-															exportLoading
-																? 'Exporting...'
-																: 'Export to PDF'
-														}}
-													</button>
-													<button
-														@click="duplicateChecklistItem(checklist)"
-														:disabled="duplicateLoading"
-														class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
-													>
-														<svg
-															v-if="duplicateLoading"
-															class="w-4 h-4 animate-spin"
-															fill="none"
-															viewBox="0 0 24 24"
-														>
-															<circle
-																class="opacity-25"
-																cx="12"
-																cy="12"
-																r="10"
-																stroke="currentColor"
-																stroke-width="4"
-															/>
-															<path
-																class="opacity-75"
-																fill="currentColor"
-																d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-															/>
-														</svg>
-														<svg
-															v-else
-															class="w-4 h-4"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-															/>
-														</svg>
-														{{
-															duplicateLoading
-																? 'Duplicating...'
-																: 'Duplicate'
-														}}
-													</button>
-												</div>
-											</div>
-											<button
-												@click="showAddTaskDialog(checklist)"
-												class="h-8 w-8 p-0 rounded-md hover:bg-gray-100 flex items-center justify-center border border-gray-300"
+											<el-dropdown
+												:trigger="['click']"
+												@visible-change="
+													(visible) => !visible && (activeDropdown = null)
+												"
 											>
-												<svg
-													class="w-4 h-4"
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M12 4v16m8-8H4"
-													/>
-												</svg>
-											</button>
+												<el-button
+													size="small"
+													text
+													circle
+													icon="MoreFilled"
+												/>
+												<template #dropdown>
+													<el-dropdown-menu>
+														<el-dropdown-item
+															@click="editChecklist(checklist)"
+															icon="Edit"
+														>
+															Edit Checklist
+														</el-dropdown-item>
+														<el-dropdown-item
+															@click="
+																deleteChecklistItem(checklist.id)
+															"
+															:disabled="deleteLoading"
+															icon="Delete"
+															divided
+														>
+															<span v-if="deleteLoading">
+																Deleting...
+															</span>
+															<span v-else>Delete Checklist</span>
+														</el-dropdown-item>
+														<el-dropdown-item
+															@click="exportChecklistItem(checklist)"
+															:disabled="exportLoading"
+															icon="Download"
+														>
+															<span v-if="exportLoading">
+																Exporting...
+															</span>
+															<span v-else>Export to PDF</span>
+														</el-dropdown-item>
+														<el-dropdown-item
+															@click="
+																duplicateChecklistItem(checklist)
+															"
+															:disabled="duplicateLoading"
+															icon="CopyDocument"
+														>
+															<span v-if="duplicateLoading">
+																Duplicating...
+															</span>
+															<span v-else>Duplicate</span>
+														</el-dropdown-item>
+													</el-dropdown-menu>
+												</template>
+											</el-dropdown>
+											<el-button
+												@click="showAddTaskDialog(checklist)"
+												size="small"
+												circle
+												icon="Plus"
+												plain
+											/>
 										</div>
 									</div>
 
@@ -441,172 +249,132 @@
 										v-if="addingTaskTo === checklist.id"
 										class="flex gap-2 mb-4"
 									>
-										<input
+										<el-input
 											v-model="newTaskText"
 											placeholder="New task..."
-											@keypress="handleTaskKeyPress($event, checklist.id)"
-											class="flex-1 h-8 text-sm px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+											@keyup.enter="addTask(checklist.id)"
+											size="small"
+											class="flex-1"
 										/>
-										<button
+										<el-button
 											@click="addTask(checklist.id)"
-											style="background-color: rgb(37, 99, 235)"
-											class="text-white h-8 px-3 text-xs rounded-md"
+											type="primary"
+											size="small"
 										>
 											Add
-										</button>
-										<button
-											@click="cancelAddTask"
-											class="border border-gray-300 hover:bg-gray-50 h-8 px-3 text-xs rounded-md"
-										>
+										</el-button>
+										<el-button @click="cancelAddTask" size="small">
 											Cancel
-										</button>
+										</el-button>
 									</div>
 
 									<!-- 任务列表 -->
-									<div v-if="checklist.tasks.length > 0" class="space-y-0">
-										<div
-											v-for="task in checklist.tasks"
-											:key="task.id"
-											class="flex items-center gap-3 p-3 hover:bg-gray-50 transition-all duration-200 border border-transparent rounded-lg"
-											draggable="true"
-											@dragstart="dragStart(checklist.id, task.id, $event)"
-											@dragenter.prevent="
-												dragEnter(checklist.id, task.id, $event)
-											"
-											@dragover.prevent="dragOver($event)"
-											@dragleave="dragLeave($event)"
-											@dragend="dragEnd($event)"
-											@drop.prevent="drop(checklist.id, $event)"
+									<div v-if="checklist.tasks.length > 0">
+										<draggable
+											v-model="checklist.tasks"
+											item-key="id"
+											handle=".drag-handle"
+											:animation="300"
+											ghost-class="ghost-task"
+											class="tasks-draggable"
+											@start="onTaskDragStart(checklist.id)"
+											@change="onTaskDragChange(checklist.id, $event)"
 										>
-											<!-- 排序图标 -->
-											<button
-												class="h-8 w-8 p-0 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 flex items-center justify-center cursor-move drag-handle"
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="24"
-													height="24"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													class="h-5 w-5 text-muted-foreground"
+											<template #item="{ element: task }">
+												<div
+													class="flex items-center gap-3 p-3 transition-all duration-200 border border-transparent rounded-lg task-item"
+													:class="{
+														'task-disabled':
+															isDragging &&
+															draggingChecklistId !== checklist.id,
+														'task-sorting':
+															isDragging &&
+															draggingChecklistId === checklist.id,
+													}"
 												>
-													<circle cx="9" cy="12" r="1" />
-													<circle cx="9" cy="5" r="1" />
-													<circle cx="9" cy="19" r="1" />
-													<circle cx="15" cy="12" r="1" />
-													<circle cx="15" cy="5" r="1" />
-													<circle cx="15" cy="19" r="1" />
-												</svg>
-											</button>
-
-											<!-- 正常显示模式 -->
-											<template
-												v-if="!(editingTask && editingTask.id === task.id)"
-											>
-												<span class="flex-1 text-sm text-gray-900">
-													{{ task.name }}
-												</span>
-												<div class="flex items-center gap-1">
-													<button
-														@click="editTask(checklist.id, task)"
-														class="h-8 w-8 p-0 hover:text-gray-700 rounded-md hover:bg-gray-100 flex items-center justify-center"
-													>
-														<svg
-															class="w-4 h-4"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-															/>
-														</svg>
-													</button>
-													<button
-														@click="deleteTask(checklist.id, task.id)"
-														class="h-8 w-8 p-0 text-red-600 hover:text-red-700 rounded-md hover:bg-gray-100 flex items-center justify-center"
-													>
-														<svg
-															class="w-4 h-4"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-															/>
-														</svg>
-													</button>
-												</div>
-											</template>
-
-											<!-- 编辑模式 -->
-											<template v-else>
-												<div class="flex-1 pr-2">
-													<input
-														v-model="taskFormData.name"
-														class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-														placeholder="Task name"
+													<!-- 排序图标 -->
+													<el-button
+														size="small"
+														text
+														circle
+														:icon="GripVertical"
+														class="cursor-move drag-handle"
+														:class="{
+															'drag-disabled':
+																isDragging &&
+																draggingChecklistId !==
+																	checklist.id,
+															'drag-sorting':
+																isDragging &&
+																draggingChecklistId ===
+																	checklist.id,
+														}"
 													/>
-												</div>
-												<div class="flex items-center gap-1">
-													<button
-														@click="saveTaskEdit"
-														class="px-3 py-1.5 text-sm rounded-md flex items-center gap-1 text-white"
-														style="background-color: rgb(37, 99, 235)"
+
+													<!-- 正常显示模式 -->
+													<template
+														v-if="
+															!(
+																editingTask &&
+																editingTask.id === task.id
+															)
+														"
 													>
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															width="24"
-															height="24"
-															viewBox="0 0 24 24"
-															fill="none"
-															stroke="currentColor"
-															stroke-width="2"
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															class="h-4 w-4"
-														>
-															<path
-																d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+														<span class="flex-1 text-sm text-gray-900">
+															{{ task.name }}
+														</span>
+														<div class="flex items-center gap-1">
+															<el-button
+																@click="
+																	editTask(checklist.id, task)
+																"
+																size="small"
+																text
+																circle
+																icon="Edit"
 															/>
-															<path
-																d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"
+															<el-button
+																@click="
+																	deleteTask(
+																		checklist.id,
+																		task.id
+																	)
+																"
+																size="small"
+																text
+																circle
+																icon="Delete"
+																type="danger"
 															/>
-															<path d="M7 3v4a1 1 0 0 0 1 1h7" />
-														</svg>
-													</button>
-													<button
-														@click="cancelTaskEdit"
-														class="h-8 w-8 p-0 text-red-600 hover:text-red-700 rounded-md hover:bg-gray-100 flex items-center justify-center"
-													>
-														<svg
-															class="w-4 h-4"
-															fill="none"
-															stroke="currentColor"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M6 18L18 6M6 6l12 12"
+														</div>
+													</template>
+
+													<!-- 编辑模式 -->
+													<template v-else>
+														<div class="flex-1 pr-2">
+															<el-input
+																v-model="taskFormData.name"
+																placeholder="Task name"
+																size="small"
 															/>
-														</svg>
-													</button>
+														</div>
+														<div class="flex items-center gap-1">
+															<el-button
+																@click="saveTaskEdit"
+																type="primary"
+																size="small"
+																icon="Check"
+															/>
+															<el-button
+																@click="cancelTaskEdit"
+																size="small"
+																icon="Close"
+															/>
+														</div>
+													</template>
 												</div>
 											</template>
-										</div>
+										</draggable>
 									</div>
 									<div v-else class="text-center py-8 text-gray-500">
 										<p class="text-sm">
@@ -621,312 +389,129 @@
 			</div>
 		</div>
 
-		<!-- 创建检查清单对话框 -->
-		<div
-			v-if="showCreateDialog"
-			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+		<!-- 检查清单对话框 (创建/编辑通用) -->
+		<el-dialog
+			v-model="showDialog"
+			:title="dialogConfig.title"
+			width="600px"
+			:close-on-click-modal="false"
 		>
-			<div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
-				<div class="p-6 border-gray-200">
-					<h3 class="text-lg font-medium text-gray-900">Create New Checklist</h3>
-					<p class="text-sm text-gray-600 mt-1">
-						Create a new checklist for a specific team in the onboarding process.
-					</p>
+			<template #header>
+				<div>
+					<h3 class="text-lg font-medium text-gray-900">{{ dialogConfig.title }}</h3>
+					<p class="text-sm text-gray-600 mt-1">{{ dialogConfig.description }}</p>
 				</div>
-				<div class="p-6 space-y-4">
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Checklist Name</label>
-						<input
-							v-model="formData.name"
-							placeholder="Enter checklist name"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						/>
-					</div>
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Description</label>
-						<textarea
-							v-model="formData.description"
-							placeholder="Enter checklist description"
-							rows="3"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						></textarea>
-					</div>
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Team</label>
-						<select
-							v-model="formData.team"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						>
-							<option value="">Select team</option>
-							<option v-for="team in availableTeams" :key="team" :value="team">
-								{{ team }}
-							</option>
-						</select>
-					</div>
-					<div class="space-y-2">
-						<div class="flex items-center justify-between">
-							<label class="text-sm font-medium text-gray-700">Workflow & Stage Assignments</label>
-							<button
-								@click="addAssignment"
-								type="button"
-								class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
-							>
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-								</svg>
-								Add Assignment
-							</button>
-						</div>
-						<div v-if="formData.assignments.length === 0" class="text-sm text-gray-500 italic">
-							No assignments yet. Click "Add Assignment" to create one.
-						</div>
-						<div v-else class="space-y-3">
-							<div 
-								v-for="(assignment, index) in formData.assignments" 
-								:key="`assignment-${index}`"
-								class="border border-gray-200 rounded-lg p-4 bg-gray-50"
-							>
-								<div class="flex items-start justify-between mb-3">
-									<h4 class="text-sm font-medium text-gray-900">Assignment {{ index + 1 }}</h4>
-									<button
-										v-if="formData.assignments.length > 1"
-										@click="removeAssignment(index)"
-										type="button"
-										class="text-red-600 hover:text-red-800 p-1"
-									>
-										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-										</svg>
-									</button>
-								</div>
-								<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-									<div>
-										<label class="text-xs font-medium text-gray-700 mb-1 block">Workflow</label>
-						<select
-											v-model="assignment.workflow"
-											@change="handleWorkflowChangeForAssignment(index)"
-											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						>
-							<option value="">Select workflow</option>
-							<option
-								v-for="workflow in filteredWorkflows"
-								:key="workflow.id"
-								:value="workflow.name"
-							>
-								{{ workflow.name }}
-							</option>
-						</select>
-					</div>
-									<div>
-										<label class="text-xs font-medium text-gray-700 mb-1 block">Stage</label>
-						<select
-											v-model="assignment.stage"
-											:disabled="!assignment.workflow || stagesLoading"
-											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						>
-							<option value="">Select stage</option>
-							<option
-												v-for="stage in getStagesForAssignment(assignment.workflow)"
-								:key="stage.id"
-								:value="stage.name"
-							>
-								{{ stage.name }}
-							</option>
-						</select>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-				<div class="p-6 border-t border-gray-200 flex justify-end gap-3">
-					<button
-						@click="closeCreateDialog"
-						class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-					>
-						Cancel
-					</button>
-					<button
-						@click="createChecklistItem"
-						:disabled="!formData.name || !formData.team || createLoading"
-						class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-					>
-						<svg
-							v-if="createLoading"
-							class="animate-spin h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							/>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-							/>
-						</svg>
-						{{ createLoading ? 'Creating...' : 'Create Checklist' }}
-					</button>
-				</div>
-			</div>
-		</div>
+			</template>
 
-		<!-- 编辑检查清单对话框 -->
-		<div
-			v-if="showEditDialog"
-			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-		>
-			<div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
-				<div class="p-6 border-gray-200">
-					<h3 class="text-lg font-medium text-gray-900">Edit Checklist</h3>
-					<p class="text-sm text-gray-600 mt-1">Update the checklist details</p>
-				</div>
-				<div class="p-6 space-y-4">
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Checklist Name</label>
-						<input
-							v-model="formData.name"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+			<el-form :model="formData" label-position="top" class="space-y-4">
+				<el-form-item label="Checklist Name" required>
+					<el-input v-model="formData.name" :placeholder="dialogConfig.namePlaceholder" />
+				</el-form-item>
+
+				<el-form-item label="Description">
+					<el-input
+						v-model="formData.description"
+						type="textarea"
+						:placeholder="dialogConfig.descriptionPlaceholder"
+						:rows="3"
+					/>
+				</el-form-item>
+
+				<el-form-item label="Team" required>
+					<el-select v-model="formData.team" placeholder="Select team" class="w-full">
+						<el-option
+							v-for="team in availableTeams"
+							:key="team"
+							:value="team"
+							:label="team"
 						/>
-					</div>
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Description</label>
-						<textarea
-							v-model="formData.description"
-							rows="3"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						></textarea>
-					</div>
-					<div class="space-y-2">
-						<label class="text-sm font-medium text-gray-700">Team</label>
-						<select
-							v-model="formData.team"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						>
-							<option v-for="team in availableTeams" :key="team" :value="team">
-								{{ team }}
-							</option>
-						</select>
-					</div>
-					<div class="space-y-2">
-						<div class="flex items-center justify-between">
-							<label class="text-sm font-medium text-gray-700">Workflow & Stage Assignments</label>
-							<button
-								@click="addAssignment"
-								type="button"
-								class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
-							>
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-								</svg>
-								Add Assignment
-							</button>
-						</div>
-						<div v-if="formData.assignments.length === 0" class="text-sm text-gray-500 italic">
-							No assignments yet. Click "Add Assignment" to create one.
-						</div>
-						<div v-else class="space-y-3">
-							<div 
-								v-for="(assignment, index) in formData.assignments" 
-								:key="`assignment-${index}`"
-								class="border border-gray-200 rounded-lg p-4 bg-gray-50"
-							>
-								<div class="flex items-start justify-between mb-3">
-									<h4 class="text-sm font-medium text-gray-900">Assignment {{ index + 1 }}</h4>
-									<button
-										v-if="formData.assignments.length > 1"
-										@click="removeAssignment(index)"
-										type="button"
-										class="text-red-600 hover:text-red-800 p-1"
-									>
-										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-										</svg>
-									</button>
-								</div>
-								<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-									<div>
-										<label class="text-xs font-medium text-gray-700 mb-1 block">Workflow</label>
-						<select
-											v-model="assignment.workflow"
-											@change="handleWorkflowChangeForAssignment(index)"
-											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						>
-							<option value="">Select workflow</option>
-							<option
-								v-for="workflow in filteredWorkflows"
-								:key="workflow.id"
-								:value="workflow.name"
-							>
-								{{ workflow.name }}
-							</option>
-						</select>
-					</div>
-									<div>
-										<label class="text-xs font-medium text-gray-700 mb-1 block">Stage</label>
-						<select
-											v-model="assignment.stage"
-											:disabled="!assignment.workflow || stagesLoading"
-											class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						>
-							<option value="">Select stage</option>
-							<option
-												v-for="stage in getStagesForAssignment(assignment.workflow)"
-								:key="stage.id"
-								:value="stage.name"
-							>
-								{{ stage.name }}
-							</option>
-						</select>
-									</div>
-								</div>
+					</el-select>
+				</el-form-item>
+
+				<div class="flex items-center justify-between w-full">
+					<span>Workflow & Stage Assignments</span>
+					<el-button @click="addAssignment" type="primary" size="small" icon="Plus" text>
+						Add Assignment
+					</el-button>
+				</div>
+
+				<div v-if="formData.assignments.length === 0" class="text-sm text-gray-500 italic">
+					No assignments yet. Click "Add Assignment" to create one.
+				</div>
+
+				<div v-else class="space-y-3">
+					<el-card
+						v-for="(assignment, index) in formData.assignments"
+						:key="`assignment-${index}`"
+						class="assignment-card bg-gray-50"
+						shadow="never"
+					>
+						<template #header>
+							<div class="flex items-center justify-between">
+								<h4 class="text-sm font-medium text-gray-900">
+									Assignment {{ index + 1 }}
+								</h4>
+								<el-button
+									v-if="formData.assignments.length > 1"
+									@click="removeAssignment(index)"
+									type="danger"
+									icon="Delete"
+									text
+								/>
 							</div>
+						</template>
+
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+							<el-form-item label="Workflow">
+								<el-select
+									v-model="assignment.workflow"
+									@change="handleWorkflowChangeForAssignment(index)"
+									placeholder="Select workflow"
+									class="w-full"
+								>
+									<el-option
+										v-for="workflow in filteredWorkflows"
+										:key="workflow.id"
+										:value="workflow.name"
+										:label="workflow.name"
+									/>
+								</el-select>
+							</el-form-item>
+
+							<el-form-item label="Stage">
+								<el-select
+									v-model="assignment.stage"
+									:disabled="!assignment.workflow || stagesLoading"
+									placeholder="Select stage"
+									class="w-full"
+								>
+									<el-option
+										v-for="stage in getStagesForAssignment(assignment.workflow)"
+										:key="stage.id"
+										:value="stage.name"
+										:label="stage.name"
+									/>
+								</el-select>
+							</el-form-item>
 						</div>
-					</div>
+					</el-card>
 				</div>
-				<div class="p-6 border-t border-gray-200 flex justify-end gap-3">
-					<button
-						@click="closeEditDialog"
-						class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+			</el-form>
+
+			<template #footer>
+				<div class="flex justify-end gap-3">
+					<el-button @click="closeDialog">Cancel</el-button>
+					<el-button
+						@click="submitDialog"
+						type="primary"
+						:disabled="!formData.name || !formData.team"
+						:loading="dialogConfig.loading"
 					>
-						Cancel
-					</button>
-					<button
-						@click="saveEditChecklist"
-						:disabled="!formData.name || !formData.team || editLoading"
-						class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-					>
-						<svg
-							v-if="editLoading"
-							class="animate-spin h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							/>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-							/>
-						</svg>
-						{{ editLoading ? 'Saving...' : 'Save Changes' }}
-					</button>
+						{{ dialogConfig.submitText }}
+					</el-button>
 				</div>
-			</div>
-		</div>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
@@ -949,6 +534,8 @@ import { getWorkflows, getStagesByWorkflow } from '@/apis/ow';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ChecklistLoading from './checklist-loading.vue';
+import draggable from 'vuedraggable';
+import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 
 // 响应式数据 - 使用shallowRef优化大数组性能
 const checklists = shallowRef([]);
@@ -1014,23 +601,25 @@ watch(searchQuery, (newValue) => {
 	}, 300); // 300ms防抖延迟
 });
 
-// 监听 checklists 变化以调试响应式更新
-watch(
-	checklists,
-	(newValue, oldValue) => {
-		console.log('Checklists changed:', {
-			oldCount: oldValue?.length || 0,
-			newCount: newValue?.length || 0,
-			timestamp: new Date().toISOString(),
-		});
-	},
-	{ deep: false }
-);
-
-// 对话框状态
-const showCreateDialog = ref(false);
-const showEditDialog = ref(false);
+// 统一对话框状态
+const showDialog = ref(false);
+const dialogMode = ref('create'); // 'create' | 'edit'
 const editingChecklist = ref(null);
+
+// 对话框配置 (根据模式动态计算)
+const dialogConfig = computed(() => {
+	const isEdit = dialogMode.value === 'edit';
+	return {
+		title: isEdit ? 'Edit Checklist' : 'Create New Checklist',
+		description: isEdit
+			? 'Update the checklist details'
+			: 'Create a new checklist for a specific team in the onboarding process.',
+		namePlaceholder: isEdit ? '' : 'Enter checklist name',
+		descriptionPlaceholder: isEdit ? '' : 'Enter checklist description',
+		submitText: isEdit ? 'Save Changes' : 'Create Checklist',
+		loading: isEdit ? editLoading.value : createLoading.value,
+	};
+});
 
 // 表单数据
 const formData = ref({
@@ -1092,17 +681,6 @@ const filteredChecklists = computed(() => {
 	const endIndex = startIndex + pageSize.value;
 	const result = filtered.slice(startIndex, endIndex);
 
-	// 调试输出
-	console.log('Filtered checklists computed:', {
-		totalChecklists: checklists.value.length,
-		filteredCount: result.length,
-		selectedTeam: selectedTeamValue,
-		searchTerm: searchTerm,
-		availableTeams: checklists.value
-			.map((c) => c.team)
-			.filter((team, index, arr) => arr.indexOf(team) === index),
-	});
-
 	return result;
 });
 
@@ -1112,208 +690,42 @@ const filteredWorkflows = computed(() => {
 	return workflows.value || [];
 });
 
-// 根据选择的workflow过滤stages
-const filteredStages = computed(() => {
-	if (!formData.value.workflow) return [];
-	const selectedWorkflow = filteredWorkflows.value.find(
-		(w) => w.name === formData.value.workflow
-	);
+// 根据选择的workflow过滤stages的逻辑已经移到getStagesForAssignment函数中
 
-	if (!selectedWorkflow) return [];
+// 拖拽状态管理
+const isDragging = ref(false);
+const draggingChecklistId = ref(null);
 
-	const filtered = stages.value.filter((stage) => {
-		return stage.workflowId && stage.workflowId.toString() === selectedWorkflow.id.toString();
-	});
-
-	return filtered;
-});
-
-// 拖拽排序相关
-const dragItem = ref(null);
-const dragOverItem = ref(null);
-
-// 调试函数
-const debugDragState = () => {
-	console.log('🔍 Current Drag State:', {
-		dragItem: dragItem.value,
-		dragOverItem: dragOverItem.value,
-		timestamp: new Date().toISOString(),
-	});
+// vuedraggable 拖拽事件处理
+const onTaskDragStart = (checklistId) => {
+	draggingChecklistId.value = checklistId;
 };
 
-const dragStart = (checklistId, taskId, event) => {
-	console.log('🚀 Drag Start:', { checklistId, taskId });
-	dragItem.value = { checklistId, taskId };
+const onTaskDragChange = async (checklistId, event) => {
+	// 设置拖拽状态，显示loading效果
+	isDragging.value = true;
 
-	// dragOverItem 将通过 dragEnter 事件正确设置
-
-	debugDragState();
-
-	// 设置拖拽数据
-	event.dataTransfer.effectAllowed = 'move';
-	event.dataTransfer.setData('text/plain', taskId);
-
-	// 添加拖拽样式
-	const dragElement = event.target.closest('[draggable="true"]');
-	if (dragElement) {
-		setTimeout(() => {
-			dragElement.classList.add('dragging');
-		}, 0);
-	}
-};
-
-const dragEnter = (checklistId, taskId, event) => {
-	event.preventDefault(); // 确保preventDefault被调用
-	console.log('📍 Drag Enter:', {
-		checklistId,
-		taskId,
-		dragItem: dragItem.value,
-		eventTarget: event.target.tagName,
-		eventCurrentTarget: event.currentTarget.tagName,
-	});
-
-	if (!dragItem.value) {
-		console.log('❌ Drag Enter blocked: no drag item');
-		return;
-	}
-
-	if (dragItem.value.checklistId !== checklistId) {
-		console.log('❌ Drag Enter blocked: different checklist');
-		return;
-	}
-
-	// 不允许拖拽到同一个任务
-	if (dragItem.value.taskId === taskId) {
-		console.log('⚠️ Drag Enter: same task - skipping');
-		return;
-	}
-
-	dragOverItem.value = { checklistId, taskId };
-	console.log('✅ Drag Over Item set:', dragOverItem.value);
-	debugDragState();
-
-	// 移除所有drag-over类
-	document.querySelectorAll('.drag-over').forEach((el) => {
-		el.classList.remove('drag-over');
-	});
-
-	// 添加当前目标的drag-over类
-	const targetElement = event.target.closest('[draggable="true"]');
-	if (targetElement) {
-		targetElement.classList.add('drag-over');
-		console.log('🎯 Added drag-over class to target');
-	}
-};
-
-const dragOver = (event) => {
-	if (dragItem.value) {
-		event.preventDefault(); // 确保preventDefault被调用
-		event.dataTransfer.dropEffect = 'move';
-		console.log('🔄 Drag Over - preventDefault called, dropEffect set to move');
-	} else {
-		console.log('⚠️ Drag Over called but no dragItem');
-	}
-};
-
-const dragLeave = (event) => {
-	console.log('👋 Drag Leave');
-	// 只有当鼠标真正离开元素时才移除样式，但不清除dragOverItem
-	const targetElement = event.target.closest('[draggable="true"]');
-	if (targetElement && !targetElement.contains(event.relatedTarget)) {
-		targetElement.classList.remove('drag-over');
-		console.log('🧹 Removed drag-over class on leave (but kept dragOverItem)');
-	}
-};
-
-const dragEnd = (event) => {
-	console.log('🏁 Drag End:', { dragItem: dragItem.value, dragOverItem: dragOverItem.value });
-
-	// 如果有dragOverItem，尝试手动触发drop
-	if (dragItem.value && dragOverItem.value) {
-		console.log('🔄 Attempting manual drop trigger...');
-		setTimeout(() => {
-			const mockEvent = {
-				preventDefault: () => {},
-				stopPropagation: () => {},
-				type: 'drop',
-				target: { tagName: 'DIV' },
-			};
-			drop(dragItem.value.checklistId, mockEvent);
-		}, 50);
-	}
-
-	// 延迟清理，确保drop事件先执行
-	setTimeout(() => {
-		// 移除所有拖拽相关样式
-		document.querySelectorAll('.dragging').forEach((el) => {
-			el.classList.remove('dragging');
-		});
-		document.querySelectorAll('.drag-over').forEach((el) => {
-			el.classList.remove('drag-over');
-		});
-
-		// 重置拖拽状态
-		dragItem.value = null;
-		dragOverItem.value = null;
-		console.log('🧹 Drag state cleared (delayed)');
-	}, 200);
-};
-
-const drop = async (checklistId, event) => {
-	event.preventDefault(); // 确保preventDefault被调用
-	event.stopPropagation(); // 阻止事件冒泡
-	console.log('🎯 Drop triggered:', {
-		checklistId,
-		dragItem: dragItem.value,
-		dragOverItem: dragOverItem.value,
-		eventType: event.type,
-		target: event.target.tagName,
-	});
-
-	if (!dragItem.value || !dragOverItem.value) {
-		console.log('❌ Drop failed: missing drag items');
-		return;
-	}
-
-	if (dragItem.value.checklistId !== checklistId) {
-		console.log('❌ Drop failed: different checklist');
-		return;
-	}
-
+	// 重新分配order属性
 	const checklist = checklists.value.find((c) => c.id === checklistId);
 	if (!checklist) {
-		console.log('❌ Drop failed: checklist not found');
+		isDragging.value = false;
+		draggingChecklistId.value = null;
 		return;
 	}
 
-	// 找到拖拽的起始和目标位置
-	const startIndex = checklist.tasks.findIndex((t) => t.id === dragItem.value.taskId);
-	const endIndex = checklist.tasks.findIndex((t) => t.id === dragOverItem.value.taskId);
-
-	console.log('📍 Drag positions:', { startIndex, endIndex });
-
-	if (startIndex === -1 || endIndex === -1 || startIndex === endIndex) {
-		console.log('❌ Drop failed: invalid positions or same position');
-		return;
-	}
-
-	// 本地先重新排序
-	const tasksCopy = [...checklist.tasks];
-	const [itemToMove] = tasksCopy.splice(startIndex, 1);
-	tasksCopy.splice(endIndex, 0, itemToMove);
-
-	console.log('🔄 Reordering tasks:', {
-		from: startIndex,
-		to: endIndex,
-		movedTask: itemToMove.name,
-	});
+	const reorderedTasks = checklist.tasks.map((task, index) => ({
+		...task,
+		order: index,
+	}));
 
 	// 更新本地状态
-	checklist.tasks = tasksCopy;
+	checklist.tasks = reorderedTasks;
 
 	// 强制触发响应式更新
 	checklists.value = [...checklists.value];
-	console.log('✅ Local state updated');
+
+	// 创建最小loading时间的Promise
+	const minLoadingTime = new Promise((resolve) => setTimeout(resolve, 800));
 
 	try {
 		// 更新后端数据 - 为每个任务分配新的顺序号
@@ -1326,12 +738,17 @@ const drop = async (checklistId, event) => {
 			return updateChecklistTask(task.id, updatedTask);
 		});
 
-		await Promise.all(updatePromises);
-		console.log('✅ Task order updated successfully');
+		// 等待API调用和最小loading时间
+		await Promise.all([Promise.all(updatePromises), minLoadingTime]);
 		ElMessage.success('Task order updated successfully');
 	} catch (err) {
-		console.error('❌ Failed to update task order:', err);
 		ElMessage.warning('Failed to save new order, but changes are visible locally');
+		// 即使出错也要等待最小loading时间
+		await minLoadingTime;
+	} finally {
+		// 确保重置拖拽状态
+		isDragging.value = false;
+		draggingChecklistId.value = null;
 	}
 };
 
@@ -1340,10 +757,8 @@ const loadChecklists = async () => {
 	try {
 		loading.value = true;
 		error.value = null;
-		console.log('Loading checklists...');
 		const response = await getChecklists();
 		const checklistData = response.data || response || [];
-		console.log('Loaded checklists count:', checklistData.length);
 
 		// 先设置基础数据，不加载任务（懒加载）
 		const processedChecklists = checklistData
@@ -1363,13 +778,6 @@ const loadChecklists = async () => {
 
 		// 使用新的数组引用确保响应式更新
 		checklists.value = processedChecklists;
-		console.log(
-			'Checklists updated successfully, new checklist names:',
-			processedChecklists.map((c) => ({ id: c.id, name: c.name }))
-		);
-
-		// 移除默认展开，提高初始加载速度
-		// 用户可以按需展开需要的清单
 	} catch (err) {
 		error.value = handleApiError(err);
 		console.error('Failed to load checklists:', err);
@@ -1390,14 +798,11 @@ const taskLoadingCache = new Map();
 
 // 懒加载单个清单的任务 - 优化版本
 const loadChecklistTasks = async (checklistId, forceReload = false) => {
-	console.log('Loading tasks for checklist:', checklistId, forceReload ? '(force reload)' : '');
 	const checklist = checklists.value.find((c) => c.id === checklistId);
 	if (!checklist) {
-		console.log('Checklist not found:', checklistId);
 		return;
 	}
 	if (checklist.tasksLoaded && !forceReload) {
-		console.log('Tasks already loaded for checklist:', checklistId);
 		return;
 	}
 
@@ -1417,16 +822,12 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 
 	const loadPromise = (async () => {
 		try {
-			console.log('Calling getChecklistTasks API for:', checklistId);
-
 			// 添加超时机制
 			const timeoutPromise = new Promise((_, reject) => {
-				setTimeout(() => reject(new Error('API request timeout')), 10000); // 10秒超时
+				setTimeout(() => reject(new Error('API request timeout')), 10000);
 			});
 
 			const tasks = await Promise.race([getChecklistTasks(checklistId), timeoutPromise]);
-
-			console.log('API response:', tasks);
 
 			const processedTasks = (tasks.data || tasks || []).map((task) => ({
 				...task,
@@ -1434,19 +835,14 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 				estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
 			}));
 
-			console.log('Processed tasks:', processedTasks);
-
 			// 使用Object.assign确保响应式更新
 			Object.assign(checklist, {
 				tasks: processedTasks,
 				tasksLoaded: true,
 			});
 
-			console.log('Updated checklist:', checklist);
-
 			// 强制触发响应式更新
 			checklists.value = [...checklists.value];
-			console.log('Tasks loaded successfully for checklist:', checklistId);
 			return processedTasks;
 		} catch (taskError) {
 			console.error(`Failed to load tasks for checklist ${checklistId}:`, taskError);
@@ -1560,47 +956,7 @@ const toggleExpanded = async (checklistId) => {
 	}
 };
 
-// 强制停止加载
-const forceStopLoading = (checklist) => {
-	console.log('Force stopping loading for checklist:', checklist.id);
-	checklist.tasksLoaded = true;
-	checklist.tasks = checklist.tasks || [];
-	checklists.value = [...checklists.value];
-	ElMessage.info('Loading stopped. Tasks may be empty.');
-};
-
-const toggleDropdown = (checklistId) => {
-	activeDropdown.value = activeDropdown.value === checklistId ? null : checklistId;
-};
-
-// 动态计算下拉菜单位置，避免在页面底部被截断
-const getDropdownClasses = (checklistId) => {
-	// 基础类名
-	let classes = 'right-0 mt-2';
-
-	// 尝试获取触发按钮的位置信息
-	try {
-		// 查找对应的下拉按钮
-		const button = document.querySelector(`[data-checklist-id="${checklistId}"]`);
-		if (button) {
-			const rect = button.getBoundingClientRect();
-			const windowHeight = window.innerHeight;
-			const dropdownHeight = 220; // 估算下拉菜单高度（4个菜单项 + 分隔线 + 间距）
-			const spaceBelow = windowHeight - rect.bottom;
-			const spaceAbove = rect.top;
-
-			// 如果下方空间不足，且上方空间更充足，则向上显示
-			if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
-				classes = 'right-0 bottom-full mb-2';
-			}
-		}
-	} catch (error) {
-		// 如果获取位置失败，使用默认位置
-		console.warn('Failed to calculate dropdown position:', error);
-	}
-
-	return classes;
-};
+// Element Plus dropdown handles positioning automatically, so these functions are no longer needed
 
 const showAddTaskDialog = (checklist) => {
 	addingTaskTo.value = checklist.id;
@@ -1612,11 +968,7 @@ const cancelAddTask = () => {
 	newTaskText.value = '';
 };
 
-const handleTaskKeyPress = (event, checklistId) => {
-	if (event.key === 'Enter') {
-		addTask(checklistId);
-	}
-};
+// handleTaskKeyPress is replaced by @keyup.enter in template
 
 // 任务管理方法
 const addTask = async (checklistId) => {
@@ -1735,12 +1087,7 @@ const handleWorkflowChange = async () => {
 	await loadStagesByWorkflow(formData.value.workflow);
 };
 
-const handleWorkflowChangeEdit = async () => {
-	// 清空当前选择的stage
-	formData.value.stage = '';
-	// 根据选择的workflow加载对应的stages
-	await loadStagesByWorkflow(formData.value.workflow);
-};
+// handleWorkflowChangeEdit is replaced by handleWorkflowChangeForAssignment function
 
 // 根据workflow加载stages
 const loadStagesByWorkflow = async (workflowName) => {
@@ -1804,17 +1151,17 @@ const editChecklist = async (checklist) => {
 
 	// 加载所有assignments需要的stages
 	const uniqueWorkflowIds = new Set();
-	
+
 	// 添加单个workflow（如果存在）
 	if (workflowName) {
-		const workflow = workflows.value.find(w => w.name === workflowName);
+		const workflow = workflows.value.find((w) => w.name === workflowName);
 		if (workflow) {
 			uniqueWorkflowIds.add(workflow.id.toString());
 		}
 	}
-	
+
 	// 添加assignments中的workflows
-	(checklist.assignments || []).forEach(assignment => {
+	(checklist.assignments || []).forEach((assignment) => {
 		if (assignment.workflowId) {
 			uniqueWorkflowIds.add(assignment.workflowId.toString());
 		}
@@ -1822,7 +1169,7 @@ const editChecklist = async (checklist) => {
 
 	// 为每个唯一的workflow加载stages
 	for (const workflowId of uniqueWorkflowIds) {
-		const workflow = workflows.value.find(w => w.id.toString() === workflowId);
+		const workflow = workflows.value.find((w) => w.id.toString() === workflowId);
 		if (workflow) {
 			await loadStagesByWorkflow(workflow.name);
 		}
@@ -1839,21 +1186,33 @@ const editChecklist = async (checklist) => {
 	}
 
 	// 处理assignments，转换为前端需要的格式
-	const assignments = (checklist.assignments || []).map(assignment => {
-		const workflow = workflows.value.find(w => w.id.toString() === assignment.workflowId.toString());
-		const stage = stages.value.find(s => s.id.toString() === assignment.stageId.toString());
-		
-		console.log(`Processing assignment: workflowId=${assignment.workflowId}, stageId=${assignment.stageId}`);
-		console.log(`Found workflow: ${workflow ? workflow.name : 'NOT FOUND'}`);
-		console.log(`Found stage: ${stage ? stage.name : 'NOT FOUND'}`);
-		
-		return {
-			workflow: workflow ? workflow.name : '',
-			stage: stage ? stage.name : ''
-		};
-	}).filter(assignment => assignment.workflow && assignment.stage);
-	
-	console.log(`Processed ${assignments.length} valid assignments out of ${(checklist.assignments || []).length} total assignments`);
+	const assignments = (checklist.assignments || [])
+		.map((assignment) => {
+			const workflow = workflows.value.find(
+				(w) => w.id.toString() === assignment.workflowId.toString()
+			);
+			const stage = stages.value.find(
+				(s) => s.id.toString() === assignment.stageId.toString()
+			);
+
+			console.log(
+				`Processing assignment: workflowId=${assignment.workflowId}, stageId=${assignment.stageId}`
+			);
+			console.log(`Found workflow: ${workflow ? workflow.name : 'NOT FOUND'}`);
+			console.log(`Found stage: ${stage ? stage.name : 'NOT FOUND'}`);
+
+			return {
+				workflow: workflow ? workflow.name : '',
+				stage: stage ? stage.name : '',
+			};
+		})
+		.filter((assignment) => assignment.workflow && assignment.stage);
+
+	console.log(
+		`Processed ${assignments.length} valid assignments out of ${
+			(checklist.assignments || []).length
+		} total assignments`
+	);
 
 	formData.value = {
 		name: checklist.name,
@@ -1864,7 +1223,8 @@ const editChecklist = async (checklist) => {
 		assignments: assignments,
 	};
 
-	showEditDialog.value = true;
+	dialogMode.value = 'edit';
+	showDialog.value = true;
 	activeDropdown.value = null;
 };
 
@@ -2108,16 +1468,12 @@ const duplicateChecklistItem = async (checklist) => {
 const exportChecklistItem = async (checklist) => {
 	exportLoading.value = true;
 	try {
-		console.log('开始导出PDF，清单ID:', checklist.id);
-
 		// 确保任务已加载
 		if (!checklist.tasksLoaded || !checklist.tasks || checklist.tasks.length === 0) {
-			console.log('任务未加载，正在加载任务数据...');
 			await loadChecklistTasks(checklist.id);
 		}
 
 		// 直接使用前端生成PDF（后端暂不支持PDF导出）
-		console.log('使用前端生成PDF');
 		await exportPdfWithFrontend(checklist);
 	} catch (err) {
 		console.error('PDF导出失败:', err);
@@ -2131,11 +1487,8 @@ const exportChecklistItem = async (checklist) => {
 // 前端生成PDF的后备方案
 const exportPdfWithFrontend = async (checklist) => {
 	try {
-		console.log('开始前端PDF生成...');
-
 		// 动态导入jsPDF库 - 兼容不同版本
 		const jsPDFModule = await import('jspdf');
-		console.log('jsPDF模块导入成功:', jsPDFModule);
 
 		// 尝试不同的导入方式
 		let jsPDF;
@@ -2151,7 +1504,6 @@ const exportPdfWithFrontend = async (checklist) => {
 
 		// 获取最新的checklist数据（包含任务）
 		const updatedChecklist = checklists.value.find((c) => c.id === checklist.id) || checklist;
-		console.log('准备导出的清单数据:', updatedChecklist);
 
 		// 创建PDF实例
 		const pdf = new jsPDF({
@@ -2159,8 +1511,6 @@ const exportPdfWithFrontend = async (checklist) => {
 			unit: 'mm',
 			format: 'a4',
 		});
-
-		console.log('PDF实例创建成功');
 
 		let y = 20;
 		const margin = 20;
@@ -2208,7 +1558,6 @@ const exportPdfWithFrontend = async (checklist) => {
 
 		// 创建任务表格
 		const tasks = updatedChecklist.tasks || [];
-		console.log('任务数量:', tasks.length);
 
 		if (tasks.length > 0) {
 			// 表格头部
@@ -2302,15 +1651,12 @@ const exportPdfWithFrontend = async (checklist) => {
 			pdf.text('No tasks available', margin + 20, y + 5.5);
 		}
 
-		console.log('PDF内容添加完成，准备保存...');
-
 		// 生成文件名
 		const filename = `${checklistName.replace(/[^\w\s-]/g, '_')}.pdf`;
 
 		// 保存PDF
 		pdf.save(filename);
 
-		console.log('PDF保存成功，文件名:', filename);
 		ElMessage.success('PDF exported successfully');
 		activeDropdown.value = null;
 	} catch (frontendErr) {
@@ -2325,8 +1671,6 @@ const exportPdfWithFrontend = async (checklist) => {
 // 最基本的PDF生成方案
 const exportBasicPdf = async (checklist) => {
 	try {
-		console.log('尝试最基本的PDF生成方案');
-
 		// 创建纯文本内容
 		const updatedChecklist = checklists.value.find((c) => c.id === checklist.id) || checklist;
 
@@ -2340,9 +1684,9 @@ const exportBasicPdf = async (checklist) => {
 
 		const tasks = updatedChecklist.tasks || [];
 		if (tasks.length > 0) {
-					tasks.forEach((task, index) => {
-			content += `${index + 1}. ${task.name || `Task ${index + 1}`}\n`;
-		});
+			tasks.forEach((task, index) => {
+				content += `${index + 1}. ${task.name || `Task ${index + 1}`}\n`;
+			});
 		} else {
 			content += 'No tasks available\n';
 		}
@@ -2364,7 +1708,6 @@ const exportBasicPdf = async (checklist) => {
 			URL.revokeObjectURL(url);
 		}, 100);
 
-		console.log('文本文件导出成功');
 		ElMessage.info('PDF generation failed, exported as text file instead');
 		activeDropdown.value = null;
 	} catch (basicErr) {
@@ -2402,7 +1745,6 @@ const exportWithPrint = async (checklist) => {
 			}, 500);
 		};
 
-		console.log('打印窗口已打开');
 		ElMessage.info('Print dialog opened. You can save as PDF from the print dialog.');
 		activeDropdown.value = null;
 	} catch (printErr) {
@@ -2621,25 +1963,11 @@ const createPdfContent = (checklist) => {
 // 对话框管理方法
 // 打开创建对话框并设置默认值
 const openCreateDialog = async () => {
-	showCreateDialog.value = true;
-	// 初始化assignments数组，默认包含一个空的assignment
-	formData.value.assignments = [
-		{
-			workflow: '',
-			stage: ''
-		}
-	];
-	// 设置默认workflow（只在活跃的workflow中查找）
-	const defaultWorkflow = filteredWorkflows.value.find((w) => w.isDefault);
-	if (defaultWorkflow) {
-		formData.value.workflow = defaultWorkflow.name;
-		// 触发workflow变化处理
-		await handleWorkflowChange();
-	}
-};
+	dialogMode.value = 'create';
+	editingChecklist.value = null;
+	showDialog.value = true;
 
-const closeCreateDialog = () => {
-	showCreateDialog.value = false;
+	// 重置表单数据
 	formData.value = {
 		name: '',
 		description: '',
@@ -2649,64 +1977,23 @@ const closeCreateDialog = () => {
 		assignments: [
 			{
 				workflow: '',
-				stage: ''
-			}
+				stage: '',
+			},
 		],
 	};
-};
 
-const createChecklistItem = async () => {
-	if (!formData.value.name.trim() || !formData.value.team) return;
-
-	createLoading.value = true;
-	try {
-		console.log('Creating checklist with data:', formData.value);
-		
-		// 处理assignments，转换为后端需要的格式
-		const assignments = formData.value.assignments.map(assignment => {
-			const workflowId = filteredWorkflows.value.find((w) => w.name === assignment.workflow)?.id || '';
-			const stageId = stages.value.find((s) => s.name === assignment.stage)?.id || '';
-			return {
-				workflowId: String(workflowId),
-				stageId: String(stageId)
-			};
-		}).filter(assignment => assignment.workflowId && assignment.stageId);
-
-		const checklistData = {
-			name: formData.value.name.trim(),
-			description: formData.value.description || '',
-			team: formData.value.team,
-			type: 'Instance',
-			status: 'Active',
-			isTemplate: false,
-			isActive: true,
-			assignments: assignments,
-		};
-
-		const newChecklist = await createChecklist(checklistData);
-		console.log('Checklist created successfully:', newChecklist);
-
-		ElMessage.success(t('sys.api.operationSuccess'));
-		closeCreateDialog();
-
-		// 创建成功后刷新页面数据
-		console.log('Refreshing checklist data after creation...');
-		await loadChecklists();
-	} catch (err) {
-		console.error('Failed to create checklist:', err);
-		ElMessage.error(t('sys.api.operationFailed'));
-		closeCreateDialog();
-
-		// 即使创建失败，也刷新一下数据，可能后端已经创建成功了
-		console.log('Refreshing checklist data after creation error...');
-		await loadChecklists();
-	} finally {
-		createLoading.value = false;
+	// 设置默认workflow（只在活跃的workflow中查找）
+	const defaultWorkflow = filteredWorkflows.value.find((w) => w.isDefault);
+	if (defaultWorkflow) {
+		formData.value.workflow = defaultWorkflow.name;
+		// 触发workflow变化处理
+		await handleWorkflowChange();
 	}
 };
 
-const closeEditDialog = () => {
-	showEditDialog.value = false;
+// 统一关闭对话框
+const closeDialog = () => {
+	showDialog.value = false;
 	editingChecklist.value = null;
 	formData.value = {
 		name: '',
@@ -2717,99 +2004,110 @@ const closeEditDialog = () => {
 		assignments: [
 			{
 				workflow: '',
-				stage: ''
-			}
+				stage: '',
+			},
 		],
 	};
 };
 
-const saveEditChecklist = async () => {
-	if (!formData.value.name.trim() || !formData.value.team || !editingChecklist.value) return;
+// 统一的对话框提交处理
+const submitDialog = async () => {
+	if (!formData.value.name.trim() || !formData.value.team) return;
 
-	editLoading.value = true;
-	const originalChecklistId = editingChecklist.value.id;
+	const isEdit = dialogMode.value === 'edit';
+
+	if (isEdit) {
+		editLoading.value = true;
+	} else {
+		createLoading.value = true;
+	}
 
 	try {
-		console.log('Updating checklist with data:', formData.value);
-		
+		console.log(`${isEdit ? 'Updating' : 'Creating'} checklist with data:`, formData.value);
+
 		// 处理assignments，转换为后端需要的格式
-		const assignments = formData.value.assignments.map(assignment => {
-			const workflowId = filteredWorkflows.value.find((w) => w.name === assignment.workflow)?.id || '';
-			const stageId = stages.value.find((s) => s.name === assignment.stage)?.id || '';
-			return {
-				workflowId: String(workflowId),
-				stageId: String(stageId)
-			};
-		}).filter(assignment => assignment.workflowId && assignment.stageId);
+		const assignments = formData.value.assignments
+			.map((assignment) => {
+				const workflowId =
+					filteredWorkflows.value.find((w) => w.name === assignment.workflow)?.id || '';
+				const stageId = stages.value.find((s) => s.name === assignment.stage)?.id || '';
+				return {
+					workflowId: String(workflowId),
+					stageId: String(stageId),
+				};
+			})
+			.filter((assignment) => assignment.workflowId && assignment.stageId);
 
 		const checklistData = {
 			name: formData.value.name.trim(),
 			description: formData.value.description || '',
 			team: formData.value.team,
-			type: editingChecklist.value.type || 'Instance',
-			status: editingChecklist.value.status || 'Active',
-			isTemplate: editingChecklist.value.isTemplate || false,
-			isActive: editingChecklist.value.isActive !== false,
+			type: isEdit ? editingChecklist.value?.type || 'Instance' : 'Instance',
+			status: isEdit ? editingChecklist.value?.status || 'Active' : 'Active',
+			isTemplate: isEdit ? editingChecklist.value?.isTemplate || false : false,
+			isActive: isEdit ? editingChecklist.value?.isActive !== false : true,
 			assignments: assignments,
 		};
 
-		await updateChecklist(originalChecklistId, checklistData);
-		console.log('Checklist updated successfully');
+		if (isEdit) {
+			const originalChecklistId = editingChecklist.value.id;
+			await updateChecklist(originalChecklistId, checklistData);
+			console.log('Checklist updated successfully');
+			ElMessage.success('Checklist updated successfully');
 
-		ElMessage.success('Checklist updated successfully');
-		closeEditDialog();
-
-		// 更新成功后立即刷新页面数据
-		console.log('Refreshing checklist data after update...');
-		console.log('Checklists before refresh:', checklists.value.length);
-		await loadChecklists();
-		console.log('Checklists after refresh:', checklists.value.length);
-
-		// 验证更新是否生效
-		const updatedChecklist = checklists.value.find((c) => c.id === originalChecklistId);
-		if (updatedChecklist) {
-			console.log('Updated checklist found:', updatedChecklist.name);
+			// 如果编辑的checklist当前是展开状态，保持展开并强制重新加载任务
+			if (expandedChecklists.value.includes(originalChecklistId)) {
+				console.log('Force reloading tasks for updated checklist:', originalChecklistId);
+				await loadChecklistTasks(originalChecklistId, true);
+			}
 		} else {
-			console.warn('Updated checklist not found after refresh!');
+			const newChecklist = await createChecklist(checklistData);
+			console.log('Checklist created successfully:', newChecklist);
+			ElMessage.success(t('sys.api.operationSuccess'));
 		}
 
-		// 如果编辑的checklist当前是展开状态，保持展开并强制重新加载任务
-		if (expandedChecklists.value.includes(originalChecklistId)) {
-			console.log('Force reloading tasks for updated checklist:', originalChecklistId);
-			await loadChecklistTasks(originalChecklistId, true);
-		}
+		closeDialog();
 
-		console.log('Checklist update and refresh completed');
+		// 成功后刷新页面数据
+		console.log(`Refreshing checklist data after ${isEdit ? 'update' : 'creation'}...`);
+		await loadChecklists();
 	} catch (err) {
-		console.error('Failed to update checklist:', err);
+		console.error(`Failed to ${isEdit ? 'update' : 'create'} checklist:`, err);
 
 		// 提供更详细的错误信息
-		let errorMessage = 'Failed to update checklist';
+		let errorMessage = `Failed to ${isEdit ? 'update' : 'create'} checklist`;
 		if (err.response?.status === 404) {
 			errorMessage = 'Checklist not found';
 		} else if (err.response?.status === 403) {
-			errorMessage = 'You do not have permission to update this checklist';
+			errorMessage = `You do not have permission to ${
+				isEdit ? 'update' : 'create'
+			} this checklist`;
 		} else if (err.response?.status === 400) {
 			errorMessage = 'Invalid checklist data';
 		} else if (err.message) {
-			errorMessage = `Update failed: ${err.message}`;
+			errorMessage = `${isEdit ? 'Update' : 'Creation'} failed: ${err.message}`;
 		}
 
-		ElMessage.error(errorMessage);
-		closeEditDialog();
+		ElMessage.error(isEdit ? errorMessage : t('sys.api.operationFailed'));
+		closeDialog();
 
-		// 即使更新失败，也刷新一下数据，可能后端已经更新成功了
-		console.log('Refreshing checklist data after update error...');
+		// 即使失败，也刷新一下数据，可能后端已经成功了
+		console.log(`Refreshing checklist data after ${isEdit ? 'update' : 'creation'} error...`);
 		await loadChecklists();
 
-		// 如果编辑的checklist当前是展开状态，强制重新加载任务
-		if (expandedChecklists.value.includes(originalChecklistId)) {
-			await loadChecklistTasks(originalChecklistId, true);
+		if (isEdit && expandedChecklists.value.includes(editingChecklist.value?.id)) {
+			await loadChecklistTasks(editingChecklist.value.id, true);
 		}
 	} finally {
-		editLoading.value = false;
+		if (isEdit) {
+			editLoading.value = false;
+		} else {
+			createLoading.value = false;
+		}
 	}
 };
+
+// closeEditDialog函数已合并到closeDialog中，saveEditChecklist函数已合并到submitDialog中
 
 // 点击外部关闭下拉菜单
 const handleClickOutside = (event) => {
@@ -2961,9 +2259,7 @@ const handleWorkflowChangeForAssignment = async (index) => {
 
 const getStagesForAssignment = (workflowName) => {
 	if (!workflowName) return [];
-	const selectedWorkflow = filteredWorkflows.value.find(
-		(w) => w.name === workflowName
-	);
+	const selectedWorkflow = filteredWorkflows.value.find((w) => w.name === workflowName);
 
 	if (!selectedWorkflow) return [];
 
@@ -2981,106 +2277,130 @@ const getStagesForAssignment = (workflowName) => {
 	background: linear-gradient(to right, #e9d5ff, #bfdbfe);
 }
 
-/* 拖拽样式 */
-.dragging {
-	opacity: 0.6;
-	background-color: #f3f4f6 !important;
-	border: 2px dashed #3b82f6 !important;
-	transform: rotate(2deg);
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+/* 团队按钮样式 */
+.team-button {
+	justify-content: flex-start !important;
+	border: none !important;
+	padding: 8px 12px !important;
+	height: auto !important;
+	margin-bottom: 8px !important;
+	border-radius: 6px !important;
+	font-size: 14px !important;
+	transition: all 0.2s ease !important;
 }
 
-.drag-over {
-	border: 2px solid #3b82f6 !important;
-	background-color: #eff6ff !important;
-	transform: scale(1.02);
+.team-button:hover {
+	background-color: #f3f4f6 !important;
+	color: #374151 !important;
+}
+
+.team-button-active {
+	background: linear-gradient(to right, #dbeafe, #3b82f6) !important;
+	color: #1e3a8a !important;
+	font-weight: 500 !important;
+}
+
+/* 拖拽样式 */
+.tasks-draggable {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.ghost-task {
+	opacity: 0.6;
+	background: var(--primary-50, #f0f7ff) !important;
+	border: 1px dashed var(--primary-500, #2468f2) !important;
+	box-shadow: 0 4px 12px rgba(36, 104, 242, 0.15);
+	transform: rotate(1deg);
+}
+
+.task-item {
+	transition: all 0.3s ease;
+	background-color: #ffffff;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	position: relative;
+}
+
+.task-item:hover:not(.task-disabled):not(.task-sorting) {
+	background-color: #f9fafb !important;
+	border-color: #e5e7eb;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+	transform: translateY(-1px);
+}
+
+/* 拖拽状态样式 */
+.task-disabled {
+	opacity: 0.6;
+	filter: grayscale(0.3);
+	/* 移除 pointer-events: none 以避免阻止拖拽 */
+}
+
+.task-sorting {
+	transition: all 0.3s ease;
+	transform: scale(0.98);
+	filter: blur(0.5px);
+	/* 移除 pointer-events: none 以避免阻止拖拽 */
 }
 
 /* 拖拽手柄样式 */
 .drag-handle {
 	transition: all 0.2s ease;
+	cursor: move !important; /* 确保始终显示移动光标 */
 }
 
-.drag-handle:hover {
+.drag-handle:hover:not(.drag-disabled):not(.drag-sorting) {
 	background-color: #e5e7eb !important;
 	color: #374151 !important;
 }
 
-.dragging .drag-handle {
-	color: #3b82f6 !important;
+.drag-disabled {
+	cursor: not-allowed !important;
+	opacity: 0.5;
 }
 
-/* 下拉菜单样式 */
-.dropdown-menu {
-	max-height: 250px;
-	overflow-y: auto;
-	box-shadow:
-		0 10px 15px -3px rgba(0, 0, 0, 0.1),
-		0 4px 6px -2px rgba(0, 0, 0, 0.05);
+.drag-sorting {
+	/* 保持移动光标，而不是等待光标 */
+	cursor: move !important;
+	opacity: 0.8;
+	animation: pulse-sorting 1.5s infinite;
 }
 
-.dropdown-menu button:hover {
-	background-color: #f8fafc;
-}
-</style>
-
-<style>
-/* 自定义确认删除弹窗样式 */
-.custom-confirm-dialog {
-	border-radius: 8px;
-}
-
-.custom-confirm-dialog .el-message-box__header {
-	padding: 20px 20px 10px;
+@keyframes pulse-sorting {
+	0%,
+	100% {
+		opacity: 0.7;
+	}
+	50% {
+		opacity: 0.4;
+	}
 }
 
-.custom-confirm-dialog .el-message-box__title {
-	font-size: 18px;
-	font-weight: 600;
-	color: #1f2937;
+/* 任务内容区域样式 */
+.tasks-content {
+	transition: all 0.3s ease;
 }
 
-.custom-confirm-dialog .el-message-box__content {
-	padding: 10px 20px 20px;
+/* 间距调整 */
+.space-y-4 > * + * {
+	margin-top: 1rem;
 }
 
-.custom-confirm-dialog .el-message-box__message {
-	font-size: 14px;
-	color: #6b7280;
-	line-height: 1.5;
+.space-y-3 > * + * {
+	margin-top: 0.75rem;
 }
 
-.custom-confirm-dialog .el-message-box__btns {
-	padding: 10px 20px 20px;
-	text-align: right;
+.space-y-2 > * + * {
+	margin-top: 0.5rem;
 }
 
-.custom-confirm-dialog .el-message-box__btns .el-button {
-	margin-left: 12px;
-	padding: 8px 16px;
-	font-size: 14px;
-	border-radius: 6px;
+.gap-2 {
+	gap: 0.5rem;
 }
 
-.custom-confirm-dialog .el-message-box__btns .el-button--default {
-	background-color: #ffffff;
-	border-color: #d1d5db;
-	color: #374151;
-}
-
-.custom-confirm-dialog .el-message-box__btns .el-button--default:hover {
-	background-color: #f9fafb;
-	border-color: #9ca3af;
-}
-
-.custom-confirm-dialog .el-message-box__btns .el-button--danger {
-	background-color: #ef4444;
-	border-color: #ef4444;
-	color: #ffffff;
-}
-
-.custom-confirm-dialog .el-message-box__btns .el-button--danger:hover {
-	background-color: #dc2626;
-	border-color: #dc2626;
+.gap-3 {
+	gap: 0.75rem;
 }
 </style>

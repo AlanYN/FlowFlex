@@ -15,9 +15,9 @@
 			>
 				<el-collapse-item
 					v-for="section in questionnaire.sections"
-					:key="section.title"
+					:key="section.id"
 					:title="section.title"
-					:name="section.title"
+					:name="section.id"
 				>
 					<div class="space-y-4">
 						<div

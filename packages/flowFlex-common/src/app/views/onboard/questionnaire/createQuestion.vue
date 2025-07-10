@@ -118,6 +118,7 @@
 										:questions="currentSection.items"
 										:question-types="questionTypes"
 										@remove-question="handleRemoveQuestion"
+										@edit-question="handleEditQuestion"
 										@drag-end="handleQuestionDragEnd"
 									/>
 
@@ -125,10 +126,15 @@
 
 									<!-- 新问题编辑器 -->
 									<QuestionEditor
+										ref="questionEditorRef"
 										:question-types="questionTypes"
 										:pressent-question-type="pressentQuestionType"
+										:editing-question="editingQuestion"
+										:is-editing="isEditingQuestion"
 										@change-question-type="changeQuestionType"
 										@add-question="handleAddQuestion"
+										@update-question="handleUpdateQuestion"
+										@cancel-edit="cancelEditQuestion"
 									/>
 								</el-card>
 							</TabPane>
@@ -290,6 +296,7 @@ const updateBasicInfo = (basicInfo: { name: string; description: string }) => {
 
 // 子组件引用
 const workflowAssignmentsRef = ref<any>(null);
+const questionEditorRef = ref<any>(null);
 
 // 工作流分配数据（用于初始化子组件）
 const initialAssignments = ref<Array<{ workflowId: string; stageId: string }>>([]);
@@ -523,6 +530,10 @@ const updateCurrentSection = () => {
 const pressentQuestionType = ref('short_answer');
 const changeQuestionType = (type: string) => {
 	pressentQuestionType.value = type;
+	// 如果不在编辑模式，更新子组件的问题类型
+	if (!isEditingQuestion.value) {
+		questionEditorRef.value?.updateQuestionType(type);
+	}
 };
 
 const handleAddQuestion = (questionData: any) => {
@@ -666,6 +677,45 @@ const mapInternalTypeToApiType = (internalType: string): string => {
 		datetime: 'datetime',
 	};
 	return typeMapping[internalType] || internalType;
+};
+
+// 编辑问题状态
+const isEditingQuestion = ref(false);
+const editingQuestion = ref<any>(null);
+
+const handleEditQuestion = (index: number) => {
+	const question = questionnaire.sections[currentSectionIndex.value].items[index];
+	if (question) {
+		isEditingQuestion.value = true;
+		editingQuestion.value = { ...question };
+		pressentQuestionType.value = question.type;
+
+		// 调用子组件的方法加载编辑数据
+		nextTick(() => {
+			questionEditorRef.value?.loadEditingData();
+		});
+	}
+};
+
+const cancelEditQuestion = () => {
+	isEditingQuestion.value = false;
+	editingQuestion.value = null;
+
+	// 调用子组件的方法重置表单
+	questionEditorRef.value?.resetForm();
+	// 恢复当前选中的问题类型
+	questionEditorRef.value?.updateQuestionType(pressentQuestionType.value);
+};
+
+const handleUpdateQuestion = (updatedQuestion: any) => {
+	const index = questionnaire.sections[currentSectionIndex.value].items.findIndex(
+		(item) => item.id === updatedQuestion.id
+	);
+	if (index !== -1) {
+		questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
+	}
+	isEditingQuestion.value = false;
+	editingQuestion.value = null;
 };
 
 onMounted(async () => {

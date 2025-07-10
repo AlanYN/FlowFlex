@@ -5,29 +5,20 @@
 				<label class="options-label">Options</label>
 			</div>
 
-			<div class="options-input-grid">
+			<div class="options-input-section">
 				<div class="option-input-item">
-					<label class="input-label">Value</label>
-					<el-input
-						:model-value="newOption.value"
-						placeholder="Option value"
-						class="option-input"
-						@input="updateOptionValue"
-					/>
-				</div>
-				<div class="option-input-item">
-					<label class="input-label">Label</label>
+					<label class="input-label">Option Label</label>
 					<div class="label-input-group">
 						<el-input
 							:model-value="newOption.label"
-							placeholder="Option label"
+							placeholder="Enter option label"
 							class="option-input"
 							@input="updateOptionLabel"
 						/>
 						<el-button
 							type="primary"
 							@click="addOption"
-							:disabled="!newOption.value || !newOption.label"
+							:disabled="!newOption.label"
 							class="add-option-btn"
 						>
 							Add
@@ -45,7 +36,7 @@
 					<div v-for="option in options" :key="option.id" class="option-item">
 						<div class="option-content">
 							<span class="option-label-text">{{ option.label }}</span>
-							<span class="option-value-text">({{ option.value }})</span>
+							<!-- <span class="option-value-text">({{ option.value }})</span> -->
 						</div>
 						<el-button
 							type="danger"
@@ -90,10 +81,6 @@ const emits = defineEmits<{
 	'remove-option': [id: string];
 }>();
 
-const updateOptionValue = (value: string) => {
-	emits('update-option-value', value);
-};
-
 const updateOptionLabel = (label: string) => {
 	emits('update-option-label', label);
 };
@@ -129,9 +116,9 @@ const removeOption = (id: string) => {
 	color: var(--primary-700);
 }
 
-.options-input-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
+.options-input-section {
+	display: flex;
+	flex-direction: column;
 	gap: 0.5rem;
 }
 
@@ -150,6 +137,10 @@ const removeOption = (id: string) => {
 .label-input-group {
 	display: flex;
 	gap: 0.5rem;
+}
+
+.option-input {
+	flex: 1;
 }
 
 .add-option-btn {
@@ -204,30 +195,34 @@ const removeOption = (id: string) => {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
+	flex: 1;
 }
 
 .option-label-text {
 	font-weight: 500;
-	color: var(--primary-800);
+	color: var(--primary-700);
 }
 
 .option-value-text {
-	font-size: 0.875rem;
-	color: var(--primary-600);
+	font-size: 0.75rem;
+	color: var(--primary-500);
+	font-family: 'Courier New', monospace;
 }
 
 .delete-option-btn {
-	color: var(--el-color-danger) !important;
+	color: var(--el-color-danger);
+	padding: 0.25rem;
 }
 
 .delete-option-btn:hover {
-	background-color: var(--el-color-danger-light-9) !important;
+	background-color: var(--el-color-danger-light-9);
 }
 
 /* 深色模式支持 */
 .dark .options-label,
 .dark .input-label,
-.dark .current-options-label {
+.dark .current-options-label,
+.dark .option-label-text {
 	color: var(--primary-200);
 }
 
@@ -241,11 +236,7 @@ const removeOption = (id: string) => {
 	border-color: var(--primary-600);
 }
 
-.dark .option-label-text {
-	color: var(--primary-100);
-}
-
 .dark .option-value-text {
-	color: var(--primary-300);
+	color: var(--primary-400);
 }
 </style>

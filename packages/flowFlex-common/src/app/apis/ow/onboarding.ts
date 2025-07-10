@@ -668,15 +668,6 @@ export function saveCheckListTask(params: any) {
 	return defHttp.post({ url: `${Api().checkListTask}`, params });
 }
 
-/**
- * 批量更新任务顺序
- * @param params 任务顺序数据 { tasks: [{ id, order }] }
- * @returns bool
- */
-export function batchUpdateTaskOrder(params: any) {
-	return defHttp.post({ url: `${Api().checkListTask}/batch-order`, params });
-}
-
 export function getCheckListIsCompleted(
 	onboardingId: string | number,
 	checklistId: string | number

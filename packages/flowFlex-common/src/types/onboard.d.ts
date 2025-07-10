@@ -14,7 +14,10 @@ export interface Questionnaire {
 	name: string;
 	previewImageUrl: string | null;
 	requiredQuestions: number;
-	stageId: string;
+	assignments: {
+		workflowId: string;
+		stageId: string;
+	}[];
 	status: string;
 	structureJson: string;
 	tagsJson: string | null;
@@ -22,7 +25,6 @@ export interface Questionnaire {
 	totalQuestions: number;
 	type: string;
 	version: number;
-	workflowId: string;
 }
 
 // Onboarding相关类型定义

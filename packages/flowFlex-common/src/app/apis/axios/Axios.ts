@@ -294,11 +294,11 @@ export class VAxios {
 							refreshToken: refresh_token,
 						});
 					} else {
-						useUserStore.logout();
+						useUserStore.logout(true);
 					}
 				} catch (error) {
 					this.refreshPromise = null;
-					useUserStore.logout();
+					useUserStore.logout(true);
 				}
 			}
 		}

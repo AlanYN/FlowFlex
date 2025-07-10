@@ -28,13 +28,22 @@
 								</div>
 							</div>
 						</div>
-						<el-button
-							type="danger"
-							link
-							@click="removeQuestion(index)"
-							:icon="Delete"
-							class="delete-question-btn"
-						/>
+						<div class="question-actions">
+							<el-button
+								type="primary"
+								link
+								@click="editQuestion(index)"
+								:icon="Edit"
+								class="edit-question-btn"
+							/>
+							<el-button
+								type="danger"
+								link
+								@click="removeQuestion(index)"
+								:icon="Delete"
+								class="delete-question-btn"
+							/>
+						</div>
 					</div>
 					<div v-if="item.description" class="question-description">
 						{{ item.description }}
@@ -71,7 +80,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Delete, Document } from '@element-plus/icons-vue';
+import { Delete, Document, Edit } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 import DragIcon from '@assets/svg/publicPage/drag.svg';
 
@@ -102,6 +111,7 @@ const props = defineProps<Props>();
 const emits = defineEmits<{
 	'remove-question': [index: number];
 	'drag-end': [questions: Question[]];
+	'edit-question': [index: number];
 }>();
 
 const questionsData = ref([...props.questions]);
@@ -117,6 +127,10 @@ watch(
 
 const removeQuestion = (index: number) => {
 	emits('remove-question', index);
+};
+
+const editQuestion = (index: number) => {
+	emits('edit-question', index);
 };
 
 const handleQuestionDragEnd = () => {
@@ -196,6 +210,21 @@ const getQuestionTypeName = (type: string) => {
 .question-info {
 	flex: 1;
 	min-width: 0;
+}
+
+.question-actions {
+	display: flex;
+	gap: 0.5rem;
+	flex-shrink: 0;
+}
+
+.edit-question-btn {
+	color: var(--primary-600) !important;
+	flex-shrink: 0;
+}
+
+.edit-question-btn:hover {
+	background-color: var(--primary-50) !important;
 }
 
 .question-text {
@@ -309,5 +338,13 @@ const getQuestionTypeName = (type: string) => {
 
 .dark .empty-questions {
 	color: var(--primary-300);
+}
+
+.dark .edit-question-btn {
+	color: var(--primary-400) !important;
+}
+
+.dark .edit-question-btn:hover {
+	background-color: var(--primary-700) !important;
 }
 </style>
