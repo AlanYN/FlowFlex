@@ -172,6 +172,25 @@ namespace FlowFlex.Application.Services.OW
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to save file record to database");
                 }
+
+                  try
+                {
+                    await _operationChangeLogService.LogFileUploadAsync(
+                        onboardingFile.Id,
+                        onboardingFile.OriginalFileName,
+                        onboardingFile.OnboardingId,
+                        onboardingFile.StageId,
+                        onboardingFile.FileSize,
+                        onboardingFile.ContentType,
+                        onboardingFile.Category
+                    );
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogError(logEx, "Operation log recording failed but continuing - Error: {ErrorMessage}", logEx.Message);
+                    // Don't throw exception as main upload operation succeeded
+                }
+
                 // Debug logging handled by structured logging
                 // Convert to output DTO
                 var result = _mapper.Map<OnboardingFileOutputDto>(onboardingFile);

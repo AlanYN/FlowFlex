@@ -60,7 +60,10 @@ namespace FlowFlex.Application.Service.OW
             if (input.Assignments != null && input.Assignments.Any())
             {
                 // Use assignments array (new approach)
-                assignments = input.Assignments.Select(a => ((long?)a.WorkflowId, (long?)a.StageId)).ToList();
+                assignments = input.Assignments.Select(a => (
+                    (long?)a.WorkflowId, 
+                    a.StageId.HasValue && a.StageId.Value > 0 ? a.StageId : null // 处理空StageId
+                )).ToList();
             }
             else
             {
@@ -87,7 +90,7 @@ namespace FlowFlex.Application.Service.OW
             entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
             {
                 WorkflowId = a.workflowId ?? 0,
-                StageId = a.stageId ?? 0
+                StageId = a.stageId ?? 0 // 允许为0表示空StageId
             }).ToList();
 
             // Note: WorkflowId and StageId fields have been removed - assignments are now stored in JSON
@@ -136,7 +139,10 @@ namespace FlowFlex.Application.Service.OW
             if (input.Assignments != null && input.Assignments.Any())
             {
                 // Use assignments array (new approach)
-                assignments = input.Assignments.Select(a => ((long?)a.WorkflowId, (long?)a.StageId)).ToList();
+                assignments = input.Assignments.Select(a => (
+                    (long?)a.WorkflowId, 
+                    a.StageId.HasValue && a.StageId.Value > 0 ? a.StageId : null // 处理空StageId
+                )).ToList();
             }
             else
             {
@@ -169,7 +175,7 @@ namespace FlowFlex.Application.Service.OW
             entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
             {
                 WorkflowId = a.workflowId ?? 0,
-                StageId = a.stageId ?? 0
+                StageId = a.stageId ?? 0 // 允许为0表示空StageId
             }).ToList();
 
             // Note: WorkflowId and StageId fields have been removed - assignments are now stored in JSON
@@ -382,6 +388,13 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
             }
 
+            // Process StructureJson to generate new IDs
+            string newStructureJson = null;
+            if (input.CopyStructure && !string.IsNullOrWhiteSpace(sourceQuestionnaire.StructureJson))
+            {
+                newStructureJson = GenerateNewIdsInStructureJson(sourceQuestionnaire.StructureJson);
+            }
+
             var newQuestionnaire = new Questionnaire
             {
                 Name = input.Name,
@@ -391,7 +404,7 @@ namespace FlowFlex.Application.Service.OW
                 Status = "Draft",
                 IsTemplate = input.SetAsTemplate,
                 TemplateId = input.SetAsTemplate ? null : sourceQuestionnaire.Id,
-                StructureJson = input.CopyStructure ? sourceQuestionnaire.StructureJson : null,
+                StructureJson = newStructureJson,
                 TagsJson = sourceQuestionnaire.TagsJson,
                 EstimatedMinutes = sourceQuestionnaire.EstimatedMinutes,
                 AllowDraft = sourceQuestionnaire.AllowDraft,
@@ -401,6 +414,9 @@ namespace FlowFlex.Application.Service.OW
                 // Copy assignments from source questionnaire
                 Assignments = sourceQuestionnaire.Assignments
             };
+
+            // Initialize create information with proper ID and timestamps
+            newQuestionnaire.InitCreateInfo(_userContext);
 
             await _questionnaireRepository.InsertAsync(newQuestionnaire);
 
@@ -422,6 +438,7 @@ namespace FlowFlex.Application.Service.OW
                         IsCollapsible = sourceSection.IsCollapsible,
                         IsExpanded = sourceSection.IsExpanded
                     };
+                    newSection.InitCreateInfo(_userContext);
                     await _sectionRepository.InsertAsync(newSection);
                 }
             }
@@ -430,6 +447,144 @@ namespace FlowFlex.Application.Service.OW
             await CalculateQuestionStatistics(newQuestionnaire);
 
             return newQuestionnaire.Id;
+        }
+
+        /// <summary>
+        /// Generate new IDs for sections, questions, and options in StructureJson
+        /// </summary>
+        private string GenerateNewIdsInStructureJson(string originalStructureJson)
+        {
+            if (string.IsNullOrWhiteSpace(originalStructureJson))
+            {
+                return originalStructureJson;
+            }
+
+            try
+            {
+                // Parse the JSON structure
+                var structure = JsonSerializer.Deserialize<JsonElement>(originalStructureJson);
+                
+                // Generate new structure with new IDs
+                var newStructure = GenerateNewIdsInJsonElement(structure);
+                
+                // Serialize back to JSON
+                return JsonSerializer.Serialize(newStructure, new JsonSerializerOptions 
+                { 
+                    WriteIndented = false,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+            }
+            catch (Exception ex)
+            {
+                // If JSON parsing fails, return original structure
+                // Log the error but don't fail the duplication
+                return originalStructureJson;
+            }
+        }
+
+        /// <summary>
+        /// Recursively generate new IDs in JSON structure
+        /// </summary>
+        private object GenerateNewIdsInJsonElement(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    var obj = new Dictionary<string, object>();
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        var key = property.Name;
+                        var value = property.Value;
+                        
+                        // Generate new ID for specific fields
+                        if (key == "id" && value.ValueKind == JsonValueKind.String)
+                        {
+                            var originalId = value.GetString();
+                            if (!string.IsNullOrEmpty(originalId))
+                            {
+                                // Generate new ID based on the original pattern
+                                if (originalId.StartsWith("section-"))
+                                {
+                                    obj[key] = $"section-{GenerateUniqueTimestamp()}";
+                                }
+                                else if (originalId.StartsWith("question-"))
+                                {
+                                    obj[key] = $"question-{GenerateUniqueTimestamp()}";
+                                }
+                                else if (originalId.StartsWith("option-"))
+                                {
+                                    obj[key] = $"option-{GenerateUniqueTimestamp()}";
+                                }
+                                else
+                                {
+                                    // For other ID patterns, generate a new timestamp-based ID
+                                    var prefix = originalId.Contains('-') ? originalId.Split('-')[0] : "item";
+                                    obj[key] = $"{prefix}-{GenerateUniqueTimestamp()}";
+                                }
+                            }
+                            else
+                            {
+                                obj[key] = originalId;
+                            }
+                        }
+                        else
+                        {
+                            obj[key] = GenerateNewIdsInJsonElement(value);
+                        }
+                    }
+                    return obj;
+                    
+                case JsonValueKind.Array:
+                    var array = new List<object>();
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        array.Add(GenerateNewIdsInJsonElement(item));
+                    }
+                    return array;
+                    
+                case JsonValueKind.String:
+                    return element.GetString();
+                    
+                case JsonValueKind.Number:
+                    if (element.TryGetInt32(out var intValue))
+                        return intValue;
+                    if (element.TryGetInt64(out var longValue))
+                        return longValue;
+                    if (element.TryGetDouble(out var doubleValue))
+                        return doubleValue;
+                    return element.GetRawText();
+                    
+                case JsonValueKind.True:
+                    return true;
+                    
+                case JsonValueKind.False:
+                    return false;
+                    
+                case JsonValueKind.Null:
+                    return null;
+                    
+                default:
+                    return element.GetRawText();
+            }
+        }
+
+        /// <summary>
+        /// Generate unique timestamp for IDs
+        /// </summary>
+        private static long GenerateUniqueTimestamp()
+        {
+            // Add some randomness to ensure uniqueness when called multiple times quickly
+            var timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            var random = new Random();
+            return timestamp + random.Next(1, 1000);
+        }
+
+        /// <summary>
+        /// Test method to verify ID generation in structure JSON (for debugging)
+        /// </summary>
+        public string TestGenerateNewIdsInStructureJson(string originalStructureJson)
+        {
+            return GenerateNewIdsInStructureJson(originalStructureJson);
         }
 
         public async Task<QuestionnaireOutputDto> PreviewAsync(long id)
@@ -642,11 +797,15 @@ namespace FlowFlex.Application.Service.OW
                 {
                     foreach (var assignment in questionnaire.Assignments)
                     {
-                        if (!groupedQuestionnaires.ContainsKey(assignment.StageId))
+                        // 只处理有效的StageId（大于0）
+                        if (assignment.StageId > 0)
                         {
-                            groupedQuestionnaires[assignment.StageId] = new List<QuestionnaireOutputDto>();
+                            if (!groupedQuestionnaires.ContainsKey(assignment.StageId))
+                            {
+                                groupedQuestionnaires[assignment.StageId] = new List<QuestionnaireOutputDto>();
+                            }
+                            groupedQuestionnaires[assignment.StageId].Add(mappedQuestionnaire);
                         }
-                        groupedQuestionnaires[assignment.StageId].Add(mappedQuestionnaire);
                     }
                 }
             }
@@ -686,7 +845,7 @@ namespace FlowFlex.Application.Service.OW
                          .Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
                          {
                              WorkflowId = a.WorkflowId,
-                             StageId = a.StageId
+                             StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
                          })
                          .GroupBy(a => new { a.WorkflowId, a.StageId })
                          .Select(ag => ag.First())

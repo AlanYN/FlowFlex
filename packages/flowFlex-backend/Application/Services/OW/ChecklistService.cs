@@ -70,7 +70,7 @@ public class ChecklistService : IChecklistService, IScopedService
             entity.Assignments = input.Assignments.Select(a => new Domain.Entities.OW.AssignmentDto
             {
                 WorkflowId = a.WorkflowId,
-                StageId = a.StageId
+                StageId = (long)a.StageId
             }).ToList();
         }
         else
@@ -150,7 +150,7 @@ public class ChecklistService : IChecklistService, IScopedService
             entity.Assignments = input.Assignments.Select(a => new Domain.Entities.OW.AssignmentDto
             {
                 WorkflowId = a.WorkflowId,
-                StageId = a.StageId
+                StageId = (long)a.StageId
             }).ToList();
         }
         else

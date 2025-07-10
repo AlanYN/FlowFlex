@@ -71,7 +71,7 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = int.Parse(statusCode),
-                Message = crmException.Message,
+                Msg = crmException.Message, // 改为Msg字段
                 Data = crmException.ErrorData
             };
         }
@@ -81,7 +81,7 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.BadRequest,
-                Message = "Invalid request parameters",
+                Msg = "Invalid request parameters", // 改为Msg字段
                 Data = new { Details = exception.Message }
             };
         }
@@ -91,7 +91,7 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.Unauthorized,
-                Message = "Unauthorized access",
+                Msg = "Unauthorized access", // 改为Msg字段
                 Data = null
             };
         }
@@ -101,7 +101,7 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.RequestTimeout,
-                Message = "Request timeout",
+                Msg = "Request timeout", // 改为Msg字段
                 Data = null
             };
         }
@@ -111,7 +111,7 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.InternalServerError,
-                Message = "An internal server error occurred",
+                Msg = "An internal server error occurred", // 改为Msg字段
                 Data = null
             };
         }

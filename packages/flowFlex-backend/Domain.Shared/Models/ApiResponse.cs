@@ -12,9 +12,14 @@ namespace FlowFlex.Domain.Shared.Models
         public int Code { get; set; }
 
         /// <summary>
-        /// Message
+        /// Message (for backward compatibility)
         /// </summary>
         public string Message { get; set; }
+
+        /// <summary>
+        /// Msg (new field for frontend compatibility)
+        /// </summary>
+        public string Msg { get; set; }
 
         /// <summary>
         /// Data
@@ -33,6 +38,7 @@ namespace FlowFlex.Domain.Shared.Models
             {
                 Code = 200,
                 Message = message,
+                Msg = message, // 同时设置两个字段
                 Data = data
             };
         }
@@ -49,6 +55,7 @@ namespace FlowFlex.Domain.Shared.Models
             {
                 Code = errorCode,
                 Message = message,
+                Msg = message, // 同时设置两个字段
                 Data = default
             };
         }

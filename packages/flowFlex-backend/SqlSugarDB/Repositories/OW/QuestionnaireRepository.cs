@@ -269,7 +269,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             return allQuestionnaires.Where(q => 
                 // Check new Assignments JSON field
-                (q.Assignments?.Any(a => stageIds.Contains(a.StageId)) == true)
+                (q.Assignments?.Any(a => stageIds.Contains(a.StageId) && a.StageId > 0) == true) // 只匹配有效的StageId
             ).OrderByDescending(x => x.CreateDate).ToList();
         }
 
@@ -364,7 +364,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             return allQuestionnaires.Where(q => 
                 // Check new Assignments JSON field
-                (q.Assignments?.Any(a => a.StageId == stageId) == true)
+                (q.Assignments?.Any(a => a.StageId == stageId && a.StageId > 0) == true) // 只匹配有效的StageId
             ).OrderBy(x => x.CreateDate).ToList();
         }
 

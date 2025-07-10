@@ -15,9 +15,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Common
         public long WorkflowId { get; set; }
 
         /// <summary>
-        /// Stage ID
+        /// Stage ID (can be null or 0 for empty stage)
         /// </summary>
         [JsonPropertyName("stageId")]
-        public long StageId { get; set; }
+        public long? StageId { get; set; }
     }
 } 
