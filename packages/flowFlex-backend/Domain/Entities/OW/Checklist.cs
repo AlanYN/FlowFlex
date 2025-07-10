@@ -11,7 +11,7 @@ namespace FlowFlex.Domain.Entities.OW;
 public class AssignmentDto
 {
     public long WorkflowId { get; set; }
-    public long StageId { get; set; }
+    public long StageId { get; set; } // 0 表示空的 StageId
 }
 
 /// <summary>
