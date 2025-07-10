@@ -1,6 +1,7 @@
 using System.IO;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
+using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -206,8 +207,8 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var result = _mapper.Map<ChecklistOutputDto>(checklist);
         
-        // Fill assignments for the checklist
-        await FillAssignmentsAsync(new List<ChecklistOutputDto> { result });
+        // Fill assignments and tasks for the checklist
+        await FillAssignmentsAndTasksAsync(new List<ChecklistOutputDto> { result });
         
         return result;
     }
@@ -480,8 +481,8 @@ public class ChecklistService : IChecklistService, IScopedService
             c.Assignments?.Any(a => a.StageId == stageId) == true).ToList();
         var result = _mapper.Map<List<ChecklistOutputDto>>(checklists);
         
-        // Fill assignments for the checklists
-        await FillAssignmentsAsync(result);
+        // Fill assignments and tasks for the checklists
+        await FillAssignmentsAndTasksAsync(result);
         
         return result;
     }
@@ -502,8 +503,8 @@ public class ChecklistService : IChecklistService, IScopedService
             c.Assignments?.Any(a => stageIds.Contains(a.StageId)) == true).ToList();
         var result = _mapper.Map<List<ChecklistOutputDto>>(checklists);
         
-        // Fill assignments for the checklists
-        await FillAssignmentsAsync(result);
+        // Fill assignments and tasks for the checklists
+        await FillAssignmentsAndTasksAsync(result);
         
         return result;
     }
@@ -582,6 +583,14 @@ ASSIGNMENTS:
     /// </summary>
     private async Task FillAssignmentsAsync(List<ChecklistOutputDto> checklists)
     {
+        await FillAssignmentsAndTasksAsync(checklists, false);
+    }
+
+    /// <summary>
+    /// Fill assignments, task statistics and optionally task details for checklist output DTOs
+    /// </summary>
+    private async Task FillAssignmentsAndTasksAsync(List<ChecklistOutputDto> checklists, bool includeTasks = true)
+    {
         if (checklists == null || !checklists.Any())
             return;
 
@@ -616,7 +625,7 @@ ASSIGNMENTS:
                 checklist.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
             }
 
-            // Calculate task statistics
+            // Load tasks and calculate task statistics
             try
             {
                 var tasks = await _checklistTaskRepository.GetByChecklistIdAsync(checklist.Id);
@@ -632,6 +641,16 @@ ASSIGNMENTS:
                 {
                     checklist.CompletionRate = 0;
                 }
+
+                // Include task details if requested
+                if (includeTasks && tasks != null)
+                {
+                    checklist.Tasks = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+                }
+                else
+                {
+                    checklist.Tasks = new List<ChecklistTaskOutputDto>();
+                }
             }
             catch (Exception ex)
             {
@@ -640,6 +659,7 @@ ASSIGNMENTS:
                 checklist.TotalTasks = 0;
                 checklist.CompletedTasks = 0;
                 checklist.CompletionRate = 0;
+                checklist.Tasks = new List<ChecklistTaskOutputDto>();
             }
         }
     }

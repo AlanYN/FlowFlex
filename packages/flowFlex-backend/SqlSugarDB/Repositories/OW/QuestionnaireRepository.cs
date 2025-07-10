@@ -275,6 +275,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
         /// <summary>
         /// Check if workflow and stage association already exists (supports new Assignments JSON)
+        /// Note: This method is retained for backward compatibility but is no longer used for uniqueness validation
+        /// Multiple questionnaires can now be associated with the same workflow-stage combination
         /// </summary>
         public async Task<bool> IsWorkflowStageAssociationExistsAsync(long? workflowId, long? stageId, long? excludeId = null)
         {
@@ -305,6 +307,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
         /// <summary>
         /// Get existing questionnaire with same workflow and stage association (supports new Assignments JSON)
+        /// Note: This method returns the first match found, but multiple questionnaires can now exist with the same association
         /// </summary>
         public async Task<Questionnaire> GetByWorkflowStageAssociationAsync(long? workflowId, long? stageId, long? excludeId = null)
         {

@@ -68,33 +68,8 @@ namespace FlowFlex.Application.Service.OW
                 assignments.Add((input.WorkflowId, input.StageId));
             }
 
-            // Validate each assignment's uniqueness
-            foreach (var (workflowId, stageId) in assignments)
-            {
-                if (workflowId.HasValue || stageId.HasValue)
-                {
-                    if (await _questionnaireRepository.IsWorkflowStageAssociationExistsAsync(workflowId, stageId))
-                    {
-                        var existingQuestionnaire = await _questionnaireRepository.GetByWorkflowStageAssociationAsync(workflowId, stageId);
-
-                        if (workflowId.HasValue && stageId.HasValue)
-                        {
-                            throw new CRMException(ErrorCodeEnum.BusinessError,
-                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId} and Stage ID {stageId}. Each workflow-stage combination can only have one questionnaire.");
-                        }
-                        else if (workflowId.HasValue)
-                        {
-                            throw new CRMException(ErrorCodeEnum.BusinessError,
-                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId}. Each workflow can only have one questionnaire.");
-                        }
-                        else if (stageId.HasValue)
-                        {
-                            throw new CRMException(ErrorCodeEnum.BusinessError,
-                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Stage ID {stageId}. Each stage can only have one questionnaire.");
-                        }
-                    }
-                }
-            }
+            // Note: Removed workflow-stage assignment uniqueness validation
+            // Multiple questionnaires can now be associated with the same workflow-stage combination
 
             // Validate structure JSON
             if (!string.IsNullOrWhiteSpace(input.StructureJson))
@@ -169,33 +144,8 @@ namespace FlowFlex.Application.Service.OW
                 assignments.Add((input.WorkflowId, input.StageId));
             }
 
-            // Validate each assignment's uniqueness (exclude current record)
-            foreach (var (workflowId, stageId) in assignments)
-            {
-                if (workflowId.HasValue || stageId.HasValue)
-                {
-                    if (await _questionnaireRepository.IsWorkflowStageAssociationExistsAsync(workflowId, stageId, id))
-                    {
-                        var existingQuestionnaire = await _questionnaireRepository.GetByWorkflowStageAssociationAsync(workflowId, stageId, id);
-
-                        if (workflowId.HasValue && stageId.HasValue)
-                        {
-                            throw new CRMException(ErrorCodeEnum.BusinessError,
-                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId} and Stage ID {stageId}. Each workflow-stage combination can only have one questionnaire.");
-                        }
-                        else if (workflowId.HasValue)
-                        {
-                            throw new CRMException(ErrorCodeEnum.BusinessError,
-                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Workflow ID {workflowId}. Each workflow can only have one questionnaire.");
-                        }
-                        else if (stageId.HasValue)
-                        {
-                            throw new CRMException(ErrorCodeEnum.BusinessError,
-                                $"A questionnaire '{existingQuestionnaire?.Name}' is already associated with Stage ID {stageId}. Each stage can only have one questionnaire.");
-                        }
-                    }
-                }
-            }
+            // Note: Removed workflow-stage assignment uniqueness validation
+            // Multiple questionnaires can now be associated with the same workflow-stage combination
 
             // Validate structure JSON
             if (!string.IsNullOrWhiteSpace(input.StructureJson))

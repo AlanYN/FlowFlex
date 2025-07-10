@@ -68,6 +68,8 @@ namespace FlowFlex.Domain.Repository.OW
 
         /// <summary>
         /// Check if workflow and stage association already exists
+        /// Note: This method is retained for backward compatibility but is no longer used for uniqueness validation
+        /// Multiple questionnaires can now be associated with the same workflow-stage combination
         /// </summary>
         /// <param name="workflowId">Workflow ID</param>
         /// <param name="stageId">Stage ID</param>
@@ -77,6 +79,7 @@ namespace FlowFlex.Domain.Repository.OW
 
         /// <summary>
         /// Get existing questionnaire with same workflow and stage association
+        /// Note: This method returns the first match found, but multiple questionnaires can now exist with the same association
         /// </summary>
         /// <param name="workflowId">Workflow ID</param>
         /// <param name="stageId">Stage ID</param>
