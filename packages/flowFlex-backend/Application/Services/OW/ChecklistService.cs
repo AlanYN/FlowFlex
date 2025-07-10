@@ -150,7 +150,7 @@ public class ChecklistService : IChecklistService, IScopedService
             entity.Assignments = input.Assignments.Select(a => new Domain.Entities.OW.AssignmentDto
             {
                 WorkflowId = a.WorkflowId,
-                StageId = (long)a.StageId
+                StageId = a.StageId ?? 0 // 如果 StageId 为 null，则设为 0
             }).ToList();
         }
         else
