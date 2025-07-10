@@ -16,14 +16,14 @@
 		<el-scrollbar max-height="400px" class="assignments-scrollbar">
 			<div class="assignments-container">
 				<div
-					v-for="(assignment, index) in assignments"
-					:key="assignment.id"
+					v-for="(assignment, index) in extendedAssignments"
+					:key="`assignment-${index}`"
 					class="assignment-item"
 				>
 					<div class="assignment-item-header">
 						<span class="assignment-label">Assignment {{ index + 1 }}</span>
 						<el-button
-							v-if="assignments.length > 1"
+							v-if="extendedAssignments.length > 1"
 							type="danger"
 							text
 							size="small"
@@ -37,10 +37,10 @@
 					<el-form :model="assignment" label-position="top">
 						<el-form-item label="Workflow">
 							<el-select
-								:model-value="assignment.workflowId"
+								v-model="assignment.workflowId"
 								placeholder="Select workflow"
 								style="width: 100%"
-								@change="(value) => handleWorkflowChange(assignment, index, value)"
+								@change="handleWorkflowChange(index, $event)"
 								clearable
 							>
 								<el-option
@@ -54,12 +54,12 @@
 
 						<el-form-item label="Stage">
 							<el-select
-								:model-value="assignment.stageId"
+								v-model="assignment.stageId"
 								placeholder="Select stage"
 								style="width: 100%"
 								:disabled="!assignment.workflowId || assignment.stagesLoading"
 								:loading="assignment.stagesLoading"
-								@change="(value) => handleStageChange(assignment, value)"
+								@change="handleStageChange(index, $event)"
 								clearable
 							>
 								<el-option
@@ -67,13 +67,14 @@
 									:key="stage.id"
 									:label="stage.name"
 									:value="stage.id"
+									:disabled="isStageDisabled(stage.id, index)"
 								/>
 							</el-select>
 						</el-form-item>
 					</el-form>
 				</div>
 
-				<div v-if="assignments.length === 0" class="empty-assignments">
+				<div v-if="extendedAssignments.length === 0" class="empty-assignments">
 					<el-empty description="No assignments yet" :image-size="80">
 						<el-button type="primary" @click="addAssignment">
 							Add First Assignment
@@ -87,12 +88,15 @@
 
 <script setup lang="ts">
 import { Plus, Delete } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ref, watch, onMounted } from 'vue';
+import { getStagesByWorkflow } from '@/apis/ow';
 
 interface Assignment {
-	id: string;
 	workflowId: string;
 	stageId: string;
+}
+
+interface ExtendedAssignment extends Assignment {
 	stages: Array<{ id: string; name: string }>;
 	stagesLoading: boolean;
 }
@@ -109,32 +113,145 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const emits = defineEmits<{
-	'add-assignment': [];
-	'remove-assignment': [index: number];
-	'workflow-change': [assignment: Assignment, index: number, workflowId: string];
-	'stage-change': [assignment: Assignment, stageId: string];
-}>();
+// 子组件内部管理完整的 assignments 状态
+const extendedAssignments = ref<ExtendedAssignment[]>([]);
 
-const addAssignment = () => {
-	emits('add-assignment');
+// stages 数据缓存
+const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({});
+
+// 初始化数据
+const initializeAssignments = async () => {
+	extendedAssignments.value = props.assignments.map((assignment) => ({
+		...assignment,
+		stages: stagesCache.value[assignment.workflowId] || [],
+		stagesLoading: false,
+	}));
+
+	// 加载所有需要的 stages 数据
+	await loadAllStagesData();
 };
 
-const removeAssignment = (index: number) => {
-	if (props.assignments.length <= 1) {
-		ElMessage.warning('At least one assignment is required');
-		return;
+// 加载所有需要的 stages 数据
+const loadAllStagesData = async () => {
+	const workflowIds = [
+		...new Set(extendedAssignments.value.map((a) => a.workflowId).filter(Boolean)),
+	];
+
+	for (const workflowId of workflowIds) {
+		if (workflowId && !stagesCache.value[workflowId]) {
+			await loadStagesForWorkflow(workflowId);
+		}
 	}
-	emits('remove-assignment', index);
+
+	// 更新 extendedAssignments 中的 stages 数据
+	extendedAssignments.value.forEach((assignment) => {
+		if (assignment.workflowId && stagesCache.value[assignment.workflowId]) {
+			assignment.stages = stagesCache.value[assignment.workflowId];
+		}
+	});
 };
 
-const handleWorkflowChange = (assignment: Assignment, index: number, workflowId: string) => {
-	emits('workflow-change', assignment, index, workflowId);
+// 加载指定 workflow 的 stages 数据
+const loadStagesForWorkflow = async (workflowId: string) => {
+	if (!workflowId || stagesCache.value[workflowId]) return;
+
+	try {
+		const response = await getStagesByWorkflow(workflowId);
+		if (response.code === '200') {
+			stagesCache.value[workflowId] = response.data || [];
+		} else {
+			stagesCache.value[workflowId] = [];
+		}
+	} catch (error) {
+		console.error('Failed to load stages for workflow:', workflowId, error);
+		stagesCache.value[workflowId] = [];
+	}
 };
 
-const handleStageChange = (assignment: Assignment, stageId: string) => {
-	emits('stage-change', assignment, stageId);
+// 新增 assignment
+const addAssignment = () => {
+	extendedAssignments.value.push({
+		workflowId: '',
+		stageId: '',
+		stages: [],
+		stagesLoading: false,
+	});
 };
+
+// 删除 assignment
+const removeAssignment = (index: number) => {
+	extendedAssignments.value.splice(index, 1);
+};
+
+// 处理 workflow 变化
+const handleWorkflowChange = async (index: number, workflowId: string) => {
+	const assignment = extendedAssignments.value[index];
+	if (!assignment) return;
+
+	// 更新本地状态
+	assignment.workflowId = workflowId;
+	assignment.stageId = ''; // 清空 stage 选择
+	assignment.stages = [];
+
+	// 如果选择了 workflow，加载对应的 stages
+	if (workflowId) {
+		if (!stagesCache.value[workflowId]) {
+			assignment.stagesLoading = true;
+			await loadStagesForWorkflow(workflowId);
+			assignment.stagesLoading = false;
+		}
+		assignment.stages = stagesCache.value[workflowId] || [];
+	}
+};
+
+// 处理 stage 变化
+const handleStageChange = (index: number, stageId: string) => {
+	const assignment = extendedAssignments.value[index];
+	if (assignment) {
+		assignment.stageId = stageId;
+	}
+};
+
+// 检查 stage 是否被禁用（已被其他 assignment 使用）
+const isStageDisabled = (stageId: string, currentIndex: number) => {
+	if (!stageId) return false;
+
+	return extendedAssignments.value.some(
+		(assignment, index) => index !== currentIndex && assignment.stageId === stageId
+	);
+};
+
+// 获取当前的 assignments 数据（暴露给父组件）
+const getAssignments = (): Assignment[] => {
+	return extendedAssignments.value.map(({ workflowId, stageId }) => ({
+		workflowId,
+		stageId,
+	}));
+};
+
+// 监听 props.assignments 的变化（用于初始化）
+watch(
+	() => props.assignments,
+	async (newAssignments) => {
+		if (newAssignments && newAssignments.length > 0) {
+			await initializeAssignments();
+		}
+	},
+	{ immediate: true, deep: true }
+);
+
+// 组件挂载时初始化
+onMounted(async () => {
+	if (props.assignments.length === 0) {
+		// 如果没有初始数据，添加一个空的 assignment
+		addAssignment();
+	}
+});
+
+// 暴露方法给父组件
+defineExpose({
+	getAssignments,
+});
 </script>
 
 <style scoped lang="scss">

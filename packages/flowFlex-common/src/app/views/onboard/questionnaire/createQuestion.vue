@@ -43,12 +43,9 @@
 
 							<!-- 工作流阶段分配 -->
 							<WorkflowAssignments
-								:assignments="questionnaire.assignments"
+								ref="workflowAssignmentsRef"
+								:assignments="initialAssignments"
 								:workflows="workflows"
-								@add-assignment="addAssignment"
-								@remove-assignment="removeAssignment"
-								@workflow-change="handleWorkflowChange"
-								@stage-change="handleStageChange"
 							/>
 
 							<el-divider />
@@ -169,7 +166,7 @@ import {
 	getQuestionnaireDetail,
 	updateQuestionnaire,
 } from '@/apis/ow/questionnaire';
-import { getWorkflows, getStagesByWorkflow } from '@/apis/ow';
+import { getWorkflows } from '@/apis/ow';
 
 const router = useRouter();
 const route = useRoute();
@@ -216,25 +213,9 @@ const loadQuestionnaireData = async () => {
 			// 填充问卷基本信息
 			questionnaire.name = data.name || '';
 			questionnaire.description = data.description || '';
-			questionnaire.workflowId = data.workflowId || '';
-			questionnaire.stageId = data.stageId || '';
 			questionnaire.isActive = data.isActive ?? true;
 
-			// 初始化工作流阶段分配 - 从旧的单一workflowId/stageId转换
-			if (data.workflowId && data.stageId) {
-				questionnaire.assignments = [
-					{
-						id: `assignment-${Date.now()}`,
-						workflowId: data.workflowId,
-						stageId: data.stageId,
-						stages: [],
-						stagesLoading: false,
-					},
-				];
-			} else {
-				questionnaire.assignments = [];
-			}
-
+			initialAssignments.value = data.assignments || [];
 			// 填充问卷结构 - 适配API返回的数据结构
 			if (structure?.sections && Array.isArray(structure.sections)) {
 				questionnaire.sections = structure.sections.map((section: any) => ({
@@ -301,65 +282,17 @@ const fetchWorkflows = async () => {
 	}
 };
 
-// 监听workflow变化
-const handleWorkflowChange = async (assignment: any, index: number, workflowId: string) => {
-	// 更新workflowId
-	assignment.workflowId = workflowId;
-	// 清空当前选择的stage
-	assignment.stageId = '';
-	assignment.stages = [];
-
-	if (!workflowId) {
-		return;
-	}
-
-	// 加载阶段数据
-	assignment.stagesLoading = true;
-	try {
-		const response = await getStagesByWorkflow(workflowId);
-		if (response.code === '200') {
-			assignment.stages = response.data || [];
-		} else {
-			assignment.stages = [];
-		}
-	} catch (error) {
-		assignment.stages = [];
-	} finally {
-		assignment.stagesLoading = false;
-	}
-};
-
-// 监听stage变化
-const handleStageChange = (assignment: any, stageId: string) => {
-	assignment.stageId = stageId;
-};
-
 // 更新基本信息
 const updateBasicInfo = (basicInfo: { name: string; description: string }) => {
 	questionnaire.name = basicInfo.name;
 	questionnaire.description = basicInfo.description;
 };
 
-// 添加工作流阶段分配
-const addAssignment = () => {
-	const newAssignment = {
-		id: `assignment-${Date.now()}`,
-		workflowId: '',
-		stageId: '',
-		stages: [],
-		stagesLoading: false,
-	};
-	questionnaire.assignments.push(newAssignment);
-};
+// 子组件引用
+const workflowAssignmentsRef = ref<any>(null);
 
-// 删除工作流阶段分配
-const removeAssignment = (index: number) => {
-	if (questionnaire.assignments.length <= 1) {
-		ElMessage.warning('At least one assignment is required');
-		return;
-	}
-	questionnaire.assignments.splice(index, 1);
-};
+// 工作流分配数据（用于初始化子组件）
+const initialAssignments = ref<Array<{ workflowId: string; stageId: string }>>([]);
 
 // 问题类型定义
 const questionTypes = [
@@ -462,16 +395,7 @@ const tabsConfig = [
 const questionnaire = reactive({
 	name: '',
 	description: '',
-	workflowId: '', // 保留用于兼容性
-	stageId: '', // 保留用于兼容性
 	isActive: true,
-	assignments: [] as Array<{
-		id: string;
-		workflowId: string;
-		stageId: string;
-		stages: Array<{ id: string; name: string }>;
-		stagesLoading: boolean;
-	}>,
 	sections: [
 		{
 			id: `section-${Date.now()}`,
@@ -521,17 +445,12 @@ const pageDescription = computed(() => {
 // 预览数据
 const previewData = computed(() => {
 	// 获取第一个工作流阶段分配用于显示
-	const firstAssignment = questionnaire.assignments[0];
-	const workflow = workflows.value.find((w) => w.id === firstAssignment?.workflowId);
-	const stage = firstAssignment?.stages?.find((s) => s.id === firstAssignment?.stageId);
 
 	return {
 		id: isEditMode.value ? questionnaireId.value : `0`,
 		name: questionnaire.name || 'Untitled Questionnaire',
 		title: questionnaire.name || 'Untitled Questionnaire',
 		description: questionnaire.description || '',
-		workflowName: workflow?.name || '',
-		stageName: stage?.name || '',
 		sections: questionnaire.sections || [],
 		totalQuestions:
 			questionnaire.sections?.reduce(
@@ -557,7 +476,7 @@ const previewData = computed(() => {
 		createBy: 'Current User',
 		createDate: new Date().toISOString(),
 		// 添加工作流阶段分配信息
-		assignments: questionnaire.assignments,
+		assignments: workflowAssignmentsRef.value?.getAssignments() || [],
 	};
 });
 
@@ -637,6 +556,9 @@ const handleSaveQuestionnaire = async () => {
 	try {
 		saving.value = true;
 
+		// 从子组件获取工作流分配数据
+		const assignments = workflowAssignmentsRef.value?.getAssignments() || [];
+
 		// 构建问卷结构JSON - 适配API期望的数据结构
 		const structureJson = JSON.stringify({
 			sections: questionnaire.sections.map((section) => ({
@@ -675,14 +597,9 @@ const handleSaveQuestionnaire = async () => {
 			0
 		);
 
-		// 为了向后兼容，使用第一个分配的 workflowId 和 stageId
-		const firstAssignment = questionnaire.assignments[0];
-
 		const params = {
 			name: questionnaire.name,
 			description: questionnaire.description,
-			workflowId: firstAssignment?.workflowId || '',
-			stageId: firstAssignment?.stageId || '',
 			isActive: questionnaire.isActive,
 			structureJson,
 			totalQuestions,
@@ -690,15 +607,7 @@ const handleSaveQuestionnaire = async () => {
 			estimatedMinutes: Math.max(1, Math.ceil(totalQuestions * 0.5)),
 			category: 'custom',
 			type: 'questionnaire',
-			// 可以在这里添加新的字段来保存所有的工作流阶段分配
-			assignments: questionnaire.assignments
-				.filter((assignment) => assignment.workflowId && assignment.stageId)
-				?.map((item) => {
-					return {
-						workflowId: item.workflowId,
-						stageId: item.stageId,
-					};
-				}),
+			assignments: assignments.filter((assignment) => assignment.workflowId),
 		};
 
 		let result;
@@ -763,17 +672,8 @@ onMounted(async () => {
 	// 初始化数据 - 先加载问卷数据和工作流
 	await Promise.all([loadQuestionnaireData(), fetchWorkflows()]);
 
-	// 如果没有工作流阶段分配，添加一个空的分配
-	if (questionnaire.assignments.length === 0) {
-		addAssignment();
-	}
-
-	// 为现有的分配加载阶段数据
-	for (const assignment of questionnaire.assignments) {
-		if (assignment.workflowId) {
-			await handleWorkflowChange(assignment, 0, assignment.workflowId);
-		}
-	}
+	// 获取stages的逻辑已经移动到WorkflowAssignments.vue中
+	// 当WorkflowAssignments组件挂载后会自动加载stages数据
 
 	debouncedUpdateScrollbars();
 });
