@@ -17,145 +17,6 @@
 			</div>
 		</div>
 
-		<!-- 搜索区域 -->
-		<el-card class="mb-6 rounded-md">
-			<template #default>
-				<div class="pt-6">
-					<el-form
-						ref="searchFormRef"
-						:model="searchParams"
-						@submit.prevent="handleSearch"
-						class="onboardSearch-form"
-					>
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Lead ID</label>
-								<el-input
-									v-model="searchParams.leadId"
-									placeholder="Search or enter Lead ID"
-									clearable
-									class="w-full rounded-md"
-								/>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
-									Company/Contact Name
-								</label>
-								<el-input
-									v-model="searchParams.leadName"
-									placeholder="Enter Company or Contact Name"
-									clearable
-									class="w-full rounded-md"
-								/>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
-									Life Cycle Stage
-								</label>
-								<el-select
-									v-model="searchParams.lifeCycleStageName"
-									placeholder="Select Stage"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All Stages" value="" />
-									<el-option
-										v-for="stage in lifeCycleStage"
-										:key="stage.name"
-										:label="stage.name"
-										:value="stage.name"
-									/>
-								</el-select>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
-									Onboard Work Flow
-								</label>
-								<el-select
-									v-model="searchParams.workFlowId"
-									placeholder="Select Work Flow"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All Work Flows" value="" />
-									<el-option
-										v-for="workflow in allWorkflows"
-										:key="workflow.id"
-										:label="workflow.name"
-										:value="workflow.id"
-									/>
-								</el-select>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
-									Onboard Stage
-								</label>
-								<el-select
-									v-model="searchParams.currentStageId"
-									placeholder="Select Stage"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All Stages" value="" />
-									<el-option
-										v-for="stage in onboardingStages"
-										:key="stage.id"
-										:label="stage.name"
-										:value="stage.id"
-									/>
-								</el-select>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Updated By</label>
-								<el-input
-									v-model="searchParams.updatedBy"
-									placeholder="Enter User Name"
-									clearable
-									class="w-full rounded-md"
-								/>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Priority</label>
-								<el-select
-									v-model="searchParams.priority"
-									placeholder="Select Priority"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All Priorities" value="" />
-									<el-option label="High" value="High" />
-									<el-option label="Medium" value="Medium" />
-									<el-option label="Low" value="Low" />
-								</el-select>
-							</div>
-						</div>
-
-						<div class="flex justify-end space-x-2">
-							<el-button @click="handleReset">
-								<el-icon><Close /></el-icon>
-								Reset
-							</el-button>
-							<el-button type="primary" @click="handleSearch">
-								<el-icon><Search /></el-icon>
-								Search
-							</el-button>
-							<el-button @click="handleExport" :loading="loading" :disabled="loading">
-								<el-icon><Download /></el-icon>
-								Export
-								{{ selectedItems.length > 0 ? `(${selectedItems.length})` : 'All' }}
-							</el-button>
-						</div>
-					</el-form>
-				</div>
-			</template>
-		</el-card>
-
 		<PrototypeTabs
 			v-model="activeView"
 			:tabs="tabsConfig"
@@ -165,6 +26,18 @@
 		>
 			<!-- 表格视图 -->
 			<TabPane value="table">
+				<!-- 搜索区域 -->
+				<OnboardFilter
+					:life-cycle-stage="lifeCycleStage"
+					:all-workflows="allWorkflows"
+					:onboarding-stages="onboardingStages"
+					:loading="loading"
+					:selected-items="selectedItems"
+					filterType="table"
+					@search="handleFilterSearch"
+					@reset="handleFilterReset"
+					@export="handleExport"
+				/>
 				<div class="rounded-md border bg-white shadow-sm overflow-hidden">
 					<el-table
 						:data="currentPageData"
@@ -365,7 +238,34 @@
 			<!-- 管道视图 -->
 			<TabPane value="pipeline">
 				<!-- 阶段过滤器和总记录数 -->
+				<OnboardFilter
+					:life-cycle-stage="lifeCycleStage"
+					:all-workflows="allWorkflows"
+					:onboarding-stages="onboardingStages"
+					:loading="loading"
+					:selected-items="selectedItems"
+					filterType="pipeline"
+					@search="handleFilterSearch"
+					@reset="handleFilterReset"
+					@export="handleExport"
+				/>
 				<div class="mb-4">
+					<PrototypeTabs
+						v-model="tabWorkflowId"
+						:tabs="[
+							{
+								name: 'All',
+								id: '',
+							},
+							...allWorkflows,
+						]"
+						type="adaptive"
+						class="mb-6"
+						:keys="{
+							label: 'name',
+							value: 'id',
+						}"
+					/>
 					<div class="flex justify-between items-center mb-2">
 						<div class="text-sm font-medium text-gray-700">Filter Stages:</div>
 						<div class="text-sm text-gray-500">Total Records: {{ totalElements }}</div>
@@ -677,9 +577,6 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import '../styles/errorDialog.css';
 import {
-	Search,
-	Close,
-	Download,
 	ArrowDownBold,
 	Edit,
 	Delete,
@@ -707,6 +604,7 @@ import {
 	dialogWidth,
 } from '@/settings/projectSetting';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import OnboardFilter from './components/OnboardFilter.vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { useI18n } from '@/hooks/useI18n';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
@@ -720,7 +618,6 @@ const onboardingStages = ref<any[]>([]);
 
 // 响应式数据
 const router = useRouter();
-const searchFormRef = ref();
 const loading = ref(false);
 const onboardingList = ref<OnboardingItem[]>([]);
 const selectedItems = ref<OnboardingItem[]>([]);
@@ -930,13 +827,15 @@ const getStageOverdueCount = (stage: string) => {
 };
 
 // 事件处理函数
-const handleSearch = async () => {
+const handleFilterSearch = async (params: SearchParams) => {
+	// 更新搜索参数
+	Object.assign(searchParams, params);
 	currentPage.value = 1;
 	searchParams.page = 1;
 	await loadOnboardingList();
 };
 
-const handleReset = async () => {
+const handleFilterReset = async () => {
 	// 重置搜索参数，但保留分页参数
 	searchParams.leadId = '';
 	searchParams.leadName = '';
@@ -944,6 +843,7 @@ const handleReset = async () => {
 	searchParams.currentStageId = '';
 	searchParams.updatedBy = '';
 	searchParams.priority = '';
+	searchParams.workFlowId = '';
 
 	currentPage.value = 1;
 	searchParams.page = 1;
@@ -1232,7 +1132,7 @@ const allWorkflows = ref<any[]>([]);
 const fetchAllWorkflows = async () => {
 	const response = await getWorkflowList();
 	if (response.code === '200') {
-		allWorkflows.value = response.data?.filter((item) => item.isDefault) || [];
+		allWorkflows.value = response.data || [];
 	}
 };
 
@@ -1261,6 +1161,8 @@ const getLifeCycleStage = async () => {
 		},
 	];
 };
+
+const tabWorkflowId = ref('');
 
 // 初始化
 onMounted(async () => {
@@ -1351,25 +1253,6 @@ onMounted(async () => {
 	padding: 0 24px 24px 24px;
 	border-top: 1px solid #f0f0f0;
 	margin-top: 16px;
-}
-
-/* 搜索表单样式 */
-.onboardSearch-form :deep(.el-form-item) {
-	margin-bottom: 0;
-}
-
-.onboardSearch-form :deep(.el-input__wrapper) {
-	border: 1px solid #d1d5db;
-	transition: all 0.2s;
-}
-
-.onboardSearch-form :deep(.el-input__wrapper:hover) {
-	border-color: #9ca3af;
-}
-
-.onboardSearch-form :deep(.el-input__wrapper.is-focus) {
-	border-color: #3b82f6;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* 表格样式 */
@@ -1638,25 +1521,6 @@ html.dark {
 	.rounded-md {
 		background-color: var(--black-400) !important;
 		border: 1px solid var(--black-200) !important;
-	}
-
-	/* 搜索表单暗色主题 */
-	.onboardSearch-form :deep(.el-input__wrapper) {
-		background-color: var(--black-200) !important;
-		border: 1px solid var(--black-200) !important;
-	}
-
-	.onboardSearch-form :deep(.el-input__wrapper:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	.onboardSearch-form :deep(.el-input__wrapper.is-focus) {
-		border-color: var(--primary-500);
-		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-	}
-
-	.onboardSearch-form :deep(.el-input__inner) {
-		@apply text-white-100;
 	}
 
 	/* 表格暗色主题 - 保持头部蓝色样式 */
