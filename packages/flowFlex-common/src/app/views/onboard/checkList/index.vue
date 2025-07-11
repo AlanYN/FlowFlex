@@ -32,9 +32,14 @@
 						:class="[
 							'team-button w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
 							selectedTeam === team.id
-								? 'team-button-active bg-gradient-to-r from-blue-100 to-blue-500 text-blue-900 font-medium'
+								? 'team-button-active text-blue-900 font-medium'
 								: 'text-gray-700 hover:bg-gray-100',
 						]"
+						:style="
+							selectedTeam === team.id
+								? 'background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;'
+								: ''
+						"
 						plain
 						class="!justify-start !w-full !border-none !px-3 !py-2"
 					>
@@ -92,11 +97,15 @@
 											<h3 class="text-base font-medium text-gray-900">
 												{{ checklist.name }}
 											</h3>
-											<div class="flex items-center gap-2">
-												<el-tag size="small" type="info">
+											<div class="flex items-center">
+												<div
+													class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground mr-2 bg-white"
+												>
 													{{ checklist.team }}
-												</el-tag>
-												<el-tag size="small" type="info">
+												</div>
+												<div
+													class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground mr-2 bg-white"
+												>
 													{{
 														checklist.totalTasks ||
 														(checklist.tasks &&
@@ -104,50 +113,46 @@
 														0
 													}}
 													items
-												</el-tag>
-												<el-button
-													size="small"
-													text
-													circle
-													:icon="
-														expandedChecklists.includes(checklist.id)
-															? 'ArrowDown'
-															: 'ArrowRight'
-													"
-												/>
+												</div>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="24"
+													height="24"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													class="lucide lucide-chevron-right h-4 w-4"
+												>
+													<path d="m9 18 6-6-6-6" />
+												</svg>
 											</div>
 										</div>
 										<p class="text-sm text-gray-600 mb-1">
 											{{ checklist.description }}
 										</p>
+										<!-- Assignments 信息 -->
 										<div
 											v-if="
-												checklist.workflowName ||
-												checklist.workflow ||
-												checklist.stageName ||
-												checklist.stage
+												checklist.assignments &&
+												checklist.assignments.length > 0
 											"
-											class="flex items-center gap-1 text-xs text-gray-500"
+											class="flex items-center mt-1 text-xs text-muted-foreground"
 										>
-											<span
-												v-if="checklist.workflowName || checklist.workflow"
-											>
-												Workflow:
-												{{ checklist.workflowName || checklist.workflow }}
-											</span>
-											<span
-												v-if="
-													(checklist.workflowName ||
-														checklist.workflow) &&
-													(checklist.stageName || checklist.stage)
-												"
-												class="text-gray-400"
-											>
-												•
-											</span>
-											<span v-if="checklist.stageName || checklist.stage">
-												Stage: {{ checklist.stageName || checklist.stage }}
-											</span>
+											<span>Assignments:</span>
+											<div class="ml-2 flex flex-wrap gap-1">
+												<div
+													v-for="assignment in checklist.assignments"
+													:key="`${assignment.workflowId}-${assignment.stageId}`"
+													class="inline-flex items-center rounded-full border font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-blue-50 border-blue-200 text-xs px-1 py-0"
+													style="color: rgb(29 78 216)"
+												>
+													{{ getWorkflowNameById(assignment.workflowId) }}
+													→ {{ getStageNameById(assignment.stageId) }}
+												</div>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -175,19 +180,37 @@
 								<div v-if="checklist.tasksLoaded">
 									<div class="flex items-center justify-between mb-4">
 										<h4 class="text-sm font-medium text-gray-900">Tasks</h4>
-										<div class="flex items-center gap-2">
+										<div class="flex items-center space-x-2">
 											<el-dropdown
 												:trigger="['click']"
 												@visible-change="
 													(visible) => !visible && (activeDropdown = null)
 												"
 											>
-												<el-button
-													size="small"
-													text
-													circle
-													icon="MoreFilled"
-												/>
+												<button
+													class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+													type="button"
+													aria-haspopup="menu"
+													aria-expanded="false"
+													data-state="closed"
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														width="24"
+														height="24"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														class="lucide lucide-ellipsis h-4 w-4"
+													>
+														<circle cx="12" cy="12" r="1" />
+														<circle cx="19" cy="12" r="1" />
+														<circle cx="5" cy="12" r="1" />
+													</svg>
+												</button>
 												<template #dropdown>
 													<el-dropdown-menu>
 														<el-dropdown-item
@@ -202,7 +225,6 @@
 															"
 															:disabled="deleteLoading"
 															icon="Delete"
-															divided
 														>
 															<span v-if="deleteLoading">
 																Deleting...
@@ -213,6 +235,7 @@
 															@click="exportChecklistItem(checklist)"
 															:disabled="exportLoading"
 															icon="Download"
+															divided
 														>
 															<span v-if="exportLoading">
 																Exporting...
@@ -234,13 +257,26 @@
 													</el-dropdown-menu>
 												</template>
 											</el-dropdown>
-											<el-button
+											<button
 												@click="showAddTaskDialog(checklist)"
-												size="small"
-												circle
-												icon="Plus"
-												plain
-											/>
+												class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="24"
+													height="24"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													class="lucide lucide-plus h-4 w-4"
+												>
+													<path d="M5 12h14" />
+													<path d="M12 5v14" />
+												</svg>
+											</button>
 										</div>
 									</div>
 
@@ -323,29 +359,75 @@
 														<span class="flex-1 text-sm text-gray-900">
 															{{ task.name }}
 														</span>
-														<div class="flex items-center gap-1">
-															<el-button
+														<div class="flex items-center space-x-1">
+															<button
 																@click="
 																	editTask(checklist.id, task)
 																"
-																size="small"
-																text
-																circle
-																icon="Edit"
-															/>
-															<el-button
+																class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+															>
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	width="24"
+																	height="24"
+																	viewBox="0 0 24 24"
+																	fill="none"
+																	stroke="currentColor"
+																	stroke-width="2"
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	class="lucide lucide-square-pen h-4 w-4"
+																>
+																	<path
+																		d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+																	/>
+																	<path
+																		d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"
+																	/>
+																</svg>
+															</button>
+															<button
 																@click="
 																	deleteTask(
 																		checklist.id,
 																		task.id
 																	)
 																"
-																size="small"
-																text
-																circle
-																icon="Delete"
-																type="danger"
-															/>
+																class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+															>
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	width="24"
+																	height="24"
+																	viewBox="0 0 24 24"
+																	fill="none"
+																	stroke="currentColor"
+																	stroke-width="2"
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	class="lucide lucide-trash2 h-4 w-4"
+																>
+																	<path d="M3 6h18" />
+																	<path
+																		d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+																	/>
+																	<path
+																		d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+																	/>
+																	<line
+																		x1="10"
+																		x2="10"
+																		y1="11"
+																		y2="17"
+																	/>
+																	<line
+																		x1="14"
+																		x2="14"
+																		y1="11"
+																		y2="17"
+																	/>
+																</svg>
+															</button>
 														</div>
 													</template>
 
@@ -872,21 +954,26 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 // 优化的workflow和stage加载逻辑
 const loadWorkflowsAndStages = async () => {
 	try {
+		console.log('开始加载 workflows 和 stages...');
+
 		// 加载workflows
 		const workflowResponse = await getWorkflows();
 
 		if (workflowResponse.code === '200') {
 			workflows.value = workflowResponse.data || [];
+			console.log('Workflows 加载成功:', workflows.value.length, '个');
 		} else {
 			workflows.value = [];
+			console.warn('Workflows 加载失败:', workflowResponse);
 			return; // 如果workflows加载失败，直接返回
 		}
 
-		// 只为活跃的workflows加载stages，减少API调用
-		const activeWorkflows = workflows.value.filter((w) => w.isActive && w.status === 'Active');
+		// 加载所有workflows的stages，不仅仅是活跃的
+		const allWorkflows = workflows.value;
 
-		if (activeWorkflows.length === 0) {
+		if (allWorkflows.length === 0) {
 			stages.value = [];
+			console.log('没有可用的 workflows');
 			return;
 		}
 
@@ -894,20 +981,31 @@ const loadWorkflowsAndStages = async () => {
 		const batchSize = 3; // 限制并发请求数量
 		const stageResponses = [];
 
-		for (let i = 0; i < activeWorkflows.length; i += batchSize) {
-			const batch = activeWorkflows.slice(i, i + batchSize);
+		console.log(`开始为 ${allWorkflows.length} 个 workflows 加载 stages...`);
+
+		for (let i = 0; i < allWorkflows.length; i += batchSize) {
+			const batch = allWorkflows.slice(i, i + batchSize);
 			const batchPromises = batch.map((workflow) =>
 				getStagesByWorkflow(workflow.id)
 					.then((response) => {
+						console.log(
+							`Workflow ${workflow.name} (ID: ${workflow.id}) stages 响应:`,
+							response
+						);
 						if (response.code === '200') {
-							return { data: response.data || [] };
+							const stageData = response.data || [];
+							console.log(
+								`Workflow ${workflow.name} 加载了 ${stageData.length} 个 stages`
+							);
+							return { workflowId: workflow.id, data: stageData };
 						} else {
-							return { data: [] };
+							console.warn(`Workflow ${workflow.name} stages 加载失败:`, response);
+							return { workflowId: workflow.id, data: [] };
 						}
 					})
 					.catch((err) => {
 						console.warn(`Failed to load stages for workflow ${workflow.id}:`, err);
-						return { data: [] };
+						return { workflowId: workflow.id, data: [] };
 					})
 			);
 
@@ -915,12 +1013,22 @@ const loadWorkflowsAndStages = async () => {
 			stageResponses.push(...batchResults);
 		}
 
-		// 合并所有stages
+		// 合并所有stages，并确保每个stage都有workflowId
 		stages.value = stageResponses.reduce((allStages, response) => {
 			const stageData = response.data || [];
-			return [...allStages, ...stageData];
+			// 确保每个stage都有正确的workflowId
+			const stagesWithWorkflowId = stageData.map((stage) => ({
+				...stage,
+				workflowId: stage.workflowId || response.workflowId,
+			}));
+			return [...allStages, ...stagesWithWorkflowId];
 		}, []);
-		// Stages加载完成
+
+		console.log('Stages 加载完成，总计:', stages.value.length, '个');
+		console.log(
+			'所有 stages:',
+			stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
+		);
 	} catch (err) {
 		console.error('Failed to load workflows and stages:', err);
 		workflows.value = [];
@@ -1548,13 +1656,25 @@ const exportPdfWithFrontend = async (checklist) => {
 		pdf.text(`Team: ${team}`, margin, y);
 		y += 8;
 
-		const workflowName = String(getWorkflowNameForPdf(updatedChecklist));
-		pdf.text(`Workflow: ${workflowName}`, margin, y);
-		y += 8;
+		// 处理 assignments 信息，分行显示以避免字体渲染问题
+		const assignmentsText = getAssignmentsForPdf(updatedChecklist);
+		pdf.text('Assignments:', margin, y);
+		y += 6;
 
-		const stageName = String(getStageNameForPdf(updatedChecklist));
-		pdf.text(`Stage: ${stageName}`, margin, y);
-		y += 15;
+		// 将 assignments 文本分割并逐行显示
+		if (assignmentsText && assignmentsText !== 'No assignments specified') {
+			const assignmentLines = assignmentsText.split(', ');
+			assignmentLines.forEach((line) => {
+				// 替换箭头符号为更兼容的符号
+				const cleanLine = line.replace(/→/g, ' -> ');
+				pdf.text(`  ${cleanLine}`, margin + 5, y);
+				y += 5;
+			});
+		} else {
+			pdf.text('  No assignments specified', margin + 5, y);
+			y += 5;
+		}
+		y += 10;
 
 		// 创建任务表格
 		const tasks = updatedChecklist.tasks || [];
@@ -1678,8 +1798,7 @@ const exportBasicPdf = async (checklist) => {
 		content += `Name: ${updatedChecklist.name || 'Untitled'}\n`;
 		content += `Description: ${updatedChecklist.description || 'No description'}\n`;
 		content += `Team: ${updatedChecklist.team || 'No team'}\n`;
-		content += `Workflow: ${getWorkflowNameForPdf(updatedChecklist)}\n`;
-		content += `Stage: ${getStageNameForPdf(updatedChecklist)}\n\n`;
+		content += `Assignments: ${getAssignmentsForPdf(updatedChecklist)}\n\n`;
 		content += 'Tasks:\n';
 
 		const tasks = updatedChecklist.tasks || [];
@@ -1754,24 +1873,19 @@ const exportWithPrint = async (checklist) => {
 };
 
 // PDF导出辅助函数
-const getWorkflowNameForPdf = (checklist) => {
-	if (checklist.workflowName) return checklist.workflowName;
-	if (checklist.workflowId) {
-		const workflow = workflows.value.find(
-			(w) => w.id.toString() === checklist.workflowId.toString()
-		);
-		return workflow ? workflow.name : 'No workflow specified';
+// 获取 assignments 信息用于 PDF 导出
+const getAssignmentsForPdf = (checklist) => {
+	if (!checklist.assignments || checklist.assignments.length === 0) {
+		return 'No assignments specified';
 	}
-	return 'No workflow specified';
-};
 
-const getStageNameForPdf = (checklist) => {
-	if (checklist.stageName) return checklist.stageName;
-	if (checklist.stageId) {
-		const stage = stages.value.find((s) => s.id.toString() === checklist.stageId.toString());
-		return stage ? stage.name : 'No stage specified';
-	}
-	return 'No stage specified';
+	const assignmentTexts = checklist.assignments.map((assignment) => {
+		const workflowName = getWorkflowNameById(assignment.workflowId);
+		const stageName = getStageNameById(assignment.stageId);
+		return `${workflowName} → ${stageName}`;
+	});
+
+	return assignmentTexts.join(', ');
 };
 
 // 创建PDF内容的函数
@@ -1935,10 +2049,7 @@ const createPdfContent = (checklist) => {
 						<span class="info-label">Team:</span> ${checklist.team || 'No team specified'}
 					</div>
 					<div class="info-item">
-						<span class="info-label">Workflow:</span> ${getWorkflowNameForPdf(checklist)}
-					</div>
-					<div class="info-item">
-						<span class="info-label">Stage:</span> ${getStageNameForPdf(checklist)}
+						<span class="info-label">Assignments:</span> ${getAssignmentsForPdf(checklist)}
 					</div>
 				</div>
 
@@ -2123,23 +2234,13 @@ const handleClickOutside = (event) => {
 
 // 任务编辑方法
 const editTask = (checklistId, task) => {
-	// 如果已经在编辑状态，则先取消之前的编辑
-	if (editingTask.value) {
-		if (editingTask.value.id === task.id) {
-			// 如果点击的是同一个任务，则取消编辑
-			editingTask.value = null;
-			editingTaskChecklistId.value = null;
-			return;
-		}
-	}
-
-	editingTaskChecklistId.value = checklistId;
 	editingTask.value = task;
+	editingTaskChecklistId.value = checklistId;
 	taskFormData.value = {
 		name: task.name,
 		description: task.description || '',
 		estimatedMinutes: task.estimatedMinutes || 0,
-		isRequired: task.isRequired !== false,
+		isRequired: task.isRequired || false,
 	};
 };
 
@@ -2155,18 +2256,16 @@ const cancelTaskEdit = () => {
 };
 
 const saveTaskEdit = async () => {
-	if (!taskFormData.value.name.trim() || !editingTask.value || !editingTaskChecklistId.value)
-		return;
+	if (!editingTask.value || !editingTaskChecklistId.value) return;
 
 	try {
 		const taskData = formatTaskForApi({
+			...editingTask.value,
 			checklistId: editingTaskChecklistId.value,
-			id: editingTask.value.id,
-			name: taskFormData.value.name.trim(),
-			description: taskFormData.value.description || '',
+			name: taskFormData.value.name,
+			description: taskFormData.value.description,
+			estimatedMinutes: taskFormData.value.estimatedMinutes,
 			isRequired: taskFormData.value.isRequired,
-			estimatedMinutes: taskFormData.value.estimatedMinutes || 0,
-			order: editingTask.value.order || 0,
 		});
 
 		await updateChecklistTask(editingTask.value.id, taskData);
@@ -2269,6 +2368,32 @@ const getStagesForAssignment = (workflowName) => {
 
 	return filtered;
 };
+
+// 辅助函数：根据 ID 获取工作流名称
+const getWorkflowNameById = (workflowId) => {
+	if (!workflowId) return '';
+	const workflow = workflows.value.find((w) => w.id.toString() === workflowId.toString());
+	if (!workflow) {
+		console.log(
+			`Workflow not found for ID: ${workflowId}. Available workflows:`,
+			workflows.value.map((w) => ({ id: w.id, name: w.name }))
+		);
+	}
+	return workflow ? workflow.name : 'Unknown Workflow';
+};
+
+// 辅助函数：根据 ID 获取阶段名称
+const getStageNameById = (stageId) => {
+	if (!stageId) return '';
+	const stage = stages.value.find((s) => s.id.toString() === stageId.toString());
+	if (!stage) {
+		console.log(
+			`Stage not found for ID: ${stageId}. Available stages:`,
+			stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
+		);
+	}
+	return stage ? stage.name : 'Unknown Stage';
+};
 </script>
 
 <style scoped>
@@ -2348,7 +2473,8 @@ const getStagesForAssignment = (workflowName) => {
 /* 拖拽手柄样式 */
 .drag-handle {
 	transition: all 0.2s ease;
-	cursor: move !important; /* 确保始终显示移动光标 */
+	cursor: move !important;
+	/* 确保始终显示移动光标 */
 }
 
 .drag-handle:hover:not(.drag-disabled):not(.drag-sorting) {
@@ -2373,6 +2499,7 @@ const getStagesForAssignment = (workflowName) => {
 	100% {
 		opacity: 0.7;
 	}
+
 	50% {
 		opacity: 0.4;
 	}
