@@ -26,6 +26,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string LifeCycleStage { get; set; }
 
         /// <summary>
+        /// Work Flow
+        /// </summary>
+        [ExcelColumn(Name = "Work Flow")]
+        public string WorkFlow { get; set; }
+
+        /// <summary>
         /// Onboard Stage
         /// </summary>
         [ExcelColumn(Name = "Onboard Stage")]

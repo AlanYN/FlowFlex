@@ -133,5 +133,19 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 SqlSugar.OrderByType.Asc
             );
         }
+
+        /// <summary>
+        /// Get all answers by Onboarding ID and Stage ID (including multiple versions)
+        /// </summary>
+        public async Task<List<QuestionnaireAnswer>> GetAllByOnboardingAndStageAsync(long onboardingId, long stageId)
+        {
+            return await base.GetListAsync(
+                x => x.OnboardingId == onboardingId && 
+                     x.StageId == stageId && 
+                     x.IsValid,
+                x => x.CreateDate,
+                SqlSugar.OrderByType.Desc
+            );
+        }
     }
 }

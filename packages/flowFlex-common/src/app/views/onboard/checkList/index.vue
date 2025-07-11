@@ -510,74 +510,12 @@
 					</el-select>
 				</el-form-item>
 
-				<div class="flex items-center justify-between w-full">
-					<span>Workflow & Stage Assignments</span>
-					<el-button @click="addAssignment" type="primary" size="small" icon="Plus" text>
-						Add Assignment
-					</el-button>
-				</div>
-
-				<div v-if="formData.assignments.length === 0" class="text-sm text-gray-500 italic">
-					No assignments yet. Click "Add Assignment" to create one.
-				</div>
-
-				<div v-else class="space-y-3">
-					<el-card
-						v-for="(assignment, index) in formData.assignments"
-						:key="`assignment-${index}`"
-						class="assignment-card bg-gray-50"
-						shadow="never"
-					>
-						<template #header>
-							<div class="flex items-center justify-between">
-								<h4 class="text-sm font-medium text-gray-900">
-									Assignment {{ index + 1 }}
-								</h4>
-								<el-button
-									v-if="formData.assignments.length > 1"
-									@click="removeAssignment(index)"
-									type="danger"
-									icon="Delete"
-									text
-								/>
-							</div>
-						</template>
-
-						<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-							<el-form-item label="Workflow">
-								<el-select
-									v-model="assignment.workflow"
-									@change="handleWorkflowChangeForAssignment(index)"
-									placeholder="Select workflow"
-									class="w-full"
-								>
-									<el-option
-										v-for="workflow in filteredWorkflows"
-										:key="workflow.id"
-										:value="workflow.name"
-										:label="workflow.name"
-									/>
-								</el-select>
-							</el-form-item>
-
-							<el-form-item label="Stage">
-								<el-select
-									v-model="assignment.stage"
-									:disabled="!assignment.workflow || stagesLoading"
-									placeholder="Select stage"
-									class="w-full"
-								>
-									<el-option
-										v-for="stage in getStagesForAssignment(assignment.workflow)"
-										:key="stage.id"
-										:value="stage.name"
-										:label="stage.name"
-									/>
-								</el-select>
-							</el-form-item>
-						</div>
-					</el-card>
-				</div>
+				<!-- Workflow & Stage Assignments -->
+				<WorkflowAssignments
+					ref="workflowAssignmentsRef"
+					:assignments="initialAssignments"
+					:workflows="workflows"
+				/>
 			</el-form>
 
 			<template #footer>
@@ -598,7 +536,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, shallowRef, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, shallowRef, watch, nextTick } from 'vue';
 import {
 	getChecklists,
 	getChecklistTasks,
@@ -616,6 +554,7 @@ import { getWorkflows, getStagesByWorkflow } from '@/apis/ow';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ChecklistLoading from './checklist-loading.vue';
+import WorkflowAssignments from './components/WorkflowAssignments.vue';
 import draggable from 'vuedraggable';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 
@@ -712,6 +651,12 @@ const formData = ref({
 	stage: '',
 	assignments: [],
 });
+
+// 组件引用
+const workflowAssignmentsRef = ref(null);
+
+// 工作流分配数据（用于初始化子组件）
+const initialAssignments = ref([]);
 
 // Loading 状态管理
 const createLoading = ref(false);
@@ -882,6 +827,7 @@ const taskLoadingCache = new Map();
 const loadChecklistTasks = async (checklistId, forceReload = false) => {
 	const checklist = checklists.value.find((c) => c.id === checklistId);
 	if (!checklist) {
+		console.warn(`Checklist not found: ${checklistId}`);
 		return;
 	}
 	if (checklist.tasksLoaded && !forceReload) {
@@ -904,12 +850,15 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 
 	const loadPromise = (async () => {
 		try {
+			console.log(`Loading tasks for checklist: ${checklistId}`);
+			
 			// 添加超时机制
 			const timeoutPromise = new Promise((_, reject) => {
 				setTimeout(() => reject(new Error('API request timeout')), 10000);
 			});
 
 			const tasks = await Promise.race([getChecklistTasks(checklistId), timeoutPromise]);
+			console.log(`Tasks loaded for checklist ${checklistId}:`, tasks);
 
 			const processedTasks = (tasks.data || tasks || []).map((task) => ({
 				...task,
@@ -925,6 +874,7 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 
 			// 强制触发响应式更新
 			checklists.value = [...checklists.value];
+			console.log(`Tasks loaded successfully for checklist ${checklistId}, count: ${processedTasks.length}`);
 			return processedTasks;
 		} catch (taskError) {
 			console.error(`Failed to load tasks for checklist ${checklistId}:`, taskError);
@@ -1293,28 +1243,13 @@ const editChecklist = async (checklist) => {
 		}
 	}
 
-	// 处理assignments，转换为前端需要的格式
+	// 处理assignments，转换为WorkflowAssignments组件需要的格式
 	const assignments = (checklist.assignments || [])
-		.map((assignment) => {
-			const workflow = workflows.value.find(
-				(w) => w.id.toString() === assignment.workflowId.toString()
-			);
-			const stage = stages.value.find(
-				(s) => s.id.toString() === assignment.stageId.toString()
-			);
-
-			console.log(
-				`Processing assignment: workflowId=${assignment.workflowId}, stageId=${assignment.stageId}`
-			);
-			console.log(`Found workflow: ${workflow ? workflow.name : 'NOT FOUND'}`);
-			console.log(`Found stage: ${stage ? stage.name : 'NOT FOUND'}`);
-
-			return {
-				workflow: workflow ? workflow.name : '',
-				stage: stage ? stage.name : '',
-			};
-		})
-		.filter((assignment) => assignment.workflow && assignment.stage);
+		.map((assignment) => ({
+			workflowId: assignment.workflowId,
+			stageId: assignment.stageId,
+		}))
+		.filter((assignment) => assignment.workflowId && assignment.stageId);
 
 	console.log(
 		`Processed ${assignments.length} valid assignments out of ${
@@ -1322,13 +1257,16 @@ const editChecklist = async (checklist) => {
 		} total assignments`
 	);
 
+	// 设置初始化数据给 WorkflowAssignments 组件
+	initialAssignments.value = assignments;
+
 	formData.value = {
 		name: checklist.name,
 		description: checklist.description,
 		team: checklist.team,
 		workflow: workflowName,
 		stage: stageName,
-		assignments: assignments,
+		assignments: [], // 这个字段不再使用，由 WorkflowAssignments 组件管理
 	};
 
 	dialogMode.value = 'edit';
@@ -2078,6 +2016,9 @@ const openCreateDialog = async () => {
 	editingChecklist.value = null;
 	showDialog.value = true;
 
+	// 重置初始化数据
+	initialAssignments.value = [];
+
 	// 重置表单数据
 	formData.value = {
 		name: '',
@@ -2085,13 +2026,16 @@ const openCreateDialog = async () => {
 		team: '',
 		workflow: '',
 		stage: '',
-		assignments: [
-			{
-				workflow: '',
-				stage: '',
-			},
-		],
+		assignments: [],
 	};
+
+	// 等待下一个 tick，确保 WorkflowAssignments 组件已经渲染
+	await nextTick();
+	
+	// 清空 WorkflowAssignments 组件的数据
+	if (workflowAssignmentsRef.value?.clearAssignments) {
+		workflowAssignmentsRef.value.clearAssignments();
+	}
 
 	// 设置默认workflow（只在活跃的workflow中查找）
 	const defaultWorkflow = filteredWorkflows.value.find((w) => w.isDefault);
@@ -2106,18 +2050,20 @@ const openCreateDialog = async () => {
 const closeDialog = () => {
 	showDialog.value = false;
 	editingChecklist.value = null;
+	initialAssignments.value = [];
+	
+	// 清空 WorkflowAssignments 组件的数据
+	if (workflowAssignmentsRef.value?.clearAssignments) {
+		workflowAssignmentsRef.value.clearAssignments();
+	}
+	
 	formData.value = {
 		name: '',
 		description: '',
 		team: '',
 		workflow: '',
 		stage: '',
-		assignments: [
-			{
-				workflow: '',
-				stage: '',
-			},
-		],
+		assignments: [],
 	};
 };
 
@@ -2136,18 +2082,8 @@ const submitDialog = async () => {
 	try {
 		console.log(`${isEdit ? 'Updating' : 'Creating'} checklist with data:`, formData.value);
 
-		// 处理assignments，转换为后端需要的格式
-		const assignments = formData.value.assignments
-			.map((assignment) => {
-				const workflowId =
-					filteredWorkflows.value.find((w) => w.name === assignment.workflow)?.id || '';
-				const stageId = stages.value.find((s) => s.name === assignment.stage)?.id || '';
-				return {
-					workflowId: String(workflowId),
-					stageId: String(stageId),
-				};
-			})
-			.filter((assignment) => assignment.workflowId && assignment.stageId);
+		// 从 WorkflowAssignments 组件获取 assignments 数据
+		const assignments = workflowAssignmentsRef.value?.getAssignments() || [];
 
 		const checklistData = {
 			name: formData.value.name.trim(),
@@ -2335,39 +2271,7 @@ onUnmounted(() => {
 	taskLoadingCache.clear();
 });
 
-const addAssignment = () => {
-	formData.value.assignments.push({
-		workflow: '',
-		stage: '',
-	});
-};
 
-const removeAssignment = (index) => {
-	// 确保至少保留一个 assignment
-	if (formData.value.assignments.length > 1) {
-		formData.value.assignments.splice(index, 1);
-	}
-};
-
-const handleWorkflowChangeForAssignment = async (index) => {
-	// 清空当前选择的stage
-	formData.value.assignments[index].stage = '';
-	// 根据选择的workflow加载对应的stages
-	await loadStagesByWorkflow(formData.value.assignments[index].workflow);
-};
-
-const getStagesForAssignment = (workflowName) => {
-	if (!workflowName) return [];
-	const selectedWorkflow = filteredWorkflows.value.find((w) => w.name === workflowName);
-
-	if (!selectedWorkflow) return [];
-
-	const filtered = stages.value.filter((stage) => {
-		return stage.workflowId && stage.workflowId.toString() === selectedWorkflow.id.toString();
-	});
-
-	return filtered;
-};
 
 // 辅助函数：根据 ID 获取工作流名称
 const getWorkflowNameById = (workflowId) => {

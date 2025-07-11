@@ -154,7 +154,7 @@ export const useUserStore = defineStore({
 						});
 						return this.loginWithCode({
 							...user,
-							userName: user.username,
+							userName: user.email || user.username,
 							userId: user.id,
 						});
 					}
@@ -170,12 +170,15 @@ export const useUserStore = defineStore({
 			const userInfo: UserInfo = {
 				...userDate.data,
 				userId: userDate?.data?.userId,
-				// userName: userDate?.data?.firstName + userDate?.data?.lastName,
-				realName: `${userDate?.data?.firstName || ''}${
-					userDate?.data?.lastName
-						? ` ${userDate?.data?.lastName || ''}`
-						: `${userDate?.data?.lastName || ''}`
-				}`,
+				// Use email as the primary display name instead of firstName + lastName
+				userName: userDate?.data?.email || undefined,
+				realName:
+					userDate?.data?.email ||
+					`${userDate?.data?.firstName || ''}${
+						userDate?.data?.lastName
+							? ` ${userDate?.data?.lastName || ''}`
+							: `${userDate?.data?.lastName || ''}`
+					}`,
 				email: userDate?.data?.email,
 				desc: '',
 				roles: userDate?.data?.roleIds,

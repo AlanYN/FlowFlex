@@ -27,6 +27,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<QuestionnaireAnswerOutputDto?> GetAnswerAsync(long onboardingId, long stageId);
 
         /// <summary>
+        /// Get all stage questionnaire answers (including multiple versions)
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>Questionnaire answer list</returns>
+        Task<List<QuestionnaireAnswerOutputDto>> GetAllAnswersAsync(long onboardingId, long stageId);
+
+        /// <summary>
         /// Update questionnaire answer
         /// </summary>
         /// <param name="answerId">Answer ID</param>

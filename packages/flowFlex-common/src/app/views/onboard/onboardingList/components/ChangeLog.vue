@@ -165,8 +165,8 @@
 				<el-table-column label="Updated By" width="150">
 					<template #default="{ row }">
 						<div class="flex items-center space-x-2">
-							<span class="text-gray-900 dark:text-white-100">
-								{{ row.updatedBy || defaultStr }}
+							<span class="text-gray-900 dark:text-white-100" :title="row.updatedBy">
+								{{ formatUserName(row.updatedBy) || defaultStr }}
 							</span>
 						</div>
 					</template>
@@ -599,6 +599,18 @@ const formatDateTime = (dateString: string): string => {
 	} catch {
 		return dateString || defaultStr;
 	}
+};
+
+const formatUserName = (userName: string): string => {
+	if (!userName) return defaultStr;
+
+	// If it's an email, show the full email but with tooltip for better UX
+	if (userName.includes('@')) {
+		return userName;
+	}
+
+	// If it's not an email, show as is
+	return userName;
 };
 
 const getTagType = (type: string): string => {

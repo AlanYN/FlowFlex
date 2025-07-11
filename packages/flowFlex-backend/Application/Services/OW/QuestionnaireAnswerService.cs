@@ -223,7 +223,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get stage questionnaire answer
+        /// Get stage questionnaire answer (latest version only)
         /// </summary>
         public async Task<QuestionnaireAnswerOutputDto?> GetAnswerAsync(long onboardingId, long stageId)
         {
@@ -268,6 +268,25 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 return entity == null ? null : _mapper.Map<QuestionnaireAnswerOutputDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                // Debug logging handled by structured logging
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get all stage questionnaire answers (including multiple versions)
+        /// </summary>
+        public async Task<List<QuestionnaireAnswerOutputDto>> GetAllAnswersAsync(long onboardingId, long stageId)
+        {
+            try
+            {
+                // Debug logging handled by structured logging
+                var entities = await _repository.GetAllByOnboardingAndStageAsync(onboardingId, stageId);
+                // Debug logging handled by structured logging
+                return _mapper.Map<List<QuestionnaireAnswerOutputDto>>(entities);
             }
             catch (Exception ex)
             {
@@ -577,7 +596,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // 处理新答案中的每个响�?
+                // 处理新答案中的每个响�?
                 if (newResponses.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var newResponse in newResponses.EnumerateArray())
@@ -595,8 +614,8 @@ namespace FlowFlex.Application.Services.OW
 
                                 if (hasChanged)
                                 {
-                                    // 答案发生变更，添加变更历�?
-                                    // 先保留原有的变更历史，然后添加新的变更记�?
+                                    // 答案发生变更，添加变更历�?
+                                    // 先保留原有的变更历史，然后添加新的变更记�?
                                     if (oldResponse.TryGetProperty("changeHistory", out var existingChangeHistory))
                                     {
                                         try
@@ -615,7 +634,7 @@ namespace FlowFlex.Application.Services.OW
                                 }
                                 else
                                 {
-                                    // 答案未变更，保留原有的变更历史（如果存在�?
+                                    // 答案未变更，保留原有的变更历史（如果存在�?
                                     // Debug logging handled by structured logging
                                     bool hasExistingHistory = false;
                                     if (oldResponse.TryGetProperty("changeHistory", out var changeHistory))
@@ -636,7 +655,7 @@ namespace FlowFlex.Application.Services.OW
                                         }
                                     }
 
-                                    // 如果没有现有的变更历史，创建一个初始记�?
+                                    // 如果没有现有的变更历史，创建一个初始记�?
                                     if (!hasExistingHistory)
                                     {
                                         // Debug logging handled by structured logging
@@ -644,7 +663,7 @@ namespace FlowFlex.Application.Services.OW
                                     }
                                     else
                                     {
-                                        // 保留最后修改信�?
+                                        // 保留最后修改信�?
                                         if (oldResponse.TryGetProperty("lastModifiedBy", out var lastModifiedBy))
                                         {
                                             responseObj["lastModifiedBy"] = lastModifiedBy.GetString();
@@ -658,7 +677,7 @@ namespace FlowFlex.Application.Services.OW
                             }
                             else
                             {
-                                // 新增的问题答�?
+                                // 新增的问题答�?
                                 AddChangeHistory(responseObj, currentUser, currentTime, "created");
                                 // Debug logging handled by structured logging
                             }
@@ -668,7 +687,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // 重新构建完整的答案对�?
+                // 重新构建完整的答案对�?
                 var updatedAnswerData = JsonSerializer.Deserialize<Dictionary<string, object>>(newAnswerJson);
                 updatedAnswerData["responses"] = updatedResponses;
 
@@ -680,7 +699,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 // Debug logging handled by structured logging
-                // 如果处理过程中出错，返回原始新答�?
+                // 如果处理过程中出错，返回原始新答�?
                 return newAnswerJson;
             }
         }
@@ -754,7 +773,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 string questionId = newResponse.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
 
-                // 比较主要的答案字�?
+                // 比较主要的答案字�?
                 var fieldsToCompare = new[] { "answer", "responseText" };
 
                 foreach (var field in fieldsToCompare)
@@ -765,19 +784,19 @@ namespace FlowFlex.Application.Services.OW
                     if (oldHasField != newHasField)
                     {
                         // Debug logging handled by structured logging
-                        return true; // 字段存在性发生变�?
+                        return true; // 字段存在性发生变�?
                     }
 
                     if (oldHasField && newHasField)
                     {
-                        // 比较�?
+                        // 比较�?
                         string oldStr = JsonSerializer.Serialize(oldValue);
                         string newStr = JsonSerializer.Serialize(newValue);
                         // Debug logging handled by structured logging
                         if (oldStr != newStr)
                         {
                             // Debug logging handled by structured logging
-                            return true; // 值发生变�?
+                            return true; // 值发生变�?
                         }
                     }
                 }
@@ -788,7 +807,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 string questionId = newResponse.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
                 // Debug logging handled by structured logging
-                // 如果比较过程中出错，保守地假设没有发生变�?
+                // 如果比较过程中出错，保守地假设没有发生变�?
                 return false;
             }
         }
@@ -815,7 +834,7 @@ namespace FlowFlex.Application.Services.OW
                                 ? value.GetString()
                                 : value.ToString();
 
-                            // 如果字符串不为空且不只是空白字符，则认为有�?
+                            // 如果字符串不为空且不只是空白字符，则认为有�?
                             if (!string.IsNullOrWhiteSpace(stringValue))
                             {
                                 return true;
@@ -830,7 +849,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
                 // Debug logging handled by structured logging
-                // 如果检查过程中出错，保守地假设有�?
+                // 如果检查过程中出错，保守地假设有�?
                 return true;
             }
         }
@@ -851,7 +870,7 @@ namespace FlowFlex.Application.Services.OW
                     timestampUtc = time.UtcDateTime
                 };
 
-                // 获取现有的变更历�?
+                // 获取现有的变更历�?
                 List<object> changeHistory;
                 if (responseObj.ContainsKey("changeHistory") && responseObj["changeHistory"] is List<object> existingHistory)
                 {
@@ -865,7 +884,7 @@ namespace FlowFlex.Application.Services.OW
                 // 添加新的变更记录
                 changeHistory.Add(changeRecord);
 
-                // 只保留最近的10条变更记�?
+                // 只保留最近的10条变更记�?
                 if (changeHistory.Count > 10)
                 {
                     changeHistory = changeHistory.Skip(changeHistory.Count - 10).ToList();

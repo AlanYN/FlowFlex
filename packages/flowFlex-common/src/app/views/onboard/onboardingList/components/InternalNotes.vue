@@ -447,6 +447,11 @@ const handleMentionClick = (username: string) => {
 
 const getAuthorInitial = (createBy: string | undefined | null): string => {
 	if (createBy && typeof createBy === 'string' && createBy.length > 0) {
+		// If it looks like an email, use the first letter of the username part
+		if (createBy.includes('@')) {
+			const username = createBy.split('@')[0];
+			return username.charAt(0).toUpperCase();
+		}
 		return createBy.charAt(0).toUpperCase();
 	}
 	return '?';

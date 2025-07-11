@@ -48,17 +48,23 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Get questionnaire answer
+        /// 获取指定入职流程和阶段的问卷答案
         /// </summary>
-        /// <param name="onboardingId">Onboarding ID</param>
-        /// <param name="stageId">Stage ID</param>
-        /// <returns>Questionnaire answer</returns>
+        /// <param name="onboardingId">入职流程ID</param>
+        /// <param name="stageId">阶段ID</param>
+        /// <returns>问卷答案列表</returns>
         [HttpGet("{onboardingId}/stage/{stageId}/answer")]
-        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetAnswerAsync(long onboardingId, long stageId)
+        public async Task<IActionResult> GetAnswer(long onboardingId, long stageId)
         {
-            var result = await _questionnaireAnswerService.GetAnswerAsync(onboardingId, stageId);
-            return Success(result);
+            try
+            {
+                var answers = await _questionnaireAnswerService.GetAllAnswersAsync(onboardingId, stageId);
+                return Ok(answers);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         /// <summary>

@@ -462,7 +462,7 @@ namespace FlowFlex.Application.Services.OW
                     AfterData = !string.IsNullOrEmpty(afterData) ? afterData : null,
                     ChangedFields = changedFields != null ? JsonSerializer.Serialize(changedFields) : null,
                     OperatorId = long.TryParse(_userContext.UserId, out long operatorId) ? operatorId : 0,
-                    OperatorName = _userContext.UserName ?? "System",
+                    OperatorName = !string.IsNullOrEmpty(_userContext.Email) ? _userContext.Email : (_userContext.UserName ?? "System"),
                     OperationTime = DateTimeOffset.Now,
                     IpAddress = ipAddress,
                     UserAgent = userAgent,

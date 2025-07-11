@@ -66,12 +66,33 @@ public class ChecklistService : IChecklistService, IScopedService
         // Handle assignments - store all assignments in JSON field
         if (input.Assignments != null && input.Assignments.Any())
         {
-            // Convert Application.Contracts.AssignmentDto to Domain.AssignmentDto
-            entity.Assignments = input.Assignments.Select(a => new Domain.Entities.OW.AssignmentDto
+            try
             {
-                WorkflowId = a.WorkflowId,
-                StageId = (long)a.StageId
-            }).ToList();
+                // Convert Application.Contracts.AssignmentDto to Domain.AssignmentDto
+                // Filter out assignments with invalid WorkflowId, but allow null StageId
+                entity.Assignments = input.Assignments
+                    .Where(a => a.WorkflowId > 0)
+                    .Select(a => new Domain.Entities.OW.AssignmentDto
+                    {
+                        WorkflowId = a.WorkflowId,
+                        StageId = a.StageId ?? 0 // Use 0 for null StageId
+                    }).ToList();
+                
+                Console.WriteLine($"Created checklist with {entity.Assignments.Count} valid assignments out of {input.Assignments.Count} total assignments");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing assignments during creation: {ex.Message}");
+                // Log the raw assignment data for debugging
+                for (int i = 0; i < input.Assignments.Count; i++)
+                {
+                    var assignment = input.Assignments[i];
+                    Console.WriteLine($"Assignment {i}: WorkflowId={assignment.WorkflowId}, StageId={assignment.StageId}");
+                }
+                
+                // Initialize empty assignments if processing fails
+                entity.Assignments = new List<Domain.Entities.OW.AssignmentDto>();
+            }
         }
         else
         {
@@ -146,12 +167,33 @@ public class ChecklistService : IChecklistService, IScopedService
         // Handle assignments - store all assignments in JSON field
         if (input.Assignments != null && input.Assignments.Any())
         {
-            // Convert Application.Contracts.AssignmentDto to Domain.AssignmentDto
-            entity.Assignments = input.Assignments.Select(a => new Domain.Entities.OW.AssignmentDto
+            try
             {
-                WorkflowId = a.WorkflowId,
-                StageId = a.StageId ?? 0 // 如果 StageId 为 null，则设为 0
-            }).ToList();
+                // Convert Application.Contracts.AssignmentDto to Domain.AssignmentDto
+                // Filter out assignments with invalid WorkflowId, but allow null StageId
+                entity.Assignments = input.Assignments
+                    .Where(a => a.WorkflowId > 0)
+                    .Select(a => new Domain.Entities.OW.AssignmentDto
+                    {
+                        WorkflowId = a.WorkflowId,
+                        StageId = a.StageId ?? 0 // Use 0 for null StageId
+                    }).ToList();
+                
+                Console.WriteLine($"Processed {entity.Assignments.Count} valid assignments out of {input.Assignments.Count} total assignments");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing assignments: {ex.Message}");
+                // Log the raw assignment data for debugging
+                for (int i = 0; i < input.Assignments.Count; i++)
+                {
+                    var assignment = input.Assignments[i];
+                    Console.WriteLine($"Assignment {i}: WorkflowId={assignment.WorkflowId}, StageId={assignment.StageId}");
+                }
+                
+                // Initialize empty assignments if processing fails
+                entity.Assignments = new List<Domain.Entities.OW.AssignmentDto>();
+            }
         }
         else
         {

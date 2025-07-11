@@ -118,7 +118,7 @@ namespace FlowFlex.WebApi.Extensions
             // Register SqlSugar context
             services.AddScoped<ISqlSugarContext, SqlSugarContext>();
 
-            // Register UserContext - get from HTTP request headers or default values
+            // Register UserContext - get from HTTP request headers or JWT claims
             services.AddScoped<UserContext>(provider =>
             {
                 var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
@@ -126,7 +126,14 @@ namespace FlowFlex.WebApi.Extensions
 
                 if (httpContext != null)
                 {
-                    // Try to get user information from request headers
+                    // Try to get user information from JWT claims first
+                    var userIdClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                                    ?? httpContext.User?.FindFirst("sub");
+                    var emailClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Email);
+                    var usernameClaim = httpContext.User?.FindFirst("username");
+                    var tenantIdClaim = httpContext.User?.FindFirst("tenantId");
+
+                    // Fallback to request headers if JWT claims are not available
                     var userIdHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
                     var userNameHeader = httpContext.Request.Headers["X-User-Name"].FirstOrDefault();
                     var tenantIdHeader = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
@@ -137,33 +144,25 @@ namespace FlowFlex.WebApi.Extensions
                         tenantIdHeader = httpContext.Request.Headers["TenantId"].FirstOrDefault();
                     }
 
-                    // ���header��û���⻧ID�����Դ�JWT Token�л�ȡ
-                    if (string.IsNullOrEmpty(tenantIdHeader))
-                    {
-                        var tenantIdClaim = httpContext.User?.FindFirst("tenantId");
-                        if (tenantIdClaim != null)
-                        {
-                            tenantIdHeader = tenantIdClaim.Value;
-                        }
-                        else
-                        {
-                            // ���Token��Ҳû�У����Դ������ȡ
-                            var emailClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Email);
-                            if (emailClaim != null)
-                            {
-                                tenantIdHeader = TenantHelper.GetTenantIdByEmail(emailClaim.Value);
-                            }
-                        }
-                    }
+                    // Determine final values with priority: JWT claims > headers > defaults
+                    var userId = userIdClaim?.Value ?? userIdHeader ?? "1";
+                    var email = emailClaim?.Value ?? string.Empty;
+                    var userName = usernameClaim?.Value ?? userNameHeader ?? email ?? "System";
+                    var tenantId = tenantIdClaim?.Value ?? tenantIdHeader ?? "DEFAULT";
 
-                    var tenantId = tenantIdHeader ?? "DEFAULT";
+                    // If no tenant ID found and we have email, try to get tenant from email
+                    if (tenantId == "DEFAULT" && !string.IsNullOrEmpty(email))
+                    {
+                        tenantId = TenantHelper.GetTenantIdByEmail(email);
+                    }
 
                     // User context logging handled by structured logging
 
                     return new UserContext
                     {
-                        UserId = userIdHeader ?? "1",
-                        UserName = userNameHeader ?? "System",
+                        UserId = userId,
+                        UserName = userName,
+                        Email = email,
                         TenantId = tenantId
                     };
                 }
@@ -173,6 +172,7 @@ namespace FlowFlex.WebApi.Extensions
                 {
                     UserId = "1",
                     UserName = "TestUser",
+                    Email = string.Empty,
                     TenantId = "DEFAULT"
                 };
             });
