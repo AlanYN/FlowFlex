@@ -17,6 +17,10 @@
 				</h1>
 			</div>
 			<div class="flex items-center space-x-2">
+				<el-button type="primary" @click="handleCompleteStage" :loading="completing">
+					<el-icon class="mr-1"><Check /></el-icon>
+					Complete Stage
+				</el-button>
 				<el-button @click="handleCustomerOverview">Customer Overview</el-button>
 				<el-button type="primary" @click="messageDialogVisible = true">
 					<el-icon><ChatDotSquare /></el-icon>
@@ -29,8 +33,15 @@
 		<div class="flex gap-6">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
 			<div class="flex-[2]">
+				<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
+					<div
+						class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
+					>
+						<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
+					</div>
+				</div>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full">
-					<div class="space-y-6 pr-4">
+					<div class="space-y-6 pr-4 mt-4">
 						<!-- Stage Details 加载状态 -->
 						<div
 							v-if="stageDataLoading"
@@ -45,6 +56,17 @@
 								</p>
 							</div>
 						</div>
+
+						<StaticForm
+							v-show="
+								onboardingData && activeStage && onboardingId && !stageDataLoading
+							"
+							ref="staticFormRef"
+							:static-fields="onboardingActiveStageInfo?.staticFields || []"
+							:onboarding-id="onboardingId"
+							:stage-id="activeStage"
+						/>
+
 						<StageDetails
 							v-show="
 								onboardingData && activeStage && onboardingId && !stageDataLoading
@@ -194,7 +216,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, ChatDotSquare, Loading } from '@element-plus/icons-vue';
 import {
 	getStageCompletionLogsByStage,
@@ -208,6 +230,7 @@ import { getStageQuestionnaire } from '@/apis/ow/questionnaire';
 import { OnboardingItem } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
+import { defaultStr } from '@/settings/projectSetting';
 // 导入组件
 import OnboardingProgress from './components/OnboardingProgress.vue';
 import StageDetails from './components/StageDetails.vue';
@@ -216,6 +239,7 @@ import ChangeLog from './components/ChangeLog.vue';
 import MessageDialog from './components/MessageDialog.vue';
 import CheckList from './components/CheckList.vue';
 import Documents from './components/Documents.vue';
+import StaticForm from './components/StaticForm.vue';
 
 const { t } = useI18n();
 
@@ -284,6 +308,7 @@ const onboardingId = computed(() => {
 
 // 添加组件引用
 const stageDetailsRef = ref();
+const staticFormRef = ref();
 const onboardingActiveStageInfo = ref<any>(null);
 // 处理onboarding数据的共同逻辑
 const processOnboardingData = async (responseData: any) => {
@@ -301,6 +326,12 @@ const processOnboardingData = async (responseData: any) => {
 	);
 	return newStageId;
 };
+
+// 计算属性
+const currentStageTitle = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.stageName || defaultStr;
+});
 
 // API调用函数
 const loadOnboardingDetail = async () => {
@@ -454,7 +485,8 @@ const loadStaticFieldValues = async () => {
 			// 接口返回的是数组格式的静态字段数据
 			// 直接传递给StageDetails组件处理
 			if (stageDetailsRef.value) {
-				stageDetailsRef.value.setFormFieldValues?.(response.data);
+				stageDetailsRef.value.setFormFieldValues?.();
+				staticFormRef.value.setFieldValues(response.data);
 			}
 		}
 	} catch (error) {
@@ -468,11 +500,7 @@ const setActiveStage = async (stageId: string) => {
 	if (activeStage.value === stageId) {
 		return;
 	}
-	console.log('[detail.vue] Setting active stage:', {
-		oldStageId: activeStage.value,
-		newStageId: stageId,
-		workflowStages: workflowStages.value.map((s) => ({ id: s.stageId, name: s.stageName })),
-	});
+
 	// 更新activeStage
 	activeStage.value = stageId;
 	onboardingActiveStageInfo.value = workflowStages.value.find(
@@ -550,6 +578,51 @@ const handleSaveEdit = async () => {
 	} finally {
 		saving.value = false;
 	}
+};
+
+const saveAllForm = async () => {
+	const res = await Promise.all([
+		stageDetailsRef.value.handleSave(),
+		staticFormRef.value.handleSave(),
+	]);
+	return res;
+};
+
+const completing = ref(false);
+const handleCompleteStage = async () => {
+	ElMessageBox.confirm(
+		`Are you sure you want to mark this stage as complete? This action will record your name and the current time as the completion signature.`,
+		'⚠️ Confirm Stage Completion',
+		{
+			confirmButtonText: 'Complete Stage',
+			cancelButtonText: 'Cancel',
+			distinguishCancelAndClose: true,
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					// 显示loading状态
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Deactivating...';
+
+					completing.value = true;
+					try {
+						const res = await saveAllForm();
+						if (!res) {
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Complete Stage';
+							return;
+						}
+						done();
+					} finally {
+						completing.value = false;
+					}
+				} else {
+					done();
+				}
+			},
+		}
+	);
 };
 
 // 生命周期

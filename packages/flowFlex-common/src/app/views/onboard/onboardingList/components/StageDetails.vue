@@ -1,81 +1,58 @@
 <template>
-	<el-card class="mb-6 rounded-md">
-		<template #header>
-			<div
-				class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -mt-5 px-5 py-4 rounded-t-lg"
-			>
-				<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
-			</div>
-		</template>
+	<div class="customer-block">
+		<h2 class="text-lg font-semibold">Questionnaire</h2>
+		<el-divider />
 
-		<div class="space-y-6">
-			<!-- 阶段描述 -->
-			<div class="flex flex-col gap-4">
-				<StaticForm ref="staticFormRef" :static-fields="staticFields || []" />
-				<!-- 问卷表单 -->
-				<DynamicForm
-					ref="dynamicFormRef"
-					:stageId="stageId"
-					:leadId="leadId"
-					:onboardingId="onboardingId || ''"
-					:questionnaireData="questionnaireData"
-					:isStageCompleted="isStageCompleted"
-					@stage-updated="handleStageUpdated"
-				/>
-			</div>
-
-			<!-- 操作按钮 -->
-			<div class="flex justify-end space-x-2 pt-6 mt-6 border-t">
-				<el-button @click="handleSave" :loading="saving">
-					<el-icon class="mr-1"><Document /></el-icon>
-					Save
-				</el-button>
-				<el-button
-					v-if="!isStageCompleted"
-					type="primary"
-					@click="handleCompleteStage"
-					:loading="completing"
-				>
-					<el-icon class="mr-1"><Check /></el-icon>
-					Complete Stage
-				</el-button>
-			</div>
-
-			<!-- 阶段历史 -->
-			<div v-if="stageHistory.length > 0">
-				<h4 class="font-medium text-gray-900 mb-4">Stage History</h4>
-				<el-timeline>
-					<el-timeline-item
-						v-for="item in stageHistory"
-						:key="item.id"
-						:timestamp="item.timestamp"
-						:type="item.type"
-					>
-						<div>
-							<p class="font-medium">{{ item.title }}</p>
-							<p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
-							<p class="text-xs text-gray-500 mt-1">by {{ item.user }}</p>
-						</div>
-					</el-timeline-item>
-				</el-timeline>
-			</div>
+		<!-- 阶段描述 -->
+		<div class="flex flex-col gap-4">
+			<!-- 问卷表单 -->
+			<DynamicForm
+				ref="dynamicFormRef"
+				:stageId="stageId"
+				:leadId="leadId"
+				:onboardingId="onboardingId || ''"
+				:questionnaireData="questionnaireData"
+				:isStageCompleted="isStageCompleted"
+				@stage-updated="handleStageUpdated"
+			/>
 		</div>
-	</el-card>
+
+		<!-- 操作按钮 -->
+		<div class="flex justify-end space-x-2 pt-6 mt-6 border-t">
+			<el-button @click="handleSave" :loading="saving">
+				<el-icon class="mr-1"><Document /></el-icon>
+				Save
+			</el-button>
+		</div>
+
+		<!-- 阶段历史 -->
+		<div v-if="stageHistory.length > 0">
+			<h4 class="font-medium text-gray-900 mb-4">Stage History</h4>
+			<el-timeline>
+				<el-timeline-item
+					v-for="item in stageHistory"
+					:key="item.id"
+					:timestamp="item.timestamp"
+					:type="item.type"
+				>
+					<div>
+						<p class="font-medium">{{ item.title }}</p>
+						<p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
+						<p class="text-xs text-gray-500 mt-1">by {{ item.user }}</p>
+					</div>
+				</el-timeline-item>
+			</el-timeline>
+		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { Document, Check } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { Document } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
-import { defaultStr } from '@/settings/projectSetting';
 
-import {
-	completeCurrentStage,
-	saveQuestionnaireAnswer,
-	saveQuestionnaireStatic,
-} from '@/apis/ow/onboarding';
-import StaticForm from './staticForm.vue';
+import { saveQuestionnaireAnswer } from '@/apis/ow/onboarding';
 import DynamicForm from './dynamicForm.vue';
 
 // 组件属性
@@ -99,15 +76,7 @@ const emit = defineEmits<{
 // 响应式数据
 const stageHistory = ref<any[]>([]);
 const saving = ref(false);
-const completing = ref(false);
-const staticFormRef = ref();
 const dynamicFormRef = ref();
-
-// 计算属性
-const currentStageTitle = computed(() => {
-	const currentStage = props.workflowStages.find((stage) => stage.stageId === props.stageId);
-	return currentStage?.stageName || defaultStr;
-});
 
 const isStageCompleted = computed(() => {
 	if (props.workflowStages.length === 0) {
@@ -137,21 +106,14 @@ const handleSave = async () => {
 		saving.value = true;
 
 		// 验证静态表单
-		const staticFormValid = await staticFormRef.value?.validateForm();
 		const dynamicFormValid = await dynamicFormRef.value?.validateForm();
-		if (!staticFormValid || !dynamicFormValid?.isValid || !props?.onboardingId) {
+		if (!dynamicFormValid?.isValid || !props?.onboardingId) {
 			!dynamicFormValid?.isValid && ElMessage.error(dynamicFormValid?.errors?.join('\n'));
 			return;
 		}
 
-		const staticFormData = staticFormRef.value?.getFormData();
 		const dynamicForm = await dynamicFormRef.value?.transformFormDataForAPI();
-		const formSubmit = await Promise.all([
-			saveQuestionnaireStatic({
-				fieldValues: staticFormData,
-				onboardingId: props?.onboardingId,
-				stageId: props.stageId,
-			}),
+		const res = await Promise.all([
 			...dynamicForm.map((item) =>
 				saveQuestionnaireAnswer(props?.onboardingId || '', props.stageId, {
 					...item,
@@ -159,26 +121,12 @@ const handleSave = async () => {
 				})
 			),
 		]);
-		const res = formSubmit[0] || {
-			code: '200',
-		};
 
-		const saveResponse = formSubmit[1] || {
-			code: '200',
-		};
-		if (saveResponse.code == '200' && res.code == '200') {
-			// 完成阶段
-			const response = await completeCurrentStage(props.onboardingId || props.leadId, {
-				currentStageId: props.stageId,
-			});
-			if (response.code === '200') {
-				emit('stageUpdated');
-			} else {
-				ElMessage.error(response.msg || 'Failed to complete stage');
-			}
+		if (res[0]?.code == '200') {
+			ElMessage.success('Save success');
 			return true;
 		} else {
-			ElMessage.error(res.msg || 'Failed to save stage data');
+			ElMessage.error(res[0]?.msg || 'Failed to save stage data');
 			return false;
 		}
 	} catch {
@@ -188,49 +136,8 @@ const handleSave = async () => {
 	}
 };
 
-const handleCompleteStage = async () => {
-	ElMessageBox.confirm(
-		`Are you sure you want to mark this stage as complete? This action will record your name and the current time as the completion signature.`,
-		'⚠️ Confirm Stage Completion',
-		{
-			confirmButtonText: 'Complete Stage',
-			cancelButtonText: 'Cancel',
-			distinguishCancelAndClose: true,
-			showCancelButton: true,
-			showConfirmButton: true,
-			beforeClose: async (action, instance, done) => {
-				if (action === 'confirm') {
-					// 显示loading状态
-					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Deactivating...';
-
-					completing.value = true;
-					try {
-						const res = await handleSave();
-						if (!res) {
-							instance.confirmButtonLoading = false;
-							instance.confirmButtonText = 'Complete Stage';
-							return;
-						}
-						done();
-					} finally {
-						completing.value = false;
-					}
-				} else {
-					done();
-				}
-			},
-		}
-	);
-};
-
 // 设置表单字段值的方法
-const setFormFieldValues = (staticFieldsData?: any[] | Record<string, any>) => {
-	console.log('设置值');
-	if (staticFieldsData && staticFormRef.value) {
-		// 直接传递数据给静态表单，让它自己处理格式转换
-		staticFormRef.value.setFieldValues(staticFieldsData);
-	}
+const setFormFieldValues = () => {
 	if (dynamicFormRef.value) {
 		dynamicFormRef.value.setFieldValues();
 	}
@@ -239,6 +146,7 @@ const setFormFieldValues = (staticFieldsData?: any[] | Record<string, any>) => {
 // 暴露给父组件的方法
 defineExpose({
 	setFormFieldValues,
+	handleSave,
 });
 </script>
 

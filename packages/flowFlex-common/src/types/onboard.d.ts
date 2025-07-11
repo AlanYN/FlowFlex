@@ -89,10 +89,11 @@ export interface OnboardingQueryRequest {
 	updatedBy?: string;
 	priority?: string;
 	workFlowId?: string;
-	page: number;
-	size: number;
-	sort: string;
-	sortType: string;
+	page?: number;
+	size?: number;
+	sort?: string;
+	sortType?: string;
+	allData?: boolean;
 }
 
 // API响应的实际结构

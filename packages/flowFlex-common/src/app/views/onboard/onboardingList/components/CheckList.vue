@@ -1,34 +1,41 @@
 <template>
-	<div class="checklist-container rounded-md" v-if="checklistData && checklistData.length > 0">
-		<!-- 遍历显示所有检查清单 -->
-		<div v-for="checklist in checklistData || []" :key="checklist.id" class="checklist-section">
-			<!-- 头部卡片 -->
-			<div class="checklist-header-card rounded-md">
-				<div class="flex justify-between">
-					<div>
-						<h3 v-if="checklist.name" class="checklist-title">{{ checklist.name }}</h3>
-						<div v-if="checklist.description" class="checklist-subtitle">
-							{{ checklist.description }}
-						</div>
-					</div>
-					<div class="progress-info">
-						<span class="progress-percentage">{{ completionRate(checklist) }}%</span>
-						<span class="progress-label">Complete</span>
+	<div class="customer-block" v-if="checklistData && checklistData.length > 0">
+		<!-- 统一的进度头部卡片 -->
+		<div class="checklist-header-card rounded-md">
+			<div class="flex justify-between">
+				<div>
+					<h3 class="checklist-title">Overall Progress</h3>
+					<div class="checklist-subtitle">
+						{{ totalCompletedTasks }} of {{ totalTasks }} tasks completed
 					</div>
 				</div>
-				<!-- 进度条 -->
-				<div class="progress-bar-container">
-					<div class="progress-bar rounded-md">
-						<div
-							class="progress-fill rounded-md"
-							:style="{ width: `${completionRate(checklist)}%` }"
-						></div>
-					</div>
+				<div class="progress-info">
+					<span class="progress-percentage">{{ overallCompletionRate }}%</span>
+					<span class="progress-label">Complete</span>
 				</div>
 			</div>
+			<!-- 统一进度条 -->
+			<div class="progress-bar-container">
+				<div class="progress-bar rounded-md">
+					<div
+						class="progress-fill rounded-md"
+						:style="{ width: `${overallCompletionRate}%` }"
+					></div>
+				</div>
+			</div>
+		</div>
 
-			<!-- 检查项列表 -->
-			<div class="checklist-items">
+		<!-- 所有检查项列表 -->
+		<div class="checklist-items">
+			<!-- 遍历所有checklist中的任务 -->
+			<template v-for="checklist in checklistData || []" :key="checklist.id">
+				<!-- 可选：显示每个checklist的分组标题 -->
+				<div v-if="checklist.name" class="checklist-group-title">
+					{{ checklist.name }}
+					<span class="group-task-count">({{ checklist.tasks?.length || 0 }} tasks)</span>
+				</div>
+
+				<!-- 该checklist下的所有任务 -->
 				<div
 					v-for="task in checklist.tasks"
 					:key="task.id"
@@ -75,7 +82,7 @@
 						</el-tag>
 					</div>
 				</div>
-			</div>
+			</template>
 		</div>
 	</div>
 </template>
@@ -83,6 +90,7 @@
 <script setup lang="ts">
 import { defaultStr } from '@/settings/projectSetting';
 import { Check } from '@element-plus/icons-vue';
+import { computed } from 'vue';
 
 // 任务数据结构
 interface TaskData {
@@ -140,12 +148,36 @@ interface Props {
 	checklistData?: ChecklistData[] | null;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 // Events
 const emit = defineEmits<{
 	taskToggled: [task: TaskData];
 }>();
+
+// 计算总任务数
+const totalTasks = computed(() => {
+	if (!props.checklistData) return 0;
+	return props.checklistData.reduce((total, checklist) => {
+		return total + (checklist.tasks?.length || 0);
+	}, 0);
+});
+
+// 计算总完成任务数
+const totalCompletedTasks = computed(() => {
+	if (!props.checklistData) return 0;
+	return props.checklistData.reduce((total, checklist) => {
+		const completedCount = checklist.tasks?.filter((task) => task.isCompleted).length || 0;
+		return total + completedCount;
+	}, 0);
+});
+
+// 计算总体完成率
+const overallCompletionRate = computed(() => {
+	if (totalTasks.value === 0) return 0;
+	const rate = (totalCompletedTasks.value / totalTasks.value) * 100;
+	return Math.min(Math.round(rate), 100);
+});
 
 // 方法
 const toggleTask = (task: TaskData) => {
@@ -175,42 +207,9 @@ const formatDate = (dateString: string | null): string => {
 		return '';
 	}
 };
-
-const completionRate = (checklist: ChecklistData) => {
-	const completed = checklist.tasks?.filter((task) => task.isCompleted).length || 0;
-	const total = checklist.tasks?.length || 0;
-
-	if (total === 0) return 0;
-
-	const rate = (completed / total) * 100;
-	// 四舍五入到整数，并确保不超过100%
-	return Math.min(Math.round(rate), 100);
-};
 </script>
 
 <style scoped lang="scss">
-/* 检查清单容器 */
-.checklist-container {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-	background-color: white;
-	padding: 16px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-/* 每个检查清单部分 */
-.checklist-section {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-}
-
-.checklist-section:not(:last-child) {
-	border-bottom: 1px solid #e5e7eb;
-	padding-bottom: 24px;
-}
-
 /* 头部卡片样式 - 橙色渐变 */
 .checklist-header-card {
 	background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
@@ -271,6 +270,25 @@ const completionRate = (checklist: ChecklistData) => {
 	height: 100%;
 	background-color: #10b981;
 	transition: width 0.3s ease;
+}
+
+/* 检查项分组标题 */
+.checklist-group-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: #374151;
+	margin: 16px 0 8px 0;
+	padding-bottom: 8px;
+	border-bottom: 2px solid #e5e7eb;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.group-task-count {
+	font-size: 14px;
+	font-weight: 400;
+	color: #6b7280;
 }
 
 /* 检查项列表 */
@@ -396,10 +414,6 @@ const completionRate = (checklist: ChecklistData) => {
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 	}
 
-	.checklist-section:not(:last-child) {
-		border-bottom-color: var(--black-100);
-	}
-
 	.checklist-header-card {
 		background: linear-gradient(135deg, #e53e3e 0%, #dd6b20 100%);
 		box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
@@ -411,6 +425,15 @@ const completionRate = (checklist: ChecklistData) => {
 
 	.progress-fill {
 		background-color: #34d399;
+	}
+
+	.checklist-group-title {
+		color: var(--white-100);
+		border-bottom-color: var(--black-100);
+	}
+
+	.group-task-count {
+		color: var(--gray-400);
 	}
 
 	.checklist-item-card {
@@ -480,6 +503,10 @@ const completionRate = (checklist: ChecklistData) => {
 
 	.item-description {
 		font-size: 13px;
+	}
+
+	.checklist-group-title {
+		font-size: 15px;
 	}
 }
 </style>

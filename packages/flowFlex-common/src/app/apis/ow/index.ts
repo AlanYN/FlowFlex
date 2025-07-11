@@ -6,30 +6,30 @@ const globSetting = useGlobSetting();
 const Api = (id?: string | number) => {
 	return {
 		// 工作流相关API
-		workflows: `${globSetting.apiProName}/ow/workflows/v1`,
-		workflow: `${globSetting.apiProName}/ow/workflows/v1/${id}`,
-		historyWorkflow: `${globSetting.apiProName}/ow/workflows/v1/create-from-version`,
-		workflowQuery: `${globSetting.apiProName}/ow/workflows/v1/query`,
-		workflowDeactivate: `${globSetting.apiProName}/ow/workflows/v1/${id}/deactivate`,
-		workflowActivate: `${globSetting.apiProName}/ow/workflows/v1/${id}/activate`,
-		workflowSetDefault: `${globSetting.apiProName}/ow/workflows/v1/${id}/set-default`,
-		workflowDuplicate: `${globSetting.apiProName}/ow/workflows/v1/${id}/duplicate`,
-		workflowVersions: `${globSetting.apiProName}/ow/workflows/v1/${id}/versions`,
-		workflowExportExcel: `${globSetting.apiProName}/ow/workflows/v1/${id}/export-detailed-excel`,
+		workflows: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}`,
+		workflow: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}`,
+		historyWorkflow: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/create-from-version`,
+		workflowQuery: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/query`,
+		workflowDeactivate: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/deactivate`,
+		workflowActivate: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/activate`,
+		workflowSetDefault: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/set-default`,
+		workflowDuplicate: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/duplicate`,
+		workflowVersions: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/versions`,
+		workflowExportExcel: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/export-detailed-excel`,
 
 		// 阶段相关API
-		stages: `${globSetting.apiProName}/ow/stages/v1`,
-		stage: `${globSetting.apiProName}/ow/stages/v1/${id}`,
-		stagesByWorkflow: `${globSetting.apiProName}/ow/workflows/v1/${id}/stages`,
-		stageCombine: `${globSetting.apiProName}/ow/stages/v1/combine`,
-		stageSort: `${globSetting.apiProName}/ow/stages/v1/sort`,
-		stageColor: `${globSetting.apiProName}/ow/stages/v1/${id}/color`,
-		stageRequiredFields: `${globSetting.apiProName}/ow/stages/v1/${id}/required-fields`,
-		stageDuplicate: `${globSetting.apiProName}/ow/stages/v1/${id}/duplicate`,
-		stageQuery: `${globSetting.apiProName}/ow/stages/v1/query`,
+		stages: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}`,
+		stage: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}`,
+		stagesByWorkflow: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/stages`,
+		stageCombine: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/combine`,
+		stageSort: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/sort`,
+		stageColor: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}/color`,
+		stageRequiredFields: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}/required-fields`,
+		stageDuplicate: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}/duplicate`,
+		stageQuery: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/query`,
 
-		allWorkflows: `${globSetting.apiProName}/ow/workflows/v1/all`,
-		allStages: `${globSetting.apiProName}/ow/stages/v1/all`,
+		allWorkflows: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/all`,
+		allStages: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/all`,
 	};
 };
 

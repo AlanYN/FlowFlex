@@ -212,7 +212,6 @@ const handleExport = () => {
 }
 
 .onboardSearch-form :deep(.el-input__wrapper) {
-	border: 1px solid #d1d5db;
 	transition: all 0.2s;
 }
 

@@ -11,7 +11,7 @@ export const UnisApi = () => {
 		// 获取新token
 		getNewToken: `${globSetting.apiProName}/permission-center/${globSetting.apiVersion}/oauth/refresh-access-token`,
 
-		getSSOToken: `${globSetting.iamUrl}/v1/oauth/item-iam/token`,
+		getSSOToken: `${globSetting.iamUrl}/${globSetting.apiVersion}/oauth/item-iam/token`,
 
 		userGeneral: `${globSetting.iamUrl}/${globSetting.apiVersion}/users/user-general`,
 	};

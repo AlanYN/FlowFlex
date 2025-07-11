@@ -6,18 +6,18 @@ const globSetting = useGlobSetting();
 const Api = (id?: string | number) => {
 	return {
 		// 问卷相关API
-		questionnaires: `${globSetting.apiProName}/ow/questionnaires/v1`,
-		questionnaire: `${globSetting.apiProName}/ow/questionnaires/v1/${id}`,
-		questionnaireTemplates: `${globSetting.apiProName}/ow/questionnaires/v1/templates`,
-		questionnaireQuery: `${globSetting.apiProName}/ow/questionnaires/v1/query`,
-		questionnairePreview: `${globSetting.apiProName}/ow/questionnaires/v1/${id}/preview`,
-		questionnaireValidate: `${globSetting.apiProName}/ow/questionnaires/v1/${id}/validate`,
-		questionnaireUpdateStatistics: `${globSetting.apiProName}/ow/questionnaires/v1/${id}/update-statistics`,
-		questionnairePublish: `${globSetting.apiProName}/ow/questionnaires/v1/${id}/publish`,
-		questionnaireDuplicate: `${globSetting.apiProName}/ow/questionnaires/v1/${id}/duplicate`,
-		questionnaireCreateFromTemplate: `${globSetting.apiProName}/ow/questionnaires/v1/templates/${id}/create`,
-		questionnaireArchive: `${globSetting.apiProName}/ow/questionnaires/v1/${id}/archive`,
-		stageQuestionnaire: `${globSetting.apiProName}/ow/questionnaires/v1/by-stage/${id}`,
+		questionnaires: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}`,
+		questionnaire: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}`,
+		questionnaireTemplates: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/templates`,
+		questionnaireQuery: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/query`,
+		questionnairePreview: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/preview`,
+		questionnaireValidate: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/validate`,
+		questionnaireUpdateStatistics: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/update-statistics`,
+		questionnairePublish: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/publish`,
+		questionnaireDuplicate: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/duplicate`,
+		questionnaireCreateFromTemplate: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/templates/${id}/create`,
+		questionnaireArchive: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/archive`,
+		stageQuestionnaire: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/by-stage/${id}`,
 	};
 };
 
@@ -162,15 +162,15 @@ const AnswerApi = (
 ) => {
 	return {
 		// 问卷答案相关API
-		questionnaireAnswers: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/answers`,
-		saveAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/answer`,
-		getAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/answer`,
-		submitAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/submit`,
-		answerHistory: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${onboardingId}/stage/${stageId}/history`,
-		answerStatistics: `${globSetting.apiProName}/ow/questionnaire-answers/v1/statistics`,
-		updateAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${answerId}`,
-		reviewAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/review`,
-		answersByStatus: `${globSetting.apiProName}/ow/questionnaire-answers/v1/by-status`,
+		questionnaireAnswers: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/answers`,
+		saveAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/answer`,
+		getAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/answer`,
+		submitAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/submit`,
+		answerHistory: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/history`,
+		answerStatistics: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/statistics`,
+		updateAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${answerId}`,
+		reviewAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/review`,
+		answersByStatus: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/by-status`,
 	};
 };
 
@@ -300,7 +300,7 @@ export function getStageQuestionnaire(stageId: string) {
  */
 export function getStageQuestionnairesBatch(stageIds: (string | number)[]) {
 	return defHttp.post({
-		url: `${globSetting.apiProName}/ow/questionnaires/v1/batch/by-stages`,
+		url: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/batch/by-stages`,
 		params: { stageIds },
 	});
 }
@@ -316,7 +316,7 @@ export function getQuestionnaireAnswersBatch(
 	stageIds: (string | number)[]
 ) {
 	return defHttp.post({
-		url: `${globSetting.apiProName}/ow/questionnaire-answers/v1/batch/by-stages`,
+		url: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/batch/by-stages`,
 		params: { onboardingId, stageIds },
 	});
 }

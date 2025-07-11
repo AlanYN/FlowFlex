@@ -6,80 +6,80 @@ const globSetting = useGlobSetting();
 const Api = (id?: string | number) => {
 	return {
 		// 客户入职相关API
-		onboardings: `${globSetting.apiProName}/ow/onboardings/v1`,
-		onboarding: `${globSetting.apiProName}/ow/onboardings/v1/${id}`,
-		onboardingQuery: `${globSetting.apiProName}/ow/onboardings/v1/query`,
-		onboardingStatistics: `${globSetting.apiProName}/ow/onboardings/v1/statistics`,
-		onboardingOverdue: `${globSetting.apiProName}/ow/onboardings/v1/overdue`,
-		onboardingNextStage: `${globSetting.apiProName}/ow/onboardings/v1/${id}/next-stage`,
-		onboardingPreviousStage: `${globSetting.apiProName}/ow/onboardings/v1/${id}/previous-stage`,
-		onboardingMoveToStage: `${globSetting.apiProName}/ow/onboardings/v1/${id}/move-to-stage`,
-		onboardingCompleteStage: `${globSetting.apiProName}/ow/onboardings/v1/${id}/complete-stage-with-validation`,
-		onboardingComplete: `${globSetting.apiProName}/ow/onboardings/v1/${id}/complete`,
-		onboardingPause: `${globSetting.apiProName}/ow/onboardings/v1/${id}/pause`,
-		onboardingResume: `${globSetting.apiProName}/ow/onboardings/v1/${id}/resume`,
-		onboardingCancel: `${globSetting.apiProName}/ow/onboardings/v1/${id}/cancel`,
-		onboardingAssign: `${globSetting.apiProName}/ow/onboardings/v1/${id}/assign`,
-		onboardingUpdateCompletionRate: `${globSetting.apiProName}/ow/onboardings/v1/${id}/update-completion-rate`,
-		onboardingSetPriority: `${globSetting.apiProName}/ow/onboardings/v1/${id}/set-priority`,
-		onboardingBatchUpdateStatus: `${globSetting.apiProName}/ow/onboardings/v1/batch-update-status`,
+		onboardings: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}`,
+		onboarding: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}`,
+		onboardingQuery: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/query`,
+		onboardingStatistics: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/statistics`,
+		onboardingOverdue: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/overdue`,
+		onboardingNextStage: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/next-stage`,
+		onboardingPreviousStage: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/previous-stage`,
+		onboardingMoveToStage: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/move-to-stage`,
+		onboardingCompleteStage: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/complete-stage-with-validation`,
+		onboardingComplete: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/complete`,
+		onboardingPause: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/pause`,
+		onboardingResume: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/resume`,
+		onboardingCancel: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/cancel`,
+		onboardingAssign: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/assign`,
+		onboardingUpdateCompletionRate: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/update-completion-rate`,
+		onboardingSetPriority: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/set-priority`,
+		onboardingBatchUpdateStatus: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/batch-update-status`,
 
 		// Lead同步相关API
-		leadSyncShouldCreate: `${globSetting.apiProName}/ow/lead-sync/v1/should-create`,
-		leadSync: `${globSetting.apiProName}/ow/lead-sync/v1/sync`,
-		leadSyncInfo: `${globSetting.apiProName}/ow/lead-sync/v1/sync-info`,
-		leadBatchSync: `${globSetting.apiProName}/ow/lead-sync/v1/batch-sync`,
-		leadSyncStatus: `${globSetting.apiProName}/ow/lead-sync/v1/sync-status/${id}`,
+		leadSyncShouldCreate: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/should-create`,
+		leadSync: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/sync`,
+		leadSyncInfo: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/sync-info`,
+		leadBatchSync: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/batch-sync`,
+		leadSyncStatus: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/sync-status/${id}`,
 
 		// 清单任务完成相关API
-		checklistTaskCompletions: `${globSetting.apiProName}/ow/checklist-task-completions/v1`,
-		checklistTaskCompletionsBatch: `${globSetting.apiProName}/ow/checklist-task-completions/v1/batch`,
-		checklistTaskCompletionsByOnboardingAndChecklist: `${globSetting.apiProName}/ow/checklist-task-completions/v1/onboarding/${id}/checklist`,
-		checklistTaskCompletionsStats: `${globSetting.apiProName}/ow/checklist-task-completions/v1/onboarding/${id}/checklist`,
+		checklistTaskCompletions: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}`,
+		checklistTaskCompletionsBatch: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/batch`,
+		checklistTaskCompletionsByOnboardingAndChecklist: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}/checklist`,
+		checklistTaskCompletionsStats: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}/checklist`,
 
 		// 阶段完成日志相关API
-		stageCompletionLogs: `${globSetting.apiProName}/ow/logs/stage-completion/v1/list`,
-		stageCompletionLogsByOnboarding: `${globSetting.apiProName}/ow/logs/stage-completion/v1/onboarding/${id}`,
-		stageCompletionLogsByStage: `${globSetting.apiProName}/ow/logs/stage-completion/v1/stage/${id}`,
-		stageCompletionLogsStatistics: `${globSetting.apiProName}/ow/logs/stage-completion/v1/statistics`,
-		stageCompletionLogsBatch: `${globSetting.apiProName}/ow/logs/stage-completion/v1/batch`,
+		stageCompletionLogs: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/list`,
+		stageCompletionLogsByOnboarding: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/onboarding/${id}`,
+		stageCompletionLogsByStage: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/stage/${id}`,
+		stageCompletionLogsStatistics: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/statistics`,
+		stageCompletionLogsBatch: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/batch`,
 
 		// 内部备注相关API
-		internalNotesPaged: `${globSetting.apiProName}/ow/internal-notes/v1/paged`,
-		internalNotes: `${globSetting.apiProName}/ow/internal-notes/v1`,
-		internalNotesByOnboarding: `${globSetting.apiProName}/ow/internal-notes/v1/onboarding/${id}`,
-		internalNotesUnresolved: `${globSetting.apiProName}/ow/internal-notes/v1/onboarding/${id}/unresolved`,
+		internalNotesPaged: `${globSetting.apiProName}/ow/internal-notes/${globSetting.apiVersion}/paged`,
+		internalNotes: `${globSetting.apiProName}/ow/internal-notes/${globSetting.apiVersion}`,
+		internalNotesByOnboarding: `${globSetting.apiProName}/ow/internal-notes/${globSetting.apiVersion}/onboarding/${id}`,
+		internalNotesUnresolved: `${globSetting.apiProName}/ow/internal-notes/${globSetting.apiVersion}/onboarding/${id}/unresolved`,
 
 		// 问卷答案相关API
-		questionnaireAnswers: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${id}/answers`,
-		questionnaireAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${id}/stage`,
-		questionnaireAnswerSubmit: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${id}/stage`,
-		questionnaireAnswerHistory: `${globSetting.apiProName}/ow/questionnaire-answers/v1/${id}/stage`,
-		questionnaireAnswersStatistics: `${globSetting.apiProName}/ow/questionnaire-answers/v1/statistics`,
-		questionnaireAnswerReview: `${globSetting.apiProName}/ow/questionnaire-answers/v1/review`,
-		questionnaireAnswersByStatus: `${globSetting.apiProName}/ow/questionnaire-answers/v1/by-status/${id}`,
+		questionnaireAnswers: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/answers`,
+		questionnaireAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/stage`,
+		questionnaireAnswerSubmit: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/stage`,
+		questionnaireAnswerHistory: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/stage`,
+		questionnaireAnswersStatistics: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/statistics`,
+		questionnaireAnswerReview: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/review`,
+		questionnaireAnswersByStatus: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/by-status/${id}`,
 
 		// 静态问卷答案相关API
-		staticQuestionnaireAnswer: `${globSetting.apiProName}/ow/static-field-values/v1/batch`,
+		staticQuestionnaireAnswer: `${globSetting.apiProName}/ow/static-field-values/${globSetting.apiVersion}/batch`,
 
 		// checkList
-		checkList: `${globSetting.apiProName}/ow/checklists/v1/by-stage/${id}`,
-		checkListTask: `${globSetting.apiProName}/ow/checklist-task-completions/v1`,
-		checkListIsCompleted: `${globSetting.apiProName}/ow/checklist-task-completions/v1/onboarding/${id}`,
+		checkList: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/by-stage/${id}`,
+		checkListTask: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}`,
+		checkListIsCompleted: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}`,
 
 		// 文件管理相关API
-		onboardingFiles: `${globSetting.apiProName}/ow/onboardings/${id}/files/v1`,
-		onboardingFilesBatch: `${globSetting.apiProName}/ow/onboardings/${id}/files/v1/batch`,
-		onboardingFile: `${globSetting.apiProName}/ow/onboardings/${id}/files/v1`,
+		onboardingFiles: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}`,
+		onboardingFilesBatch: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}/batch`,
+		onboardingFile: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}`,
 
 		// export
-		exportOnboarding: `${globSetting.apiProName}/ow/onboardings/v1/export-excel?`,
+		exportOnboarding: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/export-excel?`,
 
 		// 预览
-		perviewOnboardingFile: `${globSetting.apiProName}/ow/onboardings/${id}/files/v1`,
+		perviewOnboardingFile: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}`,
 
-		filedForm: `${globSetting.apiProName}/ow/static-field-values/v1/onboarding/${id}`,
-		staticFieldValuesByOnboarding: `${globSetting.apiProName}/ow/static-field-values/v1/by-onboarding/${id}`,
+		filedForm: `${globSetting.apiProName}/ow/static-field-values/${globSetting.apiVersion}/onboarding/${id}`,
+		staticFieldValuesByOnboarding: `${globSetting.apiProName}/ow/static-field-values/${globSetting.apiVersion}/by-onboarding/${id}`,
 	};
 };
 

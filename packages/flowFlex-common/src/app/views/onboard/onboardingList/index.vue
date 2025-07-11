@@ -23,6 +23,7 @@
 			type="adaptive"
 			size="default"
 			class="mb-6"
+			@tab-change="handleViewChange"
 		>
 			<!-- 表格视图 -->
 			<TabPane value="table">
@@ -38,9 +39,9 @@
 					@reset="handleFilterReset"
 					@export="handleExport"
 				/>
-				<div class="rounded-md border bg-white shadow-sm overflow-hidden">
+				<div class="customer-block !p-0 !ml-0">
 					<el-table
-						:data="currentPageData"
+						:data="onboardingList"
 						@selection-change="handleSelectionChange"
 						@sort-change="handleSortChange"
 						class="w-full rounded-none"
@@ -53,7 +54,7 @@
 								<el-empty description="No Data" :image-size="50" />
 							</slot>
 						</template>
-						<el-table-column type="selection" width="50" />
+						<el-table-column type="selection" width="50" align />
 						<el-table-column label="Actions" width="80">
 							<template #default="{ row }">
 								<el-dropdown trigger="click">
@@ -237,7 +238,7 @@
 
 			<!-- 管道视图 -->
 			<TabPane value="pipeline">
-				<!-- 阶段过滤器和总记录数 -->
+				<!-- 搜索区域 -->
 				<OnboardFilter
 					:life-cycle-stage="lifeCycleStage"
 					:all-workflows="allWorkflows"
@@ -249,189 +250,50 @@
 					@reset="handleFilterReset"
 					@export="handleExport"
 				/>
+				<PrototypeTabs
+					v-model="tabWorkflowId"
+					:tabs="[
+						{
+							name: 'All',
+							id: '',
+						},
+						...allWorkflows,
+					]"
+					type="adaptive"
+					class="mb-6"
+					:keys="{
+						label: 'name',
+						value: 'id',
+					}"
+				/>
 				<div class="mb-4">
-					<PrototypeTabs
-						v-model="tabWorkflowId"
-						:tabs="[
-							{
-								name: 'All',
-								id: '',
-							},
-							...allWorkflows,
-						]"
-						type="adaptive"
-						class="mb-6"
-						:keys="{
-							label: 'name',
-							value: 'id',
-						}"
-					/>
 					<div class="flex justify-between items-center mb-2">
 						<div class="text-sm font-medium text-gray-700">Filter Stages:</div>
 						<div class="text-sm text-gray-500">Total Records: {{ totalElements }}</div>
 					</div>
-					<div class="flex flex-wrap gap-2">
-						<el-tag
-							v-for="stage in activeStages"
-							:key="stage"
-							:type="visibleStages.includes(stage) ? 'primary' : 'info'"
-							:effect="visibleStages.includes(stage) ? 'dark' : 'plain'"
-							class="cursor-pointer"
-							@click="toggleStageVisibility(stage)"
-						>
-							{{ stage }} ({{ groupedLeads[stage]?.length || 0 }})
-						</el-tag>
-					</div>
+					<!-- 阶段过滤器 -->
+					<StageFilter
+						:loading="loading"
+						:available-stages="getAllAvailableStages"
+						:selected-stages="selectedStages"
+						:stage-count-map="stageCountMap"
+						@stage-click="toggleStageSelection"
+					/>
 				</div>
 
 				<!-- 阶段卡片 -->
-				<div class="space-y-4">
-					<el-card
-						v-for="stage in visibleStages"
-						:key="stage"
-						class="stage-card shadow-sm rounded-md"
-					>
-						<template #header>
-							<div
-								class="flex justify-between items-center cursor-pointer py-1"
-								@click="toggleStageExpansion(stage)"
-							>
-								<div class="flex items-center">
-									<el-icon
-										class="mr-2 transition-transform text-gray-600"
-										:class="{ 'rotate-90': expandedStages.includes(stage) }"
-									>
-										<ArrowRight />
-									</el-icon>
-									<span class="text-base font-medium text-gray-900">
-										{{ stage }}
-									</span>
-								</div>
-								<el-tag type="info" class="flex items-center">
-									<el-icon class="mr-1"><User /></el-icon>
-									{{ groupedLeads[stage]?.length || 0 }}
-								</el-tag>
-							</div>
-						</template>
-
-						<div v-if="expandedStages.includes(stage)" class="stage-content p-3">
-							<div v-if="groupedLeads[stage]?.length" class="flex flex-wrap gap-2">
-								<el-tooltip
-									v-for="lead in groupedLeads[stage]"
-									:key="lead.id"
-									placement="top"
-									:show-after="500"
-									effect="light"
-								>
-									<template #content>
-										<div class="p-3 max-w-xs">
-											<div class="font-medium mb-1 text-gray-900">
-												{{ lead.leadName }}
-											</div>
-											<div class="text-xs text-gray-500 mb-1">
-												{{ lead.leadId }}
-											</div>
-											<div
-												class="grid grid-cols-2 gap-2 text-xs mb-2 text-gray-600"
-											>
-												<div class="flex items-center">
-													<el-icon class="mr-1 text-gray-500">
-														<Calendar />
-													</el-icon>
-													<span>
-														Start:
-														{{
-															formatDate(lead.startDate) || defaultStr
-														}}
-													</span>
-												</div>
-												<div class="flex items-center">
-													<el-icon class="mr-1 text-gray-500">
-														<Calendar />
-													</el-icon>
-													<span>
-														ETA:
-														{{
-															formatDate(
-																lead.estimatedCompletionDate
-															) || defaultStr
-														}}
-													</span>
-												</div>
-											</div>
-											<div class="flex items-center justify-between text-xs">
-												<el-tag
-													:type="getPriorityTagType(lead.priority)"
-													size="small"
-													class="text-white"
-												>
-													{{ lead.priority }}
-												</el-tag>
-												<span
-													v-if="isOverdue(lead.estimatedCompletionDate)"
-													class="text-red-500 flex items-center"
-												>
-													<el-icon class="mr-1"><Warning /></el-icon>
-													Overdue
-												</span>
-											</div>
-										</div>
-									</template>
-									<el-button
-										size="small"
-										class="pipeline-lead-button rounded-md"
-										:class="[
-											getPriorityBorderClass(lead.priority),
-											isOverdue(lead.estimatedCompletionDate)
-												? 'border-red-500'
-												: '',
-										]"
-										@click="handleEdit(lead.id)"
-									>
-										<span class="truncate max-w-[180px]">
-											{{ lead.leadName }}
-										</span>
-										<div class="flex items-center ml-1">
-											<el-icon
-												v-if="isOverdue(lead.estimatedCompletionDate)"
-												class="text-red-500 mr-1"
-											>
-												<Warning />
-											</el-icon>
-										</div>
-									</el-button>
-								</el-tooltip>
-							</div>
-							<div v-else class="text-center py-4 text-gray-500 text-sm">
-								No customers in this stage
-							</div>
-						</div>
-
-						<template #footer>
-							<div class="bg-gray-50 py-2 px-3 border-t -mx-6 -mb-6">
-								<div
-									class="flex justify-between items-center text-xs text-gray-500"
-								>
-									<span>High: {{ getStageCountByPriority(stage, 'High') }}</span>
-									<span>
-										Medium: {{ getStageCountByPriority(stage, 'Medium') }}
-									</span>
-									<span>Low: {{ getStageCountByPriority(stage, 'Low') }}</span>
-									<span>Overdue: {{ getStageOverdueCount(stage) }}</span>
-								</div>
-							</div>
-						</template>
-					</el-card>
-				</div>
-
-				<div
-					v-if="visibleStages.length === 0"
-					class="text-center py-10 bg-gray-50 rounded-lg"
-				>
-					<p class="text-gray-500">
-						No stages selected. Please select at least one stage to view.
-					</p>
-				</div>
+				<StageCardList
+					:loading="loading"
+					:active-stages="activeStages"
+					:grouped-leads="groupedLeads"
+					:format-date="formatDate"
+					:is-overdue="isOverdue"
+					:get-priority-tag-type="getPriorityTagType"
+					:get-priority-border-class="getPriorityBorderClass"
+					:get-stage-count-by-priority="getStageCountByPriority"
+					:get-stage-overdue-count="getStageOverdueCount"
+					:handle-edit="handleEdit"
+				/>
 			</TabPane>
 		</PrototypeTabs>
 
@@ -572,21 +434,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, markRaw } from 'vue';
+import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import '../styles/errorDialog.css';
-import {
-	ArrowDownBold,
-	Edit,
-	Delete,
-	Warning,
-	ArrowRight,
-	User,
-	Calendar,
-	Plus,
-	Loading,
-} from '@element-plus/icons-vue';
+import { ArrowDownBold, Edit, Delete, Plus, Loading } from '@element-plus/icons-vue';
 import {
 	queryOnboardings,
 	deleteOnboarding,
@@ -610,6 +462,8 @@ import { useI18n } from '@/hooks/useI18n';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import { pick, omitBy, isNil } from 'lodash-es';
+import StageFilter from './components/StageFilter.vue';
+import StageCardList from './components/StageCardList.vue';
 
 const { t } = useI18n();
 
@@ -627,6 +481,11 @@ const pageSize = ref(15);
 const totalElements = ref(0);
 const deleteDialogVisible = ref(false);
 const itemToDelete = ref<string | null>(null);
+
+const handleViewChange = (value: string) => {
+	activeView.value = value;
+	loadOnboardingList(null, false);
+};
 
 // 新建入职弹窗相关状态
 const dialogVisible = ref(false);
@@ -675,10 +534,6 @@ const searchParams = reactive<SearchParams>({
 	size: 15,
 });
 
-// 管道视图状态
-const visibleStages = ref<string[]>([]);
-const expandedStages = ref<string[]>([]);
-
 // 标签页配置
 const tabsConfig = ref([
 	{
@@ -693,16 +548,31 @@ const tabsConfig = ref([
 	},
 ]);
 
-// 计算属性
-const currentPageData = computed(() => {
-	return onboardingList.value;
+// 添加选中的阶段状态
+const selectedStages = ref<string[]>([]);
+
+// 过滤后的管道数据
+const filteredPipelineList = computed(() => {
+	let filtered = pipelineOnboardingList.value;
+
+	// 根据工作流ID过滤
+	if (tabWorkflowId.value && tabWorkflowId.value !== '') {
+		filtered = filtered.filter((item) => item.workflowId === tabWorkflowId.value);
+	}
+
+	// 根据选中的阶段过滤
+	if (selectedStages.value.length > 0) {
+		filtered = filtered.filter((item) => selectedStages.value.includes(item.currentStageName));
+	}
+
+	return filtered;
 });
 
 const groupedLeads = computed(() => {
 	const grouped: Record<string, OnboardingItem[]> = {};
 
-	// 按阶段分组
-	onboardingList.value.forEach((item) => {
+	// 按阶段分组过滤后的数据
+	filteredPipelineList.value.forEach((item) => {
 		if (grouped[item.currentStageName]) {
 			grouped[item.currentStageName].push(item);
 		} else {
@@ -717,10 +587,73 @@ const activeStages = computed(() => {
 	return Object.keys(groupedLeads.value).filter((stage) => groupedLeads.value[stage].length > 0);
 });
 
+// 获取所有可用的阶段（根据当前工作流过滤）
+const getAllAvailableStages = computed(() => {
+	const stages = new Set<string>();
+
+	// 根据当前工作流过滤数据
+	let dataToCheck = pipelineOnboardingList.value;
+	if (tabWorkflowId.value && tabWorkflowId.value !== '') {
+		dataToCheck = dataToCheck.filter((item) => item.workflowId === tabWorkflowId.value);
+	}
+
+	// 收集所有阶段
+	dataToCheck.forEach((item) => {
+		stages.add(item.currentStageName);
+	});
+
+	return Array.from(stages);
+});
+
+// 获取每个阶段的数量（根据当前工作流过滤，但不考虑阶段过滤）
+const getAllStageCount = (stage: string) => {
+	let dataToCheck = pipelineOnboardingList.value;
+
+	// 根据当前工作流过滤数据
+	if (tabWorkflowId.value && tabWorkflowId.value !== '') {
+		dataToCheck = dataToCheck.filter((item) => item.workflowId === tabWorkflowId.value);
+	}
+
+	return dataToCheck.filter((item) => item.currentStageName === stage).length;
+};
+
+// 计算阶段数量映射表
+const stageCountMap = computed(() => {
+	const countMap: Record<string, number> = {};
+	getAllAvailableStages.value.forEach((stage) => {
+		countMap[stage] = getAllStageCount(stage);
+	});
+	return countMap;
+});
+
+// 切换阶段选中状态
+const toggleStageSelection = (stage: string) => {
+	const index = selectedStages.value.indexOf(stage);
+	if (index > -1) {
+		selectedStages.value.splice(index, 1);
+	} else {
+		selectedStages.value.push(stage);
+	}
+};
+
 // API调用函数
-const loadOnboardingList = async (event?: any) => {
+const loadOnboardingList = async (event?: any, trigger: boolean = true) => {
 	try {
 		loading.value = true;
+		if (activeView.value === 'table') {
+			if (!trigger && onboardingList.value.length > 0) return;
+			await getTableViewOnboarding(event);
+		} else {
+			if (!trigger && pipelineOnboardingList.value.length > 0) return;
+			await getPipelineViewOnboarding();
+		}
+	} finally {
+		loading.value = false;
+	}
+};
+
+const getTableViewOnboarding = async (event) => {
+	try {
 		const queryParams: OnboardingQueryRequest = {
 			page: currentPage.value,
 			size: pageSize.value,
@@ -740,15 +673,46 @@ const loadOnboardingList = async (event?: any) => {
 			),
 		};
 
-		const response: ApiResponse<OnboardingItem> = await queryOnboardings(queryParams);
-
-		onboardingList.value = response.data.data || [];
-		totalElements.value = response.data.total || 0;
-	} catch (error) {
+		const res: ApiResponse<OnboardingItem> = await queryOnboardings(queryParams);
+		if (res.code === '200') {
+			onboardingList.value = res.data.data || [];
+			totalElements.value = res.data.total || 0;
+		} else {
+			onboardingList.value = [];
+			totalElements.value = 0;
+		}
+	} catch {
 		onboardingList.value = [];
 		totalElements.value = 0;
-	} finally {
-		loading.value = false;
+	}
+};
+
+const pipelineOnboardingList = ref<OnboardingItem[]>([]);
+const getPipelineViewOnboarding = async () => {
+	try {
+		const queryParams: OnboardingQueryRequest = {
+			allData: true,
+			...omitBy(
+				pick(searchParams, [
+					'leadId',
+					'leadName',
+					'lifeCycleStageName',
+					'currentStageId',
+					'updatedBy',
+					'priority',
+					'workFlowId',
+				]),
+				(value) => isNil(value) || value === ''
+			),
+		};
+		const res = await queryOnboardings(queryParams);
+		if (res.code === '200') {
+			pipelineOnboardingList.value = res.data.data || [];
+		} else {
+			pipelineOnboardingList.value = [];
+		}
+	} catch {
+		pipelineOnboardingList.value = [];
 	}
 };
 
@@ -961,35 +925,15 @@ const handlePageUpdate = async (size: number) => {
 	searchParams.size = size;
 	currentPage.value = 1;
 	searchParams.page = 1;
-	await loadOnboardingList();
 };
 
 const handleCurrentChange = async (page: number) => {
 	currentPage.value = page;
 	searchParams.page = page;
-	await loadOnboardingList();
 };
 
 const handleLimitUpdate = async () => {
 	await loadOnboardingList();
-};
-
-const toggleStageVisibility = (stage: string) => {
-	const index = visibleStages.value.indexOf(stage);
-	if (index > -1) {
-		visibleStages.value.splice(index, 1);
-	} else {
-		visibleStages.value.push(stage);
-	}
-};
-
-const toggleStageExpansion = (stage: string) => {
-	const index = expandedStages.value.indexOf(stage);
-	if (index > -1) {
-		expandedStages.value.splice(index, 1);
-	} else {
-		expandedStages.value.push(stage);
-	}
 };
 
 // 新建入职相关方法
@@ -1133,6 +1077,7 @@ const fetchAllWorkflows = async () => {
 	const response = await getWorkflowList();
 	if (response.code === '200') {
 		allWorkflows.value = response.data || [];
+		allWorkflows.value.find((item) => item.isDefault).name += ' ⭐';
 	}
 };
 
@@ -1164,6 +1109,24 @@ const getLifeCycleStage = async () => {
 
 const tabWorkflowId = ref('');
 
+// 监听工作流切换，选中所有阶段
+watch(tabWorkflowId, () => {
+	nextTick(() => {
+		selectedStages.value = [...getAllAvailableStages.value];
+	});
+});
+
+// 监听可用阶段变化，自动选中所有阶段
+watch(
+	getAllAvailableStages,
+	(newStages) => {
+		if (newStages.length > 0) {
+			selectedStages.value = [...newStages];
+		}
+	},
+	{ immediate: true }
+);
+
 // 初始化
 onMounted(async () => {
 	// 加载初始数据
@@ -1173,10 +1136,9 @@ onMounted(async () => {
 		getLifeCycleStage(),
 		fetchAllWorkflows(),
 	]);
-	// 初始化可见阶段
-	visibleStages.value = [...activeStages.value];
-	// 初始化展开阶段
-	expandedStages.value = [...activeStages.value];
+
+	// 默认选中所有阶段
+	selectedStages.value = [...getAllAvailableStages.value];
 });
 </script>
 
@@ -1273,7 +1235,6 @@ onMounted(async () => {
 
 :deep(.el-table td) {
 	border-bottom: 1px solid #f3f4f6;
-	padding: 12px 8px;
 }
 
 :deep(.el-table tbody tr:hover > td) {
@@ -1402,11 +1363,6 @@ onMounted(async () => {
 	border-color: #ffffff !important;
 }
 
-/* 卡片阴影 */
-.shadow-sm {
-	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-
 /* 旋转动画 */
 .rotate-90 {
 	transform: rotate(90deg);
@@ -1511,16 +1467,6 @@ html.dark {
 	:deep(.onboarding-form .el-select .el-input__wrapper) {
 		background-color: var(--black-200);
 		border-color: var(--black-200);
-	}
-
-	/* 卡片和容器背景 - 统一使用 black-400 */
-	.bg-white {
-		@apply bg-black-400 !important;
-	}
-
-	.rounded-md {
-		background-color: var(--black-400) !important;
-		border: 1px solid var(--black-200) !important;
 	}
 
 	/* 表格暗色主题 - 保持头部蓝色样式 */

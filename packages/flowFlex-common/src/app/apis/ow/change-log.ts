@@ -6,10 +6,10 @@ const globSetting = useGlobSetting();
 const Api = (id?: string | number) => {
 	return {
 		// Change Log 相关API
-		changeLogs: `${globSetting.apiProName}/ow/change-logs/v1`,
-		changeLogById: `${globSetting.apiProName}/ow/change-logs/v1/${id}`,
-		changeLogByBusiness: `${globSetting.apiProName}/ow/change-logs/v1/business`,
-		changeLogByOnboarding: `${globSetting.apiProName}/ow/change-logs/v1/onboarding/${id}`,
+		changeLogs: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}`,
+		changeLogById: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}/${id}`,
+		changeLogByBusiness: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}/business`,
+		changeLogByOnboarding: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}/onboarding/${id}`,
 	};
 };
 

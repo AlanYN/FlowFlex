@@ -1,5 +1,7 @@
 <template>
-	<div>
+	<div class="customer-block">
+		<h2 class="text-lg font-semibold">Request fields</h2>
+		<el-divider />
 		<el-form
 			ref="formRef"
 			:model="formData"
@@ -374,6 +376,12 @@
 				/>
 			</el-form-item>
 		</el-form>
+		<div class="flex justify-end space-x-2">
+			<el-button @click="handleSave" :loading="saving">
+				<el-icon class="mr-1"><Document /></el-icon>
+				Save
+			</el-button>
+		</div>
 	</div>
 </template>
 
@@ -382,9 +390,13 @@ import { ref, reactive, onMounted, watch } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { textraTwoHundredLength } from '@/settings/projectSetting';
+import { saveQuestionnaireStatic } from '@/apis/ow/onboarding';
+import { ElMessage } from 'element-plus';
 
-const { staticFields } = defineProps<{
+const props = defineProps<{
 	staticFields: string[]; // 需要显示的字段
+	onboardingId: string;
+	stageId: string;
 }>();
 
 // 表单引用
@@ -621,7 +633,7 @@ const getFormData = () => {
 	}> = [];
 
 	// 只处理在 staticFields 中指定的字段
-	staticFields.forEach((apiFieldName) => {
+	props.staticFields.forEach((apiFieldName) => {
 		// 找到对应的表单字段名
 		const formFieldName = Object.keys(formToApiFieldsMap).find(
 			(key) => formToApiFieldsMap[key] === apiFieldName
@@ -723,48 +735,40 @@ watch(
 	}
 );
 
+const saving = ref(false);
+const handleSave = async () => {
+	try {
+		saving.value = true;
+
+		// 验证静态表单
+		const staticFormValid = await validateForm();
+		if (!staticFormValid || !props?.onboardingId) {
+			return;
+		}
+
+		const staticFormData = getFormData();
+		const res = await saveQuestionnaireStatic({
+			fieldValues: staticFormData,
+			onboardingId: props?.onboardingId,
+			stageId: props.stageId,
+		});
+		if (res.code == '200') {
+			return true;
+		} else {
+			ElMessage.error(res.msg || 'Failed to save stage data');
+			return false;
+		}
+	} catch {
+		return false;
+	} finally {
+		saving.value = false;
+	}
+};
+
 onMounted(() => {
 	getLifeCycleStage();
 	console.log('static form');
 });
-
-/*
-新的 API 调用数据格式示例：
-POST crm/ow/static-field-values/v2/batch
-
-{
-  "fieldValues": [
-    {
-      "fieldName": "APPROVEDCREDITLIMIT",
-      "fieldValueJson": "99999.00",
-      "fieldType": "number",
-      "isRequired": true,
-      "fieldLabel": "Approved Credit Limit"
-    },
-    {
-      "fieldName": "SALESAPPROVEDCREDITLIMIT",
-      "fieldValueJson": "7.00",
-      "fieldType": "number",
-      "isRequired": true,
-      "fieldLabel": "Sales Approved Credit Limit"
-    },
-    {
-      "fieldName": "SALESAPPROVALNOTES",
-      "fieldValueJson": "test1116",
-      "fieldType": "textarea",
-      "isRequired": true,
-      "fieldLabel": "Sales Approval Notes"
-    },
-    {
-      "fieldName": "REQUESTEDCREDITLIMIT",
-      "fieldValueJson": "123456.00",
-      "fieldType": "number",
-      "isRequired": true,
-      "fieldLabel": "Requested Credit Limit"
-    }
-  ]
-}
-*/
 </script>
 
 <style lang="scss" scoped>

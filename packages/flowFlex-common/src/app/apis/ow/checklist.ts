@@ -7,25 +7,25 @@ const globSetting = useGlobSetting();
 const Api = (id?: string | number) => {
 	return {
 		// 清单相关API
-		checklists: `${globSetting.apiProName}/ow/checklists/v1`,
-		checklist: `${globSetting.apiProName}/ow/checklists/v1/${id}`,
-		checklistQuery: `${globSetting.apiProName}/ow/checklists/v1/query`,
-		checklistTemplates: `${globSetting.apiProName}/ow/checklists/v1/templates`,
-		checklistStatistics: `${globSetting.apiProName}/ow/checklists/v1/statistics`,
-		checklistCompletion: `${globSetting.apiProName}/ow/checklists/v1/${id}/completion`,
-		checklistExportPdf: `${globSetting.apiProName}/ow/checklists/v1/${id}/export-pdf`,
+		checklists: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}`,
+		checklist: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/${id}`,
+		checklistQuery: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/query`,
+		checklistTemplates: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/templates`,
+		checklistStatistics: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/statistics`,
+		checklistCompletion: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/${id}/completion`,
+		checklistExportPdf: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/${id}/export-pdf`,
 
 		// 清单任务相关API
-		checklistTasks: `${globSetting.apiProName}/ow/checklist-task/v1`,
-		checklistTask: `${globSetting.apiProName}/ow/checklist-task/v1/${id}`,
-		checklistTaskList: `${globSetting.apiProName}/ow/checklist-task/v1/list/${id}`,
-		checklistTaskComplete: `${globSetting.apiProName}/ow/checklist-task/v1/${id}/complete`,
-		checklistTaskOverdue: `${globSetting.apiProName}/ow/checklist-task/v1/overdue`,
-		checklistTaskDependencies: `${globSetting.apiProName}/ow/checklist-task/v1/${id}/dependencies`,
+		checklistTasks: `${globSetting.apiProName}/ow/checklist-task/${globSetting.apiVersion}`,
+		checklistTask: `${globSetting.apiProName}/ow/checklist-task/${globSetting.apiVersion}/${id}`,
+		checklistTaskList: `${globSetting.apiProName}/ow/checklist-task/${globSetting.apiVersion}/list/${id}`,
+		checklistTaskComplete: `${globSetting.apiProName}/ow/checklist-task/${globSetting.apiVersion}/${id}/complete`,
+		checklistTaskOverdue: `${globSetting.apiProName}/ow/checklist-task/${globSetting.apiVersion}/overdue`,
+		checklistTaskDependencies: `${globSetting.apiProName}/ow/checklist-task/${globSetting.apiVersion}/${id}/dependencies`,
 
 		// 工作流和阶段选项API
-		workflowOptions: `${globSetting.apiProName}/ow/workflows/v1/all`,
-		stageOptions: `${globSetting.apiProName}/ow/stages/v1/all`,
+		workflowOptions: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/all`,
+		stageOptions: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/all`,
 	};
 };
 

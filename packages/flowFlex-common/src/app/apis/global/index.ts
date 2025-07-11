@@ -6,14 +6,14 @@ const globSetting = useGlobSetting();
 
 const Api = (id?: string | number) => {
 	return {
-		tableView: `${globSetting.apiProName}/dynamic-tables/v1/views`,
-		dynamicTable: `${globSetting.apiProName}/dynamic-tables/v1/modules/${id}/fields`,
+		tableView: `${globSetting.apiProName}/dynamic-tables/${globSetting.apiVersion}/views`,
+		dynamicTable: `${globSetting.apiProName}/dynamic-tables/${globSetting.apiVersion}/modules/${id}/fields`,
 
-		dynamicTableDate: `${globSetting.apiProName}/dynamic-tables/v1/data/${id}`,
+		dynamicTableDate: `${globSetting.apiProName}/dynamic-tables/${globSetting.apiVersion}/data/${id}`,
 
 		uploadFile: `${globSetting.apiProName}/shared/${globSetting.apiVersion}/files`,
 
-		delete: `${globSetting.apiProName}/modules/v1/${id}/datas/batch`,
+		delete: `${globSetting.apiProName}/modules/${globSetting.apiVersion}/${id}/datas/batch`,
 
 		getFileUrl: `${globSetting.apiProName}/shared/${globSetting.apiVersion}/files/${id}/path`,
 

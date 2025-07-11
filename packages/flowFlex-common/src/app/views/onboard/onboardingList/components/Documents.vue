@@ -1,11 +1,10 @@
 <template>
-	<el-card class="shadow-sm">
-		<template #header>
-			<div class="flex items-center justify-between">
-				<h2 class="text-lg font-medium text-gray-900 dark:text-white-100">Documents</h2>
-				<el-button :icon="Upload" @click="triggerUpload">Upload Files</el-button>
-			</div>
-		</template>
+	<div class="customer-block">
+		<div class="flex items-center justify-between">
+			<h2 class="text-lg font-semibold">Documents</h2>
+			<el-button :icon="Upload" @click="triggerUpload">Upload Files</el-button>
+		</div>
+		<el-divider />
 
 		<div class="space-y-4">
 			<!-- 文件上传区域 -->
@@ -172,7 +171,7 @@
 			@close-office="closeOffice"
 			@rendered-office="offloading = false"
 		/>
-	</el-card>
+	</div>
 </template>
 
 <script setup lang="ts">
