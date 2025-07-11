@@ -142,5 +142,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// Filter by created by user ID
         /// </summary>
         public long? CreatedByUserId { get; set; }
+
+        /// <summary>
+        /// Return all data without pagination when set to true
+        /// </summary>
+        public bool AllData { get; set; } = false;
     }
 }
