@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: flowflex-postgres
+    environment:
+      POSTGRES_DB: flowflex
+      POSTGRES_USER: flowflex
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Docs/flowflex.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowflex -d flowflex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowflex-network
+
+  # FlowFlex API
+  flowflex-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flowflex-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - Database__ConnectionString=server=postgres;port=5432;user id=flowflex;password=123456;database=flowflex;
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/wwwroot/uploads
+      - logs_data:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - flowflex-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  logs_data:
+    driver: local
+
+networks:
+  flowflex-network:
+    driver: bridge 

@@ -18,7 +18,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             // Create onboarding file table
             db.Ado.ExecuteCommand(@"
-                CREATE TABLE ff_onboarding_file (
+                CREATE TABLE IF NOT EXISTS ff_onboarding_file (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     onboarding_id BIGINT NOT NULL,
@@ -56,7 +56,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Create operation change log table
             db.Ado.ExecuteCommand(@"
-                CREATE TABLE ff_operation_change_log (
+                CREATE TABLE IF NOT EXISTS ff_operation_change_log (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     operation_type VARCHAR(50) NOT NULL,
@@ -90,7 +90,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Create internal notes table
             db.Ado.ExecuteCommand(@"
-                CREATE TABLE ff_internal_notes (
+                CREATE TABLE IF NOT EXISTS ff_internal_notes (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     onboarding_id BIGINT NOT NULL,
@@ -123,7 +123,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Create stage completion log table
             db.Ado.ExecuteCommand(@"
-                CREATE TABLE ff_stage_completion_log (
+                CREATE TABLE IF NOT EXISTS ff_stage_completion_log (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     onboarding_id BIGINT NOT NULL,
@@ -153,7 +153,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Create static field values table
             db.Ado.ExecuteCommand(@"
-                CREATE TABLE ff_static_field_values (
+                CREATE TABLE IF NOT EXISTS ff_static_field_values (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     onboarding_id BIGINT NOT NULL,
@@ -190,7 +190,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Create workflow version table
             db.Ado.ExecuteCommand(@"
-                CREATE TABLE ff_workflow_version (
+                CREATE TABLE IF NOT EXISTS ff_workflow_version (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     original_workflow_id BIGINT NOT NULL,
@@ -217,7 +217,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Create stage version table
             db.Ado.ExecuteCommand(@"
-                CREATE TABLE ff_stage_version (
+                CREATE TABLE IF NOT EXISTS ff_stage_version (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     workflow_version_id BIGINT NOT NULL,
@@ -275,44 +275,60 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             // Create indexes for all tables
             db.Ado.ExecuteCommand(@"
-                CREATE INDEX idx_onboarding_file_onboarding_id ON ff_onboarding_file(onboarding_id);
-                CREATE INDEX idx_onboarding_file_stage_id ON ff_onboarding_file(stage_id);
-                CREATE INDEX idx_operation_change_log_business_id ON ff_operation_change_log(business_id);
-                CREATE INDEX idx_operation_change_log_onboarding_id ON ff_operation_change_log(onboarding_id);
-                CREATE INDEX idx_internal_notes_onboarding_id ON ff_internal_notes(onboarding_id);
-                CREATE INDEX idx_stage_completion_log_onboarding_id ON ff_stage_completion_log(onboarding_id);
-                CREATE INDEX idx_static_field_values_onboarding_id ON ff_static_field_values(onboarding_id);
-                CREATE INDEX idx_workflow_version_original_workflow_id ON ff_workflow_version(original_workflow_id);
-                CREATE INDEX idx_stage_version_workflow_version_id ON ff_stage_version(workflow_version_id);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_file_onboarding_id ON ff_onboarding_file(onboarding_id);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_file_stage_id ON ff_onboarding_file(stage_id);
+                CREATE INDEX IF NOT EXISTS idx_operation_change_log_business_id ON ff_operation_change_log(business_id);
+                CREATE INDEX IF NOT EXISTS idx_operation_change_log_onboarding_id ON ff_operation_change_log(onboarding_id);
+                CREATE INDEX IF NOT EXISTS idx_internal_notes_onboarding_id ON ff_internal_notes(onboarding_id);
+                CREATE INDEX IF NOT EXISTS idx_stage_completion_log_onboarding_id ON ff_stage_completion_log(onboarding_id);
+                CREATE INDEX IF NOT EXISTS idx_static_field_values_onboarding_id ON ff_static_field_values(onboarding_id);
+                CREATE INDEX IF NOT EXISTS idx_workflow_version_original_workflow_id ON ff_workflow_version(original_workflow_id);
+                CREATE INDEX IF NOT EXISTS idx_stage_version_workflow_version_id ON ff_stage_version(workflow_version_id);
             ");
         }
 
         private static void CreateForeignKeys(ISqlSugarClient db)
         {
+            // Check and create foreign keys only if they don't exist
             db.Ado.ExecuteCommand(@"
-                ALTER TABLE ff_onboarding_file 
-                ADD CONSTRAINT fk_onboarding_file_onboarding 
-                FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_onboarding_file_onboarding') THEN
+                        ALTER TABLE ff_onboarding_file 
+                        ADD CONSTRAINT fk_onboarding_file_onboarding 
+                        FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                    END IF;
 
-                ALTER TABLE ff_internal_notes 
-                ADD CONSTRAINT fk_internal_notes_onboarding 
-                FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_internal_notes_onboarding') THEN
+                        ALTER TABLE ff_internal_notes 
+                        ADD CONSTRAINT fk_internal_notes_onboarding 
+                        FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                    END IF;
 
-                ALTER TABLE ff_stage_completion_log 
-                ADD CONSTRAINT fk_stage_completion_log_onboarding 
-                FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_stage_completion_log_onboarding') THEN
+                        ALTER TABLE ff_stage_completion_log 
+                        ADD CONSTRAINT fk_stage_completion_log_onboarding 
+                        FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                    END IF;
 
-                ALTER TABLE ff_static_field_values 
-                ADD CONSTRAINT fk_static_field_values_onboarding 
-                FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_static_field_values_onboarding') THEN
+                        ALTER TABLE ff_static_field_values 
+                        ADD CONSTRAINT fk_static_field_values_onboarding 
+                        FOREIGN KEY (onboarding_id) REFERENCES ff_onboarding(id) ON DELETE CASCADE;
+                    END IF;
 
-                ALTER TABLE ff_workflow_version 
-                ADD CONSTRAINT fk_workflow_version_original_workflow 
-                FOREIGN KEY (original_workflow_id) REFERENCES ff_workflow(id) ON DELETE CASCADE;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_workflow_version_original_workflow') THEN
+                        ALTER TABLE ff_workflow_version 
+                        ADD CONSTRAINT fk_workflow_version_original_workflow 
+                        FOREIGN KEY (original_workflow_id) REFERENCES ff_workflow(id) ON DELETE CASCADE;
+                    END IF;
 
-                ALTER TABLE ff_stage_version 
-                ADD CONSTRAINT fk_stage_version_workflow_version 
-                FOREIGN KEY (workflow_version_id) REFERENCES ff_workflow_version(id) ON DELETE CASCADE;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_stage_version_workflow_version') THEN
+                        ALTER TABLE ff_stage_version 
+                        ADD CONSTRAINT fk_stage_version_workflow_version 
+                        FOREIGN KEY (workflow_version_id) REFERENCES ff_workflow_version(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
             ");
         }
 

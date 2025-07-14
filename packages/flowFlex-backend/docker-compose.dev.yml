@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Development
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: flowflex-postgres-dev
+    environment:
+      POSTGRES_DB: flowflex_dev
+      POSTGRES_USER: flowflex
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./Docs/flowflex.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowflex -d flowflex_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowflex-dev-network
+
+  # FlowFlex API for Development
+  flowflex-api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build  # Use build stage for development
+    container_name: flowflex-api-dev
+    ports:
+      - "8081:8080"
+      - "5000:5000"  # Debug port
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - Database__ConnectionString=server=postgres-dev;port=5432;user id=flowflex;password=123456;database=flowflex_dev;
+      - Database__EnableSqlLogging=true
+      - Database__EnablePerformanceLogging=true
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+    volumes:
+      - .:/app/src  # Mount source code for hot reload
+      - uploads_dev_data:/app/wwwroot/uploads
+      - logs_dev_data:/app/logs
+    networks:
+      - flowflex-dev-network
+    restart: unless-stopped
+    command: ["dotnet", "watch", "run", "--project", "/app/src/WebApi/WebApi.csproj"]
+
+  # Redis for Development (optional)
+  redis-dev:
+    image: redis:7-alpine
+    container_name: flowflex-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - flowflex-dev-network
+    restart: unless-stopped
+
+  # PgAdmin for Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: flowflex-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@flowflex.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "8082:80"
+    depends_on:
+      - postgres-dev
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - flowflex-dev-network
+    restart: unless-stopped
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  uploads_dev_data:
+    driver: local
+  logs_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  flowflex-dev-network:
+    driver: bridge 

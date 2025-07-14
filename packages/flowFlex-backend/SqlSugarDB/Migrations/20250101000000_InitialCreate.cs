@@ -77,7 +77,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateUsersTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_users (
+                CREATE TABLE IF NOT EXISTS ff_users (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     email VARCHAR(100) NOT NULL,
@@ -109,7 +109,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateWorkflowTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_workflow (
+                CREATE TABLE IF NOT EXISTS ff_workflow (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     name VARCHAR(100) NOT NULL,
@@ -141,7 +141,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateStageTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_stage (
+                CREATE TABLE IF NOT EXISTS ff_stage (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     workflow_id BIGINT NOT NULL,
@@ -169,13 +169,18 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     modify_user_id BIGINT DEFAULT 0
                 );
                 
-                CREATE INDEX idx_stage_workflow_id ON ff_stage(workflow_id);
-                CREATE INDEX idx_stage_tenant_id ON ff_stage(tenant_id);
-                CREATE INDEX idx_stage_order_index ON ff_stage(order_index);
+                CREATE INDEX IF NOT EXISTS idx_stage_workflow_id ON ff_stage(workflow_id);
+                CREATE INDEX IF NOT EXISTS idx_stage_tenant_id ON ff_stage(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_stage_order_index ON ff_stage(order_index);
                 
-                ALTER TABLE ff_stage 
-                ADD CONSTRAINT fk_stage_workflow 
-                FOREIGN KEY (workflow_id) REFERENCES ff_workflow(id) ON DELETE CASCADE;
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_stage_workflow') THEN
+                        ALTER TABLE ff_stage 
+                        ADD CONSTRAINT fk_stage_workflow 
+                        FOREIGN KEY (workflow_id) REFERENCES ff_workflow(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
             ";
 
             db.Ado.ExecuteCommand(sql);
@@ -184,7 +189,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateChecklistTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_checklist (
+                CREATE TABLE IF NOT EXISTS ff_checklist (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     name VARCHAR(100) NOT NULL,
@@ -222,7 +227,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateChecklistTaskTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_checklist_task (
+                CREATE TABLE IF NOT EXISTS ff_checklist_task (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     checklist_id BIGINT NOT NULL,
@@ -254,13 +259,18 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     modify_user_id BIGINT DEFAULT 0
                 );
                 
-                CREATE INDEX idx_checklist_task_checklist_id ON ff_checklist_task(checklist_id);
-                CREATE INDEX idx_checklist_task_tenant_id ON ff_checklist_task(tenant_id);
-                CREATE INDEX idx_checklist_task_order_index ON ff_checklist_task(order_index);
+                CREATE INDEX IF NOT EXISTS idx_checklist_task_checklist_id ON ff_checklist_task(checklist_id);
+                CREATE INDEX IF NOT EXISTS idx_checklist_task_tenant_id ON ff_checklist_task(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_checklist_task_order_index ON ff_checklist_task(order_index);
                 
-                ALTER TABLE ff_checklist_task 
-                ADD CONSTRAINT fk_checklist_task_checklist 
-                FOREIGN KEY (checklist_id) REFERENCES ff_checklist(id) ON DELETE CASCADE;
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_checklist_task_checklist') THEN
+                        ALTER TABLE ff_checklist_task 
+                        ADD CONSTRAINT fk_checklist_task_checklist 
+                        FOREIGN KEY (checklist_id) REFERENCES ff_checklist(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
             ";
 
             db.Ado.ExecuteCommand(sql);
@@ -269,7 +279,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateChecklistTaskCompletionTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_checklist_task_completion (
+                CREATE TABLE IF NOT EXISTS ff_checklist_task_completion (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     onboarding_id BIGINT NOT NULL,
@@ -302,7 +312,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateQuestionnaireTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_questionnaire (
+                CREATE TABLE IF NOT EXISTS ff_questionnaire (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     name VARCHAR(100) NOT NULL,
@@ -345,7 +355,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateQuestionnaireSectionTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_questionnaire_section (
+                CREATE TABLE IF NOT EXISTS ff_questionnaire_section (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     questionnaire_id BIGINT NOT NULL,
@@ -366,12 +376,17 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     modify_user_id BIGINT DEFAULT 0
                 );
                 
-                CREATE INDEX idx_questionnaire_section_questionnaire_id ON ff_questionnaire_section(questionnaire_id);
-                CREATE INDEX idx_questionnaire_section_tenant_id ON ff_questionnaire_section(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_questionnaire_section_questionnaire_id ON ff_questionnaire_section(questionnaire_id);
+                CREATE INDEX IF NOT EXISTS idx_questionnaire_section_tenant_id ON ff_questionnaire_section(tenant_id);
                 
-                ALTER TABLE ff_questionnaire_section 
-                ADD CONSTRAINT fk_questionnaire_section_questionnaire 
-                FOREIGN KEY (questionnaire_id) REFERENCES ff_questionnaire(id) ON DELETE CASCADE;
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_questionnaire_section_questionnaire') THEN
+                        ALTER TABLE ff_questionnaire_section 
+                        ADD CONSTRAINT fk_questionnaire_section_questionnaire 
+                        FOREIGN KEY (questionnaire_id) REFERENCES ff_questionnaire(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
             ";
 
             db.Ado.ExecuteCommand(sql);
@@ -380,7 +395,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateQuestionnaireAnswersTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_questionnaire_answers (
+                CREATE TABLE IF NOT EXISTS ff_questionnaire_answers (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     onboarding_id BIGINT NOT NULL,
@@ -418,7 +433,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private static void CreateOnboardingTable(ISqlSugarClient db)
         {
             var sql = @"
-                CREATE TABLE ff_onboarding (
+                CREATE TABLE IF NOT EXISTS ff_onboarding (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     workflow_id BIGINT NOT NULL,
@@ -460,20 +475,27 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     modify_user_id BIGINT DEFAULT 0
                 );
                 
-                CREATE INDEX idx_onboarding_tenant_id ON ff_onboarding(tenant_id);
-                CREATE INDEX idx_onboarding_lead_email ON ff_onboarding(lead_email);
-                CREATE INDEX idx_onboarding_lead_id ON ff_onboarding(lead_id);
-                CREATE INDEX idx_onboarding_workflow_id ON ff_onboarding(workflow_id);
-                CREATE INDEX idx_onboarding_current_stage_id ON ff_onboarding(current_stage_id);
-                CREATE INDEX idx_onboarding_status ON ff_onboarding(status);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_tenant_id ON ff_onboarding(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_lead_email ON ff_onboarding(lead_email);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_lead_id ON ff_onboarding(lead_id);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_workflow_id ON ff_onboarding(workflow_id);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_current_stage_id ON ff_onboarding(current_stage_id);
+                CREATE INDEX IF NOT EXISTS idx_onboarding_status ON ff_onboarding(status);
                 
-                ALTER TABLE ff_onboarding 
-                ADD CONSTRAINT fk_onboarding_workflow 
-                FOREIGN KEY (workflow_id) REFERENCES ff_workflow(id) ON DELETE CASCADE;
-                
-                ALTER TABLE ff_onboarding 
-                ADD CONSTRAINT fk_onboarding_current_stage 
-                FOREIGN KEY (current_stage_id) REFERENCES ff_stage(id) ON DELETE SET NULL;
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_onboarding_workflow') THEN
+                        ALTER TABLE ff_onboarding 
+                        ADD CONSTRAINT fk_onboarding_workflow 
+                        FOREIGN KEY (workflow_id) REFERENCES ff_workflow(id) ON DELETE CASCADE;
+                    END IF;
+                    
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_onboarding_current_stage') THEN
+                        ALTER TABLE ff_onboarding 
+                        ADD CONSTRAINT fk_onboarding_current_stage 
+                        FOREIGN KEY (current_stage_id) REFERENCES ff_stage(id) ON DELETE SET NULL;
+                    END IF;
+                END $$;
             ";
 
             db.Ado.ExecuteCommand(sql);
