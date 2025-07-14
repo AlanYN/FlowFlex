@@ -28,10 +28,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// </summary>
         public string InternalName { get; set; }
 
-        /// <summary>
-        /// 1. 静态字段部分 - Static Fields
-        /// </summary>
-        public StageStaticFieldsDto StaticFields { get; set; }
+
 
         /// <summary>
         /// 2. Checklist部分 - Checklist Tasks

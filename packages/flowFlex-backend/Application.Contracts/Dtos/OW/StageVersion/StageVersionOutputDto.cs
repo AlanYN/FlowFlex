@@ -65,10 +65,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageVersion
         /// </summary>
         public string Color { get; set; }
 
-        /// <summary>
-        /// 必填字段JSON
-        /// </summary>
-        public string RequiredFieldsJson { get; set; }
+
 
         /// <summary>
         /// 工作流版本

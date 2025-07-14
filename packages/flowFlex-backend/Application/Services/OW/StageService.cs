@@ -174,26 +174,9 @@ namespace FlowFlex.Application.Service.OW
             if (entity.ChecklistId != input.ChecklistId) return true;
             if (entity.QuestionnaireId != input.QuestionnaireId) return true;
             if (entity.Color != input.Color) return true;
-            if (entity.RequiredFieldsJson != input.RequiredFieldsJson) return true;
 
-            // Compare StaticFields list (through JSON serialization comparison)
-            var inputStaticFieldsJson = input.StaticFields != null && input.StaticFields.Any()
-                ? JsonSerializer.Serialize(input.StaticFields.OrderBy(x => x))
-                : null;
-            var currentStaticFieldsJson = !string.IsNullOrEmpty(entity.StaticFieldsJson)
-                ? entity.StaticFieldsJson
-                : null;
 
-            // If current entity's StaticFields property has value, use it to generate JSON for comparison
-            if (entity.StaticFields != null && entity.StaticFields.Any())
-            {
-                currentStaticFieldsJson = JsonSerializer.Serialize(entity.StaticFields.OrderBy(x => x));
-            }
 
-            if (currentStaticFieldsJson != inputStaticFieldsJson)
-            {
-                return true;
-            }
 
             return false; // No changes
         }
@@ -412,26 +395,7 @@ namespace FlowFlex.Application.Service.OW
             return await _stageRepository.UpdateAsync(entity);
         }
 
-        public async Task<bool> UpdateRequiredFieldsAsync(long id, UpdateRequiredFieldsInputDto input)
-        {
-            var entity = await _stageRepository.GetByIdAsync(id);
-            if (entity == null)
-            {
-                return false;
-            }
 
-            // Convert required fields to JSON format for storage
-            var requiredFieldsData = new
-            {
-                Fields = input.RequiredFields.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(f => f.Trim()).ToArray(),
-                Description = input.FieldDescription,
-                UpdatedAt = DateTimeOffset.Now
-            };
-
-            entity.RequiredFieldsJson = JsonSerializer.Serialize(requiredFieldsData);
-            return await _stageRepository.UpdateAsync(entity);
-        }
 
         public async Task<long> DuplicateAsync(long id, DuplicateStageInputDto input)
         {
@@ -469,7 +433,7 @@ namespace FlowFlex.Application.Service.OW
                 ChecklistId = sourceStage.ChecklistId,
                 QuestionnaireId = sourceStage.QuestionnaireId,
                 Color = sourceStage.Color,
-                RequiredFieldsJson = sourceStage.RequiredFieldsJson,
+
                 WorkflowVersion = targetWorkflow.Version.ToString(),
                 IsActive = sourceStage.IsActive
             }
@@ -488,11 +452,7 @@ namespace FlowFlex.Application.Service.OW
             throw new NotImplementedException("GetStageContentAsync will be implemented in next phase");
         }
 
-        public async Task<bool> UpdateStaticFieldsAsync(long stageId, long onboardingId, StageStaticFieldsDto staticFields)
-        {
-            // Update Stage static fields logic - future enhancement
-            throw new NotImplementedException("UpdateStaticFieldsAsync will be implemented in next phase");
-        }
+
 
         public async Task<bool> UpdateChecklistTaskAsync(long stageId, long onboardingId, long taskId, bool isCompleted, string completionNotes = null)
         {
@@ -578,6 +538,111 @@ namespace FlowFlex.Application.Service.OW
         {
             // Delete Stage notes logic - future enhancement
             throw new NotImplementedException("DeleteStageNoteAsync will be implemented in next phase");
+        }
+
+        /// <summary>
+        /// Update stage components configuration
+        /// </summary>
+        public async Task<bool> UpdateComponentsAsync(long id, UpdateStageComponentsInputDto input)
+        {
+            var entity = await _stageRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
+            }
+
+            // Validate components
+            var validComponentKeys = new[] { "fields", "checklist", "questionnaires", "files" };
+            var invalidComponents = input.Components.Where(c => !validComponentKeys.Contains(c.Key)).ToList();
+            if (invalidComponents.Any())
+            {
+                var invalidKeys = string.Join(", ", invalidComponents.Select(c => c.Key));
+                throw new CRMException(ErrorCodeEnum.BusinessError, $"Invalid component keys: {invalidKeys}. Valid keys are: {string.Join(", ", validComponentKeys)}");
+            }
+
+            // Validate order uniqueness
+            var duplicateOrders = input.Components.GroupBy(c => c.Order).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (duplicateOrders.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, $"Duplicate order values found: {string.Join(", ", duplicateOrders)}");
+            }
+
+            // Ensure all components have proper default values
+            foreach (var component in input.Components)
+            {
+                component.StaticFields ??= new List<string>();
+                component.ChecklistIds ??= new List<long>();
+                component.QuestionnaireIds ??= new List<long>();
+            }
+
+            // Update components JSON
+            entity.ComponentsJson = JsonSerializer.Serialize(input.Components);
+            entity.Components = input.Components;
+            entity.InitUpdateInfo(_userContext);
+
+            var result = await _stageRepository.UpdateAsync(entity);
+
+            if (result)
+            {
+                // Log operation
+                await _operationLogService.LogOperationAsync(
+                    OperationTypeEnum.OnboardingStatusChange,
+                    BusinessModuleEnum.Stage,
+                    id,
+                    null, // onboardingId
+                    null, // stageId
+                    "Stage Components Update",
+                    "Stage components configuration updated",
+                    null, // beforeData
+                    JsonSerializer.Serialize(input.Components), // afterData
+                    new List<string> { "Components" },
+                    null, // extendedData
+                    OperationStatusEnum.Success
+                );
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get stage components configuration
+        /// </summary>
+        public async Task<List<StageComponent>> GetComponentsAsync(long id)
+        {
+            var entity = await _stageRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
+            }
+
+            // If no components configured, return default components
+            if (string.IsNullOrEmpty(entity.ComponentsJson))
+            {
+                return new List<StageComponent>
+                {
+                    new StageComponent { Key = "fields", Order = 1, IsEnabled = true },
+                    new StageComponent { Key = "checklist", Order = 2, IsEnabled = true },
+                    new StageComponent { Key = "questionnaires", Order = 3, IsEnabled = true },
+                    new StageComponent { Key = "files", Order = 4, IsEnabled = true }
+                };
+            }
+
+            try
+            {
+                var components = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson);
+                return components ?? new List<StageComponent>();
+            }
+            catch (JsonException)
+            {
+                // If JSON is invalid, return default components
+                return new List<StageComponent>
+                {
+                    new StageComponent { Key = "fields", Order = 1, IsEnabled = true },
+                    new StageComponent { Key = "checklist", Order = 2, IsEnabled = true },
+                    new StageComponent { Key = "questionnaires", Order = 3, IsEnabled = true },
+                    new StageComponent { Key = "files", Order = 4, IsEnabled = true }
+                };
+            }
         }
 
         #endregion

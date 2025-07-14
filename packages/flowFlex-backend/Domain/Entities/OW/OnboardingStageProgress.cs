@@ -142,15 +142,6 @@ namespace FlowFlex.Domain.Entities.OW
         [StringLength(100)]
         public string TerminatedBy { get; set; }
 
-        /// <summary>
-        /// Associated Static Field Configuration (JSON)
-        /// Stores static field key list, e.g.: ["Company Name", "Contact Name", "Contact Email"]
-        /// </summary>
-        public string StaticFieldsJson { get; set; }
 
-        /// <summary>
-        /// Associated Static Field List (not mapped to database, only for memory operations)
-        /// </summary>
-        public List<string> StaticFields { get; set; } = new List<string>();
     }
 }

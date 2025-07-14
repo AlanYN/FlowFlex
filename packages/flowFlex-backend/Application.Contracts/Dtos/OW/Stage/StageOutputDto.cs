@@ -78,16 +78,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// </summary>
         public string Color { get; set; }
 
-        /// <summary>
-        /// Required fields configuration (JSON)
-        /// </summary>
-        public string RequiredFieldsJson { get; set; }
+
+
+
 
         /// <summary>
-        /// Associated static fields list
-        /// Stores static field key list, e.g.: ["Company Name", "Contact Name", "Contact Email"]
+        /// Stage components configuration list
+        /// Defines the components contained in the stage and their order
         /// </summary>
-        public List<string> StaticFields { get; set; } = new List<string>();
+        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; }
 
         /// <summary>
         /// Workflow version

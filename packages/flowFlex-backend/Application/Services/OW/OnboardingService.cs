@@ -2984,10 +2984,7 @@ namespace FlowFlex.Application.Services.OW
                         EstimatedDays = stage.EstimatedDuration,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
-                        StaticFieldsJson = stage.StaticFieldsJson, // Fill static fields JSON
-                        StaticFields = !string.IsNullOrEmpty(stage.StaticFieldsJson)
-                            ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(stage.StaticFieldsJson) ?? new List<string>()
-                            : new List<string>() // Fill static fields list
+
                     };
 
                     entity.StagesProgress.Add(stageProgress);
@@ -3131,28 +3128,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(entity.StagesProgressJson) ?? new List<OnboardingStageProgress>();
 
-                    // Only process StaticFields when necessary, avoid deserialization every time
-                    foreach (var stageProgress in entity.StagesProgress)
-                    {
-                        if (stageProgress.StaticFields == null)
-                        {
-                            if (!string.IsNullOrEmpty(stageProgress.StaticFieldsJson))
-                            {
-                                try
-                                {
-                                    stageProgress.StaticFields = JsonSerializer.Deserialize<List<string>>(stageProgress.StaticFieldsJson) ?? new List<string>();
-                                }
-                                catch
-                                {
-                                    stageProgress.StaticFields = new List<string>();
-                                }
-                            }
-                            else
-                            {
-                                stageProgress.StaticFields = new List<string>();
-                            }
-                        }
-                    }
+
 
                     // Only fix stage order when needed, avoid unnecessary serialization
                     if (NeedsStageOrderFix(entity.StagesProgress))

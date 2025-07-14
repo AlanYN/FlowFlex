@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
-
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
 
@@ -22,8 +21,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> SortStagesAsync(SortStagesInputDto input);
         Task<long> CombineStagesAsync(CombineStagesInputDto input);
         Task<bool> SetColorAsync(long id, string color);
-        Task<bool> UpdateRequiredFieldsAsync(long id, UpdateRequiredFieldsInputDto input);
+
         Task<long> DuplicateAsync(long id, DuplicateStageInputDto input);
+        Task<bool> UpdateComponentsAsync(long id, UpdateStageComponentsInputDto input);
+        Task<List<StageComponent>> GetComponentsAsync(long id);
 
         /// <summary>
         /// Get Stage complete content
@@ -33,14 +34,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Stage complete content</returns>
         Task<StageContentDto> GetStageContentAsync(long stageId, long onboardingId);
 
-        /// <summary>
-        /// Update Stage static fields
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="onboardingId">Onboarding ID</param>
-        /// <param name="staticFields">Static field data</param>
-        /// <returns>Update result</returns>
-        Task<bool> UpdateStaticFieldsAsync(long stageId, long onboardingId, StageStaticFieldsDto staticFields);
+
 
         /// <summary>
         /// Update Checklist task status
@@ -165,10 +159,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         public List<string> ValidationMessages { get; set; } = new List<string>();
 
-        /// <summary>
-        /// Static fields validation result
-        /// </summary>
-        public StageFieldValidationDto StaticFieldsValidation { get; set; }
+
 
         /// <summary>
         /// Checklist completion status

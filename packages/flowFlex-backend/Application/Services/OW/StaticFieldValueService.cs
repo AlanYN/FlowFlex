@@ -315,13 +315,18 @@ namespace FlowFlex.Application.Services.OW
                 return errors;
             }
 
-            // Parse static field configuration
+            // Parse static field configuration from Components
             List<string> staticFields = new List<string>();
-            if (!string.IsNullOrEmpty(stage.StaticFieldsJson))
+            if (!string.IsNullOrEmpty(stage.ComponentsJson))
             {
                 try
                 {
-                    staticFields = JsonSerializer.Deserialize<List<string>>(stage.StaticFieldsJson) ?? new List<string>();
+                    var components = JsonSerializer.Deserialize<List<FlowFlex.Domain.Shared.Models.StageComponent>>(stage.ComponentsJson);
+                    var fieldsComponent = components?.FirstOrDefault(c => c.Key == "fields");
+                    if (fieldsComponent?.StaticFields != null)
+                    {
+                        staticFields = fieldsComponent.StaticFields;
+                    }
                 }
                 catch
                 {

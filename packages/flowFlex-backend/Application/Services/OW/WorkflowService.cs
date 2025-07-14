@@ -378,8 +378,8 @@ namespace FlowFlex.Application.Service.OW
                     ChecklistId = stage.ChecklistId,
                     QuestionnaireId = stage.QuestionnaireId,
                     Color = stage.Color,
-                    RequiredFieldsJson = stage.RequiredFieldsJson,
-                    StaticFieldsJson = stage.StaticFieldsJson,
+
+
                     WorkflowVersion = stage.WorkflowVersion,
                     IsActive = stage.IsActive,
                     TenantId = stage.TenantId,
@@ -439,7 +439,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// 获取即将过期的工作流（提�?天提醒）
+        /// 获取即将过期的工作流（提�?天提醒）
         /// </summary>
         public async Task<List<WorkflowOutputDto>> GetExpiringWorkflowsAsync(int daysAhead = 7)
         {
@@ -464,7 +464,7 @@ namespace FlowFlex.Application.Service.OW
 
             var versions = await _workflowVersionRepository.GetVersionHistoryAsync(id);
 
-            // 如果没有版本历史记录，为现有工作流创建初始版�?
+            // 如果没有版本历史记录，为现有工作流创建初始版�?
             if (!versions.Any())
             {
                 var stages = await _stageRepository.GetByWorkflowIdAsync(id);
@@ -485,7 +485,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
             }
 
-            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportToExcel(workflow);
         }
 
@@ -514,7 +514,7 @@ namespace FlowFlex.Application.Service.OW
                 workflows = await _workflowRepository.GetActiveWorkflowsAsync();
             }
 
-            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportMultipleToExcel(workflows);
         }
 
@@ -523,7 +523,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<List<StageOutputDto>> GetStagesByVersionIdAsync(long workflowId, long versionId)
         {
-            // 验证工作流是否存�?
+            // 验证工作流是否存�?
             var workflow = await _workflowRepository.GetByIdAsync(workflowId);
             if (workflow == null)
             {
@@ -554,7 +554,7 @@ namespace FlowFlex.Application.Service.OW
                 ChecklistId = sv.ChecklistId,
                 QuestionnaireId = sv.QuestionnaireId,
                 Color = sv.Color,
-                RequiredFieldsJson = sv.RequiredFieldsJson,
+                
                 WorkflowVersion = sv.WorkflowVersion,
                 IsActive = sv.IsActive,
                 CreateDate = sv.CreateDate,
@@ -569,7 +569,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<WorkflowVersionDetailDto> GetVersionDetailAsync(long workflowId, long versionId)
         {
-            // 验证工作流是否存�?
+            // 验证工作流是否存�?
             var workflow = await _workflowRepository.GetByIdAsync(workflowId);
             if (workflow == null)
             {
@@ -583,7 +583,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {versionId} not found for workflow {workflowId}");
             }
 
-            // 获取版本的阶段列�?
+            // 获取版本的阶段列�?
             var stages = await GetStagesByVersionIdAsync(workflowId, versionId);
 
             // 构建返回结果
@@ -614,7 +614,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<long> CreateFromVersionAsync(CreateWorkflowFromVersionInputDto input)
         {
-            // 验证原始工作流是否存�?
+            // 验证原始工作流是否存�?
             var originalWorkflow = await _workflowRepository.GetByIdAsync(input.OriginalWorkflowId);
             if (originalWorkflow == null)
             {
@@ -628,13 +628,13 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {input.VersionId} not found for workflow {input.OriginalWorkflowId}");
             }
 
-            // 验证新工作流名称唯一�?
+            // 验证新工作流名称唯一�?
             if (await _workflowRepository.ExistsNameAsync(input.Name))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Workflow name '{input.Name}' already exists");
             }
 
-            // 如果设置为默认，需要先取消其他默认工作�?
+            // 如果设置为默认，需要先取消其他默认工作�?
             if (input.IsDefault)
             {
                 var existingDefault = await _workflowRepository.GetDefaultWorkflowAsync();
@@ -676,7 +676,7 @@ namespace FlowFlex.Application.Service.OW
                         ChecklistId = stageInput.ChecklistId,
                         QuestionnaireId = stageInput.QuestionnaireId,
                         Color = stageInput.Color,
-                        RequiredFieldsJson = stageInput.RequiredFieldsJson,
+    
                         WorkflowVersion = "1",
                         IsActive = true
                     };
@@ -691,6 +691,6 @@ namespace FlowFlex.Application.Service.OW
             return newWorkflow.Id;
         }
 
-        // 缓存相关方法已移�?
+        // 缓存相关方法已移�?
     }
 }

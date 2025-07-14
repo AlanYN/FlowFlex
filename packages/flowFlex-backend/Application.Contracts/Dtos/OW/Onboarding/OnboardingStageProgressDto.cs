@@ -73,9 +73,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// </summary>
         public bool IsCurrent { get; set; }
 
-        /// <summary>
-        /// 关联静态字段列表
-        /// </summary>
-        public List<string> StaticFields { get; set; } = new List<string>();
+
     }
 }

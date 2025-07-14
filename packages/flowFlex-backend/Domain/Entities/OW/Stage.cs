@@ -85,18 +85,9 @@ namespace FlowFlex.Domain.Entities.OW
         [StringLength(20)]
         public string Color { get; set; }
 
-        /// <summary>
-        /// Required Fields Configuration (JSON)
-        /// </summary>
-        [SugarColumn(ColumnName = "required_fields_json")]
-        public string RequiredFieldsJson { get; set; }
 
-        /// <summary>
-        /// Associated Static Fields Configuration (JSON)
-        /// Stores static field key list, e.g.: ["Company Name", "Contact Name", "Contact Email"]
-        /// </summary>
-        [SugarColumn(ColumnName = "static_fields_json")]
-        public string StaticFieldsJson { get; set; }
+
+
 
         /// <summary>
         /// Workflow Version
@@ -112,9 +103,17 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Associated Static Fields List (not mapped to database)
+        /// Stage Components Configuration (JSON)
+        /// </summary>
+        [SugarColumn(ColumnName = "components_json")]
+        public string ComponentsJson { get; set; }
+
+
+
+        /// <summary>
+        /// Stage Components List (not mapped to database)
         /// </summary>
         [SugarColumn(IsIgnore = true)]
-        public List<string> StaticFields { get; set; } = new List<string>();
+        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
     }
 }

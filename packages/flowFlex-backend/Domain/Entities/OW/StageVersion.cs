@@ -76,11 +76,7 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "color", Length = 20)]
         public string Color { get; set; }
 
-        /// <summary>
-        /// Required Fields JSON
-        /// </summary>
-        [SugarColumn(ColumnName = "required_fields_json", Length = 1000)]
-        public string RequiredFieldsJson { get; set; }
+
 
         /// <summary>
         /// Workflow Version

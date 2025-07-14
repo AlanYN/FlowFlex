@@ -77,15 +77,14 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         [StringLength(20)]
         public string Color { get; set; }
 
-        /// <summary>
-        /// 必填字段配置（JSON）
-        /// </summary>
-        public string RequiredFieldsJson { get; set; }
+
+
+
 
         /// <summary>
-        /// 关联静态字段列表
-        /// 存储静态字段的key列表，如：["Company Name", "Contact Name", "Contact Email"]
+        /// Stage组件配置列表
+        /// 定义Stage包含的组件及其顺序
         /// </summary>
-        public List<string> StaticFields { get; set; } = new List<string>();
+        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; }
     }
 }

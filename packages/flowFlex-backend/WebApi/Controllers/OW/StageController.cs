@@ -132,16 +132,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             return Success(result);
         }
 
-        /// <summary>
-        /// Update stage required fields
-        /// </summary>
-        [HttpPost("{id}/required-fields")]
-        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> UpdateRequiredFields(long id, [FromBody] UpdateRequiredFieldsInputDto input)
-        {
-            var result = await _stageService.UpdateRequiredFieldsAsync(id, input);
-            return Success(result);
-        }
+
 
         /// <summary>
         /// Duplicate stage
@@ -152,6 +143,28 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             var newId = await _stageService.DuplicateAsync(id, input);
             return Success(newId);
+        }
+
+        /// <summary>
+        /// Update stage components
+        /// </summary>
+        [HttpPost("{id}/components")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> UpdateComponents(long id, [FromBody] UpdateStageComponentsInputDto input)
+        {
+            var result = await _stageService.UpdateComponentsAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get stage components
+        /// </summary>
+        [HttpGet("{id}/components")]
+        [ProducesResponseType<SuccessResponse<List<FlowFlex.Domain.Shared.Models.StageComponent>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetComponents(long id)
+        {
+            var components = await _stageService.GetComponentsAsync(id);
+            return Success(components);
         }
 
         #endregion
@@ -181,27 +194,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             return Success(result);
         }
 
-        /// <summary>
-        /// Update stage static fields
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="onboardingId">Onboarding ID</param>
-        /// <param name="staticFields">Static fields data</param>
-        /// <returns>Update result</returns>
-        /// <remarks>
-        /// Update static fields of the stage:
-        /// - Required fields completion
-        /// - Optional fields completion
-        /// - Custom fields management
-        /// - Field validation
-        /// </remarks>
-        [HttpPut("{stageId}/onboarding/{onboardingId}/static-fields")]
-        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> UpdateStaticFieldsAsync(long stageId, long onboardingId, [FromBody] StageStaticFieldsDto staticFields)
-        {
-            var result = await _stageService.UpdateStaticFieldsAsync(stageId, onboardingId, staticFields);
-            return Success(result);
-        }
+
 
         /// <summary>
         /// Update checklist task status
@@ -536,6 +529,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         public string NoteContent { get; set; }
     }
+
+
 
     #endregion
 }

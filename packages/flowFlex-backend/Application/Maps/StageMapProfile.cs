@@ -1,6 +1,7 @@
 using AutoMapper;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
+using FlowFlex.Domain.Shared.Models;
 using System.Text.Json;
 using System.Linq;
 
@@ -29,8 +30,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
                 .ForMember(dest => dest.QuestionnaireId, opt => opt.MapFrom(src => src.QuestionnaireId))
                 .ForMember(dest => dest.Color, opt => opt.MapFrom(src => src.Color))
-                .ForMember(dest => dest.RequiredFieldsJson, opt => opt.MapFrom(src => src.RequiredFieldsJson))
-                .ForMember(dest => dest.StaticFields, opt => opt.MapFrom(src => ParseStaticFields(src.StaticFieldsJson)))
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.WorkflowVersion, opt => opt.MapFrom(src => src.WorkflowVersion))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => src.IsValid))
@@ -55,7 +55,6 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
                 .ForMember(dest => dest.QuestionnaireId, opt => opt.MapFrom(src => src.QuestionnaireId))
                 .ForMember(dest => dest.Color, opt => opt.MapFrom(src => src.Color))
-                .ForMember(dest => dest.RequiredFieldsJson, opt => opt.MapFrom(src => src.RequiredFieldsJson))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
                 // Ignore fields that will be set by extension methods or business logic
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -68,33 +67,86 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.StaticFieldsJson, opt => opt.MapFrom(src => SerializeStaticFields(src.StaticFields)))
-                .ForMember(dest => dest.StaticFields, opt => opt.MapFrom(src => src.StaticFields));
+
+                .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components));
         }
 
-        private static List<string> ParseStaticFields(string staticFieldsJson)
-        {
-            if (string.IsNullOrEmpty(staticFieldsJson))
-                return new List<string>();
 
-            try
+
+        private static List<StageComponent> ParseComponents(string componentsJson)
+        {
+            List<StageComponent> components;
+
+            if (string.IsNullOrEmpty(componentsJson))
             {
-                return JsonSerializer.Deserialize<List<string>>(staticFieldsJson) ?? new List<string>();
+                // Return default components when JSON is null or empty
+                components = GetDefaultComponents();
             }
-            catch
+            else
             {
-                return new List<string>();
+                try
+                {
+                    var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
+                    components = parsedComponents?.Any() == true ? parsedComponents : GetDefaultComponents();
+                }
+                catch
+                {
+                    components = GetDefaultComponents();
+                }
             }
+
+
+
+            return components;
         }
 
-        private static string SerializeStaticFields(List<string> staticFields)
+        private static List<StageComponent> GetDefaultComponents()
         {
-            if (staticFields == null || !staticFields.Any())
+            return new List<StageComponent>
+            {
+                new StageComponent { 
+                    Key = "fields", 
+                    Order = 1, 
+                    IsEnabled = true,
+                    StaticFields = new List<string>()
+                },
+                new StageComponent { 
+                    Key = "checklist", 
+                    Order = 2, 
+                    IsEnabled = true,
+                    ChecklistIds = new List<long>()
+                },
+                new StageComponent { 
+                    Key = "questionnaires", 
+                    Order = 3, 
+                    IsEnabled = true,
+                    QuestionnaireIds = new List<long>()
+                },
+                new StageComponent { 
+                    Key = "files", 
+                    Order = 4, 
+                    IsEnabled = true
+                }
+            };
+        }
+
+        private static string SerializeComponents(List<StageComponent> components)
+        {
+            if (components == null || !components.Any())
                 return null;
 
             try
             {
-                return JsonSerializer.Serialize(staticFields);
+                // Ensure all components have proper default values
+                foreach (var component in components)
+                {
+                    component.StaticFields ??= new List<string>();
+                    component.ChecklistIds ??= new List<long>();
+                    component.QuestionnaireIds ??= new List<long>();
+                }
+                
+                return JsonSerializer.Serialize(components);
             }
             catch
             {

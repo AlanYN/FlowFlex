@@ -140,7 +140,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     ChecklistId = stage.ChecklistId,
                     QuestionnaireId = stage.QuestionnaireId,
                     Color = stage.Color,
-                    RequiredFieldsJson = stage.RequiredFieldsJson,
+    
                     WorkflowVersion = stage.WorkflowVersion,
                     IsActive = stage.IsActive
                 }).ToList();
