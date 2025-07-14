@@ -364,31 +364,30 @@ app.MapControllers();
 // Initialize database
 try
 {
+    Console.WriteLine("[Program] Starting database initialization...");
     app.Services.InitializeDatabase();
-    // Database initialization successful
+    Console.WriteLine("[Program] Database initialization completed successfully");
 }
 catch (Exception ex)
 {
     // Database initialization failed - log the error
+    Console.WriteLine($"[Program] Database initialization failed: {ex.Message}");
     app.Logger.LogError(ex, "Database initialization failed");
+    
     // In development environment, can choose to continue running, production environment should terminate
     if (!app.Environment.IsDevelopment())
     {
+        Console.WriteLine("[Program] Production environment - terminating due to database initialization failure");
         throw;
+    }
+    else
+    {
+        Console.WriteLine("[Program] Development environment - continuing despite database initialization failure");
     }
 }
 
-// Execute database migrations
-try
-{
-    app.Services.ExecuteDatabaseMigrations();
-    // Database migrations completed successfully
-}
-catch (Exception ex)
-{
-    // Database migration failed - this is critical, so we'll log and continue
-    // The application should still start even if migrations fail
-    app.Logger.LogError(ex, "Database migration failed during startup");
-}
+// Execute database migrations (this is handled by InitializeDatabase, so we can remove this duplicate call)
+// The DatabaseMigrationService is a different system that handles .sql files
+// We're using the MigrationManager system instead
 
 app.Run();

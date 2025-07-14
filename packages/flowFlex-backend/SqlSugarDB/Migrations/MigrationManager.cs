@@ -22,24 +22,59 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             try
             {
+                Console.WriteLine("[MigrationManager] Starting migration execution...");
+                
                 // Create migration history table
                 CreateMigrationHistoryTable();
 
-                // Execute migrations
-                RunMigration("20250101000000_InitialCreate", () => InitialCreate_20250101000000.Up(_db));
-                RunMigration("20250101000001_CreateRemainingTables", () => CreateRemainingTables_20250101000001.Up(_db));
-                RunMigration("20250101000002_AddAssignmentsJsonColumn", () => Migration_20250101000002_AddAssignmentsJsonColumn.Up(_db));
-                RunMigration("20250101000003_RemoveWorkflowStageColumns", () => Migration_20250101000003_RemoveWorkflowStageColumns.Up(_db));
-                RunMigration("20250101000004_AddQuestionnaireAssignmentsJsonColumn", () => Migration_20250101000004_AddQuestionnaireAssignmentsJsonColumn.Up(_db));
-                RunMigration("20250101000005_RemoveQuestionnaireWorkflowStageColumns", () => Migration_20250101000005_RemoveQuestionnaireWorkflowStageColumns.Up(_db));
-                RunMigration("20250101000006_CreateEventsTable", () => CreateEventsTable_20250101000006.Up(_db));
-                RunMigration("20250101000007_AddStageComponentsField", () => Migration_20250101000007_AddStageComponentsField.Up(_db));
-                // RunMigration("20250101000004_SeedDemoData", () => SeedDemoData_20250101000004.Up(_db));
-                // Debug logging handled by structured logging
+                // Execute migrations in order
+                var migrations = new[]
+                {
+                    ("20250101000000_InitialCreate", (Action)(() => InitialCreate_20250101000000.Up(_db))),
+                    ("20250101000001_CreateRemainingTables", (Action)(() => CreateRemainingTables_20250101000001.Up(_db))),
+                    ("20250101000002_AddAssignmentsJsonColumn", (Action)(() => Migration_20250101000002_AddAssignmentsJsonColumn.Up(_db))),
+                    ("20250101000003_RemoveWorkflowStageColumns", (Action)(() => Migration_20250101000003_RemoveWorkflowStageColumns.Up(_db))),
+                    ("20250101000004_AddQuestionnaireAssignmentsJsonColumn", (Action)(() => Migration_20250101000004_AddQuestionnaireAssignmentsJsonColumn.Up(_db))),
+                    ("20250101000005_RemoveQuestionnaireWorkflowStageColumns", (Action)(() => Migration_20250101000005_RemoveQuestionnaireWorkflowStageColumns.Up(_db))),
+                    ("20250101000006_CreateEventsTable", (Action)(() => CreateEventsTable_20250101000006.Up(_db))),
+                    ("20250101000007_AddStageComponentsField", (Action)(() => Migration_20250101000007_AddStageComponentsField.Up(_db)))
+                };
+
+                var failedMigrations = new List<string>();
+                var successfulMigrations = new List<string>();
+
+                foreach (var (migrationId, migrationAction) in migrations)
+                {
+                    try
+                    {
+                        RunMigration(migrationId, migrationAction);
+                        successfulMigrations.Add(migrationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[MigrationManager] Migration {migrationId} failed: {ex.Message}");
+                        failedMigrations.Add(migrationId);
+                        
+                        // Continue with next migration instead of stopping
+                        continue;
+                    }
+                }
+
+                Console.WriteLine($"[MigrationManager] Migration execution completed. Successful: {successfulMigrations.Count}, Failed: {failedMigrations.Count}");
+                
+                if (failedMigrations.Any())
+                {
+                    Console.WriteLine($"[MigrationManager] Failed migrations: {string.Join(", ", failedMigrations)}");
+                }
+                
+                if (successfulMigrations.Any())
+                {
+                    Console.WriteLine($"[MigrationManager] Successful migrations: {string.Join(", ", successfulMigrations)}");
+                }
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                Console.WriteLine($"[MigrationManager] Critical error during migration execution: {ex.Message}");
                 throw;
             }
         }
@@ -49,15 +84,26 @@ namespace FlowFlex.SqlSugarDB.Migrations
         /// </summary>
         private void CreateMigrationHistoryTable()
         {
-            var sql = @"
-                CREATE TABLE IF NOT EXISTS __migration_history (
-                    id BIGSERIAL PRIMARY KEY,
-                    migration_id VARCHAR(100) NOT NULL UNIQUE,
-                    applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-                );
-            ";
+            try
+            {
+                var sql = @"
+                    CREATE TABLE IF NOT EXISTS __migration_history (
+                        id BIGSERIAL PRIMARY KEY,
+                        migration_id VARCHAR(100) NOT NULL UNIQUE,
+                        applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                    );
+                    
+                    CREATE INDEX IF NOT EXISTS idx_migration_history_migration_id ON __migration_history(migration_id);
+                ";
 
-            _db.Ado.ExecuteCommand(sql);
+                _db.Ado.ExecuteCommand(sql);
+                Console.WriteLine("[MigrationManager] Migration history table ensured");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MigrationManager] Error creating migration history table: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>
@@ -65,22 +111,32 @@ namespace FlowFlex.SqlSugarDB.Migrations
         /// </summary>
         private void RunMigration(string migrationId, Action migrationAction)
         {
-            // Check if migration has already been executed
-            var exists = _db.Ado.GetInt($"SELECT COUNT(*) FROM __migration_history WHERE migration_id = '{migrationId}'") > 0;
-
-            if (!exists)
+            try
             {
-                // Debug logging handled by structured logging
-                // Execute migration
-                migrationAction();
+                // Check if migration has already been executed
+                var exists = _db.Ado.GetInt($"SELECT COUNT(*) FROM __migration_history WHERE migration_id = '{migrationId}'") > 0;
 
-                // Record migration history
-                _db.Ado.ExecuteCommand($"INSERT INTO __migration_history (migration_id) VALUES ('{migrationId}')");
-                // Debug logging handled by structured logging
+                if (!exists)
+                {
+                    Console.WriteLine($"[MigrationManager] Executing migration: {migrationId}");
+                    
+                    // Execute migration
+                    migrationAction();
+
+                    // Record migration history
+                    _db.Ado.ExecuteCommand($"INSERT INTO __migration_history (migration_id) VALUES ('{migrationId}')");
+                    
+                    Console.WriteLine($"[MigrationManager] Migration {migrationId} completed successfully");
+                }
+                else
+                {
+                    Console.WriteLine($"[MigrationManager] Migration {migrationId} already executed, skipping");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                Console.WriteLine($"[MigrationManager] Error executing migration {migrationId}: {ex.Message}");
+                throw;
             }
         }
 

@@ -16,11 +16,22 @@ namespace FlowFlex.SqlSugarDB.Extensions
         /// <param name="serviceProvider">Service provider</param>
         public static void InitializeDatabase(this IServiceProvider serviceProvider)
         {
-            using var scope = serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+            try
+            {
+                using var scope = serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
 
-            var migrationManager = new MigrationManager(db);
-            migrationManager.RunMigrations();
+                Console.WriteLine("[DatabaseInitialization] Starting database initialization...");
+                var migrationManager = new MigrationManager(db);
+                migrationManager.RunMigrations();
+                Console.WriteLine("[DatabaseInitialization] Database initialization completed successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DatabaseInitialization] Database initialization failed: {ex.Message}");
+                Console.WriteLine($"[DatabaseInitialization] Stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         /// <summary>
