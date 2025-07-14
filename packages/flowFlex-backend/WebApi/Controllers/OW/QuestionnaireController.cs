@@ -157,6 +157,17 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Get questionnaires by multiple IDs (batch query)
+        /// </summary>
+        [HttpPost("batch/by-ids")]
+        [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetByIds([FromBody] List<long> ids)
+        {
+            var data = await _questionnaireService.GetByIdsAsync(ids);
+            return Success(data);
+        }
+
+        /// <summary>
         /// Query questionnaire (paged)
         /// </summary>
         [HttpPost("query")]

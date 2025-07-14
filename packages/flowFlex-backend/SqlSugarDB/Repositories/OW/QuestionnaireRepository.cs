@@ -37,6 +37,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get questionnaires by multiple IDs (batch query)
+        /// </summary>
+        public async Task<List<Questionnaire>> GetByIdsAsync(List<long> ids)
+        {
+            if (ids == null || !ids.Any())
+            {
+                return new List<Questionnaire>();
+            }
+
+            return await db.Queryable<Questionnaire>()
+                .Where(x => x.IsValid == true && ids.Contains(x.Id))
+                .OrderByDescending(x => x.CreateDate)
+                .ToListAsync();
+        }
+
+        /// <summary>
         /// Get template questionnaires
         /// </summary>
         public async Task<List<Questionnaire>> GetTemplatesAsync()

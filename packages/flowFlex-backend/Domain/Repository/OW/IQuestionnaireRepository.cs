@@ -13,6 +13,11 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<Questionnaire>> GetByCategoryAsync(string category);
 
         /// <summary>
+        /// Get questionnaires by multiple IDs (batch query)
+        /// </summary>
+        Task<List<Questionnaire>> GetByIdsAsync(List<long> ids);
+
+        /// <summary>
         /// Get template questionnaires
         /// </summary>
         Task<List<Questionnaire>> GetTemplatesAsync();

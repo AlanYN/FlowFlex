@@ -270,6 +270,25 @@ public class ChecklistService : IChecklistService, IScopedService
     }
 
     /// <summary>
+    /// Get checklists by multiple IDs (batch query)
+    /// </summary>
+    public async Task<List<ChecklistOutputDto>> GetByIdsAsync(List<long> ids)
+    {
+        if (ids == null || !ids.Any())
+        {
+            return new List<ChecklistOutputDto>();
+        }
+
+        var checklists = await _checklistRepository.GetByIdsAsync(ids);
+        var result = _mapper.Map<List<ChecklistOutputDto>>(checklists);
+        
+        // Fill assignments and tasks for the checklists
+        await FillAssignmentsAndTasksAsync(result);
+        
+        return result;
+    }
+
+    /// <summary>
     /// Query checklists (paged)
     /// </summary>
     public async Task<PagedResult<ChecklistOutputDto>> QueryAsync(ChecklistQueryRequest query)

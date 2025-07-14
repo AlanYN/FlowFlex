@@ -15,6 +15,11 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<Checklist>> GetByTeamAsync(string team);
 
         /// <summary>
+        /// Get checklists by multiple IDs (batch query)
+        /// </summary>
+        Task<List<Checklist>> GetByIdsAsync(List<long> ids);
+
+        /// <summary>
         /// Get template checklists
         /// </summary>
         /// <returns></returns>

@@ -44,6 +44,11 @@ public interface IQuestionnaireService : IScopedService
     Task<List<QuestionnaireOutputDto>> GetByStageIdAsync(long stageId);
 
     /// <summary>
+    /// Get questionnaires by multiple IDs (batch query)
+    /// </summary>
+    Task<List<QuestionnaireOutputDto>> GetByIdsAsync(List<long> ids);
+
+    /// <summary>
     /// Query questionnaires (paged)
     /// </summary>
     Task<PagedResult<QuestionnaireOutputDto>> QueryAsync(QuestionnaireQueryRequest query);

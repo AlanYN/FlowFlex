@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Attr;
 using Item.Internal.StandardApi.Response;
+using FlowFlex.WebApi.Model.Response;
 
 
 namespace FlowFlex.WebApi.Controllers.OW
@@ -59,11 +60,12 @@ namespace FlowFlex.WebApi.Controllers.OW
             try
             {
                 var answers = await _questionnaireAnswerService.GetAllAnswersAsync(onboardingId, stageId);
-                return Ok(answers);
+                return Success(answers);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                var errorResponse = StandardApiResponse<List<QuestionnaireAnswerOutputDto>>.CreateFailure(ex.Message, "500");
+                return StatusCode(500, errorResponse);
             }
         }
 

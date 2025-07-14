@@ -113,6 +113,19 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Get checklists by multiple IDs (batch query)
+        /// </summary>
+        /// <param name="ids">List of checklist IDs</param>
+        /// <returns>List of checklists</returns>
+        [HttpPost("batch/by-ids")]
+        [ProducesResponseType<SuccessResponse<List<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetByIds([FromBody] List<long> ids)
+        {
+            var data = await _checklistService.GetByIdsAsync(ids);
+            return Success(data);
+        }
+
+        /// <summary>
         /// Query checklist (paged)
         /// </summary>
         /// <param name="query">Query parameters</param>

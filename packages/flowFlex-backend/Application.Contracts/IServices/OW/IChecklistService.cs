@@ -40,6 +40,11 @@ public interface IChecklistService : IScopedService
     Task<List<ChecklistOutputDto>> GetListAsync(string team = null);
 
     /// <summary>
+    /// Get checklists by multiple IDs (batch query)
+    /// </summary>
+    Task<List<ChecklistOutputDto>> GetByIdsAsync(List<long> ids);
+
+    /// <summary>
     /// Query checklists (paged)
     /// </summary>
     Task<PagedResult<ChecklistOutputDto>> QueryAsync(ChecklistQueryRequest query);
