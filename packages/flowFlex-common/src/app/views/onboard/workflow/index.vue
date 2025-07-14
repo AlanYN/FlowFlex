@@ -477,7 +477,7 @@
 		<el-dialog
 			v-model="dialogVisible.stageForm"
 			:title="isEditingStage ? 'Edit Stage' : 'Add New Stage'"
-			:width="dialogWidth"
+			:width="bigDialogWidth"
 			destroy-on-close
 			custom-class="workflow-dialog"
 			:show-close="true"
@@ -492,8 +492,8 @@
 					<p class="dialog-subtitle">
 						{{
 							isEditingStage
-								? 'Update the stage details.'
-								: 'Add a new stage to the workflow.'
+								? 'Update the stage details with customizable components.'
+								: 'Add a new stage to the workflow with customizable components.'
 						}}
 					</p>
 				</div>
@@ -503,6 +503,8 @@
 				:stage="currentStage"
 				:is-editing="isEditingStage"
 				:loading="isEditingStage ? loading.updateStage : loading.createStage"
+				:checklists="checklists"
+				:questionnaires="questionnaires"
 				@submit="submitStage"
 				@cancel="dialogVisible.stageForm = false"
 			/>
@@ -657,40 +659,16 @@ import {
 	exportWorkflowToExcel,
 } from '@/apis/ow';
 
+import { getChecklists } from '@/apis/ow/checklist';
+import { queryQuestionnaires } from '@/apis/ow/questionnaire';
+
 // 引入自定义组件
 import StagesList from './components/StagesList.vue';
 import NewWorkflowForm from './components/NewWorkflowForm.vue';
 import StageForm from './components/StageForm.vue';
+import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
 
 const { t } = useI18n();
-
-// 类型定义
-interface Stage {
-	id: string;
-	name: string;
-	description?: string;
-	defaultAssignedGroup: string;
-	defaultAssignee: string;
-	estimatedDuration: number;
-	requiredFieldsJson: string;
-	staticFields?: string[];
-	order: number;
-	selected?: boolean;
-	color?: string;
-}
-
-interface Workflow {
-	id: string;
-	name: string;
-	description: string;
-	startDate: string;
-	endDate: string | null;
-	status: 'active' | 'inactive';
-	isDefault: boolean;
-	isActive?: boolean;
-	version: number;
-	stages: Stage[];
-}
 
 // 状态
 const workflow = ref<Workflow | null>(null); // 当前操作的工作流
@@ -783,11 +761,42 @@ const onWorkflowChange = (workflowId: string) => {
 	}
 };
 
+const checklists = ref<Checklist[]>([]);
+const questionnaires = ref<Questionnaire[]>([]);
+const fetchChecklists = async () => {
+	try {
+		const res = await getChecklists();
+		if (res.code === '200') {
+			checklists.value = res.data;
+		} else {
+			checklists.value = [];
+		}
+	} catch (error) {
+		checklists.value = [];
+	}
+};
+const fetchQuestionnaires = async () => {
+	try {
+		const res = await queryQuestionnaires({
+			pageIndex: 1,
+			pageSize: 1000,
+		});
+		if (res.code === '200') {
+			questionnaires.value = res?.data?.items || [];
+		} else {
+			questionnaires.value = [];
+		}
+	} catch (error) {
+		questionnaires.value = [];
+	}
+};
+
 // 初始化数据
 onMounted(async () => {
 	// 获取工作流列表数据
 	await fetchWorkflows();
-
+	fetchChecklists();
+	fetchQuestionnaires();
 	if (workflow.value) {
 		selectedVersion.value = workflow.value.id;
 		selectedWorkflow.value = workflow.value.id;

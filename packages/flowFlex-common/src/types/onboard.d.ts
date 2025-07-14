@@ -190,3 +190,101 @@ export type LifeCycleStage = 'Lead' | 'Qualified' | 'Proposal' | 'Negotiation' |
 
 // 状态枚举
 export type OnboardingStatus = 'Active' | 'Paused' | 'Completed' | 'Cancelled';
+
+export interface ComponentData {
+	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	order: number;
+	isEnabled: boolean;
+	staticFields: string[];
+	checklistIds: string[];
+	questionnaireIds: string[];
+}
+
+export interface ComponentsData {
+	components: ComponentData[];
+	[key: string]: any;
+}
+
+export interface StaticField {
+	label: string;
+	vIfKey: string;
+	formProp: string;
+	category?: string;
+}
+
+export interface ChecklistOption {
+	id: string;
+	name: string;
+	description: string;
+}
+
+export interface QuestionnaireOption {
+	id: string;
+	name: string;
+	description: string;
+}
+
+export interface SelectedItem {
+	id: string;
+	name: string;
+	description?: string;
+	type: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	order: number;
+	key: string;
+}
+
+export interface FieldTag {
+	key: string;
+	label: string;
+}
+
+// 类型定义
+export interface Stage {
+	id: string;
+	name: string;
+	description?: string;
+	defaultAssignedGroup: string;
+	defaultAssignee: string;
+	estimatedDuration: number;
+	requiredFieldsJson: string;
+	staticFields?: string[];
+	components: ComponentData[];
+	order: number;
+	selected?: boolean;
+	color?: string;
+}
+
+export interface Workflow {
+	id: string;
+	name: string;
+	description: string;
+	startDate: string;
+	endDate: string | null;
+	status: 'active' | 'inactive';
+	isDefault: boolean;
+	isActive?: boolean;
+	version: number;
+	stages: Stage[];
+}
+
+export interface Checklist {
+	id: string;
+	name: string;
+	description: string;
+	team: string;
+	type: string;
+	status: string;
+	isTemplate: boolean;
+	completionRate: number;
+	totalTasks: number;
+	completedTasks: number;
+	estimatedHours: number;
+	isActive: boolean;
+	createDate: string;
+	createBy: string;
+	assignments: {
+		workflowId: string;
+		stageId: string;
+	}[];
+	tasks: any[];
+}

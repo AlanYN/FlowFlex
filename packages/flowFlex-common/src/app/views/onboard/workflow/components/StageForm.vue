@@ -1,144 +1,110 @@
 <template>
-	<div class="stage-form">
-		<el-form
-			ref="formRef"
-			:model="formData"
-			:rules="rules"
-			label-position="top"
-			@submit.prevent="submitForm"
+	<div class="stage-form-container">
+		<PrototypeTabs
+			v-model="currentTab"
+			:tabs="tabsConfig"
+			class="editor-tabs"
+			content-class="editor-content"
 		>
-			<el-form-item label="Stage Name" prop="name">
-				<el-input v-model="formData.name" placeholder="Enter stage name" />
-			</el-form-item>
+			<TabPane value="basicInfo">
+				<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
+					<el-form-item label="Stage Name" prop="name">
+						<el-input v-model="formData.name" placeholder="Enter stage name" />
+					</el-form-item>
 
-			<el-form-item label="Description" prop="description">
-				<el-input
-					v-model="formData.description"
-					type="textarea"
-					:rows="3"
-					placeholder="Enter stage description"
-				/>
-			</el-form-item>
-
-			<el-form-item label="Assigned User Group" prop="defaultAssignedGroup">
-				<el-select
-					v-model="formData.defaultAssignedGroup"
-					placeholder="Select user group"
-					style="width: 100%"
-				>
-					<el-option
-						v-for="item in defaultAssignedGroupOptions"
-						:key="item.value"
-						:label="item.key"
-						:value="item.value"
-					/>
-				</el-select>
-			</el-form-item>
-
-			<el-form-item label="Default Assignee" prop="defaultAssignee">
-				<el-input
-					v-model="formData.defaultAssignee"
-					placeholder="Enter default assignee role"
-				/>
-			</el-form-item>
-
-			<el-form-item label="Estimated Duration" prop="estimatedDuration">
-				<InputNumber
-					v-model="formData.estimatedDuration as number"
-					placeholder="e.g., 3 days"
-				/>
-			</el-form-item>
-
-			<!-- Static Fields Section -->
-			<el-form-item label="Static Fields" prop="staticFields">
-				<div class="static-fields-container">
-					<!-- Search Box -->
-					<div class="search-container">
+					<el-form-item label="Description" prop="description">
 						<el-input
-							v-model="searchQuery"
-							placeholder="Search fields..."
-							clearable
-							class="search-input"
-						>
-							<template #prefix>
-								<el-icon><Search /></el-icon>
-							</template>
-						</el-input>
-					</div>
+							v-model="formData.description"
+							type="textarea"
+							:rows="3"
+							placeholder="Enter stage description"
+						/>
+					</el-form-item>
 
-					<!-- Fields List -->
-					<div class="fields-list">
-						<div
-							v-for="field in filteredStaticFields"
-							:key="field.vIfKey"
-							class="field-item"
+					<div class="flex items-center gap-2 w-full">
+						<el-form-item
+							label="Assigned User Group"
+							prop="defaultAssignedGroup"
+							class="w-1/2"
 						>
-							<el-checkbox
-								:model-value="isFieldSelected(field.vIfKey)"
-								@change="(checked) => toggleField(field.vIfKey, checked)"
+							<el-select
+								v-model="formData.defaultAssignedGroup"
+								placeholder="Select user group"
+								style="width: 100%"
 							>
-								{{ field.label }}
-							</el-checkbox>
+								<el-option
+									v-for="item in defaultAssignedGroupOptions"
+									:key="item.value"
+									:label="item.key"
+									:value="item.value"
+								/>
+							</el-select>
+						</el-form-item>
+
+						<el-form-item label="Default Assignee" prop="defaultAssignee" class="w-1/2">
+							<el-input
+								v-model="formData.defaultAssignee"
+								placeholder="Enter default assignee role"
+							/>
+						</el-form-item>
+					</div>
+
+					<el-form-item label="Estimated Duration" prop="estimatedDuration">
+						<InputNumber
+							v-model="formData.estimatedDuration as number"
+							placeholder="e.g., 3 days"
+						/>
+					</el-form-item>
+
+					<el-form-item label="Stage Color" prop="color">
+						<div class="color-picker-container">
+							<div class="color-grid">
+								<div
+									v-for="color in colorOptions"
+									:key="color"
+									class="color-option"
+									:class="{ selected: formData.color === color }"
+									:style="{ backgroundColor: color }"
+									@click="formData.color = color"
+								></div>
+							</div>
 						</div>
-					</div>
+					</el-form-item>
+				</el-form>
+			</TabPane>
+			<TabPane value="components">
+				<StageComponentsSelector
+					:checklists="checklists"
+					:questionnaires="questionnaires"
+					v-model="formData"
+				/>
+			</TabPane>
+		</PrototypeTabs>
 
-					<!-- Selected Fields Display -->
-					<div v-if="selectedFieldsDisplay.length > 0" class="selected-fields-display">
-						<el-tag
-							v-for="field in selectedFieldsDisplay"
-							:key="field.vIfKey"
-							closable
-							@close="removeField(field.vIfKey)"
-							class="selected-field-tag"
-						>
-							{{ field.label }}
-						</el-tag>
-					</div>
-
-					<div class="help-text">
-						Select the required fields for this stage from the system fields.
-					</div>
-				</div>
-			</el-form-item>
-
-			<el-form-item label="Stage Color" prop="color">
-				<div class="color-picker-container">
-					<div class="color-grid">
-						<div
-							v-for="color in colorOptions"
-							:key="color"
-							class="color-option"
-							:class="{ selected: formData.color === color }"
-							:style="{ backgroundColor: color }"
-							@click="formData.color = color"
-						></div>
-					</div>
-				</div>
-			</el-form-item>
-
-			<div class="form-actions">
-				<el-button @click="$emit('cancel')">Cancel</el-button>
-				<el-button
-					type="primary"
-					:loading="loading"
-					native-type="submit"
-					:disabled="!isFormValid"
-				>
-					{{ isEditing ? 'Update Stage' : 'Add Stage' }}
-				</el-button>
-			</div>
-		</el-form>
+		<div class="form-actions">
+			<el-button @click="$emit('cancel')">Cancel</el-button>
+			<el-button
+				type="primary"
+				:loading="loading"
+				:disabled="!isFormValid"
+				@click="submitForm"
+			>
+				{{ isEditing ? 'Update Stage' : 'Add Stage' }}
+			</el-button>
+		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, PropType, computed } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import { Search } from '@element-plus/icons-vue';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { Options } from '#/setting';
-import staticFieldsData from '../static-field.json';
+import StageComponentsSelector from './StageComponentsSelector.vue';
+
+import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { Checklist, Questionnaire } from '#/onboard';
 
 // 接口定义
 interface Stage {
@@ -149,17 +115,19 @@ interface Stage {
 	defaultAssignee: string;
 	estimatedDuration: number;
 	requiredFieldsJson: string;
-	staticFields?: string[];
+	components: ComponentData[];
 	order: number;
 	color?: StageColorType;
 }
 
-interface StaticField {
-	label: string;
-	vIfKey: string;
-	formProp: string;
+interface ComponentData {
+	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	order: number;
+	isEnabled: boolean;
+	staticFields: string[];
+	checklistIds: string[];
+	questionnaireIds: string[];
 }
-
 // 颜色选项
 const colorOptions = stageColorOptions;
 
@@ -176,6 +144,14 @@ const props = defineProps({
 	loading: {
 		type: Boolean,
 		default: false,
+	},
+	checklists: {
+		type: Array as PropType<Checklist[]>,
+		default: () => [],
+	},
+	questionnaires: {
+		type: Array as PropType<Questionnaire[]>,
+		default: () => [],
 	},
 });
 
@@ -210,21 +186,30 @@ const defaultAssignedGroupOptions = ref<Options[]>([
 	},
 ]);
 
-// Static Fields 相关数据
-const searchQuery = ref('');
-const staticFields = ref<StaticField[]>(staticFieldsData.formFields);
+// Tab配置
+const currentTab = ref('basicInfo');
+const tabsConfig = [
+	{
+		value: 'basicInfo',
+		label: 'Basic Info',
+	},
+	{
+		value: 'components',
+		label: 'Components',
+	},
+];
 
 // 表单数据
-const formData = reactive({
+const formData = ref({
 	name: '',
 	description: '',
 	defaultAssignedGroup: '',
 	defaultAssignee: '',
 	estimatedDuration: null as number | null,
 	requiredFieldsJson: '',
-	staticFields: [] as string[],
-	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType, // 随机默认颜色
+	components: [] as ComponentData[],
 	order: 0,
+	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 });
 
 // 表单验证规则
@@ -243,76 +228,38 @@ const rules = reactive<FormRules>({
 
 // 计算属性
 const isFormValid = computed(() => {
-	return !!formData.name && !!formData.defaultAssignedGroup && !!`${formData.estimatedDuration}`;
-});
-
-// 过滤的静态字段
-const filteredStaticFields = computed(() => {
-	if (!searchQuery.value) {
-		return staticFields.value;
-	}
-	return staticFields.value.filter((field) =>
-		field.label.toLowerCase().includes(searchQuery.value.toLowerCase())
+	return (
+		!!formData.value.name &&
+		!!formData.value.defaultAssignedGroup &&
+		!!`${formData.value.estimatedDuration}`
 	);
-});
-
-// 已选中字段的显示信息
-const selectedFieldsDisplay = computed(() => {
-	return staticFields.value.filter((field) => formData.staticFields.includes(field.vIfKey));
 });
 
 // 表单引用
 const formRef = ref<FormInstance>();
 
-// Static Fields 相关方法
-const isFieldSelected = (fieldKey: string): boolean => {
-	return formData.staticFields.includes(fieldKey);
-};
-
-const toggleField = (fieldKey: string, checked: boolean) => {
-	if (checked) {
-		if (!formData.staticFields.includes(fieldKey)) {
-			formData.staticFields.push(fieldKey);
-		}
-	} else {
-		const index = formData.staticFields.indexOf(fieldKey);
-		if (index > -1) {
-			formData.staticFields.splice(index, 1);
-		}
-	}
-};
-
-const removeField = (fieldKey: string) => {
-	const index = formData.staticFields.indexOf(fieldKey);
-	if (index > -1) {
-		formData.staticFields.splice(index, 1);
-	}
-};
-
 // 初始化表单数据
 onMounted(() => {
 	if (props.stage) {
-		Object.keys(formData).forEach((key) => {
+		Object.keys(formData.value).forEach((key) => {
 			if (key === 'color') {
-				formData[key] =
+				formData.value[key] =
 					props.stage && props.stage?.color
 						? (props.stage[key] as StageColorType)
 						: (colorOptions[
 								Math.floor(Math.random() * colorOptions.length)
 						  ] as StageColorType);
-			} else if (key === 'staticFields') {
-				// 初始化 staticFields
-				formData[key] = props.stage?.staticFields || [];
+			} else if (key === 'components') {
+				formData.value[key] = props.stage?.components || [];
 			} else {
-				formData[key] = props.stage ? props.stage[key] : '';
+				formData.value[key] = props.stage ? props.stage[key] : '';
 			}
 		});
 	} else {
-		// 为新阶段选择一个随机颜色
-		formData.color = colorOptions[
+		formData.value.color = colorOptions[
 			Math.floor(Math.random() * colorOptions.length)
 		] as StageColorType;
-		formData.staticFields = [];
+		formData.value.components = [];
 	}
 });
 
@@ -322,7 +269,11 @@ const submitForm = async () => {
 
 	await formRef.value.validate((valid, fields) => {
 		if (valid) {
-			emit('submit', { ...formData });
+			// 包含模块顺序信息
+			const submitData = {
+				...formData.value,
+			};
+			emit('submit', submitData);
 		}
 	});
 };
@@ -332,8 +283,13 @@ const emit = defineEmits(['submit', 'cancel']);
 </script>
 
 <style scoped>
-.stage-form {
-	padding: 10px;
+.stage-form-container {
+	width: 100%;
+	max-width: 100%;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
 }
 
 .form-actions {
@@ -341,13 +297,7 @@ const emit = defineEmits(['submit', 'cancel']);
 	justify-content: flex-end;
 	gap: 10px;
 	margin-top: 20px;
-}
-
-.help-text {
-	font-size: 12px;
-	color: #909399;
-	margin-top: 8px;
-	font-style: italic;
+	flex-shrink: 0;
 }
 
 .color-picker-container {
@@ -377,85 +327,5 @@ const emit = defineEmits(['submit', 'cancel']);
 .color-option.selected {
 	border-color: #333;
 	transform: scale(1.1);
-}
-
-.disabled-btn {
-	opacity: 0.6;
-	cursor: not-allowed;
-}
-
-/* Static Fields 样式 */
-.static-fields-container {
-	width: 100%;
-	border: 1px solid #e4e7ed;
-	border-radius: 6px;
-	padding: 16px;
-	background-color: #fafafa;
-}
-
-.search-container {
-	margin-bottom: 16px;
-}
-
-.search-input {
-	width: 100%;
-}
-
-.fields-list {
-	max-height: 300px;
-	overflow-y: auto;
-	border: 1px solid #e4e7ed;
-	border-radius: 4px;
-	background-color: white;
-	padding: 8px;
-}
-
-.field-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 8px 12px;
-	border-radius: 4px;
-	transition: background-color 0.2s;
-}
-
-.field-item:hover {
-	background-color: #f5f7fa;
-}
-
-.field-category {
-	font-size: 12px;
-	color: #909399;
-	font-style: italic;
-}
-
-:deep(.el-checkbox) {
-	flex: 1;
-}
-
-:deep(.el-checkbox__label) {
-	font-size: 14px;
-	color: #606266;
-}
-
-/* Selected Fields Display */
-.selected-fields-display {
-	margin-top: 12px;
-	padding-top: 12px;
-	border-top: 1px solid #e4e7ed;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-}
-
-.selected-field-tag {
-	margin: 0;
-	background-color: #ecf5ff;
-	border-color: #b3d8ff;
-	color: #409eff;
-}
-
-.selected-field-tag:hover {
-	background-color: #d9ecff;
 }
 </style>

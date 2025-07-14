@@ -16,7 +16,7 @@
 	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	height: auto;
 	min-height: 2.5rem;
-	padding: 0.25rem 0.25rem 0.5rem 0.25rem; /* 底部增加空间给滚动条 */
+	padding: 0.25rem 0.25rem 0.25rem 0.25rem; /* 底部增加空间给滚动条 */
 
 	// 深色模式适配
 	:root.dark & {
