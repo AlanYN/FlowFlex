@@ -29,6 +29,22 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     }
 
     /// <summary>
+    /// Get checklists by multiple IDs (batch query)
+    /// </summary>
+    public async Task<List<Checklist>> GetByIdsAsync(List<long> ids)
+    {
+        if (ids == null || !ids.Any())
+        {
+            return new List<Checklist>();
+        }
+
+        return await db.Queryable<Checklist>()
+            .Where(x => x.IsValid == true && ids.Contains(x.Id))
+            .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Get template checklists
     /// </summary>
     public async Task<List<Checklist>> GetTemplatesAsync()

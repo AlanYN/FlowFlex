@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Attr;
 using Item.Internal.StandardApi.Response;
+using FlowFlex.WebApi.Model.Response;
 
 
 namespace FlowFlex.WebApi.Controllers.OW
@@ -56,15 +57,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         [HttpGet("{onboardingId}/stage/{stageId}/answer")]
         public async Task<IActionResult> GetAnswer(long onboardingId, long stageId)
         {
-            try
-            {
                 var answers = await _questionnaireAnswerService.GetAllAnswersAsync(onboardingId, stageId);
-                return Ok(answers);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+                return Success(answers);
         }
 
         /// <summary>

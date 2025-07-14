@@ -323,6 +323,46 @@ namespace FlowFlex.Application.Service.OW
             return result;
         }
 
+        public async Task<List<QuestionnaireOutputDto>> GetByIdsAsync(List<long> ids)
+        {
+            if (ids == null || !ids.Any())
+            {
+                return new List<QuestionnaireOutputDto>();
+            }
+
+            var list = await _questionnaireRepository.GetByIdsAsync(ids);
+            var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
+
+            // Batch get all questionnaires' Sections to avoid N+1 query problem
+            if (result.Any())
+            {
+                var questionnaireIds = result.Select(q => q.Id).ToList();
+                var allSections = await _sectionRepository.GetByQuestionnaireIdsAsync(questionnaireIds);
+
+                // Group by questionnaire ID
+                var sectionsByQuestionnaireId = allSections.GroupBy(s => s.QuestionnaireId)
+                    .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Order).ThenBy(s => s.Id).ToList());
+
+                // Assign corresponding Sections to each questionnaire
+                foreach (var questionnaire in result)
+                {
+                    if (sectionsByQuestionnaireId.TryGetValue(questionnaire.Id, out var sections))
+                    {
+                        questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
+                    }
+                    else
+                    {
+                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
+                    }
+                }
+            }
+
+            // Fill assignments for the questionnaires
+            await FillAssignmentsAsync(result);
+
+            return result;
+        }
+
         public async Task<PagedResult<QuestionnaireOutputDto>> QueryAsync(QuestionnaireQueryRequest query)
         {
             var (items, totalCount) = await _questionnaireRepository.GetPagedAsync(
