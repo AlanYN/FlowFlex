@@ -93,7 +93,7 @@
 										{{ getInitials(element.name) }}
 									</div>
 									<div class="stage-info">
-										<a class="stage-name" :href="`#${element.id}`">
+										<a class="stage-name">
 											{{ element.name }}
 										</a>
 										<div class="stage-description">

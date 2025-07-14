@@ -1,4 +1,4 @@
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 
 ARG Registry
 RUN [ ! -n "$Registry" ] || npm config set registry ${Registry}
@@ -11,7 +11,7 @@ COPY . ./
 RUN npm install -g pnpm \
   && pnpm install
 
-ARG BUILD_CMD=build:uniTest
+ARG BUILD_CMD=build:development
 RUN pnpm $BUILD_CMD
 
 FROM nginx:latest AS runtime
