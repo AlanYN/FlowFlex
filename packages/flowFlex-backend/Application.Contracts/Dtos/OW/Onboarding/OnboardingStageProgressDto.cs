@@ -73,6 +73,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// </summary>
         public bool IsCurrent { get; set; }
 
-
+        /// <summary>
+        /// Stage组件配置列表
+        /// 定义Stage包含的组件及其顺序
+        /// </summary>
+        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
     }
 }

@@ -2984,7 +2984,8 @@ namespace FlowFlex.Application.Services.OW
                         EstimatedDays = stage.EstimatedDuration,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
-
+                        ComponentsJson = stage.ComponentsJson, // Copy components configuration from stage
+                        Components = stage.Components // Copy components list from stage
                     };
 
                     entity.StagesProgress.Add(stageProgress);

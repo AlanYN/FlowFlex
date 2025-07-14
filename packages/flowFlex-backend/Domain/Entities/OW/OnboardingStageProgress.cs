@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic;
 
 namespace FlowFlex.Domain.Entities.OW
 {
@@ -142,6 +143,14 @@ namespace FlowFlex.Domain.Entities.OW
         [StringLength(100)]
         public string TerminatedBy { get; set; }
 
+        /// <summary>
+        /// Stage Components Configuration (JSON)
+        /// </summary>
+        public string ComponentsJson { get; set; }
 
+        /// <summary>
+        /// Stage Components List (not mapped to database)
+        /// </summary>
+        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
     }
 }
