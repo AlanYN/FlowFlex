@@ -212,18 +212,6 @@ export interface StaticField {
 	category?: string;
 }
 
-export interface ChecklistOption {
-	id: string;
-	name: string;
-	description: string;
-}
-
-export interface QuestionnaireOption {
-	id: string;
-	name: string;
-	description: string;
-}
-
 export interface SelectedItem {
 	id: string;
 	name: string;
@@ -287,4 +275,19 @@ export interface Checklist {
 		stageId: string;
 	}[];
 	tasks: any[];
+}
+
+// 接口定义
+export interface Stage {
+	id: string;
+	name: string;
+	description?: string;
+	defaultAssignedGroup: string;
+	defaultAssignee: string;
+	estimatedDuration: number;
+	requiredFieldsJson: string;
+	order: number;
+	selected?: boolean;
+	color?: string;
+	components: ComponentData[];
 }

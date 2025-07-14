@@ -176,57 +176,99 @@
 								v-show="expandedStages === element.id && !isLoading && !isSorting"
 								class="stage-details"
 							>
-								<div class="flex items-center space-x-6 mt-2">
-									<div class="flex items-center">
-										<Users
-											:style="{
-												color:
-													element.color || getAvatarColor(element.name),
-												marginRight: '8px',
-											}"
-										/>
-										<div>
-											<span class="text-xs text-muted-foreground">
-												Group:
-											</span>
-											<span class="font-medium">
-												{{ element.defaultAssignedGroup || 'Not assigned' }}
-											</span>
+								<!-- Stage Components Section -->
+								<div class="stage-components-section">
+									<div class="text-sm font-medium mb-3">Stage Components</div>
+									<div
+										v-if="getStageComponents(element).length > 0"
+										class="components-list"
+									>
+										<div
+											v-for="(component, index) in getStageComponents(
+												element
+											)"
+											:key="component.id"
+											class="component-item"
+										>
+											<span class="component-number">{{ index + 1 }}</span>
+											<div class="component-icon">
+												<component :is="getComponentIcon(component.type)" />
+											</div>
+											<span class="component-name">{{ component.name }}</span>
+											<span class="component-type">{{ component.type }}</span>
 										</div>
 									</div>
-									<div class="flex items-center">
-										<Users
-											:style="{
-												color:
-													element.color || getAvatarColor(element.name),
-												marginRight: '8px',
-											}"
-										/>
-										<div>
-											<span class="text-xs text-muted-foreground">
-												Assignee:
-											</span>
-											<span class="font-medium">
-												{{ element.defaultAssignee || 'Not assigned' }}
-											</span>
-										</div>
+									<div v-else class="no-components">
+										<span class="text-xs text-muted-foreground">
+											No components configured
+										</span>
 									</div>
-									<div class="flex items-center">
-										<Clock
-											:style="{
-												color:
-													element.color || getAvatarColor(element.name),
-												marginRight: '8px',
-											}"
-										/>
-										<div>
-											<span class="text-xs text-muted-foreground">
-												Duration:
-											</span>
-											<span class="font-medium">
-												{{ element.estimatedDuration }}
-												{{ element.estimatedDuration > 1 ? 'days' : 'day' }}
-											</span>
+								</div>
+
+								<!-- Stage Details Section -->
+								<div class="stage-info-section">
+									<div class="flex items-center space-x-6 mt-4">
+										<div class="flex items-center">
+											<Users
+												:style="{
+													color:
+														element.color ||
+														getAvatarColor(element.name),
+													marginRight: '8px',
+												}"
+											/>
+											<div>
+												<span class="text-xs text-muted-foreground">
+													Group:
+												</span>
+												<span class="font-medium">
+													{{
+														element.defaultAssignedGroup ||
+														'Not assigned'
+													}}
+												</span>
+											</div>
+										</div>
+										<div class="flex items-center">
+											<Users
+												:style="{
+													color:
+														element.color ||
+														getAvatarColor(element.name),
+													marginRight: '8px',
+												}"
+											/>
+											<div>
+												<span class="text-xs text-muted-foreground">
+													Assignee:
+												</span>
+												<span class="font-medium">
+													{{ element.defaultAssignee || 'Not assigned' }}
+												</span>
+											</div>
+										</div>
+										<div class="flex items-center">
+											<Clock
+												:style="{
+													color:
+														element.color ||
+														getAvatarColor(element.name),
+													marginRight: '8px',
+												}"
+											/>
+											<div>
+												<span class="text-xs text-muted-foreground">
+													Duration:
+												</span>
+												<span class="font-medium">
+													{{ element.estimatedDuration }}
+													{{
+														element.estimatedDuration > 1
+															? 'days'
+															: 'day'
+													}}
+												</span>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -249,22 +291,16 @@ import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import Ellipsis from '@assets/svg/workflow/ellipsis.svg';
 import Users from '@assets/svg/workflow/users.svg';
 import Clock from '@assets/svg/workflow/clock.svg';
-import { Edit, Delete } from '@element-plus/icons-vue';
+import {
+	Edit,
+	Delete,
+	Document,
+	List,
+	QuestionFilled,
+	FolderOpened,
+} from '@element-plus/icons-vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-
-// 接口定义
-interface Stage {
-	id: string;
-	name: string;
-	description?: string;
-	defaultAssignedGroup: string;
-	defaultAssignee: string;
-	estimatedDuration: number;
-	requiredFieldsJson: string;
-	order: number;
-	selected?: boolean;
-	color?: string;
-}
+import { Stage } from '#/onboard';
 
 // Props
 const props = defineProps({
@@ -427,6 +463,89 @@ const handleSelectionChange = (stage: Stage) => {
 	});
 
 	emit('update:stages', updatedStages);
+};
+
+// 获取阶段组件列表
+const getStageComponents = (stage: Stage) => {
+	if (!stage.components || stage.components.length === 0) {
+		return [];
+	}
+
+	const componentList: Array<{ id: string; name: string; type: string }> = [];
+
+	stage.components.forEach((component) => {
+		if (component.isEnabled) {
+			switch (component.key) {
+				case 'fields':
+					componentList.push({
+						id: `${stage.id}-fields`,
+						name: 'Required Fields',
+						type: 'fields',
+					});
+					break;
+				case 'checklist':
+					// 每个checklist可能有多个ID，但在这里显示为一个组件
+					component.checklistIds.forEach((checklistId, index) => {
+						componentList.push({
+							id: `${stage.id}-checklist-${checklistId}`,
+							name: `Initial Setup Checklist`,
+							type: 'checklist',
+						});
+					});
+					break;
+				case 'questionnaires':
+					// 每个questionnaire可能有多个ID，但在这里显示为一个组件
+					component.questionnaireIds.forEach((questionnaireId, index) => {
+						componentList.push({
+							id: `${stage.id}-questionnaire-${questionnaireId}`,
+							name: `Business Questionnaire`,
+							type: 'questionnaires',
+						});
+					});
+					break;
+				case 'files':
+					componentList.push({
+						id: `${stage.id}-files`,
+						name: 'File Attachments',
+						type: 'files',
+					});
+					break;
+			}
+		}
+	});
+
+	// 按照order排序
+	return componentList.sort((a, b) => {
+		const componentA = stage.components?.find(
+			(c) =>
+				c.key === a.type ||
+				(a.type.includes('checklist') && c.key === 'checklist') ||
+				(a.type.includes('questionnaire') && c.key === 'questionnaires')
+		);
+		const componentB = stage.components?.find(
+			(c) =>
+				c.key === b.type ||
+				(b.type.includes('checklist') && c.key === 'checklist') ||
+				(b.type.includes('questionnaire') && c.key === 'questionnaires')
+		);
+		return (componentA?.order || 0) - (componentB?.order || 0);
+	});
+};
+
+// 获取组件图标
+const getComponentIcon = (type: string) => {
+	switch (type) {
+		case 'fields':
+			return Document;
+		case 'checklist':
+			return List;
+		case 'questionnaires':
+			return QuestionFilled;
+		case 'files':
+			return FolderOpened;
+		default:
+			return Document;
+	}
 };
 </script>
 
@@ -599,6 +718,94 @@ const handleSelectionChange = (stage: Stage) => {
 	padding: 0 16px 16px 16px;
 	border-top: 1px solid var(--el-border-color-light, #ebeef5);
 	background-color: rgba(255, 255, 255, 0.8);
+}
+
+/* Stage Components Section */
+.stage-components-section {
+	margin-bottom: 16px;
+}
+
+.components-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.component-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	background-color: #f8f9fa;
+	border-radius: 6px;
+	border: 1px solid #e9ecef;
+	transition: all 0.2s ease;
+}
+
+.component-item:hover {
+	background-color: #f1f3f4;
+	border-color: #dee2e6;
+}
+
+.component-number {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	background-color: var(--primary-100, #dbeafe);
+	color: var(--primary-600, #2563eb);
+	border-radius: 50%;
+	font-size: 11px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.component-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	color: var(--primary-600, #2563eb);
+	flex-shrink: 0;
+}
+
+.component-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.component-name {
+	flex: 1;
+	font-size: 13px;
+	font-weight: 500;
+	color: #374151;
+	min-width: 0;
+}
+
+.component-type {
+	font-size: 11px;
+	font-weight: 500;
+	color: #6b7280;
+	background-color: #f3f4f6;
+	padding: 2px 8px;
+	border-radius: 12px;
+	text-transform: lowercase;
+	flex-shrink: 0;
+}
+
+.no-components {
+	padding: 12px;
+	text-align: center;
+	background-color: #f8f9fa;
+	border-radius: 6px;
+	border: 1px dashed #dee2e6;
+}
+
+.stage-info-section {
+	border-top: 1px solid #e5e7eb;
+	padding-top: 12px;
 }
 
 .required-fields-section {
