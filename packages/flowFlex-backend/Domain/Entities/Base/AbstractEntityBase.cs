@@ -7,12 +7,17 @@ using SqlSugar;
 namespace FlowFlex.Domain.Entities.Base;
 
 /// <summary>
-/// »ù´¡ÊµÌåÀà
+/// ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½
 /// </summary>
-public abstract class AbstractEntityBase : IdEntityBase, ITenantFilter
+public abstract class AbstractEntityBase : IdEntityBase, ITenantFilter, IAppFilter
 {
     [IgnoreDisplay]
     [ChangeLogColumn(IsIgnore = true)]
     [SugarColumn(ColumnName = "tenant_id", IsOnlyIgnoreUpdate = true)]
     public virtual string TenantId { get; set; } = string.Empty;
+
+    [IgnoreDisplay]
+    [ChangeLogColumn(IsIgnore = true)]
+    [SugarColumn(ColumnName = "app_code", IsOnlyIgnoreUpdate = true)]
+    public virtual string AppCode { get; set; } = "DEFAULT";
 }

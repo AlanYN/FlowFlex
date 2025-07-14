@@ -1,0 +1,279 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using FlowFlex.Domain.Shared.Models;
+using System.Threading.Tasks;
+using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
+
+namespace FlowFlex.WebApi.Middlewares
+{
+    /// <summary>
+    /// Application isolation middleware - Ensure each request has correct app code and tenant ID for data isolation
+    /// </summary>
+    public class AppIsolationMiddleware
+    {
+        private readonly RequestDelegate _next;
+        private readonly ILogger<AppIsolationMiddleware> _logger;
+
+        public AppIsolationMiddleware(RequestDelegate next, ILogger<AppIsolationMiddleware> logger)
+        {
+            _next = next;
+            _logger = logger;
+        }
+
+        public async Task InvokeAsync(HttpContext context)
+        {
+            // Create app context from request
+            var appContext = CreateAppContext(context);
+
+            // Log isolation information
+            _logger.LogInformation("[AppIsolationMiddleware] Request: {Method} {Path}, AppCode: {AppCode}, TenantId: {TenantId}, RequestId: {RequestId}",
+                context.Request.Method, context.Request.Path, appContext.AppCode, appContext.TenantId, appContext.RequestId);
+
+            // Validate app context
+            if (!appContext.IsValid())
+            {
+                _logger.LogWarning("[AppIsolationMiddleware] Invalid app context: AppCode={AppCode}, TenantId={TenantId}",
+                    appContext.AppCode, appContext.TenantId);
+                
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsync("Invalid application context. AppCode and TenantId are required.");
+                return;
+            }
+
+            // Store app context in HTTP context items for use by other services
+            context.Items["AppContext"] = appContext;
+
+            // Ensure headers are set for downstream processing
+            EnsureHeaders(context, appContext);
+
+            // Add response headers for debugging
+            context.Response.Headers["X-Response-App-Code"] = appContext.AppCode;
+            context.Response.Headers["X-Response-Tenant-Id"] = appContext.TenantId;
+            context.Response.Headers["X-Response-Request-Id"] = appContext.RequestId;
+
+            await _next(context);
+        }
+
+        private AppContext CreateAppContext(HttpContext context)
+        {
+            var appContext = new AppContext
+            {
+                RequestTime = DateTimeOffset.Now,
+                ClientIp = GetClientIpAddress(context),
+                UserAgent = context.Request.Headers["User-Agent"].FirstOrDefault() ?? string.Empty
+            };
+
+            // Get AppCode from multiple sources
+            appContext.AppCode = GetAppCode(context);
+
+            // Get TenantId from multiple sources
+            appContext.TenantId = GetTenantId(context);
+
+            // Generate or get request ID
+            appContext.RequestId = GetRequestId(context);
+
+            return appContext;
+        }
+
+        private string GetAppCode(HttpContext context)
+        {
+            // 1. Get from X-App-Code header
+            var appCode = context.Request.Headers["X-App-Code"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from X-App-Code header: {AppCode}", appCode);
+                return appCode;
+            }
+
+            // 2. Get from AppCode header
+            appCode = context.Request.Headers["AppCode"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from AppCode header: {AppCode}", appCode);
+                return appCode;
+            }
+
+            // 3. Get from query parameters
+            appCode = context.Request.Query["appCode"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from query parameter: {AppCode}", appCode);
+                return appCode;
+            }
+
+            // 4. Get from JWT Token (if available)
+            var appCodeClaim = context.User?.FindFirst("appCode");
+            if (!string.IsNullOrEmpty(appCodeClaim?.Value))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from JWT token: {AppCode}", appCodeClaim.Value);
+                return appCodeClaim.Value;
+            }
+
+            // 5. Infer from request path or subdomain
+            appCode = InferAppCodeFromRequest(context);
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Inferred AppCode from request: {AppCode}", appCode);
+                return appCode;
+            }
+
+            // 6. Default app code
+            appCode = "DEFAULT";
+            _logger.LogDebug("[AppIsolationMiddleware] Using default AppCode: {AppCode}", appCode);
+            return appCode;
+        }
+
+        private string GetTenantId(HttpContext context)
+        {
+            // 1. Get from X-Tenant-Id header
+            var tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from X-Tenant-Id header: {TenantId}", tenantId);
+                return tenantId;
+            }
+
+            // 2. Get from TenantId header
+            tenantId = context.Request.Headers["TenantId"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from TenantId header: {TenantId}", tenantId);
+                return tenantId;
+            }
+
+            // 3. Get from query parameters
+            tenantId = context.Request.Query["tenantId"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from query parameter: {TenantId}", tenantId);
+                return tenantId;
+            }
+
+            // 4. Get from JWT Token (if available)
+            var tenantIdClaim = context.User?.FindFirst("tenantId");
+            if (!string.IsNullOrEmpty(tenantIdClaim?.Value))
+            {
+                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from JWT token: {TenantId}", tenantIdClaim.Value);
+                return tenantIdClaim.Value;
+            }
+
+            // 5. Infer tenant ID from user email domain
+            var userEmail = context.Request.Headers["X-User-Email"].FirstOrDefault()
+                          ?? context.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            if (!string.IsNullOrEmpty(userEmail))
+            {
+                var domain = userEmail.Split('@').LastOrDefault();
+                if (!string.IsNullOrEmpty(domain))
+                {
+                    tenantId = MapDomainToTenantId(domain);
+                    if (!string.IsNullOrEmpty(tenantId))
+                    {
+                        _logger.LogDebug("[AppIsolationMiddleware] Inferred TenantId from email domain: {TenantId}", tenantId);
+                        return tenantId;
+                    }
+                }
+            }
+
+            // 6. Default tenant ID
+            tenantId = "DEFAULT";
+            _logger.LogDebug("[AppIsolationMiddleware] Using default TenantId: {TenantId}", tenantId);
+            return tenantId;
+        }
+
+        private string GetRequestId(HttpContext context)
+        {
+            // Try to get existing request ID from headers
+            var requestId = context.Request.Headers["X-Request-Id"].FirstOrDefault()
+                          ?? context.Request.Headers["Request-Id"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(requestId))
+            {
+                return requestId;
+            }
+
+            // Generate new request ID
+            return Guid.NewGuid().ToString("N")[..8];
+        }
+
+        private string GetClientIpAddress(HttpContext context)
+        {
+            // Try to get real IP from various headers
+            var ipAddress = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                          ?? context.Request.Headers["X-Real-IP"].FirstOrDefault()
+                          ?? context.Connection.RemoteIpAddress?.ToString();
+
+            return ipAddress ?? "unknown";
+        }
+
+        private string InferAppCodeFromRequest(HttpContext context)
+        {
+            // Infer app code from request path
+            var path = context.Request.Path.Value?.ToLowerInvariant();
+            if (!string.IsNullOrEmpty(path))
+            {
+                // Example: /api/mobile/... -> MOBILE
+                if (path.StartsWith("/api/mobile/"))
+                    return "MOBILE";
+                
+                // Example: /api/web/... -> WEB
+                if (path.StartsWith("/api/web/"))
+                    return "WEB";
+                
+                // Example: /api/admin/... -> ADMIN
+                if (path.StartsWith("/api/admin/"))
+                    return "ADMIN";
+            }
+
+            // Infer from subdomain
+            var host = context.Request.Host.Host;
+            if (!string.IsNullOrEmpty(host))
+            {
+                var parts = host.Split('.');
+                if (parts.Length > 2)
+                {
+                    var subdomain = parts[0].ToUpperInvariant();
+                    if (subdomain != "WWW" && subdomain != "API")
+                    {
+                        return subdomain;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private string MapDomainToTenantId(string domain)
+        {
+            // Map email domain to tenant ID
+            return domain switch
+            {
+                "company1.com" => "COMPANY1",
+                "company2.com" => "COMPANY2",
+                "test.com" => "TEST",
+                "example.com" => "EXAMPLE",
+                _ => null // Return null if unable to infer
+            };
+        }
+
+        private void EnsureHeaders(HttpContext context, AppContext appContext)
+        {
+            // Ensure app code header is set
+            if (!context.Request.Headers.ContainsKey("X-App-Code"))
+            {
+                context.Request.Headers["X-App-Code"] = appContext.AppCode;
+            }
+
+            // Ensure tenant ID header is set
+            if (!context.Request.Headers.ContainsKey("X-Tenant-Id"))
+            {
+                context.Request.Headers["X-Tenant-Id"] = appContext.TenantId;
+            }
+
+            // Ensure request ID header is set
+            if (!context.Request.Headers.ContainsKey("X-Request-Id"))
+            {
+                context.Request.Headers["X-Request-Id"] = appContext.RequestId;
+            }
+        }
+    }
+} 

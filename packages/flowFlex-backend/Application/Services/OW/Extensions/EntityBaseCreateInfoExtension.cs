@@ -47,6 +47,12 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Set default values
             createInfo.IsValid = true;
             createInfo.TenantId = userContext?.TenantId ?? "DEFAULT";
+            
+            // Set app code if entity supports it
+            if (createInfo is AbstractEntityBase abstractEntity)
+            {
+                abstractEntity.AppCode = userContext?.AppCode ?? "DEFAULT";
+            }
         }
 
         /// <summary>
@@ -185,6 +191,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Set default values
             entity.IsValid = true;
             entity.TenantId = userContext?.TenantId ?? "DEFAULT";
+            entity.AppCode = userContext?.AppCode ?? "DEFAULT";
         }
 
         /// <summary>
@@ -229,6 +236,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Set default values
             user.IsValid = true;
             user.TenantId = userContext?.TenantId ?? "DEFAULT";
+            user.AppCode = userContext?.AppCode ?? "DEFAULT";
         }
 
         /// <summary>

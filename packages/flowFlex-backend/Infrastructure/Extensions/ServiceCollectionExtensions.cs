@@ -35,6 +35,9 @@ namespace FlowFlex.Infrastructure.Extensions
             // Register repository services
             services.AddScoped(typeof(IOptimizedRepository<>), typeof(OptimizedRepository<>));
 
+            // Register database migration service
+            services.AddDatabaseMigration();
+
             return services;
         }
 

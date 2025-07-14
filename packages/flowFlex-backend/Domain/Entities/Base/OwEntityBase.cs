@@ -29,6 +29,13 @@ namespace FlowFlex.Domain.Entities
         public string TenantId { get; set; } = "default";
 
         /// <summary>
+        /// 应用代码
+        /// </summary>
+        [MaxLength(32)]
+        [SugarColumn(ColumnName = "app_code")]
+        public string AppCode { get; set; } = "DEFAULT";
+
+        /// <summary>
         /// 是否有效
         /// </summary>
         [SugarColumn(ColumnName = "is_valid")]
@@ -47,14 +54,14 @@ namespace FlowFlex.Domain.Entities
         public DateTimeOffset ModifyDate { get; set; } = DateTimeOffset.Now;
 
         /// <summary>
-        /// 创建�?
+        /// 创建�?
         /// </summary>
         [MaxLength(50)]
         [SugarColumn(ColumnName = "create_by")]
         public string CreateBy { get; set; } = "SYSTEM";
 
         /// <summary>
-        /// 修改�?
+        /// 修改�?
         /// </summary>
         [MaxLength(50)]
         [SugarColumn(ColumnName = "modify_by")]

@@ -349,6 +349,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseRouting();
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.AppIsolationMiddleware>();
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.TenantMiddleware>();
 app.UseMiddleware<FlowFlex.Infrastructure.Exceptions.GlobalExceptionHandlingMiddleware>();
 app.UseMiddleware<FileAccessMiddleware>();
@@ -375,6 +376,19 @@ catch (Exception ex)
     {
         throw;
     }
+}
+
+// Execute database migrations
+try
+{
+    app.Services.ExecuteDatabaseMigrations();
+    // Database migrations completed successfully
+}
+catch (Exception ex)
+{
+    // Database migration failed - this is critical, so we'll log and continue
+    // The application should still start even if migrations fail
+    app.Logger.LogError(ex, "Database migration failed during startup");
 }
 
 app.Run();

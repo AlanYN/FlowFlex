@@ -19,6 +19,11 @@ namespace FlowFlex.Domain.Shared.Models
 
         public TimeSpan UtcOffset { get; set; } = TimeZoneInfo.Local.BaseUtcOffset;
 
+        /// <summary>
+        /// Application code for application isolation
+        /// </summary>
+        public string AppCode { get; set; } = "DEFAULT";
+
 
         /// <summary>
         /// Gets the permission type for a user based on the specified permission code and operation type

@@ -28,6 +28,7 @@ using FlowFlex.Domain.Entities;
 using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Application.Services.OW.Extensions;
+using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.WebApi.Extensions
 {
@@ -106,10 +107,12 @@ namespace FlowFlex.WebApi.Extensions
                         // SQL logging handled by structured logging
                     };
 
-                    // Note: SqlSugar global filters with complex lambda expressions are not supported
-                    // Tenant filtering will be handled at the repository level instead
-                    // provider.QueryFilter.Add(new TableFilterItem<OwEntityBase>(it => it.TenantId == "CURRENT_TENANT"));
-                    // provider.QueryFilter.Add(new TableFilterItem<EntityBaseCreateInfo>(it => it.TenantId == "CURRENT_TENANT"));
+                    // Configure application and tenant filters for data isolation
+                    var httpContextAccessor = services.BuildServiceProvider().GetService<IHttpContextAccessor>();
+                    if (httpContextAccessor != null)
+                    {
+                        FlowFlex.Infrastructure.Data.AppTenantFilter.ConfigureFilters(provider, httpContextAccessor);
+                    }
                 });
 
                 return sqlSugarClient;
@@ -118,7 +121,7 @@ namespace FlowFlex.WebApi.Extensions
             // Register SqlSugar context
             services.AddScoped<ISqlSugarContext, SqlSugarContext>();
 
-            // Register UserContext - get from HTTP request headers or JWT claims
+            // Register UserContext - get from HTTP request headers, JWT claims, and AppContext
             services.AddScoped<UserContext>(provider =>
             {
                 var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
@@ -126,29 +129,39 @@ namespace FlowFlex.WebApi.Extensions
 
                 if (httpContext != null)
                 {
+                    // Get AppContext from middleware if available
+                    var appContext = httpContext.Items["AppContext"] as AppContext;
+
                     // Try to get user information from JWT claims first
                     var userIdClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
                                     ?? httpContext.User?.FindFirst("sub");
                     var emailClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Email);
                     var usernameClaim = httpContext.User?.FindFirst("username");
                     var tenantIdClaim = httpContext.User?.FindFirst("tenantId");
+                    var appCodeClaim = httpContext.User?.FindFirst("appCode");
 
                     // Fallback to request headers if JWT claims are not available
                     var userIdHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
                     var userNameHeader = httpContext.Request.Headers["X-User-Name"].FirstOrDefault();
                     var tenantIdHeader = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                    var appCodeHeader = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
 
                     // Also try alternative header names
                     if (string.IsNullOrEmpty(tenantIdHeader))
                     {
                         tenantIdHeader = httpContext.Request.Headers["TenantId"].FirstOrDefault();
                     }
+                    if (string.IsNullOrEmpty(appCodeHeader))
+                    {
+                        appCodeHeader = httpContext.Request.Headers["AppCode"].FirstOrDefault();
+                    }
 
-                    // Determine final values with priority: JWT claims > headers > defaults
+                    // Determine final values with priority: JWT claims > headers > AppContext > defaults
                     var userId = userIdClaim?.Value ?? userIdHeader ?? "1";
                     var email = emailClaim?.Value ?? string.Empty;
                     var userName = usernameClaim?.Value ?? userNameHeader ?? email ?? "System";
-                    var tenantId = tenantIdClaim?.Value ?? tenantIdHeader ?? "DEFAULT";
+                    var tenantId = tenantIdClaim?.Value ?? tenantIdHeader ?? appContext?.TenantId ?? "DEFAULT";
+                    var appCode = appCodeClaim?.Value ?? appCodeHeader ?? appContext?.AppCode ?? "DEFAULT";
 
                     // If no tenant ID found and we have email, try to get tenant from email
                     if (tenantId == "DEFAULT" && !string.IsNullOrEmpty(email))
@@ -163,7 +176,8 @@ namespace FlowFlex.WebApi.Extensions
                         UserId = userId,
                         UserName = userName,
                         Email = email,
-                        TenantId = tenantId
+                        TenantId = tenantId,
+                        AppCode = appCode
                     };
                 }
 
@@ -173,7 +187,8 @@ namespace FlowFlex.WebApi.Extensions
                     UserId = "1",
                     UserName = "TestUser",
                     Email = string.Empty,
-                    TenantId = "DEFAULT"
+                    TenantId = "DEFAULT",
+                    AppCode = "DEFAULT"
                 };
             });
 
