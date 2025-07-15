@@ -787,14 +787,26 @@ const loadChecklists = async () => {
 		const response = await getChecklists();
 		const checklistData = response.data || response || [];
 
-		// 先设置基础数据，不加载任务（懒加载）
+		// 先设置基础数据，保留已加载的任务数据
 		const processedChecklists = checklistData
 			.map((checklist) => {
+				// 检查是否已经有加载的任务数据
+				const existingChecklist = checklists.value.find(c => c.id === checklist.id);
+				if (existingChecklist && existingChecklist.tasksLoaded && existingChecklist.tasks?.length > 0) {
+					// 保留已加载的任务数据
 				return {
 					...checklist,
-					tasks: [], // 初始化为空数组
-					tasksLoaded: false, // 标记任务是否已加载
-				};
+						tasks: existingChecklist.tasks,
+						tasksLoaded: true,
+					};
+				} else {
+					// 初始化为空数组
+					return {
+						...checklist,
+						tasks: [], 
+						tasksLoaded: false,
+					};
+				}
 			})
 			.sort((a, b) => {
 				// 按创建时间升序排序（最早的在前面）
@@ -894,6 +906,13 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 		} finally {
 			// 清理缓存
 			taskLoadingCache.delete(checklistId);
+			
+			// 确保在任何情况下都设置 tasksLoaded 为 true
+			if (!checklist.tasksLoaded) {
+				console.warn(`Force setting tasksLoaded=true for checklist ${checklistId}`);
+				checklist.tasksLoaded = true;
+				checklists.value = [...checklists.value];
+			}
 		}
 	})();
 
@@ -2115,9 +2134,31 @@ const submitDialog = async () => {
 
 		closeDialog();
 
-		// 成功后刷新页面数据
+		// 成功后刷新页面数据，但保留已展开和已加载任务的清单
 		console.log(`Refreshing checklist data after ${isEdit ? 'update' : 'creation'}...`);
+		const currentExpandedIds = [...expandedChecklists.value];
+		const taskLoadedChecklists = new Map();
+		
+		// 保存已加载任务的清单
+		checklists.value.forEach((checklist) => {
+			if (checklist.tasksLoaded && checklist.tasks?.length > 0) {
+				taskLoadedChecklists.set(checklist.id, {
+					tasks: checklist.tasks,
+					tasksLoaded: true
+				});
+			}
+		});
+		
 		await loadChecklists();
+		
+		// 恢复展开状态和任务数据
+		expandedChecklists.value = currentExpandedIds;
+		checklists.value.forEach((checklist) => {
+			const savedData = taskLoadedChecklists.get(checklist.id);
+			if (savedData) {
+				Object.assign(checklist, savedData);
+			}
+		});
 	} catch (err) {
 		console.error(`Failed to ${isEdit ? 'update' : 'create'} checklist:`, err);
 
@@ -2190,6 +2231,8 @@ const cancelTaskEdit = () => {
 		isRequired: false,
 	};
 };
+
+
 
 const saveTaskEdit = async () => {
 	if (!editingTask.value || !editingTaskChecklistId.value) return;

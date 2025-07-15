@@ -525,20 +525,39 @@ namespace FlowFlex.Application.Services.OW
             // Batch query questionnaire answers for all Stages
             var allAnswers = await _repository.GetByOnboardingAndStageIdsAsync(request.OnboardingId, request.StageIds);
 
-            // Group by Stage ID
-            var groupedAnswers = allAnswers
-                .GroupBy(a => a.StageId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.FirstOrDefault() // Only take one latest answer per Stage
-                );
+            // 方案1: 按Stage分组，但支持每个Stage有多个答案的情况
+            var stageAnswersDict = new Dictionary<long, object>();
 
-            // Ensure all requested Stage IDs have corresponding results (even if null)
+            // Group by Stage ID
+            var groupedByStage = allAnswers.GroupBy(a => a.StageId);
+
+            foreach (var stageGroup in groupedByStage)
+            {
+                var stageId = stageGroup.Key;
+                var stageAnswers = stageGroup.ToList();
+
+                if (stageAnswers.Count == 1)
+                {
+                    // 如果Stage只有一个答案，直接返回该答案
+                    stageAnswersDict[stageId] = _mapper.Map<QuestionnaireAnswerOutputDto>(stageAnswers.First());
+                }
+                else if (stageAnswers.Count > 1)
+                {
+                    // 如果Stage有多个答案，按问卷ID分组返回
+                    var questionnaireAnswers = stageAnswers.ToDictionary(
+                        a => a.QuestionnaireId,
+                        a => _mapper.Map<QuestionnaireAnswerOutputDto>(a)
+                    );
+                    stageAnswersDict[stageId] = questionnaireAnswers;
+                }
+            }
+
+            // 确保所有请求的Stage ID都有对应的结果（即使是null）
             foreach (var stageId in request.StageIds)
             {
-                if (groupedAnswers.ContainsKey(stageId))
+                if (stageAnswersDict.ContainsKey(stageId))
                 {
-                    response.StageAnswers[stageId] = _mapper.Map<QuestionnaireAnswerOutputDto>(groupedAnswers[stageId]);
+                    response.StageAnswers[stageId] = stageAnswersDict[stageId];
                 }
                 else
                 {

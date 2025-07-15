@@ -539,19 +539,6 @@
 				</el-card>
 			</div>
 
-			<!-- Pagination -->
-			<div class="mt-6 flex justify-center" v-if="totalPages > 1">
-				<el-pagination
-					v-model:current-page="currentPage"
-					:page-size="pageSize"
-					:total="filteredData.length"
-					layout="prev, pager, next, sizes, total"
-					:page-sizes="[5, 10, 20, 50]"
-					@size-change="handleSizeChange"
-					@current-change="handleCurrentChange"
-				/>
-			</div>
-
 			<!-- Summary Statistics -->
 			<el-card v-if="filteredData.length > 0" class="mt-6">
 				<template #header>
@@ -723,9 +710,7 @@ const appliedSearchTerm = ref('');
 const appliedQuestionnaires = ref<string[]>([]);
 const appliedSections = ref<string[]>([]);
 
-// Pagination
-const currentPage = ref(1);
-const pageSize = ref(10);
+// Removed pagination - showing all data
 
 // Cache for computed results
 const computedCache = new Map<string, any>();
@@ -824,7 +809,16 @@ const processQuestionnaireData = (
 		const answersMap = new Map<string, any>();
 		const gridAnswersMap = new Map<string, any[]>(); // 用于存储网格类型的答案
 
+		console.log(
+			'Processing answers for questionnaire:',
+			questionnaire.id,
+			'Parsed answers:',
+			parsedAnswers
+		);
+
+		// Process current questionnaire's answers
 		parsedAnswers.responses?.forEach((resp) => {
+			console.log('Processing response:', resp);
 			// 检查是否是网格类型的答案（包含 _row- 或 _）
 			if (resp.questionId.includes('_row-') || resp.questionId.includes('_')) {
 				// 提取原始问题ID
@@ -845,8 +839,48 @@ const processQuestionnaireData = (
 				const isGridType =
 					question.type === 'checkbox_grid' || question.type === 'multiple_choice_grid';
 
-				let answerData = answersMap.get(question.id);
-				let gridAnswers = gridAnswersMap.get(question.id);
+				// Try multiple question ID fields to find a match
+				let answerData: any = null;
+				let matchedQuestionId = '';
+
+				// Try different possible question ID fields
+				const possibleIds = [
+					question.id,
+					question.questionId,
+					question.key,
+					question.name,
+					question.fieldName,
+					question.identifier,
+				].filter(Boolean);
+
+				for (const possibleId of possibleIds) {
+					if (answersMap.has(possibleId)) {
+						answerData = answersMap.get(possibleId);
+						matchedQuestionId = possibleId;
+						break;
+					}
+				}
+
+				console.log(
+					`Looking for answer with question IDs: ${possibleIds.join(', ')}, found:`,
+					answerData ? `YES (matched: ${matchedQuestionId})` : 'NO'
+				);
+				if (!answerData) {
+					console.log(
+						`Available questionIds in answersMap:`,
+						Array.from(answersMap.keys())
+					);
+					console.log(`Question object keys:`, Object.keys(question));
+				}
+				// Try to find grid answers using the same possible IDs
+				let gridAnswers: any[] = [];
+				for (const possibleId of possibleIds) {
+					const foundGridAnswers = gridAnswersMap.get(possibleId);
+					if (foundGridAnswers && foundGridAnswers.length > 0) {
+						gridAnswers = foundGridAnswers;
+						break;
+					}
+				}
 
 				// 如果是网格类型且有网格答案，处理网格答案
 				if (isGridType && gridAnswers && gridAnswers.length > 0) {
@@ -942,32 +976,39 @@ const processQuestionnaireData = (
 						}
 					}
 
-					// 对于文件类型，使用原始answer而不是responseText
+					// 处理答案，优先使用responseText，如果没有则使用answer
 					let processedAnswer = '';
 					if (question.type === 'file' || question.type === 'file_upload') {
 						// 对于文件类型，使用原始answer字段
 						processedAnswer = answerData?.answer || '';
 					} else {
-						// 对于其他类型，使用responseText
-						processedAnswer = answerData?.responseText || '';
+						// 对于其他类型，优先使用responseText，如果没有则使用answer
+						processedAnswer = answerData?.responseText || answerData?.answer || '';
 					}
 
+					console.log(
+						`Adding response for question ${
+							question.id
+						}: answer="${processedAnswer}", hasValidAnswer=${hasValidAnswer(
+							processedAnswer
+						)}`
+					);
 					responses.push({
-						id: question.id,
-						question: question.title,
-						description: question.description,
-						answer: processedAnswer,
-						answeredBy:
-							firstAnsweredBy || answerData?.lastModifiedBy || answer?.createBy || '',
-						answeredDate: answer?.createDate || '',
-						firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
-						lastUpdated: lastUpdated || answer?.modifyDate || '',
-						updatedBy: updatedBy || answer?.modifyBy || '',
-						questionType: question.type,
-						section: section.title,
-						required: question.required || false,
-						questionConfig: question.config || question, // 存储完整的问题配置
-					});
+							id: question.id,
+							question: question.title,
+							description: question.description,
+							answer: processedAnswer,
+							answeredBy:
+								firstAnsweredBy || answerData?.lastModifiedBy || answer?.createBy || '',
+							answeredDate: answer?.createDate || '',
+							firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
+							lastUpdated: lastUpdated || answer?.modifyDate || '',
+							updatedBy: updatedBy || answer?.modifyBy || '',
+							questionType: question.type,
+							section: section.title,
+							required: question.required || false,
+							questionConfig: question.config || question, // 存储完整的问题配置
+						});
 				}
 			});
 		});
@@ -1018,10 +1059,17 @@ const loadData = async () => {
 		// Process batch questionnaire results
 		const allQuestionnaires: QuestionnaireData[] = [];
 		if (batchQuestionnaireResponse?.stageQuestionnaires) {
-			Object.values(batchQuestionnaireResponse.stageQuestionnaires).forEach(
-				(stageQuestionnaires: any) => {
+			Object.entries(batchQuestionnaireResponse.stageQuestionnaires).forEach(
+				([stageId, stageQuestionnaires]: [string, any]) => {
 					if (Array.isArray(stageQuestionnaires)) {
-						allQuestionnaires.push(...stageQuestionnaires);
+						// 为每个问卷添加stageId信息
+						const questionnairesWithStageId = stageQuestionnaires.map(
+							(questionnaire: any) => ({
+								...questionnaire,
+								stageId: stageId,
+							})
+						);
+						allQuestionnaires.push(...questionnairesWithStageId);
 					}
 				}
 			);
@@ -1030,16 +1078,56 @@ const loadData = async () => {
 
 		// Process batch answer results
 		const answersMap = new Map<string, QuestionnaireAnswer>();
+		// Use stage+questionnaire key for strict matching
+		const stageQuestionnaireAnswersMap = new Map<string, QuestionnaireAnswer>();
 		if (batchAnswerResponse?.stageAnswers) {
+			console.log('Processing batch answer response:', batchAnswerResponse.stageAnswers);
 			Object.entries(batchAnswerResponse.stageAnswers).forEach(
-				([stageId, answer]: [string, any]) => {
-					if (answer) {
-						answersMap.set(stageId, answer);
+				([stageId, answerData]: [string, any]) => {
+					if (answerData) {
+						console.log(`Stage ${stageId} has answer data:`, answerData);
+
+						// Check if it's a single answer or multiple answers
+						if (answerData.id && answerData.questionnaireId) {
+							// Single answer object
+							console.log(
+								`Stage ${stageId} has single answer for questionnaire:`,
+								answerData.questionnaireId
+							);
+							answersMap.set(stageId, answerData);
+							// Store with stage+questionnaire key for strict matching
+							const key = `${stageId}:${answerData.questionnaireId}`;
+							stageQuestionnaireAnswersMap.set(key, answerData);
+						} else if (typeof answerData === 'object' && !answerData.id) {
+							// Multiple answers grouped by questionnaireId
+							console.log(
+								`Stage ${stageId} has multiple answers:`,
+								Object.keys(answerData)
+							);
+							answersMap.set(stageId, answerData);
+							Object.entries(answerData).forEach(
+								([questionnaireId, answer]: [string, any]) => {
+									if (answer && answer.id) {
+										console.log(
+											`Found answer for questionnaire ${questionnaireId}:`,
+											answer
+										);
+										// Store with stage+questionnaire key for strict matching
+										const key = `${stageId}:${questionnaireId}`;
+										stageQuestionnaireAnswersMap.set(key, answer);
+									}
+								}
+							);
+						}
+					} else {
+						console.log(`Stage ${stageId} has no answer`);
 					}
 				}
 			);
 		}
 		answersData.value = answersMap;
+		console.log('Total answers loaded:', answersMap.size);
+		console.log('Stage+Questionnaire answers map:', stageQuestionnaireAnswersMap);
 
 		// Process data in chunks to avoid blocking UI
 		const processed: ProcessedQuestionnaire[] = [];
@@ -1048,7 +1136,24 @@ const loadData = async () => {
 		for (let i = 0; i < allQuestionnaires.length; i += chunkSize) {
 			const chunk = allQuestionnaires.slice(i, i + chunkSize);
 			const chunkProcessed = chunk.map((questionnaire) => {
-				const answer = answersMap.get(questionnaire.stageId) || null;
+				console.log(
+					'Looking for answer for questionnaire:',
+					questionnaire.id,
+					'stageId:',
+					questionnaire.stageId
+				);
+				// Find answer by strict stage+questionnaire matching
+				let answer: QuestionnaireAnswer | null = null;
+				
+				// Use strict stage+questionnaire key lookup
+				const key = `${questionnaire.stageId}:${questionnaire.id}`;
+				answer = stageQuestionnaireAnswersMap.get(key) || null;
+				
+				console.log('Found answer:', answer ? 'YES' : 'NO', answer);
+				if (answer) {
+					console.log('Answer questionnaireId:', answer.questionnaireId, 'Current questionnaire.id:', questionnaire.id);
+					console.log('Answer JSON preview:', answer.answerJson?.substring(0, 200) + '...');
+				}
 				return processQuestionnaireData(questionnaire, answer);
 			});
 			processed.push(...chunkProcessed);
@@ -1130,20 +1235,20 @@ const filteredData = computed(() => {
 	return result;
 });
 
-// Pagination
-const totalPages = computed(() => Math.ceil(filteredData.value.length / pageSize.value));
-
-const paginatedData = computed(() => {
-	const start = (currentPage.value - 1) * pageSize.value;
-	const end = start + pageSize.value;
-	return filteredData.value.slice(start, end);
-});
+// Removed pagination - showing all data
+const paginatedData = computed(() => filteredData.value);
 
 // Optimized response calculations
 const totalResponsesCount = computed(() => {
+	console.log('Computing totalResponsesCount. filteredData.value:', filteredData.value);
 	return filteredData.value.reduce((total, q) => {
 		// 只统计有答案的问题
-		const answeredResponses = q.responses.filter((response) => hasValidAnswer(response.answer));
+		const answeredResponses = q.responses.filter((response) => {
+			const isValid = hasValidAnswer(response.answer);
+			console.log(`Response: question="${response.question}", answer="${response.answer}", hasValid=${isValid}`);
+			return isValid;
+		});
+		console.log(`Questionnaire ${q.id}: total responses=${q.responses.length}, valid responses=${answeredResponses.length}`);
 		return total + answeredResponses.length;
 	}, 0);
 });
@@ -1215,15 +1320,7 @@ const uniqueContributors = computed(() => {
 	return new Set(allResponses.value.map((r) => r.answeredBy).filter(Boolean)).size;
 });
 
-// Pagination handlers
-const handleSizeChange = (newSize: number) => {
-	pageSize.value = newSize;
-	currentPage.value = 1;
-};
-
-const handleCurrentChange = (newPage: number) => {
-	currentPage.value = newPage;
-};
+// Removed pagination handlers
 
 // Utility functions
 const formatDate = (dateString: string) => {
@@ -1239,10 +1336,20 @@ const formatDate = (dateString: string) => {
 const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
 	if (typeof answer === 'string') {
-		return answer !== '' && answer !== 'No answer provided' && answer !== 'No selection made';
+		const trimmed = answer.trim();
+		return (
+			trimmed !== '' &&
+			trimmed !== 'No answer provided' &&
+			trimmed !== 'No selection made' &&
+			trimmed !== 'null' &&
+			trimmed !== 'undefined'
+		);
 	}
 	if (Array.isArray(answer)) {
 		return answer.length > 0;
+	}
+	if (typeof answer === 'object' && answer !== null) {
+		return true;
 	}
 	return true;
 };
@@ -1455,7 +1562,6 @@ const applyFilters = () => {
 	appliedSearchTerm.value = searchTerm.value;
 	appliedQuestionnaires.value = [...selectedQuestionnaires.value];
 	appliedSections.value = [...selectedSections.value];
-	currentPage.value = 1; // Reset to first page
 	// Clear cache for filtered results
 	const cacheKeys = Array.from(computedCache.keys()).filter((key) => key.startsWith('filtered_'));
 	cacheKeys.forEach((key) => computedCache.delete(key));
@@ -1468,7 +1574,6 @@ const clearFilters = () => {
 	appliedSearchTerm.value = '';
 	appliedQuestionnaires.value = [];
 	appliedSections.value = [];
-	currentPage.value = 1;
 	// Clear filtered cache
 	const cacheKeys = Array.from(computedCache.keys()).filter((key) => key.startsWith('filtered_'));
 	cacheKeys.forEach((key) => computedCache.delete(key));
