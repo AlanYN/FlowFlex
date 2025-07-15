@@ -7,6 +7,7 @@ using FlowFlex.WebApi.Controllers;
 using FlowFlex.WebApi.Model.Response;
 using Item.Internal.StandardApi.Response;
 using System.Net;
+using System.Linq;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -19,11 +20,13 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IUserService _userService;
         private readonly IUserContextService _userContextService;
+        private readonly IJwtService _jwtService;
 
-        public UserController(IUserService userService, IUserContextService userContextService)
+        public UserController(IUserService userService, IUserContextService userContextService, IJwtService jwtService)
         {
             _userService = userService;
             _userContextService = userContextService;
+            _jwtService = jwtService;
         }
 
         /// <summary>
@@ -173,6 +176,55 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             var user = await _userService.CreateTestUserAsync(email, password);
             return Success(user);
+        }
+
+        /// <summary>
+        /// Parse JWT token and return detailed information
+        /// </summary>
+        /// <param name="request">Parse token request</param>
+        /// <returns>JWT Token information</returns>
+        [HttpPost("parse-jwt-token")]
+        [AllowAnonymous]
+        [ProducesResponseType<SuccessResponse<JwtTokenInfoDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public IActionResult ParseJwtToken([FromBody] ParseTokenRequestDto request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Token))
+            {
+                // 尝试从Authorization Header获取token
+                var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer "))
+                {
+                    var token = authHeader.Substring("Bearer ".Length);
+                    var tokenInfo = _jwtService.ParseToken(token);
+                    return Success(tokenInfo);
+                }
+
+                return BadRequest("Token is required either in request body or Authorization header");
+            }
+
+            var result = _jwtService.ParseToken(request.Token);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Parse JWT token from query parameter
+        /// </summary>
+        /// <param name="token">JWT Token</param>
+        /// <returns>JWT Token information</returns>
+        [HttpGet("parse-jwt-token")]
+        [AllowAnonymous]
+        [ProducesResponseType<SuccessResponse<JwtTokenInfoDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public IActionResult ParseJwtTokenFromQuery([FromQuery] string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return BadRequest("Token parameter is required");
+            }
+
+            var tokenInfo = _jwtService.ParseToken(token);
+            return Success(tokenInfo);
         }
     }
 }

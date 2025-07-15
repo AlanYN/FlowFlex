@@ -1,3 +1,5 @@
+using FlowFlex.Application.Contracts.Dtos.OW.User;
+
 namespace FlowFlex.Application.Contracts.IServices.OW
 {
     /// <summary>
@@ -43,6 +45,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="token">JWT Token</param>
         /// <returns>User email</returns>
         string GetEmailFromToken(string token);
+
+        /// <summary>
+        /// Parse JWT Token and return detailed information
+        /// </summary>
+        /// <param name="token">JWT Token</param>
+        /// <returns>JWT Token information</returns>
+        JwtTokenInfoDto ParseToken(string token);
     }
 }
 
