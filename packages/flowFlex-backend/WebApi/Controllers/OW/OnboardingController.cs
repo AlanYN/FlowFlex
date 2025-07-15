@@ -116,8 +116,46 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> QueryAsync([FromBody] OnboardingQueryRequest query)
         {
-            PageModelDto<OnboardingOutputDto> result = await _onboardingService.QueryAsync(query);
-            return Success(result);
+            try
+            {
+                PageModelDto<OnboardingOutputDto> result = await _onboardingService.QueryAsync(query);
+                return Success(result);
+            }
+            catch (FlowFlex.Domain.Shared.CRMException ex)
+            {
+                // Log specific CRM exception details
+                Console.WriteLine($"[CRM Exception] {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[Inner Exception] {ex.InnerException.Message}");
+                }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Unexpected Error] {ex.Message}");
+                Console.WriteLine($"[Stack Trace] {ex.StackTrace}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Test database connection health
+        /// </summary>
+        [HttpGet("health")]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> HealthCheckAsync()
+        {
+            try
+            {
+                // Simple query to test database connection
+                var testResult = await _onboardingService.GetListAsync();
+                return Success(new { Status = "Healthy", Message = "Database connection is working", RecordCount = testResult?.Count ?? 0 });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Status = "Unhealthy", Message = ex.Message, Type = ex.GetType().Name });
+            }
         }
 
         /// <summary>

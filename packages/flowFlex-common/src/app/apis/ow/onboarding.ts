@@ -760,7 +760,7 @@ export function previewOnboardingFile(
 	return defHttp.get({
 		url: `${Api(onboardingId).perviewOnboardingFile}/${fileId}/preview`,
 		responseType: 'blob',
-		timeout: 60 * 100000,
+		timeout: 60 * 1000, // 修复：60秒超时
 		onDownloadProgress,
 	});
 }

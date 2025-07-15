@@ -52,6 +52,18 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Generate JWT token for portal access
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="email">User email</param>
+        /// <param name="username">Username</param>
+        /// <returns>JWT token</returns>
+        public string GenerateJwtToken(long userId, string email, string username)
+        {
+            return GenerateToken(userId, email, username, "DEFAULT");
+        }
+
+        /// <summary>
         /// Generate JWT token
         /// </summary>
         /// <param name="userId">User ID</param>

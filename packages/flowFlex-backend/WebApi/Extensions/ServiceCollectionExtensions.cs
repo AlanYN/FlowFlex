@@ -38,12 +38,13 @@ namespace FlowFlex.WebApi.Extensions
         {
             // Read connection string from configuration file
             var connectionString = configuration["Database:ConnectionString"]
-                ?? "Host=localhost;Port=5432;Database=flowflex;Username=postgres;Password=123456;";
+                ?? "Host=localhost;Port=5432;Database=flowflex;Username=flowflex;Password=123456;";
 
             // Read database configuration
             var configId = configuration["Database:ConfigId"] ?? "FlowFlex";
             var dbTypeString = configuration["Database:DbType"] ?? "PostgreSQL";
             var dbType = Enum.Parse<DbType>(dbTypeString);
+            var commandTimeout = configuration.GetValue<int>("Database:CommandTimeout", 30);
 
             // Register SqlSugar
             services.AddSingleton<ISqlSugarClient>(sp =>
@@ -56,6 +57,17 @@ namespace FlowFlex.WebApi.Extensions
                     IsAutoCloseConnection = true,
                     InitKeyType = InitKeyType.Attribute,
                     LanguageType = LanguageType.English,
+                    MoreSettings = new ConnMoreSettings()
+                    {
+                        PgSqlIsAutoToLower = false, // Prevent automatic lowercase conversion
+                        IsAutoRemoveDataCache = true, // Auto remove data cache
+                        IsAutoToUpper = false, // Prevent automatic uppercase conversion
+                        DefaultCacheDurationInSeconds = 600, // Cache duration
+                        // 优化连接池设置以避免并发冲突
+                        SqlServerCodeFirstNvarchar = true,
+                        IsWithNoLockQuery = false, // 禁用NoLock以确保数据一致性
+                        DisableNvarchar = false
+                    },
                     ConfigureExternalServices = new ConfigureExternalServices()
                     {
                         EntityService = (x, p) =>
@@ -75,40 +87,46 @@ namespace FlowFlex.WebApi.Extensions
                             }
                             else
                             {
-                                // Check if there is a Table attribute
-                                var tableAttribute = type.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.Schema.TableAttribute), false)
-                                    .FirstOrDefault() as System.ComponentModel.DataAnnotations.Schema.TableAttribute;
+                                // Fallback: handle special table naming
+                                var tableName = type.Name;
+                                if (tableName.EndsWith("Entity"))
+                                {
+                                    tableName = tableName.Substring(0, tableName.Length - 6);
+                                }
 
-                                if (tableAttribute != null)
-                                {
-                                    entity.DbTableName = tableAttribute.Name;
-                                }
-                                else
-                                {
-                                    // If there is no Table attribute, convert class name to snake_case
-                                    entity.DbTableName = UtilMethods.ToUnderLine(type.Name);
-                                }
+                                // Add prefix
+                                entity.DbTableName = $"ff_{UtilMethods.ToUnderLine(tableName)}";
                             }
                         }
                     }
                 };
 
-                var sqlSugarClient = new SqlSugarScope(config, db =>
+                // 使用SqlSugarScope代替单例，支持并发操作
+                var sqlSugarClient = new SqlSugarScope(config, provider =>
                 {
-                    var provider = db.GetConnectionScope(configId);
+                    // 配置AOP事件
+                    provider.Aop.OnLogExecuting = (sql, pars) =>
+                    {
+                        if (configuration.GetValue<bool>("Database:EnableSqlLogging", false))
+                        {
+                            Console.WriteLine($"[SQL] {sql}");
+                            if (pars?.Any() == true)
+                            {
+                                Console.WriteLine($"[Parameters] {string.Join(", ", pars.Select(p => $"{p.ParameterName}={p.Value}"))}");
+                            }
+                        }
+                    };
 
                     provider.Aop.OnError = (exp) =>
                     {
-                        // Error logging handled by structured logging
+                        Console.WriteLine($"[SQL Error] {exp.Message}");
                     };
 
-                    provider.Aop.OnLogExecuting = (sql, pars) =>
-                    {
-                        // SQL logging handled by structured logging
-                    };
+                    // Set command timeout using the correct API
+                    provider.Ado.CommandTimeOut = commandTimeout;
 
                     // Configure application and tenant filters for data isolation
-                    var httpContextAccessor = services.BuildServiceProvider().GetService<IHttpContextAccessor>();
+                    var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
                     if (httpContextAccessor != null)
                     {
                         FlowFlex.Infrastructure.Data.AppTenantFilter.ConfigureFilters(provider, httpContextAccessor);

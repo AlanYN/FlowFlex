@@ -1,168 +1,145 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Reflection;
+using SqlSugar;
 using System.Net;
-using System.Diagnostics;
-using Item.Internal.StandardApi.Response;
 
 namespace FlowFlex.WebApi.Controllers
 {
     /// <summary>
-    /// Health check controller for system monitoring
+    /// Health check controller
     /// </summary>
     [ApiController]
-    [Route("health")]
+    [Route("api/[controller]")]
     public class HealthController : ControllerBase
     {
-        private readonly ILogger<HealthController> _logger;
+        private readonly ISqlSugarClient _sqlSugarClient;
 
-        public HealthController(ILogger<HealthController> logger)
+        public HealthController(ISqlSugarClient sqlSugarClient)
         {
-            _logger = logger;
+            _sqlSugarClient = sqlSugarClient;
         }
 
         /// <summary>
-        /// Basic health check endpoint
+        /// Basic health check
         /// </summary>
-        /// <returns>Health status information</returns>
         [HttpGet]
-        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
-        public IActionResult GetHealth()
+        [ProducesResponseType((int)HttpStatusCode.OK)]
+        public IActionResult Get()
+        {
+            return Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow });
+        }
+
+        /// <summary>
+        /// Database connectivity check
+        /// </summary>
+        [HttpGet("database")]
+        [ProducesResponseType((int)HttpStatusCode.OK)]
+        public IActionResult DatabaseCheck()
         {
             try
             {
-                var healthData = new
-                {
-                    Status = "Healthy",
-                    Timestamp = DateTime.UtcNow,
-                    Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown",
-                    Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Unknown",
-                    MachineName = Environment.MachineName,
-                    ProcessId = Environment.ProcessId,
-                    WorkingSet = GC.GetTotalMemory(false),
-                    Uptime = DateTime.UtcNow - Process.GetCurrentProcess().StartTime.ToUniversalTime()
-                };
-
-                _logger.LogInformation("Health check requested - System is healthy");
+                // Test database connection using SqlSugar
+                _sqlSugarClient.Ado.CheckConnection();
                 
-                return Ok(SuccessResponse.Create(healthData));
+                return Ok(new 
+                { 
+                    Status = "Healthy", 
+                    Database = "Connected",
+                    TestResult = "Connection OK",
+                    Timestamp = DateTime.UtcNow,
+                    Provider = _sqlSugarClient.CurrentConnectionConfig.DbType.ToString(),
+                    ConnectionString = HidePassword(_sqlSugarClient.CurrentConnectionConfig.ConnectionString)
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Health check failed");
-                
-                var errorData = new
-                {
-                    Status = "Unhealthy",
-                    Timestamp = DateTime.UtcNow,
-                    Error = ex.Message
-                };
-
-                return StatusCode(503, errorData);
+                return StatusCode(503, new 
+                { 
+                    Status = "Unhealthy", 
+                    Database = "Disconnected",
+                    Error = ex.Message,
+                    Type = ex.GetType().Name,
+                    Timestamp = DateTime.UtcNow
+                });
             }
         }
 
         /// <summary>
-        /// Detailed health check with dependencies
+        /// Detailed system health check
         /// </summary>
-        /// <returns>Detailed health status</returns>
         [HttpGet("detailed")]
-        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetDetailedHealth()
+        [ProducesResponseType((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> DetailedCheck()
+        {
+            var healthStatus = new
+            {
+                Status = "Healthy",
+                Timestamp = DateTime.UtcNow,
+                Version = "1.0.0",
+                Environment = System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Unknown",
+                Database = await CheckDatabaseHealthAsync(),
+                Memory = new
+                {
+                    WorkingSet = GC.GetTotalMemory(false),
+                    Gen0Collections = GC.CollectionCount(0),
+                    Gen1Collections = GC.CollectionCount(1),
+                    Gen2Collections = GC.CollectionCount(2)
+                },
+                Server = new
+                {
+                    MachineName = System.Environment.MachineName,
+                    ProcessorCount = System.Environment.ProcessorCount,
+                    OSVersion = System.Environment.OSVersion.ToString(),
+                    DotNETVersion = System.Environment.Version.ToString()
+                }
+            };
+
+            return Ok(healthStatus);
+        }
+
+        private Task<object> CheckDatabaseHealthAsync()
         {
             try
             {
-                var checks = new Dictionary<string, object>
-                {
-                    ["application"] = new
-                    {
-                        Status = "Healthy",
-                        ResponseTime = "< 1ms"
-                    },
-                    ["memory"] = new
-                    {
-                        Status = "Healthy",
-                        Used = GC.GetTotalMemory(false),
-                        Available = Environment.WorkingSet
-                    },
-                    ["disk"] = new
-                    {
-                        Status = "Healthy",
-                        FreeSpace = GetAvailableDiskSpace()
-                    }
-                };
-
-                // Check database connectivity (if available)
-                try
-                {
-                    // This is a basic check - you might want to inject a database service
-                    checks["database"] = new
-                    {
-                        Status = "Healthy",
-                        ResponseTime = "< 100ms"
-                    };
-                }
-                catch
-                {
-                    checks["database"] = new
-                    {
-                        Status = "Unhealthy",
-                        Error = "Database connection failed"
-                    };
-                }
-
-                var overallStatus = checks.Values.All(check => 
-                    check.GetType().GetProperty("Status")?.GetValue(check)?.ToString() == "Healthy") 
-                    ? "Healthy" : "Unhealthy";
-
-                var detailedHealthData = new
-                {
-                    Status = overallStatus,
-                    Timestamp = DateTime.UtcNow,
-                    Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown",
-                    Checks = checks
-                };
-
-                _logger.LogInformation("Detailed health check requested - Overall status: {Status}", overallStatus);
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 
-                return Ok(SuccessResponse.Create(detailedHealthData));
+                // Test connection using SqlSugar's synchronous method
+                _sqlSugarClient.Ado.CheckConnection();
+                
+                stopwatch.Stop();
+
+                var result = new
+                {
+                    Status = "Connected",
+                    ResponseTime = $"{stopwatch.ElapsedMilliseconds}ms",
+                    TestResult = "Connection OK",
+                    Provider = _sqlSugarClient.CurrentConnectionConfig.DbType.ToString()
+                };
+                
+                return Task.FromResult<object>(result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Detailed health check failed");
-                
-                var errorData = new
+                var result = new
                 {
-                    Status = "Unhealthy",
-                    Timestamp = DateTime.UtcNow,
-                    Error = ex.Message
+                    Status = "Disconnected",
+                    Error = ex.Message,
+                    Type = ex.GetType().Name
                 };
-
-                return StatusCode(503, errorData);
+                
+                return Task.FromResult<object>(result);
             }
         }
 
-        /// <summary>
-        /// Simple ping endpoint for basic connectivity check
-        /// </summary>
-        /// <returns>Pong response</returns>
-        [HttpGet("ping")]
-        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
-        public IActionResult Ping()
+        private static string HidePassword(string connectionString)
         {
-            return Ok(SuccessResponse.Create("pong"));
-        }
+            if (string.IsNullOrEmpty(connectionString))
+                return "";
 
-        private long GetAvailableDiskSpace()
-        {
-            try
-            {
-                var drive = new DriveInfo(Path.GetPathRoot(Environment.CurrentDirectory) ?? "C:");
-                return drive.AvailableFreeSpace;
-            }
-            catch
-            {
-                return -1;
-            }
+            return System.Text.RegularExpressions.Regex.Replace(
+                connectionString, 
+                @"(password|pwd)\s*=\s*[^;]*", 
+                "$1=***", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
     }
 } 

@@ -37,7 +37,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250101000004_AddQuestionnaireAssignmentsJsonColumn", (Action)(() => Migration_20250101000004_AddQuestionnaireAssignmentsJsonColumn.Up(_db))),
                     ("20250101000005_RemoveQuestionnaireWorkflowStageColumns", (Action)(() => Migration_20250101000005_RemoveQuestionnaireWorkflowStageColumns.Up(_db))),
                     ("20250101000006_CreateEventsTable", (Action)(() => CreateEventsTable_20250101000006.Up(_db))),
-                    ("20250101000007_AddStageComponentsField", (Action)(() => Migration_20250101000007_AddStageComponentsField.Up(_db)))
+                    ("20250101000007_AddStageComponentsField", (Action)(() => Migration_20250101000007_AddStageComponentsField.Up(_db))),
+                    ("20250101000008_CreateUserInvitationsTable", (Action)(() => CreateUserInvitationsTable_20250101000008.Up(_db)))
                 };
 
                 var failedMigrations = new List<string>();

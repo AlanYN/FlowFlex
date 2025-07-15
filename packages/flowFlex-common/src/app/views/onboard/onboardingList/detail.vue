@@ -3,13 +3,11 @@
 		<!-- 顶部导航栏 -->
 		<div class="flex justify-between items-center mb-6">
 			<div class="flex items-center">
-				<el-button
-					link
-					size="small"
-					@click="handleBack"
-					class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
-				>
-					<el-icon class="text-lg"><ArrowLeft /></el-icon>
+				<el-button link size="small" @click="handleBack"
+					class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded">
+					<el-icon class="text-lg">
+						<ArrowLeft />
+					</el-icon>
 					Back
 				</el-button>
 				<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
@@ -18,13 +16,23 @@
 			</div>
 			<div class="flex items-center space-x-2">
 				<el-button type="primary" @click="handleCompleteStage" :loading="completing">
-					<el-icon class="mr-1"><Check /></el-icon>
+					<el-icon class="mr-1">
+						<Check />
+					</el-icon>
 					Complete Stage
 				</el-button>
 				<el-button @click="handleCustomerOverview">Customer Overview</el-button>
+				<el-button @click="portalAccessDialogVisible = true">
+					<el-icon>
+						<User />
+					</el-icon>
+					&nbsp;&nbsp;Portal Access Management
+				</el-button>
 				<el-button type="primary" @click="messageDialogVisible = true">
-					<el-icon><ChatDotSquare /></el-icon>
-					Send Message
+					<el-icon>
+						<ChatDotSquare />
+					</el-icon>
+					&nbsp;&nbsp;Send Message
 				</el-button>
 			</div>
 		</div>
@@ -35,18 +43,14 @@
 			<div class="flex-[2]">
 				<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
 					<div
-						class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
-					>
+						class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg">
 						<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 					</div>
 				</div>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full">
 					<div class="space-y-6 pr-4 mt-4">
 						<!-- Stage Details 加载状态 -->
-						<div
-							v-if="stageDataLoading"
-							class="bg-white dark:bg-black-300 rounded-md p-8"
-						>
+						<div v-if="stageDataLoading" class="bg-white dark:bg-black-300 rounded-md p-8">
 							<div class="flex flex-col items-center justify-center space-y-4">
 								<el-icon class="is-loading text-4xl text-primary-500">
 									<Loading />
@@ -57,36 +61,18 @@
 							</div>
 						</div>
 
-						<StaticForm
-							v-show="
-								onboardingData && activeStage && onboardingId && !stageDataLoading
-							"
-							ref="staticFormRef"
-							:static-fields="onboardingActiveStageInfo?.staticFields || []"
-							:onboarding-id="onboardingId"
-							:stage-id="activeStage"
-						/>
+						<StaticForm v-show="onboardingData && activeStage && onboardingId && !stageDataLoading
+							" ref="staticFormRef" :static-fields="onboardingActiveStageInfo?.staticFields || []"
+							:onboarding-id="onboardingId" :stage-id="activeStage" />
 
-						<StageDetails
-							v-show="
-								onboardingData && activeStage && onboardingId && !stageDataLoading
-							"
-							:stage-id="activeStage"
-							:lead-id="onboardingId"
-							:onboarding-id="onboardingId"
-							:lead-data="onboardingData"
-							:workflow-stages="workflowStages"
-							:questionnaire-data="questionnaireData"
+						<StageDetails v-show="onboardingData && activeStage && onboardingId && !stageDataLoading
+							" :stage-id="activeStage" :lead-id="onboardingId" :onboarding-id="onboardingId" :lead-data="onboardingData"
+							:workflow-stages="workflowStages" :questionnaire-data="questionnaireData"
 							:static-fields="onboardingActiveStageInfo?.staticFields || []"
-							@stage-updated="handleStageUpdated"
-							ref="stageDetailsRef"
-						/>
+							@stage-updated="handleStageUpdated" ref="stageDetailsRef" />
 
 						<!-- CheckList 加载状态 -->
-						<div
-							v-if="checkListLoading"
-							class="bg-white dark:bg-black-300 rounded-md p-8"
-						>
+						<div v-if="checkListLoading" class="bg-white dark:bg-black-300 rounded-md p-8">
 							<div class="flex flex-col items-center justify-center space-y-4">
 								<el-icon class="is-loading text-4xl text-primary-500">
 									<Loading />
@@ -95,21 +81,14 @@
 							</div>
 						</div>
 
-						<CheckList
-							v-if="activeStage && onboardingId && !checkListLoading"
-							:checklist-data="checkListData"
-							@task-toggled="handleTaskToggled"
-						/>
+						<CheckList v-if="activeStage && onboardingId && !checkListLoading"
+							:checklist-data="checkListData" @task-toggled="handleTaskToggled" />
 
 						<!-- Documents 组件 -->
 						<div class="rounded-md overflow-hidden">
-							<Documents
-								v-if="activeStage && onboardingId"
-								:onboarding-id="onboardingId"
-								:stage-id="activeStage"
-								@document-uploaded="handleDocumentUploaded"
-								@document-deleted="handleDocumentDeleted"
-							/>
+							<Documents v-if="activeStage && onboardingId" :onboarding-id="onboardingId"
+								:stage-id="activeStage" @document-uploaded="handleDocumentUploaded"
+								@document-deleted="handleDocumentDeleted" />
 						</div>
 					</div>
 				</el-scrollbar>
@@ -121,25 +100,16 @@
 					<div class="space-y-6 pr-4">
 						<!-- OnboardingProgress组件 -->
 						<div class="rounded-md overflow-hidden">
-							<OnboardingProgress
-								v-if="onboardingData && onboardingId"
-								:active-stage="activeStage"
-								:onboarding-data="onboardingData"
-								:workflow-stages="workflowStages"
-								@set-active-stage="setActiveStage"
-								@stage-completed="loadOnboardingDetail"
-								class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600"
-							/>
+							<OnboardingProgress v-if="onboardingData && onboardingId" :active-stage="activeStage"
+								:onboarding-data="onboardingData" :workflow-stages="workflowStages"
+								@set-active-stage="setActiveStage" @stage-completed="loadOnboardingDetail"
+								class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600" />
 						</div>
 
 						<!-- 笔记区域 -->
 						<div class="rounded-md overflow-hidden">
-							<InternalNotes
-								v-if="activeStage && onboardingId"
-								:onboarding-id="onboardingId"
-								:stage-id="activeStage"
-								@note-added="handleNoteAdded"
-							/>
+							<InternalNotes v-if="activeStage && onboardingId" :onboarding-id="onboardingId"
+								:stage-id="activeStage" @note-added="handleNoteAdded" />
 						</div>
 					</div>
 				</el-scrollbar>
@@ -149,37 +119,23 @@
 		<!-- 变更日志 -->
 		<!-- ChangeLog 加载状态 -->
 		<div class="mt-4">
-			<div
-				v-if="stageDataLoading"
-				class="flex flex-col items-center justify-center space-y-4 py-8 bg-white dark:bg-black-300 rounded-md mt-6"
-			>
+			<div v-if="stageDataLoading"
+				class="flex flex-col items-center justify-center space-y-4 py-8 bg-white dark:bg-black-300 rounded-md mt-6">
 				<el-icon class="is-loading text-4xl text-primary-500">
 					<Loading />
 				</el-icon>
 				<p class="text-gray-500 dark:text-gray-400">Loading change log...</p>
 			</div>
 
-			<ChangeLog
-				v-if="onboardingId && !stageDataLoading"
-				:onboarding-id="onboardingId"
-				:stage-id="activeStage"
-			/>
+			<ChangeLog v-if="onboardingId && !stageDataLoading" :onboarding-id="onboardingId" :stage-id="activeStage" />
 		</div>
 
 		<!-- 编辑对话框 -->
-		<el-dialog
-			v-model="editDialogVisible"
-			title="Edit Onboarding"
-			width="500px"
-			:before-close="handleEditDialogClose"
-		>
+		<el-dialog v-model="editDialogVisible" title="Edit Onboarding" width="500px"
+			:before-close="handleEditDialogClose">
 			<el-form :model="editForm" label-width="100px">
 				<el-form-item label="Priority">
-					<el-select
-						v-model="editForm.priority"
-						placeholder="Select Priority"
-						class="w-full"
-					>
+					<el-select v-model="editForm.priority" placeholder="Select Priority" class="w-full">
 						<el-option label="High" value="High" />
 						<el-option label="Medium" value="Medium" />
 						<el-option label="Low" value="Low" />
@@ -189,12 +145,7 @@
 					<el-input v-model="editForm.assignee" placeholder="Enter assignee name" />
 				</el-form-item>
 				<el-form-item label="Notes">
-					<el-input
-						v-model="editForm.notes"
-						type="textarea"
-						:rows="3"
-						placeholder="Enter notes"
-					/>
+					<el-input v-model="editForm.notes" type="textarea" :rows="3" placeholder="Enter notes" />
 				</el-form-item>
 			</el-form>
 
@@ -210,6 +161,11 @@
 
 		<!-- 消息对话框 -->
 		<MessageDialog v-model="messageDialogVisible" :onboarding-data="onboardingData" />
+		<!-- Portal Access Management 对话框 -->
+		<el-dialog v-model="portalAccessDialogVisible" title="Portal Access Management" width="800px"
+			:before-close="() => (portalAccessDialogVisible = false)">
+			<PortalAccessContent :onboarding-id="onboardingId" :onboarding-data="onboardingData" />
+		</el-dialog>
 	</div>
 </template>
 
@@ -217,7 +173,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, ChatDotSquare, Loading } from '@element-plus/icons-vue';
+import { ArrowLeft, ChatDotSquare, Loading, User } from '@element-plus/icons-vue';
 import {
 	getStageCompletionLogsByStage,
 	getOnboardingByLead,
@@ -240,6 +196,9 @@ import MessageDialog from './components/MessageDialog.vue';
 import CheckList from './components/CheckList.vue';
 import Documents from './components/Documents.vue';
 import StaticForm from './components/StaticForm.vue';
+import PortalAccessContent from './components/PortalAccessContent.vue';
+import * as userInvitationApi from '@/apis/ow/userInvitation';
+
 
 const { t } = useI18n();
 
@@ -278,6 +237,7 @@ const questionnaireData = ref<any>(null); // 当前阶段的问卷数据
 const checkListData = ref<any>(null); // 当前阶段的检查清单数据
 const editDialogVisible = ref(false);
 const messageDialogVisible = ref(false);
+const portalAccessDialogVisible = ref(false);
 const saving = ref(false);
 
 // Loading状态管理
@@ -632,6 +592,41 @@ onMounted(async () => {
 		ElMessage.error('Invalid onboarding ID from route parameters');
 		router.push('/onboard/onboardList'); // 重定向到列表页
 		return;
+	}
+
+	// 检查是否有token参数（从邮件链接访问）
+	const token = route.query.token as string;
+	if (token) {
+		// 如果有token，进行验证
+		try {
+			// 调用API验证token是否有效
+			console.log('Portal access token detected:', token);
+			const response = await userInvitationApi.validateInvitationToken({
+				token: token,
+				onboardingId: onboardingId.value,
+			});
+			
+			// 从响应中提取实际的验证数据
+			const tokenValidation = response.data || response;
+			console.log('Token validation response:', response);
+			console.log('Token validation data:', tokenValidation);
+			
+			if (tokenValidation.isValid) {
+				ElMessage.success('Welcome! You are accessing through the portal invitation.');
+				// 将token存储到本地存储，供后续API调用使用
+				localStorage.setItem('portal_access_token', token);
+				if (tokenValidation.email) {
+					localStorage.setItem('portal_user_email', tokenValidation.email);
+				}
+			} else {
+				ElMessage.error(tokenValidation.errorMessage || 'Invalid or expired invitation link');
+				return;
+			}
+		} catch (error) {
+			console.error('Token validation failed:', error);
+			ElMessage.error('Invalid or expired invitation link');
+			return;
+		}
 	}
 
 	// 加载入职详情，这会获取 workflowId，然后加载对应的 stages，设置 activeStage 并加载基于 stage 的数据

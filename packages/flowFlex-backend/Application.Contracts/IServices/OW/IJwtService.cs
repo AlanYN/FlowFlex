@@ -15,6 +15,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         string GenerateToken(long userId, string email, string username);
 
         /// <summary>
+        /// Generate JWT Token for portal access
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="email">User email</param>
+        /// <param name="username">Username</param>
+        /// <returns>JWT Token</returns>
+        string GenerateJwtToken(long userId, string email, string username);
+
+        /// <summary>
         /// Validate JWT Token
         /// </summary>
         /// <param name="token">JWT Token</param>
