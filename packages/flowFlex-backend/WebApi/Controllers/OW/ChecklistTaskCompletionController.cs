@@ -28,14 +28,22 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get all task completions
+    /// Get all task completions or filter by onboardingId and stageId
     /// </summary>
     [HttpGet]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskCompletionOutputDto>>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> GetAllTaskCompletions()
+    public async Task<IActionResult> GetTaskCompletions([FromQuery] long? onboardingId = null, [FromQuery] long? stageId = null)
     {
-        var result = await _completionService.GetAllTaskCompletionsAsync();
-        return Success(result);
+        // If both onboardingId and stageId are provided, filter by both
+        if (onboardingId.HasValue && stageId.HasValue)
+        {
+            var result = await _completionService.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
+            return Success(result);
+        }
+        
+        // Otherwise, return all task completions
+        var allResults = await _completionService.GetAllTaskCompletionsAsync();
+        return Success(allResults);
     }
 
     /// <summary>

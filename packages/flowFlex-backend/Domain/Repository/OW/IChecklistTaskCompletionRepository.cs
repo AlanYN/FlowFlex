@@ -18,6 +18,11 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<ChecklistTaskCompletion>> GetByOnboardingAndChecklistAsync(long onboardingId, long checklistId);
 
         /// <summary>
+        /// Get task completion by onboarding and stage
+        /// </summary>
+        Task<List<ChecklistTaskCompletion>> GetByOnboardingAndStageAsync(long onboardingId, long stageId);
+
+        /// <summary>
         /// Get specific task completion
         /// </summary>
         Task<ChecklistTaskCompletion?> GetTaskCompletionAsync(long onboardingId, long taskId);

@@ -494,6 +494,7 @@ const handleTaskToggled = async (task: any) => {
 			isCompleted: task.isCompleted,
 			taskId: task.id,
 			onboardingId: onboardingId.value,
+			stageId: activeStage.value, // 添加当前阶段ID
 		});
 		if (res.code === '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));

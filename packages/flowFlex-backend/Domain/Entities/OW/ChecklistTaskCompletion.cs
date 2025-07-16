@@ -40,6 +40,12 @@ public class ChecklistTaskCompletion : EntityBaseCreateInfo
     public long TaskId { get; set; }
 
     /// <summary>
+    /// Stage ID
+    /// </summary>
+    [SugarColumn(ColumnName = "stage_id")]
+    public long? StageId { get; set; }
+
+    /// <summary>
     /// Is Completed
     /// </summary>
     [SugarColumn(ColumnName = "is_completed")]

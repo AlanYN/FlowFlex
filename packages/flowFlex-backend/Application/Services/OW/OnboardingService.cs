@@ -742,9 +742,15 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => x.CurrentStageId == request.CurrentStageId.Value);
                 }
 
+                // Support comma-separated Lead IDs
                 if (!string.IsNullOrEmpty(request.LeadId) && request.LeadId != "string")
                 {
-                    whereExpressions.Add(x => x.LeadId.Contains(request.LeadId));
+                    var leadIds = request.GetLeadIdsList();
+                    if (leadIds.Any())
+                    {
+                        // Use OR condition to match any of the lead IDs with fuzzy search (case-insensitive)
+                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower().Contains(id.ToLower())));
+                    }
                 }
 
                 // Support batch LeadIds query for performance optimization
@@ -753,9 +759,15 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => request.LeadIds.Contains(x.LeadId));
                 }
 
+                // Support comma-separated Lead Names
                 if (!string.IsNullOrEmpty(request.LeadName) && request.LeadName != "string")
                 {
-                    whereExpressions.Add(x => x.LeadName.Contains(request.LeadName));
+                    var leadNames = request.GetLeadNamesList();
+                    if (leadNames.Any())
+                    {
+                        // Use OR condition to match any of the lead names (case-insensitive)
+                        whereExpressions.Add(x => leadNames.Any(name => x.LeadName.ToLower().Contains(name.ToLower())));
+                    }
                 }
 
                 if (request.LifeCycleStageId.HasValue && request.LifeCycleStageId.Value > 0)
@@ -765,7 +777,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.IsNullOrEmpty(request.LifeCycleStageName) && request.LifeCycleStageName != "string")
                 {
-                    whereExpressions.Add(x => x.LifeCycleStageName.Contains(request.LifeCycleStageName));
+                    whereExpressions.Add(x => x.LifeCycleStageName.ToLower().Contains(request.LifeCycleStageName.ToLower()));
                 }
 
                 if (!string.IsNullOrEmpty(request.Priority) && request.Priority != "string")
@@ -783,9 +795,15 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => x.IsActive == request.IsActive.Value);
                 }
 
+                // Support comma-separated Updated By users
                 if (!string.IsNullOrEmpty(request.UpdatedBy) && request.UpdatedBy != "string")
                 {
-                    whereExpressions.Add(x => x.ModifyBy.Contains(request.UpdatedBy));
+                    var updatedByUsers = request.GetUpdatedByList();
+                    if (updatedByUsers.Any())
+                    {
+                        // Use OR condition to match any of the users (case-insensitive)
+                        whereExpressions.Add(x => updatedByUsers.Any(user => x.ModifyBy.ToLower().Contains(user.ToLower())));
+                    }
                 }
 
                 if (request.UpdatedByUserId.HasValue && request.UpdatedByUserId.Value > 0)
@@ -795,7 +813,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.IsNullOrEmpty(request.CreatedBy) && request.CreatedBy != "string")
                 {
-                    whereExpressions.Add(x => x.CreateBy.Contains(request.CreatedBy));
+                    whereExpressions.Add(x => x.CreateBy.ToLower().Contains(request.CreatedBy.ToLower()));
                 }
 
                 if (request.CreatedByUserId.HasValue && request.CreatedByUserId.Value > 0)

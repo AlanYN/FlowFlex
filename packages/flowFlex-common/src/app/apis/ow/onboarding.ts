@@ -339,10 +339,23 @@ export function getSyncStatus(leadId: string) {
 
 /**
  * 获取所有任务完成记录 [CTC01]
+ * @param onboardingId 入职ID（可选）
+ * @param stageId 阶段ID（可选）
  * @returns List<ChecklistTaskCompletionDto>
  */
-export function getAllTaskCompletions() {
-	return defHttp.get({ url: `${Api().checklistTaskCompletions}` });
+export function getAllTaskCompletions(onboardingId?: string | number, stageId?: string | number) {
+	const params: any = {};
+	if (onboardingId) {
+		params.onboardingId = onboardingId;
+	}
+	if (stageId) {
+		params.stageId = stageId;
+	}
+
+	return defHttp.get({
+		url: `${Api().checklistTaskCompletions}`,
+		params,
+	});
 }
 
 /**
@@ -376,6 +389,19 @@ export function getTaskCompletionsByOnboardingAndChecklist(
 	return defHttp.get({
 		url: `${Api(onboardingId).checklistTaskCompletionsByOnboardingAndChecklist}/${checklistId}`,
 	});
+}
+
+/**
+ * 按入职和阶段获取完成记录 [CTC05] - 新增
+ * @param onboardingId 入职ID
+ * @param stageId 阶段ID
+ * @returns List<ChecklistTaskCompletionDto>
+ */
+export function getTaskCompletionsByOnboardingAndStage(
+	onboardingId: string | number,
+	stageId: string | number
+) {
+	return getAllTaskCompletions(onboardingId, stageId);
 }
 
 /**
@@ -664,6 +690,11 @@ export function getCheckList(onboardingId: string | number) {
 	return defHttp.get({ url: `${Api(onboardingId).checkList}` });
 }
 
+/**
+ * 保存检查清单任务完成状态
+ * @param params ChecklistTaskCompletionInputDto - 包括 onboardingId, taskId, checklistId, isCompleted, stageId 等
+ * @returns bool
+ */
 export function saveCheckListTask(params: any) {
 	return defHttp.post({ url: `${Api().checkListTask}`, params });
 }

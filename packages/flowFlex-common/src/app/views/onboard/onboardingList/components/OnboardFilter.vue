@@ -11,10 +11,12 @@
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 						<div class="space-y-2">
 							<label class="text-sm font-medium text-gray-700">Lead ID</label>
-							<el-input
-								v-model="searchParams.leadId"
-								placeholder="Search or enter Lead ID"
-								clearable
+							<InputTag
+								v-model="leadIdTags"
+								placeholder="Enter Lead ID and press enter"
+								style-type="normal"
+								:limit="10"
+								@change="handleLeadIdTagsChange"
 								class="w-full rounded-md"
 							/>
 						</div>
@@ -23,10 +25,12 @@
 							<label class="text-sm font-medium text-gray-700">
 								Company/Contact Name
 							</label>
-							<el-input
-								v-model="searchParams.leadName"
-								placeholder="Enter Company or Contact Name"
-								clearable
+							<InputTag
+								v-model="leadNameTags"
+								placeholder="Enter Company/Contact Name and press enter"
+								style-type="normal"
+								:limit="10"
+								@change="handleLeadNameTagsChange"
 								class="w-full rounded-md"
 							/>
 						</div>
@@ -91,10 +95,12 @@
 
 						<div class="space-y-2">
 							<label class="text-sm font-medium text-gray-700">Updated By</label>
-							<el-input
-								v-model="searchParams.updatedBy"
-								placeholder="Enter User Name"
-								clearable
+							<InputTag
+								v-model="updatedByTags"
+								placeholder="Enter User Name and press enter"
+								style-type="normal"
+								:limit="10"
+								@change="handleUpdatedByTagsChange"
 								class="w-full rounded-md"
 							/>
 						</div>
@@ -140,6 +146,7 @@
 import { ref, reactive } from 'vue';
 import { Search, Close, Download } from '@element-plus/icons-vue';
 import { SearchParams } from '#/onboard';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 
 // Props
 interface Props {
@@ -182,9 +189,34 @@ const searchParams = reactive<SearchParams>({
 	size: 15,
 });
 
+// 标签数组
+const leadIdTags = ref<string[]>([]);
+const leadNameTags = ref<string[]>([]);
+const updatedByTags = ref<string[]>([]);
+
+// 标签变化处理函数
+const handleLeadIdTagsChange = (tags: string[]) => {
+	searchParams.leadId = tags.join(',');
+};
+
+const handleLeadNameTagsChange = (tags: string[]) => {
+	searchParams.leadName = tags.join(',');
+};
+
+const handleUpdatedByTagsChange = (tags: string[]) => {
+	searchParams.updatedBy = tags.join(',');
+};
+
 // 事件处理函数
 const handleSearch = () => {
-	emit('search', { ...searchParams });
+	// 将标签数组转换为搜索参数
+	const searchParamsWithTags = {
+		...searchParams,
+		leadIdTags: leadIdTags.value,
+		leadNameTags: leadNameTags.value,
+		updatedByTags: updatedByTags.value,
+	};
+	emit('search', searchParamsWithTags);
 };
 
 const handleReset = () => {
@@ -196,6 +228,10 @@ const handleReset = () => {
 	searchParams.updatedBy = '';
 	searchParams.priority = '';
 	searchParams.workFlowId = '';
+	// 重置标签数组
+	leadIdTags.value = [];
+	leadNameTags.value = [];
+	updatedByTags.value = [];
 
 	emit('reset');
 };
@@ -224,6 +260,105 @@ const handleExport = () => {
 	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* InputTag组件样式调整 - 优化显示效果 */
+.onboardSearch-form :deep(.layout) {
+	min-height: 32px;
+	border: 1px solid var(--el-border-color, #dcdfe6);
+	border-radius: 8px;
+	padding: 4px 11px;
+	background-color: var(--el-fill-color-blank, #ffffff);
+	transition: all var(--el-transition-duration, 0.2s);
+	box-shadow: 0 0 0 1px transparent inset;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.onboardSearch-form :deep(.layout:hover) {
+	border-color: var(--el-border-color-hover, #c0c4cc);
+}
+
+.onboardSearch-form :deep(.layout:focus-within) {
+	border-color: var(--primary-500, #409eff);
+	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
+}
+
+.onboardSearch-form :deep(.input-tag) {
+	min-width: 100px;
+	height: 24px;
+	line-height: 24px;
+	font-size: 14px;
+	color: var(--el-text-color-regular, #606266);
+	border: none;
+	outline: none;
+	background: transparent;
+	flex: 1;
+	padding: 0;
+}
+
+.onboardSearch-form :deep(.input-tag::placeholder) {
+	color: var(--el-text-color-placeholder, #a8abb2);
+	font-size: 14px;
+}
+
+.onboardSearch-form :deep(.label-box) {
+	height: 24px;
+	margin: 0;
+	border-radius: 12px;
+	background-color: var(--el-fill-color-light, #f5f7fa);
+	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px;
+	transition: all 0.2s ease;
+}
+
+.onboardSearch-form :deep(.label-box:hover) {
+	/* 移除阴影加深效果 */
+}
+
+.onboardSearch-form :deep(.label-title) {
+	font-size: 12px;
+	padding: 0;
+	line-height: 24px;
+	color: var(--el-text-color-regular, #606266);
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 120px;
+}
+
+.onboardSearch-form :deep(.label-close) {
+	padding: 0;
+	margin-left: 6px;
+	color: var(--el-text-color-placeholder, #a8abb2);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--el-fill-color, #f0f2f5);
+	transition: all 0.2s ease;
+	transform: none;
+}
+
+.onboardSearch-form :deep(.label-close:hover) {
+	background: var(--el-fill-color-dark, #e6e8eb);
+	color: var(--el-text-color-regular, #606266);
+}
+
+.onboardSearch-form :deep(.label-close:after) {
+	content: '×';
+	font-size: 12px;
+	line-height: 1;
+	font-weight: bold;
+}
+
 /* 暗色主题样式 */
 html.dark {
 	/* 卡片和容器背景 */
@@ -249,6 +384,54 @@ html.dark {
 
 	.onboardSearch-form :deep(.el-input__inner) {
 		@apply text-white-100;
+	}
+
+	/* InputTag暗色主题 - 优化暗色显示效果 */
+	.onboardSearch-form :deep(.layout) {
+		background-color: var(--black-200) !important;
+		border: 1px solid var(--black-200) !important;
+		color: var(--white-100) !important;
+	}
+
+	.onboardSearch-form :deep(.layout:hover) {
+		border-color: var(--black-100) !important;
+	}
+
+	.onboardSearch-form :deep(.layout:focus-within) {
+		border-color: var(--primary-500) !important;
+		box-shadow: 0 0 0 1px var(--primary-500) inset !important;
+	}
+
+	.onboardSearch-form :deep(.input-tag) {
+		color: var(--white-100) !important;
+		background-color: transparent !important;
+	}
+
+	.onboardSearch-form :deep(.input-tag::placeholder) {
+		color: var(--gray-300) !important;
+	}
+
+	.onboardSearch-form :deep(.label-box) {
+		background-color: var(--black-300) !important;
+		border: 1px solid var(--black-100) !important;
+	}
+
+	.onboardSearch-form :deep(.label-box:hover) {
+		/* 移除暗色主题阴影加深效果 */
+	}
+
+	.onboardSearch-form :deep(.label-title) {
+		color: var(--white-100) !important;
+	}
+
+	.onboardSearch-form :deep(.label-close) {
+		background: var(--black-200) !important;
+		color: var(--gray-300) !important;
+	}
+
+	.onboardSearch-form :deep(.label-close:hover) {
+		background: var(--black-100) !important;
+		color: var(--white-100) !important;
 	}
 
 	/* 文本颜色调整 */

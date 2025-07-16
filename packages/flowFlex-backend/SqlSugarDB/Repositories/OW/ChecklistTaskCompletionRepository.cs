@@ -36,6 +36,16 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
     }
 
     /// <summary>
+    /// Get task completion by onboarding and stage
+    /// </summary>
+    public async Task<List<ChecklistTaskCompletion>> GetByOnboardingAndStageAsync(long onboardingId, long stageId)
+    {
+        return await db.Queryable<ChecklistTaskCompletion>()
+            .Where(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.IsValid)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Get specific task completion
     /// </summary>
     public async Task<ChecklistTaskCompletion?> GetTaskCompletionAsync(long onboardingId, long taskId)
@@ -58,6 +68,7 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
             existing.IsCompleted = completion.IsCompleted;
             existing.CompletedTime = completion.CompletedTime;
             existing.CompletionNotes = completion.CompletionNotes;
+            existing.StageId = completion.StageId;
             existing.ModifyDate = DateTimeOffset.Now;
             existing.ModifyBy = completion.ModifyBy;
             existing.ModifyUserId = completion.ModifyUserId;
