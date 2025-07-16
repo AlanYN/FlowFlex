@@ -162,6 +162,38 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Test EstimatedCompletionDate serialization
+        /// </summary>
+        [HttpGet("test-estimated-completion-date")]
+        [ProducesResponseType<SuccessResponse<OnboardingOutputDto>>((int)HttpStatusCode.OK)]
+        public IActionResult TestEstimatedCompletionDate()
+        {
+            // Create a test OnboardingOutputDto with null EstimatedCompletionDate
+            var testDto = new OnboardingOutputDto
+            {
+                Id = 123,
+                WorkflowId = 1,
+                WorkflowName = "Test Workflow",
+                Status = "InProgress",
+                CompletionRate = 50,
+                StartDate = DateTimeOffset.UtcNow.AddDays(-5),
+                EstimatedCompletionDate = null, // This should now appear in JSON as null
+                ActualCompletionDate = null,
+                LeadId = "TEST001",
+                LeadName = "Test Company",
+                CurrentStageOrder = 2,
+                Priority = "Medium",
+                IsActive = true,
+                CreateDate = DateTimeOffset.UtcNow.AddDays(-10),
+                CreateBy = "System",
+                ModifyDate = DateTimeOffset.UtcNow,
+                ModifyBy = "System"
+            };
+            
+            return Success(testDto);
+        }
+
+        /// <summary>
         /// Search onboarding list with pagination (GET method for UI table)
         /// Supports comma-separated values for leadId, leadName, and updatedBy parameters
         /// All text search queries are case-insensitive

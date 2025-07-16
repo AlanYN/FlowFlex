@@ -48,7 +48,20 @@
 									:key="workflow.id"
 									:label="workflow.name"
 									:value="workflow.id"
-								/>
+								>
+									<div class="flex items-center justify-between">
+										<span>{{ workflow.name }}</span>
+										<div class="flex items-center gap-1">
+											<div v-if="workflow.isDefault">⭐</div>
+											<el-icon
+												v-if="workflow.status === 'inactive'"
+												class="inactive-icon"
+											>
+												<VideoPause />
+											</el-icon>
+										</div>
+									</div>
+								</el-option>
 							</el-select>
 						</el-form-item>
 
@@ -87,12 +100,12 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Delete } from '@element-plus/icons-vue';
+import { Plus, Delete, VideoPause } from '@element-plus/icons-vue';
 import { ref, watch, onMounted } from 'vue';
 import { getStagesByWorkflow } from '@/apis/ow';
 
 interface Assignment {
-	workflowId: string;
+	workflowId: string | null;
 	stageId: string | null;
 }
 
@@ -104,6 +117,8 @@ interface ExtendedAssignment extends Assignment {
 interface Workflow {
 	id: string;
 	name: string;
+	isDefault?: boolean;
+	status?: string;
 }
 
 interface Props {
@@ -123,7 +138,7 @@ const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({})
 const initializeAssignments = async () => {
 	extendedAssignments.value = props.assignments.map((assignment) => ({
 		...assignment,
-		stages: stagesCache.value[assignment.workflowId] || [],
+		stages: (assignment.workflowId && stagesCache.value[assignment.workflowId]) || [],
 		stagesLoading: false,
 	}));
 
@@ -145,7 +160,7 @@ const loadAllStagesData = async () => {
 
 	// 更新 extendedAssignments 中的 stages 数据
 	extendedAssignments.value.forEach((assignment) => {
-		if (assignment.workflowId && stagesCache.value[assignment.workflowId]) {
+		if (assignment.workflowId && assignment.workflowId !== null && stagesCache.value[assignment.workflowId]) {
 			assignment.stages = stagesCache.value[assignment.workflowId];
 		}
 	});
@@ -194,7 +209,7 @@ const handleWorkflowChange = async (index: number, workflowId: string) => {
 	assignment.stages = [];
 
 	// 如果选择了 workflow，加载对应的 stages
-	if (workflowId) {
+	if (workflowId && workflowId !== null) {
 		if (!stagesCache.value[workflowId]) {
 			assignment.stagesLoading = true;
 			await loadStagesForWorkflow(workflowId);
@@ -224,7 +239,7 @@ const isStageDisabled = (stageId: string, currentIndex: number) => {
 // 获取当前的 assignments 数据（暴露给父组件）
 const getAssignments = (): Assignment[] => {
 	return extendedAssignments.value.map(({ workflowId, stageId }) => ({
-		workflowId,
+		workflowId: workflowId || null, // 确保空字符串转换为 null
 		stageId: stageId || null, // 确保空字符串转换为 null
 	}));
 };
@@ -340,5 +355,10 @@ defineExpose({
 	border-radius: 0.5rem;
 	background: var(--primary-25);
 	@apply dark:bg-primary-700 dark:border-primary-600;
+}
+
+.inactive-icon {
+	color: #f56c6c;
+	font-size: 14px;
 }
 </style>

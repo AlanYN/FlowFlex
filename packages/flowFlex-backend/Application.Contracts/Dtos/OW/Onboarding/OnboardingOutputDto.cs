@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
 {
@@ -91,16 +92,19 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 开始日期
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? StartDate { get; set; }
 
         /// <summary>
         /// 预计完成日期
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? EstimatedCompletionDate { get; set; }
 
         /// <summary>
         /// 实际完成日期
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? ActualCompletionDate { get; set; }
 
         /// <summary>
@@ -136,11 +140,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// Stage更新时间
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? StageUpdatedTime { get; set; }
 
         /// <summary>
         /// 当前Stage开始时间
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? CurrentStageStartTime { get; set; }
 
         /// <summary>
@@ -156,6 +162,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 目标完成日期（ETA）
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? TargetCompletionDate { get; set; }
 
         /// <summary>

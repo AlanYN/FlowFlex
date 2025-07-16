@@ -24,6 +24,14 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<OperationChangeLog>> GetByStageIdAsync(long stageId);
 
         /// <summary>
+        /// Get operation logs by Onboarding ID and Stage ID
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>Operation log list</returns>
+        Task<List<OperationChangeLog>> GetByOnboardingAndStageAsync(long onboardingId, long stageId);
+
+        /// <summary>
         /// Get operation logs by business ID and module
         /// </summary>
         /// <param name="businessModule">Business module</param>

@@ -48,7 +48,20 @@
 									:key="workflow.id"
 									:label="workflow.name"
 									:value="workflow.id"
-								/>
+								>
+									<div class="flex items-center justify-between">
+										<span>{{ workflow.name }}</span>
+										<div class="flex items-center gap-1">
+											<div v-if="workflow.isDefault">⭐</div>
+											<el-icon
+												v-if="workflow.status === 'inactive'"
+												class="inactive-icon"
+											>
+												<VideoPause />
+											</el-icon>
+										</div>
+									</div>
+								</el-option>
 							</el-select>
 						</el-form-item>
 
@@ -87,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Delete } from '@element-plus/icons-vue';
+import { Plus, Delete, VideoPause } from '@element-plus/icons-vue';
 import { ref, watch, onMounted } from 'vue';
 import { getStagesByWorkflow } from '@/apis/ow';
 
@@ -104,6 +117,8 @@ interface ExtendedAssignment extends Assignment {
 interface Workflow {
 	id: string;
 	name: string;
+	isDefault?: boolean;
+	status?: string;
 }
 
 interface Props {
@@ -332,5 +347,10 @@ defineExpose({
 	border-radius: 0.5rem;
 	background: var(--primary-25);
 	@apply dark:bg-primary-700 dark:border-primary-600;
+}
+
+.inactive-icon {
+	color: #f56c6c;
+	font-size: 14px;
 }
 </style>

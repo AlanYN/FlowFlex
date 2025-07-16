@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
 {
@@ -41,16 +42,19 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 开始时间
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? StartTime { get; set; }
 
         /// <summary>
         /// 预计完成时间
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? EstimatedCompletionTime { get; set; }
 
         /// <summary>
         /// 实际完成时间
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? ActualCompletionTime { get; set; }
 
         /// <summary>
