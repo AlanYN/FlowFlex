@@ -30,17 +30,20 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IChecklistRepository _checklistRepository;
     private readonly IChecklistTaskRepository _checklistTaskRepository;
     private readonly IMapper _mapper;
+    private readonly IStageAssignmentSyncService _syncService;
     private readonly UserContext _userContext;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
         IChecklistTaskRepository checklistTaskRepository,
         IMapper mapper,
+        IStageAssignmentSyncService syncService,
         UserContext userContext)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
         _mapper = mapper;
+        _syncService = syncService;
         _userContext = userContext;
     }
 
@@ -161,6 +164,11 @@ public class ChecklistService : IChecklistService, IScopedService
             }
         }
 
+        // Store old assignments for sync comparison
+        var oldAssignments = entity.Assignments?.Where(a => a.StageId > 0)
+            .Select(a => (a.WorkflowId, a.StageId))
+            .ToList() ?? new List<(long, long)>();
+
         // Update the checklist entity
         _mapper.Map(input, entity);
 
@@ -201,10 +209,32 @@ public class ChecklistService : IChecklistService, IScopedService
             entity.Assignments = new List<Domain.Entities.OW.AssignmentDto>();
         }
 
+        // Get new assignments for sync comparison (only valid stage assignments)
+        var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
+            .Select(a => (a.WorkflowId, a.StageId))
+            .ToList() ?? new List<(long, long)>();
+
         // Initialize update information with proper timestamps
         entity.InitUpdateInfo(_userContext);
 
         var result = await _checklistRepository.UpdateAsync(entity);
+
+        // Sync with stage components if update was successful
+        if (result)
+        {
+            try
+            {
+                await _syncService.SyncStageComponentsFromChecklistAssignmentsAsync(
+                    id, 
+                    oldAssignments, 
+                    newAssignments);
+            }
+            catch (Exception ex)
+            {
+                // Log sync error but don't fail the operation
+                Console.WriteLine($"Failed to sync stage components for checklist {id}: {ex.Message}");
+            }
+        }
 
         return result;
     }

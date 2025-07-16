@@ -167,6 +167,63 @@ namespace FlowFlex.WebApi.Controllers.OW
             return Success(components);
         }
 
+        /// <summary>
+        /// Force sync stage assignments (debug/maintenance endpoint)
+        /// </summary>
+        [HttpPost("{id}/sync-assignments")]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ForceSyncAssignments(long id)
+        {
+            try
+            {
+                // Get stage and extract current component IDs
+                var stage = await _stageService.GetByIdAsync(id);
+                if (stage == null)
+                {
+                    return BadRequest("Stage not found");
+                }
+
+                var checklistIds = stage.Components?
+                    .Where(c => c.Key == "checklist")
+                    .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                    .Distinct()
+                    .ToList() ?? new List<long>();
+
+                var questionnaireIds = stage.Components?
+                    .Where(c => c.Key == "questionnaires")
+                    .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                    .Distinct()
+                    .ToList() ?? new List<long>();
+
+                Console.WriteLine($"[DEBUG] Manual sync for stage {id}:");
+                Console.WriteLine($"[DEBUG] Checklist IDs: [{string.Join(",", checklistIds)}]");
+                Console.WriteLine($"[DEBUG] Questionnaire IDs: [{string.Join(",", questionnaireIds)}]");
+
+                // Force sync with empty old IDs to ensure all current assignments are created
+                var result = await _stageService.SyncAssignmentsFromStageComponentsAsync(
+                    id, 
+                    stage.WorkflowId,
+                    new List<long>(), // empty old checklist IDs
+                    checklistIds,
+                    new List<long>(), // empty old questionnaire IDs
+                    questionnaireIds);
+
+                return Success(new { 
+                    success = result,
+                    stageId = id,
+                    workflowId = stage.WorkflowId,
+                    checklistIds = checklistIds,
+                    questionnaireIds = questionnaireIds,
+                    message = result ? "Sync completed successfully" : "Sync failed"
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DEBUG] Manual sync error: {ex.Message}");
+                return BadRequest($"Sync failed: {ex.Message}");
+            }
+        }
+
         #endregion
 
         #region Stage Content Management Functions
