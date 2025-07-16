@@ -239,8 +239,8 @@ const isStageDisabled = (stageId: string, currentIndex: number) => {
 // 获取当前的 assignments 数据（暴露给父组件）
 const getAssignments = (): Assignment[] => {
 	return extendedAssignments.value.map(({ workflowId, stageId }) => ({
-		workflowId: workflowId || null, // 确保空字符串转换为 null
-		stageId: stageId || null, // 确保空字符串转换为 null
+		workflowId: workflowId && workflowId !== '0' ? workflowId : null, // 确保空字符串和 '0' 转换为 null
+		stageId: stageId && stageId !== '0' ? stageId : null, // 确保空字符串和 '0' 转换为 null
 	}));
 };
 

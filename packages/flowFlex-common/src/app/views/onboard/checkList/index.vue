@@ -62,13 +62,14 @@
 				<div class="bg-blue-50 rounded-lg p-4">
 					<div class="flex items-center justify-between mb-3">
 						<h2 class="text-lg font-medium text-gray-900">Checklists</h2>
-						<el-input
-							v-model="searchQuery"
-							placeholder="Search checklists..."
-							style="width: 256px"
-							size="default"
-							prefix-icon="Search"
-							clearable
+						<InputTag
+							v-model="searchTags"
+							placeholder="Enter checklist name and press enter"
+							style-type="normal"
+							:limit="10"
+							@change="handleSearchTagsChange"
+							style="width: 256px; height: 32px"
+							class="rounded-md"
 						/>
 					</div>
 					<p class="text-sm text-gray-600">
@@ -555,6 +556,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ChecklistLoading from './checklist-loading.vue';
 import WorkflowAssignments from './components/WorkflowAssignments.vue';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 import draggable from 'vuedraggable';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 
@@ -596,6 +598,7 @@ const teams = ref([
 ]);
 
 // UI状态
+const searchTags = ref([]);
 const searchQuery = ref('');
 const selectedTeam = ref('all');
 const expandedChecklists = ref([]);
@@ -686,13 +689,22 @@ const filteredChecklists = computed(() => {
 					return selectedTeamObj && checklist.team === selectedTeamObj.name;
 				})();
 
-			// 优化搜索匹配逻辑
+			// 优化搜索匹配逻辑 - 支持多标签搜索
 			if (!searchTerm) return matchesTeam;
 
-			const nameMatch = checklist.name.toLowerCase().includes(searchTerm);
-			const descMatch = checklist.description?.toLowerCase().includes(searchTerm) || false;
+			// 将搜索词按逗号分割，支持多标签搜索
+			const searchTerms = searchTerm.split(',').map(term => term.trim()).filter(term => term.length > 0);
+			
+			if (searchTerms.length === 0) return matchesTeam;
 
-			return matchesTeam && (nameMatch || descMatch);
+			// 使用 OR 逻辑：任何一个搜索词匹配即可
+			const hasMatch = searchTerms.some(term => {
+				const nameMatch = checklist.name.toLowerCase().includes(term);
+				const descMatch = checklist.description?.toLowerCase().includes(term) || false;
+				return nameMatch || descMatch;
+			});
+
+			return matchesTeam && hasMatch;
 		})
 		.sort((a, b) => {
 			// 缓存日期对象避免重复创建
@@ -2197,6 +2209,11 @@ const submitDialog = async () => {
 
 // closeEditDialog函数已合并到closeDialog中，saveEditChecklist函数已合并到submitDialog中
 
+// 标签变化处理函数
+const handleSearchTagsChange = (tags) => {
+	searchQuery.value = tags.join(',');
+};
+
 // 点击外部关闭下拉菜单
 const handleClickOutside = (event) => {
 	// 检查点击是否在下拉菜单或触发按钮外部
@@ -2326,7 +2343,7 @@ const getWorkflowNameById = (workflowId) => {
 			workflows.value.map((w) => ({ id: w.id, name: w.name }))
 		);
 	}
-	return workflow ? workflow.name : 'Unknown Workflow';
+	return workflow ? workflow.name : '--';
 };
 
 // 辅助函数：根据 ID 获取阶段名称
@@ -2339,7 +2356,7 @@ const getStageNameById = (stageId) => {
 			stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
 		);
 	}
-	return stage ? stage.name : 'Unknown Stage';
+	return stage ? stage.name : '--';
 };
 </script>
 
@@ -2476,5 +2493,101 @@ const getStageNameById = (stageId) => {
 
 .gap-3 {
 	gap: 0.75rem;
+}
+
+/* InputTag组件样式调整 - 保持原有高度和宽度 */
+:deep(.bg-blue-50 .layout) {
+	min-height: 32px;
+	height: 32px;
+	border: 1px solid var(--el-border-color, #dcdfe6);
+	border-radius: 8px;
+	padding: 4px 11px;
+	background-color: var(--el-fill-color-blank, #ffffff);
+	transition: all var(--el-transition-duration, 0.2s);
+	box-shadow: 0 0 0 1px transparent inset;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+:deep(.bg-blue-50 .layout:hover) {
+	border-color: var(--el-border-color-hover, #c0c4cc);
+}
+
+:deep(.bg-blue-50 .layout:focus-within) {
+	border-color: var(--primary-500, #409eff);
+	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
+}
+
+:deep(.bg-blue-50 .input-tag) {
+	min-width: 100px;
+	height: 24px;
+	line-height: 24px;
+	font-size: 14px;
+	color: var(--el-text-color-regular, #606266);
+	border: none;
+	outline: none;
+	background: transparent;
+	flex: 1;
+	padding: 0;
+}
+
+:deep(.bg-blue-50 .input-tag::placeholder) {
+	color: var(--el-text-color-placeholder, #a8abb2);
+	font-size: 14px;
+}
+
+:deep(.bg-blue-50 .label-box) {
+	height: 24px;
+	margin: 0;
+	border-radius: 12px;
+	background-color: var(--el-fill-color-light, #f5f7fa);
+	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px;
+	transition: all 0.2s ease;
+}
+
+:deep(.bg-blue-50 .label-title) {
+	font-size: 12px;
+	padding: 0;
+	line-height: 24px;
+	color: var(--el-text-color-regular, #606266);
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 120px;
+}
+
+:deep(.bg-blue-50 .label-close) {
+	padding: 0;
+	margin-left: 6px;
+	color: var(--el-text-color-placeholder, #a8abb2);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--el-fill-color, #f0f2f5);
+	transition: all 0.2s ease;
+	transform: none;
+}
+
+:deep(.bg-blue-50 .label-close:hover) {
+	background: var(--el-fill-color-dark, #e6e8eb);
+	color: var(--el-text-color-regular, #606266);
+}
+
+:deep(.bg-blue-50 .label-close:after) {
+	content: '×';
+	font-size: 12px;
+	line-height: 1;
+	font-weight: bold;
 }
 </style>

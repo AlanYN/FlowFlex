@@ -60,7 +60,7 @@ public class QuestionnaireInputDto
     /// 预览图URL
     /// </summary>
     [StringLength(500)]
-    public string PreviewImageUrl { get; set; }
+    public string PreviewImageUrl { get; set; } = "";
 
     /// <summary>
     /// 问卷分类
@@ -71,7 +71,7 @@ public class QuestionnaireInputDto
     /// <summary>
     /// 问卷标签（JSON数组）
     /// </summary>
-    public string TagsJson { get; set; }
+    public string TagsJson { get; set; } = "[]";
 
     /// <summary>
     /// 预计填写时间（分钟）
