@@ -117,7 +117,17 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                whereExpressions.Add(x => x.Name.ToLower().Contains(name.ToLower()));
+                // Support comma-separated questionnaire names
+                var names = name.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                               .Select(n => n.Trim())
+                               .Where(n => !string.IsNullOrEmpty(n))
+                               .ToList();
+                
+                if (names.Any())
+                {
+                    // Use OR condition to match any of the questionnaire names (case-insensitive)
+                    whereExpressions.Add(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+                }
             }
 
             if (isTemplate.HasValue)

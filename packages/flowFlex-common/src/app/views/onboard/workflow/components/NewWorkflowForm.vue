@@ -48,18 +48,31 @@
 				</el-form-item>
 			</div>
 
-			<el-form-item label="Set as active workflow" class="radio-group-item">
-				<el-radio-group v-model="formData.status">
-					<el-radio :value="'active'">Active</el-radio>
-					<el-radio :value="'inactive'">Inactive</el-radio>
-				</el-radio-group>
+			<el-form-item label="Set as active workflow" class="switch-group-item">
+				<div class="switch-container">
+					<el-switch
+						v-model="isActiveSwitch"
+						class="ml-2"
+						inline-prompt
+						style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+						active-text="Active"
+						inactive-text="Inactive"
+					/>
+				</div>
 			</el-form-item>
 
-			<el-form-item label="Set as default workflow" class="radio-group-item">
-				<el-radio-group v-model="formData.isDefault" :disabled="isDefaultDisabled">
-					<el-radio :value="true" :disabled="isDefaultDisabled">Default</el-radio>
-					<el-radio :value="false">Not Default</el-radio>
-				</el-radio-group>
+			<el-form-item label="Set as default workflow" class="switch-group-item">
+				<div class="switch-container">
+					<el-switch
+						v-model="formData.isDefault"
+						class="ml-2"
+						inline-prompt
+						style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+						active-text="Default"
+						inactive-text="Not Default"
+						:disabled="isDefaultDisabled"
+					/>
+				</div>
 			</el-form-item>
 
 			<div class="form-actions">
@@ -78,10 +91,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { getTimeZoneOffsetForTimezone, timeZoneConvert } from '@/hooks/time';
 import { projectDate } from '@/settings/projectSetting';
+import { getWorkflowList } from '@/apis/ow';
 
 // 定义 props
 interface Props {
@@ -105,7 +119,15 @@ const formData = reactive({
 	startDate: '',
 	endDate: '',
 	status: 'active' as 'active' | 'inactive',
-	isDefault: true,
+	isDefault: false, // 改为 false，让后面的逻辑来设置
+});
+
+// 开关状态计算属性
+const isActiveSwitch = computed({
+	get: () => formData.status === 'active',
+	set: (value: boolean) => {
+		formData.status = value ? 'active' : 'inactive';
+	},
 });
 
 // 监听初始数据变化，用于编辑模式
@@ -120,7 +142,10 @@ watch(
 			formData.status = newData.status || 'active';
 			formData.isDefault = Object.keys(newData).includes('isDefault')
 				? !!newData.isDefault
-				: true;
+				: false; // 编辑模式下不自动设为默认
+		} else if (!props.isEditing) {
+			// 如果不是编辑模式且没有初始数据，检查默认值
+			checkAndSetDefaultValue();
 		}
 	},
 	{ immediate: true, deep: true }
@@ -146,6 +171,38 @@ watch(
 		}
 	}
 );
+
+// 检查系统中是否已有默认工作流
+const checkAndSetDefaultValue = async () => {
+	try {
+		// 只在非编辑模式下执行此逻辑
+		if (props.isEditing) {
+			return;
+		}
+
+		const res = await getWorkflowList();
+		if (res.code === '200' && res.data) {
+			const hasDefaultWorkflow = res.data.some((workflow: any) => workflow.isDefault);
+			// 如果系统中没有默认工作流，新工作流设为默认
+			// 如果系统中已有默认工作流，新工作流设为非默认
+			formData.isDefault = !hasDefaultWorkflow;
+		} else {
+			// 如果无法获取工作流列表，默认设为 true（假设系统为空）
+			formData.isDefault = true;
+		}
+	} catch (error) {
+		console.warn('Failed to check default workflow:', error);
+		// 出错时默认设为 true
+		formData.isDefault = true;
+	}
+};
+
+// 组件挂载时检查默认值（仅在非编辑模式下）
+onMounted(() => {
+	if (!props.isEditing && !props.initialData) {
+		checkAndSetDefaultValue();
+	}
+});
 
 // 表单验证规则
 const rules = reactive<FormRules>({
@@ -227,8 +284,13 @@ const emit = defineEmits(['submit', 'cancel']);
 	flex: 1;
 }
 
-.radio-group-item {
+.switch-group-item {
 	margin-top: 12px;
+}
+
+.switch-container {
+	display: flex;
+	align-items: center;
 }
 
 .form-actions {

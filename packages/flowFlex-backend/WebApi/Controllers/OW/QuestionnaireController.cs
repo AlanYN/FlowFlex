@@ -1,20 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.IO;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.IServices.OW;
-
-using FlowFlex.WebApi.Converters;
-
 using Item.Internal.StandardApi.Response;
 using System.Net;
-using NullableLongConverter = FlowFlex.WebApi.Converters.NullableLongConverter;
-using System.Linq.Dynamic.Core;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -67,45 +58,17 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         [HttpPut("{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> Update(long id)
+        public async Task<IActionResult> Update(long id, [FromBody] QuestionnaireInputDto input)
         {
-            // Update operation logged by structured logging
-
-            QuestionnaireInputDto input = null;
-
-            try
+            // Input validation
+            if (input == null)
             {
-                // Read raw body directly
-                using var reader = new StreamReader(Request.Body);
-                var rawBody = await reader.ReadToEndAsync();
-                // Raw request body processing logged by structured logging
-
-                // Try to extract the first JSON object if there are multiple separated by &
-                if (!string.IsNullOrEmpty(rawBody))
-                {
-                    var firstJsonPart = rawBody.Split('&')[0];
-                    // JSON part extraction logged by structured logging
-
-                    // Try to deserialize the first part
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        NumberHandling = JsonNumberHandling.AllowReadingFromString
-                    };
-                    options.Converters.Add(new NullableLongConverter());
-
-                    input = JsonSerializer.Deserialize<QuestionnaireInputDto>(firstJsonPart, options);
-                    // Input parsing result logged by structured logging
-                }
-            }
-            catch (Exception ex)
-            {
-                // Raw body parsing error logged by structured logging
+                return BadRequest("Request body is required and must contain valid JSON");
             }
 
-            if (input != null)
+            if (!ModelState.IsValid)
             {
-                // Input parameters logged by structured logging
+                return BadRequest(ModelState);
             }
 
             var result = await _questionnaireService.UpdateAsync(id, input);
@@ -169,9 +132,12 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Query questionnaire (paged)
+        /// Supports comma-separated values for name field
+        /// All text search queries are case-insensitive
+        /// Example: {"name": "questionnaire1,questionnaire2"}
         /// </summary>
         [HttpPost("query")]
-        [ProducesResponseType<SuccessResponse<PagedResult<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Query([FromBody] QuestionnaireQueryRequest query)
         {
             var data = await _questionnaireService.QueryAsync(query);

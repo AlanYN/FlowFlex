@@ -522,7 +522,12 @@ namespace FlowFlex.Application.Services.OW
             {
                 List<OperationChangeLog> logs;
 
-                if (onboardingId.HasValue)
+                // 优先处理同时提供 onboardingId 和 stageId 的情况
+                if (onboardingId.HasValue && stageId.HasValue)
+                {
+                    logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
+                }
+                else if (onboardingId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingIdAsync(onboardingId.Value);
                 }
@@ -540,7 +545,12 @@ namespace FlowFlex.Application.Services.OW
                     logs = new List<OperationChangeLog>();
                 }
 
-                // 应用过滤条件
+                // 只有在没有同时提供 onboardingId 和 stageId 的情况下才需要额外过滤
+                if (stageId.HasValue && onboardingId.HasValue == false && logs.Any())
+                {
+                    logs = logs.Where(x => x.StageId == stageId.Value).ToList();
+                }
+                
                 if (operationType.HasValue && logs.Any())
                 {
                     logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();

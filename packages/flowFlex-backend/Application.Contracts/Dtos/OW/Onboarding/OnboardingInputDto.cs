@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
 {
     /// <summary>
-    /// Onboarding create/update input DTO
+    /// Onboarding输入DTO
     /// </summary>
     public class OnboardingInputDto
     {
@@ -76,11 +77,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// 开始日期
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? StartDate { get; set; }
 
         /// <summary>
         /// 预计完成日期
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? EstimatedCompletionDate { get; set; }
 
         /// <summary>
@@ -120,11 +123,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// Stage更新时间
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? StageUpdatedTime { get; set; }
 
         /// <summary>
         /// 当前Stage开始时间
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public DateTimeOffset? CurrentStageStartTime { get; set; }
 
         /// <summary>

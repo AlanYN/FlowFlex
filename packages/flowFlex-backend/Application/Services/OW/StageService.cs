@@ -615,16 +615,10 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
             }
 
-            // If no components configured, return default components
+            // If no components configured, return empty list instead of default components
             if (string.IsNullOrEmpty(entity.ComponentsJson))
             {
-                return new List<StageComponent>
-                {
-                    new StageComponent { Key = "fields", Order = 1, IsEnabled = true },
-                    new StageComponent { Key = "checklist", Order = 2, IsEnabled = true },
-                    new StageComponent { Key = "questionnaires", Order = 3, IsEnabled = true },
-                    new StageComponent { Key = "files", Order = 4, IsEnabled = true }
-                };
+                return new List<StageComponent>();
             }
 
             try
@@ -634,14 +628,8 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (JsonException)
             {
-                // If JSON is invalid, return default components
-                return new List<StageComponent>
-                {
-                    new StageComponent { Key = "fields", Order = 1, IsEnabled = true },
-                    new StageComponent { Key = "checklist", Order = 2, IsEnabled = true },
-                    new StageComponent { Key = "questionnaires", Order = 3, IsEnabled = true },
-                    new StageComponent { Key = "files", Order = 4, IsEnabled = true }
-                };
+                // If JSON is invalid, return empty list instead of default components
+                return new List<StageComponent>();
             }
         }
 

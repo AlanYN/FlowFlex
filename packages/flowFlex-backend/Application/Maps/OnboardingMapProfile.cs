@@ -50,58 +50,25 @@ namespace FlowFlex.Application.Maps
 
         private static List<StageComponent> ParseComponents(string componentsJson)
         {
-            List<StageComponent> components;
-
             if (string.IsNullOrEmpty(componentsJson))
             {
-                // Return default components when JSON is null or empty
-                components = GetDefaultComponents();
+                // Return empty list when JSON is null or empty, not default components
+                return new List<StageComponent>();
             }
-            else
+            
+            try
             {
-                try
-                {
-                    var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
-                    components = parsedComponents?.Any() == true ? parsedComponents : GetDefaultComponents();
-                }
-                catch
-                {
-                    components = GetDefaultComponents();
-                }
+                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
+                return parsedComponents ?? new List<StageComponent>();
             }
-
-            return components;
+            catch
+            {
+                // If JSON is invalid, return empty list instead of default components
+                return new List<StageComponent>();
+            }
         }
 
-        private static List<StageComponent> GetDefaultComponents()
-        {
-            return new List<StageComponent>
-            {
-                new StageComponent { 
-                    Key = "fields", 
-                    Order = 1, 
-                    IsEnabled = true,
-                    StaticFields = new List<string>()
-                },
-                new StageComponent { 
-                    Key = "checklist", 
-                    Order = 2, 
-                    IsEnabled = true,
-                    ChecklistIds = new List<long>()
-                },
-                new StageComponent { 
-                    Key = "questionnaires", 
-                    Order = 3, 
-                    IsEnabled = true,
-                    QuestionnaireIds = new List<long>()
-                },
-                new StageComponent { 
-                    Key = "files", 
-                    Order = 4, 
-                    IsEnabled = true
-                }
-            };
-        }
+
 
         private static string SerializeComponents(List<StageComponent> components)
         {

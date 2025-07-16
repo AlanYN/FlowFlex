@@ -97,7 +97,15 @@
 											</el-icon>
 											<span>{{ workflowItem.name }}</span>
 										</div>
-										<div v-if="workflowItem.isDefault">⭐</div>
+										<div class="flex items-center gap-1">
+											<div v-if="workflowItem.isDefault">⭐</div>
+											<el-icon
+												v-if="workflowItem.status === 'inactive'"
+												class="inactive-icon"
+											>
+												<VideoPause />
+											</el-icon>
+										</div>
 									</div>
 								</el-option>
 							</el-select>
@@ -632,6 +640,7 @@ import {
 	Loading,
 	Star,
 	ArrowLeft,
+	VideoPause,
 } from '@element-plus/icons-vue';
 
 import StarIcon from '@assets/svg/workflow/star.svg';
@@ -1812,6 +1821,11 @@ const resetCombineStagesForm = () => {
 	margin-right: 4px;
 	width: 12px;
 	height: 12px;
+}
+
+.inactive-icon {
+	color: #f56c6c;
+	font-size: 14px;
 }
 
 .calendar-icon {

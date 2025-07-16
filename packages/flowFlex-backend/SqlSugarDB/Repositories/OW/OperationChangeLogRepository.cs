@@ -29,6 +29,14 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get operation logs by Onboarding ID and Stage ID
+        /// </summary>
+        public async Task<List<OperationChangeLog>> GetByOnboardingAndStageAsync(long onboardingId, long stageId)
+        {
+            return await base.GetListAsync(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.IsValid, x => x.OperationTime, OrderByType.Desc);
+        }
+
+        /// <summary>
         /// Get operation logs by business ID and module
         /// </summary>
         public async Task<List<OperationChangeLog>> GetByBusinessAsync(string businessModule, long businessId)

@@ -27,20 +27,14 @@
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<div class="space-y-2">
 					<label class="filter-label text-sm font-medium">Search</label>
-					<div class="relative">
-						<el-input
-							v-model="searchQuery"
-							placeholder="Search questionnaires..."
-							class="search-input"
-							clearable
-						>
-							<template #prefix>
-								<el-icon class="search-icon">
-									<Search />
-								</el-icon>
-							</template>
-						</el-input>
-					</div>
+					<InputTag
+						v-model="searchTags"
+						placeholder="Enter questionnaire name and press enter"
+						style-type="normal"
+						:limit="10"
+						@change="handleSearchTagsChange"
+						class="w-full rounded-md"
+					/>
 				</div>
 
 				<div class="space-y-2">
@@ -363,7 +357,6 @@ import { ref, onMounted, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
 	Plus,
-	Search,
 	Edit,
 	Delete,
 	CopyDocument,
@@ -375,6 +368,7 @@ import {
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import QuestionnairePreview from './components/QuestionnairePreview.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 
 // 引入问卷相关API接口
 import {
@@ -401,6 +395,7 @@ const workflowStages = ref<any[]>([]);
 const loading = ref(false);
 const deleteLoading = ref(false); // 专门的删除loading状态
 const stagesLoading = ref(false); // 新增：stages加载状态
+const searchTags = ref<string[]>([]);
 const searchQuery = ref('');
 const selectedWorkflow = ref('all');
 const selectedStage = ref('all');
@@ -424,13 +419,13 @@ const selectedQuestionnaireData = ref<any>(null);
 
 // 方法
 const getWorkflowName = (workflowId: string) => {
-	if (!workflowId) return defaultStr;
+	if (!workflowId || workflowId === '0') return defaultStr;
 	const workflow = workflows.value.find((w) => w.id === workflowId);
 	return workflow?.name || workflowId;
 };
 
 const getStageName = (stageId: string) => {
-	if (!stageId) return defaultStr;
+	if (!stageId || stageId === '0') return defaultStr;
 	const stage = allStages.value.find((s) => s.id === stageId);
 	return stage ? stage.name : stageId;
 };
@@ -440,6 +435,11 @@ const getEmptyStateMessage = () => {
 		return 'Try adjusting your filters';
 	}
 	return 'No questionnaires have been created yet';
+};
+
+// 标签变化处理函数
+const handleSearchTagsChange = (tags: string[]) => {
+	searchQuery.value = tags.join(',');
 };
 
 // 获取显示的分配数量（去重）
@@ -845,11 +845,6 @@ const handleLimitUpdate = () => {
 	@apply dark:text-primary-300;
 }
 
-.search-icon {
-	color: var(--primary-400);
-	@apply dark:text-primary-500;
-}
-
 /* 问卷卡片样式 */
 .questionnaire-card {
 	border: 1px solid var(--primary-100);
@@ -1040,22 +1035,102 @@ const handleLimitUpdate = () => {
 	@apply dark:text-primary-300;
 }
 
+/* InputTag组件样式调整 - 优化显示效果 */
+:deep(.filter-panel .layout) {
+	min-height: 32px;
+	border: 1px solid var(--el-border-color, #dcdfe6);
+	border-radius: 8px;
+	padding: 4px 11px;
+	background-color: var(--el-fill-color-blank, #ffffff);
+	transition: all var(--el-transition-duration, 0.2s);
+	box-shadow: 0 0 0 1px transparent inset;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+:deep(.filter-panel .layout:hover) {
+	border-color: var(--el-border-color-hover, #c0c4cc);
+}
+
+:deep(.filter-panel .layout:focus-within) {
+	border-color: var(--primary-500, #409eff);
+	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
+}
+
+:deep(.filter-panel .input-tag) {
+	min-width: 100px;
+	height: 24px;
+	line-height: 24px;
+	font-size: 14px;
+	color: var(--el-text-color-regular, #606266);
+	border: none;
+	outline: none;
+	background: transparent;
+	flex: 1;
+	padding: 0;
+}
+
+:deep(.filter-panel .input-tag::placeholder) {
+	color: var(--el-text-color-placeholder, #a8abb2);
+	font-size: 14px;
+}
+
+:deep(.filter-panel .label-box) {
+	height: 24px;
+	margin: 0;
+	border-radius: 12px;
+	background-color: var(--el-fill-color-light, #f5f7fa);
+	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px;
+	transition: all 0.2s ease;
+}
+
+:deep(.filter-panel .label-title) {
+	font-size: 12px;
+	padding: 0;
+	line-height: 24px;
+	color: var(--el-text-color-regular, #606266);
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 120px;
+}
+
+:deep(.filter-panel .label-close) {
+	padding: 0;
+	margin-left: 6px;
+	color: var(--el-text-color-placeholder, #a8abb2);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--el-fill-color, #f0f2f5);
+	transition: all 0.2s ease;
+	transform: none;
+}
+
+:deep(.filter-panel .label-close:hover) {
+	background: var(--el-fill-color-dark, #e6e8eb);
+	color: var(--el-text-color-regular, #606266);
+}
+
+:deep(.filter-panel .label-close:after) {
+	content: '×';
+	font-size: 12px;
+	line-height: 1;
+	font-weight: bold;
+}
+
 /* Element Plus 组件样式覆盖 */
-:deep(.search-input .el-input__wrapper) {
-	border-color: var(--primary-200);
-	@apply dark:border-black-200;
-}
-
-:deep(.search-input .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-	@apply dark:border-primary-600;
-}
-
-:deep(.search-input .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	@apply dark:border-primary-500;
-}
-
 :deep(.filter-select .el-input__wrapper) {
 	border-color: var(--primary-200);
 	@apply dark:border-black-200;
@@ -1201,5 +1276,80 @@ const handleLimitUpdate = () => {
 .assignments-container {
 	height: 60px !important; /* 固定高度 */
 	overflow: hidden;
+}
+
+/* 暗色主题样式 */
+html.dark {
+	/* InputTag暗色主题 - 优化暗色显示效果 */
+	:deep(.filter-panel .layout) {
+		background-color: var(--black-200) !important;
+		border: 1px solid var(--black-200) !important;
+		color: var(--white-100) !important;
+	}
+
+	:deep(.filter-panel .layout:hover) {
+		border-color: var(--black-100) !important;
+	}
+
+	:deep(.filter-panel .layout:focus-within) {
+		border-color: var(--primary-500) !important;
+		box-shadow: 0 0 0 1px var(--primary-500) inset !important;
+	}
+
+	:deep(.filter-panel .input-tag) {
+		color: var(--white-100) !important;
+		background-color: transparent !important;
+	}
+
+	:deep(.filter-panel .input-tag::placeholder) {
+		color: var(--gray-300) !important;
+	}
+
+	:deep(.filter-panel .label-box) {
+		background-color: var(--black-300) !important;
+		border: 1px solid var(--black-100) !important;
+	}
+
+	:deep(.filter-panel .label-title) {
+		color: var(--white-100) !important;
+	}
+
+	:deep(.filter-panel .label-close) {
+		background: var(--black-200) !important;
+		color: var(--gray-300) !important;
+	}
+
+	:deep(.filter-panel .label-close:hover) {
+		background: var(--black-100) !important;
+		color: var(--white-100) !important;
+	}
+
+	/* 筛选面板暗色主题 */
+	.filter-panel {
+		@apply bg-black-400 dark:border-black-200;
+	}
+
+	.filter-label {
+		@apply dark:text-primary-300;
+	}
+
+	/* Element Plus 组件暗色主题 */
+	:deep(.filter-select .el-input__wrapper) {
+		background-color: var(--black-200) !important;
+		border-color: var(--black-200) !important;
+	}
+
+	:deep(.filter-select .el-input__wrapper:hover) {
+		border-color: var(--black-100) !important;
+	}
+
+	:deep(.filter-select .el-input__wrapper.is-focus) {
+		border-color: var(--primary-500);
+		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
+	}
+
+	:deep(.filter-select .el-input__inner) {
+		@apply text-white-100;
+	}
 }
 </style>

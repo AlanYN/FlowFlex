@@ -16,6 +16,15 @@ namespace FlowFlex.Domain.Repository.OW
         Task<QuestionnaireAnswer?> GetByOnboardingAndStageAsync(long onboardingId, long stageId);
 
         /// <summary>
+        /// Get answer by Onboarding ID, Stage ID and Questionnaire ID
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <returns>Questionnaire answer</returns>
+        Task<QuestionnaireAnswer?> GetByOnboardingStageAndQuestionnaireAsync(long onboardingId, long stageId, long questionnaireId);
+
+        /// <summary>
         /// Get all answers by Onboarding ID
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
