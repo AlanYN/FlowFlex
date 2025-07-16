@@ -57,16 +57,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         [HttpGet("{onboardingId}/stage/{stageId}/answer")]
         public async Task<IActionResult> GetAnswer(long onboardingId, long stageId)
         {
-            try
-            {
                 var answers = await _questionnaireAnswerService.GetAllAnswersAsync(onboardingId, stageId);
                 return Success(answers);
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = StandardApiResponse<List<QuestionnaireAnswerOutputDto>>.CreateFailure(ex.Message, "500");
-                return StatusCode(500, errorResponse);
-            }
         }
 
         /// <summary>

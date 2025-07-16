@@ -66,6 +66,7 @@ const Api = (id?: string | number) => {
 		checkList: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/by-stage/${id}`,
 		checkListTask: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}`,
 		checkListIsCompleted: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}`,
+		ckeckListIds: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/batch/by-ids`,
 
 		// 文件管理相关API
 		onboardingFiles: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}`,
@@ -77,6 +78,7 @@ const Api = (id?: string | number) => {
 
 		// 预览
 		perviewOnboardingFile: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}`,
+		questionIds: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/batch/by-ids`,
 
 		filedForm: `${globSetting.apiProName}/ow/static-field-values/${globSetting.apiVersion}/onboarding/${id}`,
 		staticFieldValuesByOnboarding: `${globSetting.apiProName}/ow/static-field-values/${globSetting.apiVersion}/by-onboarding/${id}`,
@@ -763,4 +765,12 @@ export function previewOnboardingFile(
 		timeout: 60 * 100000,
 		onDownloadProgress,
 	});
+}
+
+export function getCheckListIds(params: any) {
+	return defHttp.post({ url: `${Api().ckeckListIds}`, params });
+}
+
+export function getQuestionIds(params: any) {
+	return defHttp.post({ url: `${Api().questionIds}`, params });
 }

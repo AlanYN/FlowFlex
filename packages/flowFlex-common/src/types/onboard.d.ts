@@ -29,44 +29,31 @@ export interface Questionnaire {
 
 // Onboarding相关类型定义
 export interface OnboardingItem {
-	id: string;
-	workflowId: string;
-	workflowName: string;
+	completionRate: number;
+	contactEmail: string;
+	contactPerson: string;
+	createBy: string;
+	createDate: string;
 	currentStageId: string;
 	currentStageName: string;
 	currentStageOrder: number;
+	currentStageStartTime: string;
+	id: string;
+	isActive: boolean;
+	isOverdue: boolean;
+	isPrioritySet: boolean;
 	leadId: string;
 	leadName: string;
-	leadEmail: string;
-	leadPhone: string;
-	contactPerson: string; // 联系人姓名
-	contactEmail: string; // 联系人邮箱
-	lifeCycleStageId: string | null;
+	lifeCycleStageId: string;
 	lifeCycleStageName: string;
-	status: string;
-	completionRate: number;
-	startDate: string;
-	estimatedCompletionDate: string | null;
-	actualCompletionDate: string | null;
-	currentAssigneeId: string | null;
-	currentAssigneeName: string;
-	currentTeam: string;
-	stageUpdatedById: string;
-	stageUpdatedBy: string;
-	stageUpdatedByEmail: string;
-	stageUpdatedTime: string;
-	currentStageStartTime: string;
-	timelineDays: number;
-	timelineDisplay: string;
-	priority: string;
-	isPrioritySet: boolean;
-	customFieldsJson: string;
-	notes: string;
-	isActive: boolean;
-	createDate: string;
-	createBy: string;
-	modifyDate: string;
 	modifyBy: string;
+	modifyDate: string;
+	priority: string;
+	startDate: string;
+	workflowName: string;
+	timelineDays: number;
+	workflowId: string;
+	stagesProgress: StageInfo[];
 }
 
 export interface SearchParams {
@@ -198,6 +185,18 @@ export interface ComponentData {
 	staticFields: string[];
 	checklistIds: string[];
 	questionnaireIds: string[];
+}
+
+export interface StageInfo {
+	estimatedDays: number;
+	isCompleted: boolean;
+	isCurrent: boolean;
+	stageId: string;
+	stageName: string;
+	stageOrder: number;
+	startTime: string;
+	status: string;
+	components: ComponentData[];
 }
 
 export interface ComponentsData {

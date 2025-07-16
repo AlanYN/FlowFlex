@@ -57,60 +57,56 @@
 							</div>
 						</div>
 
-						<StaticForm
-							v-show="
-								onboardingData && activeStage && onboardingId && !stageDataLoading
-							"
-							ref="staticFormRef"
-							:static-fields="onboardingActiveStageInfo?.staticFields || []"
-							:onboarding-id="onboardingId"
-							:stage-id="activeStage"
-						/>
+						<!-- 根据Stage Components动态渲染 -->
+						<template v-if="!stageDataLoading && onboardingActiveStageInfo?.components">
+							<div
+								v-for="component in sortedComponents"
+								:key="`${component.key}-${component.order}`"
+								v-show="component.isEnabled"
+							>
+								<!-- 静态字段表单 -->
+								<StaticForm
+									v-if="component.key === 'fields'"
+									:ref="setStaticFormRef"
+									:static-fields="component.staticFields"
+									:onboarding-id="onboardingId"
+									:stage-id="activeStage"
+								/>
 
-						<StageDetails
-							v-show="
-								onboardingData && activeStage && onboardingId && !stageDataLoading
-							"
-							:stage-id="activeStage"
-							:lead-id="onboardingId"
-							:onboarding-id="onboardingId"
-							:lead-data="onboardingData"
-							:workflow-stages="workflowStages"
-							:questionnaire-data="questionnaireData"
-							:static-fields="onboardingActiveStageInfo?.staticFields || []"
-							@stage-updated="handleStageUpdated"
-							ref="stageDetailsRef"
-						/>
+								<!-- 检查清单组件 -->
+								<CheckList
+									v-else-if="component.key === 'checklist'"
+									:checklist-data="getChecklistDataForComponent(component)"
+									@task-toggled="handleTaskToggled"
+								/>
 
-						<!-- CheckList 加载状态 -->
-						<div
-							v-if="checkListLoading"
-							class="bg-white dark:bg-black-300 rounded-md p-8"
-						>
-							<div class="flex flex-col items-center justify-center space-y-4">
-								<el-icon class="is-loading text-4xl text-primary-500">
-									<Loading />
-								</el-icon>
-								<p class="text-gray-500 dark:text-gray-400">Loading checklist...</p>
+								<!-- 问卷组件 -->
+								<StageDetails
+									v-else-if="component.key === 'questionnaires'"
+									:stage-id="activeStage"
+									:lead-id="onboardingId"
+									:onboarding-id="onboardingId"
+									:lead-data="onboardingData"
+									:workflow-stages="workflowStages"
+									:questionnaire-data="
+										getQuestionnaireDataForComponent(component)
+									"
+									@stage-updated="handleStageUpdated"
+									ref="stageDetailsRef"
+								/>
+
+								<!-- 文件组件 -->
+								<Documents
+									v-else-if="component.key === 'files'"
+									:onboarding-id="onboardingId"
+									:stage-id="activeStage"
+									@document-uploaded="handleDocumentUploaded"
+									@document-deleted="handleDocumentDeleted"
+								/>
 							</div>
-						</div>
+						</template>
 
-						<CheckList
-							v-if="activeStage && onboardingId && !checkListLoading"
-							:checklist-data="checkListData"
-							@task-toggled="handleTaskToggled"
-						/>
-
-						<!-- Documents 组件 -->
-						<div class="rounded-md overflow-hidden">
-							<Documents
-								v-if="activeStage && onboardingId"
-								:onboarding-id="onboardingId"
-								:stage-id="activeStage"
-								@document-uploaded="handleDocumentUploaded"
-								@document-deleted="handleDocumentDeleted"
-							/>
-						</div>
+						<!-- 兜底的StageDetails组件 -->
 					</div>
 				</el-scrollbar>
 			</div>
@@ -221,13 +217,13 @@ import { ArrowLeft, ChatDotSquare, Loading } from '@element-plus/icons-vue';
 import {
 	getStageCompletionLogsByStage,
 	getOnboardingByLead,
-	getCheckList,
-	getCheckListIsCompleted,
 	getStaticFieldValuesByOnboarding,
 	saveCheckListTask,
+	getCheckListIds,
+	getQuestionIds,
 } from '@/apis/ow/onboarding';
 import { getStageQuestionnaire } from '@/apis/ow/questionnaire';
-import { OnboardingItem } from '#/onboard';
+import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
@@ -275,14 +271,16 @@ const activeStage = ref<string>(''); // 初始为空，等待从服务器获取�
 const workflowStages = ref<any[]>([]);
 const changeLogData = ref<Change[]>([]);
 const questionnaireData = ref<any>(null); // 当前阶段的问卷数据
-const checkListData = ref<any>(null); // 当前阶段的检查清单数据
 const editDialogVisible = ref(false);
 const messageDialogVisible = ref(false);
 const saving = ref(false);
 
+// 存储批量查询到的数据
+const checklistsData = ref<any[]>([]);
+const questionnairesData = ref<any[]>([]);
+
 // Loading状态管理
 const stageDataLoading = ref(false); // 初始加载和阶段完成后的数据加载状态
-const checkListLoading = ref(false); // 检查清单加载状态
 const initialLoading = ref(true); // 初始页面加载状态
 
 // 使用自适应滚动条 hook
@@ -308,8 +306,58 @@ const onboardingId = computed(() => {
 
 // 添加组件引用
 const stageDetailsRef = ref();
-const staticFormRef = ref();
-const onboardingActiveStageInfo = ref<any>(null);
+const staticFormRefs = ref<any[]>([]);
+const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+
+// 函数式ref，用于收集StaticForm组件实例
+const setStaticFormRef = (el: any) => {
+	if (el) {
+		staticFormRefs.value.push(el);
+	}
+};
+
+// 清理StaticForm refs
+const clearStaticFormRefs = () => {
+	staticFormRefs.value = [];
+};
+
+// 辅助函数：根据组件的checklistIds获取对应的checklist数据
+const getChecklistDataForComponent = (component: ComponentData) => {
+	if (!component.checklistIds || component.checklistIds.length === 0) {
+		return [];
+	}
+	return checklistsData.value.filter((checklist) =>
+		component.checklistIds.includes(checklist.id)
+	);
+};
+
+// 辅助函数：根据组件的questionnaireIds获取对应的questionnaire数据
+const getQuestionnaireDataForComponent = (component: ComponentData) => {
+	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
+		return [];
+	}
+	return questionnairesData.value.filter((questionnaire) =>
+		component.questionnaireIds.includes(questionnaire.id)
+	);
+};
+
+// 根据components数组排序，确保静态字段表单在前面
+const sortedComponents = computed(() => {
+	if (!onboardingActiveStageInfo.value?.components) {
+		return [];
+	}
+
+	return [...onboardingActiveStageInfo.value.components].sort((a, b) => {
+		if (a.key === 'fields' && b.key !== 'fields') {
+			return -1; // 静态字段表单优先
+		}
+		if (a.key !== 'fields' && b.key === 'fields') {
+			return 1; // 静态字段表单优先
+		}
+		return a.order - b.order; // 根据order排序
+	});
+});
+
 // 处理onboarding数据的共同逻辑
 const processOnboardingData = async (responseData: any) => {
 	onboardingData.value = responseData;
@@ -394,32 +442,55 @@ const loadQuestionnaireData = async (stageId: string) => {
 	}
 };
 
-// 加载检查清单数据
-const loadCheckListData = async (stageId: string) => {
-	try {
-		checkListLoading.value = true;
-		const response = await getCheckList(stageId);
+// 批量加载检查清单数据
+const loadCheckListData = async (onboardingId: string, stageId: string) => {
+	if (!onboardingActiveStageInfo.value?.components) return;
 
-		if (response.code === '200') {
-			checkListData.value = response.data;
-			checkListData.value = await Promise.all(
-				checkListData.value.map(async (item) => {
-					const res = await getCheckListIsCompleted(onboardingId.value, item.id);
-					if (res.code == '200' && res.data && res.data.length > 0) {
-						const taskComplete = res.data;
-						item.tasks.forEach((task) => {
-							task.isCompleted = !!taskComplete.find((t) => t.taskId === task.id)
-								?.isCompleted;
-						});
-					}
-					return item;
-				})
-			);
-		} else {
-			checkListData.value = null;
+	// 收集所有checklistIds
+	const allChecklistIds: string[] = [];
+	onboardingActiveStageInfo.value.components.forEach((component) => {
+		if (component.key === 'checklist' && component.checklistIds?.length > 0) {
+			allChecklistIds.push(...component.checklistIds);
 		}
-	} finally {
-		checkListLoading.value = false;
+	});
+
+	if (allChecklistIds.length === 0) return;
+
+	try {
+		const response = await getCheckListIds({ ids: allChecklistIds });
+		if (response.code === '200') {
+			checklistsData.value = response.data || [];
+			console.log('Loaded checklists data:', checklistsData.value);
+		}
+	} catch (error) {
+		console.error('Failed to load checklists:', error);
+		ElMessage.error('Failed to load checklists');
+	}
+};
+
+// 批量加载问卷数据
+const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string) => {
+	if (!onboardingActiveStageInfo.value?.components) return;
+
+	// 收集所有questionnaireIds
+	const allQuestionnaireIds: string[] = [];
+	onboardingActiveStageInfo.value.components.forEach((component) => {
+		if (component.key === 'questionnaires' && component.questionnaireIds?.length > 0) {
+			allQuestionnaireIds.push(...component.questionnaireIds);
+		}
+	});
+
+	if (allQuestionnaireIds.length === 0) return;
+
+	try {
+		const response = await getQuestionIds({ ids: allQuestionnaireIds });
+		if (response.code === '200') {
+			questionnairesData.value = response.data || [];
+			console.log('Loaded questionnaires data:', questionnairesData.value);
+		}
+	} catch (error) {
+		console.error('Failed to load questionnaires:', error);
+		ElMessage.error('Failed to load questionnaires');
 	}
 };
 
@@ -431,11 +502,15 @@ const loadStageRelatedData = async (stageId: string) => {
 		// 设置加载状态
 		stageDataLoading.value = true;
 
+		// 清理之前的StaticForm refs
+		clearStaticFormRefs();
+
 		// 并行加载依赖stageId的数据
 		await Promise.all([
 			loadQuestionnaireData(stageId),
-			loadCheckListData(stageId),
 			loadChangeLog(stageId),
+			loadCheckListData(onboardingId.value, stageId),
+			loadQuestionnaireDataBatch(onboardingId.value, stageId),
 		]);
 	} catch (error) {
 		console.error('Failed to load stage related data:', error);
@@ -486,7 +561,9 @@ const loadStaticFieldValues = async () => {
 			// 直接传递给StageDetails组件处理
 			if (stageDetailsRef.value) {
 				stageDetailsRef.value.setFormFieldValues?.();
-				staticFormRef.value.setFieldValues(response.data);
+				staticFormRefs.value.forEach((formRef) => {
+					formRef.setFieldValues(response.data);
+				});
 			}
 		}
 	} catch (error) {
@@ -538,20 +615,8 @@ const handleTaskToggled = async (task: any) => {
 		if (res.code === '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));
 			// 直接更新本地状态，避免重新加载整个检查清单
-			if (checkListData.value) {
-				checkListData.value.forEach((checklist) => {
-					checklist.tasks.forEach((t) => {
-						if (t.id === task.id) {
-							t.isCompleted = task.isCompleted;
-							// 如果任务完成，更新完成时间
-							if (task.isCompleted) {
-								t.completedDate = new Date().toISOString();
-							} else {
-								t.completedDate = null;
-							}
-						}
-					});
-				});
+			if (stageDetailsRef.value) {
+				stageDetailsRef.value.setFormFieldValues?.();
 			}
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
@@ -581,10 +646,7 @@ const handleSaveEdit = async () => {
 };
 
 const saveAllForm = async () => {
-	const res = await Promise.all([
-		stageDetailsRef.value.handleSave(),
-		staticFormRef.value.handleSave(),
-	]);
+	const res = await Promise.all(staticFormRefs.value.map((formRef) => formRef.handleSave()));
 	return res;
 };
 

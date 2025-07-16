@@ -63,7 +63,6 @@ interface Props {
 	leadData: OnboardingItem | null;
 	workflowStages: any[];
 	questionnaireData?: any[];
-	staticFields?: any[];
 }
 
 const props = defineProps<Props>();
