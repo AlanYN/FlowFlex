@@ -127,6 +127,8 @@ interface ComponentData {
 	staticFields: string[];
 	checklistIds: string[];
 	questionnaireIds: string[];
+	checklistNames?: string[];
+	questionnaireNames?: string[];
 }
 // 颜色选项
 const colorOptions = stageColorOptions;

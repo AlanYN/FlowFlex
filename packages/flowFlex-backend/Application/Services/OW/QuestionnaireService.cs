@@ -27,17 +27,20 @@ namespace FlowFlex.Application.Service.OW
         private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly IQuestionnaireSectionRepository _sectionRepository;
         private readonly IMapper _mapper;
+        private readonly IStageAssignmentSyncService _syncService;
         private readonly UserContext _userContext;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
             IQuestionnaireSectionRepository sectionRepository,
             IMapper mapper,
+            IStageAssignmentSyncService syncService,
             UserContext userContext)
         {
             _questionnaireRepository = questionnaireRepository;
             _sectionRepository = sectionRepository;
             _mapper = mapper;
+            _syncService = syncService;
             _userContext = userContext;
         }
 
@@ -133,6 +136,11 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
             }
 
+            // Store old assignments for sync comparison
+            var oldAssignments = entity.Assignments?.Where(a => a.StageId > 0)
+                .Select(a => (a.WorkflowId, a.StageId))
+                .ToList() ?? new List<(long, long)>();
+
             // Determine assignments to use
             var assignments = new List<(long? workflowId, long? stageId)>();
             
@@ -178,6 +186,11 @@ namespace FlowFlex.Application.Service.OW
                 StageId = a.stageId ?? 0 // 允许为0表示空StageId
             }).ToList();
 
+            // Get new assignments for sync comparison (only valid stage assignments)
+            var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
+                .Select(a => (a.WorkflowId, a.StageId))
+                .ToList() ?? new List<(long, long)>();
+
             // Note: WorkflowId and StageId fields have been removed - assignments are now stored in JSON
 
             // Initialize update information with proper timestamps
@@ -192,6 +205,23 @@ namespace FlowFlex.Application.Service.OW
             if (input.Sections != null)
             {
                 await UpdateSectionsAsync(entity.Id, input.Sections);
+            }
+
+            // Sync with stage components if update was successful
+            if (result)
+            {
+                try
+                {
+                    await _syncService.SyncStageComponentsFromQuestionnaireAssignmentsAsync(
+                        id, 
+                        oldAssignments, 
+                        newAssignments);
+                }
+                catch (Exception ex)
+                {
+                    // Log sync error but don't fail the operation
+                    Console.WriteLine($"Failed to sync stage components for questionnaire {id}: {ex.Message}");
+                }
             }
 
             // TODO: Clean up any historical duplicate questionnaire records with same name but different assignments

@@ -516,27 +516,28 @@ const getStageComponents = (stage: Stage) => {
 					break;
 				case 'checklist':
 					// 每个checklist可能有多个ID，但在这里显示为一个组件
-					if (component.checklistIds && component.checklistIds.length > 0) {
-						component.checklistIds.forEach((checklistId, index) => {
-							componentList.push({
-								id: `${stage.id}-checklist-${checklistId}`,
-								name: component.name || defaultStr,
-								type: 'checklist',
-							});
+					component.checklistIds.forEach((checklistId, index) => {
+						// 优先使用names字段中的名称
+						const checklistName = component.checklistNames?.[index] || defaultStr;
+						componentList.push({
+							id: `${stage.id}-checklist-${checklistId}`,
+							name: checklistName,
+							type: 'checklist',
 						});
-					}
+					});
 					break;
 				case 'questionnaires':
 					// 每个questionnaire可能有多个ID，但在这里显示为一个组件
-					if (component.questionnaireIds && component.questionnaireIds.length > 0) {
-						component.questionnaireIds.forEach((questionnaireId, index) => {
-							componentList.push({
-								id: `${stage.id}-questionnaire-${questionnaireId}`,
-								name: `Questionnaire ${index + 1}`,
-								type: 'questionnaires',
-							});
+					component.questionnaireIds.forEach((questionnaireId, index) => {
+						// 优先使用names字段中的名称
+						const questionnaireName =
+							component.questionnaireNames?.[index] || defaultStr;
+						componentList.push({
+							id: `${stage.id}-questionnaire-${questionnaireId}`,
+							name: questionnaireName,
+							type: 'questionnaires',
 						});
-					}
+					});
 					break;
 				case 'files':
 					componentList.push({

@@ -551,7 +551,7 @@ import {
 	formatTaskForApi,
 	handleApiError,
 } from '@/apis/ow/checklist';
-import { getWorkflows, getStagesByWorkflow } from '@/apis/ow';
+import { getWorkflows, getStagesByWorkflow, getAllStages } from '@/apis/ow';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ChecklistLoading from './checklist-loading.vue';
@@ -693,12 +693,12 @@ const filteredChecklists = computed(() => {
 			if (!searchTerm) return matchesTeam;
 
 			// 将搜索词按逗号分割，支持多标签搜索
-			const searchTerms = searchTerm.split(',').map(term => term.trim()).filter(term => term.length > 0);
+			const searchTerms = searchTerm.split(',').map((term) => term.trim()).filter((term) => term.length > 0);
 			
 			if (searchTerms.length === 0) return matchesTeam;
 
 			// 使用 OR 逻辑：任何一个搜索词匹配即可
-			const hasMatch = searchTerms.some(term => {
+			const hasMatch = searchTerms.some((term) => {
 				const nameMatch = checklist.name.toLowerCase().includes(term);
 				const descMatch = checklist.description?.toLowerCase().includes(term) || false;
 				return nameMatch || descMatch;
@@ -803,7 +803,7 @@ const loadChecklists = async () => {
 		const processedChecklists = checklistData
 			.map((checklist) => {
 				// 检查是否已经有加载的任务数据
-				const existingChecklist = checklists.value.find(c => c.id === checklist.id);
+				const existingChecklist = checklists.value.find((c) => c.id === checklist.id);
 				if (existingChecklist && existingChecklist.tasksLoaded && existingChecklist.tasks?.length > 0) {
 					// 保留已加载的任务数据
 				return {
@@ -932,84 +932,41 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 	return loadPromise;
 };
 
-// 优化的workflow和stage加载逻辑
+// 优化的workflow和stage加载逻辑 - 使用统一的getAllStages接口
 const loadWorkflowsAndStages = async () => {
 	try {
 		console.log('开始加载 workflows 和 stages...');
 
-		// 加载workflows
-		const workflowResponse = await getWorkflows();
+		// 并行加载workflows和stages，提高性能
+		const [workflowResponse, stagesResponse] = await Promise.all([
+			getWorkflows(),
+			getAllStages()
+		]);
 
+		// 处理workflows响应
 		if (workflowResponse.code === '200') {
 			workflows.value = workflowResponse.data || [];
 			console.log('Workflows 加载成功:', workflows.value.length, '个');
 		} else {
 			workflows.value = [];
 			console.warn('Workflows 加载失败:', workflowResponse);
-			return; // 如果workflows加载失败，直接返回
 		}
 
-		// 加载所有workflows的stages，不仅仅是活跃的
-		const allWorkflows = workflows.value;
-
-		if (allWorkflows.length === 0) {
-			stages.value = [];
-			console.log('没有可用的 workflows');
-			return;
-		}
-
-		// 批量加载stages，限制并发数量
-		const batchSize = 3; // 限制并发请求数量
-		const stageResponses = [];
-
-		console.log(`开始为 ${allWorkflows.length} 个 workflows 加载 stages...`);
-
-		for (let i = 0; i < allWorkflows.length; i += batchSize) {
-			const batch = allWorkflows.slice(i, i + batchSize);
-			const batchPromises = batch.map((workflow) =>
-				getStagesByWorkflow(workflow.id)
-					.then((response) => {
-						console.log(
-							`Workflow ${workflow.name} (ID: ${workflow.id}) stages 响应:`,
-							response
-						);
-						if (response.code === '200') {
-							const stageData = response.data || [];
-							console.log(
-								`Workflow ${workflow.name} 加载了 ${stageData.length} 个 stages`
-							);
-							return { workflowId: workflow.id, data: stageData };
-						} else {
-							console.warn(`Workflow ${workflow.name} stages 加载失败:`, response);
-							return { workflowId: workflow.id, data: [] };
-						}
-					})
-					.catch((err) => {
-						console.warn(`Failed to load stages for workflow ${workflow.id}:`, err);
-						return { workflowId: workflow.id, data: [] };
-					})
+		// 处理stages响应
+		if (stagesResponse.code === '200') {
+			// 所有stages都已经包含workflowId，直接使用
+			stages.value = stagesResponse.data || [];
+			console.log('Stages 加载成功，总计:', stages.value.length, '个');
+			console.log(
+				'所有 stages:',
+				stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
 			);
-
-			const batchResults = await Promise.all(batchPromises);
-			stageResponses.push(...batchResults);
+		} else {
+			stages.value = [];
+			console.warn('Stages 加载失败:', stagesResponse);
 		}
 
-		// 合并所有stages，并确保每个stage都有workflowId
-		stages.value = stageResponses.reduce((allStages, response) => {
-			const stageData = response.data || [];
-			// 确保每个stage都有正确的workflowId
-			const stagesWithWorkflowId = stageData.map((stage) => ({
-				...stage,
-				workflowId: stage.workflowId || response.workflowId,
-			}));
-			return [...allStages, ...stagesWithWorkflowId];
-		}, []);
-
-		console.log('Stages 加载完成，总计:', stages.value.length, '个');
-		console.log(
-			'所有 stages:',
-			stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
-		);
+		console.log('Workflows 和 Stages 加载完成');
 	} catch (err) {
 		console.error('Failed to load workflows and stages:', err);
 		workflows.value = [];

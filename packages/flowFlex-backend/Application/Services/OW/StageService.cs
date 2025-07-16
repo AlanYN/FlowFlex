@@ -28,18 +28,20 @@ namespace FlowFlex.Application.Service.OW
         private readonly IWorkflowVersionRepository _workflowVersionRepository;
         private readonly IMapper _mapper;
         private readonly IOperationChangeLogService _operationLogService;
+        private readonly IStageAssignmentSyncService _syncService;
         private readonly UserContext _userContext;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperationChangeLogService operationLogService, UserContext userContext)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, UserContext userContext)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
             _workflowVersionRepository = workflowVersionRepository;
             _mapper = mapper;
             _operationLogService = operationLogService;
+            _syncService = syncService;
             _userContext = userContext;
         }
 
@@ -99,8 +101,54 @@ namespace FlowFlex.Application.Service.OW
                     $"Stage name '{input.Name}' already exists in this workflow");
             }
 
+            // Extract old components for sync comparison (before mapping)
+            List<StageComponent> oldComponents = new List<StageComponent>();
+            
+            if (!string.IsNullOrEmpty(stage.ComponentsJson))
+            {
+                try
+                {
+                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson) ?? new List<StageComponent>();
+                }
+                catch (JsonException)
+                {
+                    oldComponents = new List<StageComponent>();
+                }
+            }
+
+            var oldChecklistIds = oldComponents
+                .Where(c => c.Key == "checklist")
+                .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                .Distinct()
+                .ToList();
+
+            var oldQuestionnaireIds = oldComponents
+                .Where(c => c.Key == "questionnaires")
+                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                .Distinct()
+                .ToList();
+
             // Map update data
             _mapper.Map(input, stage);
+
+            // Extract new components for sync comparison (after mapping)
+            var newChecklistIds = new List<long>();
+            var newQuestionnaireIds = new List<long>();
+            
+            if (input.Components != null && input.Components.Any())
+            {
+                newChecklistIds = input.Components
+                    .Where(c => c.Key == "checklist")
+                    .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                    .Distinct()
+                    .ToList();
+
+                newQuestionnaireIds = input.Components
+                    .Where(c => c.Key == "questionnaires")
+                    .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                    .Distinct()
+                    .ToList();
+            }
 
             // Initialize update information with proper timestamps
             stage.InitUpdateInfo(_userContext);
@@ -110,6 +158,44 @@ namespace FlowFlex.Application.Service.OW
 
             if (result)
             {
+                // Check if there are actual changes to sync
+                var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
+                var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
+
+                if (hasChecklistChanges || hasQuestionnaireChanges)
+                {
+                    // Sync assignments with checklists and questionnaires if components changed
+                    try
+                    {
+                        await _syncService.SyncAssignmentsFromStageComponentsAsync(
+                            id, 
+                            stage.WorkflowId,
+                            oldChecklistIds, 
+                            newChecklistIds,
+                            oldQuestionnaireIds, 
+                            newQuestionnaireIds);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log sync error but don't fail the operation
+                        // The stage update succeeded, sync is a secondary operation
+                        await _operationLogService.LogOperationAsync(
+                            OperationTypeEnum.OnboardingStatusChange,
+                            BusinessModuleEnum.Stage,
+                            id,
+                            null, // onboardingId
+                            null, // stageId
+                            "Stage Update Assignment Sync Error",
+                            "Failed to sync assignments with checklist/questionnaire during stage update",
+                            null, // beforeData
+                            ex.Message, // afterData
+                            new List<string> { "AssignmentSync" },
+                            null, // extendedData
+                            OperationStatusEnum.Failed
+                        );
+                    }
+                }
+
                 // Cache cleanup removed
 
                 // Log operation - use OperationChangeLogService to properly handle JSONB fields
@@ -573,7 +659,48 @@ namespace FlowFlex.Application.Service.OW
                 component.StaticFields ??= new List<string>();
                 component.ChecklistIds ??= new List<long>();
                 component.QuestionnaireIds ??= new List<long>();
+                component.ChecklistNames ??= new List<string>();
+                component.QuestionnaireNames ??= new List<string>();
             }
+
+            // Get old components for comparison
+            List<StageComponent> oldComponents = new List<StageComponent>();
+            if (!string.IsNullOrEmpty(entity.ComponentsJson))
+            {
+                try
+                {
+                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson) ?? new List<StageComponent>();
+                }
+                catch (JsonException)
+                {
+                    oldComponents = new List<StageComponent>();
+                }
+            }
+
+            // Extract old and new IDs for sync
+            var oldChecklistIds = oldComponents
+                .Where(c => c.Key == "checklist")
+                .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                .Distinct()
+                .ToList();
+
+            var newChecklistIds = input.Components
+                .Where(c => c.Key == "checklist")
+                .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                .Distinct()
+                .ToList();
+
+            var oldQuestionnaireIds = oldComponents
+                .Where(c => c.Key == "questionnaires")
+                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                .Distinct()
+                .ToList();
+
+            var newQuestionnaireIds = input.Components
+                .Where(c => c.Key == "questionnaires")
+                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                .Distinct()
+                .ToList();
 
             // Update components JSON
             entity.ComponentsJson = JsonSerializer.Serialize(input.Components);
@@ -584,6 +711,37 @@ namespace FlowFlex.Application.Service.OW
 
             if (result)
             {
+                // Sync assignments with checklists and questionnaires
+                try
+                {
+                    await _syncService.SyncAssignmentsFromStageComponentsAsync(
+                        id, 
+                        entity.WorkflowId,
+                        oldChecklistIds, 
+                        newChecklistIds,
+                        oldQuestionnaireIds, 
+                        newQuestionnaireIds);
+                }
+                catch (Exception ex)
+                {
+                    // Log sync error but don't fail the operation
+                    // The stage components update succeeded, sync is a secondary operation
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        id,
+                        null, // onboardingId
+                        null, // stageId
+                        "Stage Components Assignment Sync Error",
+                        "Failed to sync assignments with checklist/questionnaire",
+                        null, // beforeData
+                        ex.Message, // afterData
+                        new List<string> { "AssignmentSync" },
+                        null, // extendedData
+                        OperationStatusEnum.Failed
+                    );
+                }
+
                 // Log operation
                 await _operationLogService.LogOperationAsync(
                     OperationTypeEnum.OnboardingStatusChange,
@@ -631,6 +789,20 @@ namespace FlowFlex.Application.Service.OW
                 // If JSON is invalid, return empty list instead of default components
                 return new List<StageComponent>();
             }
+        }
+
+        /// <summary>
+        /// Manually sync assignments between stage components and checklist/questionnaire assignments
+        /// </summary>
+        public async Task<bool> SyncAssignmentsFromStageComponentsAsync(long stageId, long workflowId, List<long> oldChecklistIds, List<long> newChecklistIds, List<long> oldQuestionnaireIds, List<long> newQuestionnaireIds)
+        {
+            return await _syncService.SyncAssignmentsFromStageComponentsAsync(
+                stageId, 
+                workflowId, 
+                oldChecklistIds, 
+                newChecklistIds, 
+                oldQuestionnaireIds, 
+                newQuestionnaireIds);
         }
 
         #endregion

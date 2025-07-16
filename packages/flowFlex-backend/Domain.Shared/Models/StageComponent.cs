@@ -44,5 +44,15 @@ namespace FlowFlex.Domain.Shared.Models
         /// Selected questionnaire IDs (for questionnaire component)
         /// </summary>
         public List<long> QuestionnaireIds { get; set; } = new List<long>();
+
+        /// <summary>
+        /// Names of selected checklists (for checklist component)
+        /// </summary>
+        public List<string> ChecklistNames { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Names of selected questionnaires (for questionnaire component)
+        /// </summary>
+        public List<string> QuestionnaireNames { get; set; } = new List<string>();
     }
 } 

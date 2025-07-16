@@ -25,6 +25,18 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<long> DuplicateAsync(long id, DuplicateStageInputDto input);
         Task<bool> UpdateComponentsAsync(long id, UpdateStageComponentsInputDto input);
         Task<List<StageComponent>> GetComponentsAsync(long id);
+        
+        /// <summary>
+        /// Manually sync assignments between stage components and checklist/questionnaire assignments
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="oldChecklistIds">Previous checklist IDs</param>
+        /// <param name="newChecklistIds">New checklist IDs</param>
+        /// <param name="oldQuestionnaireIds">Previous questionnaire IDs</param>
+        /// <param name="newQuestionnaireIds">New questionnaire IDs</param>
+        /// <returns>Success status</returns>
+        Task<bool> SyncAssignmentsFromStageComponentsAsync(long stageId, long workflowId, List<long> oldChecklistIds, List<long> newChecklistIds, List<long> oldQuestionnaireIds, List<long> newQuestionnaireIds);
 
         /// <summary>
         /// Get Stage complete content
