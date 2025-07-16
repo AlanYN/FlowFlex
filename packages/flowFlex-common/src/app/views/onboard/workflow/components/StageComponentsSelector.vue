@@ -414,6 +414,8 @@ const updateComponent = (key: string, updates: Partial<ComponentData>) => {
 			staticFields: [],
 			checklistIds: [],
 			questionnaireIds: [],
+			checklistNames: [],
+			questionnaireNames: [],
 		};
 		newComponents.push({ ...defaultComponent, ...updates });
 	}
@@ -485,6 +487,10 @@ const toggleChecklist = (checklistId: string, checked: boolean) => {
 	if (checked) {
 		// 检查是否已经存在
 		if (!isChecklistSelected(checklistId)) {
+			// 获取checklist名称
+			const checklist = props.checklists.find((c) => c.id === checklistId);
+			const checklistName = checklist ? checklist.name : '';
+
 			// 创建新的checklist组件
 			const newOrder = (props.modelValue.components || []).length + 1;
 			const newComponent: ComponentData = {
@@ -494,6 +500,8 @@ const toggleChecklist = (checklistId: string, checked: boolean) => {
 				staticFields: [],
 				checklistIds: [checklistId],
 				questionnaireIds: [],
+				checklistNames: [checklistName],
+				questionnaireNames: [],
 			};
 			addComponentItem(newComponent);
 		}
@@ -507,6 +515,10 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 	if (checked) {
 		// 检查是否已经存在
 		if (!isQuestionnaireSelected(questionnaireId)) {
+						// 获取questionnaire名称
+			const questionnaire = props.questionnaires.find((q) => q.id === questionnaireId);
+			const questionnaireName = questionnaire ? questionnaire.name : '';
+
 			// 创建新的questionnaire组件
 			const newOrder = (props.modelValue.components || []).length + 1;
 			const newComponent: ComponentData = {
@@ -516,6 +528,8 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 				staticFields: [],
 				checklistIds: [],
 				questionnaireIds: [questionnaireId],
+				checklistNames: [],
+				questionnaireNames: [questionnaireName],
 			};
 			addComponentItem(newComponent);
 		}
@@ -578,36 +592,50 @@ const updateItemsDisplay = () => {
 					break;
 				case 'checklist':
 					// 每个checklist组件对应一个独立的checklist项
-					component.checklistIds.forEach((checklistId) => {
-						const checklist = props.checklists.find((c) => c.id === checklistId);
-						if (checklist) {
-							newSelectedItems.push({
-								id: `checklist-${checklistId}`,
-								name: checklist.name,
-								description: checklist.description,
-								type: 'checklist',
-								order: component.order,
-								key: checklistId,
-							});
+					component.checklistIds.forEach((checklistId, index) => {
+						// 优先使用names字段中的名称，没有则查找实际对象
+						let checklistName = component.checklistNames?.[index];
+						let checklistDescription = '';
+						
+						if (!checklistName) {
+							const checklist = props.checklists.find((c) => c.id === checklistId);
+							checklistName = checklist?.name || 'Unknown Checklist';
+							checklistDescription = checklist?.description || '';
 						}
+						
+						newSelectedItems.push({
+							id: `checklist-${checklistId}`,
+							name: checklistName,
+							description: checklistDescription,
+							type: 'checklist',
+							order: component.order,
+							key: checklistId,
+						});
 					});
 					break;
 				case 'questionnaires':
 					// 每个questionnaire组件对应一个独立的questionnaire项
-					component.questionnaireIds.forEach((questionnaireId) => {
-						const questionnaire = props.questionnaires.find(
-							(q) => q.id === questionnaireId
-						);
-						if (questionnaire) {
-							newSelectedItems.push({
-								id: `questionnaire-${questionnaireId}`,
-								name: questionnaire.name,
-								description: questionnaire.description,
-								type: 'questionnaires',
-								order: component.order,
-								key: questionnaireId,
-							});
+					component.questionnaireIds.forEach((questionnaireId, index) => {
+						// 优先使用names字段中的名称，没有则查找实际对象
+						let questionnaireName = component.questionnaireNames?.[index];
+						let questionnaireDescription = '';
+						
+						if (!questionnaireName) {
+							const questionnaire = props.questionnaires.find(
+								(q) => q.id === questionnaireId
+							);
+							questionnaireName = questionnaire?.name || 'Unknown Questionnaire';
+							questionnaireDescription = questionnaire?.description || '';
 						}
+						
+						newSelectedItems.push({
+							id: `questionnaire-${questionnaireId}`,
+							name: questionnaireName,
+							description: questionnaireDescription,
+							type: 'questionnaires',
+							order: component.order,
+							key: questionnaireId,
+						});
 					});
 					break;
 				case 'files':

@@ -190,6 +190,8 @@ export interface ComponentData {
 	staticFields: string[];
 	checklistIds: string[];
 	questionnaireIds: string[];
+	checklistNames?: string[];
+	questionnaireNames?: string[];
 }
 
 export interface StageInfo {

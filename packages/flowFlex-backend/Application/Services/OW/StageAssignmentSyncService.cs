@@ -546,7 +546,9 @@ namespace FlowFlex.Application.Service.OW
                             IsEnabled = true,
                             StaticFields = new List<string>(),
                             ChecklistIds = new List<long> { checklistId },
-                            QuestionnaireIds = new List<long>()
+                            QuestionnaireIds = new List<long>(),
+                            ChecklistNames = new List<string>(),
+                            QuestionnaireNames = new List<string>()
                         };
                         components.Add(newComponent);
                     }
@@ -664,7 +666,9 @@ namespace FlowFlex.Application.Service.OW
                             IsEnabled = true,
                             StaticFields = new List<string>(),
                             ChecklistIds = new List<long>(),
-                            QuestionnaireIds = new List<long> { questionnaireId }
+                            QuestionnaireIds = new List<long> { questionnaireId },
+                            ChecklistNames = new List<string>(),
+                            QuestionnaireNames = new List<string>()
                         };
                         components.Add(newComponent);
                     }

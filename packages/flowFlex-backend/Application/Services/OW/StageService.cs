@@ -659,6 +659,8 @@ namespace FlowFlex.Application.Service.OW
                 component.StaticFields ??= new List<string>();
                 component.ChecklistIds ??= new List<long>();
                 component.QuestionnaireIds ??= new List<long>();
+                component.ChecklistNames ??= new List<string>();
+                component.QuestionnaireNames ??= new List<string>();
             }
 
             // Get old components for comparison
