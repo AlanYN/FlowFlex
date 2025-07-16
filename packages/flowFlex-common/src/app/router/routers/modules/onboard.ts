@@ -51,17 +51,7 @@ const leads: AppRouteModule = {
 				activeMenu: '/onboard/onboardList',
 			},
 		},
-		{
-			path: 'portal-access-management/:leadId',
-			name: 'PortalAccessManagement',
-			component: () => import('@/views/onboard/portal-access-management.vue'),
-			hidden: true,
-			meta: {
-				title: 'Portal Access Management',
-				ordinal: 4,
-				activeMenu: '/onboard/onboardList',
-			},
-		},
+
 		{
 			path: 'onboardWorkflow',
 			name: 'OnboardWorkflow',

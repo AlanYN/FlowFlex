@@ -67,6 +67,10 @@ export interface SearchParams {
 	priority: string;
 	page: number;
 	size: number;
+	// 新增标签字段
+	leadIdTags?: string[];
+	leadNameTags?: string[];
+	updatedByTags?: string[];
 }
 
 export interface OnboardingQueryRequest {
@@ -290,4 +294,35 @@ export interface Stage {
 	selected?: boolean;
 	color?: string;
 	components: ComponentData[];
+}
+
+// 检查清单任务完成记录相关类型定义
+export interface ChecklistTaskCompletionInputDto {
+	onboardingId: string | number;
+	leadId?: string;
+	checklistId: string | number;
+	taskId: string | number;
+	stageId?: string | number; // 新增 stageId 字段
+	isCompleted: boolean;
+	completionNotes?: string;
+	// 支持字符串形式的ID输入，用于处理JavaScript大整数精度丢失问题
+	onboardingIdString?: string;
+	checklistIdString?: string;
+	taskIdString?: string;
+	stageIdString?: string; // 新增 stageIdString 字段
+}
+
+export interface ChecklistTaskCompletionOutputDto {
+	id: string | number;
+	onboardingId: string | number;
+	leadId: string;
+	checklistId: string | number;
+	taskId: string | number;
+	stageId?: string | number; // 新增 stageId 字段
+	isCompleted: boolean;
+	completedTime?: string;
+	completionNotes: string;
+	source: string;
+	createDate: string;
+	createBy: string;
 }

@@ -30,6 +30,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.LeadId, opt => opt.MapFrom(src => src.LeadId))
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
                 .ForMember(dest => dest.TaskId, opt => opt.MapFrom(src => src.TaskId))
+                .ForMember(dest => dest.StageId, opt => opt.MapFrom(src => src.StageId))
                 .ForMember(dest => dest.IsCompleted, opt => opt.MapFrom(src => src.IsCompleted))
                 .ForMember(dest => dest.CompletedTime, opt => opt.MapFrom(src => src.CompletedTime))
                 .ForMember(dest => dest.CompletionNotes, opt => opt.MapFrom(src => src.CompletionNotes))

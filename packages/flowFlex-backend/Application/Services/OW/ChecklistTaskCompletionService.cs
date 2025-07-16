@@ -93,6 +93,12 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             completion.LeadId = onboarding.LeadId;
         }
 
+        // Set StageId from onboarding current stage if not provided in input
+        if (!completion.StageId.HasValue && onboarding.CurrentStageId.HasValue)
+        {
+            completion.StageId = onboarding.CurrentStageId.Value;
+        }
+
         // Set completion time if completed
         if (completion.IsCompleted)
         {
@@ -150,6 +156,12 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 completion.LeadId = onboarding.LeadId;
             }
 
+            // Set StageId from onboarding current stage if not provided in input
+            if (!completion.StageId.HasValue && onboarding.CurrentStageId.HasValue)
+            {
+                completion.StageId = onboarding.CurrentStageId.Value;
+            }
+
             // Set completion time if completed
             if (completion.IsCompleted)
             {
@@ -192,6 +204,15 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     public async Task<List<ChecklistTaskCompletionOutputDto>> GetByOnboardingAndChecklistAsync(long onboardingId, long checklistId)
     {
         var completions = await _completionRepository.GetByOnboardingAndChecklistAsync(onboardingId, checklistId);
+        return _mapper.Map<List<ChecklistTaskCompletionOutputDto>>(completions);
+    }
+
+    /// <summary>
+    /// Get task completions by onboarding and stage
+    /// </summary>
+    public async Task<List<ChecklistTaskCompletionOutputDto>> GetByOnboardingAndStageAsync(long onboardingId, long stageId)
+    {
+        var completions = await _completionRepository.GetByOnboardingAndStageAsync(onboardingId, stageId);
         return _mapper.Map<List<ChecklistTaskCompletionOutputDto>>(completions);
     }
 

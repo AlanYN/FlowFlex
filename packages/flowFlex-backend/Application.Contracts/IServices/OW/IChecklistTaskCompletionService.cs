@@ -36,6 +36,11 @@ public interface IChecklistTaskCompletionService : IScopedService
     Task<List<ChecklistTaskCompletionOutputDto>> GetByOnboardingAndChecklistAsync(long onboardingId, long checklistId);
 
     /// <summary>
+    /// Get task completions by onboarding and stage
+    /// </summary>
+    Task<List<ChecklistTaskCompletionOutputDto>> GetByOnboardingAndStageAsync(long onboardingId, long stageId);
+
+    /// <summary>
     /// Get completion statistics
     /// </summary>
     Task<(int totalTasks, int completedTasks, decimal completionRate)> GetCompletionStatsAsync(long onboardingId, long checklistId);

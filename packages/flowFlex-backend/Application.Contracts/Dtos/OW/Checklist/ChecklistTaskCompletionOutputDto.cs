@@ -33,6 +33,11 @@ public class ChecklistTaskCompletionOutputDto
     public long TaskId { get; set; }
 
     /// <summary>
+    /// Stage ID
+    /// </summary>
+    public long? StageId { get; set; }
+
+    /// <summary>
     /// 是否已完成
     /// </summary>
     public bool IsCompleted { get; set; }

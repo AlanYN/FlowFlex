@@ -11,6 +11,7 @@
 			v-model="currentVal"
 			:placeholder="props.placeholder"
 			@keyup.enter="addTags"
+			@blur="addTagsOnBlur"
 			class="input-tag"
 			ref="inputTagRef"
 			type="text"
@@ -113,6 +114,14 @@ const addTags = () => {
 		let tag = currentVal.value;
 		tagsArr.value.push(tag);
 		currentVal.value = '';
+	}
+};
+
+// 失焦时添加标签
+const addTagsOnBlur = () => {
+	// 只有当输入框有内容时才添加标签
+	if (currentVal.value.trim()) {
+		addTags();
 	}
 };
 // 删除标签方法

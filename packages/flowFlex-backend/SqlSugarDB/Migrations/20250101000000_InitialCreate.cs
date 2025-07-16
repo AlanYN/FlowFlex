@@ -286,6 +286,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     lead_id VARCHAR(100) NOT NULL,
                     checklist_id BIGINT NOT NULL,
                     task_id BIGINT NOT NULL,
+                    stage_id BIGINT NULL,
                     is_completed BOOLEAN DEFAULT FALSE,
                     completed_time TIMESTAMPTZ,
                     completion_notes VARCHAR(500) DEFAULT '',
@@ -304,6 +305,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX idx_checklist_task_completion_onboarding_id ON ff_checklist_task_completion(onboarding_id);
                 CREATE INDEX idx_checklist_task_completion_task_id ON ff_checklist_task_completion(task_id);
                 CREATE INDEX idx_checklist_task_completion_lead_id ON ff_checklist_task_completion(lead_id);
+                CREATE INDEX idx_checklist_task_completion_stage_id ON ff_checklist_task_completion(stage_id);
+                CREATE INDEX idx_checklist_task_completion_onboarding_stage ON ff_checklist_task_completion(onboarding_id, stage_id);
             ";
 
             db.Ado.ExecuteCommand(sql);

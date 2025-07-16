@@ -33,6 +33,11 @@ public class ChecklistTaskCompletionInputDto
     public long TaskId { get; set; }
 
     /// <summary>
+    /// Stage ID
+    /// </summary>
+    public long? StageId { get; set; }
+
+    /// <summary>
     /// 是否已完成
     /// </summary>
     public bool IsCompleted { get; set; } = false;
@@ -64,6 +69,12 @@ public class ChecklistTaskCompletionInputDto
     public string? TaskIdString { get; set; }
 
     /// <summary>
+    /// Stage ID as string (for JavaScript large integer support)
+    /// </summary>
+    [JsonPropertyName("stageIdString")]
+    public string? StageIdString { get; set; }
+
+    /// <summary>
     /// 自动从字符串转换ID值
     /// </summary>
     public void ConvertStringIds()
@@ -81,6 +92,11 @@ public class ChecklistTaskCompletionInputDto
         if (!string.IsNullOrEmpty(TaskIdString) && long.TryParse(TaskIdString, out long taskId))
         {
             TaskId = taskId;
+        }
+
+        if (!string.IsNullOrEmpty(StageIdString) && long.TryParse(StageIdString, out long stageId))
+        {
+            StageId = stageId;
         }
     }
 }

@@ -111,6 +111,9 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Query onboarding list with pagination (POST method)
+        /// Supports comma-separated values for leadId, leadName, and updatedBy fields
+        /// All text search queries are case-insensitive
+        /// Example: {"leadId": "11,22,33", "leadName": "company1,company2", "updatedBy": "user1,user2"}
         /// </summary>
         [HttpPost("query")]
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
@@ -160,6 +163,9 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Search onboarding list with pagination (GET method for UI table)
+        /// Supports comma-separated values for leadId, leadName, and updatedBy parameters
+        /// All text search queries are case-insensitive
+        /// Example: ?leadId=11,22,33&leadName=company1,company2&updatedBy=user1,user2
         /// </summary>
         [HttpGet("search")]
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
@@ -484,6 +490,8 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Export onboarding list to Excel
+        /// Supports comma-separated values for leadId, leadName, and updatedBy fields
+        /// All text search queries are case-insensitive
         /// </summary>
         [HttpPost("export-excel")]
         [ProducesResponseType(typeof(FileResult), 200)]
@@ -496,6 +504,8 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Export onboarding list to Excel (GET method with query parameters)
+        /// Supports comma-separated values for leadId, leadName, and updatedBy parameters
+        /// All text search queries are case-insensitive
         /// </summary>
         [HttpGet("export-excel")]
         [ProducesResponseType(typeof(FileResult), 200)]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
 {
@@ -39,7 +40,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public long? CurrentStageId { get; set; }
 
         /// <summary>
-        /// Filter by lead ID
+        /// Filter by lead ID (supports comma-separated values)
         /// </summary>
         public string? LeadId { get; set; }
 
@@ -49,7 +50,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public List<string>? LeadIds { get; set; }
 
         /// <summary>
-        /// Filter by lead name
+        /// Filter by lead name (supports comma-separated values)
         /// </summary>
         public string? LeadName { get; set; }
 
@@ -124,7 +125,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string? LifeCycleStageName { get; set; }
 
         /// <summary>
-        /// Filter by stage updated by (stage_updated_by)
+        /// Filter by stage updated by (stage_updated_by, supports comma-separated values)
         /// </summary>
         public string? UpdatedBy { get; set; }
 
@@ -147,5 +148,47 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// Return all data without pagination when set to true
         /// </summary>
         public bool AllData { get; set; } = false;
+
+        /// <summary>
+        /// Get Lead IDs as list (splits comma-separated values)
+        /// </summary>
+        public List<string> GetLeadIdsList()
+        {
+            if (string.IsNullOrEmpty(LeadId))
+                return new List<string>();
+
+            return LeadId.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(id => id.Trim())
+                        .Where(id => !string.IsNullOrEmpty(id))
+                        .ToList();
+        }
+
+        /// <summary>
+        /// Get Lead Names as list (splits comma-separated values)
+        /// </summary>
+        public List<string> GetLeadNamesList()
+        {
+            if (string.IsNullOrEmpty(LeadName))
+                return new List<string>();
+
+            return LeadName.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                          .Select(name => name.Trim())
+                          .Where(name => !string.IsNullOrEmpty(name))
+                          .ToList();
+        }
+
+        /// <summary>
+        /// Get Updated By users as list (splits comma-separated values)
+        /// </summary>
+        public List<string> GetUpdatedByList()
+        {
+            if (string.IsNullOrEmpty(UpdatedBy))
+                return new List<string>();
+
+            return UpdatedBy.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                           .Select(user => user.Trim())
+                           .Where(user => !string.IsNullOrEmpty(user))
+                           .ToList();
+        }
     }
 }
