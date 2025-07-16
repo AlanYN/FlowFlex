@@ -117,6 +117,22 @@
 										{{ element.estimatedDuration }}
 										{{ element.estimatedDuration > 1 ? 'days' : 'day' }}
 									</div>
+									<div
+										v-if="getStageComponents(element).length > 0"
+										class="stage-tag stage-group-tag"
+										:title="`${getStageComponents(element).length} ${
+											getStageComponents(element).length > 1
+												? 'components'
+												: 'component'
+										}`"
+									>
+										{{ getStageComponents(element).length }}
+										{{
+											getStageComponents(element).length > 1
+												? 'components'
+												: 'component'
+										}}
+									</div>
 									<el-dropdown
 										trigger="click"
 										:disabled="isLoading || isSorting"
@@ -176,13 +192,30 @@
 								v-show="expandedStages === element.id && !isLoading && !isSorting"
 								class="stage-details"
 							>
+								<!-- Required Fields -->
+								<div
+									class="stage-components-section"
+									v-if="getSelectedStaticFields(element).length > 0"
+								>
+									<div class="text-sm font-medium mb-3">Required Fields</div>
+									<div class="required-fields-tags">
+										<span
+											v-for="fieldName in getSelectedStaticFields(element)"
+											:key="fieldName"
+											class="field-tag"
+										>
+											{{ fieldName }}
+										</span>
+									</div>
+								</div>
+
 								<!-- Stage Components Section -->
-								<div class="stage-components-section">
+								<div
+									class="stage-components-section"
+									v-if="getStageComponents(element).length > 0"
+								>
 									<div class="text-sm font-medium mb-3">Stage Components</div>
-									<div
-										v-if="getStageComponents(element).length > 0"
-										class="components-list"
-									>
+									<div class="components-list">
 										<div
 											v-for="(component, index) in getStageComponents(
 												element
@@ -197,11 +230,6 @@
 											<span class="component-name">{{ component.name }}</span>
 											<span class="component-type">{{ component.type }}</span>
 										</div>
-									</div>
-									<div v-else class="no-components">
-										<span class="text-xs text-muted-foreground">
-											No components configured
-										</span>
 									</div>
 								</div>
 
@@ -301,6 +329,9 @@ import {
 } from '@element-plus/icons-vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { Stage } from '#/onboard';
+// 导入静态字段配置
+import staticFieldConfig from '../static-field.json';
+import { defaultStr } from '@/settings/projectSetting';
 
 // Props
 const props = defineProps({
@@ -485,23 +516,27 @@ const getStageComponents = (stage: Stage) => {
 					break;
 				case 'checklist':
 					// 每个checklist可能有多个ID，但在这里显示为一个组件
-					component.checklistIds.forEach((checklistId, index) => {
-						componentList.push({
-							id: `${stage.id}-checklist-${checklistId}`,
-							name: `Initial Setup Checklist`,
-							type: 'checklist',
+					if (component.checklistIds && component.checklistIds.length > 0) {
+						component.checklistIds.forEach((checklistId, index) => {
+							componentList.push({
+								id: `${stage.id}-checklist-${checklistId}`,
+								name: component.name || defaultStr,
+								type: 'checklist',
+							});
 						});
-					});
+					}
 					break;
 				case 'questionnaires':
 					// 每个questionnaire可能有多个ID，但在这里显示为一个组件
-					component.questionnaireIds.forEach((questionnaireId, index) => {
-						componentList.push({
-							id: `${stage.id}-questionnaire-${questionnaireId}`,
-							name: `Business Questionnaire`,
-							type: 'questionnaires',
+					if (component.questionnaireIds && component.questionnaireIds.length > 0) {
+						component.questionnaireIds.forEach((questionnaireId, index) => {
+							componentList.push({
+								id: `${stage.id}-questionnaire-${questionnaireId}`,
+								name: `Questionnaire ${index + 1}`,
+								type: 'questionnaires',
+							});
 						});
-					});
+					}
 					break;
 				case 'files':
 					componentList.push({
@@ -546,6 +581,33 @@ const getComponentIcon = (type: string) => {
 		default:
 			return Document;
 	}
+};
+
+// 创建从vIfKey到label的映射
+const fieldLabelMap = computed(() => {
+	const map: Record<string, string> = {};
+	staticFieldConfig.formFields.forEach((field) => {
+		map[field.vIfKey] = field.label;
+	});
+	return map;
+});
+
+// 静态字段标签映射
+const getFieldLabel = (apiFieldName: string) => {
+	return fieldLabelMap.value[apiFieldName] || apiFieldName;
+};
+
+// 获取选择的静态字段
+const getSelectedStaticFields = (stage: Stage) => {
+	const fieldsComponent = stage.components?.find(
+		(component) => component.key === 'fields' && component.isEnabled
+	);
+
+	if (!fieldsComponent || !fieldsComponent.staticFields) {
+		return [];
+	}
+
+	return fieldsComponent.staticFields.map((field) => getFieldLabel(field));
 };
 </script>
 
@@ -813,13 +875,30 @@ const getComponentIcon = (type: string) => {
 	margin-bottom: 16px;
 }
 
+.required-fields-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+}
+
 .field-tag {
 	display: inline-flex;
 	align-items: center;
-	border-radius: 9999px;
-	padding: 2px 8px;
-	font-size: 0.75rem;
+	border-radius: 12px;
+	padding: 4px 10px;
+	font-size: 11px;
 	font-weight: 600;
+	background-color: #e0f2fe;
+	color: #0369a1;
+	border: 1px solid #bae6fd;
+	white-space: nowrap;
+	transition: all 0.2s ease;
+}
+
+.field-tag:hover {
+	background-color: #bae6fd;
+	border-color: #7dd3fc;
 }
 
 :deep(.el-checkbox__inner) {
@@ -1181,6 +1260,17 @@ const getComponentIcon = (type: string) => {
 		font-size: 9px;
 		padding: 1px 4px;
 		max-width: 80px;
+	}
+
+	.field-tag {
+		background-color: rgba(14, 165, 233, 0.1);
+		color: #60a5fa;
+		border-color: rgba(14, 165, 233, 0.3);
+	}
+
+	.field-tag:hover {
+		background-color: rgba(14, 165, 233, 0.2);
+		border-color: rgba(14, 165, 233, 0.5);
 	}
 }
 </style>
