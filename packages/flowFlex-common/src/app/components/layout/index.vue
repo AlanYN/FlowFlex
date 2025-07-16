@@ -9,12 +9,14 @@
 		>
 			<navbar v-if="!hideMenu" />
 			<!-- 页面切换容器 -->
-			<div class="w-full h-full relative overflow-auto p-4">
-				<router-view v-slot="{ Component }">
-					<keep-alive :max="10" :include="cachedViews">
-						<component :is="Component" />
-					</keep-alive>
-				</router-view>
+			<div class="w-full h-full relative">
+				<el-scrollbar class="h-full p-4">
+					<router-view v-slot="{ Component }">
+						<keep-alive :max="10" :include="cachedViews">
+							<component :is="Component" />
+						</keep-alive>
+					</router-view>
+				</el-scrollbar>
 			</div>
 		</div>
 	</div>

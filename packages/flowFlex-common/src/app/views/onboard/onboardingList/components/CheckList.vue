@@ -1,6 +1,6 @@
 <template>
 	<div class="customer-block" v-if="checklistData && checklistData.length > 0">
-		<h2 class="text-lg font-semibold">Checklist</h2>
+		<h2 class="text-lg font-semibold">Checklist - {{ checklistData[0].name }}</h2>
 		<el-divider />
 		<!-- 统一的进度头部卡片 -->
 		<div class="checklist-header-card rounded-md">
@@ -28,7 +28,7 @@
 		</div>
 
 		<!-- 所有检查项列表 -->
-		<div class="checklist-items">
+		<div class="checklist-items" v-loading="loading">
 			<!-- 遍历所有checklist中的任务 -->
 			<template v-for="checklist in checklistData || []" :key="checklist.id">
 				<!-- 可选：显示每个checklist的分组标题 -->
@@ -93,61 +93,12 @@
 import { defaultStr } from '@/settings/projectSetting';
 import { Check } from '@element-plus/icons-vue';
 import { computed } from 'vue';
-
-// 任务数据结构
-interface TaskData {
-	id: string;
-	checklistId: string;
-	name: string;
-	description: string;
-	taskType: string;
-	isCompleted: boolean;
-	isRequired: boolean;
-	assigneeId: string | null;
-	assigneeName: string | null;
-	assignedTeam: string | null;
-	priority: string;
-	order: number;
-	estimatedHours: number;
-	actualHours: number;
-	dueDate: string | null;
-	completedDate: string | null;
-	completionNotes: string | null;
-	dependsOnTaskId: string | null;
-	attachmentsJson: string | null;
-	status: string;
-	isActive: boolean;
-	createDate: string;
-	createBy: string;
-}
-
-// API返回的Checklist数据结构
-interface ChecklistData {
-	id: string;
-	name: string;
-	description: string;
-	team: string;
-	type: string;
-	status: string;
-	isTemplate: boolean;
-	templateId: string | null;
-	completionRate: number;
-	totalTasks: number;
-	completedTasks: number;
-	estimatedHours: number;
-	isActive: boolean;
-	createDate: string;
-	createBy: string;
-	workflowId: string;
-	stageId: string;
-	workflowName: string | null;
-	stageName: string | null;
-	tasks: TaskData[];
-}
+import { ChecklistData, TaskData } from '#/onboard';
 
 // Props
 interface Props {
 	checklistData?: ChecklistData[] | null;
+	loading?: boolean;
 }
 
 const props = defineProps<Props>();

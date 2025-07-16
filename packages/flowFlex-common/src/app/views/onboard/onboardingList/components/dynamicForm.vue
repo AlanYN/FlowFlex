@@ -403,8 +403,6 @@ const hasQuestionnaireData = computed(() => {
 const formattedQuestionnaires = computed(() => {
 	if (!hasQuestionnaireData.value) return [];
 
-	console.log('Processing questionnaire data:', props.questionnaireData);
-
 	const questionnaire = props.questionnaireData;
 
 	try {
@@ -414,21 +412,12 @@ const formattedQuestionnaires = computed(() => {
 			try {
 				structure = JSON.parse(questionnaire.structureJson);
 			} catch (parseError) {
-				console.error(
-					`Failed to parse structureJson for questionnaire ${questionnaire.id}:`,
-					parseError
-				);
 				structure = {};
 			}
-		} else {
-			console.warn(`No structureJson found for questionnaire ${questionnaire.id}`);
 		}
 
 		// 确保有 sections 数组
 		if (!structure.sections || !Array.isArray(structure.sections)) {
-			console.warn(
-				`No valid sections found for questionnaire ${questionnaire.id}, creating empty sections`
-			);
 			structure.sections = [];
 		}
 
@@ -449,10 +438,8 @@ const formattedQuestionnaires = computed(() => {
 			})),
 		};
 
-		console.log('Successfully processed questionnaire:', processedQuestionnaire);
 		return [processedQuestionnaire]; // 返回数组以保持模板兼容性
 	} catch (error) {
-		console.error(`Failed to process questionnaire ${questionnaire.id}:`, error);
 		// 即使处理失败，也返回一个基本的结构
 		return [
 			{
@@ -486,7 +473,6 @@ watch(
 			// 只有当activeCollapses为空时才设置默认值，避免重复设置
 			if (activeCollapses.value.length === 0 && allSectionIds.length > 0) {
 				activeCollapses.value = allSectionIds;
-				console.log('Setting default expanded sections:', allSectionIds);
 			}
 		}
 	},
@@ -509,9 +495,17 @@ const validateForm = () => {
 	let isValid = true;
 	const errors: string[] = [];
 
-	formattedQuestionnaires.value.forEach((questionnaire) => {
-		questionnaire.sections.forEach((section: any) => {
-			section.questions.forEach((question: any) => {
+	if (!formattedQuestionnaires.value || formattedQuestionnaires.value.length === 0) {
+		return { isValid: true, errors: [] };
+	}
+
+	formattedQuestionnaires.value.forEach((questionnaire, qIndex) => {
+		questionnaire.sections.forEach((section: any, sIndex: number) => {
+			if (!section.questions || section.questions.length === 0) {
+				return;
+			}
+
+			section.questions.forEach((question: any, qIdx: number) => {
 				if (question.required) {
 					const questionText =
 						question.title || question.question || `Question ${question.id}`;
@@ -521,17 +515,16 @@ const validateForm = () => {
 						if (question.rows && question.rows.length > 0) {
 							let allRowsCompleted = true;
 							question.rows.forEach((row: any, rowIndex: number) => {
-								const gridValue =
-									formData.value[`${question.id}_${row.id || rowIndex}`];
+								const gridKey = `${question.id}_${row.id || rowIndex}`;
+								const gridValue = formData.value[gridKey];
 								if (!Array.isArray(gridValue) || gridValue.length === 0) {
 									allRowsCompleted = false;
 								}
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								errors.push(
-									`${questionText} - Please complete all rows in the grid`
-								);
+								const errorMsg = `${questionText} - Please complete all rows in the grid`;
+								errors.push(errorMsg);
 							}
 						}
 					} else if (question.type === 'checkbox_grid') {
@@ -539,25 +532,34 @@ const validateForm = () => {
 						if (question.rows && question.rows.length > 0) {
 							let allRowsCompleted = true;
 							question.rows.forEach((row: any, rowIndex: number) => {
-								const gridValue =
-									formData.value[`${question.id}_${row.id || rowIndex}`];
+								const gridKey = `${question.id}_${row.id || rowIndex}`;
+								const gridValue = formData.value[gridKey];
 								if (!gridValue || gridValue === '') {
 									allRowsCompleted = false;
 								}
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								errors.push(
-									`${questionText} - Please complete all rows in the grid`
-								);
+								const errorMsg = `${questionText} - Please complete all rows in the grid`;
+								errors.push(errorMsg);
 							}
 						}
 					} else {
 						// 其他类型的验证
 						const value = formData.value[question.id];
-						if (!value || (Array.isArray(value) && value.length === 0)) {
+
+						// 更严格的空值检查
+						const isEmpty =
+							value === null ||
+							value === undefined ||
+							value === '' ||
+							(typeof value === 'string' && value.trim() === '') ||
+							(Array.isArray(value) && value.length === 0);
+
+						if (isEmpty) {
 							isValid = false;
-							errors.push(`${questionText} is required`);
+							const errorMsg = `${questionText} is required`;
+							errors.push(errorMsg);
 						}
 					}
 				}
@@ -721,18 +723,14 @@ const loadSavedAnswers = async () => {
 		if (response.code === '200' && response.data) {
 			// 将保存的答案填充到表单中
 			const anserForm = JSON.parse(response.data[0].answerJson);
-			console.log('anserForm:', anserForm);
 			anserForm?.responses?.forEach((questionnaireAnswer: any) => {
-				console.log('questionnaireAnswer:', questionnaireAnswer);
 				if (questionnaireAnswer.questionId) {
 					formData.value[questionnaireAnswer.questionId] =
 						questionnaireAnswer.responseText;
 				}
 			});
-			console.log('formData.value2:', formData.value);
 		}
 	} catch (error) {
-		console.error('Failed to load saved answers:', error);
 		// 不显示错误消息，因为可能是第一次加载没有答案数据
 	} finally {
 		loading.value = false;

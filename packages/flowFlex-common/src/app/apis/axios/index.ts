@@ -141,8 +141,8 @@ const transform: AxiosTransform = {
 		}
 		(config as Recordable).headers['Time-Zone'] = `${getTimeZoneInfo().timeZone}`;
 		(config as Recordable).headers['Application-code'] = `${globSetting.ssoCode}`;
-		(config as Recordable).headers['X-App-Code'] = 'WEB';
-		(config as Recordable).headers['X-Tenant-Id'] = 'COMPANY1';
+		(config as Recordable).headers['X-App-Code'] = 'DEFAULT';
+		(config as Recordable).headers['X-Tenant-Id'] = 'DEFAULT';
 		// TODO: 在拦截器配置paramsSerializer
 		// const METHOD = config.method?.toUpperCase();
 		// if (METHOD === RequestEnum.GET || METHOD === RequestEnum.PUT) {

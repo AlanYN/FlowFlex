@@ -399,6 +399,8 @@ const props = defineProps<{
 	stageId: string;
 }>();
 
+const emit = defineEmits(['save-success']);
+
 // 表单引用
 const formRef = ref<FormInstance>();
 
@@ -743,7 +745,8 @@ const handleSave = async () => {
 		// 验证静态表单
 		const staticFormValid = await validateForm();
 		if (!staticFormValid || !props?.onboardingId) {
-			return;
+			ElMessage.error('Please complete all required fields');
+			return false;
 		}
 
 		const staticFormData = getFormData();
@@ -753,12 +756,13 @@ const handleSave = async () => {
 			stageId: props.stageId,
 		});
 		if (res.code == '200') {
+			emit('save-success');
 			return true;
 		} else {
 			ElMessage.error(res.msg || 'Failed to save stage data');
 			return false;
 		}
-	} catch {
+	} catch (error) {
 		return false;
 	} finally {
 		saving.value = false;

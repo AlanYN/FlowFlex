@@ -252,7 +252,7 @@ const handleAddUser = async () => {
 		});
 
 		// 从响应中提取实际的邀请数据
-		const invitationData = response.data || response;
+		const invitationData = response?.data || response;
 		console.log('Send invitations response:', response);
 		console.log('Send invitations data:', invitationData);
 
@@ -341,10 +341,6 @@ const resendInvitation = async (email: string) => {
 		ElMessage.error('Failed to resend invitation');
 		console.error('Error resending invitation:', error);
 	}
-};
-
-const handleComplete = () => {
-	ElMessage.success('Portal access management stage completed');
 };
 
 // Load data when component is ready

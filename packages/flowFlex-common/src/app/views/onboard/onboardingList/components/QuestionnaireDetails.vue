@@ -103,14 +103,18 @@ const handleStageUpdated = () => {
 	emit('stageUpdated');
 };
 
-const handleSave = async () => {
+const handleSave = async (isTip: boolean = true) => {
 	try {
 		saving.value = true;
-		// 验证静态表单
+		// 验证动态表单
 		const dynamicFormValid = await dynamicFormRef.value?.validateForm();
 		if (!dynamicFormValid?.isValid || !props?.onboardingId) {
-			!dynamicFormValid?.isValid && ElMessage.error(dynamicFormValid?.errors?.join('\n'));
-			return;
+			if (!dynamicFormValid?.isValid) {
+				ElMessage.error(
+					`Please complete all required fields:\n${dynamicFormValid?.errors?.join('\n')}`
+				);
+			}
+			return false;
 		}
 
 		const dynamicForm = await dynamicFormRef.value?.transformFormDataForAPI();
@@ -124,13 +128,14 @@ const handleSave = async () => {
 		]);
 
 		if (res[0]?.code == '200') {
-			ElMessage.success('Save success');
+			isTip && ElMessage.success('Questionnaire saved successfully');
 			return true;
 		} else {
-			ElMessage.error(res[0]?.msg || 'Failed to save stage data');
+			ElMessage.error(res[0]?.msg || 'Failed to save questionnaire data');
 			return false;
 		}
-	} catch {
+	} catch (error) {
+		ElMessage.error('Failed to save questionnaire');
 		return false;
 	} finally {
 		saving.value = false;

@@ -326,3 +326,54 @@ export interface ChecklistTaskCompletionOutputDto {
 	createDate: string;
 	createBy: string;
 }
+
+// 任务数据结构
+export interface TaskData {
+	id: string;
+	checklistId: string;
+	name: string;
+	description: string;
+	taskType: string;
+	isCompleted: boolean;
+	isRequired: boolean;
+	assigneeId: string | null;
+	assigneeName: string | null;
+	assignedTeam: string | null;
+	priority: string;
+	order: number;
+	estimatedHours: number;
+	actualHours: number;
+	dueDate: string | null;
+	completedDate: string | null;
+	completionNotes: string | null;
+	dependsOnTaskId: string | null;
+	attachmentsJson: string | null;
+	status: string;
+	isActive: boolean;
+	createDate: string;
+	createBy: string;
+}
+
+// API返回的Checklist数据结构
+export interface ChecklistData {
+	id: string;
+	name: string;
+	description: string;
+	team: string;
+	type: string;
+	status: string;
+	isTemplate: boolean;
+	templateId: string | null;
+	completionRate: number;
+	totalTasks: number;
+	completedTasks: number;
+	estimatedHours: number;
+	isActive: boolean;
+	createDate: string;
+	createBy: string;
+	workflowId: string;
+	stageId: string;
+	workflowName: string | null;
+	stageName: string | null;
+	tasks: TaskData[];
+}

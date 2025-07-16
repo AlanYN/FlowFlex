@@ -52,8 +52,8 @@
 						<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 					</div>
 				</div>
-				<el-scrollbar ref="leftScrollbarRef" class="h-full">
-					<div class="space-y-6 pr-4 mt-4">
+				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
+					<div class="space-y-6 mt-4">
 						<!-- Stage Details 加载状态 -->
 						<div
 							v-if="stageDataLoading"
@@ -78,23 +78,37 @@
 							>
 								<!-- 静态字段表单 -->
 								<StaticForm
-									v-if="component.key === 'fields'"
+									v-if="
+										component.key === 'fields' &&
+										component?.staticFields &&
+										component.staticFields?.length > 0
+									"
 									:ref="setStaticFormRef"
 									:static-fields="component.staticFields"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
+									@save-success="refreshChangeLog"
 								/>
 
 								<!-- 检查清单组件 -->
 								<CheckList
-									v-else-if="component.key === 'checklist'"
+									v-else-if="
+										component.key === 'checklist' &&
+										component?.checklistIds &&
+										component.checklistIds?.length > 0
+									"
+									:loading="checkLoading"
 									:checklist-data="getChecklistDataForComponent(component)"
 									@task-toggled="handleTaskToggled"
 								/>
 
 								<!-- 问卷组件 -->
 								<QuestionnaireDetails
-									v-else-if="component.key === 'questionnaires'"
+									v-else-if="
+										component.key === 'questionnaires' &&
+										component?.questionnaireIds &&
+										component.questionnaireIds?.length > 0
+									"
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
@@ -103,7 +117,7 @@
 									"
 									:onboardingId="onboardingId"
 									@stage-updated="handleStageUpdated"
-									ref="stageDetailsRef"
+									:ref="setQuestionnaireDetailsRef"
 								/>
 
 								<!-- 文件组件 -->
@@ -124,8 +138,8 @@
 
 			<!-- 右侧进度和笔记 (1/3 宽度) -->
 			<div class="flex-1">
-				<el-scrollbar ref="rightScrollbarRef" class="h-full">
-					<div class="space-y-6 pr-4">
+				<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
+					<div class="space-y-6">
 						<!-- OnboardingProgress组件 -->
 						<div class="rounded-md overflow-hidden">
 							<OnboardingProgress
@@ -156,18 +170,9 @@
 		<!-- 变更日志 -->
 		<!-- ChangeLog 加载状态 -->
 		<div class="mt-4">
-			<div
-				v-if="stageDataLoading"
-				class="flex flex-col items-center justify-center space-y-4 py-8 bg-white dark:bg-black-300 rounded-md mt-6"
-			>
-				<el-icon class="is-loading text-4xl text-primary-500">
-					<Loading />
-				</el-icon>
-				<p class="text-gray-500 dark:text-gray-400">Loading change log...</p>
-			</div>
-
 			<ChangeLog
-				v-if="onboardingId && !stageDataLoading"
+				v-if="onboardingId"
+				ref="changeLogRef"
 				:onboarding-id="onboardingId"
 				:stage-id="activeStage"
 			/>
@@ -235,13 +240,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, ChatDotSquare, Loading, User } from '@element-plus/icons-vue';
 import {
-	getStageCompletionLogsByStage,
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
 	saveCheckListTask,
 	getCheckListIds,
 	getCheckListIsCompleted,
 	getQuestionIds,
+	completeCurrentStage,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -260,28 +265,6 @@ import PortalAccessContent from './components/PortalAccessContent.vue';
 
 const { t } = useI18n();
 
-// 变更类型定义 - 匹配ChangeLog组件期望的数据结构
-type Change = {
-	id: string;
-	tenantId?: string;
-	onboardingId?: string;
-	stageId?: string;
-	action: string;
-	logType: string;
-	data?: any;
-	success: boolean;
-	errorMessage?: string;
-	networkStatus?: string;
-	responseTime?: number | null;
-	endpoint?: string;
-	userAgent?: string;
-	method?: string | null;
-	ipAddress?: string;
-	clientInfo?: string | null;
-	createDate: string;
-	createBy: string;
-};
-
 // 常量定义
 const router = useRouter();
 const route = useRoute();
@@ -290,7 +273,6 @@ const route = useRoute();
 const onboardingData = ref<OnboardingItem | null>(null);
 const activeStage = ref<string>(''); // 初始为空，等待从服务器获取当前阶段
 const workflowStages = ref<any[]>([]);
-const changeLogData = ref<Change[]>([]);
 const editDialogVisible = ref(false);
 const messageDialogVisible = ref(false);
 const portalAccessDialogVisible = ref(false);
@@ -326,7 +308,7 @@ const onboardingId = computed(() => {
 });
 
 // 添加组件引用
-const stageDetailsRef = ref();
+const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
 const onboardingActiveStageInfo = ref<StageInfo | null>(null);
 
@@ -337,9 +319,21 @@ const setStaticFormRef = (el: any) => {
 	}
 };
 
+// 函数式ref，用于收集QuestionnaireDetails组件实例
+const setQuestionnaireDetailsRef = (el: any) => {
+	if (el) {
+		questionnaireDetailsRefs.value.push(el);
+	}
+};
+
 // 清理StaticForm refs
 const clearStaticFormRefs = () => {
 	staticFormRefs.value = [];
+};
+
+// 清理QuestionnaireDetails refs
+const clearQuestionnaireDetailsRefs = () => {
+	questionnaireDetailsRefs.value = [];
 };
 
 // 辅助函数：根据组件的checklistIds获取对应的checklist数据
@@ -386,19 +380,25 @@ const sortedComponents = computed(() => {
 });
 
 // 处理onboarding数据的共同逻辑
-const processOnboardingData = async (responseData: any) => {
+const processOnboardingData = (responseData: any) => {
 	onboardingData.value = responseData;
 
 	workflowStages.value = responseData.stagesProgress;
 	console.log('workflowStages:', workflowStages.value);
-	// 设置当前活动阶段
+
+	// 根据 workflowStages 返回第一个未完成的 stageId
+	// 首先按 order 排序，然后找到第一个未完成的阶段
+	const sortedStages = [...workflowStages.value].sort((a, b) => (a.order || 0) - (b.order || 0));
+	const firstIncompleteStage = sortedStages.find((stage) => !stage.isCompleted);
+
+	// 如果所有阶段都完成了，返回最后一个阶段
 	const newStageId =
-		responseData?.currentStageId ||
-		(responseData?.currentStageName &&
-			workflowStages.value.find((stage) => stage.name === responseData.currentStageName)?.id);
+		firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
+
 	onboardingActiveStageInfo.value = workflowStages.value.find(
 		(stage) => stage.stageId === newStageId
 	);
+
 	return newStageId;
 };
 
@@ -419,7 +419,7 @@ const loadOnboardingDetail = async () => {
 		// 通过 leadId 获取 onboarding 详情，包含stage进度信息
 		const response = await getOnboardingByLead(onboardingId.value);
 		if (response.code === '200') {
-			const newStageId = await processOnboardingData(response.data);
+			const newStageId = processOnboardingData(response.data);
 
 			// 设置activeStage
 			if (newStageId) {
@@ -430,27 +430,7 @@ const loadOnboardingDetail = async () => {
 		}
 	} finally {
 		initialLoading.value = false;
-	}
-};
-
-const loadChangeLog = async (stageId?: string) => {
-	if (!onboardingId.value) {
-		console.error('Cannot load change log: Invalid onboarding ID');
-		return;
-	}
-
-	try {
-		// 如果提供了 stageId，使用 stageId 加载；否则加载整个 onboarding 的日志
-		const response = await getStageCompletionLogsByStage(activeStage.value, {
-			onboardingId: onboardingId.value,
-		});
-
-		if (response.code === '200') {
-			changeLogData.value = response.data || [];
-		}
-	} catch (error) {
-		console.error('Failed to load change log:', error);
-		ElMessage.error('Failed to load change log');
+		refreshChangeLog();
 	}
 };
 
@@ -565,18 +545,15 @@ const loadStageRelatedData = async (stageId: string) => {
 		// 设置加载状态
 		stageDataLoading.value = true;
 
-		// 清理之前的StaticForm refs
+		// 清理之前的组件refs
 		clearStaticFormRefs();
+		clearQuestionnaireDetailsRefs();
 
 		// 并行加载依赖stageId的数据
 		await Promise.all([
-			loadChangeLog(stageId),
 			loadCheckListData(onboardingId.value, stageId),
 			loadQuestionnaireDataBatch(onboardingId.value, stageId),
 		]);
-	} catch (error) {
-		console.error('Failed to load stage related data:', error);
-		ElMessage.error('Failed to load stage data');
 	} finally {
 		stageDataLoading.value = false;
 	}
@@ -622,12 +599,12 @@ const loadStaticFieldValues = async () => {
 		if (response.code === '200' && response.data && Array.isArray(response.data)) {
 			// 接口返回的是数组格式的静态字段数据
 			// 直接传递给StageDetails组件处理
-			if (stageDetailsRef.value) {
-				stageDetailsRef.value.setFormFieldValues?.();
-				staticFormRefs.value.forEach((formRef) => {
-					formRef.setFieldValues(response.data);
-				});
-			}
+			questionnaireDetailsRefs.value.forEach((questRef) => {
+				questRef.setFormFieldValues?.();
+			});
+			staticFormRefs.value.forEach((formRef) => {
+				formRef.setFieldValues(response.data);
+			});
 		}
 	} catch (error) {
 		console.error('Failed to load static field values:', error);
@@ -654,19 +631,24 @@ const setActiveStage = async (stageId: string) => {
 
 const handleNoteAdded = () => {
 	// 笔记添加后的处理
+	refreshChangeLog();
 };
 
 const handleDocumentUploaded = (document: any) => {
 	// 文档上传后的处理
+	refreshChangeLog();
 };
 
 const handleDocumentDeleted = (documentId: string) => {
 	// 文档删除后的处理
+	refreshChangeLog();
 };
 
+const checkLoading = ref(false);
 const handleTaskToggled = async (task: any) => {
 	// 处理任务状态切换
 	try {
+		checkLoading.value = true;
 		const res = await saveCheckListTask({
 			checklistId: task.checklistId,
 			isCompleted: task.isCompleted,
@@ -697,12 +679,12 @@ const handleTaskToggled = async (task: any) => {
 					}
 				}
 			});
+			refreshChangeLog();
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
-	} catch (error) {
-		console.error('Failed to toggle task:', error);
-		ElMessage.error(t('sys.api.operationFailed'));
+	} finally {
+		checkLoading.value = false;
 	}
 };
 
@@ -725,8 +707,37 @@ const handleSaveEdit = async () => {
 };
 
 const saveAllForm = async () => {
-	const res = await Promise.all(staticFormRefs.value.map((formRef) => formRef.handleSave()));
-	return res;
+	try {
+		// 串行执行保存操作 - 先保存StaticForm组件
+		if (staticFormRefs.value.length > 0) {
+			for (let i = 0; i < staticFormRefs.value.length; i++) {
+				const formRef = staticFormRefs.value[i];
+				if (formRef && typeof formRef.handleSave === 'function') {
+					const result = await formRef.handleSave();
+					if (result !== true) {
+						return false;
+					}
+				}
+			}
+		}
+
+		// 串行执行保存操作 - 再保存QuestionnaireDetails组件
+		if (questionnaireDetailsRefs.value.length > 0) {
+			for (let i = 0; i < questionnaireDetailsRefs.value.length; i++) {
+				const questRef = questionnaireDetailsRefs.value[i];
+				if (questRef && typeof questRef.handleSave === 'function') {
+					const result = await questRef.handleSave(false);
+					if (result !== true) {
+						return false;
+					}
+				}
+			}
+		}
+
+		return true;
+	} catch (error) {
+		return false;
+	}
 };
 
 const completing = ref(false);
@@ -752,7 +763,16 @@ const handleCompleteStage = async () => {
 						if (!res) {
 							instance.confirmButtonLoading = false;
 							instance.confirmButtonText = 'Complete Stage';
-							return;
+						} else {
+							const res = await completeCurrentStage(onboardingId.value, {
+								currentStageId: activeStage.value,
+							});
+							if (res.code === '200') {
+								ElMessage.success(t('sys.api.operationSuccess'));
+								loadOnboardingDetail();
+							} else {
+								ElMessage.error(res.msg || t('sys.api.operationFailed'));
+							}
 						}
 						done();
 					} finally {
@@ -764,6 +784,12 @@ const handleCompleteStage = async () => {
 			},
 		}
 	);
+};
+
+const changeLogRef = ref<InstanceType<typeof ChangeLog>>();
+const refreshChangeLog = () => {
+	if (!changeLogRef.value) return;
+	changeLogRef.value.loadChangeLogs();
 };
 
 // 生命周期

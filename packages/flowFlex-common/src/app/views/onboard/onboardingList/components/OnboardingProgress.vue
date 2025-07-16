@@ -41,74 +41,78 @@
 				</div>
 
 				<!-- 阶段列表 -->
-				<div class="space-y-1 max-h-96 overflow-y-auto pr-2">
-					<div
-						v-for="(stage, index) in displayedStages"
-						:key="stage.stageId"
-						class="relative pl-8 py-3 pr-4 border-l-2 ml-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-r-lg"
-						:class="[
-							stage.completed
-								? 'border-green-500'
-								: 'border-gray-300 dark:border-gray-600',
-							activeStage === stage.stageId ? 'bg-blue-50 dark:bg-blue-900/20' : '',
-							index === displayedStages.length - 1 ? '!border-l-0' : '',
-						]"
-						@click="handleStageClick(stage.stageId)"
-					>
-						<!-- 阶段状态图标 -->
+				<el-scrollbar class="pr-4" max-height="384px">
+					<div class="space-y-1">
 						<div
-							class="absolute left-0 top-3 w-6 h-6 rounded-full flex items-center justify-center"
+							v-for="(stage, index) in displayedStages"
+							:key="stage.stageId"
+							class="relative pl-8 py-3 pr-4 border-l-2 ml-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-r-lg"
 							:class="[
 								stage.completed
-									? 'bg-green-500 text-white'
-									: activeStage === stage.stageId
-									? 'bg-blue-500 text-white'
-									: 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300',
+									? 'border-green-500'
+									: 'border-gray-300 dark:border-gray-600',
+								activeStage === stage.stageId
+									? 'bg-blue-50 dark:bg-blue-900/20'
+									: '',
+								index === displayedStages.length - 1 ? '!border-l-0' : '',
 							]"
+							@click="handleStageClick(stage.stageId)"
 						>
-							<el-icon v-if="stage.completed" class="text-xs">
-								<Check />
-							</el-icon>
-							<el-icon v-else-if="activeStage === stage.stageId" class="text-xs">
-								<Clock />
-							</el-icon>
-							<span v-else class="text-xs font-bold">
-								{{ getOriginalStageIndex(stage) + 1 }}
-							</span>
-						</div>
+							<!-- 阶段状态图标 -->
+							<div
+								class="absolute left-0 top-3 w-6 h-6 rounded-full flex items-center justify-center"
+								:class="[
+									stage.completed
+										? 'bg-green-500 text-white'
+										: activeStage === stage.stageId
+										? 'bg-blue-500 text-white'
+										: 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300',
+								]"
+							>
+								<el-icon v-if="stage.completed" class="text-xs">
+									<Check />
+								</el-icon>
+								<el-icon v-else-if="activeStage === stage.stageId" class="text-xs">
+									<Clock />
+								</el-icon>
+								<text v-else class="text-xs font-bold leading-6">
+									{{ getOriginalStageIndex(stage) + 1 }}
+								</text>
+							</div>
 
-						<!-- 阶段内容 -->
-						<div class="space-y-1">
-							<div class="font-medium flex items-start">
-								<span
-									class="mr-2 text-sm font-bold text-gray-500 dark:text-gray-400"
-								>
-									{{ getOriginalStageIndex(stage) + 1 }}.
-								</span>
-								<div class="flex-1">
-									<div
-										class="text-gray-900 dark:text-white-100 text-sm stage-title-text"
-										:title="stage.title"
+							<!-- 阶段内容 -->
+							<div class="space-y-1">
+								<div class="font-medium flex items-start">
+									<span
+										class="mr-2 text-sm font-bold text-gray-500 dark:text-gray-400"
 									>
-										{{ stage.title }}
+										{{ getOriginalStageIndex(stage) + 1 }}.
+									</span>
+									<div class="flex-1">
+										<div
+											class="text-gray-900 dark:text-white-100 text-sm stage-title-text"
+											:title="stage.title"
+										>
+											{{ stage.title }}
+										</div>
 									</div>
 								</div>
-							</div>
-							<div
-								v-if="stage.completed && stage.date"
-								class="text-xs text-green-600 dark:text-green-400 ml-6"
-							>
-								<span
-									class="completion-info-text"
-									:title="`Completed by ${stage.completedBy} on ${stage.date}`"
+								<div
+									v-if="stage.completed && stage.date"
+									class="text-xs text-green-600 dark:text-green-400 ml-6"
 								>
-									Completed by {{ stage.completedBy }} on
-									{{ stage.date }}
-								</span>
+									<span
+										class="completion-info-text"
+										:title="`Completed by ${stage.completedBy} on ${stage.date}`"
+									>
+										Completed by {{ stage.completedBy }} on
+										{{ stage.date }}
+									</span>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
+				</el-scrollbar>
 			</div>
 		</el-collapse-transition>
 	</el-card>
@@ -215,38 +219,6 @@ watch(
 
 .rotate-180 {
 	transform: rotate(180deg);
-}
-
-/* 自定义滚动条样式 */
-.overflow-y-auto::-webkit-scrollbar {
-	width: 4px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-	background: #f1f1f1;
-	border-radius: 0.375rem; /* rounded-md equivalent */
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-	background: #c1c1c1;
-	border-radius: 0.375rem; /* rounded-md equivalent */
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-	background: #a8a8a8;
-}
-
-/* 暗色主题 */
-html.dark .overflow-y-auto::-webkit-scrollbar-track {
-	background: var(--black-200);
-}
-
-html.dark .overflow-y-auto::-webkit-scrollbar-thumb {
-	background: var(--black-100);
-}
-
-html.dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-	background: #6b7280;
 }
 
 /* 完成信息文本样式 - 参考 index.vue 的实现 */

@@ -63,8 +63,8 @@ export const sendInvitations = (request: UserInvitationRequest) => {
 		...request,
 		baseUrl: request.baseUrl || getCurrentBaseUrl(),
 	};
-	
-	return defHttp.post<UserInvitationResponse>({
+
+	return defHttp.post({
 		url: '/api/ow/user-invitations/v1/send',
 		data: finalRequest,
 	});
@@ -88,7 +88,7 @@ export const resendInvitation = (request: ResendInvitationRequest) => {
 		...request,
 		baseUrl: request.baseUrl || getCurrentBaseUrl(),
 	};
-	
+
 	return defHttp.post<{ success: boolean }>({
 		url: '/api/ow/user-invitations/v1/resend',
 		data: finalRequest,

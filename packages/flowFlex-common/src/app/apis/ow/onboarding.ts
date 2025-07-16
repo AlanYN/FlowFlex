@@ -15,7 +15,6 @@ const Api = (id?: string | number) => {
 		onboardingPreviousStage: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/previous-stage`,
 		onboardingMoveToStage: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/move-to-stage`,
 		onboardingCompleteStage: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/complete-stage-with-validation`,
-		onboardingComplete: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/complete`,
 		onboardingPause: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/pause`,
 		onboardingResume: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/resume`,
 		onboardingCancel: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/cancel`,
@@ -40,7 +39,6 @@ const Api = (id?: string | number) => {
 		// 阶段完成日志相关API
 		stageCompletionLogs: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/list`,
 		stageCompletionLogsByOnboarding: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/onboarding/${id}`,
-		stageCompletionLogsByStage: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/stage/${id}`,
 		stageCompletionLogsStatistics: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/statistics`,
 		stageCompletionLogsBatch: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/batch`,
 
@@ -65,7 +63,6 @@ const Api = (id?: string | number) => {
 		// checkList
 		checkList: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/by-stage/${id}`,
 		checkListTask: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}`,
-		checkListIsCompleted: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}`,
 		ckeckListIds: `${globSetting.apiProName}/ow/checklists/${globSetting.apiVersion}/batch/by-ids`,
 
 		// 文件管理相关API
@@ -204,15 +201,6 @@ export function moveToStage(id: string | number, params: any) {
  */
 export function completeCurrentStage(id: string | number, params?: any) {
 	return defHttp.post({ url: `${Api(id).onboardingCompleteStage}`, params });
-}
-
-/**
- * 完成整个入职 [O14]
- * @param id 入职ID
- * @returns bool
- */
-export function completeOnboarding(id: string | number) {
-	return defHttp.post({ url: `${Api(id).onboardingComplete}` });
 }
 
 /**
@@ -438,21 +426,6 @@ export function getAllStageCompletionLogs() {
  */
 export function getStageCompletionLogsByOnboarding(onboardingId: string | number) {
 	return defHttp.get({ url: `${Api(onboardingId).stageCompletionLogsByOnboarding}` });
-}
-
-/**
- * 按阶段获取完成日志 [SC04]
- * @param stageId 阶段ID
- * @returns List<StageCompletionLogDto>
- */
-export function getStageCompletionLogsByStage(
-	stageId: string | number,
-	params?: { onboardingId: string }
-) {
-	return defHttp.get({
-		url: `${Api(stageId).stageCompletionLogsByStage}`,
-		params,
-	});
 }
 
 /**
@@ -703,7 +676,11 @@ export function saveCheckListTask(params: any) {
 
 export function getCheckListIsCompleted(onboardingId: string | number, stageId: string | number) {
 	return defHttp.get({
-		url: `${Api(onboardingId).checkListIsCompleted}/checklist/${stageId}`,
+		url: `${Api(onboardingId).checklistTaskCompletions}`,
+		params: {
+			onboardingId,
+			stageId,
+		},
 	});
 }
 

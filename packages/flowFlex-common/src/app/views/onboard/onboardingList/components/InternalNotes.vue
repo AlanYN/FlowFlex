@@ -31,106 +31,110 @@
 				</div>
 
 				<!-- 笔记列表 -->
-				<div v-else class="space-y-3 max-h-96 overflow-y-auto">
-					<div
-						v-for="note in notes"
-						:key="note.id"
-						class="flex space-x-3 p-3 bg-gray-50 dark:bg-black-200 rounded-lg"
-					>
+				<el-scrollbar v-else class="pr-4" max-height="384px">
+					<div class="space-y-3">
 						<div
-							class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
+							v-for="note in notes"
+							:key="note.id"
+							class="flex space-x-3 p-3 bg-gray-50 dark:bg-black-200 rounded-lg"
 						>
-							{{ getAuthorInitial(note.createBy) }}
-						</div>
-						<div class="flex-1 min-w-0">
-							<div class="flex items-center justify-between mb-1">
-								<span class="text-sm font-medium text-gray-900 dark:text-white-100">
-									{{ note.createBy || defaultStr }}
-								</span>
-								<div class="flex items-center space-x-2">
-									<span class="text-xs text-gray-500 dark:text-gray-400">
-										{{
-											timeZoneConvert(
-												note?.modifyDate || '',
-												false,
-												projectTenMinutesSsecondsDate
-											)
-										}}
-									</span>
-									<el-dropdown trigger="click">
-										<el-button size="small" text class="p-1">
-											<el-icon><MoreFilled /></el-icon>
-										</el-button>
-										<template #dropdown>
-											<el-dropdown-menu>
-												<el-dropdown-item @click="handleEditNote(note)">
-													<el-icon><Edit /></el-icon>
-													Edit
-												</el-dropdown-item>
-												<el-dropdown-item
-													@click="handleDeleteNote(note.id)"
-													class="text-red-500"
-												>
-													<el-icon><Delete /></el-icon>
-													Delete
-												</el-dropdown-item>
-											</el-dropdown-menu>
-										</template>
-									</el-dropdown>
-								</div>
-							</div>
-
-							<!-- 笔记内容 - 支持内联编辑 -->
 							<div
-								v-if="editingNoteId !== note.id"
-								class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
+								class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
 							>
-								<component :is="renderNoteContent(note.content)" />
+								{{ getAuthorInitial(note.createBy) }}
 							</div>
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center justify-between mb-1">
+									<span
+										class="text-sm font-medium text-gray-900 dark:text-white-100"
+									>
+										{{ note.createBy || defaultStr }}
+									</span>
+									<div class="flex items-center space-x-2">
+										<span class="text-xs text-gray-500 dark:text-gray-400">
+											{{
+												timeZoneConvert(
+													note?.modifyDate || '',
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											}}
+										</span>
+										<el-dropdown trigger="click">
+											<el-button size="small" text class="p-1">
+												<el-icon><MoreFilled /></el-icon>
+											</el-button>
+											<template #dropdown>
+												<el-dropdown-menu>
+													<el-dropdown-item @click="handleEditNote(note)">
+														<el-icon><Edit /></el-icon>
+														Edit
+													</el-dropdown-item>
+													<el-dropdown-item
+														@click="handleDeleteNote(note.id)"
+														class="text-red-500"
+													>
+														<el-icon><Delete /></el-icon>
+														Delete
+													</el-dropdown-item>
+												</el-dropdown-menu>
+											</template>
+										</el-dropdown>
+									</div>
+								</div>
 
-							<!-- 内联编辑模式 -->
-							<div v-else class="space-y-2">
-								<Mention
-									v-model="editingContent"
-									placeholder="Edit note content..."
-									:disabled="savingNote"
-									class="w-full"
-								/>
-								<div class="flex justify-end space-x-2">
-									<el-button
-										size="small"
-										:icon="Close"
+								<!-- 笔记内容 - 支持内联编辑 -->
+								<div
+									v-if="editingNoteId !== note.id"
+									class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
+								>
+									<component :is="renderNoteContent(note.content)" />
+								</div>
+
+								<!-- 内联编辑模式 -->
+								<div v-else class="space-y-2">
+									<Mention
+										v-model="editingContent"
+										placeholder="Edit note content..."
 										:disabled="savingNote"
-										@click="handleCancelEdit"
-									>
-										Cancel
-									</el-button>
-									<el-button
-										size="small"
-										:icon="Document"
-										type="primary"
-										:loading="savingNote"
-										@click="handleSaveEdit"
-									>
-										Save
-									</el-button>
+										class="w-full"
+									/>
+									<div class="flex justify-end space-x-2">
+										<el-button
+											size="small"
+											:icon="Close"
+											:disabled="savingNote"
+											@click="handleCancelEdit"
+										>
+											Cancel
+										</el-button>
+										<el-button
+											size="small"
+											:icon="Document"
+											type="primary"
+											:loading="savingNote"
+											@click="handleSaveEdit"
+										>
+											Save
+										</el-button>
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
 
-					<!-- 空状态 -->
-					<div
-						v-if="notes.length === 0"
-						class="text-center py-8 text-gray-500 dark:text-gray-400"
-					>
-						<el-icon class="text-4xl mb-2">
-							<ChatDotSquare />
-						</el-icon>
-						<p>No notes yet</p>
-						<p class="text-xs mt-1">Add the first note to get started</p>
+						<!-- 空状态 -->
+						<div
+							v-if="notes.length === 0"
+							class="text-center py-8 text-gray-500 dark:text-gray-400"
+						>
+							<el-icon class="text-4xl mb-2">
+								<ChatDotSquare />
+							</el-icon>
+							<p>No notes yet</p>
+							<p class="text-xs mt-1">Add the first note to get started</p>
+						</div>
 					</div>
-				</div>
+				</el-scrollbar>
 
 				<!-- 添加笔记表单 - 移到最下方 -->
 				<div class="border-t pt-4">
@@ -469,18 +473,5 @@ const getAuthorInitial = (createBy: string | undefined | null): string => {
 
 .rotate-180 {
 	transform: rotate(180deg);
-}
-
-/* 暗色主题 */
-html.dark .overflow-y-auto::-webkit-scrollbar-track {
-	background: var(--black-200);
-}
-
-html.dark .overflow-y-auto::-webkit-scrollbar-thumb {
-	background: var(--black-100);
-}
-
-html.dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-	background: #6b7280;
 }
 </style>
