@@ -13,6 +13,28 @@
 				v-for="(questionnaire, qIndex) in formattedQuestionnaires"
 				:key="qIndex"
 			>
+				<!-- 问卷标题 -->
+				<div v-if="formattedQuestionnaires.length > 1" class="questionnaire-header">
+					<h3 class="questionnaire-title">
+						{{ questionnaire.title }}
+						<span v-if="questionnaire.hasError" class="error-indicator">
+							(Load Error)
+						</span>
+					</h3>
+					<el-divider class="questionnaire-divider" />
+				</div>
+
+				<!-- 错误状态显示 -->
+				<div v-if="questionnaire.hasError" class="questionnaire-error">
+					<el-alert
+						title="Failed to load questionnaire"
+						:description="`There was an error loading the questionnaire structure for '${questionnaire.title}'. Please check the data format.`"
+						type="warning"
+						show-icon
+						:closable="false"
+					/>
+				</div>
+
 				<el-collapse-item
 					v-for="section in questionnaire.sections"
 					:key="section.id"
@@ -361,58 +383,115 @@ import { getQuestionnaireAnswer } from '@/apis/ow/onboarding';
 // 组件属性
 interface Props {
 	stageId: string;
-	leadId: string;
 	onboardingId?: string;
-	questionnaireData?: any[];
+	questionnaireData?: any;
 	isStageCompleted?: boolean;
 }
 
 const props = defineProps<Props>();
 
 const formData = ref<Record<string, any>>({});
-const activeCollapses = ref<string[]>(['Basic Info']); // 默认展开第一个section
+const activeCollapses = ref<string[]>([]); // 初始为空数组，稍后会填充所有section的id
 const loading = ref(false);
 
 // 计算属性 - 检查是否有问卷数据
 const hasQuestionnaireData = computed(() => {
-	return props.questionnaireData && props.questionnaireData.length > 0;
+	return props.questionnaireData && props.questionnaireData.id;
 });
 
-// 格式化所有问卷数据
+// 格式化问卷数据 - 现在处理单个问卷对象
 const formattedQuestionnaires = computed(() => {
 	if (!hasQuestionnaireData.value) return [];
 
-	return props
-		.questionnaireData!.map((questionnaire) => {
-			try {
-				const structure: any = JSON.parse(questionnaire.structureJson || '{}');
-				if (!structure || !structure.sections) {
-					return null;
-				}
+	console.log('Processing questionnaire data:', props.questionnaireData);
 
-				return {
-					...questionnaire,
-					title: questionnaire.name,
-					sections: structure.sections.map((section: any) => ({
-						...section,
-						questions:
-							section.questions?.map((question: any) => ({
-								...question,
-								// 保持原有的title作为问题内容
-								// question字段用于占位符等用途
-								question: question.title,
-								// 使用原始的question.id，不要重新生成
-								id: question.id,
-							})) || [],
-					})),
-				};
-			} catch (error) {
-				console.error('Failed to parse questionnaire structure:', error);
-				return null;
+	const questionnaire = props.questionnaireData;
+
+	try {
+		// 处理 structureJson
+		let structure: any = {};
+		if (questionnaire.structureJson) {
+			try {
+				structure = JSON.parse(questionnaire.structureJson);
+			} catch (parseError) {
+				console.error(
+					`Failed to parse structureJson for questionnaire ${questionnaire.id}:`,
+					parseError
+				);
+				structure = {};
 			}
-		})
-		.filter(Boolean);
+		} else {
+			console.warn(`No structureJson found for questionnaire ${questionnaire.id}`);
+		}
+
+		// 确保有 sections 数组
+		if (!structure.sections || !Array.isArray(structure.sections)) {
+			console.warn(
+				`No valid sections found for questionnaire ${questionnaire.id}, creating empty sections`
+			);
+			structure.sections = [];
+		}
+
+		const processedQuestionnaire = {
+			...questionnaire,
+			title: questionnaire.name || 'Questionnaire',
+			sections: structure.sections.map((section: any) => ({
+				...section,
+				id: section.id || `section_${Math.random()}`,
+				title: section.title || section.name || `Section ${section.id || 'Unknown'}`,
+				questions: (section.questions || []).map((question: any) => ({
+					...question,
+					// 保持原有的title作为问题内容
+					question: question.title || question.question || '',
+					// 使用原始的question.id，不要重新生成
+					id: question.id || `question_${Math.random()}`,
+				})),
+			})),
+		};
+
+		console.log('Successfully processed questionnaire:', processedQuestionnaire);
+		return [processedQuestionnaire]; // 返回数组以保持模板兼容性
+	} catch (error) {
+		console.error(`Failed to process questionnaire ${questionnaire.id}:`, error);
+		// 即使处理失败，也返回一个基本的结构
+		return [
+			{
+				...questionnaire,
+				title: questionnaire.name || 'Questionnaire (Error)',
+				sections: [
+					{
+						id: `error_section`,
+						title: 'Error Loading Questionnaire',
+						questions: [],
+					},
+				],
+				hasError: true,
+			},
+		];
+	}
 });
+
+// 监听问卷数据变化，自动展开所有sections
+watch(
+	formattedQuestionnaires,
+	(newQuestionnaires) => {
+		if (newQuestionnaires.length > 0) {
+			const allSectionIds: string[] = [];
+			newQuestionnaires.forEach((questionnaire) => {
+				questionnaire.sections.forEach((section: any) => {
+					allSectionIds.push(section.id);
+				});
+			});
+
+			// 只有当activeCollapses为空时才设置默认值，避免重复设置
+			if (activeCollapses.value.length === 0 && allSectionIds.length > 0) {
+				activeCollapses.value = allSectionIds;
+				console.log('Setting default expanded sections:', allSectionIds);
+			}
+		}
+	},
+	{ immediate: true }
+);
 
 // 处理表单值变化
 const handleInputChange = (questionId: string, value: any) => {
@@ -641,7 +720,7 @@ const loadSavedAnswers = async () => {
 
 		if (response.code === '200' && response.data) {
 			// 将保存的答案填充到表单中
-			const anserForm = JSON.parse(response.data.answerJson);
+			const anserForm = JSON.parse(response.data[0].answerJson);
 			console.log('anserForm:', anserForm);
 			anserForm?.responses?.forEach((questionnaireAnswer: any) => {
 				console.log('questionnaireAnswer:', questionnaireAnswer);
@@ -740,6 +819,43 @@ defineExpose({
 	}
 }
 
+/* 多问卷标题样式 */
+.questionnaire-header {
+	margin: 24px 0 16px 0;
+
+	&:first-child {
+		margin-top: 0;
+	}
+}
+
+.questionnaire-title {
+	font-size: 18px;
+	font-weight: 600;
+	color: #1f2937;
+	margin: 0 0 8px 0;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.error-indicator {
+	font-size: 14px;
+	font-weight: normal;
+	color: #ef4444;
+	background-color: #fef2f2;
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid #fecaca;
+}
+
+.questionnaire-divider {
+	margin: 8px 0 0 0;
+}
+
+.questionnaire-error {
+	margin-bottom: 16px;
+}
+
 .question-item {
 	padding: 16px;
 	border: 1px solid #e5e7eb;
@@ -787,6 +903,17 @@ html.dark {
 
 	.text-gray-400 {
 		color: #9ca3af !important;
+	}
+
+	/* 多问卷暗色主题 */
+	.questionnaire-title {
+		color: var(--white-100);
+	}
+
+	.error-indicator {
+		color: #fca5a5;
+		background-color: rgba(239, 68, 68, 0.1);
+		border-color: rgba(239, 68, 68, 0.3);
 	}
 }
 

@@ -17,7 +17,6 @@ const Api = (id?: string | number) => {
 		questionnaireDuplicate: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/duplicate`,
 		questionnaireCreateFromTemplate: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/templates/${id}/create`,
 		questionnaireArchive: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/archive`,
-		stageQuestionnaire: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/by-stage/${id}`,
 	};
 };
 
@@ -285,10 +284,6 @@ export function getQuestionnaireAnswersByStatus(status: string, days?: number) {
 	const params: any = {};
 	if (days) params.days = days;
 	return defHttp.get({ url: `${AnswerApi().answersByStatus}/${status}`, params });
-}
-
-export function getStageQuestionnaire(stageId: string) {
-	return defHttp.get({ url: `${Api(stageId).stageQuestionnaire}` });
 }
 
 // ========================= 批量接口 =========================

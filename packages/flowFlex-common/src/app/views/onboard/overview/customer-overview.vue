@@ -539,19 +539,6 @@
 				</el-card>
 			</div>
 
-			<!-- Pagination -->
-			<div class="mt-6 flex justify-center" v-if="totalPages > 1">
-				<el-pagination
-					v-model:current-page="currentPage"
-					:page-size="pageSize"
-					:total="filteredData.length"
-					layout="prev, pager, next, sizes, total"
-					:page-sizes="[5, 10, 20, 50]"
-					@size-change="handleSizeChange"
-					@current-change="handleCurrentChange"
-				/>
-			</div>
-
 			<!-- Summary Statistics -->
 			<el-card v-if="filteredData.length > 0" class="mt-6">
 				<template #header>
@@ -723,9 +710,7 @@ const appliedSearchTerm = ref('');
 const appliedQuestionnaires = ref<string[]>([]);
 const appliedSections = ref<string[]>([]);
 
-// Pagination
-const currentPage = ref(1);
-const pageSize = ref(10);
+// Removed pagination - showing all data
 
 // Cache for computed results
 const computedCache = new Map<string, any>();
@@ -824,6 +809,7 @@ const processQuestionnaireData = (
 		const answersMap = new Map<string, any>();
 		const gridAnswersMap = new Map<string, any[]>(); // 用于存储网格类型的答案
 
+		// Process current questionnaire's answers
 		parsedAnswers.responses?.forEach((resp) => {
 			// 检查是否是网格类型的答案（包含 _row- 或 _）
 			if (resp.questionId.includes('_row-') || resp.questionId.includes('_')) {
@@ -845,8 +831,31 @@ const processQuestionnaireData = (
 				const isGridType =
 					question.type === 'checkbox_grid' || question.type === 'multiple_choice_grid';
 
-				let answerData = answersMap.get(question.id);
-				let gridAnswers = gridAnswersMap.get(question.id);
+				// Try to find answer using various possible question IDs
+				let answerData: any = null;
+				const possibleIds = [
+					question.id,
+					`question-${question.id}`,
+					question.questionId,
+					question.identifier,
+				].filter(Boolean);
+
+				for (const possibleId of possibleIds) {
+					if (answersMap.has(possibleId)) {
+						answerData = answersMap.get(possibleId);
+						break;
+					}
+				}
+
+				// Try to find grid answers using the same possible IDs
+				let gridAnswers: any[] = [];
+				for (const possibleId of possibleIds) {
+					const foundGridAnswers = gridAnswersMap.get(possibleId);
+					if (foundGridAnswers && foundGridAnswers.length > 0) {
+						gridAnswers = foundGridAnswers;
+						break;
+					}
+				}
 
 				// 如果是网格类型且有网格答案，处理网格答案
 				if (isGridType && gridAnswers && gridAnswers.length > 0) {
@@ -942,32 +951,32 @@ const processQuestionnaireData = (
 						}
 					}
 
-					// 对于文件类型，使用原始answer而不是responseText
+					// 处理答案，优先使用responseText，如果没有则使用answer
 					let processedAnswer = '';
 					if (question.type === 'file' || question.type === 'file_upload') {
 						// 对于文件类型，使用原始answer字段
 						processedAnswer = answerData?.answer || '';
 					} else {
-						// 对于其他类型，使用responseText
-						processedAnswer = answerData?.responseText || '';
+						// 对于其他类型，优先使用responseText，如果没有则使用answer
+						processedAnswer = answerData?.responseText || answerData?.answer || '';
 					}
 
 					responses.push({
-						id: question.id,
-						question: question.title,
-						description: question.description,
-						answer: processedAnswer,
-						answeredBy:
-							firstAnsweredBy || answerData?.lastModifiedBy || answer?.createBy || '',
-						answeredDate: answer?.createDate || '',
-						firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
-						lastUpdated: lastUpdated || answer?.modifyDate || '',
-						updatedBy: updatedBy || answer?.modifyBy || '',
-						questionType: question.type,
-						section: section.title,
-						required: question.required || false,
-						questionConfig: question.config || question, // 存储完整的问题配置
-					});
+							id: question.id,
+							question: question.title,
+							description: question.description,
+							answer: processedAnswer,
+							answeredBy:
+								firstAnsweredBy || answerData?.lastModifiedBy || answer?.createBy || '',
+							answeredDate: answer?.createDate || '',
+							firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
+							lastUpdated: lastUpdated || answer?.modifyDate || '',
+							updatedBy: updatedBy || answer?.modifyBy || '',
+							questionType: question.type,
+							section: section.title,
+							required: question.required || false,
+							questionConfig: question.config || question, // 存储完整的问题配置
+						});
 				}
 			});
 		});
@@ -1018,10 +1027,17 @@ const loadData = async () => {
 		// Process batch questionnaire results
 		const allQuestionnaires: QuestionnaireData[] = [];
 		if (batchQuestionnaireResponse?.stageQuestionnaires) {
-			Object.values(batchQuestionnaireResponse.stageQuestionnaires).forEach(
-				(stageQuestionnaires: any) => {
+			Object.entries(batchQuestionnaireResponse.stageQuestionnaires).forEach(
+				([stageId, stageQuestionnaires]: [string, any]) => {
 					if (Array.isArray(stageQuestionnaires)) {
-						allQuestionnaires.push(...stageQuestionnaires);
+						// 为每个问卷添加stageId信息
+						const questionnairesWithStageId = stageQuestionnaires.map(
+							(questionnaire: any) => ({
+								...questionnaire,
+								stageId: stageId,
+							})
+						);
+						allQuestionnaires.push(...questionnairesWithStageId);
 					}
 				}
 			);
@@ -1030,11 +1046,34 @@ const loadData = async () => {
 
 		// Process batch answer results
 		const answersMap = new Map<string, QuestionnaireAnswer>();
+		// Use stage+questionnaire key for strict matching
+		const stageQuestionnaireAnswersMap = new Map<string, QuestionnaireAnswer>();
 		if (batchAnswerResponse?.stageAnswers) {
 			Object.entries(batchAnswerResponse.stageAnswers).forEach(
-				([stageId, answer]: [string, any]) => {
-					if (answer) {
-						answersMap.set(stageId, answer);
+				([stageId, answerData]: [string, any]) => {
+					if (answerData) {
+						// Check if it's a single answer or multiple answers
+						if (answerData.id && answerData.questionnaireId) {
+							// Single answer object
+							answersMap.set(stageId, answerData);
+							// Store with stage+questionnaire key for strict matching
+							const key = `${stageId}:${answerData.questionnaireId}`;
+							stageQuestionnaireAnswersMap.set(key, answerData);
+						} else if (typeof answerData === 'object' && !answerData.id) {
+							// Multiple answers grouped by questionnaireId
+							answersMap.set(stageId, answerData);
+							Object.entries(answerData).forEach(
+								([questionnaireId, answer]: [string, any]) => {
+									if (answer && answer.id) {
+										// Store with stage+questionnaire key for strict matching
+										const key = `${stageId}:${questionnaireId}`;
+										stageQuestionnaireAnswersMap.set(key, answer);
+									}
+								}
+							);
+						}
+					} else {
+						// No answer
 					}
 				}
 			);
@@ -1048,7 +1087,13 @@ const loadData = async () => {
 		for (let i = 0; i < allQuestionnaires.length; i += chunkSize) {
 			const chunk = allQuestionnaires.slice(i, i + chunkSize);
 			const chunkProcessed = chunk.map((questionnaire) => {
-				const answer = answersMap.get(questionnaire.stageId) || null;
+				// Find answer by strict stage+questionnaire matching
+				let answer: QuestionnaireAnswer | null = null;
+				
+				// Use strict stage+questionnaire key lookup
+				const key = `${questionnaire.stageId}:${questionnaire.id}`;
+				answer = stageQuestionnaireAnswersMap.get(key) || null;
+				
 				return processQuestionnaireData(questionnaire, answer);
 			});
 			processed.push(...chunkProcessed);
@@ -1130,20 +1175,17 @@ const filteredData = computed(() => {
 	return result;
 });
 
-// Pagination
-const totalPages = computed(() => Math.ceil(filteredData.value.length / pageSize.value));
-
-const paginatedData = computed(() => {
-	const start = (currentPage.value - 1) * pageSize.value;
-	const end = start + pageSize.value;
-	return filteredData.value.slice(start, end);
-});
+// Removed pagination - showing all data
+const paginatedData = computed(() => filteredData.value);
 
 // Optimized response calculations
 const totalResponsesCount = computed(() => {
 	return filteredData.value.reduce((total, q) => {
 		// 只统计有答案的问题
-		const answeredResponses = q.responses.filter((response) => hasValidAnswer(response.answer));
+		const answeredResponses = q.responses.filter((response) => {
+			const isValid = hasValidAnswer(response.answer);
+			return isValid;
+		});
 		return total + answeredResponses.length;
 	}, 0);
 });
@@ -1215,15 +1257,7 @@ const uniqueContributors = computed(() => {
 	return new Set(allResponses.value.map((r) => r.answeredBy).filter(Boolean)).size;
 });
 
-// Pagination handlers
-const handleSizeChange = (newSize: number) => {
-	pageSize.value = newSize;
-	currentPage.value = 1;
-};
-
-const handleCurrentChange = (newPage: number) => {
-	currentPage.value = newPage;
-};
+// Removed pagination handlers
 
 // Utility functions
 const formatDate = (dateString: string) => {
@@ -1239,10 +1273,20 @@ const formatDate = (dateString: string) => {
 const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
 	if (typeof answer === 'string') {
-		return answer !== '' && answer !== 'No answer provided' && answer !== 'No selection made';
+		const trimmed = answer.trim();
+		return (
+			trimmed !== '' &&
+			trimmed !== 'No answer provided' &&
+			trimmed !== 'No selection made' &&
+			trimmed !== 'null' &&
+			trimmed !== 'undefined'
+		);
 	}
 	if (Array.isArray(answer)) {
 		return answer.length > 0;
+	}
+	if (typeof answer === 'object' && answer !== null) {
+		return true;
 	}
 	return true;
 };
@@ -1282,30 +1326,48 @@ const handleExportExcel = () => {
 };
 
 const handleExportPDF = async () => {
+	let element: HTMLElement | null = null;
+	let exportButtons: NodeListOf<Element> | null = null;
+	let filterSection: Element | null = null;
+	let originalHtml = '';
+
 	try {
+		console.log('[PDF Export] Starting PDF export process...');
 		ElMessage.info('Generating PDF, please wait...');
 
 		// 获取页面内容元素
-		const element = document.querySelector('.pb-6.bg-gray-50') as HTMLElement;
+		element = document.querySelector('.pb-6.bg-gray-50') as HTMLElement;
+		console.log('[PDF Export] Found main element:', !!element);
 		if (!element) {
 			throw new Error('Page content not found');
 		}
 
 		// 临时隐藏导出按钮和搜索过滤区域
-		const exportButtons = element.querySelectorAll('.flex.items-center.space-x-2');
-		const filterSection = element.querySelector('.mb-6 .pt-6'); // 搜索和过滤区域
+		exportButtons = element.querySelectorAll('.flex.items-center.space-x-2');
+		filterSection = element.querySelector('el-card .pt-6'); // 更精确的搜索和过滤区域选择器
 
-		exportButtons.forEach((btn) => {
+		console.log('[PDF Export] Found export buttons:', exportButtons.length);
+		console.log('[PDF Export] Found filter section:', !!filterSection);
+
+		// 检查导出按钮的当前显示状态
+		exportButtons.forEach((btn, index) => {
+			const currentDisplay = (btn as HTMLElement).style.display;
+			console.log(`[PDF Export] Export button ${index} current display: "${currentDisplay}"`);
 			(btn as HTMLElement).style.display = 'none';
+			console.log(`[PDF Export] Export button ${index} after hiding: "${(btn as HTMLElement).style.display}"`);
 		});
 
-		// 隐藏搜索过滤区域
+		// 隐藏搜索过滤区域 - 更精确定位
 		if (filterSection) {
+			const currentDisplay = (filterSection as HTMLElement).style.display;
+			console.log(`[PDF Export] Filter section current display: "${currentDisplay}"`);
 			(filterSection as HTMLElement).style.display = 'none';
+			console.log(`[PDF Export] Filter section after hiding: "${(filterSection as HTMLElement).style.display}"`);
 		}
 
 		// 保存整个元素的HTML内容，以便稍后恢复
-		const originalHtml = element.innerHTML;
+		originalHtml = element.innerHTML;
+		console.log('[PDF Export] Saved original HTML length:', originalHtml.length);
 
 		// 临时替换勾选SVG图标为Unicode字符以确保PDF中正确显示
 		const checkSvgIcons = element.querySelectorAll('svg');
@@ -1344,6 +1406,7 @@ const handleExportPDF = async () => {
 		});
 
 		// 生成canvas
+		console.log('[PDF Export] Starting html2canvas generation...');
 		const canvas = await html2canvas(element, {
 			scale: 1.2, // 进一步降低缩放比例以减小文件大小
 			useCORS: true,
@@ -1394,15 +1457,10 @@ const handleExportPDF = async () => {
 		});
 
 		// 恢复原始HTML内容
-		element.innerHTML = originalHtml;
-
-		// 恢复导出按钮和搜索过滤区域显示
-		exportButtons.forEach((btn) => {
-			(btn as HTMLElement).style.display = '';
-		});
-
-		if (filterSection) {
-			(filterSection as HTMLElement).style.display = '';
+		if (element && originalHtml) {
+			console.log('[PDF Export] Restoring original HTML content...');
+			element.innerHTML = originalHtml;
+			console.log('[PDF Export] Original HTML content restored');
 		}
 
 		// 动态调整图片质量以优化文件大小
@@ -1444,10 +1502,65 @@ const handleExportPDF = async () => {
 		pdf.save(
 			`Customer_Overview_${customerData.value?.leadName}_${customerData.value?.leadId}.pdf`
 		);
+		console.log('[PDF Export] PDF file saved successfully');
 		ElMessage.success('PDF file exported successfully');
 	} catch (error) {
-		console.error('Export PDF failed:', error);
+		console.error('[PDF Export] Export PDF failed:', error);
 		ElMessage.error('Failed to export PDF file');
+	} finally {
+		console.log('[PDF Export] Entering finally block - starting element restoration...');
+		console.log('[PDF Export] Element available:', !!element);
+		console.log('[PDF Export] Export buttons available:', !!exportButtons);
+		console.log('[PDF Export] Filter section available:', !!filterSection);
+		
+		// 确保无论成功还是失败都恢复页面元素
+		if (element && exportButtons) {
+			console.log('[PDF Export] Restoring export buttons...');
+			exportButtons.forEach((btn, index) => {
+				const beforeRestore = (btn as HTMLElement).style.display;
+				(btn as HTMLElement).style.display = '';
+				// 移除display属性以确保完全恢复
+				(btn as HTMLElement).style.removeProperty('display');
+				const afterRestore = (btn as HTMLElement).style.display;
+				console.log(`[PDF Export] Export button ${index} - before: "${beforeRestore}", after: "${afterRestore}"`);
+			});
+		} else {
+			console.log('[PDF Export] Cannot restore export buttons - element or buttons not found');
+		}
+
+		if (filterSection) {
+			console.log('[PDF Export] Restoring filter section...');
+			const beforeRestore = (filterSection as HTMLElement).style.display;
+			(filterSection as HTMLElement).style.display = '';
+			// 移除display属性以确保完全恢复
+			(filterSection as HTMLElement).style.removeProperty('display');
+			const afterRestore = (filterSection as HTMLElement).style.display;
+			console.log(`[PDF Export] Filter section - before: "${beforeRestore}", after: "${afterRestore}"`);
+		} else {
+			console.log('[PDF Export] Cannot restore filter section - not found');
+		}
+		
+		// 强制Vue重新渲染以确保UI正确更新
+		console.log('[PDF Export] Triggering Vue re-render...');
+		nextTick(() => {
+			console.log('[PDF Export] Vue re-render completed');
+		});
+		
+		// 备用恢复方案：直接查找所有可能被隐藏的元素
+		console.log('[PDF Export] Starting backup restoration...');
+		const allHiddenElements = document.querySelectorAll('[style*="display: none"], [style*="display:none"]');
+		console.log(`[PDF Export] Found ${allHiddenElements.length} hidden elements for backup restoration`);
+		
+		allHiddenElements.forEach((el, index) => {
+			const element = el as HTMLElement;
+			const currentStyle = element.style.display;
+			if (currentStyle === 'none') {
+				element.style.removeProperty('display');
+				console.log(`[PDF Export] Backup restored element ${index}`);
+			}
+		});
+		
+		console.log('[PDF Export] Element restoration completed');
 	}
 };
 
@@ -1455,7 +1568,6 @@ const applyFilters = () => {
 	appliedSearchTerm.value = searchTerm.value;
 	appliedQuestionnaires.value = [...selectedQuestionnaires.value];
 	appliedSections.value = [...selectedSections.value];
-	currentPage.value = 1; // Reset to first page
 	// Clear cache for filtered results
 	const cacheKeys = Array.from(computedCache.keys()).filter((key) => key.startsWith('filtered_'));
 	cacheKeys.forEach((key) => computedCache.delete(key));
@@ -1468,7 +1580,6 @@ const clearFilters = () => {
 	appliedSearchTerm.value = '';
 	appliedQuestionnaires.value = [];
 	appliedSections.value = [];
-	currentPage.value = 1;
 	// Clear filtered cache
 	const cacheKeys = Array.from(computedCache.keys()).filter((key) => key.startsWith('filtered_'));
 	cacheKeys.forEach((key) => computedCache.delete(key));
@@ -1483,7 +1594,6 @@ const cleanup = () => {
 watch(
 	() => route.params.leadId,
 	(newId) => {
-		console.log('Route parameter changed to:', newId);
 		if (newId && newId !== 'undefined') {
 			// Clear cache when switching to a different onboarding
 			computedCache.clear();
@@ -1494,11 +1604,6 @@ watch(
 
 // Load data on mount
 onMounted(() => {
-	console.log('Customer Overview mounted');
-	console.log('Route params:', route.params);
-	console.log('Route query:', route.query);
-	console.log('onboardingId:', onboardingId.value);
-
 	if (!onboardingId.value || onboardingId.value === 'undefined') {
 		ElMessage.error('Missing onboarding ID in route parameters');
 		console.error('Invalid onboarding ID:', onboardingId.value);

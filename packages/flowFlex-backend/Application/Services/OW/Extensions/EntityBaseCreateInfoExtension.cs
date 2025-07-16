@@ -281,6 +281,35 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Set default values
             note.IsValid = true;
             note.TenantId = userContext?.TenantId ?? "DEFAULT";
+            note.AppCode = userContext?.AppCode ?? "DEFAULT";
+        }
+
+        /// <summary>
+        /// Initialize create information for UserInvitation entity
+        /// </summary>
+        /// <param name="invitation">UserInvitation entity to initialize</param>
+        /// <param name="userContext">User context</param>
+        public static void InitCreateInfo(this UserInvitation invitation, UserContext userContext)
+        {
+            DateTimeOffset now = DateTimeOffset.Now;
+
+            // Generate timestamp-based ID
+            invitation.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+            // Set timestamps
+            invitation.CreateDate = now;
+            invitation.ModifyDate = now;
+
+            // Set user information
+            invitation.CreateBy = userContext?.UserName ?? "SYSTEM";
+            invitation.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            invitation.CreateUserId = ParseToLong(userContext?.UserId);
+            invitation.ModifyUserId = ParseToLong(userContext?.UserId);
+
+            // Set default values
+            invitation.IsValid = true;
+            invitation.TenantId = userContext?.TenantId ?? "DEFAULT";
+            invitation.AppCode = userContext?.AppCode ?? "DEFAULT";
         }
 
         /// <summary>

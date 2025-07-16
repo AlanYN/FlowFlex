@@ -670,12 +670,9 @@ export function saveCheckListTask(params: any) {
 	return defHttp.post({ url: `${Api().checkListTask}`, params });
 }
 
-export function getCheckListIsCompleted(
-	onboardingId: string | number,
-	checklistId: string | number
-) {
+export function getCheckListIsCompleted(onboardingId: string | number, stageId: string | number) {
 	return defHttp.get({
-		url: `${Api(onboardingId).checkListIsCompleted}/checklist/${checklistId}`,
+		url: `${Api(onboardingId).checkListIsCompleted}/checklist/${stageId}`,
 	});
 }
 
@@ -762,7 +759,7 @@ export function previewOnboardingFile(
 	return defHttp.get({
 		url: `${Api(onboardingId).perviewOnboardingFile}/${fileId}/preview`,
 		responseType: 'blob',
-		timeout: 60 * 100000,
+		timeout: 60 * 1000, // 修复：60秒超时
 		onDownloadProgress,
 	});
 }

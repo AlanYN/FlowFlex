@@ -1,5 +1,7 @@
 <template>
 	<div class="customer-block" v-if="checklistData && checklistData.length > 0">
+		<h2 class="text-lg font-semibold">Checklist</h2>
+		<el-divider />
 		<!-- 统一的进度头部卡片 -->
 		<div class="checklist-header-card rounded-md">
 			<div class="flex justify-between">

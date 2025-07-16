@@ -168,7 +168,7 @@ export class VAxios {
 				// @ts-ignore
 				ignoreCancelToken: true,
 			},
-			timeout: 60 * 100000,
+			timeout: 60 * 1000, // 修复：60秒超时
 		});
 	}
 

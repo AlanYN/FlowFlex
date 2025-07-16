@@ -9,7 +9,9 @@
 					@click="handleBack"
 					class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
 				>
-					<el-icon class="text-lg"><ArrowLeft /></el-icon>
+					<el-icon class="text-lg">
+						<ArrowLeft />
+					</el-icon>
 					Back
 				</el-button>
 				<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
@@ -18,13 +20,23 @@
 			</div>
 			<div class="flex items-center space-x-2">
 				<el-button type="primary" @click="handleCompleteStage" :loading="completing">
-					<el-icon class="mr-1"><Check /></el-icon>
+					<el-icon class="mr-1">
+						<Check />
+					</el-icon>
 					Complete Stage
 				</el-button>
 				<el-button @click="handleCustomerOverview">Customer Overview</el-button>
+				<el-button @click="portalAccessDialogVisible = true">
+					<el-icon>
+						<User />
+					</el-icon>
+					&nbsp;&nbsp;Portal Access Management
+				</el-button>
 				<el-button type="primary" @click="messageDialogVisible = true">
-					<el-icon><ChatDotSquare /></el-icon>
-					Send Message
+					<el-icon>
+						<ChatDotSquare />
+					</el-icon>
+					&nbsp;&nbsp;Send Message
 				</el-button>
 			</div>
 		</div>
@@ -81,16 +93,15 @@
 								/>
 
 								<!-- 问卷组件 -->
-								<StageDetails
+								<QuestionnaireDetails
 									v-else-if="component.key === 'questionnaires'"
 									:stage-id="activeStage"
-									:lead-id="onboardingId"
-									:onboarding-id="onboardingId"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
+									:onboardingId="onboardingId"
 									@stage-updated="handleStageUpdated"
 									ref="stageDetailsRef"
 								/>
@@ -206,6 +217,15 @@
 
 		<!-- 消息对话框 -->
 		<MessageDialog v-model="messageDialogVisible" :onboarding-data="onboardingData" />
+		<!-- Portal Access Management 对话框 -->
+		<el-dialog
+			v-model="portalAccessDialogVisible"
+			title="Portal Access Management"
+			width="800px"
+			:before-close="() => (portalAccessDialogVisible = false)"
+		>
+			<PortalAccessContent :onboarding-id="onboardingId" :onboarding-data="onboardingData" />
+		</el-dialog>
 	</div>
 </template>
 
@@ -213,29 +233,30 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, ChatDotSquare, Loading } from '@element-plus/icons-vue';
+import { ArrowLeft, ChatDotSquare, Loading, User } from '@element-plus/icons-vue';
 import {
 	getStageCompletionLogsByStage,
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
 	saveCheckListTask,
 	getCheckListIds,
+	getCheckListIsCompleted,
 	getQuestionIds,
 } from '@/apis/ow/onboarding';
-import { getStageQuestionnaire } from '@/apis/ow/questionnaire';
 import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
 // 导入组件
 import OnboardingProgress from './components/OnboardingProgress.vue';
-import StageDetails from './components/StageDetails.vue';
+import QuestionnaireDetails from './components/QuestionnaireDetails.vue';
 import InternalNotes from './components/InternalNotes.vue';
 import ChangeLog from './components/ChangeLog.vue';
 import MessageDialog from './components/MessageDialog.vue';
 import CheckList from './components/CheckList.vue';
 import Documents from './components/Documents.vue';
 import StaticForm from './components/StaticForm.vue';
+import PortalAccessContent from './components/PortalAccessContent.vue';
 
 const { t } = useI18n();
 
@@ -270,9 +291,9 @@ const onboardingData = ref<OnboardingItem | null>(null);
 const activeStage = ref<string>(''); // 初始为空，等待从服务器获取当前阶段
 const workflowStages = ref<any[]>([]);
 const changeLogData = ref<Change[]>([]);
-const questionnaireData = ref<any>(null); // 当前阶段的问卷数据
 const editDialogVisible = ref(false);
 const messageDialogVisible = ref(false);
+const portalAccessDialogVisible = ref(false);
 const saving = ref(false);
 
 // 存储批量查询到的数据
@@ -334,11 +355,17 @@ const getChecklistDataForComponent = (component: ComponentData) => {
 // 辅助函数：根据组件的questionnaireIds获取对应的questionnaire数据
 const getQuestionnaireDataForComponent = (component: ComponentData) => {
 	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
-		return [];
+		return null;
 	}
-	return questionnairesData.value.filter((questionnaire) =>
-		component.questionnaireIds.includes(questionnaire.id)
-	);
+
+	// 检查questionnairesData是否包含当前组件需要的问卷
+	for (const questionnaire of questionnairesData.value) {
+		if (component.questionnaireIds.includes(questionnaire.id)) {
+			return questionnaire;
+		}
+	}
+
+	return null;
 };
 
 // 根据components数组排序，确保静态字段表单在前面
@@ -427,21 +454,6 @@ const loadChangeLog = async (stageId?: string) => {
 	}
 };
 
-// 加载问卷数据
-const loadQuestionnaireData = async (stageId: string) => {
-	try {
-		const response = await getStageQuestionnaire(stageId);
-		if (response.code === '200') {
-			questionnaireData.value = response.data;
-		} else {
-			questionnaireData.value = null;
-		}
-	} catch (error) {
-		console.error('Failed to load questionnaire data:', error);
-		questionnaireData.value = null;
-	}
-};
-
 // 批量加载检查清单数据
 const loadCheckListData = async (onboardingId: string, stageId: string) => {
 	if (!onboardingActiveStageInfo.value?.components) return;
@@ -457,10 +469,63 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 	if (allChecklistIds.length === 0) return;
 
 	try {
-		const response = await getCheckListIds({ ids: allChecklistIds });
-		if (response.code === '200') {
-			checklistsData.value = response.data || [];
-			console.log('Loaded checklists data:', checklistsData.value);
+		// 并行调用两个接口
+		const [checklistResponse, completionResponse] = await Promise.all([
+			getCheckListIds(allChecklistIds),
+			getCheckListIsCompleted(onboardingId, stageId),
+		]);
+
+		if (checklistResponse.code === '200') {
+			// 获取已完成的任务信息
+			const completedTasksMap = new Map<string, boolean>();
+			if (completionResponse.code === '200' && completionResponse.data) {
+				// 假设 completionResponse.data 包含已完成的任务列表
+				if (Array.isArray(completionResponse.data)) {
+					completionResponse.data.forEach((completedTask: any) => {
+						// 根据实际API返回的数据结构调整
+						const taskId = completedTask.taskId || completedTask.id;
+						if (taskId) {
+							completedTasksMap.set(taskId, true);
+						}
+					});
+				}
+			}
+
+			// 处理每个 checklist 的数据，合并完成状态信息
+			const processedChecklists = (checklistResponse.data || []).map((checklist: any) => {
+				// 确保 tasks 存在
+				if (!checklist.tasks || !Array.isArray(checklist.tasks)) {
+					checklist.tasks = [];
+				}
+
+				// 更新每个任务的完成状态
+				checklist.tasks = checklist.tasks.map((task: any) => ({
+					...task,
+					isCompleted: completedTasksMap.has(task.id) || task.isCompleted || false,
+				}));
+
+				// 重新计算完成任务数和总任务数
+				const completedTasks = checklist.tasks.filter(
+					(task: any) => task.isCompleted
+				).length;
+				const totalTasks = checklist.tasks.length;
+
+				// 重新计算完成率
+				const completionRate =
+					totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+				// 更新 checklist 的统计信息
+				return {
+					...checklist,
+					completedTasks,
+					totalTasks,
+					completionRate,
+				};
+			});
+
+			checklistsData.value = processedChecklists;
+			console.log('Loaded and processed checklists data:', checklistsData.value);
+			console.log('Completed tasks map:', completedTasksMap);
 		}
 	} catch (error) {
 		console.error('Failed to load checklists:', error);
@@ -483,13 +548,11 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 	if (allQuestionnaireIds.length === 0) return;
 
 	try {
-		const response = await getQuestionIds({ ids: allQuestionnaireIds });
+		const response = await getQuestionIds(allQuestionnaireIds);
 		if (response.code === '200') {
 			questionnairesData.value = response.data || [];
-			console.log('Loaded questionnaires data:', questionnairesData.value);
 		}
 	} catch (error) {
-		console.error('Failed to load questionnaires:', error);
 		ElMessage.error('Failed to load questionnaires');
 	}
 };
@@ -507,7 +570,6 @@ const loadStageRelatedData = async (stageId: string) => {
 
 		// 并行加载依赖stageId的数据
 		await Promise.all([
-			loadQuestionnaireData(stageId),
 			loadChangeLog(stageId),
 			loadCheckListData(onboardingId.value, stageId),
 			loadQuestionnaireDataBatch(onboardingId.value, stageId),
@@ -524,7 +586,8 @@ const loadStageRelatedData = async (stageId: string) => {
 const loadCurrentStageData = async () => {
 	if (!activeStage.value) return;
 
-	await Promise.all([loadStageRelatedData(activeStage.value), loadStaticFieldValues()]);
+	await loadStageRelatedData(activeStage.value);
+	await loadStaticFieldValues();
 };
 
 // 事件处理函数
@@ -585,10 +648,8 @@ const setActiveStage = async (stageId: string) => {
 	);
 
 	// 重新加载依赖stageId的数据
-	await Promise.all([
-		loadStageRelatedData(stageId),
-		loadStaticFieldValues(), // 添加加载字段值的调用
-	]);
+	await loadStageRelatedData(stageId);
+	await loadStaticFieldValues(); // 添加加载字段值的调用
 };
 
 const handleNoteAdded = () => {
@@ -614,10 +675,27 @@ const handleTaskToggled = async (task: any) => {
 		});
 		if (res.code === '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));
-			// 直接更新本地状态，避免重新加载整个检查清单
-			if (stageDetailsRef.value) {
-				stageDetailsRef.value.setFormFieldValues?.();
-			}
+
+			// 更新本地 checklist 数据
+			checklistsData.value.forEach((checklist) => {
+				if (checklist.id === task.checklistId) {
+					const taskToUpdate = checklist.tasks?.find((t: any) => t.id === task.id);
+					if (taskToUpdate) {
+						taskToUpdate.isCompleted = task.isCompleted;
+						taskToUpdate.completedDate = task.isCompleted
+							? new Date().toISOString()
+							: null;
+
+						// 更新 checklist 的完成统计
+						const completedTasks =
+							checklist.tasks?.filter((t: any) => t.isCompleted).length || 0;
+						const totalTasks = checklist.tasks?.length || 0;
+						checklist.completedTasks = completedTasks;
+						checklist.completionRate =
+							totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+					}
+				}
+			});
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}

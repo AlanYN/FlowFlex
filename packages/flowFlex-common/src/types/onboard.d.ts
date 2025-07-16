@@ -54,6 +54,7 @@ export interface OnboardingItem {
 	timelineDays: number;
 	workflowId: string;
 	stagesProgress: StageInfo[];
+	estimatedCompletionDate: string;
 }
 
 export interface SearchParams {

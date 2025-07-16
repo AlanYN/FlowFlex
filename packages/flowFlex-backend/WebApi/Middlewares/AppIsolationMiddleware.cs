@@ -3,6 +3,9 @@ using Microsoft.Extensions.Logging;
 using FlowFlex.Domain.Shared.Models;
 using System.Threading.Tasks;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
+using System;
+using System.Linq;
+using System.Security.Claims;
 
 namespace FlowFlex.WebApi.Middlewares
 {
@@ -22,60 +25,61 @@ namespace FlowFlex.WebApi.Middlewares
 
         public async Task InvokeAsync(HttpContext context)
         {
-            // Create app context from request
-            var appContext = CreateAppContext(context);
-
-            // Log isolation information
-            _logger.LogInformation("[AppIsolationMiddleware] Request: {Method} {Path}, AppCode: {AppCode}, TenantId: {TenantId}, RequestId: {RequestId}",
-                context.Request.Method, context.Request.Path, appContext.AppCode, appContext.TenantId, appContext.RequestId);
-
-            // Validate app context
-            if (!appContext.IsValid())
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var requestId = GenerateRequestId();
+            
+            try
             {
-                _logger.LogWarning("[AppIsolationMiddleware] Invalid app context: AppCode={AppCode}, TenantId={TenantId}",
-                    appContext.AppCode, appContext.TenantId);
-                
-                context.Response.StatusCode = 400;
-                await context.Response.WriteAsync("Invalid application context. AppCode and TenantId are required.");
-                return;
+                // Extract AppCode from request
+                var appCode = await ExtractAppCodeAsync(context);
+                context.Items["AppCode"] = appCode;
+
+                // Extract TenantId with priority order
+                var tenantId = await ExtractTenantIdAsync(context, appCode);
+                context.Items["TenantId"] = tenantId;
+
+                _logger.LogInformation(
+                    "[AppIsolationMiddleware] Request: {Method} {Path}, AppCode: {AppCode}, TenantId: {TenantId}, RequestId: {RequestId}",
+                    context.Request.Method,
+                    context.Request.Path,
+                    appCode,
+                    tenantId,
+                    requestId);
+
+                await _next(context);
             }
-
-            // Store app context in HTTP context items for use by other services
-            context.Items["AppContext"] = appContext;
-
-            // Ensure headers are set for downstream processing
-            EnsureHeaders(context, appContext);
-
-            // Add response headers for debugging
-            context.Response.Headers["X-Response-App-Code"] = appContext.AppCode;
-            context.Response.Headers["X-Response-Tenant-Id"] = appContext.TenantId;
-            context.Response.Headers["X-Response-Request-Id"] = appContext.RequestId;
-
-            await _next(context);
-        }
-
-        private AppContext CreateAppContext(HttpContext context)
-        {
-            var appContext = new AppContext
+            catch (Exception ex)
             {
-                RequestTime = DateTimeOffset.Now,
-                ClientIp = GetClientIpAddress(context),
-                UserAgent = context.Request.Headers["User-Agent"].FirstOrDefault() ?? string.Empty
-            };
-
-            // Get AppCode from multiple sources
-            appContext.AppCode = GetAppCode(context);
-
-            // Get TenantId from multiple sources
-            appContext.TenantId = GetTenantId(context);
-
-            // Generate or get request ID
-            appContext.RequestId = GetRequestId(context);
-
-            return appContext;
+                stopwatch.Stop();
+                _logger.LogError(ex,
+                    "[AppIsolationMiddleware] Error processing request: {Method} {Path}, RequestId: {RequestId}, Duration: {ElapsedMs}ms",
+                    context.Request.Method,
+                    context.Request.Path,
+                    requestId,
+                    stopwatch.ElapsedMilliseconds);
+                throw;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 1000) // Log slow requests
+                {
+                    _logger.LogWarning(
+                        "[AppIsolationMiddleware] Slow request detected: {Method} {Path}, RequestId: {RequestId}, Duration: {ElapsedMs}ms",
+                        context.Request.Method,
+                        context.Request.Path,
+                        requestId,
+                        stopwatch.ElapsedMilliseconds);
+                }
+            }
         }
 
-        private string GetAppCode(HttpContext context)
+        private static string GenerateRequestId()
+        {
+            return Guid.NewGuid().ToString("N")[..8];
+        }
+
+        private async Task<string> ExtractAppCodeAsync(HttpContext context)
         {
             // 1. Get from X-App-Code header
             var appCode = context.Request.Headers["X-App-Code"].FirstOrDefault();
@@ -110,20 +114,19 @@ namespace FlowFlex.WebApi.Middlewares
             }
 
             // 5. Infer from request path or subdomain
-            appCode = InferAppCodeFromRequest(context);
-            if (!string.IsNullOrEmpty(appCode))
+            var inferredAppCode = InferAppCodeFromRequest(context);
+            if (!string.IsNullOrEmpty(inferredAppCode))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Inferred AppCode from request: {AppCode}", appCode);
-                return appCode;
+                _logger.LogDebug("[AppIsolationMiddleware] Inferred AppCode from request: {AppCode}", inferredAppCode);
+                return inferredAppCode;
             }
 
             // 6. Default app code
-            appCode = "DEFAULT";
-            _logger.LogDebug("[AppIsolationMiddleware] Using default AppCode: {AppCode}", appCode);
-            return appCode;
+            _logger.LogDebug("[AppIsolationMiddleware] Using default AppCode: {AppCode}", "DEFAULT");
+            return "DEFAULT";
         }
 
-        private string GetTenantId(HttpContext context)
+        private async Task<string> ExtractTenantIdAsync(HttpContext context, string appCode)
         {
             // 1. Get from X-Tenant-Id header
             var tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
@@ -165,19 +168,18 @@ namespace FlowFlex.WebApi.Middlewares
                 var domain = userEmail.Split('@').LastOrDefault();
                 if (!string.IsNullOrEmpty(domain))
                 {
-                    tenantId = MapDomainToTenantId(domain);
-                    if (!string.IsNullOrEmpty(tenantId))
+                    var inferredTenantId = MapDomainToTenantId(domain);
+                    if (!string.IsNullOrEmpty(inferredTenantId))
                     {
-                        _logger.LogDebug("[AppIsolationMiddleware] Inferred TenantId from email domain: {TenantId}", tenantId);
-                        return tenantId;
+                        _logger.LogDebug("[AppIsolationMiddleware] Inferred TenantId from email domain: {TenantId}", inferredTenantId);
+                        return inferredTenantId;
                     }
                 }
             }
 
             // 6. Default tenant ID
-            tenantId = "DEFAULT";
-            _logger.LogDebug("[AppIsolationMiddleware] Using default TenantId: {TenantId}", tenantId);
-            return tenantId;
+            _logger.LogDebug("[AppIsolationMiddleware] Using default TenantId: {TenantId}", "DEFAULT");
+            return "DEFAULT";
         }
 
         private string GetRequestId(HttpContext context)

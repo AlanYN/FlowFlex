@@ -305,10 +305,8 @@ const emit = defineEmits(['submit', 'cancel']);
 }
 
 .color-grid {
-	display: grid;
-	grid-template-columns: repeat(6, 1fr);
-	gap: 8px;
-	margin-top: 4px;
+	display: flex;
+	justify-content: space-between;
 }
 
 .color-option {

@@ -376,7 +376,7 @@
 				/>
 			</el-form-item>
 		</el-form>
-		<div class="flex justify-end space-x-2">
+		<div class="flex justify-end space-x-2 mt-4">
 			<el-button @click="handleSave" :loading="saving">
 				<el-icon class="mr-1"><Document /></el-icon>
 				Save

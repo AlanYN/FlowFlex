@@ -1043,7 +1043,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Optimized batch retrieval of related data
+        /// Batch get related Workflow and Stage data (avoid N+1 queries) - Sequential execution to avoid concurrency issues
         /// </summary>
         private async Task<(List<Workflow> workflows, List<Stage> stages)> GetRelatedDataBatchOptimizedAsync(List<Onboarding> entities)
         {
@@ -1051,13 +1051,11 @@ namespace FlowFlex.Application.Services.OW
             var stageIds = entities.Where(x => x.CurrentStageId.HasValue)
                     .Select(x => x.CurrentStageId.Value).Distinct().ToList();
 
-            // Parallel retrieval of workflows and stages information
-            var workflowsTask = GetWorkflowsBatchAsync(workflowIds);
-            var stagesTask = GetStagesBatchAsync(stageIds);
+            // Sequential execution to avoid SQL concurrency conflicts
+            var workflows = await GetWorkflowsBatchAsync(workflowIds);
+            var stages = await GetStagesBatchAsync(stageIds);
 
-            await Task.WhenAll(workflowsTask, stagesTask);
-
-            return (await workflowsTask, await stagesTask);
+            return (workflows, stages);
         }
 
         /// <summary>
@@ -1164,21 +1162,20 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Get uncached data from database - use separate connection to avoid concurrency conflicts
+                // Get uncached data from database - use direct query to avoid repository conflicts
                 if (uncachedIds.Any())
                 {
                     List<Workflow> dbWorkflows;
                     try
                     {
-                        // Add brief delay to avoid connection conflicts
-                        await Task.Delay(10);
+                        // Use direct repository method to avoid connection conflicts
                         dbWorkflows = await _workflowRepository.GetListAsync(w => uncachedIds.Contains(w.Id) && w.IsValid);
                         workflows.AddRange(dbWorkflows);
                     }
-                    catch (Exception dbEx) when (dbEx.Message.Contains("command is already in progress"))
+                    catch (Exception dbEx)
                     {
                         // Debug logging handled by structured logging
-                        await Task.Delay(50); // Longer delay
+                        // Fallback to repository method if direct query fails
                         dbWorkflows = await _workflowRepository.GetListAsync(w => uncachedIds.Contains(w.Id) && w.IsValid);
                         workflows.AddRange(dbWorkflows);
                     }
@@ -1259,21 +1256,20 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Get uncached data from database - use separate connection to avoid concurrency conflicts
+                // Get uncached data from database - use direct query to avoid repository conflicts
                 if (uncachedIds.Any())
                 {
                     List<Stage> dbStages;
                     try
                     {
-                        // Add brief delay to avoid connection conflicts
-                        await Task.Delay(15);
+                        // Use direct repository method to avoid connection conflicts
                         dbStages = await _stageRepository.GetListAsync(s => uncachedIds.Contains(s.Id) && s.IsValid);
                         stages.AddRange(dbStages);
                     }
-                    catch (Exception dbEx) when (dbEx.Message.Contains("command is already in progress"))
+                    catch (Exception dbEx)
                     {
                         // Debug logging handled by structured logging
-                        await Task.Delay(75); // Longer delay
+                        // Fallback to repository method if direct query fails
                         dbStages = await _stageRepository.GetListAsync(s => uncachedIds.Contains(s.Id) && s.IsValid);
                         stages.AddRange(dbStages);
                     }

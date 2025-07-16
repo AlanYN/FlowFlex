@@ -1,6 +1,6 @@
 <template>
-	<div class="customer-block">
-		<h2 class="text-lg font-semibold">Questionnaire</h2>
+	<div class="customer-block" v-if="hasQuestionnaireData">
+		<h2 class="text-lg font-semibold">Questionnaire-{{ questionnaireData.name }}</h2>
 		<el-divider />
 
 		<!-- 阶段描述 -->
@@ -9,7 +9,6 @@
 			<DynamicForm
 				ref="dynamicFormRef"
 				:stageId="stageId"
-				:leadId="leadId"
 				:onboardingId="onboardingId || ''"
 				:questionnaireData="questionnaireData"
 				:isStageCompleted="isStageCompleted"
@@ -58,11 +57,10 @@ import DynamicForm from './dynamicForm.vue';
 // 组件属性
 interface Props {
 	stageId: string;
-	leadId: string;
-	onboardingId?: string;
+	onboardingId: string;
 	leadData: OnboardingItem | null;
 	workflowStages: any[];
-	questionnaireData?: any[];
+	questionnaireData?: any;
 }
 
 const props = defineProps<Props>();
@@ -76,6 +74,11 @@ const emit = defineEmits<{
 const stageHistory = ref<any[]>([]);
 const saving = ref(false);
 const dynamicFormRef = ref();
+
+// 计算属性 - 检查是否有问卷数据
+const hasQuestionnaireData = computed(() => {
+	return props.questionnaireData;
+});
 
 const isStageCompleted = computed(() => {
 	if (props.workflowStages.length === 0) {
@@ -103,7 +106,6 @@ const handleStageUpdated = () => {
 const handleSave = async () => {
 	try {
 		saving.value = true;
-
 		// 验证静态表单
 		const dynamicFormValid = await dynamicFormRef.value?.validateForm();
 		if (!dynamicFormValid?.isValid || !props?.onboardingId) {

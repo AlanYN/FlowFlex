@@ -69,7 +69,7 @@ export default {
 				textTitle: '#547296',
 			},
 			fontFamily: {
-				sans: ['HelveticaNow'],
+				sans: ['Helvetica Now'],
 			},
 		},
 	},

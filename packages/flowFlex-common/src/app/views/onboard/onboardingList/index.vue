@@ -99,7 +99,7 @@
 							prop="leadName"
 							label="Company/Contact Name"
 							sortable="custom"
-							min-width="200"
+							min-width="220"
 						>
 							<template #default="{ row }">
 								<div class="table-cell-content" :title="row.leadName">
@@ -111,7 +111,7 @@
 							prop="lifeCycleStageName"
 							label="Life Cycle Stage"
 							sortable="custom"
-							width="150"
+							width="170"
 						>
 							<template #default="{ row }">
 								<div class="table-cell-content" :title="row.lifeCycleStageName">
@@ -196,7 +196,7 @@
 							prop="stageUpdatedBy"
 							label="Updated By"
 							sortable="custom"
-							width="120"
+							width="140"
 						>
 							<template #default="{ row }">
 								<div class="table-cell-content" :title="row.stageUpdatedBy">
