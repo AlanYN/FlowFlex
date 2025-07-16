@@ -414,7 +414,7 @@ export interface ChecklistTaskInputDto {
 	assigneeName?: string;
 	assignedTeam?: string;
 	priority?: string;
-	order?: number;
+	orderIndex?: number;
 	estimatedHours?: number;
 	dueDate?: string;
 	dependsOnTaskIds?: number[];
@@ -546,7 +546,7 @@ export function formatTaskForApi(task: any): ChecklistTaskInputDto {
 		assigneeName: task.assigneeName,
 		assignedTeam: task.assignedTeam,
 		priority: task.priority || 'Medium',
-		order: task.order || 0,
+		orderIndex: task.order || 0, // 修改：使用orderIndex而不是order
 		estimatedHours: task.estimatedMinutes
 			? Math.round((task.estimatedMinutes / 60) * 100) / 100
 			: 0,
