@@ -119,7 +119,7 @@ const formData = reactive({
 	startDate: '',
 	endDate: '',
 	status: 'active' as 'active' | 'inactive',
-	isDefault: false, // 改为 false，让后面的逻辑来设置
+	isDefault: false, // 初始值为 false，由后续逻辑决定
 });
 
 // 开关状态计算属性
@@ -130,11 +130,55 @@ const isActiveSwitch = computed({
 	},
 });
 
+// 检查系统中是否已有默认工作流
+const checkAndSetDefaultValue = async () => {
+	try {
+		// 只在非编辑模式下执行此逻辑
+		if (props.isEditing) {
+			console.log('编辑模式，跳过默认值检查');
+			return;
+		}
+
+		console.log('开始检查系统中的默认工作流...');
+		const res = await getWorkflowList();
+
+		if (res.code === '200' && res.data) {
+			const workflowCount = res.data.length;
+			const hasDefaultWorkflow = res.data.some((workflow: any) => workflow.isDefault);
+
+			console.log(`系统中有 ${workflowCount} 个工作流，其中有默认工作流: ${hasDefaultWorkflow}`);
+
+			// 如果系统为空（没有任何工作流），设为默认
+			if (workflowCount === 0) {
+				formData.isDefault = true;
+				console.log('系统为空，设置新工作流为默认');
+			} else if (!hasDefaultWorkflow) {
+				// 如果系统中没有默认工作流，新工作流自动设为默认
+				formData.isDefault = true;
+				console.log('系统中没有默认工作流，设置新工作流为默认');
+			} else {
+				// 如果系统中已有默认工作流，新工作流设为非默认
+				formData.isDefault = false;
+				console.log('系统中已有默认工作流，新工作流设为非默认');
+			}
+		} else {
+			// 如果无法获取工作流列表，默认设为 true（假设系统为空）
+			formData.isDefault = true;
+			console.log('无法获取工作流列表，设置为默认');
+		}
+	} catch (error) {
+		console.warn('检查默认工作流失败，设置为默认:', error);
+		// 出错时默认设为 true，确保至少有一个默认工作流
+		formData.isDefault = true;
+	}
+};
+
 // 监听初始数据变化，用于编辑模式
 watch(
 	() => props.initialData,
 	(newData) => {
-		if (newData) {
+		if (newData && Object.keys(newData).length > 0) {
+			// 编辑模式：有初始数据时使用初始数据
 			formData.name = newData.name || '';
 			formData.description = newData.description || '';
 			formData.startDate = timeZoneConvert(newData?.startDate || '');
@@ -144,7 +188,7 @@ watch(
 				? !!newData.isDefault
 				: false; // 编辑模式下不自动设为默认
 		} else if (!props.isEditing) {
-			// 如果不是编辑模式且没有初始数据，检查默认值
+			// 创建模式：没有初始数据时检查默认值
 			checkAndSetDefaultValue();
 		}
 	},
@@ -172,35 +216,11 @@ watch(
 	}
 );
 
-// 检查系统中是否已有默认工作流
-const checkAndSetDefaultValue = async () => {
-	try {
-		// 只在非编辑模式下执行此逻辑
-		if (props.isEditing) {
-			return;
-		}
-
-		const res = await getWorkflowList();
-		if (res.code === '200' && res.data) {
-			const hasDefaultWorkflow = res.data.some((workflow: any) => workflow.isDefault);
-			// 如果系统中没有默认工作流，新工作流设为默认
-			// 如果系统中已有默认工作流，新工作流设为非默认
-			formData.isDefault = !hasDefaultWorkflow;
-		} else {
-			// 如果无法获取工作流列表，默认设为 true（假设系统为空）
-			formData.isDefault = true;
-		}
-	} catch (error) {
-		console.warn('Failed to check default workflow:', error);
-		// 出错时默认设为 true
-		formData.isDefault = true;
-	}
-};
-
 // 组件挂载时检查默认值（仅在非编辑模式下）
-onMounted(() => {
-	if (!props.isEditing && !props.initialData) {
-		checkAndSetDefaultValue();
+onMounted(async () => {
+	// 创建模式下，无论是否有初始数据都要检查默认值
+	if (!props.isEditing) {
+		await checkAndSetDefaultValue();
 	}
 });
 

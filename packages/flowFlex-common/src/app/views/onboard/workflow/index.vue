@@ -1051,11 +1051,35 @@ const handleWorkflowCancel = () => {
 const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 	try {
 		loading.createWorkflow = true;
-		//
+		
+		// 检查系统中是否已有默认工作流
+		let shouldSetAsDefault = newWorkflow.isDefault || false;
+		
+		// 如果用户没有主动设置为默认，检查系统中是否已有默认工作流
+		if (!shouldSetAsDefault) {
+			try {
+				const workflowRes = await getWorkflowList();
+				if (workflowRes.code === '200' && workflowRes.data) {
+					const hasDefaultWorkflow = workflowRes.data.some((wf: any) => wf.isDefault);
+					// 如果系统中没有默认工作流，自动设置新工作流为默认
+					if (!hasDefaultWorkflow || workflowRes.data.length === 0) {
+						shouldSetAsDefault = true;
+					}
+				} else {
+					// 如果获取工作流列表失败，假设系统为空，设为默认
+					shouldSetAsDefault = true;
+				}
+			} catch (error) {
+				console.warn('Failed to check existing workflows, setting as default:', error);
+				// 出错时设为默认，确保系统至少有一个默认工作流
+				shouldSetAsDefault = true;
+			}
+		}
+
 		const params = {
 			name: newWorkflow.name || '',
 			description: newWorkflow.description || '',
-			isDefault: newWorkflow.isDefault || false,
+			isDefault: shouldSetAsDefault,
 			status: newWorkflow.status || 'Active',
 			startDate: timeZoneConvert(newWorkflow.startDate || ''),
 			endDate: timeZoneConvert(newWorkflow.endDate || ''),
