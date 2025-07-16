@@ -119,8 +119,23 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 // Debug logging handled by structured logging
-                // Check if answer already exists
-                var existingAnswer = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
+                // Check if answer already exists - use questionnaireId if provided
+                QuestionnaireAnswer existingAnswer = null;
+                
+                if (input.QuestionnaireId.HasValue)
+                {
+                    // Query by (onboardingId, stageId, questionnaireId) combination
+                    existingAnswer = await _repository.GetByOnboardingStageAndQuestionnaireAsync(
+                        input.OnboardingId, 
+                        input.StageId, 
+                        input.QuestionnaireId.Value);
+                }
+                else
+                {
+                    // Fallback to original logic for backward compatibility
+                    existingAnswer = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
+                }
+                
                 bool isUpdate = existingAnswer != null;
                 string oldAnswerJson = existingAnswer?.AnswerJson;
 
@@ -196,8 +211,20 @@ namespace FlowFlex.Application.Services.OW
                     // Log the creation
                     if (result > 0)
                     {
-                        // Get the inserted entity ID
-                        var insertedEntity = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
+                        // Get the inserted entity ID - for new records with questionnaireId, search by all three fields
+                        QuestionnaireAnswer insertedEntity;
+                        if (input.QuestionnaireId.HasValue)
+                        {
+                            insertedEntity = await _repository.GetByOnboardingStageAndQuestionnaireAsync(
+                                input.OnboardingId, 
+                                input.StageId, 
+                                input.QuestionnaireId.Value);
+                        }
+                        else
+                        {
+                            insertedEntity = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
+                        }
+                        
                         if (insertedEntity != null)
                         {
                             await _operationChangeLogService.LogQuestionnaireAnswerSubmitAsync(

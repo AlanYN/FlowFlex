@@ -48,18 +48,31 @@
 				</el-form-item>
 			</div>
 
-			<el-form-item label="Set as active workflow" class="radio-group-item">
-				<el-radio-group v-model="formData.status">
-					<el-radio :value="'active'">Active</el-radio>
-					<el-radio :value="'inactive'">Inactive</el-radio>
-				</el-radio-group>
+			<el-form-item label="Set as active workflow" class="switch-group-item">
+				<div class="switch-container">
+					<el-switch
+						v-model="isActiveSwitch"
+						class="ml-2"
+						inline-prompt
+						style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+						active-text="Active"
+						inactive-text="Inactive"
+					/>
+				</div>
 			</el-form-item>
 
-			<el-form-item label="Set as default workflow" class="radio-group-item">
-				<el-radio-group v-model="formData.isDefault" :disabled="isDefaultDisabled">
-					<el-radio :value="true" :disabled="isDefaultDisabled">Default</el-radio>
-					<el-radio :value="false">Not Default</el-radio>
-				</el-radio-group>
+			<el-form-item label="Set as default workflow" class="switch-group-item">
+				<div class="switch-container">
+					<el-switch
+						v-model="formData.isDefault"
+						class="ml-2"
+						inline-prompt
+						style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+						active-text="Default"
+						inactive-text="Not Default"
+						:disabled="isDefaultDisabled"
+					/>
+				</div>
 			</el-form-item>
 
 			<div class="form-actions">
@@ -106,6 +119,14 @@ const formData = reactive({
 	endDate: '',
 	status: 'active' as 'active' | 'inactive',
 	isDefault: true,
+});
+
+// 开关状态计算属性
+const isActiveSwitch = computed({
+	get: () => formData.status === 'active',
+	set: (value: boolean) => {
+		formData.status = value ? 'active' : 'inactive';
+	},
 });
 
 // 监听初始数据变化，用于编辑模式
@@ -227,8 +248,13 @@ const emit = defineEmits(['submit', 'cancel']);
 	flex: 1;
 }
 
-.radio-group-item {
+.switch-group-item {
 	margin-top: 12px;
+}
+
+.switch-container {
+	display: flex;
+	align-items: center;
 }
 
 .form-actions {

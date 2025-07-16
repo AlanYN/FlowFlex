@@ -21,6 +21,14 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get answer by Onboarding ID, Stage ID and Questionnaire ID
+        /// </summary>
+        public async Task<QuestionnaireAnswer?> GetByOnboardingStageAndQuestionnaireAsync(long onboardingId, long stageId, long questionnaireId)
+        {
+            return await base.GetFirstAsync(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.QuestionnaireId == questionnaireId && x.IsLatest && x.IsValid);
+        }
+
+        /// <summary>
         /// Get all answers by Onboarding ID
         /// </summary>
         public async Task<List<QuestionnaireAnswer>> GetByOnboardingIdAsync(long onboardingId)
