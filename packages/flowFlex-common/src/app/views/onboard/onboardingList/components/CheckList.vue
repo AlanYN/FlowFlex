@@ -55,7 +55,6 @@
 					<div class="item-content" @click.stop="toggleTask(task)">
 						<h4 v-if="task.name" class="item-title">
 							{{ task.name }}
-							{{ task.id }}
 						</h4>
 						<p v-if="task.description" class="item-description">
 							{{ task.description }}

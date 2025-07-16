@@ -12,6 +12,7 @@
 				:onboardingId="onboardingId || ''"
 				:questionnaireData="questionnaireData"
 				:isStageCompleted="isStageCompleted"
+				:questionnaire-answers="questionnaireAnswers"
 				@stage-updated="handleStageUpdated"
 			/>
 		</div>
@@ -61,6 +62,16 @@ interface Props {
 	leadData: OnboardingItem | null;
 	workflowStages: any[];
 	questionnaireData?: any;
+	questionnaireAnswers?: {
+		lastModifiedAt: string;
+		lastModifiedBy: string;
+		question: string;
+		questionId: string;
+		responseText: string;
+		type: string;
+		answer: string;
+		changeHistory: any[];
+	}[];
 }
 
 const props = defineProps<Props>();
@@ -142,16 +153,8 @@ const handleSave = async (isTip: boolean = true) => {
 	}
 };
 
-// 设置表单字段值的方法
-const setFormFieldValues = () => {
-	if (dynamicFormRef.value) {
-		dynamicFormRef.value.setFieldValues();
-	}
-};
-
 // 暴露给父组件的方法
 defineExpose({
-	setFormFieldValues,
 	handleSave,
 });
 </script>

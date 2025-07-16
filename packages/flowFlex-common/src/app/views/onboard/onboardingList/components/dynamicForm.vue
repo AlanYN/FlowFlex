@@ -56,7 +56,7 @@
 									{{ question.description }}
 								</p>
 							</div>
-
+							{{ question.id }}
 							<!-- 短答题 -->
 							<el-input
 								v-if="question.type === 'short_answer' || question.type === 'text'"
@@ -378,7 +378,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { Upload, Loading, Warning } from '@element-plus/icons-vue';
-import { getQuestionnaireAnswer } from '@/apis/ow/onboarding';
+// 移除对 getQuestionnaireAnswer 的直接调用，答案由父组件注入
 
 // 组件属性
 interface Props {
@@ -386,6 +386,21 @@ interface Props {
 	onboardingId?: string;
 	questionnaireData?: any;
 	isStageCompleted?: boolean;
+	questionnaireAnswers?: {
+		lastModifiedAt: string;
+		lastModifiedBy: string;
+		question: string;
+		questionId: string;
+		responseText: string;
+		type: string;
+		answer: string;
+		changeHistory: {
+			action: string;
+			timestamp: string;
+			timestampUtc: string;
+			user: string;
+		}[];
+	}[];
 }
 
 const props = defineProps<Props>();
@@ -457,6 +472,17 @@ const formattedQuestionnaires = computed(() => {
 		];
 	}
 });
+
+// 根据答案数组填充表单
+const applyAnswers = (answers?: any[]) => {
+	if (!Array.isArray(answers) || answers.length === 0) return;
+
+	answers.forEach((ans: any) => {
+		if (!ans || !ans.questionId) return;
+		formData.value[ans.questionId] = ans.responseText;
+	});
+	console.log('formData', formData.value);
+};
 
 // 监听问卷数据变化，自动展开所有sections
 watch(
@@ -710,48 +736,7 @@ const getFormData = () => {
 	return result;
 };
 
-// 加载已保存的问卷答案
-const loadSavedAnswers = async () => {
-	if (!props.stageId || !props.onboardingId) {
-		return;
-	}
-
-	try {
-		loading.value = true;
-		const response = await getQuestionnaireAnswer(props.onboardingId, props.stageId);
-
-		if (response.code === '200' && response.data) {
-			// 将保存的答案填充到表单中
-			const anserForm = JSON.parse(response.data[0].answerJson);
-			anserForm?.responses?.forEach((questionnaireAnswer: any) => {
-				if (questionnaireAnswer.questionId) {
-					formData.value[questionnaireAnswer.questionId] =
-						questionnaireAnswer.responseText;
-				}
-			});
-		}
-	} catch (error) {
-		// 不显示错误消息，因为可能是第一次加载没有答案数据
-	} finally {
-		loading.value = false;
-	}
-};
-
-// 设置表单字段值的方法
-const setFieldValues = () => {
-	loadSavedAnswers();
-};
-
-// 监听 stageId 和 onboardingId 变化
-watch(
-	() => [props.stageId, props.onboardingId],
-	async ([newStageId, newOnboardingId]) => {
-		if (newStageId && newOnboardingId) {
-			await loadSavedAnswers();
-		}
-	},
-	{ immediate: false }
-);
+// 不再监听 props 重新拉取答案，父组件负责注入
 
 // 初始化
 onMounted(async () => {
@@ -765,37 +750,46 @@ onMounted(async () => {
 						// 多选网格：为每一行初始化多选值（数组）
 						if (question.rows && question.rows.length > 0) {
 							question.rows.forEach((row: any, rowIndex: number) => {
-								formData.value[`${question.id}_${row.id || rowIndex}`] = [];
+								const key = `${question.id}_${row.id || rowIndex}`;
+								if (!(key in formData.value)) {
+									formData.value[key] = [];
+								}
 							});
 						}
 					} else if (question.type === 'checkbox_grid') {
 						// 单选网格：为每一行初始化单选值
 						if (question.rows && question.rows.length > 0) {
 							question.rows.forEach((row: any, rowIndex: number) => {
-								formData.value[`${question.id}_${row.id || rowIndex}`] = null;
+								const key = `${question.id}_${row.id || rowIndex}`;
+								if (!(key in formData.value)) {
+									formData.value[key] = null;
+								}
 							});
 						}
 					} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
 						// 多选题：初始化为数组
-						formData.value[question.id] = [];
+						if (!(question.id in formData.value)) {
+							formData.value[question.id] = [];
+						}
 					} else {
 						// 其他类型：初始化为空字符串
-						formData.value[question.id] = '';
+						if (!(question.id in formData.value)) {
+							formData.value[question.id] = '';
+						}
 					}
 				});
 			});
 		});
 	}
 
-	// 无论是否有问卷数据，都尝试加载已保存的答案
-	await loadSavedAnswers();
+	// 初始化完毕后再应用答案，防止被覆盖
+	applyAnswers(props.questionnaireAnswers);
 });
 
 defineExpose({
 	validateForm,
 	transformFormDataForAPI,
 	getFormData,
-	setFieldValues,
 });
 </script>
 

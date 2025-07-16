@@ -1051,10 +1051,10 @@ const handleWorkflowCancel = () => {
 const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 	try {
 		loading.createWorkflow = true;
-		
+
 		// 检查系统中是否已有默认工作流
 		let shouldSetAsDefault = newWorkflow.isDefault || false;
-		
+
 		// 如果用户没有主动设置为默认，检查系统中是否已有默认工作流
 		if (!shouldSetAsDefault) {
 			try {

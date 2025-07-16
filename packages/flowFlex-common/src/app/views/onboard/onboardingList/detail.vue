@@ -109,6 +109,7 @@
 										component?.questionnaireIds &&
 										component.questionnaireIds?.length > 0
 									"
+									:ref="setQuestionnaireDetailsRef"
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
@@ -117,7 +118,9 @@
 									"
 									:onboardingId="onboardingId"
 									@stage-updated="handleStageUpdated"
-									:ref="setQuestionnaireDetailsRef"
+									:questionnaire-answers="
+										getQuestionnaireAnswersForComponent(component)
+									"
 								/>
 
 								<!-- 文件组件 -->
@@ -235,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, ChatDotSquare, Loading, User } from '@element-plus/icons-vue';
@@ -246,6 +249,7 @@ import {
 	getCheckListIds,
 	getCheckListIsCompleted,
 	getQuestionIds,
+	getQuestionnaireAnswer,
 	completeCurrentStage,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
@@ -281,6 +285,8 @@ const saving = ref(false);
 // 存储批量查询到的数据
 const checklistsData = ref<any[]>([]);
 const questionnairesData = ref<any[]>([]);
+// 问卷答案映射：questionnaireId -> responses[]
+const questionnaireAnswersMap = ref<Record<string, any[]>>({});
 
 // Loading状态管理
 const stageDataLoading = ref(false); // 初始加载和阶段完成后的数据加载状态
@@ -360,6 +366,15 @@ const getQuestionnaireDataForComponent = (component: ComponentData) => {
 	}
 
 	return null;
+};
+
+// 根据组件获取对应问卷答案数组
+const getQuestionnaireAnswersForComponent = (component: ComponentData) => {
+	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
+		return [];
+	}
+	const qId = component.questionnaireIds[0];
+	return questionnaireAnswersMap.value[qId] || [];
 };
 
 // 根据components数组排序，确保静态字段表单在前面
@@ -513,7 +528,7 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 	}
 };
 
-// 批量加载问卷数据
+// 批量加载问卷结构和答案
 const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string) => {
 	if (!onboardingActiveStageInfo.value?.components) return;
 
@@ -528,9 +543,37 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 	if (allQuestionnaireIds.length === 0) return;
 
 	try {
-		const response = await getQuestionIds(allQuestionnaireIds);
-		if (response.code === '200') {
-			questionnairesData.value = response.data || [];
+		// 并行请求：结构 + 答案
+		const [structureRes, answerRes] = await Promise.all([
+			getQuestionIds(allQuestionnaireIds),
+			getQuestionnaireAnswer(onboardingId, stageId),
+		]);
+
+		// 处理结构
+		if (structureRes.code === '200') {
+			questionnairesData.value = structureRes.data || [];
+		}
+		await nextTick();
+		// 处理答案
+		if (answerRes.code === '200' && answerRes.data && Array.isArray(answerRes.data)) {
+			const map: Record<string, any[]> = {};
+			answerRes.data.forEach((item: any) => {
+				if (item.questionnaireId && item.answerJson) {
+					let parsed;
+					try {
+						parsed =
+							typeof item.answerJson === 'string'
+								? JSON.parse(item.answerJson)
+								: item.answerJson;
+					} catch {
+						parsed = null;
+					}
+					if (parsed && Array.isArray(parsed.responses)) {
+						map[item.questionnaireId] = parsed.responses;
+					}
+				}
+			});
+			questionnaireAnswersMap.value = map;
 		}
 	} catch (error) {
 		ElMessage.error('Failed to load questionnaires');
@@ -598,10 +641,7 @@ const loadStaticFieldValues = async () => {
 		const response = await getStaticFieldValuesByOnboarding(onboardingId.value);
 		if (response.code === '200' && response.data && Array.isArray(response.data)) {
 			// 接口返回的是数组格式的静态字段数据
-			// 直接传递给StageDetails组件处理
-			questionnaireDetailsRefs.value.forEach((questRef) => {
-				questRef.setFormFieldValues?.();
-			});
+			// 仅传递给 StaticForm 组件处理
 			staticFormRefs.value.forEach((formRef) => {
 				formRef.setFieldValues(response.data);
 			});
