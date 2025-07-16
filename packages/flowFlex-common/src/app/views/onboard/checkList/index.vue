@@ -567,6 +567,21 @@ const stages = shallowRef([]);
 const loading = ref(false);
 const error = ref(null);
 
+// 任务数据处理辅助函数 - 统一处理order字段映射
+const processTaskData = (task) => ({
+	...task,
+	completed: task.isCompleted || task.completed || false,
+	estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
+	order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0),
+});
+
+// 处理任务列表，确保排序正确
+const processTaskList = (tasks) => {
+	return (tasks || [])
+		.map(processTaskData)
+		.sort((a, b) => (a.order || 0) - (b.order || 0));
+};
+
 // 任务编辑相关
 const editingTask = ref(null);
 const editingTaskChecklistId = ref(null);
@@ -805,10 +820,13 @@ const loadChecklists = async () => {
 				// 检查是否已经有加载的任务数据
 				const existingChecklist = checklists.value.find((c) => c.id === checklist.id);
 				if (existingChecklist && existingChecklist.tasksLoaded && existingChecklist.tasks?.length > 0) {
-					// 保留已加载的任务数据
-				return {
-					...checklist,
-						tasks: existingChecklist.tasks,
+					// 保留已加载的任务数据，确保正确处理order字段
+					return {
+						...checklist,
+						tasks: existingChecklist.tasks.map(task => ({
+							...task,
+							order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：确保order字段正确
+						})),
 						tasksLoaded: true,
 					};
 				} else {
@@ -884,11 +902,14 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 			const tasks = await Promise.race([getChecklistTasks(checklistId), timeoutPromise]);
 			console.log(`Tasks loaded for checklist ${checklistId}:`, tasks);
 
-			const processedTasks = (tasks.data || tasks || []).map((task) => ({
-				...task,
-				completed: task.isCompleted || task.completed || false,
-				estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-			}));
+			const processedTasks = (tasks.data || tasks || [])
+				.map((task) => ({
+					...task,
+					completed: task.isCompleted || task.completed || false,
+					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
+					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+				}))
+				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
 			// 使用Object.assign确保响应式更新
 			Object.assign(checklist, {
@@ -1036,11 +1057,14 @@ const addTask = async (checklistId) => {
 		const checklist = checklists.value.find((c) => c.id === checklistId);
 		if (checklist) {
 			const tasks = await getChecklistTasks(checklistId);
-			const processedTasks = (tasks.data || tasks || []).map((task) => ({
-				...task,
-				completed: task.isCompleted || task.completed || false,
-				estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-			}));
+			const processedTasks = (tasks.data || tasks || [])
+				.map((task) => ({
+					...task,
+					completed: task.isCompleted || task.completed || false,
+					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
+					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+				}))
+				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
 			// 使用Object.assign确保响应式更新
 			Object.assign(checklist, {
@@ -1097,11 +1121,14 @@ const deleteTask = async (checklistId, taskId) => {
 		const checklist = checklists.value.find((c) => c.id === checklistId);
 		if (checklist) {
 			const tasks = await getChecklistTasks(checklistId);
-			const processedTasks = (tasks.data || tasks || []).map((task) => ({
-				...task,
-				completed: task.isCompleted || task.completed || false,
-				estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-			}));
+			const processedTasks = (tasks.data || tasks || [])
+				.map((task) => ({
+					...task,
+					completed: task.isCompleted || task.completed || false,
+					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
+					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+				}))
+				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
 			// 使用Object.assign确保响应式更新
 			Object.assign(checklist, {
@@ -2228,11 +2255,14 @@ const saveTaskEdit = async () => {
 		const checklist = checklists.value.find((c) => c.id === editingTaskChecklistId.value);
 		if (checklist) {
 			const tasks = await getChecklistTasks(editingTaskChecklistId.value);
-			const processedTasks = (tasks.data || tasks || []).map((task) => ({
-				...task,
-				completed: task.isCompleted || task.completed || false,
-				estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-			}));
+			const processedTasks = (tasks.data || tasks || [])
+				.map((task) => ({
+					...task,
+					completed: task.isCompleted || task.completed || false,
+					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
+					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+				}))
+				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
 			// 使用Object.assign确保响应式更新
 			Object.assign(checklist, {
