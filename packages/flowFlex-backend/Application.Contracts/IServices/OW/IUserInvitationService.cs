@@ -51,4 +51,4 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Token validation result</returns>
         Task<TokenValidationResponseDto> ValidateTokenAsync(string token, long onboardingId);
     }
-} 
+}

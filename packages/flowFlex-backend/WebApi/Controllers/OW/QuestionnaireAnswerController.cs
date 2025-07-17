@@ -57,8 +57,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         [HttpGet("{onboardingId}/stage/{stageId}/answer")]
         public async Task<IActionResult> GetAnswer(long onboardingId, long stageId)
         {
-                var answers = await _questionnaireAnswerService.GetAllAnswersAsync(onboardingId, stageId);
-                return Success(answers);
+            var answers = await _questionnaireAnswerService.GetAllAnswersAsync(onboardingId, stageId);
+            return Success(answers);
         }
 
         /// <summary>

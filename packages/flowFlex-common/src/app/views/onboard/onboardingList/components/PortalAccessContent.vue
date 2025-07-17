@@ -1,13 +1,7 @@
 <template>
 	<div class="space-y-6">
 		<!-- Success Message -->
-		<el-alert
-			v-if="successMessage"
-			:title="successMessage"
-			type="success"
-			:closable="false"
-			class="mb-4"
-		/>
+		<el-alert v-if="successMessage" :title="successMessage" type="success" :closable="false" class="mb-4" />
 
 		<!-- Description -->
 		<div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
@@ -20,14 +14,7 @@
 
 		<!-- Action Buttons -->
 		<div class="flex justify-between items-center">
-			<el-button
-				type="success"
-				@click="handleViewCustomerPortal"
-				:disabled="portalUsers.length === 0"
-			>
-				<el-icon>
-					<View />
-				</el-icon>
+			<el-button type="success" @click="handleViewCustomerPortal" :disabled="portalUsers.length === 0">
 				View Customer Portal
 			</el-button>
 			<el-button type="primary" @click="handleAddButtonClick">
@@ -57,21 +44,15 @@
 				<el-table-column label="Actions" width="200">
 					<template #default="{ row }">
 						<div class="flex space-x-2">
-							<el-button
-								size="small"
-								@click="resendInvitation(row.email)"
-								:disabled="row.status === 'Active'"
-							>
+							<el-button size="small" @click="resendInvitation(row.email)"
+								:disabled="row.status === 'Active'">
 								<el-icon class="h-3 w-3 mr-1">
 									<Refresh />
 								</el-icon>
 								Resend
 							</el-button>
-							<el-button
-								size="small"
-								class="text-red-500 hover:text-red-700 hover:bg-red-50"
-								@click="handleRemoveUser(row)"
-							>
+							<el-button size="small" class="text-red-500 hover:text-red-700 hover:bg-red-50"
+								@click="handleRemoveUser(row)">
 								<el-icon class="h-3 w-3 mr-1">
 									<Delete />
 								</el-icon>
@@ -99,25 +80,10 @@
 			<div class="space-y-4">
 				<div>
 					<label class="block text-sm font-medium mb-2">Email Addresses</label>
-					<el-select
-						v-model="selectedEmails"
-						multiple
-						filterable
-						allow-create
-						default-first-option
-						collapse-tags
-						collapse-tags-tooltip
-						placeholder="Enter email addresses..."
-						class="w-full"
-						no-data-text="Type email addresses to add"
-						filter-placeholder="Type email addresses..."
-					>
-						<el-option
-							v-for="email in emailOptions"
-							:key="email"
-							:label="email"
-							:value="email"
-						/>
+					<el-select v-model="selectedEmails" multiple filterable allow-create default-first-option
+						collapse-tags collapse-tags-tooltip placeholder="Enter email addresses..." class="w-full"
+						no-data-text="Type email addresses to add" filter-placeholder="Type email addresses...">
+						<el-option v-for="email in emailOptions" :key="email" :label="email" :value="email" />
 					</el-select>
 					<div class="text-xs text-gray-500 mt-1">
 						Type email addresses and press Enter to add them. You can add multiple
@@ -128,11 +94,7 @@
 			<template #footer>
 				<div class="flex justify-end space-x-2">
 					<el-button @click="showAddDialog = false">Cancel</el-button>
-					<el-button
-						type="primary"
-						@click="handleAddUser"
-						:disabled="selectedEmails.length === 0"
-					>
+					<el-button type="primary" @click="handleAddUser" :disabled="selectedEmails.length === 0">
 						<el-icon>
 							<Message />
 						</el-icon>
@@ -165,6 +127,7 @@ import { ElMessage } from 'element-plus';
 import { Plus, Refresh, Delete, Message, View } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
+import { getCurrentBaseUrl } from '@/utils/url';
 
 // Props
 interface Props {
@@ -354,8 +317,9 @@ const resendInvitation = async (email: string) => {
 };
 
 const handleViewCustomerPortal = () => {
-	// Generate customer portal URL
-	const customerPortalUrl = `http://localhost:5173/customer-portal?onboardingId=${props.onboardingId}`;
+	// Generate customer portal URL using current environment
+	const baseUrl = getCurrentBaseUrl();
+	const customerPortalUrl = `${baseUrl}/customer-portal?onboardingId=${props.onboardingId}`;
 
 	// Open in new window/tab
 	window.open(customerPortalUrl, '_blank');
@@ -371,19 +335,19 @@ watchEffect(async () => {
 </script>
 
 <style scoped lang="scss">
-.space-y-2 > * + * {
+.space-y-2>*+* {
 	margin-top: 0.5rem;
 }
 
-.space-y-4 > * + * {
+.space-y-4>*+* {
 	margin-top: 1rem;
 }
 
-.space-y-6 > * + * {
+.space-y-6>*+* {
 	margin-top: 1.5rem;
 }
 
-.space-x-2 > * + * {
+.space-x-2>*+* {
 	margin-left: 0.5rem;
 }
 

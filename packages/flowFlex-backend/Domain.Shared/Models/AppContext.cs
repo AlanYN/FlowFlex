@@ -53,4 +53,4 @@ namespace FlowFlex.Domain.Shared.Models
             return $"{AppCode}:{TenantId}";
         }
     }
-} 
+}

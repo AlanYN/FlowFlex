@@ -135,4 +135,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Event
         /// </summary>
         public string ModifyBy { get; set; } = string.Empty;
     }
-} 
+}

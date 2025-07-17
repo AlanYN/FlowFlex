@@ -550,7 +550,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     logs = logs.Where(x => x.StageId == stageId.Value).ToList();
                 }
-                
+
                 if (operationType.HasValue && logs.Any())
                 {
                     logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();

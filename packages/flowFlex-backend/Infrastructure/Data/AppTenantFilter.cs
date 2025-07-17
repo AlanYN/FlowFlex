@@ -21,19 +21,19 @@ namespace FlowFlex.Infrastructure.Data
         public static void ConfigureFilters(ISqlSugarClient db, IHttpContextAccessor httpContextAccessor)
         {
             // Add tenant filter for AbstractEntityBase
-            db.QueryFilter.AddTableFilter<AbstractEntityBase>(entity => 
+            db.QueryFilter.AddTableFilter<AbstractEntityBase>(entity =>
                 entity.TenantId == GetCurrentTenantId(httpContextAccessor));
 
             // Add app filter for AbstractEntityBase
-            db.QueryFilter.AddTableFilter<AbstractEntityBase>(entity => 
+            db.QueryFilter.AddTableFilter<AbstractEntityBase>(entity =>
                 entity.AppCode == GetCurrentAppCode(httpContextAccessor));
 
             // Add tenant filter for OwEntityBase
-            db.QueryFilter.AddTableFilter<OwEntityBase>(entity => 
+            db.QueryFilter.AddTableFilter<OwEntityBase>(entity =>
                 entity.TenantId == GetCurrentTenantId(httpContextAccessor));
 
             // Add app filter for OwEntityBase
-            db.QueryFilter.AddTableFilter<OwEntityBase>(entity => 
+            db.QueryFilter.AddTableFilter<OwEntityBase>(entity =>
                 entity.AppCode == GetCurrentAppCode(httpContextAccessor));
         }
 
@@ -49,7 +49,7 @@ namespace FlowFlex.Infrastructure.Data
                 return "DEFAULT";
 
             // Try to get from AppContext first
-            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) && 
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
                 appContextObj is AppContext appContext)
             {
                 return appContext.TenantId;
@@ -74,7 +74,7 @@ namespace FlowFlex.Infrastructure.Data
                 return "DEFAULT";
 
             // Try to get from AppContext first
-            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) && 
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
                 appContextObj is AppContext appContext)
             {
                 return appContext.AppCode;
@@ -156,4 +156,4 @@ namespace FlowFlex.Infrastructure.Data
             }
         }
     }
-} 
+}

@@ -67,4 +67,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

@@ -91,4 +91,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <returns>Number of deleted events</returns>
         Task<int> CleanupOldEventsAsync(int days = 90);
     }
-} 
+}

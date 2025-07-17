@@ -121,13 +121,13 @@ namespace FlowFlex.Application.Services.OW
                 // Debug logging handled by structured logging
                 // Check if answer already exists - use questionnaireId if provided
                 QuestionnaireAnswer existingAnswer = null;
-                
+
                 if (input.QuestionnaireId.HasValue)
                 {
                     // Query by (onboardingId, stageId, questionnaireId) combination
                     existingAnswer = await _repository.GetByOnboardingStageAndQuestionnaireAsync(
-                        input.OnboardingId, 
-                        input.StageId, 
+                        input.OnboardingId,
+                        input.StageId,
                         input.QuestionnaireId.Value);
                 }
                 else
@@ -135,7 +135,7 @@ namespace FlowFlex.Application.Services.OW
                     // Fallback to original logic for backward compatibility
                     existingAnswer = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
                 }
-                
+
                 bool isUpdate = existingAnswer != null;
                 string oldAnswerJson = existingAnswer?.AnswerJson;
 
@@ -216,15 +216,15 @@ namespace FlowFlex.Application.Services.OW
                         if (input.QuestionnaireId.HasValue)
                         {
                             insertedEntity = await _repository.GetByOnboardingStageAndQuestionnaireAsync(
-                                input.OnboardingId, 
-                                input.StageId, 
+                                input.OnboardingId,
+                                input.StageId,
                                 input.QuestionnaireId.Value);
                         }
                         else
                         {
                             insertedEntity = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
                         }
-                        
+
                         if (insertedEntity != null)
                         {
                             await _operationChangeLogService.LogQuestionnaireAnswerSubmitAsync(

@@ -55,4 +55,4 @@ namespace FlowFlex.Domain.Shared.Models
         /// </summary>
         public List<string> QuestionnaireNames { get; set; } = new List<string>();
     }
-} 
+}

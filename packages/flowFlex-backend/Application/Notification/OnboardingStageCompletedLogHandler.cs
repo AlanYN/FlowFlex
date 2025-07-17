@@ -48,9 +48,9 @@ namespace FlowFlex.Application.Notification
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "处理 OnboardingStageCompletedEvent 时发生错误: {EventId}, 错误: {Error}", 
+                _logger.LogError(ex, "处理 OnboardingStageCompletedEvent 时发生错误: {EventId}, 错误: {Error}",
                     notification.EventId, ex.Message);
-                
+
                 // 不重新抛出异常，避免影响其他事件处理器
                 // 可以考虑将失败的事件标记为需要重试
                 await HandleEventProcessingErrorAsync(notification, ex);
@@ -88,13 +88,13 @@ namespace FlowFlex.Application.Notification
                     AggregateId = eventData.OnboardingId,
                     AggregateType = "Onboarding",
                     EventSource = eventData.Source ?? "Unknown",
-                    EventData = JsonSerializer.Serialize(eventData, new JsonSerializerOptions 
-                    { 
+                    EventData = JsonSerializer.Serialize(eventData, new JsonSerializerOptions
+                    {
                         WriteIndented = false,
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                     }),
-                    EventMetadata = JsonSerializer.Serialize(eventMetadata, new JsonSerializerOptions 
-                    { 
+                    EventMetadata = JsonSerializer.Serialize(eventMetadata, new JsonSerializerOptions
+                    {
                         WriteIndented = false,
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                     }),
@@ -167,8 +167,8 @@ namespace FlowFlex.Application.Notification
                     StageName = eventData.CompletedStageName,
                     LogType = "stage_completion_event",
                     Action = "OnboardingStageCompleted Event",
-                    LogData = JsonSerializer.Serialize(logData, new JsonSerializerOptions 
-                    { 
+                    LogData = JsonSerializer.Serialize(logData, new JsonSerializerOptions
+                    {
                         WriteIndented = false,
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                     }),
@@ -212,8 +212,8 @@ namespace FlowFlex.Application.Notification
                     AggregateId = eventData.OnboardingId,
                     AggregateType = "Onboarding",
                     EventSource = eventData.Source ?? "Unknown",
-                    EventData = JsonSerializer.Serialize(eventData, new JsonSerializerOptions 
-                    { 
+                    EventData = JsonSerializer.Serialize(eventData, new JsonSerializerOptions
+                    {
                         WriteIndented = false,
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                     }),

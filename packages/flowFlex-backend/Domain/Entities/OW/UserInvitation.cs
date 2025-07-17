@@ -96,4 +96,4 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(IsIgnore = true)]
         public virtual User User { get; set; }
     }
-} 
+}

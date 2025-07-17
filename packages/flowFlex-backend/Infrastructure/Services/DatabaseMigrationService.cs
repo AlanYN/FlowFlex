@@ -107,7 +107,7 @@ namespace FlowFlex.Infrastructure.Services
                         {
                             using var reader = new StreamReader(stream);
                             var content = reader.ReadToEnd();
-                            
+
                             var migrationName = Path.GetFileNameWithoutExtension(resourceName.Split('.').Last());
                             migrations.Add(new MigrationScript
                             {
@@ -178,7 +178,7 @@ namespace FlowFlex.Infrastructure.Services
                 {
                     var migrationName = Path.GetFileNameWithoutExtension(file);
                     var content = File.ReadAllText(file);
-                    
+
                     migrations.Add(new MigrationScript
                     {
                         Name = migrationName,
@@ -191,7 +191,7 @@ namespace FlowFlex.Infrastructure.Services
             else
             {
                 _logger.LogWarning("Migration directory not found: {MigrationPath}", migrationPath);
-                
+
                 // Fallback: return hardcoded migrations
                 migrations = GetHardcodedMigrations();
             }
@@ -367,7 +367,7 @@ SELECT 'Migration 20241219_AddAppCodeColumn completed successfully' AS status;
                 // Record successful execution
                 await RecordMigrationExecutionAsync(migration.Name, stopwatch.ElapsedMilliseconds, true, null);
 
-                _logger.LogInformation("Migration {MigrationName} executed successfully in {ElapsedMs}ms", 
+                _logger.LogInformation("Migration {MigrationName} executed successfully in {ElapsedMs}ms",
                     migration.Name, stopwatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
@@ -377,9 +377,9 @@ SELECT 'Migration 20241219_AddAppCodeColumn completed successfully' AS status;
                 // Record failed execution
                 await RecordMigrationExecutionAsync(migration.Name, stopwatch.ElapsedMilliseconds, false, ex.Message);
 
-                _logger.LogError(ex, "Migration {MigrationName} failed after {ElapsedMs}ms", 
+                _logger.LogError(ex, "Migration {MigrationName} failed after {ElapsedMs}ms",
                     migration.Name, stopwatch.ElapsedMilliseconds);
-                
+
                 throw;
             }
         }
@@ -444,4 +444,4 @@ SELECT 'Migration 20241219_AddAppCodeColumn completed successfully' AS status;
         public bool Success { get; set; }
         public string ErrorMessage { get; set; }
     }
-} 
+}

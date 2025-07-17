@@ -13,7 +13,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("[AddStageComponentsField] Starting migration...");
-                
+
                 // First check if the table exists
                 var tableExists = db.DbMaintenance.IsAnyTable("ff_stage");
                 if (!tableExists)
@@ -29,7 +29,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (!componentsColumnExists)
                 {
                     Console.WriteLine("[AddStageComponentsField] Adding components_json column to ff_stage table...");
-                    
+
                     // Add components_json column using direct SQL to avoid potential SqlSugar issues
                     var sql = @"
                         ALTER TABLE ff_stage 
@@ -37,7 +37,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         
                         COMMENT ON COLUMN ff_stage.components_json IS 'Stage components configuration (JSON)';
                     ";
-                    
+
                     db.Ado.ExecuteCommand(sql);
 
                     Console.WriteLine("✅ Successfully added components_json column to ff_stage table");
@@ -60,7 +60,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("[AddStageComponentsField] Starting rollback...");
-                
+
                 // First check if the table exists
                 var tableExists = db.DbMaintenance.IsAnyTable("ff_stage");
                 if (!tableExists)
@@ -76,11 +76,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (componentsColumnExists)
                 {
                     Console.WriteLine("[AddStageComponentsField] Dropping components_json column from ff_stage table...");
-                    
+
                     // Drop components_json column using direct SQL
                     var sql = "ALTER TABLE ff_stage DROP COLUMN components_json;";
                     db.Ado.ExecuteCommand(sql);
-                    
+
                     Console.WriteLine("✅ Successfully dropped components_json column from ff_stage table");
                 }
                 else
@@ -96,4 +96,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}
