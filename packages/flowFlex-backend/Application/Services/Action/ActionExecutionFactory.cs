@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Services.Action.Executors;
+using FlowFlex.Domain.Shared.Enums.Action;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -12,7 +13,7 @@ namespace FlowFlex.Application.Services.Action
     {
         private readonly ILogger<ActionExecutionFactory> _logger;
         private readonly IServiceProvider _serviceProvider;
-        private readonly Dictionary<string, Type> _executorTypes;
+        private readonly Dictionary<ActionTypeEnum, Type> _executorTypes;
 
         public ActionExecutionFactory(
             ILogger<ActionExecutionFactory> logger,
@@ -21,19 +22,19 @@ namespace FlowFlex.Application.Services.Action
             _logger = logger;
             _serviceProvider = serviceProvider;
             
-            // 注册所有执行器类型 - 未来扩展时只需添加这里
-            _executorTypes = new Dictionary<string, Type>
+            // Register all executor types - add new executors here for future extension
+            _executorTypes = new Dictionary<ActionTypeEnum, Type>
             {
-                { "Python", typeof(PythonActionExecutor) },
-                { "HttpApi", typeof(HttpApiActionExecutor) },
-                { "SendEmail", typeof(EmailActionExecutor) }
+                { ActionTypeEnum.Python, typeof(PythonActionExecutor) },
+                { ActionTypeEnum.HttpApi, typeof(HttpApiActionExecutor) },
+                { ActionTypeEnum.SendEmail, typeof(EmailActionExecutor) }
             };
         }
 
         /// <summary>
         /// Create action executor instance by action type
         /// </summary>
-        public IActionExecutor CreateExecutor(string actionType)
+        public IActionExecutor CreateExecutor(ActionTypeEnum actionType)
         {
             if (_executorTypes.TryGetValue(actionType, out var executorType))
             {

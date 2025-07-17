@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Domain.Shared.Enums.Action;
 
 namespace FlowFlex.Application.Services.Action.Executors
 {
@@ -15,7 +16,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             _logger = logger;
         }
 
-        public string ActionType => "Python";
+        public ActionTypeEnum ActionType => ActionTypeEnum.Python;
 
         public async Task<object> ExecuteAsync(string config, object triggerContext)
         {

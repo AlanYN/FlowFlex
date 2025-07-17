@@ -1,4 +1,5 @@
 ﻿using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Enums.Action;
 
 namespace FlowFlex.Application.Contracts.IServices.Action
 {
@@ -10,7 +11,7 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// <summary>
         /// Action type that this executor handles
         /// </summary>
-        string ActionType { get; }
+        ActionTypeEnum ActionType { get; }
 
         /// <summary>
         /// Execute action with configuration and trigger context
