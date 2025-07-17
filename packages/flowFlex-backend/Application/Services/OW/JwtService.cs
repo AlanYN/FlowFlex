@@ -201,6 +201,58 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Refresh JWT Token
+        /// </summary>
+        /// <param name="token">Current JWT Token</param>
+        /// <returns>New JWT Token</returns>
+        public string RefreshToken(string token)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                
+                // First, read the token to extract claims (even if expired)
+                JwtSecurityToken jwtToken;
+                try
+                {
+                    jwtToken = tokenHandler.ReadJwtToken(token);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Unable to read token: {ex.Message}");
+                }
+
+                // Extract user information from the token
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(x => 
+                    x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+                {
+                    throw new InvalidOperationException("User ID not found in token");
+                }
+
+                var emailClaim = jwtToken.Claims.FirstOrDefault(x => 
+                    x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
+                if (emailClaim == null)
+                {
+                    throw new InvalidOperationException("Email not found in token");
+                }
+
+                var usernameClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "username");
+                var username = usernameClaim?.Value ?? emailClaim.Value;
+
+                var tenantIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "tenantId");
+                var tenantId = tenantIdClaim?.Value ?? "DEFAULT";
+
+                // Generate a new token with the same user information
+                return GenerateToken(userId, emailClaim.Value, username, tenantId);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Token refresh failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Parse JWT Token and return detailed information
         /// </summary>
         /// <param name="token">JWT Token</param>

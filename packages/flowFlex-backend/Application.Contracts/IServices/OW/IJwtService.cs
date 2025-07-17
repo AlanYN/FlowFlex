@@ -52,6 +52,19 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="token">JWT Token</param>
         /// <returns>JWT Token information</returns>
         JwtTokenInfoDto ParseToken(string token);
+
+        /// <summary>
+        /// Refresh JWT Token
+        /// </summary>
+        /// <param name="token">Current JWT Token</param>
+        /// <returns>New JWT Token</returns>
+        string RefreshToken(string token);
+
+        /// <summary>
+        /// Get token expiry time in seconds
+        /// </summary>
+        /// <returns>Expiry time in seconds</returns>
+        int GetTokenExpiryInSeconds();
     }
 }
 
