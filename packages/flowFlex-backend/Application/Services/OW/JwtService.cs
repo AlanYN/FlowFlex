@@ -10,7 +10,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Infrastructure.Services;
+using FlowFlex.Domain.Shared;
 
 namespace FlowFlex.Application.Services.OW
 {

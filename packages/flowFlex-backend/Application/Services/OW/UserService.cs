@@ -24,7 +24,7 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
-        private readonly JwtService _jwtService;
+        private readonly IJwtService _jwtService;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -34,7 +34,7 @@ namespace FlowFlex.Application.Services.OW
         public UserService(
             IUserRepository userRepository,
             IEmailService emailService,
-            JwtService jwtService,
+            IJwtService jwtService,
             IMapper mapper,
             ILogger<UserService> logger,
             IHttpContextAccessor httpContextAccessor,

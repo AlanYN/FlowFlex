@@ -1,4 +1,5 @@
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using FlowFlex.Domain.Entities.OW;
 
 namespace FlowFlex.Application.Contracts.IServices.OW
 {
@@ -7,6 +8,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
     /// </summary>
     public interface IJwtService
     {
+        /// <summary>
+        /// Generate JWT Token
+        /// </summary>
+        /// <param name="user">User entity</param>
+        /// <returns>JWT token</returns>
+        string GenerateJwtToken(User user);
+
         /// <summary>
         /// Generate JWT Token
         /// </summary>

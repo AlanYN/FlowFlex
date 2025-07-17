@@ -1584,7 +1584,7 @@ const exportPdfWithFrontend = async (checklist) => {
 		// 添加白色标题文字
 		pdf.setTextColor(255, 255, 255);
 		pdf.setFontSize(20);
-		pdf.text('UNIS', margin, 20);
+		//pdf.text('UNIS', margin, 20);
 		pdf.setFontSize(16);
 		pdf.text('Warehousing Solutions', margin + 60, 20);
 
@@ -1986,7 +1986,6 @@ const createPdfContent = (checklist) => {
 			<div class="pdf-container">
 				<!-- 头部 -->
 				<div class="header">
-					<div class="header-left">UNIS</div>
 					<div class="header-right">Warehousing Solutions</div>
 				</div>
 

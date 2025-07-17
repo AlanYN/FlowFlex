@@ -289,12 +289,8 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddGlobalExceptionHandling();
 
-// Register services
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IUserContextService, UserContextService>();
-builder.Services.AddSingleton<JwtService>();
-builder.Services.AddSingleton<IJwtService, JwtService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
+// Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces
+// Only register services that are not auto-registered or need special configuration
 
 var app = builder.Build();
 
