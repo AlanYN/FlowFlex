@@ -18,6 +18,16 @@ namespace FlowFlex.Domain.Repository.Action
         Task<List<ActionTriggerMapping>> GetByTriggerAsync(string triggerType, long triggerSourceId, string triggerEvent);
 
         /// <summary>
+        /// Get mappings for a specific trigger
+        /// </summary>
+        /// <param name="triggerSourceType">Trigger source type (Stage, Task, Question, etc.)</param>
+        /// <param name="triggerSourceId">Trigger source ID</param>
+        /// <param name="triggerEventType">Trigger event type (Completed, Created, etc.)</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Mapping list ordered by execution order</returns>
+        Task<List<ActionTriggerMapping>> GetMappingsForTriggerAsync(string triggerSourceType, long triggerSourceId, string triggerEventType, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Get mappings by action definition ID
         /// </summary>
         /// <param name="actionDefinitionId">Action definition ID</param>
