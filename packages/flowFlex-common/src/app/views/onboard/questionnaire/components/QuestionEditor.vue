@@ -84,6 +84,7 @@
 				@remove-row="handleRemoveRow"
 				@add-column="handleAddColumn"
 				@remove-column="handleRemoveColumn"
+				@add-other-column="handleAddOtherColumn"
 				@update-new-row-label="(label) => (newRow.label = label)"
 				@update-new-column-label="(label) => (newColumn.label = label)"
 				@update-require-one-response-per-row="
@@ -167,8 +168,8 @@ const getInitialFormData = () => ({
 	description: '',
 	required: false,
 	options: [] as Array<{ id: string; value: string; label: string }>,
-	rows: [] as Array<{ id: string; label: string }>,
-	columns: [] as Array<{ id: string; label: string }>,
+	rows: [] as Array<{ id: string; label: string; isOther?: boolean }>,
+	columns: [] as Array<{ id: string; label: string; isOther?: boolean }>,
 	requireOneResponsePerRow: false,
 	min: 1,
 	max: 5,
@@ -353,6 +354,19 @@ const handleAddColumn = () => {
 	});
 
 	newColumn.label = '';
+};
+
+// 添加Other列
+const handleAddOtherColumn = () => {
+	// 检查是否已经有Other列
+	const hasOther = newQuestion.columns.some((column) => column.isOther);
+	if (hasOther) return;
+
+	newQuestion.columns.push({
+		id: `column-other-${Date.now()}`,
+		label: 'Other',
+		isOther: true,
+	});
 };
 
 // 删除列

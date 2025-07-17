@@ -379,3 +379,18 @@ export interface ChecklistData {
 	stageName: string | null;
 	tasks: TaskData[];
 }
+
+// 类型定义
+export interface QuestionnaireAnswer {
+	questionId: string;
+	question: string;
+	answer: any;
+	type: string;
+	responseText: string;
+}
+
+export interface QuestionnaireData {
+	questionnaireId: string;
+	stageId: string;
+	answerJson: QuestionnaireAnswer[];
+}
