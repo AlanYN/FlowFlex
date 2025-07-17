@@ -28,7 +28,7 @@
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
 						]"
 						@click="
-							currentView = item.view;
+							handleNavigation(item.view);
 							sidebarOpen = false;
 						"
 					>
@@ -86,7 +86,7 @@
 								? 'bg-blue-100 text-blue-900'
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
 						]"
-						@click="currentView = item.view"
+						@click="handleNavigation(item.view)"
 					>
 						<component :is="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
@@ -166,14 +166,22 @@
 			<main class="flex-1 p-6">
 				<!-- Onboarding Progress View -->
 				<div v-if="currentView === 'progress'" class="space-y-6">
+					<!-- Loading State -->
+					<div v-if="loading" class="flex items-center justify-center py-12">
+						<div class="text-center">
+							<div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+							<p class="mt-2 text-gray-600">Loading onboarding data...</p>
+						</div>
+					</div>
+					
 					<!-- Header -->
-					<div>
+					<div v-else>
 						<h1 class="text-2xl font-bold text-gray-900">Onboarding Progress</h1>
 						<p class="text-gray-600">Track your journey with us</p>
 					</div>
 
 					<!-- Overall Progress -->
-					<div class="rounded-lg border bg-white p-6 shadow-sm">
+					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
 						<div class="mb-6">
 							<div class="flex items-center mb-2">
 								<svg
@@ -276,7 +284,7 @@
 					</div>
 
 					<!-- Next Steps - Action Required -->
-					<div class="rounded-lg border-2 border-orange-200 bg-orange-50 p-6 shadow-sm">
+					<div v-if="!loading" class="rounded-lg border-2 border-orange-200 bg-orange-50 p-6 shadow-sm">
 						<div class="mb-6">
 							<div class="flex items-center mb-2 text-orange-800">
 								<svg
@@ -365,7 +373,7 @@
 					</div>
 
 					<!-- Stages Timeline -->
-					<div class="rounded-lg border bg-white p-6 shadow-sm">
+					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
 						<div class="mb-6">
 							<h3 class="text-lg font-semibold text-gray-900">Onboarding Stages</h3>
 							<p class="text-sm text-gray-600">
@@ -523,6 +531,10 @@
 </template>
 
 <script>
+import { computed, ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import { getOnboardingByLead } from '@/apis/ow/onboarding';
 import MessageCenter from './components/MessageCenter.vue';
 import DocumentCenter from './components/DocumentCenter.vue';
 import ContactUs from './components/ContactUs.vue';
@@ -532,6 +544,14 @@ const HomeIcon = {
 	template: `
 		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+		</svg>
+	`,
+};
+
+const DetailsIcon = {
+	template: `
+		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 		</svg>
 	`,
 };
@@ -567,270 +587,181 @@ export default {
 		DocumentCenter,
 		ContactUs,
 		HomeIcon,
+		DetailsIcon,
 		MessageSquareIcon,
 		FileTextIcon,
 		PhoneIcon,
 	},
-	data() {
-		return {
-			sidebarOpen: false,
-			currentView: 'progress',
-			navigation: [
-				{
-					name: 'Onboarding Progress',
-					view: 'progress',
-					icon: 'HomeIcon',
-				},
-				{
-					name: 'Message Center',
-					view: 'messages',
-					icon: 'MessageSquareIcon',
-				},
-				{
-					name: 'Document Center',
-					view: 'documents',
-					icon: 'FileTextIcon',
-				},
-				{
-					name: 'Contact Us',
-					view: 'contact',
-					icon: 'PhoneIcon',
-				},
-			],
-			customerData: {
-				id: 'CUST-001',
-				companyName: 'Acme Corporation',
-				contactName: 'John Doe',
-				email: 'john.doe@acmecorp.com',
-				phone: '+1 (555) 123-4567',
-				currentStage: 'questionnaire',
-				overallProgress: 45,
-				startDate: '2024-01-15',
-				estimatedCompletion: '2024-03-15',
-				accountManager: 'Sarah Johnson',
-				onboardingId: '1935974751679971328', // Add onboardingId to customer data
+	setup() {
+		const route = useRoute();
+		const router = useRouter();
+		
+		// 响应式数据
+		const sidebarOpen = ref(false);
+		const currentView = ref('progress');
+		const loading = ref(true);
+		const onboardingData = ref(null);
+		
+		// 导航菜单
+		const navigation = ref([
+			{
+				name: 'Onboarding Progress',
+				view: 'progress',
+				icon: HomeIcon,
 			},
-			customerStages: [
-				{
-					id: 'warm_lead_created',
-					name: 'Warm Lead Created',
-					description: 'Initial lead information captured',
-					order: 1,
-					status: 'completed',
-					editable: false,
-					color: '#4f46e5',
-					completedDate: '2024-01-15',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'application_sent',
-					name: 'Customer Application Form Sent',
-					description: 'Send application form to customer',
-					order: 2,
-					status: 'completed',
-					editable: false,
-					color: '#0ea5e9',
-					completedDate: '2024-01-16',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'application_filled',
-					name: 'Application Filled By Customer',
-					description: 'Customer completes and returns application form',
-					order: 3,
-					status: 'completed',
-					editable: true,
-					color: '#10b981',
-					completedDate: '2024-01-20',
-					portalVisible: true,
-					portalEditable: true,
-				},
-				{
-					id: 'application_approved',
-					name: 'Application Approved By Sales',
-					description: 'Sales team reviews and approves application',
-					order: 4,
-					status: 'completed',
-					editable: false,
-					color: '#f59e0b',
-					completedDate: '2024-01-22',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'deal_sent',
-					name: 'Deal Sent/Sales Qualified Lead',
-					description: 'Deal terms sent to customer',
-					order: 5,
-					status: 'completed',
-					editable: false,
-					color: '#ec4899',
-					completedDate: '2024-01-23',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'questionnaire',
-					name: 'Customer Questionnaire',
-					description: 'Customer completes detailed questionnaire',
-					order: 6,
-					status: 'in_progress',
-					editable: true,
-					color: '#8b5cf6',
-					portalVisible: true,
-					portalEditable: true,
-				},
-				{
-					id: 'quote_signed',
-					name: 'Service Quote Signed',
-					description: 'Customer signs service quote',
-					order: 7,
-					status: 'pending',
-					editable: false,
-					color: '#06b6d4',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'msa_signed',
-					name: 'MSA Signed',
-					description: 'Master Service Agreement signed',
-					order: 8,
-					status: 'pending',
-					editable: false,
-					color: '#14b8a6',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'deal_closed',
-					name: 'Deal Closed Won',
-					description: 'Deal is officially closed',
-					order: 9,
-					status: 'pending',
-					editable: false,
-					color: '#22c55e',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'account_created',
-					name: 'Customer Account Created',
-					description: 'Create customer account in system',
-					order: 10,
-					status: 'pending',
-					editable: false,
-					color: '#a855f7',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'interface_setup',
-					name: 'Order Interface Setup',
-					description: 'Set up order interface for customer',
-					order: 11,
-					status: 'pending',
-					editable: true,
-					color: '#ef4444',
-					portalVisible: true,
-					portalEditable: true,
-				},
-				{
-					id: 'item_master',
-					name: 'Item Master Setup',
-					description: 'Set up item master data',
-					order: 12,
-					status: 'pending',
-					editable: true,
-					color: '#84cc16',
-					portalVisible: true,
-					portalEditable: true,
-				},
-				{
-					id: 'uat_testing',
-					name: 'System UAT Testing',
-					description: 'User acceptance testing',
-					order: 13,
-					status: 'pending',
-					editable: false,
-					color: '#10b981',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'training',
-					name: 'Operation Training And Go Live Confirmation',
-					description: 'Train operations team and confirm go-live',
-					order: 14,
-					status: 'pending',
-					editable: false,
-					color: '#0ea5e9',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'go_live',
-					name: 'Go Live And Monitoring',
-					description: 'System goes live with monitoring',
-					order: 15,
-					status: 'pending',
-					editable: false,
-					color: '#4f46e5',
-					portalVisible: true,
-					portalEditable: false,
-				},
-				{
-					id: 'completed',
-					name: 'Onboarding Completed',
-					description: 'Onboarding process completed',
-					order: 16,
-					status: 'pending',
-					editable: false,
-					color: '#22c55e',
-					portalVisible: true,
-					portalEditable: false,
-				},
-			],
+			{
+				name: 'Onboarding Detail',
+				view: 'detail',
+				icon: DetailsIcon,
+			},
+			// {
+			// 	name: 'Message Center',
+			// 	view: 'messages',
+			// 	icon: MessageSquareIcon,
+			// },
+			// {
+			// 	name: 'Document Center',
+			// 	view: 'documents',
+			// 	icon: FileTextIcon,
+			// },
+			// {
+			// 	name: 'Contact Us',
+			// 	view: 'contact',
+			// 	icon: PhoneIcon,
+			// },
+		]);
+		
+		// 从路由参数获取 onboardingId
+		const onboardingId = computed(() => {
+			return route.query.onboardingId || '1945406045400731649';
+		});
+		
+		// 加载 onboarding 数据
+		const loadOnboardingData = async () => {
+			try {
+				loading.value = true;
+				const response = await getOnboardingByLead(onboardingId.value);
+				if (response.code === '200') {
+					onboardingData.value = response.data;
+				} else {
+					ElMessage.error('Failed to load onboarding data');
+				}
+			} catch (error) {
+				console.error('Error loading onboarding data:', error);
+				ElMessage.error('Failed to load onboarding data');
+			} finally {
+				loading.value = false;
+			}
 		};
-	},
-	computed: {
-		currentStageData() {
-			return this.customerStages.find((stage) => stage.status === 'in_progress');
-		},
-		completedStages() {
-			return this.customerStages.filter((stage) => stage.status === 'completed').length;
-		},
-		totalStages() {
-			return this.customerStages.length;
-		},
-		progressPercentage() {
-			if (this.totalStages === 0) return 0;
-			const percentage = (this.completedStages / this.totalStages) * 100;
-			// 四舍五入到整数，并确保不超过100%
-			return Math.min(Math.round(percentage), 100);
-		},
-		nextSteps() {
-			return this.customerStages
+		
+		// 计算属性 - 客户数据
+		const customerData = computed(() => {
+			if (!onboardingData.value) {
+				return {
+					id: 'CUST-001',
+					companyName: 'Loading...',
+					contactName: 'Loading...',
+					email: '',
+					phone: '',
+					currentStage: '',
+					overallProgress: 0,
+					startDate: '',
+					estimatedCompletion: '',
+					accountManager: '',
+					onboardingId: onboardingId.value,
+				};
+			}
+			
+			const data = onboardingData.value;
+			return {
+				id: data.leadId,
+				companyName: data.leadName,
+				contactName: data.contactPerson,
+				email: data.contactEmail,
+				phone: '',
+				currentStage: data.currentStageName,
+				overallProgress: Math.round(data.completionRate || 0),
+				startDate: data.startDate ? new Date(data.startDate).toLocaleDateString() : '',
+				estimatedCompletion: data.estimatedCompletionDate ? 
+					new Date(data.estimatedCompletionDate).toLocaleDateString() : 
+					data.targetCompletionDate ? 
+					new Date(data.targetCompletionDate).toLocaleDateString() : '',
+				accountManager: data.stageUpdatedBy || '',
+				onboardingId: data.id,
+			};
+		});
+		
+		// 计算属性 - 客户阶段
+		const customerStages = computed(() => {
+			if (!onboardingData.value || !onboardingData.value.stagesProgress) {
+				return [];
+			}
+			
+			return onboardingData.value.stagesProgress.map((stage, index) => {
+				// 根据 stage.status 和 isCompleted 确定状态
+				let status = 'pending';
+				if (stage.isCompleted) {
+					status = 'completed';
+				} else if (stage.isCurrent) {
+					status = 'in_progress';
+				}
+				
+				// 为每个阶段分配颜色
+				const colors = [
+					'#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', 
+					'#8b5cf6', '#06b6d4', '#14b8a6', '#22c55e', '#a855f7',
+					'#ef4444', '#84cc16', '#10b981', '#0ea5e9', '#4f46e5', '#22c55e'
+				];
+				
+				return {
+					id: stage.stageId,
+					name: stage.stageName,
+					description: `Stage ${stage.stageOrder}: ${stage.stageName}`,
+					order: stage.stageOrder,
+					status: status,
+					editable: status !== 'completed', // 简化条件：只要未完成就可编辑
+					color: colors[index % colors.length],
+					completedDate: stage.completionTime ? new Date(stage.completionTime).toLocaleDateString() : null,
+					portalVisible: true,
+					portalEditable: status !== 'completed',
+					estimatedDays: stage.estimatedDays,
+					actualDays: stage.actualDays,
+					startTime: stage.startTime,
+					completionTime: stage.completionTime,
+					components: stage.components || []
+				};
+			});
+		});
+		
+		// 其他计算属性
+		const currentStageData = computed(() => {
+			return customerStages.value.find((stage) => stage.status === 'in_progress');
+		});
+		
+		const completedStages = computed(() => {
+			return customerStages.value.filter((stage) => stage.status === 'completed').length;
+		});
+		
+		const totalStages = computed(() => {
+			return customerStages.value.length;
+		});
+		
+		const progressPercentage = computed(() => {
+			return customerData.value.overallProgress;
+		});
+		
+		const nextSteps = computed(() => {
+			return customerStages.value
 				.filter(
 					(stage) =>
 						stage.status === 'in_progress' ||
-						(stage.status === 'pending' &&
-							stage.editable &&
-							this.customerStages.findIndex((s) => s.id === stage.id) <=
-								this.completedStages + 1)
+						(stage.status === 'pending' && stage.editable)
 				)
 				.slice(0, 3);
-		},
-	},
-	mounted() {
-		// Initialize portal data
-		console.log('Portal mounted successfully');
-		// Add any initialization logic here if needed
-	},
-	methods: {
-		getStageStatusText(status) {
+		});
+		
+		// 方法
+		const getStageStatusText = (status) => {
 			switch (status) {
 				case 'completed':
 					return 'Completed';
@@ -839,17 +770,56 @@ export default {
 				default:
 					return 'Pending';
 			}
-		},
-		handleStageAction(stage) {
-			// Navigate to onboard detail page with specific onboardingId
-			this.$router.push({
-				path: '/onboard/onboardDetail',
+		};
+		
+		const handleNavigation = (view) => {
+			if (view === 'detail') {
+				// Navigate to portal page with onboardingId
+				router.push({
+					path: '/onboard/sub-portal/portal',
+					query: {
+						onboardingId: onboardingId.value
+					}
+				});
+			} else {
+				currentView.value = view;
+			}
+		};
+		
+		const handleStageAction = (stage) => {
+			// Navigate to portal page with specific onboardingId
+			router.push({
+				path: '/onboard/sub-portal/portal',
 				query: {
-					onboardingId: this.customerData.onboardingId,
-					stageId: stage.id, // Optional: pass current stage for context
-				},
+					onboardingId: customerData.value.onboardingId,
+					stageId: stage.id
+				}
 			});
-		},
+		};
+		
+		// 生命周期
+		onMounted(() => {
+			loadOnboardingData();
+		});
+		
+		// 返回所有需要在模板中使用的数据和方法
+		return {
+			sidebarOpen,
+			currentView,
+			loading,
+			navigation,
+			customerData,
+			customerStages,
+			currentStageData,
+			completedStages,
+			totalStages,
+			progressPercentage,
+			nextSteps,
+			getStageStatusText,
+			handleNavigation,
+			handleStageAction,
+			loadOnboardingData
+		};
 	},
 };
 </script>

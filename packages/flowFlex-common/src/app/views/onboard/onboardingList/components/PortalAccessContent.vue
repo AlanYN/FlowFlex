@@ -18,8 +18,18 @@
 			</p>
 		</div>
 
-		<!-- Add User Button -->
-		<div class="flex justify-end">
+		<!-- Action Buttons -->
+		<div class="flex justify-between items-center">
+			<el-button
+				type="success"
+				@click="handleViewCustomerPortal"
+				:disabled="portalUsers.length === 0"
+			>
+				<el-icon>
+					<View />
+				</el-icon>
+				View Customer Portal
+			</el-button>
 			<el-button type="primary" @click="handleAddButtonClick">
 				<el-icon>
 					<Plus />
@@ -152,7 +162,7 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Plus, Refresh, Delete, Message } from '@element-plus/icons-vue';
+import { Plus, Refresh, Delete, Message, View } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
 
@@ -341,6 +351,14 @@ const resendInvitation = async (email: string) => {
 		ElMessage.error('Failed to resend invitation');
 		console.error('Error resending invitation:', error);
 	}
+};
+
+const handleViewCustomerPortal = () => {
+	// Generate customer portal URL
+	const customerPortalUrl = `http://localhost:5173/customer-portal?onboardingId=${props.onboardingId}`;
+
+	// Open in new window/tab
+	window.open(customerPortalUrl, '_blank');
 };
 
 // Load data when component is ready

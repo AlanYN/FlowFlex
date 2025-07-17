@@ -439,9 +439,9 @@ namespace FlowFlex.Application.Services.OW
             // Use provided baseUrl or fall back to default
             var finalBaseUrl = !string.IsNullOrEmpty(baseUrl) 
                 ? baseUrl.TrimEnd('/') 
-                : "https://localhost:3000"; // Default fallback
+                : "http://localhost:5173"; // Updated default for frontend port
             
-            return $"{finalBaseUrl}/onboard/onboardDetail?onboardingId={onboardingId}&token={token}";
+            return $"{finalBaseUrl}/customer-portal?onboardingId={onboardingId}&token={token}";
         }
 
         /// <summary>

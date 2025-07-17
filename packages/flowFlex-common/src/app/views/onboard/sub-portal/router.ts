@@ -5,7 +5,7 @@ export default [
 		name: 'sub-CustomerPortal',
 		component: () => import('./index.vue'),
 		meta: {
-			title: '客户门户',
+			title: 'Customer Portal',
 			requiresAuth: true,
 			layout: 'portal',
 		},
@@ -15,7 +15,7 @@ export default [
 				name: 'sub-OnboardingProgress',
 				component: () => import('./components/OnboardingProgress.vue'),
 				meta: {
-					title: '入职进度',
+					title: 'Onboarding Progress',
 					icon: 'el-icon-progress',
 				},
 			},
@@ -24,7 +24,7 @@ export default [
 				name: 'sub-MessageCenter',
 				component: () => import('./components/MessageCenter.vue'),
 				meta: {
-					title: '消息中心',
+					title: 'Message Center',
 					icon: 'el-icon-message',
 				},
 			},
@@ -33,7 +33,7 @@ export default [
 				name: 'sub-DocumentCenter',
 				component: () => import('./components/DocumentCenter.vue'),
 				meta: {
-					title: '文档中心',
+					title: 'Document Center',
 					icon: 'el-icon-document',
 				},
 			},
@@ -42,7 +42,7 @@ export default [
 				name: 'sub-CustomerQuestionnaire',
 				component: () => import('./components/CustomerQuestionnaire.vue'),
 				meta: {
-					title: '问卷调查',
+					title: 'Customer Questionnaire',
 					icon: 'el-icon-edit-outline',
 				},
 			},
@@ -51,10 +51,19 @@ export default [
 				name: 'sub-ContactUs',
 				component: () => import('./components/ContactUs.vue'),
 				meta: {
-					title: '联系我们',
+					title: 'Contact Us',
 					icon: 'el-icon-service',
 				},
 			},
 		],
+	},
+	{
+		path: '/onboard/sub-portal/portal',
+		name: 'sub-OnboardPortal',
+		component: () => import('./portal.vue'),
+		meta: {
+			title: 'Onboarding Portal Details',
+			requiresAuth: true,
+		},
 	},
 ];
