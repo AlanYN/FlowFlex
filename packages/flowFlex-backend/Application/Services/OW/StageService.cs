@@ -29,12 +29,14 @@ namespace FlowFlex.Application.Service.OW
         private readonly IMapper _mapper;
         private readonly IOperationChangeLogService _operationLogService;
         private readonly IStageAssignmentSyncService _syncService;
+        private readonly IChecklistService _checklistService;
+        private readonly IQuestionnaireService _questionnaireService;
         private readonly UserContext _userContext;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, UserContext userContext)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, UserContext userContext)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -42,6 +44,8 @@ namespace FlowFlex.Application.Service.OW
             _mapper = mapper;
             _operationLogService = operationLogService;
             _syncService = syncService;
+            _checklistService = checklistService;
+            _questionnaireService = questionnaireService;
             _userContext = userContext;
         }
 
@@ -127,6 +131,12 @@ namespace FlowFlex.Application.Service.OW
                 .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
                 .Distinct()
                 .ToList();
+
+            // Fill component names before mapping
+            if (input.Components != null && input.Components.Any())
+            {
+                await FillComponentNamesAsync(input.Components);
+            }
 
             // Map update data
             _mapper.Map(input, stage);
@@ -653,15 +663,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Duplicate order values found: {string.Join(", ", duplicateOrders)}");
             }
 
-            // Ensure all components have proper default values
-            foreach (var component in input.Components)
-            {
-                component.StaticFields ??= new List<string>();
-                component.ChecklistIds ??= new List<long>();
-                component.QuestionnaireIds ??= new List<long>();
-                component.ChecklistNames ??= new List<string>();
-                component.QuestionnaireNames ??= new List<string>();
-            }
+            // Ensure all components have proper default values and fill names
+            await FillComponentNamesAsync(input.Components);
 
             // Get old components for comparison
             List<StageComponent> oldComponents = new List<StageComponent>();
@@ -782,7 +785,49 @@ namespace FlowFlex.Application.Service.OW
             try
             {
                 var components = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson);
-                return components ?? new List<StageComponent>();
+                if (components == null || !components.Any())
+                {
+                    return new List<StageComponent>();
+                }
+
+                // Check if any component is missing names and fill them
+                bool needsNameFilling = components.Any(c => 
+                    (c.ChecklistIds?.Any() == true && (c.ChecklistNames?.Count != c.ChecklistIds.Count)) ||
+                    (c.QuestionnaireIds?.Any() == true && (c.QuestionnaireNames?.Count != c.QuestionnaireIds.Count))
+                );
+
+                if (needsNameFilling)
+                {
+                    await FillComponentNamesAsync(components);
+                    
+                    // Update the entity with filled names for future use
+                    try
+                    {
+                        entity.ComponentsJson = JsonSerializer.Serialize(components);
+                        entity.Components = components;
+                        await _stageRepository.UpdateAsync(entity);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log but don't fail - names were filled for this request
+                        await _operationLogService.LogOperationAsync(
+                            OperationTypeEnum.OnboardingStatusChange,
+                            BusinessModuleEnum.Stage,
+                            id,
+                            null,
+                            null,
+                            "Component Names Fill Update Error",
+                            $"Failed to update stage with filled component names: {ex.Message}",
+                            null,
+                            null,
+                            new List<string> { "ComponentNamesFill" },
+                            null,
+                            OperationStatusEnum.Failed
+                        );
+                    }
+                }
+
+                return components;
             }
             catch (JsonException)
             {
@@ -806,6 +851,122 @@ namespace FlowFlex.Application.Service.OW
         }
 
         #endregion
+
+        /// <summary>
+        /// Fill component names by querying checklist and questionnaire services
+        /// </summary>
+        private async Task FillComponentNamesAsync(List<StageComponent> components)
+        {
+            if (components == null || !components.Any())
+                return;
+
+            // Collect all checklist and questionnaire IDs
+            var allChecklistIds = new List<long>();
+            var allQuestionnaireIds = new List<long>();
+
+            foreach (var component in components)
+            {
+                // Ensure all components have proper default values
+                component.StaticFields ??= new List<string>();
+                component.ChecklistIds ??= new List<long>();
+                component.QuestionnaireIds ??= new List<long>();
+                component.ChecklistNames ??= new List<string>();
+                component.QuestionnaireNames ??= new List<string>();
+
+                if (component.ChecklistIds?.Any() == true)
+                {
+                    allChecklistIds.AddRange(component.ChecklistIds);
+                }
+
+                if (component.QuestionnaireIds?.Any() == true)
+                {
+                    allQuestionnaireIds.AddRange(component.QuestionnaireIds);
+                }
+            }
+
+            // Remove duplicates
+            allChecklistIds = allChecklistIds.Distinct().ToList();
+            allQuestionnaireIds = allQuestionnaireIds.Distinct().ToList();
+
+            // Batch query names
+            var checklistNameMap = new Dictionary<long, string>();
+            var questionnaireNameMap = new Dictionary<long, string>();
+
+            if (allChecklistIds.Any())
+            {
+                try
+                {
+                    var checklists = await _checklistService.GetByIdsAsync(allChecklistIds);
+                    checklistNameMap = checklists.ToDictionary(c => c.Id, c => c.Name);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue - names will be empty if service fails
+                    // This ensures the operation doesn't fail completely
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        0,
+                        null,
+                        null,
+                        "Checklist Names Fetch Error",
+                        $"Failed to fetch checklist names: {ex.Message}",
+                        null,
+                        JsonSerializer.Serialize(allChecklistIds),
+                        new List<string> { "ChecklistNamesFetch" },
+                        null,
+                        OperationStatusEnum.Failed
+                    );
+                }
+            }
+
+            if (allQuestionnaireIds.Any())
+            {
+                try
+                {
+                    var questionnaires = await _questionnaireService.GetByIdsAsync(allQuestionnaireIds);
+                    questionnaireNameMap = questionnaires.ToDictionary(q => q.Id, q => q.Name);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue - names will be empty if service fails
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        0,
+                        null,
+                        null,
+                        "Questionnaire Names Fetch Error",
+                        $"Failed to fetch questionnaire names: {ex.Message}",
+                        null,
+                        JsonSerializer.Serialize(allQuestionnaireIds),
+                        new List<string> { "QuestionnaireNamesFetch" },
+                        null,
+                        OperationStatusEnum.Failed
+                    );
+                }
+            }
+
+            // Fill names for each component
+            foreach (var component in components)
+            {
+                // Fill checklist names
+                if (component.ChecklistIds?.Any() == true)
+                {
+                    component.ChecklistNames = component.ChecklistIds
+                        .Select(id => checklistNameMap.TryGetValue(id, out var name) ? name : $"Checklist {id}")
+                        .ToList();
+                }
+
+                // Fill questionnaire names
+                if (component.QuestionnaireIds?.Any() == true)
+                {
+                    component.QuestionnaireNames = component.QuestionnaireIds
+                        .Select(id => questionnaireNameMap.TryGetValue(id, out var name) ? name : $"Questionnaire {id}")
+                        .ToList();
+                }
+            }
+        }
 
         // Cache cleanup methods have been removed
     }
