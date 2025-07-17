@@ -1077,7 +1077,9 @@ const fetchAllWorkflows = async () => {
 	const response = await getWorkflowList();
 	if (response.code === '200') {
 		allWorkflows.value = response.data || [];
-		allWorkflows.value.find((item) => item.isDefault).name += ' ⭐';
+		if (allWorkflows.value.find((item) => item.isDefault)) {
+			allWorkflows.value.find((item) => item.isDefault).name += ' ⭐';
+		}
 	}
 };
 

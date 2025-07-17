@@ -165,7 +165,7 @@ const getInitialFormData = () => ({
 	type: props.pressentQuestionType,
 	question: '',
 	description: '',
-	required: true,
+	required: false,
 	options: [] as Array<{ id: string; value: string; label: string }>,
 	rows: [] as Array<{ id: string; label: string }>,
 	columns: [] as Array<{ id: string; label: string }>,
@@ -382,6 +382,7 @@ const handleAddQuestion = () => {
 
 	if (props.isEditing) {
 		emits('update-question', questionData);
+		resetForm();
 	} else {
 		emits('add-question', questionData);
 		resetForm();
