@@ -281,10 +281,10 @@ namespace FlowFlex.WebApi.Extensions
 
                 // Register Scoped services
                 RegisterByLifetime<IScopedService>(services, types, ServiceLifetime.Scoped);
-                
+
                 // Register Singleton services  
                 RegisterByLifetime<ISingletonService>(services, types, ServiceLifetime.Singleton);
-                
+
                 // Register Transient services
                 RegisterByLifetime<ITransientService>(services, types, ServiceLifetime.Transient);
             }
@@ -294,8 +294,8 @@ namespace FlowFlex.WebApi.Extensions
         /// Register services by specific lifetime marker interface
         /// </summary>
         private static void RegisterByLifetime<TMarkerInterface>(
-            IServiceCollection services, 
-            List<Type> types, 
+            IServiceCollection services,
+            List<Type> types,
             ServiceLifetime lifetime)
         {
             var markerInterfaceType = typeof(TMarkerInterface);
@@ -322,7 +322,7 @@ namespace FlowFlex.WebApi.Extensions
                             break;
                     }
                 }
-                
+
                 // Also register the concrete type for direct injection
                 switch (lifetime)
                 {

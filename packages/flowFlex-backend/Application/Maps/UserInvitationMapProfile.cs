@@ -25,11 +25,11 @@ namespace FlowFlex.Application.Maps
         {
             if (status == "Used")
                 return "Active";
-            
+
             if (tokenExpiry < DateTimeOffset.UtcNow)
                 return "Expired";
-            
+
             return status; // Pending
         }
     }
-} 
+}

@@ -141,4 +141,4 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "max_retry_count")]
         public int MaxRetryCount { get; set; } = 3;
     }
-} 
+}

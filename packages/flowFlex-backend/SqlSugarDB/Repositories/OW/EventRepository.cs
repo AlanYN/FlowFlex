@@ -69,8 +69,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             var now = DateTimeOffset.UtcNow;
             return await base.GetListAsync(
-                x => x.RequiresRetry && 
-                     x.ProcessCount < maxRetryCount && 
+                x => x.RequiresRetry &&
+                     x.ProcessCount < maxRetryCount &&
                      (x.NextRetryAt == null || x.NextRetryAt <= now) &&
                      x.EventStatus == "Failed" &&
                      x.IsValid,
@@ -111,7 +111,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<List<Event>> GetByTagsAsync(List<string> tags, int days = 7)
         {
             var startDate = DateTimeOffset.UtcNow.AddDays(-days);
-            
+
             // Use JSON contains query for PostgreSQL
             var query = db.Queryable<Event>()
                 .Where(x => x.EventTimestamp >= startDate && x.IsValid);
@@ -135,7 +135,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             entity.EventStatus = status;
             entity.LastProcessedAt = DateTimeOffset.UtcNow;
-            
+
             if (!string.IsNullOrEmpty(errorMessage))
             {
                 entity.ErrorMessage = errorMessage;
@@ -203,4 +203,4 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             return 0;
         }
     }
-} 
+}

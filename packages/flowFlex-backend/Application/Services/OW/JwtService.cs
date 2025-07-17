@@ -24,18 +24,18 @@ namespace FlowFlex.Application.Services.OW
         public JwtService(IOptions<JwtOptions> jwtOptions)
         {
             _jwtOptions = jwtOptions.Value;
-            
+
             // Add validation to ensure configuration is loaded properly
             if (string.IsNullOrEmpty(_jwtOptions.SecretKey))
             {
                 throw new InvalidOperationException("JWT SecretKey is not configured properly. Please check the Security:JwtSecretKey setting in appsettings.json");
             }
-            
+
             if (string.IsNullOrEmpty(_jwtOptions.Issuer))
             {
                 throw new InvalidOperationException("JWT Issuer is not configured properly. Please check the Security:JwtIssuer setting in appsettings.json");
             }
-            
+
             if (string.IsNullOrEmpty(_jwtOptions.Audience))
             {
                 throw new InvalidOperationException("JWT Audience is not configured properly. Please check the Security:JwtAudience setting in appsettings.json");
@@ -210,7 +210,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                
+
                 // First, read the token to extract claims (even if expired)
                 JwtSecurityToken jwtToken;
                 try
@@ -223,14 +223,14 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Extract user information from the token
-                var userIdClaim = jwtToken.Claims.FirstOrDefault(x => 
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(x =>
                     x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
                 {
                     throw new InvalidOperationException("User ID not found in token");
                 }
 
-                var emailClaim = jwtToken.Claims.FirstOrDefault(x => 
+                var emailClaim = jwtToken.Claims.FirstOrDefault(x =>
                     x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
                 if (emailClaim == null)
                 {
@@ -271,7 +271,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var tokenHandler = new JwtSecurityTokenHandler();
-                
+
                 // First, try to read the token without validation to get basic info
                 JwtSecurityToken jwtToken;
                 try
@@ -299,14 +299,14 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Extract specific user information
-                var userIdClaim = jwtToken.Claims.FirstOrDefault(x => 
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(x =>
                     x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 if (userIdClaim != null && long.TryParse(userIdClaim.Value, out var userId))
                 {
                     result.UserId = userId;
                 }
 
-                var emailClaim = jwtToken.Claims.FirstOrDefault(x => 
+                var emailClaim = jwtToken.Claims.FirstOrDefault(x =>
                     x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
                 result.Email = emailClaim?.Value;
 

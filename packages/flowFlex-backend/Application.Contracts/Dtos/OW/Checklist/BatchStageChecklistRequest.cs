@@ -14,4 +14,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Checklist
         [Required(ErrorMessage = "Stage ID列表不能为空")]
         public List<long> StageIds { get; set; } = new List<long>();
     }
-} 
+}

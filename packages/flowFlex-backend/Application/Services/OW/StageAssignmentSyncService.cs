@@ -367,7 +367,7 @@ namespace FlowFlex.Application.Service.OW
                     WorkflowId = workflowId,
                     StageId = stageId
                 });
-                
+
                 // Set the assignments all at once to avoid multiple setter calls
                 checklist.Assignments = cleanAssignments;
 
@@ -449,9 +449,9 @@ namespace FlowFlex.Application.Service.OW
                     WorkflowId = workflowId,
                     StageId = stageId
                 };
-                
+
                 cleanAssignments.Add(newAssignment);
-                
+
                 // Set the assignments all at once to avoid multiple setter calls
                 questionnaire.Assignments = cleanAssignments;
 
@@ -740,4 +740,4 @@ namespace FlowFlex.Application.Service.OW
 
         #endregion
     }
-} 
+}

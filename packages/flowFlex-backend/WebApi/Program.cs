@@ -369,7 +369,7 @@ catch (Exception ex)
     // Database initialization failed - log the error
     Console.WriteLine($"[Program] Database initialization failed: {ex.Message}");
     app.Logger.LogError(ex, "Database initialization failed");
-    
+
     // In development environment, can choose to continue running, production environment should terminate
     if (!app.Environment.IsDevelopment())
     {

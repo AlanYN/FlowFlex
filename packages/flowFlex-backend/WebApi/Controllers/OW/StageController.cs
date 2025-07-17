@@ -201,14 +201,15 @@ namespace FlowFlex.WebApi.Controllers.OW
 
                 // Force sync with empty old IDs to ensure all current assignments are created
                 var result = await _stageService.SyncAssignmentsFromStageComponentsAsync(
-                    id, 
+                    id,
                     stage.WorkflowId,
                     new List<long>(), // empty old checklist IDs
                     checklistIds,
                     new List<long>(), // empty old questionnaire IDs
                     questionnaireIds);
 
-                return Success(new { 
+                return Success(new
+                {
                     success = result,
                     stageId = id,
                     workflowId = stage.WorkflowId,

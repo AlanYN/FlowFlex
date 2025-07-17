@@ -554,7 +554,7 @@ namespace FlowFlex.Application.Service.OW
                 ChecklistId = sv.ChecklistId,
                 QuestionnaireId = sv.QuestionnaireId,
                 Color = sv.Color,
-                
+
                 WorkflowVersion = sv.WorkflowVersion,
                 IsActive = sv.IsActive,
                 CreateDate = sv.CreateDate,
@@ -676,7 +676,7 @@ namespace FlowFlex.Application.Service.OW
                         ChecklistId = stageInput.ChecklistId,
                         QuestionnaireId = stageInput.QuestionnaireId,
                         Color = stageInput.Color,
-    
+
                         WorkflowVersion = "1",
                         IsActive = true
                     };

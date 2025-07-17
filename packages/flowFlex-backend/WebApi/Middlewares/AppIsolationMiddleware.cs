@@ -27,7 +27,7 @@ namespace FlowFlex.WebApi.Middlewares
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             var requestId = GenerateRequestId();
-            
+
             try
             {
                 // Extract AppCode from request
@@ -216,11 +216,11 @@ namespace FlowFlex.WebApi.Middlewares
                 // Example: /api/mobile/... -> MOBILE
                 if (path.StartsWith("/api/mobile/"))
                     return "MOBILE";
-                
+
                 // Example: /api/web/... -> WEB
                 if (path.StartsWith("/api/web/"))
                     return "WEB";
-                
+
                 // Example: /api/admin/... -> ADMIN
                 if (path.StartsWith("/api/admin/"))
                     return "ADMIN";
@@ -278,4 +278,4 @@ namespace FlowFlex.WebApi.Middlewares
             }
         }
     }
-} 
+}

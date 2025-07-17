@@ -12,4 +12,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Checklist
         /// </summary>
         public Dictionary<long, List<ChecklistOutputDto>> StageChecklists { get; set; } = new Dictionary<long, List<ChecklistOutputDto>>();
     }
-} 
+}

@@ -173,7 +173,7 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to save file record to database");
                 }
 
-                  try
+                try
                 {
                     await _operationChangeLogService.LogFileUploadAsync(
                         onboardingFile.Id,

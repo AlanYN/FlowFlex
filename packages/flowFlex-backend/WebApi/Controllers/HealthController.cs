@@ -39,10 +39,10 @@ namespace FlowFlex.WebApi.Controllers
             {
                 // Test database connection using SqlSugar
                 _sqlSugarClient.Ado.CheckConnection();
-                
-                return Ok(new 
-                { 
-                    Status = "Healthy", 
+
+                return Ok(new
+                {
+                    Status = "Healthy",
                     Database = "Connected",
                     TestResult = "Connection OK",
                     Timestamp = DateTime.UtcNow,
@@ -52,9 +52,9 @@ namespace FlowFlex.WebApi.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(503, new 
-                { 
-                    Status = "Unhealthy", 
+                return StatusCode(503, new
+                {
+                    Status = "Unhealthy",
                     Database = "Disconnected",
                     Error = ex.Message,
                     Type = ex.GetType().Name,
@@ -101,10 +101,10 @@ namespace FlowFlex.WebApi.Controllers
             try
             {
                 var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-                
+
                 // Test connection using SqlSugar's synchronous method
                 _sqlSugarClient.Ado.CheckConnection();
-                
+
                 stopwatch.Stop();
 
                 var result = new
@@ -114,7 +114,7 @@ namespace FlowFlex.WebApi.Controllers
                     TestResult = "Connection OK",
                     Provider = _sqlSugarClient.CurrentConnectionConfig.DbType.ToString()
                 };
-                
+
                 return Task.FromResult<object>(result);
             }
             catch (Exception ex)
@@ -125,7 +125,7 @@ namespace FlowFlex.WebApi.Controllers
                     Error = ex.Message,
                     Type = ex.GetType().Name
                 };
-                
+
                 return Task.FromResult<object>(result);
             }
         }
@@ -136,10 +136,10 @@ namespace FlowFlex.WebApi.Controllers
                 return "";
 
             return System.Text.RegularExpressions.Regex.Replace(
-                connectionString, 
-                @"(password|pwd)\s*=\s*[^;]*", 
-                "$1=***", 
+                connectionString,
+                @"(password|pwd)\s*=\s*[^;]*",
+                "$1=***",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
     }
-} 
+}

@@ -193,4 +193,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             Console.WriteLine("✅ 成功删除 ff_events 表索引");
         }
     }
-} 
+}

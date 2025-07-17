@@ -13,4 +13,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [Required(ErrorMessage = "访问令牌不能为空")]
         public string AccessToken { get; set; } = string.Empty;
     }
-} 
+}

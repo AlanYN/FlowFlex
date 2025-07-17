@@ -15,4 +15,4 @@ public interface IAppFilter
     /// Application code
     /// </summary>
     string AppCode { get; set; }
-} 
+}

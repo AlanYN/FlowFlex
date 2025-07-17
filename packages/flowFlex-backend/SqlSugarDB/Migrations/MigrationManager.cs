@@ -23,7 +23,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("[MigrationManager] Starting migration execution...");
-                
+
                 // Create migration history table
                 CreateMigrationHistoryTable();
 
@@ -56,19 +56,19 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     {
                         Console.WriteLine($"[MigrationManager] Migration {migrationId} failed: {ex.Message}");
                         failedMigrations.Add(migrationId);
-                        
+
                         // Continue with next migration instead of stopping
                         continue;
                     }
                 }
 
                 Console.WriteLine($"[MigrationManager] Migration execution completed. Successful: {successfulMigrations.Count}, Failed: {failedMigrations.Count}");
-                
+
                 if (failedMigrations.Any())
                 {
                     Console.WriteLine($"[MigrationManager] Failed migrations: {string.Join(", ", failedMigrations)}");
                 }
-                
+
                 if (successfulMigrations.Any())
                 {
                     Console.WriteLine($"[MigrationManager] Successful migrations: {string.Join(", ", successfulMigrations)}");
@@ -121,13 +121,13 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (!exists)
                 {
                     Console.WriteLine($"[MigrationManager] Executing migration: {migrationId}");
-                    
+
                     // Execute migration
                     migrationAction();
 
                     // Record migration history
                     _db.Ado.ExecuteCommand($"INSERT INTO __migration_history (migration_id) VALUES ('{migrationId}')");
-                    
+
                     Console.WriteLine($"[MigrationManager] Migration {migrationId} completed successfully");
                 }
                 else

@@ -92,8 +92,8 @@ namespace FlowFlex.Application.Services.OW
 
                         // Send invitation email
                         var emailSent = await _emailService.SendOnboardingInvitationEmailAsync(
-                            email, 
-                            existingInvitation.InvitationUrl, 
+                            email,
+                            existingInvitation.InvitationUrl,
                             onboarding.LeadName ?? "Onboarding Process");
 
                         if (emailSent)
@@ -121,7 +121,7 @@ namespace FlowFlex.Application.Services.OW
                         };
 
                         invitation.InvitationUrl = GenerateInvitationUrl(invitation.InvitationToken, request.OnboardingId, request.BaseUrl);
-                        
+
                         // Create system user context for initialization
                         var systemUserContext = new UserContext
                         {
@@ -130,15 +130,15 @@ namespace FlowFlex.Application.Services.OW
                             TenantId = onboarding.TenantId ?? "DEFAULT",
                             AppCode = "DEFAULT"
                         };
-                        
+
                         invitation.InitCreateInfo(systemUserContext);
 
                         await _invitationRepository.InsertAsync(invitation);
 
                         // Send invitation email
                         var emailSent = await _emailService.SendOnboardingInvitationEmailAsync(
-                            email, 
-                            invitation.InvitationUrl, 
+                            email,
+                            invitation.InvitationUrl,
                             onboarding.LeadName ?? "Onboarding Process");
 
                         if (emailSent)
@@ -236,7 +236,7 @@ namespace FlowFlex.Application.Services.OW
                         Status = "active",
                         TenantId = invitation.TenantId
                     };
-                    
+
                     // Create system user context for initialization
                     var systemUserContext = new UserContext
                     {
@@ -245,7 +245,7 @@ namespace FlowFlex.Application.Services.OW
                         TenantId = invitation.TenantId ?? "DEFAULT",
                         AppCode = "DEFAULT"
                     };
-                    
+
                     user.InitCreateInfo(systemUserContext);
                     await _userRepository.InsertAsync(user);
                 }
@@ -302,8 +302,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Send invitation email
                 return await _emailService.SendOnboardingInvitationEmailAsync(
-                    request.Email, 
-                    invitation.InvitationUrl, 
+                    request.Email,
+                    invitation.InvitationUrl,
                     onboarding?.LeadName ?? "Onboarding Process");
             }
             catch (Exception ex)
@@ -358,7 +358,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var invitation = await _invitationRepository.GetByTokenAsync(token);
-                
+
                 if (invitation == null)
                 {
                     return new TokenValidationResponseDto
@@ -437,10 +437,10 @@ namespace FlowFlex.Application.Services.OW
         private string GenerateInvitationUrl(string token, long onboardingId, string? baseUrl = null)
         {
             // Use provided baseUrl or fall back to default
-            var finalBaseUrl = !string.IsNullOrEmpty(baseUrl) 
-                ? baseUrl.TrimEnd('/') 
+            var finalBaseUrl = !string.IsNullOrEmpty(baseUrl)
+                ? baseUrl.TrimEnd('/')
                 : "http://localhost:5173"; // Updated default for frontend port
-            
+
             return $"{finalBaseUrl}/customer-portal?onboardingId={onboardingId}&token={token}";
         }
 
@@ -462,4 +462,4 @@ namespace FlowFlex.Application.Services.OW
             }
         }
     }
-} 
+}

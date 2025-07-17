@@ -103,7 +103,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Extract old components for sync comparison (before mapping)
             List<StageComponent> oldComponents = new List<StageComponent>();
-            
+
             if (!string.IsNullOrEmpty(stage.ComponentsJson))
             {
                 try
@@ -134,7 +134,7 @@ namespace FlowFlex.Application.Service.OW
             // Extract new components for sync comparison (after mapping)
             var newChecklistIds = new List<long>();
             var newQuestionnaireIds = new List<long>();
-            
+
             if (input.Components != null && input.Components.Any())
             {
                 newChecklistIds = input.Components
@@ -168,11 +168,11 @@ namespace FlowFlex.Application.Service.OW
                     try
                     {
                         await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                            id, 
+                            id,
                             stage.WorkflowId,
-                            oldChecklistIds, 
+                            oldChecklistIds,
                             newChecklistIds,
-                            oldQuestionnaireIds, 
+                            oldQuestionnaireIds,
                             newQuestionnaireIds);
                     }
                     catch (Exception ex)
@@ -715,11 +715,11 @@ namespace FlowFlex.Application.Service.OW
                 try
                 {
                     await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                        id, 
+                        id,
                         entity.WorkflowId,
-                        oldChecklistIds, 
+                        oldChecklistIds,
                         newChecklistIds,
-                        oldQuestionnaireIds, 
+                        oldQuestionnaireIds,
                         newQuestionnaireIds);
                 }
                 catch (Exception ex)
@@ -797,11 +797,11 @@ namespace FlowFlex.Application.Service.OW
         public async Task<bool> SyncAssignmentsFromStageComponentsAsync(long stageId, long workflowId, List<long> oldChecklistIds, List<long> newChecklistIds, List<long> oldQuestionnaireIds, List<long> newQuestionnaireIds)
         {
             return await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                stageId, 
-                workflowId, 
-                oldChecklistIds, 
-                newChecklistIds, 
-                oldQuestionnaireIds, 
+                stageId,
+                workflowId,
+                oldChecklistIds,
+                newChecklistIds,
+                oldQuestionnaireIds,
                 newQuestionnaireIds);
         }
 

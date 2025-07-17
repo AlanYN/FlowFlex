@@ -830,22 +830,22 @@ namespace FlowFlex.Application.Services.OW
                 int totalCount;
                 int pageIndex = Math.Max(1, request.PageIndex > 0 ? request.PageIndex : 1);
                 int pageSize = Math.Max(1, Math.Min(100, request.PageSize > 0 ? request.PageSize : 10));
-                
+
                 if (request.AllData)
                 {
                     // Get all data without pagination using the existing GetListAsync method
                     // that accepts multiple where expressions
                     var orderByType = isAsc ? OrderByType.Asc : OrderByType.Desc;
-                    
+
                     // Use the SqlSugar client directly to build the query
                     var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
-                    
+
                     // Apply all where conditions
                     foreach (var whereExpression in whereExpressions)
                     {
                         queryable = queryable.Where(whereExpression);
                     }
-                    
+
                     // Apply sorting
                     if (isAsc)
                     {
@@ -855,7 +855,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         queryable = queryable.OrderByDescending(orderByExpression);
                     }
-                    
+
                     pagedEntities = await queryable.ToListAsync();
                     totalCount = pagedEntities.Count;
                 }
@@ -897,7 +897,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Create page model with appropriate pagination info
-                var pageModel = request.AllData 
+                var pageModel = request.AllData
                     ? new PageModelDto<OnboardingOutputDto>(1, totalCount, results, totalCount)
                     : new PageModelDto<OnboardingOutputDto>(pageIndex, pageSize, results, totalCount);
 
@@ -2923,7 +2923,7 @@ namespace FlowFlex.Application.Services.OW
             // Set headers
             var headers = new[]
             {
-                "ID", "Company Name", "Life Cycle Stage", "Work Flow", "Onboard Stage", 
+                "ID", "Company Name", "Life Cycle Stage", "Work Flow", "Onboard Stage",
                 "Updated By", "Update Time", "Start Date", "ETA", "Priority", "Progress"
             };
 

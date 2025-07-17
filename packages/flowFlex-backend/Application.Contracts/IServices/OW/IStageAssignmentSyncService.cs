@@ -21,11 +21,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="newQuestionnaireIds">New questionnaire IDs</param>
         /// <returns>Success status</returns>
         Task<bool> SyncAssignmentsFromStageComponentsAsync(
-            long stageId, 
+            long stageId,
             long workflowId,
-            List<long> oldChecklistIds, 
+            List<long> oldChecklistIds,
             List<long> newChecklistIds,
-            List<long> oldQuestionnaireIds, 
+            List<long> oldQuestionnaireIds,
             List<long> newQuestionnaireIds);
 
         /// <summary>
@@ -60,4 +60,4 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Success status</returns>
         Task<bool> ForceSyncAllRelationshipsAsync();
     }
-} 
+}
