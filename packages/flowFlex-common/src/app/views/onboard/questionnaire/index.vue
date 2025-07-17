@@ -143,7 +143,7 @@
 										</template>
 									</el-dropdown>
 								</div>
-								<p class="text-primary-600 text-sm mt-1.5 truncate">
+								<p class="text-primary-600 text-sm mt-1.5 truncate h-6">
 									{{ questionnaire.description }}
 								</p>
 							</div>
