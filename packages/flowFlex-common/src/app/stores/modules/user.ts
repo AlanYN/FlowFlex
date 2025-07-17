@@ -4,7 +4,7 @@ import { RoleEnum } from '@/enums/roleEnum';
 import { PageEnum } from '@/enums/pageEnum';
 import { ROLES_KEY, USER_INFO_KEY, TOKENOBJ_KEY, ISLOGIN_KEY } from '@/enums/cacheEnum';
 import { getAuthCache, setAuthCache } from '@/utils/auth';
-import { loginApi, userInfoApi, emailCodelogin } from '@/apis/login/user';
+import { loginApi, userInfoApi, emailCodelogin, registerApi } from '@/apis/login/user';
 import { useI18n } from '@/hooks/useI18n';
 import { router } from '@/router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -14,6 +14,7 @@ import { usePermissionStore } from '@/stores/modules/permission';
 // import { useGlobSetting } from '@/settings';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import { passLogout } from '@/utils/threePartyLogin';
+
 import { h } from 'vue';
 import dayjs from 'dayjs';
 
@@ -116,50 +117,44 @@ export const useUserStore = defineStore({
 			this.isLogin = islogin;
 			setAuthCache(ISLOGIN_KEY, islogin);
 		},
+		async siginUp(params) {
+			const res = await registerApi(params);
+			if (res.code === '200') {
+				ElMessage.success('Register Success');
+				await this.login({
+					email: params.email,
+					password: params.password,
+				});
+			} else {
+				ElMessage.error(res.msg || t('sys.api.operationFailed'));
+			}
+		},
 		/**
 		 * @description: login
 		 */
 		async login(params, loginType = 'password') {
 			try {
-				const { goHome = true, ...loginParams } = params;
+				const { ...loginParams } = params;
 				const data =
 					loginType === 'password'
 						? await loginApi(loginParams)
 						: await emailCodelogin(loginParams);
-				if (loginType === 'password') {
-					const { access_token, expires_in, refresh_token, token_type } = data;
-					const currentDate = dayjs(new Date()).unix();
-					if (access_token && access_token != '') {
-						this.setTokenobj({
-							accessToken: {
-								token: access_token,
-								expire: +currentDate + +expires_in,
-								tokenType: token_type,
-							},
-							refreshToken: refresh_token,
-						});
-						return this.afterLoginAction(goHome);
-					}
-				} else if (loginType === 'code') {
-					const { accessToken, expiresIn, tokenType, user } = data.data;
-					const currentDate = dayjs(new Date()).unix();
-					if (accessToken && accessToken != '') {
-						this.setTokenobj({
-							accessToken: {
-								token: accessToken,
-								expire: +currentDate + +expiresIn,
-								tokenType: tokenType,
-							},
-							refreshToken: accessToken,
-						});
-						return this.loginWithCode({
-							...user,
-							userName: user.email || user.username,
-							userId: user.id,
-						});
-					}
-				} else {
-					throw data;
+				const { accessToken, expiresIn, tokenType, user } = data.data;
+				const currentDate = dayjs(new Date()).unix();
+				if (accessToken && accessToken != '') {
+					this.setTokenobj({
+						accessToken: {
+							token: accessToken,
+							expire: +currentDate + +expiresIn,
+							tokenType: tokenType,
+						},
+						refreshToken: accessToken,
+					});
+					return this.loginWithCode({
+						...user,
+						userName: user.email || user.username,
+						userId: user.id,
+					});
 				}
 			} catch (error) {
 				return Promise.reject(error);

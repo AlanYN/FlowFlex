@@ -9,7 +9,7 @@ export const UnisApi = () => {
 		UserInfo: `${globSetting.apiProName}/permission-center/${globSetting.apiVersion}/users/user-info`,
 
 		// 获取新token
-		getNewToken: `${globSetting.apiProName}/permission-center/${globSetting.apiVersion}/oauth/refresh-access-token`,
+		getNewToken: `${globSetting.apiProName}/ow/users/refresh-access-token`,
 
 		getSSOToken: `${globSetting.iamUrl}/${globSetting.apiVersion}/oauth/item-iam/token`,
 
@@ -19,9 +19,10 @@ export const UnisApi = () => {
 
 const Api = () => {
 	return {
-		Login: `${globSetting.apiProName}/permission-center/${globSetting.apiVersion}/oauth/login`,
+		Login: `${globSetting.apiProName}/ow/users/login`,
 
 		emailCodelogin: `${globSetting.apiProName}/ow/users/login-with-code`,
+		register: `${globSetting.apiProName}/ow/users/register`,
 	};
 };
 
@@ -47,4 +48,13 @@ export function setUserGeneral(params) {
 
 export function getUserGeneral(params) {
 	return defHttp.get({ url: UnisApi().userGeneral, params });
+}
+
+export function registerApi(params: {
+	email: string;
+	password: string;
+	confirmPassword: string;
+	verificationCode: string;
+}) {
+	return defHttp.post({ url: Api().register, params });
 }

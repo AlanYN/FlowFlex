@@ -124,6 +124,7 @@
 		"loginSuccessDesc": "欢迎回来",
 		"accountPlaceholder": "请输入账号或者邮箱",
 		"passwordPlaceholder": "请输入密码",
+		"confirmPasswordPlaceholder": "请再次输入密码",
 		"smsPlaceholder": "请输入验证码",
 		"mobilePlaceholder": "请输入手机号码",
 		"policyPlaceholder": "勾选后才能继续",
@@ -143,7 +144,10 @@
 		"successEmail": "已发送到您的邮箱",
 		"resend": "重新发送",
 		"sendEmail": "发送邮箱",
-		"emailEmpty": "请输入邮箱"
+		"emailEmpty": "请输入邮箱",
+		"passwordLogin": "密码登录",
+		"codeLogin": "验证码登录",
+		"registerSuccess": "注册成功"
 	},
 	"common": {
 		"cancelText": "取消",

@@ -8,7 +8,7 @@
 			class="absolute inset-0 w-full h-full z-0"
 		></canvas>
 
-		<!-- 登录 loading 遮罩层 -->
+		<!-- login loading mask -->
 		<div v-if="loginLoading" class="login-loading-mask">
 			<div class="login-loading-spinner"></div>
 		</div>
@@ -23,40 +23,147 @@
 			<div
 				class="w-full max-w-md p-8 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-xl relative animate-float"
 			>
-				<!-- 紫色柔光背景 -->
+				<!-- purple glow background -->
 				<div
 					class="absolute inset-0 -z-10 rounded-2xl opacity-40 blur-[10px] bg-gradient-to-r from-purple-500 via-violet-600 to-fuchsia-600 animate-glow"
 				></div>
 
+				<!-- tab switch -->
+				<div class="flex justify-between mb-4 text-white text-sm">
+					<span
+						:class="{
+							'font-bold text-[#58c7fa]': !isRegister,
+							'cursor-pointer': isRegister && !isBusy,
+							'pointer-events-none opacity-60': isBusy,
+						}"
+						@click="toggleTab(false)"
+					>
+						{{ t('sys.login.loginButton') }}
+					</span>
+					<span
+						:class="{
+							'font-bold text-[#58c7fa]': isRegister,
+							'cursor-pointer': !isRegister && !isBusy,
+							'pointer-events-none opacity-60': isBusy,
+						}"
+						@click="toggleTab(true)"
+					>
+						{{ t('sys.login.registerButton') }}
+					</span>
+				</div>
+
 				<h2
-					class="text-white text-2xl font-semibold text-center mb-6 drop-shadow-[0_0_5px_rgba(180,120,255,0.6)]"
+					class="text-white text-2xl font-semibold text-center mb-4 drop-shadow-[0_0_5px_rgba(180,120,255,0.6)]"
 				>
-					{{ t('sys.login.loginButton') }}
+					{{ isRegister ? t('sys.login.registerButton') : t('sys.login.loginButton') }}
 				</h2>
 
-				<el-form :model="formData" ref="formRef" label-position="top">
-					<el-form-item>
+				<!-- login method switch removed -->
+
+				<!-- password login form -->
+				<el-form
+					v-if="!isRegister"
+					:model="loginForm"
+					ref="formRef"
+					label-position="top"
+					:rules="loginRules"
+				>
+					<el-form-item prop="email">
 						<label class="text-white/90 text-sm mb-2 block font-medium">
-							{{ t('sys.login.userName') }}
+							{{ t('sys.login.email') }}
 						</label>
 						<el-input
-							v-model="formData.userName"
-							:placeholder="t('sys.login.userName')"
+							v-model="loginForm.email"
+							:placeholder="t('sys.login.accountPlaceholder')"
 							class="!bg-white/10 !text-white !placeholder-white/50"
 						/>
 					</el-form-item>
+					<el-form-item prop="password">
+						<label class="text-white/90 text-sm mb-2 block font-medium">
+							{{ t('sys.login.password') }}
+						</label>
+						<el-input
+							v-model="loginForm.password"
+							type="password"
+							:placeholder="t('sys.login.passwordPlaceholder')"
+							show-password
+							class="!bg-white/10 !text-white !placeholder-white/50"
+						/>
+					</el-form-item>
+					<el-form-item class="mt-6">
+						<el-button
+							type="primary"
+							class="w-full"
+							:loading="loginLoading"
+							@click="handleLogin"
+						>
+							{{ t('sys.login.loginButton') }}
+						</el-button>
+					</el-form-item>
+				</el-form>
 
-					<el-form-item>
+				<!-- register form -->
+				<el-form
+					v-else
+					:model="registerForm"
+					ref="formRef"
+					label-position="top"
+					:rules="registerRules"
+				>
+					<el-form-item prop="email">
+						<label class="text-white/90 text-sm mb-2 block font-medium">
+							{{ t('sys.login.email') }}
+						</label>
+						<el-input
+							v-model="registerForm.email"
+							:placeholder="t('sys.login.accountPlaceholder')"
+							class="!bg-white/10 !text-white !placeholder-white/50"
+						/>
+					</el-form-item>
+					<el-form-item prop="password">
+						<label class="text-white/90 text-sm mb-2 block font-medium">
+							{{ t('sys.login.password') }}
+						</label>
+						<el-input
+							v-model="registerForm.password"
+							type="password"
+							:placeholder="t('sys.login.passwordPlaceholder')"
+							show-password
+							class="!bg-white/10 !text-white !placeholder-white/50"
+						/>
+					</el-form-item>
+					<el-form-item prop="confirmPassword">
+						<label class="text-white/90 text-sm mb-2 block font-medium">
+							{{ t('sys.login.confirmPassword') }}
+						</label>
+						<el-input
+							v-model="registerForm.confirmPassword"
+							type="password"
+							:placeholder="t('sys.login.confirmPasswordPlaceholder')"
+							show-password
+							class="!bg-white/10 !text-white !placeholder-white/50"
+						/>
+					</el-form-item>
+					<el-form-item prop="verificationCode">
 						<label class="text-white/90 text-sm mb-2 block font-medium">
 							{{ t('sys.login.smsCode') }}
 						</label>
 						<AuthCodeInput
-							v-model="verificationCode"
-							:email="formData.userName"
+							v-model="registerForm.verificationCode"
+							:email="registerForm.email"
 							:disabled="codeInputDisabled"
-							@input-end="handleInputEnd"
 							@send-email-success="handleSendEmailSuccess"
 						/>
+					</el-form-item>
+					<el-form-item class="mt-6">
+						<el-button
+							type="primary"
+							class="w-full"
+							:loading="registerLoading"
+							@click="handleRegister"
+						>
+							{{ t('sys.login.registerButton') }}
+						</el-button>
 					</el-form-item>
 				</el-form>
 			</div>
@@ -65,7 +172,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref, onMounted, onUnmounted } from 'vue';
+import { reactive, ref, onMounted, onUnmounted, computed } from 'vue';
 import { useUserStore } from '@/stores/modules/user';
 import { useI18n } from '@/hooks/useI18n';
 import { type FormInstance } from 'element-plus';
@@ -79,11 +186,66 @@ const { title } = useGlobSetting();
 const formRef = ref<FormInstance>();
 const particleCanvas = ref<HTMLCanvasElement | null>(null);
 
-const formData = reactive({
-	userName: '',
+// login model & rules
+const loginForm = reactive({
+	email: '',
+	password: '',
 });
 
-const verificationCode = reactive<string[]>([]);
+const loginRules = reactive({
+	email: [{ required: true, message: t('sys.login.emailEmpty'), trigger: 'blur' }],
+	password: [{ required: true, message: t('sys.login.passwordPlaceholder'), trigger: 'blur' }],
+});
+
+// register model & rules
+const registerForm = reactive({
+	email: '',
+	password: '',
+	confirmPassword: '',
+	verificationCode: [] as string[],
+});
+
+const registerRules = reactive({
+	email: [{ required: true, message: t('sys.login.emailEmpty'), trigger: 'blur' }],
+	password: [{ required: true, message: t('sys.login.passwordPlaceholder'), trigger: 'blur' }],
+	confirmPassword: [
+		{
+			required: true,
+			message: t('sys.login.confirmPasswordPlaceholder'),
+			trigger: 'blur',
+		},
+		{
+			validator: (_rule: any, value: string, callback: any) => {
+				if (value !== registerForm.password) {
+					callback(new Error(t('sys.login.diffPwd')));
+				} else {
+					callback();
+				}
+			},
+			trigger: 'blur',
+		},
+	],
+	verificationCode: [
+		{
+			type: 'array',
+			required: true,
+			validator: (_rule: any, value: string[], callback: any) => {
+				if (!value || value.length !== 6 || value.some((v) => !v)) {
+					callback(new Error(t('sys.login.smsPlaceholder')));
+				} else {
+					callback();
+				}
+			},
+			trigger: 'change',
+		},
+	],
+});
+
+const isRegister = ref(false);
+const registerLoading = ref(false);
+const loginLoading = ref(false);
+
+const isBusy = computed(() => loginLoading.value || registerLoading.value);
 
 let particleSystem: { animationId: number; resize: (w: number, h: number) => void } | null = null;
 let mouseMoveListenerAdded = false;
@@ -250,22 +412,49 @@ const handleSendEmailSuccess = () => {
 	codeInputDisabled.value = false;
 };
 
-const loginLoading = ref(false);
-const handleInputEnd = async () => {
+function toggleTab(registerFlag = false) {
+	if (isBusy.value) return; // prevent switch during active request
+	isRegister.value = registerFlag;
+}
+
+const handleLogin = async () => {
 	if (loginLoading.value) return;
-	loginLoading.value = true;
-	try {
-		await userStore.login(
-			{
-				email: formData.userName,
-				verificationCode: verificationCode.join(''),
-			},
-			'code'
-		);
-	} finally {
-		loginLoading.value = false;
-	}
+	await formRef.value?.validate(async (valid) => {
+		if (!valid) return;
+		loginLoading.value = true;
+		try {
+			await userStore.login(
+				{
+					email: loginForm.email,
+					password: loginForm.password,
+				},
+				'password'
+			);
+		} finally {
+			loginLoading.value = false;
+		}
+	});
 };
+
+const handleRegister = async () => {
+	if (registerLoading.value) return;
+	await formRef.value?.validate(async (valid) => {
+		if (!valid) return;
+		registerLoading.value = true;
+		try {
+			await userStore.siginUp({
+				email: registerForm.email,
+				password: registerForm.password,
+				confirmPassword: registerForm.confirmPassword,
+				verificationCode: registerForm.verificationCode.join(''),
+			});
+		} finally {
+			registerLoading.value = false;
+		}
+	});
+};
+
+// inputEnd no longer needed
 </script>
 
 <style scoped>

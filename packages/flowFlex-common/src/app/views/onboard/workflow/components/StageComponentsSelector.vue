@@ -41,9 +41,6 @@
 											class="text-sm font-medium leading-none flex-1 cursor-pointer min-w-0"
 										>
 											<span class="truncate">{{ field.label }}</span>
-											<span class="text-xs truncate">
-												({{ field.category || defaultStr }})
-											</span>
 										</label>
 									</div>
 								</div>
@@ -323,7 +320,6 @@ import {
 	Checklist,
 	Questionnaire,
 } from '#/onboard';
-import { defaultStr } from '@/settings/projectSetting';
 
 // Props
 const props = defineProps<{
