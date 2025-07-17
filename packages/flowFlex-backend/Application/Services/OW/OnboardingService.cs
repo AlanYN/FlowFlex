@@ -1749,6 +1749,38 @@ namespace FlowFlex.Application.Services.OW
                     // Debug logging handled by structured logging
                 }
 
+                // Auto-advance to next stage logic (similar to CompleteCurrentStageAsync without input)
+                // Find the next incomplete stage to advance to
+                var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
+                var nextStageIndex = currentStageIndex + 1;
+                
+                // If current stage is the completed stage and there's a next stage, advance to it
+                if (entity.CurrentStageId == stageToComplete.Id && nextStageIndex < orderedStages.Count)
+                {
+                    var nextStage = orderedStages[nextStageIndex];
+                    entity.CurrentStageId = nextStage.Id;
+                    entity.CurrentStageOrder = nextStage.Order;
+                    entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                    // Debug logging handled by structured logging
+                }
+                else if (entity.CurrentStageId != stageToComplete.Id)
+                {
+                    // If we completed a different stage (not the current one), 
+                    // advance to the next incomplete stage
+                    var nextIncompleteStage = orderedStages
+                        .Where(stage => !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                        .OrderBy(stage => stage.Order)
+                        .FirstOrDefault();
+                    
+                    if (nextIncompleteStage != null)
+                    {
+                        entity.CurrentStageId = nextIncompleteStage.Id;
+                        entity.CurrentStageOrder = nextIncompleteStage.Order;
+                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                        // Debug logging handled by structured logging
+                    }
+                }
+
                 // Add completion notes if provided
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
@@ -2221,6 +2253,34 @@ namespace FlowFlex.Application.Services.OW
             entity.StageUpdatedBy = GetCurrentUserName();
             entity.StageUpdatedById = GetCurrentUserId() ?? 0;
             entity.StageUpdatedByEmail = GetCurrentUserEmail();
+            
+            // Sync isCurrent flag in stagesProgress to match currentStageId
+            LoadStagesProgressFromJson(entity);
+            if (entity.StagesProgress != null && entity.StagesProgress.Any())
+            {
+                foreach (var stage in entity.StagesProgress)
+                {
+                    // Update isCurrent flag based on currentStageId
+                    stage.IsCurrent = stage.StageId == entity.CurrentStageId;
+                    
+                    // Update stage status based on completion and current status
+                    if (stage.IsCompleted)
+                    {
+                        stage.Status = "Completed";
+                    }
+                    else if (stage.IsCurrent)
+                    {
+                        stage.Status = "InProgress";
+                    }
+                    else
+                    {
+                        stage.Status = "Pending";
+                    }
+                }
+                
+                // Serialize back to JSON
+                entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
+            }
         }
 
         /// <summary>
