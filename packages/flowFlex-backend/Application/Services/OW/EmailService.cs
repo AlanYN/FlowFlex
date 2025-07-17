@@ -140,7 +140,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var subject = "FlowFlex - Onboarding Portal Access Invitation";
+                var subject = "FlowFlex - Customer Portal Access Invitation";
                 var body = $@"
                 <html>
                 <head>
@@ -157,20 +157,20 @@ namespace FlowFlex.Application.Services.OW
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>Onboarding Portal Access Invitation</h2>
+                            <h2>Customer Portal Access Invitation</h2>
                         </div>
                         <div class='content'>
                             <p>Hello,</p>
-                            <p>You have been invited to access the FlowFlex onboarding portal to complete your onboarding process.</p>
+                            <p>You have been invited to access the FlowFlex customer portal to complete your process.</p>
                             
                             <div class='info-box'>
-                                <strong>Onboarding Process:</strong> {onboardingName}
+                                <strong>Company/Contact Name:</strong> {onboardingName}
                             </div>
                             
-                            <p>Please click the button below to access your onboarding portal:</p>
+                            <p>Please click the button below to access your customer portal:</p>
                             
                             <div style='text-align: center;'>
-                                <a href='{invitationUrl}' class='button'>Access Onboarding Portal</a>
+                                <a href='{invitationUrl}' class='button'>Access Customer Portal</a>
                             </div>
                             
                             <p>If the button doesn't work, you can copy and paste the following link into your browser:</p>
@@ -179,7 +179,7 @@ namespace FlowFlex.Application.Services.OW
                             <div class='info-box'>
                                 <strong>What to expect:</strong><br>
                                 • Verify your email address<br>
-                                • Complete the onboarding questionnaire<br>
+                                • Complete the questionnaire<br>
                                 • Upload required documents<br>
                                 • Track your progress through each stage
                             </div>
@@ -200,7 +200,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send onboarding invitation email: {Message}", ex.Message);
+                _logger.LogError(ex, "Failed to send Customer Portal invitation email: {Message}", ex.Message);
                 return false;
             }
         }
