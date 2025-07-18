@@ -1,39 +1,28 @@
-using System;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Net;
-using System.Security.Claims;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Options;
 using FlowFlex.WebApi.Model.Response;
 
 namespace FlowFlex.WebApi.Middlewares
 {
     /// <summary>
-    /// JWT authentication middleware
+    /// Token validation middleware for checking token status in database
     /// </summary>
-    public class JwtAuthenticationMiddleware
+    public class TokenValidationMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly ILogger<JwtAuthenticationMiddleware> _logger;
-        private readonly JwtOptions _jwtOptions;
+        private readonly ILogger<TokenValidationMiddleware> _logger;
 
-        public JwtAuthenticationMiddleware(
+        public TokenValidationMiddleware(
             RequestDelegate next,
-            ILogger<JwtAuthenticationMiddleware> logger,
-            IOptions<JwtOptions> jwtOptions)
+            ILogger<TokenValidationMiddleware> logger)
         {
             _next = next;
             _logger = logger;
-            _jwtOptions = jwtOptions.Value;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -41,7 +30,7 @@ namespace FlowFlex.WebApi.Middlewares
             try
             {
                 // Check if authentication is required
-                if (IsPublicEndpoint(context.Request.Path))
+                if (IsPublicEndpoint(context.Request.Path) || !context.User.Identity.IsAuthenticated)
                 {
                     await _next(context);
                     return;
@@ -50,65 +39,22 @@ namespace FlowFlex.WebApi.Middlewares
                 // Extract JWT token
                 var token = ExtractToken(context);
 
-                if (string.IsNullOrEmpty(token))
+                if (!string.IsNullOrEmpty(token))
                 {
-                    await HandleUnauthorizedAsync(context, "Missing authentication token");
-                    return;
+                    // Validate token in database
+                    var isTokenValid = await ValidateTokenInDatabaseAsync(context, token);
+                    if (!isTokenValid)
+                    {
+                        await HandleUnauthorizedAsync(context, "Token has been revoked or is no longer valid");
+                        return;
+                    }
                 }
-
-                // Validate JWT token signature and expiration
-                var principal = ValidateToken(token);
-
-                if (principal == null)
-                {
-                    await HandleUnauthorizedAsync(context, "Invalid authentication token");
-                    return;
-                }
-
-                // Additional validation: Check if token is active in database
-                var isTokenActive = await ValidateTokenInDatabaseAsync(context, token);
-                if (!isTokenActive)
-                {
-                    await HandleUnauthorizedAsync(context, "Token has been revoked");
-                    return;
-                }
-
-                // Set user context
-                context.User = principal;
-
-                // Add user information to request headers
-                var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var userEmail = principal.FindFirst(ClaimTypes.Email)?.Value;
-
-                if (!string.IsNullOrEmpty(userId))
-                {
-                    context.Items["UserId"] = userId;
-                }
-
-                if (!string.IsNullOrEmpty(userEmail))
-                {
-                    context.Items["UserEmail"] = userEmail;
-                }
-
-                _logger.LogDebug("JWT authentication successful for user: {UserId}", userId);
 
                 await _next(context);
             }
-            catch (SecurityTokenExpiredException)
-            {
-                await HandleUnauthorizedAsync(context, "Token has expired");
-            }
-            catch (SecurityTokenInvalidSignatureException)
-            {
-                await HandleUnauthorizedAsync(context, "Invalid token signature");
-            }
-            catch (SecurityTokenException ex)
-            {
-                await HandleUnauthorizedAsync(context, $"Invalid token: {ex.Message}");
-            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "JWT authentication middleware error");
+                _logger.LogError(ex, "Error in token validation middleware");
                 await HandleUnauthorizedAsync(context, "Authentication error");
             }
         }
@@ -149,46 +95,6 @@ namespace FlowFlex.WebApi.Middlewares
         }
 
         /// <summary>
-        /// Validate JWT token
-        /// </summary>
-        private ClaimsPrincipal ValidateToken(string token)
-        {
-            try
-            {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_jwtOptions.SecretKey);
-
-                var validationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = _jwtOptions.Issuer,
-                    ValidAudience = _jwtOptions.Audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ClockSkew = TimeSpan.Zero
-                };
-
-                var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
-
-                // Ensure token is JWT token
-                if (validatedToken is not JwtSecurityToken jwtToken ||
-                    !jwtToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
-                {
-                    throw new SecurityTokenException("Invalid token algorithm");
-                }
-
-                return principal;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "JWT token validation failed");
-                return null;
-            }
-        }
-
-        /// <summary>
         /// Validate token in database
         /// </summary>
         private async Task<bool> ValidateTokenInDatabaseAsync(HttpContext context, string token)
@@ -214,6 +120,8 @@ namespace FlowFlex.WebApi.Middlewares
                     return false;
                 }
 
+                _logger.LogDebug("Validating token with JTI: {Jti}", jti);
+
                 // Check if token is active in database
                 var isActive = await accessTokenService.ValidateTokenAsync(jti);
                 
@@ -221,6 +129,11 @@ namespace FlowFlex.WebApi.Middlewares
                 {
                     // Update last used time
                     await accessTokenService.UpdateTokenUsageAsync(jti);
+                    _logger.LogDebug("Token {Jti} is valid and last used time updated", jti);
+                }
+                else
+                {
+                    _logger.LogWarning("Token {Jti} is not active or not found in database", jti);
                 }
 
                 return isActive;
@@ -258,4 +171,4 @@ namespace FlowFlex.WebApi.Middlewares
             _logger.LogWarning("Unauthorized request: {Message}, Path: {Path}", message, context.Request.Path);
         }
     }
-}
+} 

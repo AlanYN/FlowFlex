@@ -25,6 +25,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
+        private readonly IAccessTokenService _accessTokenService;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -35,6 +36,7 @@ namespace FlowFlex.Application.Services.OW
             IUserRepository userRepository,
             IEmailService emailService,
             IJwtService jwtService,
+            IAccessTokenService accessTokenService,
             IMapper mapper,
             ILogger<UserService> logger,
             IHttpContextAccessor httpContextAccessor,
@@ -44,6 +46,7 @@ namespace FlowFlex.Application.Services.OW
             _userRepository = userRepository;
             _emailService = emailService;
             _jwtService = jwtService;
+            _accessTokenService = accessTokenService;
             _mapper = mapper;
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;
@@ -228,12 +231,25 @@ namespace FlowFlex.Application.Services.OW
                 throw new Exception("User account is not active");
             }
 
-            // Generate JWT token
-            var token = _jwtService.GenerateJwtToken(user);
+            // Generate JWT token with details
+            var tokenDetails = _jwtService.GenerateTokenWithDetails(user.Id, user.Email, user.Username, user.TenantId, "login");
+
+            // Record token in database (this will revoke other active tokens)
+            await _accessTokenService.RecordTokenAsync(
+                tokenDetails.Jti,
+                tokenDetails.UserId,
+                tokenDetails.UserEmail,
+                tokenDetails.Token,
+                tokenDetails.ExpiresAt,
+                tokenDetails.TokenType,
+                tokenDetails.IssuedIp,
+                tokenDetails.UserAgent,
+                revokeOtherTokens: true
+            );
 
             return new LoginResponseDto
             {
-                AccessToken = token,
+                AccessToken = tokenDetails.Token,
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                 User = _mapper.Map<UserDto>(user)
@@ -292,12 +308,25 @@ namespace FlowFlex.Application.Services.OW
             user.ModifyBy = request.Email;
             await _userRepository.UpdateAsync(user);
 
-            // Generate JWT token
-            var token = _jwtService.GenerateJwtToken(user);
+            // Generate JWT token with details
+            var tokenDetails = _jwtService.GenerateTokenWithDetails(user.Id, user.Email, user.Username, user.TenantId, "login");
+
+            // Record token in database (this will revoke other active tokens)
+            await _accessTokenService.RecordTokenAsync(
+                tokenDetails.Jti,
+                tokenDetails.UserId,
+                tokenDetails.UserEmail,
+                tokenDetails.Token,
+                tokenDetails.ExpiresAt,
+                tokenDetails.TokenType,
+                tokenDetails.IssuedIp,
+                tokenDetails.UserAgent,
+                revokeOtherTokens: true
+            );
 
             return new LoginResponseDto
             {
-                AccessToken = token,
+                AccessToken = tokenDetails.Token,
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                 User = _mapper.Map<UserDto>(user)
@@ -429,14 +458,14 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Refresh the token using JWT service
-                var newToken = _jwtService.RefreshToken(request.AccessToken);
+                // Get JTI from old token to revoke it
+                var oldJti = _jwtService.GetJtiFromToken(request.AccessToken);
 
-                // Extract user information from the new token to get user details
-                var userId = _jwtService.GetUserIdFromToken(newToken);
+                // Extract user information from the old token
+                var userId = _jwtService.GetUserIdFromToken(request.AccessToken);
                 if (!userId.HasValue)
                 {
-                    throw new Exception("Unable to extract user information from refreshed token");
+                    throw new Exception("Unable to extract user information from token");
                 }
 
                 // Get user details
@@ -452,9 +481,41 @@ namespace FlowFlex.Application.Services.OW
                     throw new Exception("User account is not active");
                 }
 
+                // Validate old token is still active
+                if (!string.IsNullOrEmpty(oldJti))
+                {
+                    var isTokenValid = await _accessTokenService.ValidateTokenAsync(oldJti);
+                    if (!isTokenValid)
+                    {
+                        throw new Exception("Original token is no longer valid");
+                    }
+                }
+
+                // Generate new token with details
+                var newTokenDetails = _jwtService.GenerateTokenWithDetails(user.Id, user.Email, user.Username, user.TenantId, "refresh");
+
+                // Record new token and revoke old token
+                await _accessTokenService.RecordTokenAsync(
+                    newTokenDetails.Jti,
+                    newTokenDetails.UserId,
+                    newTokenDetails.UserEmail,
+                    newTokenDetails.Token,
+                    newTokenDetails.ExpiresAt,
+                    newTokenDetails.TokenType,
+                    newTokenDetails.IssuedIp,
+                    newTokenDetails.UserAgent,
+                    revokeOtherTokens: true
+                );
+
+                // Explicitly revoke the old token
+                if (!string.IsNullOrEmpty(oldJti))
+                {
+                    await _accessTokenService.RevokeTokenAsync(oldJti, "refresh");
+                }
+
                 return new LoginResponseDto
                 {
-                    AccessToken = newToken,
+                    AccessToken = newTokenDetails.Token,
                     TokenType = "Bearer",
                     ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                     User = _mapper.Map<UserDto>(user)
@@ -464,6 +525,59 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogError(ex, "Failed to refresh access token");
                 throw new Exception($"Token refresh failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Logout user and revoke token
+        /// </summary>
+        public async Task<bool> LogoutAsync(string token)
+        {
+            try
+            {
+                // Get JTI from token
+                var jti = _jwtService.GetJtiFromToken(token);
+                if (string.IsNullOrEmpty(jti))
+                {
+                    _logger.LogWarning("Unable to extract JTI from token for logout");
+                    return false;
+                }
+
+                // Revoke the token
+                var result = await _accessTokenService.RevokeTokenAsync(jti, "logout");
+                
+                if (result)
+                {
+                    _logger.LogInformation("User logged out successfully, token {Jti} revoked", jti);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to logout user");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Logout from all devices (revoke all user tokens)
+        /// </summary>
+        public async Task<int> LogoutFromAllDevicesAsync(long userId)
+        {
+            try
+            {
+                var revokedCount = await _accessTokenService.RevokeAllUserTokensAsync(userId, "logout_all_devices");
+                
+                _logger.LogInformation("User {UserId} logged out from all devices, {Count} tokens revoked", 
+                    userId, revokedCount);
+
+                return revokedCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to logout user from all devices");
+                return 0;
             }
         }
     }

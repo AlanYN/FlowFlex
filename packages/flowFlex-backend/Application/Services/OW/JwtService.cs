@@ -6,6 +6,8 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
@@ -20,10 +22,17 @@ namespace FlowFlex.Application.Services.OW
     public class JwtService : ISingletonService, IJwtService
     {
         private readonly JwtOptions _jwtOptions;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<JwtService> _logger;
 
-        public JwtService(IOptions<JwtOptions> jwtOptions)
+        public JwtService(
+            IOptions<JwtOptions> jwtOptions,
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<JwtService> logger)
         {
             _jwtOptions = jwtOptions.Value;
+            _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
 
             // Add validation to ensure configuration is loaded properly
             if (string.IsNullOrEmpty(_jwtOptions.SecretKey))
@@ -198,6 +207,108 @@ namespace FlowFlex.Application.Services.OW
         public int GetTokenExpiryInSeconds()
         {
             return _jwtOptions.ExpiryMinutes * 60;
+        }
+
+        /// <summary>
+        /// Generate JWT token with detailed information for token management
+        /// </summary>
+        public TokenDetailsDto GenerateTokenWithDetails(long userId, string email, string username, string tenantId = "DEFAULT", string tokenType = "login")
+        {
+            var jti = Guid.NewGuid().ToString();
+            var issuedAt = DateTimeOffset.UtcNow;
+            var expiresAt = issuedAt.AddMinutes(_jwtOptions.ExpiryMinutes);
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SecretKey));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, email),
+                new Claim(ClaimTypes.Email, email),
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                new Claim("username", username),
+                new Claim("tenantId", tenantId ?? "DEFAULT"),
+                new Claim(JwtRegisteredClaimNames.Jti, jti),
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _jwtOptions.Issuer,
+                audience: _jwtOptions.Audience,
+                claims: claims,
+                expires: expiresAt.DateTime,
+                signingCredentials: credentials
+            );
+
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+
+            // Get IP and User Agent from HTTP context
+            var httpContext = _httpContextAccessor.HttpContext;
+            var ipAddress = GetClientIpAddress(httpContext);
+            var userAgent = httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
+
+            return new TokenDetailsDto
+            {
+                Token = tokenString,
+                Jti = jti,
+                UserId = userId,
+                UserEmail = email,
+                IssuedAt = issuedAt,
+                ExpiresAt = expiresAt,
+                TokenType = tokenType,
+                IssuedIp = ipAddress,
+                UserAgent = userAgent
+            };
+        }
+
+        /// <summary>
+        /// Extract JTI from token
+        /// </summary>
+        public string GetJtiFromToken(string token)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var jwtToken = tokenHandler.ReadJwtToken(token);
+
+                var jtiClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Jti);
+                return jtiClaim?.Value ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to extract JTI from token");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get client IP address from HTTP context
+        /// </summary>
+        private static string GetClientIpAddress(HttpContext? httpContext)
+        {
+            if (httpContext == null) return string.Empty;
+
+            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+            
+            // Check for forwarded IP (when behind proxy/load balancer)
+            if (httpContext.Request.Headers.ContainsKey("X-Forwarded-For"))
+            {
+                var forwardedIp = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(forwardedIp))
+                {
+                    ipAddress = forwardedIp.Split(',')[0].Trim();
+                }
+            }
+            else if (httpContext.Request.Headers.ContainsKey("X-Real-IP"))
+            {
+                var realIp = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(realIp))
+                {
+                    ipAddress = realIp;
+                }
+            }
+
+            return ipAddress ?? string.Empty;
         }
 
         /// <summary>
