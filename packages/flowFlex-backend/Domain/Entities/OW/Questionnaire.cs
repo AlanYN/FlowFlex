@@ -132,7 +132,7 @@ namespace FlowFlex.Domain.Entities.OW
             {
                 if (string.IsNullOrEmpty(AssignmentsJson))
                     return new List<QuestionnaireAssignmentDto>();
-                
+
                 try
                 {
                     var options = new JsonSerializerOptions

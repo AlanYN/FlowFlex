@@ -100,4 +100,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Event
         /// </summary>
         public string? TenantId { get; set; }
     }
-} 
+}

@@ -24,7 +24,7 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
-        private readonly JwtService _jwtService;
+        private readonly IJwtService _jwtService;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -34,7 +34,7 @@ namespace FlowFlex.Application.Services.OW
         public UserService(
             IUserRepository userRepository,
             IEmailService emailService,
-            JwtService jwtService,
+            IJwtService jwtService,
             IMapper mapper,
             ILogger<UserService> logger,
             IHttpContextAccessor httpContextAccessor,
@@ -390,43 +390,81 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Create test user (for test environment only)
+        /// Create test user (for testing environment only)
         /// </summary>
         /// <param name="email">Email</param>
         /// <param name="password">Password</param>
         /// <returns>User DTO</returns>
         public async Task<UserDto> CreateTestUserAsync(string email, string password)
         {
-            // Check if email already exists
+            // Check if user already exists
             var existingUser = await _userRepository.GetByEmailAsync(email);
             if (existingUser != null)
             {
-                // If user already exists, return existing user information
                 return _mapper.Map<UserDto>(existingUser);
             }
 
-            // Create new user
+            // Create new test user
             var user = new User
             {
-                TenantId = "default",
                 Email = email,
                 Username = email,
                 PasswordHash = BC.HashPassword(password),
                 EmailVerified = true,
-                Status = "active",
-                EmailVerificationCode = null,
-                VerificationCodeExpiry = null,
-                CreateDate = DateTimeOffset.Now,
-                ModifyDate = DateTimeOffset.Now,
-                CreateBy = "system",
-                ModifyBy = "system",
-                IsValid = true
+                Status = "active"
             };
+            user.InitCreateInfo(null);
 
-            // Save user
             await _userRepository.InsertAsync(user);
 
             return _mapper.Map<UserDto>(user);
+        }
+
+        /// <summary>
+        /// Refresh access token
+        /// </summary>
+        /// <param name="request">Refresh token request</param>
+        /// <returns>Login response with new token</returns>
+        public async Task<LoginResponseDto> RefreshAccessTokenAsync(RefreshTokenRequestDto request)
+        {
+            try
+            {
+                // Refresh the token using JWT service
+                var newToken = _jwtService.RefreshToken(request.AccessToken);
+
+                // Extract user information from the new token to get user details
+                var userId = _jwtService.GetUserIdFromToken(newToken);
+                if (!userId.HasValue)
+                {
+                    throw new Exception("Unable to extract user information from refreshed token");
+                }
+
+                // Get user details
+                var user = await _userRepository.GetByIdAsync(userId.Value);
+                if (user == null)
+                {
+                    throw new Exception("User not found");
+                }
+
+                // Check user status
+                if (user.Status != "active")
+                {
+                    throw new Exception("User account is not active");
+                }
+
+                return new LoginResponseDto
+                {
+                    AccessToken = newToken,
+                    TokenType = "Bearer",
+                    ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
+                    User = _mapper.Map<UserDto>(user)
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to refresh access token");
+                throw new Exception($"Token refresh failed: {ex.Message}");
+            }
         }
     }
 }

@@ -59,12 +59,12 @@ namespace FlowFlex.Application.Service.OW
 
             // Determine assignments to use
             var assignments = new List<(long? workflowId, long? stageId)>();
-            
+
             if (input.Assignments != null && input.Assignments.Any())
             {
                 // Use assignments array (new approach)
                 assignments = input.Assignments.Select(a => (
-                    (long?)a.WorkflowId, 
+                    (long?)a.WorkflowId,
                     a.StageId.HasValue && a.StageId.Value > 0 ? a.StageId : null // 处理空StageId
                 )).ToList();
             }
@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Create single questionnaire entity with all assignments
             var entity = _mapper.Map<Questionnaire>(input);
-            
+
             // Set assignments in JSON format
             entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
             {
@@ -143,12 +143,12 @@ namespace FlowFlex.Application.Service.OW
 
             // Determine assignments to use
             var assignments = new List<(long? workflowId, long? stageId)>();
-            
+
             if (input.Assignments != null && input.Assignments.Any())
             {
                 // Use assignments array (new approach)
                 assignments = input.Assignments.Select(a => (
-                    (long?)a.WorkflowId, 
+                    (long?)a.WorkflowId,
                     a.StageId.HasValue && a.StageId.Value > 0 ? a.StageId : null // 处理空StageId
                 )).ToList();
             }
@@ -178,7 +178,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Update the entity with all assignments
             _mapper.Map(input, entity);
-            
+
             // Set assignments in JSON format
             entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
             {
@@ -213,8 +213,8 @@ namespace FlowFlex.Application.Service.OW
                 try
                 {
                     await _syncService.SyncStageComponentsFromQuestionnaireAssignmentsAsync(
-                        id, 
-                        oldAssignments, 
+                        id,
+                        oldAssignments,
                         newAssignments);
                 }
                 catch (Exception ex)
@@ -533,13 +533,13 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Parse the JSON structure
                 var structure = JsonSerializer.Deserialize<JsonElement>(originalStructureJson);
-                
+
                 // Generate new structure with new IDs
                 var newStructure = GenerateNewIdsInJsonElement(structure);
-                
+
                 // Serialize back to JSON
-                return JsonSerializer.Serialize(newStructure, new JsonSerializerOptions 
-                { 
+                return JsonSerializer.Serialize(newStructure, new JsonSerializerOptions
+                {
                     WriteIndented = false,
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
@@ -565,7 +565,7 @@ namespace FlowFlex.Application.Service.OW
                     {
                         var key = property.Name;
                         var value = property.Value;
-                        
+
                         // Generate new ID for specific fields
                         if (key == "id" && value.ValueKind == JsonValueKind.String)
                         {
@@ -603,7 +603,7 @@ namespace FlowFlex.Application.Service.OW
                         }
                     }
                     return obj;
-                    
+
                 case JsonValueKind.Array:
                     var array = new List<object>();
                     foreach (var item in element.EnumerateArray())
@@ -611,10 +611,10 @@ namespace FlowFlex.Application.Service.OW
                         array.Add(GenerateNewIdsInJsonElement(item));
                     }
                     return array;
-                    
+
                 case JsonValueKind.String:
                     return element.GetString();
-                    
+
                 case JsonValueKind.Number:
                     if (element.TryGetInt32(out var intValue))
                         return intValue;
@@ -623,16 +623,16 @@ namespace FlowFlex.Application.Service.OW
                     if (element.TryGetDouble(out var doubleValue))
                         return doubleValue;
                     return element.GetRawText();
-                    
+
                 case JsonValueKind.True:
                     return true;
-                    
+
                 case JsonValueKind.False:
                     return false;
-                    
+
                 case JsonValueKind.Null:
                     return null;
-                    
+
                 default:
                     return element.GetRawText();
             }
@@ -710,10 +710,10 @@ namespace FlowFlex.Application.Service.OW
         {
             var templates = await _questionnaireRepository.GetTemplatesAsync();
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(templates);
-            
+
             // Fill assignments for the templates
             await FillAssignmentsAsync(result);
-            
+
             return result;
         }
 
@@ -857,11 +857,11 @@ namespace FlowFlex.Application.Service.OW
 
             // Group by Stage ID from assignments
             var groupedQuestionnaires = new Dictionary<long, List<QuestionnaireOutputDto>>();
-            
+
             foreach (var questionnaire in allQuestionnaires)
             {
                 var mappedQuestionnaire = _mapper.Map<QuestionnaireOutputDto>(questionnaire);
-                
+
                 // Check assignments for stage IDs
                 if (questionnaire.Assignments?.Any() == true)
                 {
@@ -901,10 +901,10 @@ namespace FlowFlex.Application.Service.OW
 
             // Group questionnaires by name to find all assignments for each questionnaire
             var questionnaireNames = questionnaires.Select(q => q.Name).Distinct().ToList();
-            
+
             // Get all questionnaires with the same names to build assignments
             var allQuestionnaires = await _questionnaireRepository.GetByNamesAsync(questionnaireNames);
-            
+
             // Group by name to build assignments from JSON field
             var assignmentsByName = allQuestionnaires
                 .Where(q => q.Assignments?.Any() == true)

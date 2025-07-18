@@ -82,4 +82,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             Console.WriteLine("Successfully removed stage_id column and indexes from ff_checklist_task_completion table");
         }
     }
-} 
+}

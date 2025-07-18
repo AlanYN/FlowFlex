@@ -132,6 +132,7 @@
 		"loginSuccessDesc": "Welcome back",
 		"accountPlaceholder": "Please input Email or Username",
 		"passwordPlaceholder": "Please input password",
+		"confirmPasswordPlaceholder": "Please input confirm password",
 		"smsPlaceholder": "Please input auth code",
 		"mobilePlaceholder": "Please input mobile",
 		"policyPlaceholder": "Check it to continue",
@@ -151,7 +152,10 @@
 		"successEmail": "It been to your email.",
 		"resend": "Resend",
 		"sendEmail": "Send Email",
-		"emailEmpty": "Please enter your email"
+		"emailEmpty": "Please enter your email",
+		"passwordLogin": "Password Login",
+		"codeLogin": "Code Login",
+		"registerSuccess": "Register Success"
 	},
 	"common": {
 		"cancelText": "Cancel",

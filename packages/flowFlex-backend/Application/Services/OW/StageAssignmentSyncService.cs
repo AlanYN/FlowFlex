@@ -367,7 +367,7 @@ namespace FlowFlex.Application.Service.OW
                     WorkflowId = workflowId,
                     StageId = stageId
                 });
-                
+
                 // Set the assignments all at once to avoid multiple setter calls
                 checklist.Assignments = cleanAssignments;
 
@@ -449,9 +449,9 @@ namespace FlowFlex.Application.Service.OW
                     WorkflowId = workflowId,
                     StageId = stageId
                 };
-                
+
                 cleanAssignments.Add(newAssignment);
-                
+
                 // Set the assignments all at once to avoid multiple setter calls
                 questionnaire.Assignments = cleanAssignments;
 
@@ -550,6 +550,26 @@ namespace FlowFlex.Application.Service.OW
                             ChecklistNames = new List<string>(),
                             QuestionnaireNames = new List<string>()
                         };
+
+                        // Fill checklist names
+                        try
+                        {
+                            var checklist = await _checklistRepository.GetByIdAsync(checklistId);
+                            if (checklist != null)
+                            {
+                                newComponent.ChecklistNames.Add(checklist.Name);
+                            }
+                            else
+                            {
+                                newComponent.ChecklistNames.Add($"Checklist {checklistId}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to fetch checklist name for ID {ChecklistId}", checklistId);
+                            newComponent.ChecklistNames.Add($"Checklist {checklistId}");
+                        }
+
                         components.Add(newComponent);
                     }
                 }
@@ -670,6 +690,26 @@ namespace FlowFlex.Application.Service.OW
                             ChecklistNames = new List<string>(),
                             QuestionnaireNames = new List<string>()
                         };
+
+                        // Fill questionnaire names
+                        try
+                        {
+                            var questionnaire = await _questionnaireRepository.GetByIdAsync(questionnaireId);
+                            if (questionnaire != null)
+                            {
+                                newComponent.QuestionnaireNames.Add(questionnaire.Name);
+                            }
+                            else
+                            {
+                                newComponent.QuestionnaireNames.Add($"Questionnaire {questionnaireId}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to fetch questionnaire name for ID {QuestionnaireId}", questionnaireId);
+                            newComponent.QuestionnaireNames.Add($"Questionnaire {questionnaireId}");
+                        }
+
                         components.Add(newComponent);
                     }
                 }
@@ -740,4 +780,4 @@ namespace FlowFlex.Application.Service.OW
 
         #endregion
     }
-} 
+}

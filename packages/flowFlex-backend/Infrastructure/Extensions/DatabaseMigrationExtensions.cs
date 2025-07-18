@@ -35,7 +35,7 @@ namespace FlowFlex.Infrastructure.Extensions
                 using var scope = services.CreateScope();
                 var logger = scope.ServiceProvider.GetService<ILogger<DatabaseMigrationService>>();
                 logger?.LogError(ex, "Failed to execute database migrations");
-                
+
                 // Decide whether to throw or continue
                 // For now, we'll throw to prevent startup with missing migrations
                 throw;
@@ -83,4 +83,4 @@ namespace FlowFlex.Infrastructure.Extensions
             return services;
         }
     }
-} 
+}

@@ -47,7 +47,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Set default values
             createInfo.IsValid = true;
             createInfo.TenantId = userContext?.TenantId ?? "DEFAULT";
-            
+
             // Set app code if entity supports it
             if (createInfo is AbstractEntityBase abstractEntity)
             {

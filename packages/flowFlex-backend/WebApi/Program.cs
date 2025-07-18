@@ -284,12 +284,8 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddGlobalExceptionHandling();
 
-// Register services
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IUserContextService, UserContextService>();
-builder.Services.AddSingleton<JwtService>();
-builder.Services.AddSingleton<IJwtService, JwtService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
+// Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces
+// Only register services that are not auto-registered or need special configuration
 
 var app = builder.Build();
 
@@ -368,7 +364,7 @@ catch (Exception ex)
     // Database initialization failed - log the error
     Console.WriteLine($"[Program] Database initialization failed: {ex.Message}");
     app.Logger.LogError(ex, "Database initialization failed");
-    
+
     // In development environment, can choose to continue running, production environment should terminate
     if (!app.Environment.IsDevelopment())
     {

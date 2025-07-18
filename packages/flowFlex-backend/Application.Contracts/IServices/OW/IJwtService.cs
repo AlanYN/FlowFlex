@@ -1,4 +1,5 @@
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using FlowFlex.Domain.Entities.OW;
 
 namespace FlowFlex.Application.Contracts.IServices.OW
 {
@@ -7,6 +8,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
     /// </summary>
     public interface IJwtService
     {
+        /// <summary>
+        /// Generate JWT Token
+        /// </summary>
+        /// <param name="user">User entity</param>
+        /// <returns>JWT token</returns>
+        string GenerateJwtToken(User user);
+
         /// <summary>
         /// Generate JWT Token
         /// </summary>
@@ -52,6 +60,19 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="token">JWT Token</param>
         /// <returns>JWT Token information</returns>
         JwtTokenInfoDto ParseToken(string token);
+
+        /// <summary>
+        /// Refresh JWT Token
+        /// </summary>
+        /// <param name="token">Current JWT Token</param>
+        /// <returns>New JWT Token</returns>
+        string RefreshToken(string token);
+
+        /// <summary>
+        /// Get token expiry time in seconds
+        /// </summary>
+        /// <returns>Expiry time in seconds</returns>
+        int GetTokenExpiryInSeconds();
     }
 }
 

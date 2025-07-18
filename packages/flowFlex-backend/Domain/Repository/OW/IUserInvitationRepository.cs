@@ -53,4 +53,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <returns>Whether update was successful</returns>
         Task<bool> MarkAsUsedAsync(string token, long userId);
     }
-} 
+}

@@ -15,7 +15,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             {
                 // Check if column exists before dropping it
                 var columnExists = db.DbMaintenance.IsAnyColumn("ff_stage", "static_fields_json");
-                
+
                 if (columnExists)
                 {
                     // Remove static_fields_json column from ff_stage table
@@ -29,7 +29,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // Check and remove required_fields_json column
                 var requiredFieldsColumnExists = db.DbMaintenance.IsAnyColumn("ff_stage", "required_fields_json");
-                
+
                 if (requiredFieldsColumnExists)
                 {
                     // Remove required_fields_json column from ff_stage table
@@ -54,7 +54,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             {
                 // Re-add static_fields_json column if needed for rollback
                 var columnExists = db.DbMaintenance.IsAnyColumn("ff_stage", "static_fields_json");
-                
+
                 if (!columnExists)
                 {
                     db.DbMaintenance.AddColumn("ff_stage", new DbColumnInfo
@@ -73,7 +73,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // Re-add required_fields_json column if needed for rollback
                 var requiredFieldsColumnExists = db.DbMaintenance.IsAnyColumn("ff_stage", "required_fields_json");
-                
+
                 if (!requiredFieldsColumnExists)
                 {
                     db.DbMaintenance.AddColumn("ff_stage", new DbColumnInfo
@@ -97,4 +97,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

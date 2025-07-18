@@ -10,7 +10,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Infrastructure.Services;
+using FlowFlex.Domain.Shared;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -24,18 +24,18 @@ namespace FlowFlex.Application.Services.OW
         public JwtService(IOptions<JwtOptions> jwtOptions)
         {
             _jwtOptions = jwtOptions.Value;
-            
+
             // Add validation to ensure configuration is loaded properly
             if (string.IsNullOrEmpty(_jwtOptions.SecretKey))
             {
                 throw new InvalidOperationException("JWT SecretKey is not configured properly. Please check the Security:JwtSecretKey setting in appsettings.json");
             }
-            
+
             if (string.IsNullOrEmpty(_jwtOptions.Issuer))
             {
                 throw new InvalidOperationException("JWT Issuer is not configured properly. Please check the Security:JwtIssuer setting in appsettings.json");
             }
-            
+
             if (string.IsNullOrEmpty(_jwtOptions.Audience))
             {
                 throw new InvalidOperationException("JWT Audience is not configured properly. Please check the Security:JwtAudience setting in appsettings.json");
@@ -201,6 +201,58 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Refresh JWT Token
+        /// </summary>
+        /// <param name="token">Current JWT Token</param>
+        /// <returns>New JWT Token</returns>
+        public string RefreshToken(string token)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+
+                // First, read the token to extract claims (even if expired)
+                JwtSecurityToken jwtToken;
+                try
+                {
+                    jwtToken = tokenHandler.ReadJwtToken(token);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Unable to read token: {ex.Message}");
+                }
+
+                // Extract user information from the token
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(x =>
+                    x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+                {
+                    throw new InvalidOperationException("User ID not found in token");
+                }
+
+                var emailClaim = jwtToken.Claims.FirstOrDefault(x =>
+                    x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
+                if (emailClaim == null)
+                {
+                    throw new InvalidOperationException("Email not found in token");
+                }
+
+                var usernameClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "username");
+                var username = usernameClaim?.Value ?? emailClaim.Value;
+
+                var tenantIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "tenantId");
+                var tenantId = tenantIdClaim?.Value ?? "DEFAULT";
+
+                // Generate a new token with the same user information
+                return GenerateToken(userId, emailClaim.Value, username, tenantId);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Token refresh failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Parse JWT Token and return detailed information
         /// </summary>
         /// <param name="token">JWT Token</param>
@@ -219,7 +271,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var tokenHandler = new JwtSecurityTokenHandler();
-                
+
                 // First, try to read the token without validation to get basic info
                 JwtSecurityToken jwtToken;
                 try
@@ -247,14 +299,14 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Extract specific user information
-                var userIdClaim = jwtToken.Claims.FirstOrDefault(x => 
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(x =>
                     x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 if (userIdClaim != null && long.TryParse(userIdClaim.Value, out var userId))
                 {
                     result.UserId = userId;
                 }
 
-                var emailClaim = jwtToken.Claims.FirstOrDefault(x => 
+                var emailClaim = jwtToken.Claims.FirstOrDefault(x =>
                     x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
                 result.Email = emailClaim?.Value;
 

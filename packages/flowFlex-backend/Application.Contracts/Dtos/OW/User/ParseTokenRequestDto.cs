@@ -13,4 +13,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [Required(ErrorMessage = "Token is required")]
         public string Token { get; set; }
     }
-} 
+}

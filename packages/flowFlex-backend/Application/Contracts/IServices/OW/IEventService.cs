@@ -73,4 +73,4 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Number of cleaned events</returns>
         Task<int> CleanupOldEventsAsync(int days = 90);
     }
-} 
+}

@@ -205,4 +205,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW
         /// </summary>
         public string? ErrorMessage { get; set; }
     }
-} 
+}

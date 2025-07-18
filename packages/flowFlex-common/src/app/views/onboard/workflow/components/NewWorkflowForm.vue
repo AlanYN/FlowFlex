@@ -146,8 +146,6 @@ const checkAndSetDefaultValue = async () => {
 			const workflowCount = res.data.length;
 			const hasDefaultWorkflow = res.data.some((workflow: any) => workflow.isDefault);
 
-			console.log(`系统中有 ${workflowCount} 个工作流，其中有默认工作流: ${hasDefaultWorkflow}`);
-
 			// 如果系统为空（没有任何工作流），设为默认
 			if (workflowCount === 0) {
 				formData.isDefault = true;

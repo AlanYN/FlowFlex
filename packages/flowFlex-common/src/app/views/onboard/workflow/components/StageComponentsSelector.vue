@@ -6,8 +6,12 @@
 			<el-scrollbar ref="scrollbarRefLeft" class="stage-components-selector">
 				<!-- Required Fields -->
 				<div class="space-y-2">
-					<label class="text-base font-medium">Required Fields</label>
-					<p class="text-sm">Select fields that are required for this stage</p>
+					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
+						Required Fields
+					</label>
+					<p class="text-sm text-primary-600 dark:text-primary-400">
+						Select fields that are required for this stage
+					</p>
 					<div class="border rounded-md border-primary-200">
 						<div class="p-2 border-b border-primary-100">
 							<el-input
@@ -41,9 +45,6 @@
 											class="text-sm font-medium leading-none flex-1 cursor-pointer min-w-0"
 										>
 											<span class="truncate">{{ field.label }}</span>
-											<span class="text-xs truncate">
-												({{ field.category || defaultStr }})
-											</span>
 										</label>
 									</div>
 								</div>
@@ -60,7 +61,9 @@
 
 				<!-- Selected Fields Tags -->
 				<div v-if="getSelectedFieldTags().length > 0" class="space-y-2">
-					<label class="text-base font-medium">Selected Fields</label>
+					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
+						Selected Fields
+					</label>
 					<div class="border rounded-md p-2 border-primary-200 bg-primary-50">
 						<div class="flex flex-wrap gap-1">
 							<el-tag
@@ -79,9 +82,13 @@
 				</div>
 
 				<!-- Checklists -->
-				<div class="space-y-2">
-					<label class="text-base font-medium">Checklists</label>
-					<p class="text-sm">Select checklists to include in this stage</p>
+				<div class="space-y-2 mt-4">
+					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
+						Checklists
+					</label>
+					<p class="text-sm text-primary-600 dark:text-primary-400">
+						Select checklists to include in this stage
+					</p>
 					<div class="border rounded-md border-primary-200">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
@@ -125,9 +132,13 @@
 				</div>
 
 				<!-- Questionnaires -->
-				<div class="space-y-2">
-					<label class="text-base font-medium">Questionnaires</label>
-					<p class="text-sm">Select questionnaires to include in this stage</p>
+				<div class="space-y-2 mt-4">
+					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
+						Questionnaires
+					</label>
+					<p class="text-sm text-primary-600 dark:text-primary-400">
+						Select questionnaires to include in this stage
+					</p>
 					<div class="border rounded-md border-primary-200">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
@@ -176,9 +187,13 @@
 				</div>
 
 				<!-- File Management -->
-				<div class="space-y-2">
-					<label class="text-base font-medium">File Management</label>
-					<p class="text-sm">Enable file upload and attachment functionality</p>
+				<div class="space-y-2 mt-4">
+					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
+						File Management
+					</label>
+					<p class="text-sm text-primary-600 dark:text-primary-400">
+						Enable file upload and attachment functionality
+					</p>
 					<div
 						class="flex items-center space-x-2 p-2 border rounded-md border-primary-200 bg-primary-50"
 					>
@@ -207,8 +222,10 @@
 		<div class="space-y-4 w-full overflow-hidden">
 			<el-scrollbar ref="scrollbarRefRight" class="stage-components-selector">
 				<div class="space-y-2">
-					<label class="text-base font-medium">Selected Items</label>
-					<p class="text-sm">
+					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
+						Selected Items
+					</label>
+					<p class="text-sm text-primary-600 dark:text-primary-400">
 						Items that will be included in this stage (drag to reorder)
 					</p>
 					<div
@@ -323,7 +340,6 @@ import {
 	Checklist,
 	Questionnaire,
 } from '#/onboard';
-import { defaultStr } from '@/settings/projectSetting';
 
 // Props
 const props = defineProps<{
@@ -339,8 +355,8 @@ const emit = defineEmits<{
 }>();
 
 // 使用自适应滚动条 hook
-const { scrollbarRef: scrollbarRefLeft } = useAdaptiveScrollbar(500); // 预留 120px 给底部按钮
-const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(500); // 预留 120px 给底部按钮
+const { scrollbarRef: scrollbarRefLeft } = useAdaptiveScrollbar(200); // 预留 120px 给底部按钮
+const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(200); // 预留 120px 给底部按钮
 
 // Data
 const searchQuery = ref('');

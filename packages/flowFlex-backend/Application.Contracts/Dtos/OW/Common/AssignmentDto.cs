@@ -22,4 +22,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Common
         [JsonConverter(typeof(NullableLongConverter))]
         public long? StageId { get; set; }
     }
-} 
+}

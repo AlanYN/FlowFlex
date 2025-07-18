@@ -55,7 +55,7 @@ namespace FlowFlex.Application.Maps
                 // Return empty list when JSON is null or empty, not default components
                 return new List<StageComponent>();
             }
-            
+
             try
             {
                 var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
@@ -84,7 +84,7 @@ namespace FlowFlex.Application.Maps
                     component.ChecklistIds ??= new List<long>();
                     component.QuestionnaireIds ??= new List<long>();
                 }
-                
+
                 return JsonSerializer.Serialize(components);
             }
             catch

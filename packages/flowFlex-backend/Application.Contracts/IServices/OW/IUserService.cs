@@ -66,15 +66,22 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Change Password
         /// </summary>
         /// <param name="request">Change Password Request</param>
-        /// <returns>Whether change was successful</returns>
+        /// <returns>Whether password change was successful</returns>
         Task<bool> ChangePasswordAsync(ChangePasswordRequestDto request);
 
         /// <summary>
         /// Create Test User (for testing environment only)
         /// </summary>
-        /// <param name="email">Email Address</param>
+        /// <param name="email">Email</param>
         /// <param name="password">Password</param>
         /// <returns>User DTO</returns>
         Task<UserDto> CreateTestUserAsync(string email, string password);
+
+        /// <summary>
+        /// Refresh Access Token
+        /// </summary>
+        /// <param name="request">Refresh Token Request</param>
+        /// <returns>Login Response with new token</returns>
+        Task<LoginResponseDto> RefreshAccessTokenAsync(RefreshTokenRequestDto request);
     }
 }

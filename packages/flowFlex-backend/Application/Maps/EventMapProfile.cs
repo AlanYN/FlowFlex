@@ -40,4 +40,4 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy));
         }
     }
-} 
+}

@@ -96,7 +96,7 @@
 					>
 						<!-- 卡片头部 -->
 						<template #header>
-							<div class="card-header -m-5 p-6 pb-3">
+							<div class="card-header -m-5 p-4 pb-3">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center space-x-3">
 										<div class="card-icon p-2 rounded-full">
@@ -143,14 +143,14 @@
 										</template>
 									</el-dropdown>
 								</div>
-								<p class="card-description text-sm mt-1.5">
+								<p class="text-primary-600 text-sm mt-1.5 truncate h-6">
 									{{ questionnaire.description }}
 								</p>
 							</div>
 						</template>
 
 						<!-- 卡片内容 -->
-						<div class="pt-4">
+						<div class="">
 							<div class="space-y-3">
 								<!-- Assignments区域 -->
 								<div class="space-y-2">
@@ -244,7 +244,7 @@
 
 						<!-- 卡片底部 -->
 						<template #footer>
-							<div class="card-footer flex justify-between -m-6 mt-0 p-6">
+							<div class="card-footer flex justify-between -m-6 mt-0 p-4">
 								<el-button
 									plain
 									size="small"
@@ -890,17 +890,6 @@ const handleLimitUpdate = () => {
 	@apply dark:text-primary-300;
 }
 
-.card-description {
-	color: var(--primary-600);
-	@apply dark:text-primary-200;
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	height: 2em; /* 固定高度，最多显示两行描述 */
-}
-
 .card-label {
 	@apply text-gray-500 dark:text-gray-400 font-medium;
 	min-width: 70px;
@@ -1163,11 +1152,6 @@ const handleLimitUpdate = () => {
 	@apply dark:bg-black-400;
 }
 
-:deep(.el-card__footer) {
-	padding: 0;
-	border-top: none;
-}
-
 /* 移除Element Plus默认的卡片内边距和边框 */
 :deep(.el-card .el-card__header) {
 	margin: 0;
@@ -1176,7 +1160,7 @@ const handleLimitUpdate = () => {
 
 :deep(.el-card .el-card__footer) {
 	margin: 0;
-	padding: 20px;
+	padding: 0 20px 20px 20px;
 }
 
 /* 对话框样式 */
@@ -1197,45 +1181,58 @@ const handleLimitUpdate = () => {
 .questionnaire-grid {
 	display: grid;
 	gap: 24px;
-	/* 使用auto-fill保持合理宽度，避免少量卡片过度拉伸 */
-	grid-template-columns: repeat(auto-fill, minmax(420px, 520px));
-	justify-content: start;
+	/* 使用auto-fit让卡片自动填充可用空间，永远不会溢出 */
+	grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+	width: 100%;
 
-	/* 响应式断点调整 */
-	@media (max-width: 640px) {
-		/* 小屏幕：1列，适应屏幕宽度 */
-		grid-template-columns: minmax(280px, 1fr);
+	/* 响应式断点调整 - 主要调整gap和minmax，避免使用固定列数 */
+	@media (max-width: 480px) {
+		/* 超小屏幕：1列，全宽 */
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 		gap: 16px;
+		padding: 0 8px;
 	}
 
-	@media (min-width: 641px) and (max-width: 1024px) {
-		/* 中等屏幕：每列360-450px */
-		grid-template-columns: repeat(auto-fill, minmax(360px, 450px));
+	@media (min-width: 481px) and (max-width: 768px) {
+		/* 小屏幕：自适应，但偏向1列 */
+		grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+		gap: 20px;
+	}
+
+	@media (min-width: 769px) and (max-width: 1024px) {
+		/* 中等屏幕：自适应，偏向2列 */
+		grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
 		gap: 20px;
 	}
 
 	@media (min-width: 1025px) and (max-width: 1400px) {
-		/* 大屏幕：每列380-480px */
-		grid-template-columns: repeat(auto-fill, minmax(380px, 480px));
+		/* 大屏幕：自适应，2-3列之间 */
+		grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
 		gap: 24px;
 	}
 
-	@media (min-width: 1401px) and (max-width: 1800px) {
-		/* 更大屏幕：每列400-500px */
-		grid-template-columns: repeat(auto-fill, minmax(400px, 500px));
-		gap: 24px;
-	}
-
-	@media (min-width: 1801px) and (max-width: 2400px) {
-		/* 超大屏幕：每列420-520px */
-		grid-template-columns: repeat(auto-fill, minmax(420px, 520px));
-		gap: 24px;
-	}
-
-	@media (min-width: 2401px) {
-		/* 4K及以上屏幕：每列440-540px */
-		grid-template-columns: repeat(auto-fill, minmax(440px, 540px));
+	@media (min-width: 1401px) and (max-width: 1920px) {
+		/* 更大屏幕：自适应，偏向3列 */
+		grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
 		gap: 28px;
+	}
+
+	@media (min-width: 1921px) and (max-width: 2560px) {
+		/* 超宽屏：自适应，3-4列之间 */
+		grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+		gap: 32px;
+	}
+
+	@media (min-width: 2561px) {
+		/* 超大屏幕：自适应，4列以上 */
+		grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+		gap: 32px;
+	}
+
+	/* 限制单个卡片的最大宽度，防止过度拉伸 */
+	& > .questionnaire-card {
+		max-width: 600px;
+		width: 100%;
 	}
 }
 

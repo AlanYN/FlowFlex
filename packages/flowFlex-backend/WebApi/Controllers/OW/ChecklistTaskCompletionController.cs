@@ -40,7 +40,7 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
             var result = await _completionService.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
             return Success(result);
         }
-        
+
         // Otherwise, return all task completions
         var allResults = await _completionService.GetAllTaskCompletionsAsync();
         return Success(allResults);

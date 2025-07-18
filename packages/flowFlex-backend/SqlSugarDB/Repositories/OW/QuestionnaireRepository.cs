@@ -122,7 +122,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                                .Select(n => n.Trim())
                                .Where(n => !string.IsNullOrEmpty(n))
                                .ToList();
-                
+
                 if (names.Any())
                 {
                     // Use OR condition to match any of the questionnaire names (case-insensitive)
@@ -153,13 +153,13 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // Get all matching questionnaires first
             var query = db.Queryable<Questionnaire>();
-            
+
             // Apply where conditions
             foreach (var whereExpression in whereExpressions)
             {
                 query = query.Where(whereExpression);
             }
-            
+
             var allItems = await query
                 .OrderBy(orderByExpression, isAsc ? SqlSugar.OrderByType.Asc : SqlSugar.OrderByType.Desc)
                 .ToListAsync();
@@ -167,12 +167,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // Filter by workflowId and stageId in memory (since they're in JSON now)
             if (workflowId.HasValue || stageId.HasValue)
             {
-                allItems = allItems.Where(q => 
+                allItems = allItems.Where(q =>
                 {
                     // Check if assignments contain the specified workflowId or stageId
                     if (q.Assignments?.Any() == true)
                     {
-                        return q.Assignments.Any(a => 
+                        return q.Assignments.Any(a =>
                             (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
                             (!stageId.HasValue || a.StageId == stageId.Value)
                         );
@@ -293,7 +293,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .Where(x => x.IsValid == true && x.IsActive == true)
                 .ToListAsync();
 
-            return allQuestionnaires.Where(q => 
+            return allQuestionnaires.Where(q =>
                 // Check new Assignments JSON field
                 (q.Assignments?.Any(a => stageIds.Contains(a.StageId) && a.StageId > 0) == true) // 只匹配有效的StageId
             ).OrderByDescending(x => x.CreateDate).ToList();
@@ -318,11 +318,11 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .WhereIF(excludeId.HasValue, x => x.Id != excludeId.Value)
                 .ToListAsync();
 
-            return allQuestionnaires.Any(q => 
+            return allQuestionnaires.Any(q =>
             {
                 if (q.Assignments?.Any() == true)
                 {
-                    return q.Assignments.Any(a => 
+                    return q.Assignments.Any(a =>
                         (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
                         (!stageId.HasValue || a.StageId == stageId.Value)
                     );
@@ -349,11 +349,11 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .WhereIF(excludeId.HasValue, x => x.Id != excludeId.Value)
                 .ToListAsync();
 
-            return allQuestionnaires.FirstOrDefault(q => 
+            return allQuestionnaires.FirstOrDefault(q =>
             {
                 if (q.Assignments?.Any() == true)
                 {
-                    return q.Assignments.Any(a => 
+                    return q.Assignments.Any(a =>
                         (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
                         (!stageId.HasValue || a.StageId == stageId.Value)
                     );
@@ -372,7 +372,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .Where(x => x.IsValid == true)
                 .ToListAsync();
 
-            return allQuestionnaires.Where(q => 
+            return allQuestionnaires.Where(q =>
                 // Check new Assignments JSON field
                 (q.Assignments?.Any(a => a.WorkflowId == workflowId) == true)
             ).OrderBy(x => x.CreateDate).ToList();
@@ -388,7 +388,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .Where(x => x.IsValid == true)
                 .ToListAsync();
 
-            return allQuestionnaires.Where(q => 
+            return allQuestionnaires.Where(q =>
                 // Check new Assignments JSON field
                 (q.Assignments?.Any(a => a.StageId == stageId && a.StageId > 0) == true) // 只匹配有效的StageId
             ).OrderBy(x => x.CreateDate).ToList();

@@ -91,12 +91,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<bool> MarkAsUsedAsync(string token, long userId)
         {
             var result = await _db.Updateable<UserInvitation>()
-                .SetColumns(x => new UserInvitation 
-                { 
-                    Status = "Used", 
-                    UserId = userId, 
+                .SetColumns(x => new UserInvitation
+                {
+                    Status = "Used",
+                    UserId = userId,
                     LastAccessDate = DateTimeOffset.UtcNow,
-                    ModifyDate = DateTimeOffset.UtcNow 
+                    ModifyDate = DateTimeOffset.UtcNow
                 })
                 .Where(x => x.InvitationToken == token)
                 .ExecuteCommandAsync();
@@ -104,4 +104,4 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             return result > 0;
         }
     }
-} 
+}

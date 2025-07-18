@@ -148,8 +148,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<List<QuestionnaireAnswer>> GetAllByOnboardingAndStageAsync(long onboardingId, long stageId)
         {
             return await base.GetListAsync(
-                x => x.OnboardingId == onboardingId && 
-                     x.StageId == stageId && 
+                x => x.OnboardingId == onboardingId &&
+                     x.StageId == stageId &&
                      x.IsValid,
                 x => x.CreateDate,
                 SqlSugar.OrderByType.Desc

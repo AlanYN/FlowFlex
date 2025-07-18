@@ -70,4 +70,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Event
         /// </summary>
         public DateTimeOffset GeneratedAt { get; set; } = DateTimeOffset.UtcNow;
     }
-} 
+}

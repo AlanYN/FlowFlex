@@ -13,4 +13,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// </summary>
         public List<StageComponent> Components { get; set; } = new List<StageComponent>();
     }
-} 
+}

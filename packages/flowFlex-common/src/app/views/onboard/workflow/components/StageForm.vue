@@ -309,6 +309,7 @@ const emit = defineEmits(['submit', 'cancel']);
 .color-grid {
 	display: flex;
 	justify-content: space-between;
+	padding: 0 10px;
 }
 
 .color-option {

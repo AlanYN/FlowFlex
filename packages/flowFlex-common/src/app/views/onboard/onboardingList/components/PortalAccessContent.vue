@@ -1,13 +1,7 @@
 <template>
 	<div class="space-y-6">
 		<!-- Success Message -->
-		<el-alert
-			v-if="successMessage"
-			:title="successMessage"
-			type="success"
-			:closable="false"
-			class="mb-4"
-		/>
+		<el-alert v-if="successMessage" :title="successMessage" type="success" :closable="false" class="mb-4" />
 
 		<!-- Description -->
 		<div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
@@ -18,8 +12,11 @@
 			</p>
 		</div>
 
-		<!-- Add User Button -->
-		<div class="flex justify-end">
+		<!-- Action Buttons -->
+		<div class="flex justify-between items-center">
+			<el-button type="success" @click="handleViewCustomerPortal" :disabled="portalUsers.length === 0">
+				View Customer Portal
+			</el-button>
 			<el-button type="primary" @click="handleAddButtonClick">
 				<el-icon>
 					<Plus />
@@ -47,21 +44,15 @@
 				<el-table-column label="Actions" width="200">
 					<template #default="{ row }">
 						<div class="flex space-x-2">
-							<el-button
-								size="small"
-								@click="resendInvitation(row.email)"
-								:disabled="row.status === 'Active'"
-							>
+							<el-button size="small" @click="resendInvitation(row.email)"
+								:disabled="row.status === 'Active'">
 								<el-icon class="h-3 w-3 mr-1">
 									<Refresh />
 								</el-icon>
 								Resend
 							</el-button>
-							<el-button
-								size="small"
-								class="text-red-500 hover:text-red-700 hover:bg-red-50"
-								@click="handleRemoveUser(row)"
-							>
+							<el-button size="small" class="text-red-500 hover:text-red-700 hover:bg-red-50"
+								@click="handleRemoveUser(row)">
 								<el-icon class="h-3 w-3 mr-1">
 									<Delete />
 								</el-icon>
@@ -89,26 +80,15 @@
 			<div class="space-y-4">
 				<div>
 					<label class="block text-sm font-medium mb-2">Email Addresses</label>
-					<el-select
+					<InputTag
 						v-model="selectedEmails"
-						multiple
-						filterable
-						allow-create
-						default-first-option
-						collapse-tags
-						collapse-tags-tooltip
-						placeholder="Enter email addresses..."
-						class="w-full"
-						no-data-text="Type email addresses to add"
-						filter-placeholder="Type email addresses..."
-					>
-						<el-option
-							v-for="email in emailOptions"
-							:key="email"
-							:label="email"
-							:value="email"
-						/>
-					</el-select>
+						placeholder="Enter email addresses and press enter"
+						style-type="normal"
+						:limit="10"
+						@change="handleEmailTagsChange"
+						style="width: 100%; height: 32px"
+						class="w-full rounded-md"
+					/>
 					<div class="text-xs text-gray-500 mt-1">
 						Type email addresses and press Enter to add them. You can add multiple
 						emails at once.
@@ -118,11 +98,7 @@
 			<template #footer>
 				<div class="flex justify-end space-x-2">
 					<el-button @click="showAddDialog = false">Cancel</el-button>
-					<el-button
-						type="primary"
-						@click="handleAddUser"
-						:disabled="selectedEmails.length === 0"
-					>
+					<el-button type="primary" @click="handleAddUser" :disabled="selectedEmails.length === 0">
 						<el-icon>
 							<Message />
 						</el-icon>
@@ -155,6 +131,8 @@ import { ElMessage } from 'element-plus';
 import { Plus, Refresh, Delete, Message } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
+import { getCurrentBaseUrl } from '@/utils/url';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 
 // Props
 interface Props {
@@ -168,7 +146,6 @@ const props = defineProps<Props>();
 const showAddDialog = ref(false);
 const showRemoveDialog = ref(false);
 const selectedEmails = ref<string[]>([]);
-const emailOptions = ref<string[]>([]);
 const userToRemove = ref<PortalUser | null>(null);
 const successMessage = ref('');
 const loading = ref(false);
@@ -343,6 +320,20 @@ const resendInvitation = async (email: string) => {
 	}
 };
 
+const handleViewCustomerPortal = () => {
+	// Generate customer portal URL using current environment
+	const baseUrl = getCurrentBaseUrl();
+	const customerPortalUrl = `${baseUrl}/customer-portal?onboardingId=${props.onboardingId}`;
+
+	// Open in new window/tab
+	window.open(customerPortalUrl, '_blank');
+};
+
+// Email tags change handler for InputTag component
+const handleEmailTagsChange = (emails: string[]) => {
+	selectedEmails.value = emails;
+};
+
 // Load data when component is ready
 watchEffect(async () => {
 	if (props.onboardingId) {
@@ -353,19 +344,19 @@ watchEffect(async () => {
 </script>
 
 <style scoped lang="scss">
-.space-y-2 > * + * {
+.space-y-2>*+* {
 	margin-top: 0.5rem;
 }
 
-.space-y-4 > * + * {
+.space-y-4>*+* {
 	margin-top: 1rem;
 }
 
-.space-y-6 > * + * {
+.space-y-6>*+* {
 	margin-top: 1.5rem;
 }
 
-.space-x-2 > * + * {
+.space-x-2>*+* {
 	margin-left: 0.5rem;
 }
 
@@ -501,5 +492,101 @@ html.dark {
 	.text-gray-500 {
 		color: #9ca3af;
 	}
+}
+
+/* InputTag组件样式调整 - 保持原有高度和宽度 */
+:deep(.layout) {
+	min-height: 32px;
+	height: 32px;
+	border: 1px solid var(--el-border-color, #dcdfe6);
+	border-radius: 8px;
+	padding: 4px 11px;
+	background-color: var(--el-fill-color-blank, #ffffff);
+	transition: all var(--el-transition-duration, 0.2s);
+	box-shadow: 0 0 0 1px transparent inset;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+:deep(.layout:hover) {
+	border-color: var(--el-border-color-hover, #c0c4cc);
+}
+
+:deep(.layout:focus-within) {
+	border-color: var(--primary-500, #409eff);
+	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
+}
+
+:deep(.input-tag) {
+	min-width: 100px;
+	height: 24px;
+	line-height: 24px;
+	font-size: 14px;
+	color: var(--el-text-color-regular, #606266);
+	border: none;
+	outline: none;
+	background: transparent;
+	flex: 1;
+	padding: 0;
+}
+
+:deep(.input-tag::placeholder) {
+	color: var(--el-text-color-placeholder, #a8abb2);
+	font-size: 14px;
+}
+
+:deep(.label-box) {
+	height: 24px;
+	margin: 0;
+	border-radius: 12px;
+	background-color: var(--el-fill-color-light, #f5f7fa);
+	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px;
+	transition: all 0.2s ease;
+}
+
+:deep(.label-title) {
+	font-size: 12px;
+	padding: 0;
+	line-height: 24px;
+	color: var(--el-text-color-regular, #606266);
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 120px;
+}
+
+:deep(.label-close) {
+	padding: 0;
+	margin-left: 6px;
+	color: var(--el-text-color-placeholder, #a8abb2);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--el-fill-color, #f0f2f5);
+	transition: all 0.2s ease;
+	transform: none;
+}
+
+:deep(.label-close:hover) {
+	background: var(--el-fill-color-dark, #e6e8eb);
+	color: var(--el-text-color-regular, #606266);
+}
+
+:deep(.label-close:after) {
+	content: '×';
+	font-size: 12px;
+	line-height: 1;
+	font-weight: bold;
 }
 </style>

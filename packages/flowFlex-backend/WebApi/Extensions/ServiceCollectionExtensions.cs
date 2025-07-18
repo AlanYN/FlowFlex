@@ -216,11 +216,8 @@ namespace FlowFlex.WebApi.Extensions
             // Register MediatR
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
 
-            // Only register basic Repositories
-            RegisterBasicRepositories(services);
-
-            // Only register basic Services
-            RegisterBasicServices(services);
+            // Auto-register services based on lifetime marker interfaces
+            RegisterServicesByLifetime(services);
 
             return services;
         }
@@ -263,46 +260,81 @@ namespace FlowFlex.WebApi.Extensions
             return "default";
         }
 
-        private static void RegisterBasicRepositories(IServiceCollection services)
+        /// <summary>
+        /// Auto-register services based on their lifetime marker interfaces
+        /// </summary>
+        private static void RegisterServicesByLifetime(IServiceCollection services)
         {
-            // Register all repositories that implement IScopedService
-            var scopedServiceType = typeof(IScopedService);
-            var repositoryTypes = typeof(WorkflowRepository).Assembly.GetTypes()
-                .Where(t => t.IsClass && !t.IsAbstract && scopedServiceType.IsAssignableFrom(t))
-                .ToList();
-
-            foreach (var repositoryType in repositoryTypes)
+            // Get all assemblies that contain our services
+            var assemblies = new[]
             {
-                var interfaces = repositoryType.GetInterfaces()
-                    .Where(i => i != scopedServiceType && !i.IsGenericType)
+                typeof(WorkflowService).Assembly,      // Application layer
+                typeof(WorkflowRepository).Assembly,   // SqlSugarDB layer
+                typeof(UserService).Assembly           // Application.Services layer (if different)
+            }.Distinct().ToArray();
+
+            foreach (var assembly in assemblies)
+            {
+                var types = assembly.GetTypes()
+                    .Where(t => t.IsClass && !t.IsAbstract)
                     .ToList();
 
-                foreach (var interfaceType in interfaces)
-                {
-                    services.AddScoped(interfaceType, repositoryType);
-                    // DI registration logging handled by structured logging
-                }
+                // Register Scoped services
+                RegisterByLifetime<IScopedService>(services, types, ServiceLifetime.Scoped);
+
+                // Register Singleton services  
+                RegisterByLifetime<ISingletonService>(services, types, ServiceLifetime.Singleton);
+
+                // Register Transient services
+                RegisterByLifetime<ITransientService>(services, types, ServiceLifetime.Transient);
             }
         }
 
-        private static void RegisterBasicServices(IServiceCollection services)
+        /// <summary>
+        /// Register services by specific lifetime marker interface
+        /// </summary>
+        private static void RegisterByLifetime<TMarkerInterface>(
+            IServiceCollection services,
+            List<Type> types,
+            ServiceLifetime lifetime)
         {
-            // Register all services that implement IScopedService
-            var scopedServiceType = typeof(IScopedService);
-            var serviceTypes = typeof(WorkflowService).Assembly.GetTypes()
-                .Where(t => t.IsClass && !t.IsAbstract && scopedServiceType.IsAssignableFrom(t))
-                .ToList();
+            var markerInterfaceType = typeof(TMarkerInterface);
+            var serviceTypes = types.Where(t => markerInterfaceType.IsAssignableFrom(t)).ToList();
 
             foreach (var serviceType in serviceTypes)
             {
                 var interfaces = serviceType.GetInterfaces()
-                    .Where(i => i != scopedServiceType && !i.IsGenericType)
+                    .Where(i => i != markerInterfaceType && !i.IsGenericType)
                     .ToList();
 
                 foreach (var interfaceType in interfaces)
                 {
-                    services.AddScoped(interfaceType, serviceType);
-                    // DI registration logging handled by structured logging
+                    switch (lifetime)
+                    {
+                        case ServiceLifetime.Scoped:
+                            services.AddScoped(interfaceType, serviceType);
+                            break;
+                        case ServiceLifetime.Singleton:
+                            services.AddSingleton(interfaceType, serviceType);
+                            break;
+                        case ServiceLifetime.Transient:
+                            services.AddTransient(interfaceType, serviceType);
+                            break;
+                    }
+                }
+
+                // Also register the concrete type for direct injection
+                switch (lifetime)
+                {
+                    case ServiceLifetime.Scoped:
+                        services.AddScoped(serviceType);
+                        break;
+                    case ServiceLifetime.Singleton:
+                        services.AddSingleton(serviceType);
+                        break;
+                    case ServiceLifetime.Transient:
+                        services.AddTransient(serviceType);
+                        break;
                 }
             }
         }

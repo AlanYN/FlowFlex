@@ -179,6 +179,22 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Refresh access token
+        /// </summary>
+        /// <param name="request">Refresh token request</param>
+        /// <returns>Login response with new token</returns>
+        [HttpPost("refresh-access-token")]
+        [AllowAnonymous]
+        [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> RefreshAccessToken([FromBody] RefreshTokenRequestDto request)
+        {
+            var response = await _userService.RefreshAccessTokenAsync(request);
+            return Success(response);
+        }
+
+        /// <summary>
         /// Parse JWT token and return detailed information
         /// </summary>
         /// <param name="request">Parse token request</param>
