@@ -516,6 +516,7 @@
 					ref="workflowAssignmentsRef"
 					:assignments="initialAssignments"
 					:workflows="workflows"
+					:stages="stages"
 				/>
 			</el-form>
 
@@ -722,12 +723,10 @@ const filteredChecklists = computed(() => {
 			return matchesTeam && hasMatch;
 		})
 		.sort((a, b) => {
-			// 缓存日期对象避免重复创建
-			const dateA =
-				a._sortDate || (a._sortDate = new Date(a.createDate || a.createdAt || 0).getTime());
-			const dateB =
-				b._sortDate || (b._sortDate = new Date(b.createDate || b.createdAt || 0).getTime());
-			return dateA - dateB;
+			// 按修改时间倒序排序（最新修改的在前面）
+			const dateA = a._sortDate || (a._sortDate = new Date(a.modifyDate || a.createDate || a.createdAt || 0).getTime());
+			const dateB = b._sortDate || (b._sortDate = new Date(b.modifyDate || b.createDate || b.createdAt || 0).getTime());
+			return dateB - dateA;
 		});
 
 	// 分页优化：只返回当前页的数据
@@ -823,9 +822,9 @@ const loadChecklists = async () => {
 					// 保留已加载的任务数据，确保正确处理order字段
 					return {
 						...checklist,
-						tasks: existingChecklist.tasks.map(task => ({
+						tasks: existingChecklist.tasks.map((task) => ({
 							...task,
-							order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：确保order字段正确
+							order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0,
 						})),
 						tasksLoaded: true,
 					};
@@ -833,16 +832,16 @@ const loadChecklists = async () => {
 					// 初始化为空数组
 					return {
 						...checklist,
-						tasks: [], 
+						tasks: [],
 						tasksLoaded: false,
 					};
 				}
 			})
 			.sort((a, b) => {
-				// 按创建时间升序排序（最早的在前面）
-				const dateA = new Date(a.createDate || a.createdAt || 0);
-				const dateB = new Date(b.createDate || b.createdAt || 0);
-				return dateA.getTime() - dateB.getTime();
+				// 按修改时间倒序排序（最新修改的在前面）
+				const dateA = new Date(a.modifyDate || a.createDate || a.createdAt || 0);
+				const dateB = new Date(b.modifyDate || b.createDate || b.createdAt || 0);
+				return dateB.getTime() - dateA.getTime();
 			});
 
 		// 使用新的数组引用确保响应式更新
@@ -1222,33 +1221,7 @@ const editChecklist = async (checklist) => {
 		workflowName = workflow ? workflow.name : '';
 	}
 
-	// 加载所有assignments需要的stages
-	const uniqueWorkflowIds = new Set();
-
-	// 添加单个workflow（如果存在）
-	if (workflowName) {
-		const workflow = workflows.value.find((w) => w.name === workflowName);
-		if (workflow) {
-			uniqueWorkflowIds.add(workflow.id.toString());
-		}
-	}
-
-	// 添加assignments中的workflows
-	(checklist.assignments || []).forEach((assignment) => {
-		if (assignment.workflowId) {
-			uniqueWorkflowIds.add(assignment.workflowId.toString());
-		}
-	});
-
-	// 为每个唯一的workflow加载stages
-	for (const workflowId of uniqueWorkflowIds) {
-		const workflow = workflows.value.find((w) => w.id.toString() === workflowId);
-		if (workflow) {
-			await loadStagesByWorkflow(workflow.name);
-		}
-	}
-
-	// 现在查找stage名称（stages已经加载）
+	// 现在查找stage名称（stages已经在全局加载）
 	let stageName = '';
 	if (checklist.stageId) {
 		const stage = stages.value.find((s) => s.id.toString() === checklist.stageId.toString());
@@ -1264,7 +1237,11 @@ const editChecklist = async (checklist) => {
 			workflowId: assignment.workflowId,
 			stageId: assignment.stageId,
 		}))
-		.filter((assignment) => assignment.workflowId && assignment.stageId);
+		.filter((assignment) => 
+			assignment.workflowId && 
+			assignment.workflowId !== '0'
+			// 保留stageId为0的assignment，让WorkflowAssignments组件处理
+		);
 
 	console.log(
 		`Processed ${assignments.length} valid assignments out of ${
