@@ -1,0 +1,225 @@
+﻿using AutoMapper;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Domain.Entities.Action;
+using FlowFlex.Domain.Repository.Action;
+using Microsoft.Extensions.Logging;
+
+namespace FlowFlex.Application.Services.Action
+{
+    /// <summary>
+    /// Service for managing action definitions and trigger mappings
+    /// </summary>
+    public class ActionManagementService : IActionManagementService
+    {
+        private readonly IActionDefinitionRepository _actionDefinitionRepository;
+        private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
+        private readonly IMapper _mapper;
+        private readonly ILogger<ActionManagementService> _logger;
+
+        public ActionManagementService(
+            IActionDefinitionRepository actionDefinitionRepository,
+            IActionTriggerMappingRepository actionTriggerMappingRepository,
+            IMapper mapper,
+            ILogger<ActionManagementService> logger)
+        {
+            _actionDefinitionRepository = actionDefinitionRepository;
+            _actionTriggerMappingRepository = actionTriggerMappingRepository;
+            _mapper = mapper;
+            _logger = logger;
+        }
+
+        #region Action Definition Management
+
+        public async Task<ActionDefinitionDto> GetActionDefinitionAsync(long id)
+        {
+            var entity = await _actionDefinitionRepository.GetByIdAsync(id);
+            return entity != null ? _mapper.Map<ActionDefinitionDto>(entity) : null;
+        }
+
+        public async Task<List<ActionDefinitionDto>> GetAllActionDefinitionsAsync()
+        {
+            var entities = await _actionDefinitionRepository.GetAllEnabledAsync();
+            return _mapper.Map<List<ActionDefinitionDto>>(entities);
+        }
+
+        public async Task<List<ActionDefinitionDto>> GetEnabledActionDefinitionsAsync()
+        {
+            var entities = await _actionDefinitionRepository.GetAllEnabledAsync();
+            return _mapper.Map<List<ActionDefinitionDto>>(entities);
+        }
+
+        public async Task<ActionDefinitionDto> CreateActionDefinitionAsync(CreateActionDefinitionDto dto)
+        {
+            var entity = _mapper.Map<ActionDefinition>(dto);
+
+            await _actionDefinitionRepository.InsertAsync(entity);
+            _logger.LogInformation("Created action definition: {ActionId}", entity.Id);
+
+            return _mapper.Map<ActionDefinitionDto>(entity);
+        }
+
+        public async Task<ActionDefinitionDto> UpdateActionDefinitionAsync(long id, UpdateActionDefinitionDto dto)
+        {
+            var entity = await _actionDefinitionRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                throw new ArgumentException($"Action definition with ID {id} not found");
+            }
+
+            _mapper.Map(dto, entity);
+
+            await _actionDefinitionRepository.UpdateAsync(entity);
+            _logger.LogInformation("Updated action definition: {ActionId}", id);
+
+            return _mapper.Map<ActionDefinitionDto>(entity);
+        }
+
+        public async Task<bool> DeleteActionDefinitionAsync(long id)
+        {
+            var entity = await _actionDefinitionRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                return false;
+            }
+
+            entity.IsValid = false;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
+
+            await _actionDefinitionRepository.UpdateAsync(entity);
+            _logger.LogInformation("Deleted action definition: {ActionId}", id);
+
+            return true;
+        }
+
+        public async Task<bool> UpdateActionDefinitionStatusAsync(long id, bool isEnabled)
+        {
+            var entity = await _actionDefinitionRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                return false;
+            }
+
+            entity.IsEnabled = isEnabled;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
+
+            await _actionDefinitionRepository.UpdateAsync(entity);
+            _logger.LogInformation("Updated action definition status: {ActionId}, IsEnabled: {IsEnabled}", id, isEnabled);
+
+            return true;
+        }
+
+        #endregion
+
+        #region Action Trigger Mapping Management
+
+        public async Task<ActionTriggerMappingDto> GetActionTriggerMappingAsync(long id)
+        {
+            var entity = await _actionTriggerMappingRepository.GetByIdAsync(id);
+            return entity != null ? _mapper.Map<ActionTriggerMappingDto>(entity) : null;
+        }
+
+        public async Task<List<ActionTriggerMappingDto>> GetAllActionTriggerMappingsAsync()
+        {
+            var entities = await _actionTriggerMappingRepository.GetAllEnabledAsync();
+            return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
+        }
+
+        public async Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByActionIdAsync(long actionDefinitionId)
+        {
+            var entities = await _actionTriggerMappingRepository.GetByActionDefinitionIdAsync(actionDefinitionId);
+            return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
+        }
+
+        public async Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByTriggerTypeAsync(string triggerType)
+        {
+            var entities = await _actionTriggerMappingRepository.GetByTriggerTypeAsync(triggerType);
+            return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
+        }
+
+        public async Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto)
+        {
+            // Check if mapping already exists
+            var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
+                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.TriggerEvent);
+            
+            if (exists)
+            {
+                throw new InvalidOperationException("Mapping already exists for this action and trigger");
+            }
+
+            var entity = _mapper.Map<ActionTriggerMapping>(dto);
+
+            await _actionTriggerMappingRepository.InsertAsync(entity);
+            _logger.LogInformation("Created action trigger mapping: {MappingId}", entity.Id);
+
+            return _mapper.Map<ActionTriggerMappingDto>(entity);
+        }
+
+        public async Task<ActionTriggerMappingDto> UpdateActionTriggerMappingAsync(long id, CreateActionTriggerMappingDto dto)
+        {
+            var entity = await _actionTriggerMappingRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                throw new ArgumentException($"Action trigger mapping with ID {id} not found");
+            }
+
+            // Check if mapping already exists (excluding current one)
+            var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
+                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.TriggerEvent, id);
+            
+            if (exists)
+            {
+                throw new InvalidOperationException("Mapping already exists for this action and trigger");
+            }
+
+            _mapper.Map(dto, entity);
+
+            await _actionTriggerMappingRepository.UpdateAsync(entity);
+            _logger.LogInformation("Updated action trigger mapping: {MappingId}", id);
+
+            return _mapper.Map<ActionTriggerMappingDto>(entity);
+        }
+
+        public async Task<bool> DeleteActionTriggerMappingAsync(long id)
+        {
+            var entity = await _actionTriggerMappingRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                return false;
+            }
+
+            entity.IsValid = false;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
+
+            await _actionTriggerMappingRepository.UpdateAsync(entity);
+            _logger.LogInformation("Deleted action trigger mapping: {MappingId}", id);
+
+            return true;
+        }
+
+        public async Task<bool> UpdateActionTriggerMappingStatusAsync(long id, bool isEnabled)
+        {
+            var entity = await _actionTriggerMappingRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                return false;
+            }
+
+            entity.IsEnabled = isEnabled;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
+
+            await _actionTriggerMappingRepository.UpdateAsync(entity);
+            _logger.LogInformation("Updated action trigger mapping status: {MappingId}, IsEnabled: {IsEnabled}", id, isEnabled);
+
+            return true;
+        }
+
+        public async Task<bool> BatchUpdateActionTriggerMappingStatusAsync(List<long> mappingIds, bool isEnabled)
+        {
+            return await _actionTriggerMappingRepository.BatchUpdateEnabledStatusAsync(mappingIds, isEnabled);
+        }
+
+        #endregion
+    }
+} 
