@@ -1,8 +1,10 @@
 ﻿using AutoMapper;
+using System.Text.Json;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
+using FlowFlex.Domain.Shared.Enums.Action;
 using Microsoft.Extensions.Logging;
 
 namespace FlowFlex.Application.Services.Action
@@ -16,6 +18,7 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
+        private readonly JsonSerializerOptions _jsonOptions;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -27,6 +30,7 @@ namespace FlowFlex.Application.Services.Action
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
             _mapper = mapper;
             _logger = logger;
+            _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         }
 
         #region Action Definition Management
@@ -51,6 +55,8 @@ namespace FlowFlex.Application.Services.Action
 
         public async Task<ActionDefinitionDto> CreateActionDefinitionAsync(CreateActionDefinitionDto dto)
         {
+            ValidateActionConfig(dto.ActionType, dto.ActionConfig);
+
             var entity = _mapper.Map<ActionDefinition>(dto);
 
             await _actionDefinitionRepository.InsertAsync(entity);
@@ -67,12 +73,61 @@ namespace FlowFlex.Application.Services.Action
                 throw new ArgumentException($"Action definition with ID {id} not found");
             }
 
+            ValidateActionConfig(dto.ActionType, dto.ActionConfig);
+
             _mapper.Map(dto, entity);
 
             await _actionDefinitionRepository.UpdateAsync(entity);
             _logger.LogInformation("Updated action definition: {ActionId}", id);
 
             return _mapper.Map<ActionDefinitionDto>(entity);
+        }
+
+        private void ValidateActionConfig(ActionTypeEnum actionType, string actionConfig)
+        {
+            if (string.IsNullOrWhiteSpace(actionConfig))
+            {
+                throw new ArgumentException("Action configuration cannot be empty");
+            }
+
+            try
+            {
+                switch (actionType)
+                {
+                    case ActionTypeEnum.Python:
+                        ValidatePythonConfig(actionConfig);
+                        break;
+                    case ActionTypeEnum.HttpApi:
+                        // TODO: Add HTTP API config validation
+                        break;
+                    case ActionTypeEnum.SendEmail:
+                        // TODO: Add Email config validation
+                        break;
+                    default:
+                        throw new ArgumentException($"Unsupported action type: {actionType}");
+                }
+            }
+            catch (JsonException ex)
+            {
+                throw new ArgumentException($"Invalid JSON configuration for action type {actionType}: {ex.Message}");
+            }
+        }
+
+        private void ValidatePythonConfig(string actionConfig)
+        {
+            var config = JsonSerializer.Deserialize<PythonActionConfigDto>(actionConfig, _jsonOptions);
+            
+            if (config == null)
+            {
+                throw new ArgumentException("Failed to parse Python action configuration");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.SourceCode))
+            {
+                throw new ArgumentException("Python script source code is required");
+            }
+
+            _logger.LogInformation("Python action configuration validated successfully");
         }
 
         public async Task<bool> DeleteActionDefinitionAsync(long id)

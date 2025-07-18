@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.Base;
 using SqlSugar;
 using Newtonsoft.Json;
 using FlowFlex.Domain.Shared.JsonConverters;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Domain.Entities.Action
 {
@@ -55,7 +56,7 @@ namespace FlowFlex.Domain.Entities.Action
         /// Trigger context data (JSON format, contains relevant data at trigger time)
         /// </summary>
         [SugarColumn(ColumnName = "trigger_context", ColumnDataType = "jsonb", IsJson = true)]
-        public string TriggerContext { get; set; } = "{}";
+        public JObject TriggerContext { get; set; } = new JObject();
 
         /// <summary>
         /// Execution status (Pending, Running, Success, Failed, Cancelled)
@@ -87,13 +88,13 @@ namespace FlowFlex.Domain.Entities.Action
         /// Execution input parameters (JSON format)
         /// </summary>
         [SugarColumn(ColumnName = "execution_input", ColumnDataType = "jsonb", IsJson = true)]
-        public string ExecutionInput { get; set; } = "{}";
+        public JObject ExecutionInput { get; set; } = new JObject();
 
         /// <summary>
         /// Execution output result (JSON format)
         /// </summary>
         [SugarColumn(ColumnName = "execution_output", ColumnDataType = "jsonb", IsJson = true)]
-        public string ExecutionOutput { get; set; } = "{}";
+        public JObject ExecutionOutput { get; set; } = new JObject();
 
         /// <summary>
         /// Error message
@@ -112,6 +113,6 @@ namespace FlowFlex.Domain.Entities.Action
         /// Executor instance information (JSON format, records executor related information)
         /// </summary>
         [SugarColumn(ColumnName = "executor_info", ColumnDataType = "jsonb", IsJson = true)]
-        public string ExecutorInfo { get; set; } = "{}";
+        public JObject ExecutorInfo { get; set; } = new JObject();
     }
 } 

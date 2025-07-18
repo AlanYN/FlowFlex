@@ -148,37 +148,6 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         }
 
         /// <summary>
-        /// Update execution status
-        /// </summary>
-        public async Task<bool> UpdateExecutionStatusAsync(string executionId, string status, string? errorMessage = null, string? output = null)
-        {
-            var updateable = db.Updateable<ActionExecution>()
-                .SetColumns(x => x.ExecutionStatus == status)
-                .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow);
-
-            if (status == "Success" || status == "Failed" || status == "Cancelled")
-            {
-                updateable = updateable.SetColumns(x => x.CompletedAt == DateTimeOffset.UtcNow);
-            }
-
-            if (!string.IsNullOrEmpty(errorMessage))
-            {
-                updateable = updateable.SetColumns(x => x.ErrorMessage == errorMessage);
-            }
-
-            if (!string.IsNullOrEmpty(output))
-            {
-                updateable = updateable.SetColumns(x => x.ExecutionOutput == output);
-            }
-
-            var affectedRows = await updateable
-                .Where(x => x.ExecutionId == executionId && x.IsValid)
-                .ExecuteCommandAsync();
-
-            return affectedRows > 0;
-        }
-
-        /// <summary>
         /// Clean up old execution records
         /// </summary>
         public async Task<int> CleanupOldExecutionsAsync(int keepDays = 90)

@@ -12,7 +12,6 @@ namespace FlowFlex.WebApi.Controllers.Action
     /// </summary>
     [ApiController]
     [Route("api/v{version:apiVersion}/action")]
-    [Authorize]
     public class ActionController : ControllerBase
     {
         private readonly IActionManagementService _actionManagementService;
@@ -81,7 +80,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         public async Task<IActionResult> CreateActionDefinition(CreateActionDefinitionDto dto)
         {
             var result = await _actionManagementService.CreateActionDefinitionAsync(dto);
-            return CreatedAtAction(nameof(GetActionDefinition), new { id = result.Id }, Success(result));
+            return Success(result);
         }
 
         /// <summary>

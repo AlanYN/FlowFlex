@@ -2,6 +2,8 @@
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
 using Microsoft.Extensions.Logging;
+using SqlSugar;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -49,8 +51,9 @@ namespace FlowFlex.Application.Services.Action
                     ActionDefinitionId = actionDefinitionId,
                     ExecutionStatus = ActionExecutionStatusEnum.Running.ToString(),
                     StartedAt = DateTime.UtcNow,
-                    TriggerContext = contextData?.ToString() ?? "",
-                    CreateBy = userId.ToString() ?? ""
+                    TriggerContext = contextData != null ? JObject.FromObject(contextData) : new JObject(),
+                    CreateBy = userId.ToString() ?? "",
+                    ExecutionId = SnowFlakeSingle.Instance.NextId().ToString()
                 };
 
                 await _actionExecutionRepository.InsertAsync(execution, cancellationToken);
@@ -64,7 +67,7 @@ namespace FlowFlex.Application.Services.Action
                     // Update execution record with success
                     execution.ExecutionStatus = ActionExecutionStatusEnum.Completed.ToString();
                     execution.CompletedAt = DateTime.UtcNow;
-                    execution.ExecutionOutput = result?.ToString() ?? "";
+                    execution.ExecutionOutput = result != null ? JObject.FromObject(result) : new JObject();
                     await _actionExecutionRepository.UpdateAsync(execution);
 
                     _logger.LogInformation(

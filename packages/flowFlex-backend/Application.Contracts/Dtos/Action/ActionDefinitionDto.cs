@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using FlowFlex.Domain.Shared.Enums.Action;
 
 namespace FlowFlex.Application.Contracts.Dtos.Action
 {
@@ -26,10 +27,10 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         public string Description { get; set; }
 
         /// <summary>
-        /// Action type (PythonScript, HttpApi, Email)
+        /// Action type
         /// </summary>
         [Required]
-        public string ActionType { get; set; }
+        public ActionTypeEnum ActionType { get; set; }
 
         /// <summary>
         /// Action configuration (JSON format)

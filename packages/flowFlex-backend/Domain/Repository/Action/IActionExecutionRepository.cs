@@ -72,16 +72,6 @@ namespace FlowFlex.Domain.Repository.Action
         Task<Dictionary<string, int>> GetOverallStatsAsync(int days = 7);
 
         /// <summary>
-        /// Update execution status
-        /// </summary>
-        /// <param name="executionId">Execution ID</param>
-        /// <param name="status">New status</param>
-        /// <param name="errorMessage">Error message (optional)</param>
-        /// <param name="output">Execution output (optional)</param>
-        /// <returns>Whether successful</returns>
-        Task<bool> UpdateExecutionStatusAsync(string executionId, string status, string? errorMessage = null, string? output = null);
-
-        /// <summary>
         /// Clean up old execution records
         /// </summary>
         /// <param name="keepDays">Keep records for how many days</param>
