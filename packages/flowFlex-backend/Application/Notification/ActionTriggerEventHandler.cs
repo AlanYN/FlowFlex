@@ -3,7 +3,7 @@ using FlowFlex.Domain.Shared.Events.Action;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
-namespace Application.Notification.Action
+namespace Application.Notification
 {
     /// <summary>
     /// Unified event handler for all action trigger events
