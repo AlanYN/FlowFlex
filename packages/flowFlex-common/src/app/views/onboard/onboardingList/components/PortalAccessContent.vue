@@ -80,11 +80,15 @@
 			<div class="space-y-4">
 				<div>
 					<label class="block text-sm font-medium mb-2">Email Addresses</label>
-					<el-select v-model="selectedEmails" multiple filterable allow-create default-first-option
-						collapse-tags collapse-tags-tooltip placeholder="Enter email addresses..." class="w-full"
-						no-data-text="Type email addresses to add" filter-placeholder="Type email addresses...">
-						<el-option v-for="email in emailOptions" :key="email" :label="email" :value="email" />
-					</el-select>
+					<InputTag
+						v-model="selectedEmails"
+						placeholder="Enter email addresses and press enter"
+						style-type="normal"
+						:limit="10"
+						@change="handleEmailTagsChange"
+						style="width: 100%; height: 32px"
+						class="w-full rounded-md"
+					/>
 					<div class="text-xs text-gray-500 mt-1">
 						Type email addresses and press Enter to add them. You can add multiple
 						emails at once.
@@ -124,10 +128,11 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Plus, Refresh, Delete, Message, View } from '@element-plus/icons-vue';
+import { Plus, Refresh, Delete, Message } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
 import { getCurrentBaseUrl } from '@/utils/url';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 
 // Props
 interface Props {
@@ -141,7 +146,6 @@ const props = defineProps<Props>();
 const showAddDialog = ref(false);
 const showRemoveDialog = ref(false);
 const selectedEmails = ref<string[]>([]);
-const emailOptions = ref<string[]>([]);
 const userToRemove = ref<PortalUser | null>(null);
 const successMessage = ref('');
 const loading = ref(false);
@@ -325,6 +329,11 @@ const handleViewCustomerPortal = () => {
 	window.open(customerPortalUrl, '_blank');
 };
 
+// Email tags change handler for InputTag component
+const handleEmailTagsChange = (emails: string[]) => {
+	selectedEmails.value = emails;
+};
+
 // Load data when component is ready
 watchEffect(async () => {
 	if (props.onboardingId) {
@@ -483,5 +492,101 @@ html.dark {
 	.text-gray-500 {
 		color: #9ca3af;
 	}
+}
+
+/* InputTag组件样式调整 - 保持原有高度和宽度 */
+:deep(.layout) {
+	min-height: 32px;
+	height: 32px;
+	border: 1px solid var(--el-border-color, #dcdfe6);
+	border-radius: 8px;
+	padding: 4px 11px;
+	background-color: var(--el-fill-color-blank, #ffffff);
+	transition: all var(--el-transition-duration, 0.2s);
+	box-shadow: 0 0 0 1px transparent inset;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+:deep(.layout:hover) {
+	border-color: var(--el-border-color-hover, #c0c4cc);
+}
+
+:deep(.layout:focus-within) {
+	border-color: var(--primary-500, #409eff);
+	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
+}
+
+:deep(.input-tag) {
+	min-width: 100px;
+	height: 24px;
+	line-height: 24px;
+	font-size: 14px;
+	color: var(--el-text-color-regular, #606266);
+	border: none;
+	outline: none;
+	background: transparent;
+	flex: 1;
+	padding: 0;
+}
+
+:deep(.input-tag::placeholder) {
+	color: var(--el-text-color-placeholder, #a8abb2);
+	font-size: 14px;
+}
+
+:deep(.label-box) {
+	height: 24px;
+	margin: 0;
+	border-radius: 12px;
+	background-color: var(--el-fill-color-light, #f5f7fa);
+	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px;
+	transition: all 0.2s ease;
+}
+
+:deep(.label-title) {
+	font-size: 12px;
+	padding: 0;
+	line-height: 24px;
+	color: var(--el-text-color-regular, #606266);
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 120px;
+}
+
+:deep(.label-close) {
+	padding: 0;
+	margin-left: 6px;
+	color: var(--el-text-color-placeholder, #a8abb2);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--el-fill-color, #f0f2f5);
+	transition: all 0.2s ease;
+	transform: none;
+}
+
+:deep(.label-close:hover) {
+	background: var(--el-fill-color-dark, #e6e8eb);
+	color: var(--el-text-color-regular, #606266);
+}
+
+:deep(.label-close:after) {
+	content: '×';
+	font-size: 12px;
+	line-height: 1;
+	font-weight: bold;
 }
 </style>
