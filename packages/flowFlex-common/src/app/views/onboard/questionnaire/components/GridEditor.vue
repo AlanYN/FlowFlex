@@ -59,9 +59,24 @@
 
 					<!-- 列列表 -->
 					<div class="grid-items-container">
-						<div v-for="column in columns" :key="column.id" class="grid-editor-item">
+						<div
+							v-for="column in columns"
+							:key="column.id"
+							class="grid-editor-item"
+							:class="{ 'grid-item-other': column.isOther }"
+						>
 							<el-icon class="grid-column-icon"><Check /></el-icon>
-							<span class="grid-item-label">{{ column.label }}</span>
+							<span class="grid-item-label">
+								{{ column.label }}
+								<el-tag
+									v-if="column.isOther"
+									size="small"
+									type="warning"
+									class="other-tag"
+								>
+									Other
+								</el-tag>
+							</span>
 							<el-button
 								type="danger"
 								text
@@ -92,6 +107,22 @@
 								Add
 							</el-button>
 						</div>
+
+						<!-- 添加Other选项按钮 -->
+						<div v-if="!hasOtherColumn" class="grid-add-other">
+							<el-button
+								type="success"
+								size="small"
+								@click="addOtherColumn"
+								class="add-other-btn"
+							>
+								<el-icon><Plus /></el-icon>
+								Add "Other" Option
+							</el-button>
+							<span class="other-help-text">
+								Allow users to specify their own answer
+							</span>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -112,11 +143,13 @@
 </template>
 
 <script setup lang="ts">
-import { Close, Check } from '@element-plus/icons-vue';
+import { computed } from 'vue';
+import { Close, Check, Plus } from '@element-plus/icons-vue';
 
 interface GridItem {
 	id: string;
 	label: string;
+	isOther?: boolean;
 }
 
 interface NewGridItem {
@@ -132,17 +165,23 @@ interface Props {
 	requireOneResponsePerRow: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emits = defineEmits<{
 	'add-row': [];
 	'remove-row': [id: string];
 	'add-column': [];
 	'remove-column': [id: string];
+	'add-other-column': [];
 	'update-new-row-label': [label: string];
 	'update-new-column-label': [label: string];
 	'update-require-one-response-per-row': [value: boolean];
 }>();
+
+// 检查是否已有Other列
+const hasOtherColumn = computed(() => {
+	return props.columns.some((column) => column.isOther);
+});
 
 const addRow = () => {
 	emits('add-row');
@@ -158,6 +197,10 @@ const addColumn = () => {
 
 const removeColumn = (id: string) => {
 	emits('remove-column', id);
+};
+
+const addOtherColumn = () => {
+	emits('add-other-column');
 };
 
 const updateNewRowLabel = (label: string) => {
@@ -242,6 +285,11 @@ const updateRequireOneResponsePerRow = (value: boolean) => {
 	background-color: var(--primary-25);
 }
 
+.grid-item-other {
+	background-color: var(--el-color-warning-light-9);
+	border: 1px solid var(--el-color-warning-light-7);
+}
+
 .grid-item-number {
 	font-size: 0.875rem;
 	color: var(--primary-600);
@@ -252,6 +300,16 @@ const updateRequireOneResponsePerRow = (value: boolean) => {
 	flex: 1;
 	font-size: 0.875rem;
 	color: var(--primary-700);
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.other-tag {
+	font-size: 0.625rem;
+	height: 1.125rem;
+	line-height: 1;
+	padding: 0.125rem 0.25rem;
 }
 
 .grid-column-icon {
@@ -282,6 +340,27 @@ const updateRequireOneResponsePerRow = (value: boolean) => {
 	flex: 1;
 }
 
+.grid-add-other {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-top: 1rem;
+	padding: 0.75rem;
+	background-color: var(--el-color-success-light-9);
+	border: 1px dashed var(--el-color-success-light-7);
+	border-radius: 0.375rem;
+}
+
+.add-other-btn {
+	align-self: flex-start;
+}
+
+.other-help-text {
+	font-size: 0.75rem;
+	color: var(--el-color-success);
+	font-style: italic;
+}
+
 .grid-options {
 	margin-top: 1.5rem;
 	padding-top: 1rem;
@@ -310,6 +389,11 @@ const updateRequireOneResponsePerRow = (value: boolean) => {
 	background-color: var(--primary-600);
 }
 
+.dark .grid-item-other {
+	background-color: var(--el-color-warning-dark-2);
+	border-color: var(--el-color-warning);
+}
+
 .dark .grid-item-number {
 	color: var(--primary-300);
 }
@@ -324,6 +408,15 @@ const updateRequireOneResponsePerRow = (value: boolean) => {
 
 .dark .grid-add-item {
 	border-color: var(--primary-500);
+}
+
+.dark .grid-add-other {
+	background-color: var(--el-color-success-dark-2);
+	border-color: var(--el-color-success);
+}
+
+.dark .other-help-text {
+	color: var(--el-color-success-light-3);
 }
 
 .dark .grid-options {

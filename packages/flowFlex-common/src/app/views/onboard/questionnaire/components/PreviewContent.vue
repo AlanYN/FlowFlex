@@ -354,6 +354,14 @@
 											class="grid-cell grid-column-header"
 										>
 											{{ column.label }}
+											<el-tag
+												v-if="column.isOther"
+												size="small"
+												type="warning"
+												class="other-column-tag"
+											>
+												Other
+											</el-tag>
 										</div>
 									</div>
 									<div
@@ -365,7 +373,7 @@
 										<div
 											v-for="(column, colIndex) in item.columns"
 											:key="colIndex"
-											class="grid-cell grid-checkbox-cell"
+											class="grid-cell grid-checkbox-cell gap-x-2"
 										>
 											<el-checkbox-group
 												v-model="
@@ -377,6 +385,15 @@
 														)
 													]
 												"
+												@change="
+													handleGridCheckboxChange(
+														sectionIndex,
+														itemIndex,
+														rowIndex,
+														item,
+														$event
+													)
+												"
 											>
 												<el-checkbox
 													:value="
@@ -387,6 +404,39 @@
 													class="grid-checkbox"
 												/>
 											</el-checkbox-group>
+
+											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
+											<div
+												v-if="
+													column.isOther &&
+													previewData[
+														getGridKey(
+															sectionIndex,
+															itemIndex,
+															rowIndex
+														)
+													]?.includes(
+														column.value ||
+															column.label ||
+															`col_${colIndex}`
+													)
+												"
+											>
+												<el-input
+													v-model="
+														previewData[
+															getOtherTextKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]
+													"
+													placeholder="Please specify..."
+													size="small"
+													class="other-input"
+												/>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -453,6 +503,14 @@
 											class="grid-cell grid-column-header"
 										>
 											{{ column.label }}
+											<el-tag
+												v-if="column.isOther"
+												size="small"
+												type="warning"
+												class="other-column-tag"
+											>
+												Other
+											</el-tag>
 										</div>
 									</div>
 									<div
@@ -464,7 +522,7 @@
 										<div
 											v-for="(column, colIndex) in item.columns"
 											:key="colIndex"
-											class="grid-cell grid-radio-cell"
+											class="grid-cell grid-radio-cell gap-x-2"
 										>
 											<el-radio
 												v-model="
@@ -482,8 +540,49 @@
 													column.label ||
 													`${rowIndex}_${colIndex}`
 												"
+												@change="
+													handleGridRadioChange(
+														sectionIndex,
+														itemIndex,
+														rowIndex,
+														item,
+														$event
+													)
+												"
 												class="grid-radio"
 											/>
+
+											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
+											<div
+												v-if="
+													column.isOther &&
+													previewData[
+														getGridKey(
+															sectionIndex,
+															itemIndex,
+															rowIndex
+														)
+													] ===
+														(column.value ||
+															column.label ||
+															`${rowIndex}_${colIndex}`)
+												"
+											>
+												<el-input
+													v-model="
+														previewData[
+															getOtherTextKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]
+													"
+													placeholder="Please specify..."
+													size="small"
+													class="other-input"
+												/>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -593,6 +692,11 @@ const getGridKey = (sectionIndex: number, itemIndex: number, rowIndex: number) =
 	return `section_${sectionIndex}_item_${itemIndex}_row_${rowIndex}`;
 };
 
+// 生成Other文本输入框的唯一键
+const getOtherTextKey = (sectionIndex: number, itemIndex: number, rowIndex: number) => {
+	return `section_${sectionIndex}_item_${itemIndex}_row_${rowIndex}_other_text`;
+};
+
 // 初始化预览数据
 const initializePreviewData = () => {
 	if (!props.questionnaire?.sections) return;
@@ -644,11 +748,15 @@ const initializePreviewData = () => {
 						item.rows.forEach((_: any, rowIndex: number) => {
 							const gridKey = getGridKey(sectionIndex, itemIndex, rowIndex);
 							newPreviewData[gridKey] = []; // 多选应该是数组
+
+							// 为Other选项初始化文本字段
+							const otherTextKey = getOtherTextKey(sectionIndex, itemIndex, rowIndex);
+							newPreviewData[otherTextKey] = '';
 						});
 					}
 					// 如果只有options数据，初始化为普通多选
 					else if (item.options) {
-						newPreviewData[key] = []; // 多选应该是数组
+						newPreviewData[getItemKey(sectionIndex, itemIndex)] = []; // 多选应该是数组
 					}
 					break;
 				case 'checkbox_grid':
@@ -657,15 +765,19 @@ const initializePreviewData = () => {
 						item.rows.forEach((_: any, rowIndex: number) => {
 							const gridKey = getGridKey(sectionIndex, itemIndex, rowIndex);
 							newPreviewData[gridKey] = null; // 单选应该是字符串/null
+
+							// 为Other选项初始化文本字段
+							const otherTextKey = getOtherTextKey(sectionIndex, itemIndex, rowIndex);
+							newPreviewData[otherTextKey] = '';
 						});
 					}
 					break;
 				case 'file':
 				case 'file_upload':
-					newPreviewData[key] = [];
+					newPreviewData[getItemKey(sectionIndex, itemIndex)] = [];
 					break;
 				default:
-					newPreviewData[key] = null;
+					newPreviewData[getItemKey(sectionIndex, itemIndex)] = null;
 			}
 		});
 	});
@@ -719,6 +831,52 @@ const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fi
 		lastModified: f.raw?.lastModified || Date.now(),
 	}));
 	console.log('File data stored:', previewData.value[key]);
+};
+
+// 处理网格多选选项变化
+const handleGridCheckboxChange = (
+	sectionIndex: number,
+	itemIndex: number,
+	rowIndex: number,
+	item: any,
+	value: string[]
+) => {
+	const otherTextKey = getOtherTextKey(sectionIndex, itemIndex, rowIndex);
+
+	// 查找Other列
+	const otherColumn = item.columns?.find((col: any) => col.isOther);
+	if (otherColumn) {
+		const otherValue =
+			otherColumn.value || otherColumn.label || `col_${item.columns.indexOf(otherColumn)}`;
+
+		// 如果Other选项被取消选择，清空Other文本输入框
+		if (Array.isArray(value) && !value.includes(otherValue)) {
+			previewData.value[otherTextKey] = '';
+		}
+	}
+};
+
+// 处理单选网格选项变化
+const handleGridRadioChange = (
+	sectionIndex: number,
+	itemIndex: number,
+	rowIndex: number,
+	item: any,
+	value: string
+) => {
+	const otherTextKey = getOtherTextKey(sectionIndex, itemIndex, rowIndex);
+
+	// 查找Other列
+	const otherColumn = item.columns?.find((col: any) => col.isOther);
+	if (otherColumn) {
+		const colIndex = item.columns.indexOf(otherColumn);
+		const otherValue = otherColumn.value || otherColumn.label || `${rowIndex}_${colIndex}`;
+
+		// 如果Other选项被取消选择，清空Other文本输入框
+		if (value !== otherValue) {
+			previewData.value[otherTextKey] = '';
+		}
+	}
 };
 
 // 校验表单数据
@@ -1101,6 +1259,7 @@ defineExpose({
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		align-items: center;
 		min-width: 120px;
 		flex: 1;
 		@apply dark:border-black-100;
@@ -1165,6 +1324,24 @@ defineExpose({
 
 		:deep(.el-checkbox__label) {
 			display: none;
+		}
+	}
+
+	.other-column-tag {
+		margin-left: 0.5rem;
+		font-size: 0.625rem;
+		height: 1.125rem;
+		line-height: 1;
+		padding: 0.125rem 0.25rem;
+	}
+
+	.other-input {
+		width: 100%;
+		max-width: 180px;
+
+		:deep(.el-input__wrapper) {
+			border-color: var(--primary-200);
+			@apply dark:border-black-200;
 		}
 	}
 }
