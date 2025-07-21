@@ -22,7 +22,8 @@ namespace FlowFlex.SqlSugarDB.Extensions
                 var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
 
                 Console.WriteLine("[DatabaseInitialization] Starting database initialization...");
-                var migrationManager = new MigrationManager(db);
+                // Use non-verbose logging for cleaner startup output
+                var migrationManager = new MigrationManager(db, verboseLogging: false);
                 migrationManager.RunMigrations();
                 Console.WriteLine("[DatabaseInitialization] Database initialization completed successfully");
             }
@@ -46,7 +47,7 @@ namespace FlowFlex.SqlSugarDB.Extensions
                 db.Ado.CheckConnection();
 
                 // Run migrations
-                var migrationManager = new MigrationManager(db);
+                var migrationManager = new MigrationManager(db, verboseLogging: false);
                 migrationManager.RunMigrations();
                 // Debug logging handled by structured logging
             }
@@ -63,7 +64,7 @@ namespace FlowFlex.SqlSugarDB.Extensions
         /// <param name="db">SqlSugar client</param>
         public static void ResetDatabase(this ISqlSugarClient db)
         {
-            var migrationManager = new MigrationManager(db);
+            var migrationManager = new MigrationManager(db, verboseLogging: true); // Use verbose for reset operations
             migrationManager.RollbackMigrations();
             migrationManager.RunMigrations();
         }

@@ -82,6 +82,33 @@ namespace FlowFlex.WebApi.Controllers
         }
 
         /// <summary>
+        /// Run add app code to events migration
+        /// </summary>
+        /// <returns>Migration result</returns>
+        [HttpPost("run-add-app-code-to-events")]
+        [ProducesResponseType(typeof(LocalSuccessResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> RunAddAppCodeToEventsMigrationAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Starting add app_code to events migration...");
+                
+                await Task.Run(() => AddAppCodeToEvents_20250101000014.Up(_db));
+                
+                _logger.LogInformation("Add app_code to events migration completed successfully");
+                
+                return Ok(LocalSuccessResponse.Create("Add app_code to events migration completed successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to run add app_code to events migration");
+                
+                return BadRequest(ErrorResponse.Create("MIGRATION_FAILED", $"Migration failed: {ex.Message}"));
+            }
+        }
+
+        /// <summary>
         /// Check migration status
         /// </summary>
         /// <returns>Migration status information</returns>
@@ -97,6 +124,9 @@ namespace FlowFlex.WebApi.Controllers
                 // Check if token_expiry is nullable
                 var tokenExpiryNullable = await Task.Run(() => CheckColumnNullable("ff_user_invitations", "token_expiry"));
                 
+                // Check if app_code column exists in ff_events
+                var eventsAppCodeExists = await Task.Run(() => CheckColumnExists("ff_events", "app_code"));
+                
                 var status = new
                 {
                     EncryptedAccessTokenMigration = new
@@ -110,6 +140,12 @@ namespace FlowFlex.WebApi.Controllers
                         Name = "20250101000013_MakeTokenExpiryNullable",
                         Status = tokenExpiryNullable ? "Completed" : "Pending",
                         IsNullable = tokenExpiryNullable
+                    },
+                    AddAppCodeToEventsMigration = new
+                    {
+                        Name = "20250101000014_AddAppCodeToEvents",
+                        Status = eventsAppCodeExists ? "Completed" : "Pending",
+                        ColumnExists = eventsAppCodeExists
                     }
                 };
 
