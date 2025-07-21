@@ -83,11 +83,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW
         public string InvitationToken { get; set; }
 
         /// <summary>
-        /// Token expiry date
-        /// </summary>
-        public DateTime TokenExpiry { get; set; }
-
-        /// <summary>
         /// Last login date
         /// </summary>
         public DateTime? LastLoginDate { get; set; }
@@ -121,6 +116,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW
         /// Whether verification was successful
         /// </summary>
         public bool IsValid { get; set; }
+
+        /// <summary>
+        /// Whether the invitation has expired
+        /// </summary>
+        public bool IsExpired { get; set; }
 
         /// <summary>
         /// Onboarding ID

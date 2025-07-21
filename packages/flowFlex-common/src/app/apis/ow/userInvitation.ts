@@ -4,10 +4,9 @@ import { getCurrentBaseUrl } from '@/utils/url';
 export interface PortalUser {
 	id: string;
 	email: string;
-	status: string;
+	status: string; // Only 'Active' or 'Inactive'
 	sentDate: string;
 	invitationToken: string;
-	tokenExpiry: string;
 	lastLoginDate?: string;
 }
 
@@ -37,6 +36,7 @@ export interface PortalAccessVerificationRequest {
 
 export interface PortalAccessVerificationResponse {
 	isValid: boolean;
+	isExpired: boolean;
 	onboardingId: string;
 	email: string;
 	accessToken: string;
@@ -121,6 +121,28 @@ export const validateInvitationToken = (request: TokenValidationRequest) => {
 export const removePortalAccess = (onboardingId: string, email: string) => {
 	return defHttp.delete<{ success: boolean }>({
 		url: `/api/ow/user-invitations/v1/remove-access/${onboardingId}?email=${encodeURIComponent(
+			email
+		)}`,
+	});
+};
+
+/**
+ * Toggle portal access status (Active/Inactive)
+ */
+export const togglePortalAccessStatus = (onboardingId: string, email: string, isActive: boolean) => {
+	return defHttp.put<{ success: boolean }>({
+		url: `/api/ow/user-invitations/v1/toggle-status/${onboardingId}?email=${encodeURIComponent(
+			email
+		)}&isActive=${isActive}`,
+	});
+};
+
+/**
+ * Get invitation link for a user
+ */
+export const getInvitationLink = (onboardingId: string, email: string) => {
+	return defHttp.get<{ invitationUrl: string }>({
+		url: `/api/ow/user-invitations/v1/invitation-link/${onboardingId}?email=${encodeURIComponent(
 			email
 		)}`,
 	});

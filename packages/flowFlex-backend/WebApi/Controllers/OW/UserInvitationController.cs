@@ -101,6 +101,37 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Toggle portal access status (Active/Inactive)
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <param name="isActive">Whether to activate or deactivate</param>
+        /// <returns>Whether status change was successful</returns>
+        [HttpPut("toggle-status/{onboardingId}")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> TogglePortalAccessStatusAsync(long onboardingId, [FromQuery] string email, [FromQuery] bool isActive)
+        {
+            var result = await _userInvitationService.TogglePortalAccessStatusAsync(onboardingId, email, isActive);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get invitation link for a user
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <returns>Invitation link information</returns>
+        [HttpGet("invitation-link/{onboardingId}")]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> GetInvitationLinkAsync(long onboardingId, [FromQuery] string email)
+        {
+            var result = await _userInvitationService.GetInvitationLinkAsync(onboardingId, email);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Validate invitation token
         /// </summary>
         /// <param name="request">Token validation request</param>

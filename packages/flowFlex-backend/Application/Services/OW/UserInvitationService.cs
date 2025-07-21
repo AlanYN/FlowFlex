@@ -9,6 +9,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
 
 namespace FlowFlex.Application.Services.OW
@@ -79,12 +80,16 @@ namespace FlowFlex.Application.Services.OW
                     if (existingInvitation != null)
                     {
                         // Update existing invitation
-                        existingInvitation.InvitationToken = GenerateInvitationToken();
+                        existingInvitation.InvitationToken = CryptoHelper.GenerateSecureToken();
                         existingInvitation.SentDate = DateTimeOffset.UtcNow;
-                        existingInvitation.TokenExpiry = DateTimeOffset.UtcNow.AddDays(7);
+                        existingInvitation.TokenExpiry = null; // No expiry
                         existingInvitation.Status = "Pending";
                         existingInvitation.SendCount += 1;
-                        existingInvitation.InvitationUrl = GenerateInvitationUrl(existingInvitation.InvitationToken, request.OnboardingId, request.BaseUrl);
+                        existingInvitation.EncryptedAccessToken = CryptoHelper.EncryptPortalAccessData(
+                            request.OnboardingId, 
+                            existingInvitation.InvitationToken, 
+                            DateTimeOffset.MaxValue); // Use max value for no expiry
+                        existingInvitation.InvitationUrl = GenerateInvitationUrl(existingInvitation.EncryptedAccessToken, request.BaseUrl);
                         existingInvitation.ModifyDate = DateTimeOffset.UtcNow;
                         existingInvitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
 
@@ -112,15 +117,19 @@ namespace FlowFlex.Application.Services.OW
                         {
                             OnboardingId = request.OnboardingId,
                             Email = email,
-                            InvitationToken = GenerateInvitationToken(),
+                            InvitationToken = CryptoHelper.GenerateSecureToken(),
                             Status = "Pending",
                             SentDate = DateTimeOffset.UtcNow,
-                            TokenExpiry = DateTimeOffset.UtcNow.AddDays(7),
+                            TokenExpiry = null, // No expiry
                             SendCount = 1,
                             TenantId = onboarding.TenantId
                         };
 
-                        invitation.InvitationUrl = GenerateInvitationUrl(invitation.InvitationToken, request.OnboardingId, request.BaseUrl);
+                        invitation.EncryptedAccessToken = CryptoHelper.EncryptPortalAccessData(
+                            request.OnboardingId, 
+                            invitation.InvitationToken, 
+                            DateTimeOffset.MaxValue); // Use max value for no expiry
+                        invitation.InvitationUrl = GenerateInvitationUrl(invitation.EncryptedAccessToken, request.BaseUrl);
 
                         // Create system user context for initialization
                         var systemUserContext = new UserContext
@@ -176,7 +185,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Verify portal access with invitation token
+        /// Verify portal access with encrypted invitation token
         /// </summary>
         /// <param name="request">Verification request</param>
         /// <returns>Verification response</returns>
@@ -186,12 +195,32 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Find invitation by token
-                var invitation = await _invitationRepository.GetByTokenAsync(request.Token);
+                // First try to decrypt the token to get onboarding ID and invitation token
+                var decryptedData = CryptoHelper.DecryptPortalAccessData(request.Token);
+                if (decryptedData == null)
+                {
+                    response.IsValid = false;
+                    response.ErrorMessage = "Invalid or corrupted invitation link";
+                    response.IsExpired = false;
+                    return response;
+                }
+
+                // Skip expiry check as invitations don't expire
+                // if (decryptedData.ExpiryTime < DateTimeOffset.UtcNow)
+                // {
+                //     response.IsValid = false;
+                //     response.ErrorMessage = "This invitation link has expired. Please request a new invitation.";
+                //     response.IsExpired = true;
+                //     return response;
+                // }
+
+                // Find invitation by the decrypted token
+                var invitation = await _invitationRepository.GetByTokenAsync(decryptedData.InvitationToken);
                 if (invitation == null)
                 {
                     response.IsValid = false;
-                    response.ErrorMessage = "Invalid invitation token";
+                    response.ErrorMessage = "Invitation not found. The link may have been revoked.";
+                    response.IsExpired = false;
                     return response;
                 }
 
@@ -199,25 +228,28 @@ namespace FlowFlex.Application.Services.OW
                 if (invitation.Email != request.Email)
                 {
                     response.IsValid = false;
-                    response.ErrorMessage = "Email does not match invitation";
+                    response.ErrorMessage = "Email address does not match this invitation";
+                    response.IsExpired = false;
                     return response;
                 }
 
-                // Check if token is expired
-                if (invitation.TokenExpiry < DateTimeOffset.UtcNow)
+                // Check if invitation is still valid (Active or Pending)
+                if (invitation.Status == "Inactive")
                 {
                     response.IsValid = false;
-                    response.ErrorMessage = "Invitation token has expired";
+                    response.ErrorMessage = "This invitation has been deactivated. Please contact support.";
+                    response.IsExpired = false;
                     return response;
                 }
 
-                // Check if invitation is still valid
-                if (invitation.Status != "Pending")
-                {
-                    response.IsValid = false;
-                    response.ErrorMessage = "Invitation is no longer valid";
-                    return response;
-                }
+                // Skip expired status check as invitations don't expire
+                // if (invitation.Status == "Expired")
+                // {
+                //     response.IsValid = false;
+                //     response.ErrorMessage = "This invitation has expired. Please request a new invitation.";
+                //     response.IsExpired = true;
+                //     return response;
+                // }
 
                 // Update invitation access date
                 invitation.LastAccessDate = DateTimeOffset.UtcNow;
@@ -287,12 +319,16 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Update invitation
-                invitation.InvitationToken = GenerateInvitationToken();
+                invitation.InvitationToken = CryptoHelper.GenerateSecureToken();
                 invitation.SentDate = DateTimeOffset.UtcNow;
-                invitation.TokenExpiry = DateTimeOffset.UtcNow.AddDays(7);
+                invitation.TokenExpiry = null; // No expiry
                 invitation.Status = "Pending";
                 invitation.SendCount += 1;
-                invitation.InvitationUrl = GenerateInvitationUrl(invitation.InvitationToken, request.OnboardingId, request.BaseUrl);
+                invitation.EncryptedAccessToken = CryptoHelper.EncryptPortalAccessData(
+                    request.OnboardingId, 
+                    invitation.InvitationToken, 
+                    DateTimeOffset.MaxValue); // Use max value for no expiry
+                invitation.InvitationUrl = GenerateInvitationUrl(invitation.EncryptedAccessToken, request.BaseUrl);
                 invitation.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _invitationRepository.UpdateAsync(invitation);
@@ -378,15 +414,15 @@ namespace FlowFlex.Application.Services.OW
                     };
                 }
 
-                // Check if token is expired
-                if (invitation.TokenExpiry < DateTimeOffset.UtcNow)
-                {
-                    return new TokenValidationResponseDto
-                    {
-                        IsValid = false,
-                        ErrorMessage = "Token has expired"
-                    };
-                }
+                // Skip token expiry check as invitations don't expire
+                // if (invitation.TokenExpiry.HasValue && invitation.TokenExpiry < DateTimeOffset.UtcNow)
+                // {
+                //     return new TokenValidationResponseDto
+                //     {
+                //         IsValid = false,
+                //         ErrorMessage = "Token has expired"
+                //     };
+                // }
 
                 // Check if invitation is still valid
                 if (!invitation.IsValid)
@@ -415,33 +451,85 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
+
+
         /// <summary>
-        /// Generate invitation token
+        /// Toggle portal access status (Active/Inactive)
         /// </summary>
-        /// <returns>Invitation token</returns>
-        private string GenerateInvitationToken()
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <param name="isActive">Whether to activate or deactivate</param>
+        /// <returns>Whether status change was successful</returns>
+        public async Task<bool> TogglePortalAccessStatusAsync(long onboardingId, string email, bool isActive)
         {
-            using var rng = RandomNumberGenerator.Create();
-            var bytes = new byte[32];
-            rng.GetBytes(bytes);
-            return Convert.ToBase64String(bytes).Replace("/", "_").Replace("+", "-").Replace("=", "");
+            try
+            {
+                var invitation = await _invitationRepository.GetByEmailAndOnboardingIdAsync(email, onboardingId);
+                if (invitation == null)
+                    return false;
+
+                invitation.Status = isActive ? "Active" : "Inactive";
+                invitation.ModifyDate = DateTimeOffset.UtcNow;
+                invitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
+
+                await _invitationRepository.UpdateAsync(invitation);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to toggle portal access status for {Email} in onboarding {OnboardingId}", email, onboardingId);
+                return false;
+            }
         }
 
         /// <summary>
-        /// Generate invitation URL
+        /// Get invitation link for a user
         /// </summary>
-        /// <param name="token">Invitation token</param>
         /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <returns>Invitation link information</returns>
+        public async Task<object> GetInvitationLinkAsync(long onboardingId, string email)
+        {
+            try
+            {
+                var invitation = await _invitationRepository.GetByEmailAndOnboardingIdAsync(email, onboardingId);
+                if (invitation == null)
+                {
+                    return new { invitationUrl = "", error = "Invitation not found" };
+                }
+
+                // Generate invitation URL using encrypted access token
+                var invitationUrl = GenerateInvitationUrl(invitation.EncryptedAccessToken ?? "", null);
+
+                return new 
+                { 
+                    invitationUrl = invitationUrl,
+                    status = invitation.Status,
+                    email = invitation.Email,
+                    expiryDate = invitation.TokenExpiry
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get invitation link for {Email} in onboarding {OnboardingId}", email, onboardingId);
+                return new { invitationUrl = "", error = "Failed to retrieve invitation link" };
+            }
+        }
+
+        /// <summary>
+        /// Generate invitation URL with encrypted token
+        /// </summary>
+        /// <param name="encryptedToken">Encrypted access token</param>
         /// <param name="baseUrl">Base URL (optional, will use default if not provided)</param>
         /// <returns>Invitation URL</returns>
-        private string GenerateInvitationUrl(string token, long onboardingId, string? baseUrl = null)
+        private string GenerateInvitationUrl(string encryptedToken, string? baseUrl = null)
         {
             // Use provided baseUrl or fall back to default
             var finalBaseUrl = !string.IsNullOrEmpty(baseUrl)
                 ? baseUrl.TrimEnd('/')
                 : "http://localhost:5173"; // Updated default for frontend port
 
-            return $"{finalBaseUrl}/customer-portal?onboardingId={onboardingId}&token={token}";
+            return $"{finalBaseUrl}/portal-access?token={Uri.EscapeDataString(encryptedToken)}";
         }
 
         /// <summary>

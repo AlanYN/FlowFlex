@@ -43,7 +43,9 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250101000011_AddStageVersionComponentsField", (Action)(() => Migration_20250101000011_AddStageVersionComponentsField.Up(_db))),
                     ("20241219000001_AddAppCodeColumn", (Action)(() => AddAppCodeColumnMigration.Execute(_db))),
                     ("20241219000002_AddAppCodeColumnSafe", (Action)(() => AddAppCodeColumnSafeMigration.Execute(_db))),
-                    ("20250101000010_CreateAccessTokenTable", (Action)(() => CreateAccessTokenTable_20250101000010.Up(_db)))
+                    ("20250101000010_CreateAccessTokenTable", (Action)(() => CreateAccessTokenTable_20250101000010.Up(_db))),
+                    ("20250101000012_AddEncryptedAccessTokenField", (Action)(() => AddEncryptedAccessTokenField_20250101000012.Up(_db))),
+                    ("20250101000013_MakeTokenExpiryNullable", (Action)(() => MakeTokenExpiryNullable_20250101000013.Up(_db)))
                 };
 
                 var failedMigrations = new List<string>();

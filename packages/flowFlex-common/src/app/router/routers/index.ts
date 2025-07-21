@@ -37,9 +37,20 @@ export const LoginRoute: AppRouteRecordRaw = {
 	},
 };
 
+export const PortalAccessRoute: AppRouteRecordRaw = {
+	path: '/portal-access',
+	name: 'PortalAccess',
+	component: () => import('@/views/onboard/portal-access/index.vue'),
+	meta: {
+		title: 'Portal Access Verification',
+		hideMenu: true,
+		noAuth: true, // 不需要认证
+	},
+};
+
 // Basic routing without permission
 // 未经许可的基本路由
 // LoginRoute,
 //   RootRoute,
-export const whiteNameLiast = [RootRoute, LoginRoute, PAGE_NOT_FOUND_ROUTE]; //白名单
-export const basicRoutes = [PAGE_NOT_FOUND_ROUTE, RootRoute, LoginRoute];
+export const whiteNameLiast = [RootRoute, LoginRoute, PortalAccessRoute, PAGE_NOT_FOUND_ROUTE]; //白名单
+export const basicRoutes = [PAGE_NOT_FOUND_ROUTE, RootRoute, LoginRoute, PortalAccessRoute];

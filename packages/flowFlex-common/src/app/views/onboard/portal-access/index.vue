@@ -6,25 +6,68 @@
 				<p>Please verify your email to access the onboarding portal</p>
 			</div>
 
-			<div v-if="!isVerified" class="verification-form">
-				<el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-					<el-form-item label="Email" prop="email">
-						<el-input v-model="form.email" placeholder="Enter your email address" />
-					</el-form-item>
-					<el-form-item>
-						<el-button type="primary" @click="handleVerify" :loading="loading">
-							Verify Access
-						</el-button>
-					</el-form-item>
-				</el-form>
-			</div>
+					<div v-if="verificationState === 'form'" class="verification-form">
+			<el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
+				<el-form-item label="Email" prop="email">
+					<el-input v-model="form.email" placeholder="Enter your email address" />
+				</el-form-item>
+				<el-form-item>
+					<el-button type="primary" @click="handleVerify" :loading="loading">
+						Verify Access
+					</el-button>
+				</el-form-item>
+			</el-form>
+		</div>
 
-			<div v-else class="success-message">
+		<!-- Success State -->
+		<div v-else-if="verificationState === 'success'" class="success-message">
 				<el-result icon="success" title="Access Verified!" :sub-title="successMessage">
 					<template #extra>
 						<el-button type="primary" @click="redirectToOnboarding">
 							Continue to Onboarding
 						</el-button>
+					</template>
+				</el-result>
+			</div>
+
+			<!-- Expired State -->
+			<div v-else-if="verificationState === 'expired'" class="expired-message">
+				<el-result icon="warning" title="Invitation Expired" sub-title="This invitation link has expired.">
+					<template #extra>
+						<div class="space-y-4">
+							<p class="text-gray-600">
+								Your invitation link has expired. Please contact the organization that sent you this invitation to request a new link.
+							</p>
+							<div class="flex justify-center space-x-4">
+								<el-button @click="requestNewInvitation">
+									Request New Invitation
+								</el-button>
+								<el-button type="primary" @click="contactSupport">
+									Contact Support
+								</el-button>
+							</div>
+						</div>
+					</template>
+				</el-result>
+			</div>
+
+			<!-- Error State -->
+			<div v-else-if="verificationState === 'error'" class="error-message">
+				<el-result icon="error" title="Access Denied" :sub-title="errorMessage">
+					<template #extra>
+						<div class="space-y-4">
+							<p class="text-gray-600">
+								{{ errorDescription }}
+							</p>
+							<div class="flex justify-center space-x-4">
+								<el-button @click="retryVerification">
+									Try Again
+								</el-button>
+								<el-button type="primary" @click="contactSupport">
+									Contact Support
+								</el-button>
+							</div>
+						</div>
 					</template>
 				</el-result>
 			</div>
@@ -46,6 +89,9 @@ const formRef = ref<InstanceType<typeof ElForm>>();
 const loading = ref(false);
 const isVerified = ref(false);
 const successMessage = ref('');
+const verificationState = ref<'form' | 'success' | 'expired' | 'error'>('form');
+const errorMessage = ref('');
+const errorDescription = ref('');
 
 const form = ref({
 	email: '',
@@ -54,7 +100,7 @@ const form = ref({
 const rules = {
 	email: [
 		{ required: true, message: 'Please enter your email address', trigger: 'blur' },
-		{ type: 'email', message: 'Please enter a valid email address', trigger: 'blur' },
+		{ type: 'email' as const, message: 'Please enter a valid email address', trigger: 'blur' },
 	],
 };
 
@@ -77,18 +123,30 @@ const handleVerify = async () => {
 			email: form.value.email,
 		});
 
-		if (response.isValid) {
+		// Extract data from wrapped response
+		const verificationData = response?.data || response;
+
+		if (verificationData.isValid) {
 			isVerified.value = true;
+			verificationState.value = 'success';
 			successMessage.value = `Welcome! You now have access to the onboarding portal.`;
 			
 			// Store access token for future API calls
-			localStorage.setItem('portal_access_token', response.accessToken);
-			localStorage.setItem('onboarding_id', response.onboardingId.toString());
+			localStorage.setItem('portal_access_token', verificationData.accessToken);
+			localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
 		} else {
-			ElMessage.error(response.errorMessage || 'Verification failed');
+			if (verificationData.isExpired) {
+				verificationState.value = 'expired';
+			} else {
+				verificationState.value = 'error';
+				errorMessage.value = verificationData.errorMessage || 'Verification failed';
+				errorDescription.value = getErrorDescription(verificationData.errorMessage);
+			}
 		}
 	} catch (error) {
-		ElMessage.error('Verification failed. Please try again.');
+		verificationState.value = 'error';
+		errorMessage.value = 'Connection Error';
+		errorDescription.value = 'Unable to verify your invitation. Please check your internet connection and try again.';
 		console.error('Verification error:', error);
 	} finally {
 		loading.value = false;
@@ -98,10 +156,48 @@ const handleVerify = async () => {
 const redirectToOnboarding = () => {
 	const onboardingId = localStorage.getItem('onboarding_id');
 	if (onboardingId) {
-		router.push(`/onboarding/${onboardingId}`);
+		// 跳转到onboard详情页面，传递onboardingId作为查询参数
+		router.push(`/onboard/onboardDetail?onboardingId=${onboardingId}`);
 	} else {
-		router.push('/onboarding');
+		router.push('/onboard/onboardList');
 	}
+};
+
+// Get user-friendly error description
+const getErrorDescription = (errorMessage?: string): string => {
+	if (!errorMessage) return 'Please try again or contact support if the problem persists.';
+	
+	if (errorMessage.includes('Email address does not match')) {
+		return 'Please make sure you are using the correct email address that received the invitation.';
+	}
+	if (errorMessage.includes('deactivated')) {
+		return 'Your access has been temporarily disabled. Please contact the organization for assistance.';
+	}
+	if (errorMessage.includes('corrupted')) {
+		return 'The invitation link appears to be damaged. Please request a new invitation link.';
+	}
+	return 'Please try again or contact support if the problem persists.';
+};
+
+// Request new invitation
+const requestNewInvitation = () => {
+	// Could implement email sending or redirect to a request form
+	ElMessage.info('Please contact the organization that sent you the original invitation to request a new link.');
+};
+
+// Contact support
+const contactSupport = () => {
+	// Could open email client or redirect to support page
+	const supportEmail = 'support@flowflex.com'; // This should be configurable
+	window.location.href = `mailto:${supportEmail}?subject=Portal Access Issue&body=I need help with my portal access invitation.`;
+};
+
+// Retry verification
+const retryVerification = () => {
+	verificationState.value = 'form';
+	errorMessage.value = '';
+	errorDescription.value = '';
+	form.value.email = '';
 };
 
 // Load data on mount

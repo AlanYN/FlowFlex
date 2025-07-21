@@ -31,7 +31,10 @@
 				<el-table-column label="Email" prop="email" />
 				<el-table-column label="Status" width="120">
 					<template #default="{ row }">
-						<el-tag :type="row.status === 'Active' ? 'success' : 'warning'">
+						<el-tag 
+							:type="getStatusTagType(row.status)"
+							:effect="row.status === 'Inactive' ? 'light' : 'dark'"
+						>
 							{{ row.status }}
 						</el-tag>
 					</template>
@@ -41,22 +44,38 @@
 						{{ formatDate(row.sentDate) }}
 					</template>
 				</el-table-column>
-				<el-table-column label="Actions" width="200">
+				<el-table-column label="Actions" width="260">
 					<template #default="{ row }">
 						<div class="flex space-x-2">
-							<el-button size="small" @click="resendInvitation(row.email)"
-								:disabled="row.status === 'Active'">
+							<el-button 
+								size="small" 
+								@click="resendInvitation(row.email)"
+								:disabled="row.status === 'Inactive'"
+							>
 								<el-icon class="h-3 w-3 mr-1">
 									<Refresh />
 								</el-icon>
 								Resend
 							</el-button>
-							<el-button size="small" class="text-red-500 hover:text-red-700 hover:bg-red-50"
-								@click="handleRemoveUser(row)">
+							<el-button 
+								size="small" 
+								:type="getToggleButtonType(row.status)"
+								@click="handleToggleStatus(row)"
+							>
 								<el-icon class="h-3 w-3 mr-1">
-									<Delete />
+									<Switch />
 								</el-icon>
-								Remove
+								{{ getToggleButtonText(row.status) }}
+							</el-button>
+							<el-button 
+								size="small" 
+								type="info"
+								@click="handleViewInvitationLink(row)"
+							>
+								<el-icon class="h-3 w-3 mr-1">
+									<View />
+								</el-icon>
+								View
 							</el-button>
 						</div>
 					</template>
@@ -108,17 +127,58 @@
 			</template>
 		</el-dialog>
 
-		<!-- Remove User Confirmation Dialog -->
-		<el-dialog v-model="showRemoveDialog" title="Remove Portal Access" width="400px">
-			<p>
-				Are you sure you want to remove portal access for
-				<strong>{{ userToRemove?.email }}</strong>
-				?
-			</p>
+		<!-- Invitation Link Dialog -->
+		<el-dialog v-model="showInvitationLinkDialog" title="Invitation Link" width="600px">
+			<div class="space-y-4">
+				<div>
+					<h4 class="text-lg font-medium mb-2">Invitation Details</h4>
+					<div class="bg-gray-50 p-4 rounded-lg">
+						<div class="grid grid-cols-2 gap-4">
+							<div>
+								<span class="text-sm font-medium text-gray-600">Email:</span>
+								<p class="text-sm">{{ currentInvitationUser?.email }}</p>
+							</div>
+							<div>
+								<span class="text-sm font-medium text-gray-600">Status:</span>
+								<el-tag 
+									:type="getStatusTagType(currentInvitationUser?.status || '')"
+									size="small"
+								>
+									{{ currentInvitationUser?.status }}
+								</el-tag>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<div>
+					<label class="block text-sm font-medium mb-2">Invitation Link:</label>
+					<div class="flex items-center space-x-2">
+						<el-input 
+							v-model="currentInvitationUrl" 
+							readonly 
+							class="flex-1"
+						/>
+						<el-button @click="copyInvitationLink">
+							Copy
+						</el-button>
+					</div>
+				</div>
+				
+				<div class="bg-blue-50 p-4 rounded-lg">
+					<p class="text-sm text-blue-800">
+						<strong>Note:</strong> Share this link with the customer to access their onboarding portal. 
+						The link is encrypted and secure.
+					</p>
+				</div>
+			</div>
+			
 			<template #footer>
 				<div class="flex justify-end space-x-2">
-					<el-button @click="showRemoveDialog = false">Cancel</el-button>
-					<el-button type="danger" @click="confirmRemoveUser">Remove Access</el-button>
+					<el-button @click="showInvitationLinkDialog = false">Close</el-button>
+					<el-button type="primary" @click="copyInvitationLink">
+						Copy Link
+					</el-button>
 				</div>
 			</template>
 		</el-dialog>
@@ -128,7 +188,7 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Plus, Refresh, Delete, Message } from '@element-plus/icons-vue';
+import { Plus, Refresh, View, Message, Switch } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
 import { getCurrentBaseUrl } from '@/utils/url';
@@ -144,9 +204,10 @@ const props = defineProps<Props>();
 
 // Reactive data
 const showAddDialog = ref(false);
-const showRemoveDialog = ref(false);
+const showInvitationLinkDialog = ref(false);
 const selectedEmails = ref<string[]>([]);
-const userToRemove = ref<PortalUser | null>(null);
+const currentInvitationUser = ref<PortalUser | null>(null);
+const currentInvitationUrl = ref('');
 const successMessage = ref('');
 const loading = ref(false);
 
@@ -265,35 +326,44 @@ const handleAddUser = async () => {
 	}
 };
 
-const handleRemoveUser = (user: PortalUser) => {
-	userToRemove.value = user;
-	showRemoveDialog.value = true;
+const handleViewInvitationLink = async (user: PortalUser) => {
+	try {
+		// 获取邀请链接
+		const response = await userInvitationApi.getInvitationLink(props.onboardingId, user.email);
+		const invitationUrl = response?.data?.invitationUrl || response?.invitationUrl;
+		
+		if (invitationUrl) {
+			// 显示邀请链接对话框
+			currentInvitationUser.value = user;
+			currentInvitationUrl.value = invitationUrl;
+			showInvitationLinkDialog.value = true;
+		} else {
+			ElMessage.warning('Unable to retrieve invitation link');
+		}
+	} catch (error) {
+		console.error('Failed to get invitation link:', error);
+		ElMessage.error('Failed to retrieve invitation link');
+	}
 };
 
-const confirmRemoveUser = async () => {
-	if (userToRemove.value) {
+// Copy invitation link to clipboard
+const copyInvitationLink = async () => {
+	try {
+		await navigator.clipboard.writeText(currentInvitationUrl.value);
+		ElMessage.success('Invitation link copied to clipboard');
+	} catch (error) {
+		console.error('Failed to copy link:', error);
+		// Fallback for older browsers
 		try {
-			const removedEmail = userToRemove.value.email;
-			const response = await userInvitationApi.removePortalAccess(
-				props.onboardingId,
-				removedEmail
-			);
-			console.log('Remove portal access response:', response);
-
-			// Refresh portal users list
-			await loadPortalUsers();
-			showRemoveDialog.value = false;
-
-			// Show success message
-			successMessage.value = `Access removed for ${removedEmail} successfully.`;
-			setTimeout(() => {
-				successMessage.value = '';
-			}, 5000);
-
-			userToRemove.value = null;
-		} catch (error) {
-			ElMessage.error('Failed to remove portal access');
-			console.error('Error removing portal access:', error);
+			const textArea = document.createElement('textarea');
+			textArea.value = currentInvitationUrl.value;
+			document.body.appendChild(textArea);
+			textArea.select();
+			document.execCommand('copy');
+			document.body.removeChild(textArea);
+			ElMessage.success('Invitation link copied to clipboard');
+		} catch (fallbackError) {
+			ElMessage.error('Failed to copy link to clipboard');
 		}
 	}
 };
@@ -327,6 +397,81 @@ const handleViewCustomerPortal = () => {
 
 	// Open in new window/tab
 	window.open(customerPortalUrl, '_blank');
+};
+
+// Get status tag type for different statuses
+const getStatusTagType = (status: string) => {
+	switch (status) {
+		case 'Active':
+			return 'success';
+		case 'Inactive':
+			return 'info';
+		default:
+			return 'info';
+	}
+};
+
+// Check if user is in active state (can access portal)
+const isUserActive = (status: string) => {
+	// Only Active status allows toggling to Inactive
+	// Used status means user has already accessed the portal
+	// Pending status means invitation not yet used
+	return status === 'Active';
+};
+
+// Get toggle button type based on status
+const getToggleButtonType = (status: string) => {
+	switch (status) {
+		case 'Active':
+			return 'warning'; // Orange for deactivate
+		case 'Inactive':
+			return 'primary'; // Blue for activate
+		default:
+			return 'primary';
+	}
+};
+
+// Get toggle button text based on status
+const getToggleButtonText = (status: string) => {
+	switch (status) {
+		case 'Active':
+			return 'Deactivate';
+		case 'Inactive':
+			return 'Activate';
+		default:
+			return 'Activate';
+	}
+};
+
+// Handle status toggle (Active/Inactive)
+const handleToggleStatus = async (user: PortalUser) => {
+	try {
+		// Determine if we're activating or deactivating
+		// Active -> Inactive (deactivating)
+		// Pending/Inactive -> Active (activating)  
+		// Used status cannot be changed back to Active
+		const isActivating = user.status !== 'Active';
+		const response = await userInvitationApi.togglePortalAccessStatus(
+			props.onboardingId,
+			user.email,
+			isActivating
+		);
+		
+		console.log('Toggle status response:', response);
+
+		// Refresh portal users list
+		await loadPortalUsers();
+
+		// Show success message
+		const statusText = isActivating ? 'activated' : 'deactivated';
+		successMessage.value = `Portal access ${statusText} for ${user.email} successfully.`;
+		setTimeout(() => {
+			successMessage.value = '';
+		}, 5000);
+	} catch (error) {
+		ElMessage.error('Failed to toggle portal access status');
+		console.error('Error toggling portal access status:', error);
+	}
 };
 
 // Email tags change handler for InputTag component

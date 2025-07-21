@@ -34,11 +34,18 @@ namespace FlowFlex.Domain.Entities.OW
         public string InvitationToken { get; set; }
 
         /// <summary>
-        /// Invitation status (Pending, Active, Expired, Used)
+        /// Invitation status (Pending, Active, Inactive, Expired, Used)
         /// </summary>
         [StringLength(20)]
         [SugarColumn(ColumnName = "status")]
         public string Status { get; set; } = "Pending";
+
+        /// <summary>
+        /// Encrypted portal access token (contains onboarding ID and invitation token)
+        /// </summary>
+        [StringLength(500)]
+        [SugarColumn(ColumnName = "encrypted_access_token")]
+        public string? EncryptedAccessToken { get; set; }
 
         /// <summary>
         /// Invitation sent date
@@ -47,10 +54,10 @@ namespace FlowFlex.Domain.Entities.OW
         public DateTimeOffset SentDate { get; set; }
 
         /// <summary>
-        /// Token expiry date
+        /// Token expiry date (null means no expiry)
         /// </summary>
         [SugarColumn(ColumnName = "token_expiry")]
-        public DateTimeOffset TokenExpiry { get; set; }
+        public DateTimeOffset? TokenExpiry { get; set; }
 
         /// <summary>
         /// Last access date (when user clicked the invitation link)

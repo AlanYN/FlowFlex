@@ -44,6 +44,23 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> RemovePortalAccessAsync(long onboardingId, string email);
 
         /// <summary>
+        /// Toggle portal access status (Active/Inactive)
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <param name="isActive">Whether to activate or deactivate</param>
+        /// <returns>Whether status change was successful</returns>
+        Task<bool> TogglePortalAccessStatusAsync(long onboardingId, string email, bool isActive);
+
+        /// <summary>
+        /// Get invitation link for a user
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <returns>Invitation link information</returns>
+        Task<object> GetInvitationLinkAsync(long onboardingId, string email);
+
+        /// <summary>
         /// Validate invitation token
         /// </summary>
         /// <param name="token">Invitation token</param>
