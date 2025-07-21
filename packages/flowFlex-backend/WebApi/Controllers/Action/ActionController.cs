@@ -11,7 +11,7 @@ namespace FlowFlex.WebApi.Controllers.Action
     /// Action management controller
     /// </summary>
     [ApiController]
-    [Route("api/v{version:apiVersion}/action")]
+    [Route("action/v{version:apiVersion}")]
     [Authorize]
     public class ActionController : ControllerBase
     {
