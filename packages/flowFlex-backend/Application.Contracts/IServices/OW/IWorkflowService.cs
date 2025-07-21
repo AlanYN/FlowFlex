@@ -53,6 +53,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<long> CreateFromVersionAsync(CreateWorkflowFromVersionInputDto input);
 
         /// <summary>
+        /// Manually create a new workflow version
+        /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <param name="changeReason">Optional reason for creating the version</param>
+        /// <returns>Success result</returns>
+        Task<bool> CreateNewVersionAsync(long id, string changeReason = null);
+
+        /// <summary>
         /// Process expired workflows, set them to inactive
         /// </summary>
         Task<int> ProcessExpiredWorkflowsAsync();

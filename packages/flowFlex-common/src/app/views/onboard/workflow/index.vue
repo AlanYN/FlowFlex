@@ -190,6 +190,10 @@
 											<el-icon><Plus /></el-icon>
 											Add Stage
 										</el-dropdown-item>
+										<el-dropdown-item command="versionHistory">
+											<el-icon><Clock /></el-icon>
+											Version History
+										</el-dropdown-item>
 										<!-- <el-dropdown-item
 											command="combineStages"
 											:disabled="workflow.stages.length < 2"
@@ -474,6 +478,17 @@
 
 			<template #footer>
 				<div class="version-dialog-footer">
+					<el-button
+						type="primary"
+						@click="saveNewVersion"
+						:loading="loading.createVersion"
+						:disabled="!workflow"
+						class="save-version-btn"
+					>
+						<el-icon v-if="loading.createVersion"><Loading /></el-icon>
+						<el-icon v-else><Plus /></el-icon>
+						Save New Version
+					</el-button>
 					<el-button @click="dialogVisible.versionHistory = false" class="close-btn">
 						Close
 					</el-button>
@@ -659,6 +674,7 @@ import {
 	getWorkflowVersions,
 	getWorkflowVersionStages,
 	createWorkflowFromVersion as createWorkflowFromVersionApi,
+	createWorkflowVersion,
 	createStage,
 	getStagesByWorkflow,
 	combineStages,
@@ -710,6 +726,7 @@ const loading = reactive({
 	sortStages: false, // 排序阶段
 	combineStages: false, // 合并阶段
 	exportWorkflow: false, // 导出工作流
+	createVersion: false, // 创建版本
 });
 
 // 合并阶段相关状态
@@ -1014,6 +1031,9 @@ const handleCommand = (command: string, currentWorkflow: Workflow) => {
 			break;
 		case 'addStage':
 			addStage();
+			break;
+		case 'versionHistory':
+			showVersionHistory();
 			break;
 		case 'duplicate':
 			duplicateWorkflow();
@@ -1696,6 +1716,33 @@ const resetCombineStagesForm = () => {
 	combinedStageGroup.value = '';
 	combinedStageDuration.value = 1;
 };
+
+// 保存新版本
+const saveNewVersion = async () => {
+	if (!workflow.value) return;
+
+	try {
+		loading.createVersion = true;
+		const params = {
+			changeReason: 'Manual version creation from UI',
+		};
+
+		const res = await createWorkflowVersion(workflow.value.id, params);
+
+		if (res.code === '200') {
+			ElMessage.success('New version created successfully');
+			// 重新获取版本历史
+			await showVersionHistory();
+		} else {
+			ElMessage.error(res.msg || t('sys.api.operationFailed'));
+		}
+	} catch (error) {
+		ElMessage.error(t('sys.api.operationFailed'));
+		console.error('Error creating new version:', error);
+	} finally {
+		loading.createVersion = false;
+	}
+};
 </script>
 
 <style lang="scss" scoped>
@@ -2230,8 +2277,33 @@ const resetCombineStagesForm = () => {
 
 .version-dialog-footer {
 	display: flex;
-	justify-content: flex-end;
+	justify-content: space-between;
 	margin: 0;
+}
+
+.save-version-btn {
+	background: linear-gradient(135deg, #3b82f6, #2563eb);
+	border: none;
+	color: white;
+	font-weight: 500;
+	padding: 8px 16px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	transition: all 0.2s ease;
+}
+
+.save-version-btn:hover {
+	background: linear-gradient(135deg, #2563eb, #1d4ed8);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.save-version-btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
 }
 
 .close-btn {

@@ -30,6 +30,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
                 .ForMember(dest => dest.QuestionnaireId, opt => opt.MapFrom(src => src.QuestionnaireId))
                 .ForMember(dest => dest.Color, opt => opt.MapFrom(src => src.Color))
+                .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => src.ComponentsJson))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.WorkflowVersion, opt => opt.MapFrom(src => src.WorkflowVersion))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))

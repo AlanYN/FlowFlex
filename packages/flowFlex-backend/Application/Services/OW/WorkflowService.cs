@@ -134,15 +134,15 @@ namespace FlowFlex.Application.Service.OW
 
             var updateResult = await _workflowRepository.UpdateAsync(entity);
 
-            // If there are changes and update is successful, create version history record (save post-change information)
-            if (hasChanges && updateResult)
-            {
-                // Get updated stage list for version snapshot
-                var updatedStages = await _stageRepository.GetByWorkflowIdAsync(id);
-
-                // Create version history record after update (including stage snapshot) - save post-change information
-                await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(entity, updatedStages, "Updated", $"Workflow updated to version {entity.Version}");
-            }
+            // If there are changes and update is successful, create version history record (save post-change information) - Disabled automatic version creation
+            // if (hasChanges && updateResult)
+            // {
+            //     // Get updated stage list for version snapshot
+            //     var updatedStages = await _stageRepository.GetByWorkflowIdAsync(id);
+            //     
+            //     // Create version history record after update (including stage snapshot) - save post-change information
+            //     await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(entity, updatedStages, "Updated", $"Workflow updated to version {entity.Version}");
+            // }
 
             // Cache cleanup removed
 
@@ -554,7 +554,8 @@ namespace FlowFlex.Application.Service.OW
                 ChecklistId = sv.ChecklistId,
                 QuestionnaireId = sv.QuestionnaireId,
                 Color = sv.Color,
-
+                ComponentsJson = sv.ComponentsJson, // Include Components configuration from version
+                Components = ParseComponentsFromJson(sv.ComponentsJson), // Parse JSON to Components array
                 WorkflowVersion = sv.WorkflowVersion,
                 IsActive = sv.IsActive,
                 CreateDate = sv.CreateDate,
@@ -691,6 +692,60 @@ namespace FlowFlex.Application.Service.OW
             return newWorkflow.Id;
         }
 
-        // 缓存相关方法已移�?
+        /// <summary>
+        /// Manually create a new workflow version without automatic changes
+        /// </summary>
+        public async Task<bool> CreateNewVersionAsync(long id, string changeReason = null)
+        {
+            var workflow = await _workflowRepository.GetByIdAsync(id);
+            if (workflow == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {id} not found");
+            }
+
+            // Get current stages for version snapshot
+            var currentStages = await _stageRepository.GetByWorkflowIdAsync(id);
+
+            // Create version history record (including stage snapshot)
+            var reason = !string.IsNullOrEmpty(changeReason) 
+                ? changeReason 
+                : "Manual version creation";
+
+            await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(
+                workflow,
+                currentStages,
+                "Manual Version",
+                $"{reason} - Workflow manually versioned to {workflow.Version + 1}");
+
+            // Update workflow version number
+            workflow.Version += 1;
+            workflow.InitUpdateInfo(_userContext);
+            var result = await _workflowRepository.UpdateAsync(workflow);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Parse components from JSON string
+        /// </summary>
+        private static List<FlowFlex.Domain.Shared.Models.StageComponent> ParseComponentsFromJson(string componentsJson)
+        {
+            if (string.IsNullOrEmpty(componentsJson))
+            {
+                return new List<FlowFlex.Domain.Shared.Models.StageComponent>();
+            }
+
+            try
+            {
+                var components = JsonSerializer.Deserialize<List<FlowFlex.Domain.Shared.Models.StageComponent>>(componentsJson);
+                return components ?? new List<FlowFlex.Domain.Shared.Models.StageComponent>();
+            }
+            catch (JsonException)
+            {
+                return new List<FlowFlex.Domain.Shared.Models.StageComponent>();
+            }
+        }
+
+        // 缓存相关方法已移除
     }
 }

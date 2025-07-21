@@ -243,5 +243,28 @@ namespace FlowFlex.WebApi.Controllers.OW
             var id = await _workflowService.CreateFromVersionAsync(input);
             return Success(id);
         }
+
+        /// <summary>
+        /// Manually create a new workflow version
+        /// </summary>
+        [HttpPost("{id}/create-version")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> CreateNewVersion(long id, [FromBody] CreateVersionRequest request = null)
+        {
+            var changeReason = request?.ChangeReason;
+            var result = await _workflowService.CreateNewVersionAsync(id, changeReason);
+            return Success(result);
+        }
+    }
+
+    /// <summary>
+    /// Request model for creating a new version
+    /// </summary>
+    public class CreateVersionRequest
+    {
+        /// <summary>
+        /// Optional reason for creating the version
+        /// </summary>
+        public string ChangeReason { get; set; }
     }
 }

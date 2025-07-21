@@ -80,8 +80,8 @@ namespace FlowFlex.Application.Service.OW
 
             await _stageRepository.InsertAsync(entity);
 
-            // Create new WorkflowVersion (after adding stage)
-            await CreateWorkflowVersionForStageChangeAsync(entity.WorkflowId, $"Stage '{entity.Name}' created");
+            // Create new WorkflowVersion (after adding stage) - Disabled automatic version creation
+            // await CreateWorkflowVersionForStageChangeAsync(entity.WorkflowId, $"Stage '{entity.Name}' created");
 
             return entity.Id;
         }
@@ -326,11 +326,11 @@ namespace FlowFlex.Application.Service.OW
             // Delete stage first
             var deleteResult = await _stageRepository.DeleteAsync(entity);
 
-            // If deletion is successful, create new WorkflowVersion (save changed state after stage deletion)
-            if (deleteResult)
-            {
-                await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stage '{stageName}' deleted");
-            }
+            // If deletion is successful, create new WorkflowVersion (save changed state after stage deletion) - Disabled automatic version creation
+            // if (deleteResult)
+            // {
+            //     await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stage '{stageName}' deleted");
+            // }
 
             return deleteResult;
         }
@@ -412,11 +412,11 @@ namespace FlowFlex.Application.Service.OW
             var orderUpdates = input.StageOrders.Select(x => (x.StageId, x.Order)).ToList();
             var result = await _stageRepository.BatchUpdateOrderAsync(orderUpdates);
 
-            // If order update is successful, create new WorkflowVersion
-            if (result)
-            {
-                await CreateWorkflowVersionForStageChangeAsync(input.WorkflowId, "Stages reordered");
-            }
+            // If order update is successful, create new WorkflowVersion - Disabled automatic version creation
+            // if (result)
+            // {
+            //     await CreateWorkflowVersionForStageChangeAsync(input.WorkflowId, "Stages reordered");
+            // }
 
             return result;
         }
@@ -473,8 +473,8 @@ namespace FlowFlex.Application.Service.OW
             // Delete original stages
             await _stageRepository.BatchDeleteAsync(input.StageIds);
 
-            // Create new WorkflowVersion (after stage combination)
-            await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stages combined into '{input.NewStageName}'");
+            // Create new WorkflowVersion (after stage combination) - Disabled automatic version creation
+            // await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stages combined into '{input.NewStageName}'");
 
             return newStage.Id;
         }

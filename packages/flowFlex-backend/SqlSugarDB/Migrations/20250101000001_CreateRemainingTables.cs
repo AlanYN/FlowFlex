@@ -232,6 +232,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     questionnaire_id BIGINT,
                     color VARCHAR(20),
                     required_fields_json VARCHAR(1000),
+                    components_json TEXT,
                     workflow_version VARCHAR(20),
                     is_active BOOLEAN DEFAULT TRUE,
                     is_valid BOOLEAN DEFAULT TRUE,

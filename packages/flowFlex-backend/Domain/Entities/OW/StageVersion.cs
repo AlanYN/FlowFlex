@@ -89,5 +89,17 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [SugarColumn(ColumnName = "is_active")]
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// Stage Components Configuration (JSON)
+        /// </summary>
+        [SugarColumn(ColumnName = "components_json")]
+        public string ComponentsJson { get; set; }
+
+        /// <summary>
+        /// Stage Components List (not mapped to database)
+        /// </summary>
+        [SugarColumn(IsIgnore = true)]
+        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
     }
 }

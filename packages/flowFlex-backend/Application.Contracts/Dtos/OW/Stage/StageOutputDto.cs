@@ -78,9 +78,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// </summary>
         public string Color { get; set; }
 
-
-
-
+        /// <summary>
+        /// Stage components configuration (JSON)
+        /// </summary>
+        public string ComponentsJson { get; set; }
 
         /// <summary>
         /// Stage components configuration list
