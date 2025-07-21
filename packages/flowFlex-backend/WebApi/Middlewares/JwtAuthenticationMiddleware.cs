@@ -126,6 +126,7 @@ namespace FlowFlex.WebApi.Middlewares
                 "/api/ow/users/send-verification-code",
                 "/api/ow/users/verify-email",
                 "/api/ow/users/check-email",
+                "/api/ow/users/third-party-login",
                 "/swagger",
                 "/health"
             };

@@ -36,7 +36,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CompletionNotes, opt => opt.MapFrom(src => src.CompletionNotes))
                 .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
-                .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy));
+                .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
+                .ForMember(dest => dest.ModifyDate, opt => opt.MapFrom(src => src.ModifyDate))
+                .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy));
         }
     }
 }

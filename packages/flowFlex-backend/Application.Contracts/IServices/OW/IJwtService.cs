@@ -62,6 +62,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         JwtTokenInfoDto ParseToken(string token);
 
         /// <summary>
+        /// Parse third-party JWT token without signature validation
+        /// </summary>
+        /// <param name="token">Third-party JWT token to parse</param>
+        /// <returns>JWT token information</returns>
+        JwtTokenInfoDto ParseThirdPartyToken(string token);
+
+        /// <summary>
         /// Refresh JWT Token
         /// </summary>
         /// <param name="token">Current JWT Token</param>

@@ -97,5 +97,12 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="userId">User ID</param>
         /// <returns>Number of tokens revoked</returns>
         Task<int> LogoutFromAllDevicesAsync(long userId);
+
+        /// <summary>
+        /// Third-party login with automatic registration
+        /// </summary>
+        /// <param name="request">Third-party login request</param>
+        /// <returns>Login response with system token</returns>
+        Task<LoginResponseDto> ThirdPartyLoginAsync(ThirdPartyLoginRequestDto request);
     }
 }

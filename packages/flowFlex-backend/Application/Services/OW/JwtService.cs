@@ -364,6 +364,103 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Parse third-party JWT token without signature validation
+        /// </summary>
+        /// <param name="token">Third-party JWT token to parse</param>
+        /// <returns>JWT token information</returns>
+        public JwtTokenInfoDto ParseThirdPartyToken(string token)
+        {
+            var result = new JwtTokenInfoDto();
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = "Token is null or empty";
+                    return result;
+                }
+
+                var tokenHandler = new JwtSecurityTokenHandler();
+
+                // Read the token without validation to get basic info
+                JwtSecurityToken jwtToken;
+                try
+                {
+                    jwtToken = tokenHandler.ReadJwtToken(token);
+                }
+                catch (Exception ex)
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = $"Unable to read token: {ex.Message}";
+                    return result;
+                }
+
+                // Extract basic information
+                result.Issuer = jwtToken.Issuer;
+                result.Audience = jwtToken.Audiences?.FirstOrDefault();
+                result.IssuedAt = jwtToken.IssuedAt;
+                result.ExpiresAt = jwtToken.ValidTo;
+                result.IsExpired = jwtToken.ValidTo < DateTime.UtcNow;
+
+                // Extract claims
+                foreach (var claim in jwtToken.Claims)
+                {
+                    result.Claims[claim.Type] = claim.Value;
+                }
+
+                // Extract specific user information
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(x =>
+                    x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier || x.Type == "userId");
+                if (userIdClaim != null && long.TryParse(userIdClaim.Value, out var userId))
+                {
+                    result.UserId = userId;
+                }
+
+                // Try multiple email claim types
+                var emailClaim = jwtToken.Claims.FirstOrDefault(x =>
+                    x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email || x.Type == "email");
+                result.Email = emailClaim?.Value;
+
+                // Try multiple username claim types
+                var usernameClaim = jwtToken.Claims.FirstOrDefault(x =>
+                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" || x.Type == "name");
+                result.Username = usernameClaim?.Value;
+
+                // Try multiple tenant ID claim types
+                var tenantIdClaim = jwtToken.Claims.FirstOrDefault(x =>
+                    x.Type == "tenantId" || x.Type == "tenant_id" || x.Type == "tenants");
+                result.TenantId = tenantIdClaim?.Value;
+
+                var jtiClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Jti);
+                result.JwtId = jtiClaim?.Value;
+
+                // For third-party tokens, we consider them valid if we can extract basic info and they're not expired
+                result.IsValid = !string.IsNullOrWhiteSpace(result.Email) && !result.IsExpired;
+                
+                if (!result.IsValid && string.IsNullOrWhiteSpace(result.Email))
+                {
+                    result.ErrorMessage = "Email not found in token claims";
+                }
+                else if (!result.IsValid && result.IsExpired)
+                {
+                    result.ErrorMessage = "Token has expired";
+                }
+
+                _logger.LogInformation("Parsed third-party token - Issuer: {Issuer}, Email: {Email}, Valid: {IsValid}", 
+                    result.Issuer, result.Email, result.IsValid);
+            }
+            catch (Exception ex)
+            {
+                result.IsValid = false;
+                result.ErrorMessage = $"Token parsing failed: {ex.Message}";
+                _logger.LogError(ex, "Failed to parse third-party token");
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Parse JWT Token and return detailed information
         /// </summary>
         /// <param name="token">JWT Token</param>

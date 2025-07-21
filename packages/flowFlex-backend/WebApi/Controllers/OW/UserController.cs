@@ -284,5 +284,21 @@ namespace FlowFlex.WebApi.Controllers.OW
             var tokenInfo = _jwtService.ParseToken(token);
             return Success(tokenInfo);
         }
+
+        /// <summary>
+        /// Third-party login with automatic registration
+        /// </summary>
+        /// <param name="request">Third-party login request</param>
+        /// <returns>Login response with system token</returns>
+        [HttpPost("third-party-login")]
+        [AllowAnonymous]
+        [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> ThirdPartyLogin([FromBody] ThirdPartyLoginRequestDto request)
+        {
+            var response = await _userService.ThirdPartyLoginAsync(request);
+            return Success(response);
+        }
     }
 }

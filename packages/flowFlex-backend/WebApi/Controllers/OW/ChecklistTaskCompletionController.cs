@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -12,12 +13,10 @@ namespace FlowFlex.WebApi.Controllers.OW;
 /// <summary>
 /// Checklist Task Completion Controller
 /// </summary>
-
 [ApiController]
-
 [Route("ow/checklist-task-completions/v{version:apiVersion}")]
 [Display(Name = "checklist-task-completion")]
-
+[Authorize] // 添加授权特性，要求所有checklist task completion API都需要认证
 public class ChecklistTaskCompletionController : Controllers.ControllerBase
 {
     private readonly IChecklistTaskCompletionService _completionService;

@@ -580,5 +580,142 @@ namespace FlowFlex.Application.Services.OW
                 return 0;
             }
         }
+
+        /// <summary>
+        /// Third-party login with automatic registration
+        /// </summary>
+        /// <param name="request">Third-party login request</param>
+        /// <returns>Login response with system token</returns>
+        public async Task<LoginResponseDto> ThirdPartyLoginAsync(ThirdPartyLoginRequestDto request)
+        {
+            try
+            {
+                _logger.LogInformation("Processing third-party login request for AppCode: {AppCode}, TenantId: {TenantId}", 
+                    request.AppCode, request.TenantId);
+
+                // Clean the authorization token (remove Bearer prefix if present)
+                var cleanToken = request.AuthorizationToken;
+                if (cleanToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanToken = cleanToken.Substring("Bearer ".Length).Trim();
+                }
+
+                // Parse the authorization token to extract user information (without signature validation)
+                var tokenInfo = _jwtService.ParseThirdPartyToken(cleanToken);
+                if (!tokenInfo.IsValid)
+                {
+                    throw new Exception($"Invalid authorization token: {tokenInfo.ErrorMessage}");
+                }
+
+                // Extract email from token (required for user identification)
+                var email = tokenInfo.Email;
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    throw new Exception("Email not found in authorization token");
+                }
+
+                // Extract username (fallback to email if not available)
+                var username = !string.IsNullOrWhiteSpace(tokenInfo.Username) ? tokenInfo.Username : email;
+
+                _logger.LogInformation("Extracted user info from token - Email: {Email}, Username: {Username}", 
+                    email, username);
+
+                // Check if user already exists
+                var existingUser = await _userRepository.GetByEmailAsync(email);
+                User user;
+
+                if (existingUser != null)
+                {
+                    // User exists, update login information
+                    user = existingUser;
+                    user.LastLoginDate = DateTimeOffset.Now;
+                    user.Status = "active"; // Ensure user is active
+                    user.EmailVerified = true; // Trust third-party verification
+                    
+                    // Update tenant ID if different
+                    if (user.TenantId != request.TenantId)
+                    {
+                        user.TenantId = request.TenantId;
+                    }
+
+                    user.ModifyDate = DateTimeOffset.Now;
+                    user.ModifyBy = email;
+                    await _userRepository.UpdateAsync(user);
+
+                    _logger.LogInformation("Updated existing user {UserId} for third-party login", user.Id);
+                }
+                else
+                {
+                    // User doesn't exist, create new user
+                    user = new User
+                    {
+                        Email = email,
+                        Username = username,
+                        PasswordHash = null, // No password for third-party users
+                        EmailVerified = true, // Trust third-party verification
+                        Status = "active",
+                        TenantId = request.TenantId,
+                        LastLoginDate = DateTimeOffset.Now
+                    };
+
+                    // Initialize create information
+                    user.InitCreateInfo(null);
+                    await _userRepository.InsertAsync(user);
+
+                    _logger.LogInformation("Created new user {UserId} for third-party login with email {Email}", 
+                        user.Id, email);
+
+                    // Send welcome email for new users
+                    try
+                    {
+                        await _emailService.SendWelcomeEmailAsync(user.Email, user.Username);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send welcome email to {Email}", user.Email);
+                        // Don't fail the login process if email sending fails
+                    }
+                }
+
+                // Generate system JWT token with extended claims
+                var tokenDetails = _jwtService.GenerateTokenWithDetails(
+                    user.Id, 
+                    user.Email, 
+                    user.Username, 
+                    user.TenantId, 
+                    "third_party_login"
+                );
+
+                // Record token in database
+                await _accessTokenService.RecordTokenAsync(
+                    tokenDetails.Jti,
+                    tokenDetails.UserId,
+                    tokenDetails.UserEmail,
+                    tokenDetails.Token,
+                    tokenDetails.ExpiresAt,
+                    tokenDetails.TokenType,
+                    tokenDetails.IssuedIp,
+                    tokenDetails.UserAgent,
+                    revokeOtherTokens: true // Revoke other tokens to maintain single session
+                );
+
+                _logger.LogInformation("Successfully completed third-party login for user {UserId} with AppCode {AppCode}", 
+                    user.Id, request.AppCode);
+
+                return new LoginResponseDto
+                {
+                    AccessToken = tokenDetails.Token,
+                    TokenType = "Bearer",
+                    ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
+                    User = _mapper.Map<UserDto>(user)
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Third-party login failed for AppCode: {AppCode}, TenantId: {TenantId}", 
+                    request.AppCode, request.TenantId);
+                throw new Exception($"Third-party login failed: {ex.Message}");
+            }
+        }
     }
 }
