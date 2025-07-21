@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
@@ -15,12 +16,10 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Onboarding management API
     /// </summary>
-
     [ApiController]
-
     [Route("ow/onboardings/v{version:apiVersion}")]
     [Display(Name = "onboarding")]
-
+    [Authorize] // 添加授权特性，要求所有onboarding API都需要认证
     public class OnboardingController : Controllers.ControllerBase
     {
         private readonly IOnboardingService _onboardingService;

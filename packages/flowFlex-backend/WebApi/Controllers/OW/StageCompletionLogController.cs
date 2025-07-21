@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
@@ -16,11 +17,9 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// Stage Completion Log API
     /// </summary>
     [ApiController]
-
     [Route("ow/logs/stage-completion/v{version:apiVersion}")]
     [Display(Name = "stage-completion-logs")]
-
-
+    [Authorize] // 添加授权特性，要求所有stage completion log API都需要认证
     public class StageCompletionLogController : Controllers.ControllerBase
     {
         private readonly IStageCompletionLogService _stageCompletionLogService;

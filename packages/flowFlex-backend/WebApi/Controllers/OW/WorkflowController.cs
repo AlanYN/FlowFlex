@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -17,12 +18,10 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Workflow management API
     /// </summary>
-
     [ApiController]
-
     [Route("ow/workflows/v{version:apiVersion}")]
     [Display(Name = "workflow")]
-
+    [Authorize] // 添加授权特性，要求所有workflows API都需要认证
     public class WorkflowController : Controllers.ControllerBase
     {
         private readonly IWorkflowService _workflowService;

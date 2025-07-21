@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -24,14 +25,12 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// - Task assignment and responsibility management
     /// - Overdue tasks and pending tasks query
     /// </remarks>
-
     [ApiController]
-
     [Route("ow/checklist-tasks/v{version:apiVersion}")]
     [Route("ow/checklist-task/v{version:apiVersion}")] // Alternative route for compatibility
     [Display(Name = "ChecklistTask Management")]
     [Tags("ChecklistTask", "Onboard Workflow", "Task Items")]
-
+    [Authorize] // 添加授权特性，要求所有checklist task API都需要认证
     public class ChecklistTaskController : Controllers.ControllerBase
     {
         private readonly IChecklistTaskService _checklistTaskService;

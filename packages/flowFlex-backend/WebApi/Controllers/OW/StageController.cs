@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
@@ -16,12 +17,10 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Stage management API - Includes stage basic management and content management functions
     /// </summary>
-
     [ApiController]
-
     [Route("ow/stages/v{version:apiVersion}")]
     [Display(Name = "stage")]
-
+    [Authorize] // 添加授权特性，要求所有stage API都需要认证
     public class StageController : Controllers.ControllerBase
     {
         private readonly IStageService _stageService;

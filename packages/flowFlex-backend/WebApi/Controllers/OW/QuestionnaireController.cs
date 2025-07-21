@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
@@ -12,12 +13,10 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Questionnaire management API
     /// </summary>
-
     [ApiController]
-
     [Route("ow/questionnaires/v{version:apiVersion}")]
     [Display(Name = "questionnaire")]
-
+    [Authorize] // 添加授权特性，要求所有questionnaire API都需要认证
     public class QuestionnaireController : Controllers.ControllerBase
     {
         private readonly IQuestionnaireService _questionnaireService;
