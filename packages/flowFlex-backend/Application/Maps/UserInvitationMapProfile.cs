@@ -27,7 +27,7 @@ namespace FlowFlex.Application.Maps
             if (status == "Inactive")
                 return "Inactive";
             
-            return "Active";
+                return "Active";
         }
     }
 }

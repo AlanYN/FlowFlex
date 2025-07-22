@@ -61,15 +61,114 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>User information</returns>
         public async Task<UserDto> RegisterAsync(RegisterRequestDto request)
         {
+            _logger.LogInformation("RegisterAsync called for email: {Email}, SkipEmailVerification: {SkipEmailVerification}", 
+                request.Email, request.SkipEmailVerification);
+
             // Check if email already exists
             var existingUser = await _userRepository.GetByEmailAsync(request.Email);
 
             if (existingUser != null)
             {
-                // If email already exists, check if it's an unverified user
+                _logger.LogInformation("User already exists for email: {Email}, EmailVerified: {EmailVerified}", 
+                    request.Email, existingUser.EmailVerified);
+
+                // For portal users who skip email verification, allow password reset for existing users
+                if (request.SkipEmailVerification)
+                {
+                    // Check if user was already verified before updating
+                    var wasAlreadyVerified = existingUser.EmailVerified;
+                    
+                    _logger.LogInformation("Portal user password reset for email: {Email}, WasAlreadyVerified: {WasAlreadyVerified}", 
+                        request.Email, wasAlreadyVerified);
+                    
+                    // Update existing user (both verified and unverified) to reset password
+                    existingUser.Username = request.Email;
+                    existingUser.PasswordHash = BC.HashPassword(request.Password);
+                    existingUser.EmailVerified = true;
+                    existingUser.Status = "active";
+                    existingUser.ModifyDate = DateTimeOffset.Now;
+                    existingUser.ModifyBy = request.Email;
+
+                    await _userRepository.UpdateAsync(existingUser);
+
+                    // Send appropriate email based on previous verification status (non-blocking)
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            if (wasAlreadyVerified)
+                            {
+                                // Send password reset confirmation for existing verified users
+                                await _emailService.SendPasswordResetConfirmationAsync(existingUser.Email, existingUser.Username);
+                            }
+                            else
+                            {
+                                // Send welcome email for newly verified users
+                                await _emailService.SendWelcomeEmailAsync(existingUser.Email, existingUser.Username);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to send email to {Email}", existingUser.Email);
+                        }
+                    });
+
+                    _logger.LogInformation("Portal user password reset completed successfully for email: {Email}", request.Email);
+                    return _mapper.Map<UserDto>(existingUser);
+                }
+
+                // If email already exists and not skipping verification
                 if (existingUser.EmailVerified)
                 {
-                    // Verify verification code
+                    // For verified users, check if verification code is correct and allow password reset
+                    if (!string.IsNullOrEmpty(existingUser.EmailVerificationCode) && 
+                        existingUser.EmailVerificationCode == request.VerificationCode)
+                    {
+                        // Verify if verification code has not expired
+                        if (existingUser.VerificationCodeExpiry >= DateTimeOffset.Now)
+                        {
+                            _logger.LogInformation("Allowing password reset for verified user with valid verification code: {Email}", request.Email);
+                            
+                            // Update password for existing verified user
+                            existingUser.PasswordHash = BC.HashPassword(request.Password);
+                            existingUser.ModifyDate = DateTimeOffset.Now;
+                            existingUser.ModifyBy = request.Email;
+                            // Clear verification code after use
+                            existingUser.EmailVerificationCode = null;
+                            existingUser.VerificationCodeExpiry = null;
+
+                            await _userRepository.UpdateAsync(existingUser);
+
+                            // Send password reset confirmation email (non-blocking)
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await _emailService.SendPasswordResetConfirmationAsync(existingUser.Email, existingUser.Username);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Failed to send password reset confirmation email to {Email}", existingUser.Email);
+                                }
+                            });
+
+                            _logger.LogInformation("Password reset completed successfully for verified user: {Email}", request.Email);
+                            return _mapper.Map<UserDto>(existingUser);
+                        }
+                        else
+                        {
+                            throw new Exception("Verification code has expired");
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("Email is already registered. Please use a different email address or reset your password if you forgot it.");
+                    }
+                }
+                else
+                {
+
+                    // Verify verification code for normal registration
                     if (existingUser.EmailVerificationCode != request.VerificationCode)
                     {
                         throw new Exception("Verification code is incorrect");
@@ -96,10 +195,47 @@ namespace FlowFlex.Application.Services.OW
 
                     return _mapper.Map<UserDto>(existingUser);
                 }
-                else
+            }
+
+            // For portal users who skip email verification - create new user directly
+            if (request.SkipEmailVerification)
+            {
+                // Generate tenant ID based on email domain
+                var tenantId = TenantHelper.GetTenantIdByEmail(request.Email);
+
+                // Create new user with verified email
+                var newUser = new User
                 {
-                    throw new Exception("Email is already registered");
-                }
+                    Email = request.Email,
+                    Username = request.Email,
+                    PasswordHash = BC.HashPassword(request.Password),
+                    EmailVerified = true, // Portal users are pre-verified
+                    Status = "active",
+                    EmailVerificationCode = null,
+                    VerificationCodeExpiry = null,
+                    TenantId = tenantId
+                };
+
+                // Initialize create information
+                newUser.InitCreateInfo(null);
+
+                // Save new user
+                await _userRepository.InsertAsync(newUser);
+
+                // Send welcome email (non-blocking)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendWelcomeEmailAsync(newUser.Email, newUser.Username);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send welcome email to {Email}", newUser.Email);
+                    }
+                });
+
+                return _mapper.Map<UserDto>(newUser);
             }
 
             // If email doesn't exist, need to send verification code first
@@ -252,7 +388,9 @@ namespace FlowFlex.Application.Services.OW
                 AccessToken = tokenDetails.Token,
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
-                User = _mapper.Map<UserDto>(user)
+                User = _mapper.Map<UserDto>(user),
+                AppCode = "DEFAULT",
+                TenantId = user.TenantId ?? "DEFAULT"
             };
         }
 
@@ -329,7 +467,9 @@ namespace FlowFlex.Application.Services.OW
                 AccessToken = tokenDetails.Token,
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
-                User = _mapper.Map<UserDto>(user)
+                User = _mapper.Map<UserDto>(user),
+                AppCode = "DEFAULT",
+                TenantId = user.TenantId ?? "DEFAULT"
             };
         }
 
@@ -518,7 +658,9 @@ namespace FlowFlex.Application.Services.OW
                     AccessToken = newTokenDetails.Token,
                     TokenType = "Bearer",
                     ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
-                    User = _mapper.Map<UserDto>(user)
+                    User = _mapper.Map<UserDto>(user),
+                    AppCode = "DEFAULT",
+                    TenantId = user.TenantId ?? "DEFAULT"
                 };
             }
             catch (Exception ex)
@@ -707,7 +849,9 @@ namespace FlowFlex.Application.Services.OW
                     AccessToken = tokenDetails.Token,
                     TokenType = "Bearer",
                     ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
-                    User = _mapper.Map<UserDto>(user)
+                    User = _mapper.Map<UserDto>(user),
+                    AppCode = request.AppCode,
+                    TenantId = request.TenantId
                 };
             }
             catch (Exception ex)

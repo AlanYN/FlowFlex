@@ -157,35 +157,30 @@ namespace FlowFlex.Application.Services.OW
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>Customer Portal Access Invitation</h2>
+                            <h2>Customer Portal Invitation</h2>
                         </div>
                         <div class='content'>
-                            <p>Hello,</p>
-                            <p>You have been invited to access the FlowFlex customer portal to complete your process.</p>
+                            <p>Dear Customer,</p>
+                            <p>You have been invited to access the Customer Portal for <strong>{onboardingName}</strong>.</p>
                             
                             <div class='info-box'>
-                                <strong>Company/Contact Name:</strong> {onboardingName}
+                                <p><strong>What you can do in the Customer Portal:</strong></p>
+                                <ul>
+                                    <li>Track your onboarding progress</li>
+                                    <li>Upload required documents</li>
+                                    <li>Communicate with your account manager</li>
+                                    <li>Access important updates and notifications</li>
+                                </ul>
                             </div>
                             
-                            <p>Please click the button below to access your customer portal:</p>
-                            
-                            <div style='text-align: center;'>
+                            <p>Click the button below to access your portal:</p>
+                            <p style='text-align: center;'>
                                 <a href='{invitationUrl}' class='button'>Access Customer Portal</a>
-                            </div>
+                            </p>
                             
-                            <p>If the button doesn't work, you can copy and paste the following link into your browser:</p>
-                            <p style='word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 3px;'>{invitationUrl}</p>
+                            <p><strong>Note:</strong> This invitation link is secure and will require email verification before granting access.</p>
                             
-                            <div class='info-box'>
-                                <strong>What to expect:</strong><br>
-                                • Verify your email address<br>
-                                • Complete the questionnaire<br>
-                                • Upload required documents<br>
-                                • Track your progress through each stage
-                            </div>
-                            
-                            <p>This invitation link is valid for 7 days. If you have any questions or need assistance, please contact our support team.</p>
-                            
+                            <p>If you have any questions, please don't hesitate to contact our support team.</p>
                             <p>Thank you for choosing FlowFlex!</p>
                         </div>
                         <div class='footer'>
@@ -201,6 +196,77 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send Customer Portal invitation email: {Message}", ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Send password reset confirmation email
+        /// </summary>
+        /// <param name="to">Recipient email address</param>
+        /// <param name="username">Username</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        public async Task<bool> SendPasswordResetConfirmationAsync(string to, string username)
+        {
+            try
+            {
+                var subject = "FlowFlex - Password Reset Confirmation";
+                var body = $@"
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                        .header {{ background-color: #28a745; color: white; padding: 20px; text-align: center; }}
+                        .content {{ padding: 30px; border: 1px solid #ddd; }}
+                        .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
+                        .success-box {{ background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; border-radius: 5px; }}
+                    </style>
+                </head>
+                <body>
+                    <div class='container'>
+                        <div class='header'>
+                            <h2>Password Reset Confirmation</h2>
+                        </div>
+                        <div class='content'>
+                            <p>Dear {username},</p>
+                            
+                            <div class='success-box'>
+                                <p><strong>✅ Password Reset Successful!</strong></p>
+                                <p>Your password has been successfully reset for your FlowFlex Customer Portal account.</p>
+                            </div>
+                            
+                            <p><strong>Account Details:</strong></p>
+                            <ul>
+                                <li>Email: {to}</li>
+                                <li>Reset Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss} UTC</li>
+                            </ul>
+                            
+                            <p>You can now log in to the Customer Portal using your new password.</p>
+                            
+                            <p><strong>Security Notice:</strong></p>
+                            <ul>
+                                <li>If you did not request this password reset, please contact our support team immediately</li>
+                                <li>For security reasons, please do not share your login credentials with anyone</li>
+                                <li>We recommend using a strong, unique password</li>
+                            </ul>
+                            
+                            <p>If you have any questions or concerns, please contact our support team.</p>
+                            <p>Thank you for using FlowFlex!</p>
+                        </div>
+                        <div class='footer'>
+                            <p>This email was sent automatically by the system. Please do not reply.</p>
+                            <p>&copy; {DateTime.Now.Year} FlowFlex. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>";
+
+                return await SendEmailAsync(to, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send password reset confirmation email: {Message}", ex.Message);
                 return false;
             }
         }

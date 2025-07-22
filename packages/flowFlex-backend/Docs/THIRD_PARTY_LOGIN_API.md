@@ -51,7 +51,9 @@ Content-Type: application/json
       "lastLoginDate": "2023-12-01T10:30:00Z",
       "status": "active",
       "createDate": "2023-12-01T10:30:00Z"
-    }
+    },
+    "appCode": "DEFAULT",
+    "tenantId": "DEFAULT"
   }
 }
 ```

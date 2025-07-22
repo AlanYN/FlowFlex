@@ -60,6 +60,22 @@ function handleMessageGuard() {
 
 function handleTokenCheck(to, next) {
 	const accessToken = getTokenobj()?.accessToken.token;
+	
+	// 对于customer-portal页面，检查portal_access_token或URL中的token参数
+	if (to.path.startsWith('/customer-portal')) {
+		const portalAccessToken = localStorage.getItem('portal_access_token');
+		const urlToken = to.query.token;
+		
+		if (portalAccessToken || urlToken) {
+			// 有portal访问token或URL中有token参数，允许访问
+			return false;
+		}
+	}
+
+	// 对于portal-access页面，允许直接访问（不需要标准认证）
+	if (to.path === '/portal-access') {
+		return false;
+	}
 
 	if (!accessToken) {
 		redirectToLogin(to, next);
