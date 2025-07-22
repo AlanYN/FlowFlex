@@ -256,6 +256,7 @@ import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
+import { useUserStore } from '@/stores/modules/user';
 // 导入组件
 import OnboardingProgress from './components/OnboardingProgress.vue';
 import QuestionnaireDetails from './components/QuestionnaireDetails.vue';
@@ -268,6 +269,7 @@ import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
 
 const { t } = useI18n();
+const userStore = useUserStore();
 
 // 常量定义
 const router = useRouter();
@@ -471,16 +473,20 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 		]);
 
 		if (checklistResponse.code === '200') {
-			// 获取已完成的任务信息
-			const completedTasksMap = new Map<string, boolean>();
+			// 获取已完成的任务信息，包含完成者和完成时间
+			const completedTasksMap = new Map<string, any>();
 			if (completionResponse.code === '200' && completionResponse.data) {
-				// 假设 completionResponse.data 包含已完成的任务列表
+				// completionResponse.data 包含已完成的任务列表，包含 modifyBy 和 completedTime
 				if (Array.isArray(completionResponse.data)) {
 					completionResponse.data.forEach((completedTask: any) => {
 						// 根据实际API返回的数据结构调整
 						const taskId = completedTask.taskId || completedTask.id;
 						if (taskId) {
-							completedTasksMap.set(taskId, true);
+							completedTasksMap.set(taskId, {
+								isCompleted: completedTask.isCompleted,
+								completedBy: completedTask.modifyBy || completedTask.createBy,
+								completedTime: completedTask.completedTime || completedTask.modifyDate,
+							});
 						}
 					});
 				}
@@ -493,11 +499,16 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 					checklist.tasks = [];
 				}
 
-				// 更新每个任务的完成状态
-				checklist.tasks = checklist.tasks.map((task: any) => ({
-					...task,
-					isCompleted: completedTasksMap.has(task.id) || task.isCompleted || false,
-				}));
+				// 更新每个任务的完成状态和完成者信息
+				checklist.tasks = checklist.tasks.map((task: any) => {
+					const completionInfo = completedTasksMap.get(task.id);
+					return {
+						...task,
+						isCompleted: completionInfo?.isCompleted || task.isCompleted || false,
+						completedBy: completionInfo?.completedBy || task.assigneeName || task.createBy,
+						completedDate: completionInfo?.completedTime || task.completedDate,
+					};
+				});
 
 				// 重新计算完成任务数和总任务数
 				const completedTasks = checklist.tasks.filter(
@@ -708,6 +719,12 @@ const handleTaskToggled = async (task: any) => {
 						taskToUpdate.completedDate = task.isCompleted
 							? new Date().toISOString()
 							: null;
+						// 更新完成者信息 - 从当前用户信息获取
+						if (task.isCompleted) {
+							taskToUpdate.completedBy = userStore.getUserInfo?.email || 'unknown@email.com';
+						} else {
+							taskToUpdate.completedBy = null;
+						}
 
 						// 更新 checklist 的完成统计
 						const completedTasks =

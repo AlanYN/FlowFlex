@@ -65,7 +65,7 @@
 							<el-icon class="completion-icon"><Check /></el-icon>
 							<span class="completion-text">
 								Completed by
-								{{ task.assigneeName || task.createBy || defaultStr }} on
+								{{ task.completedBy || task.assigneeName || task.createBy || defaultStr }} on
 								{{ formatDate(task.completedDate) || defaultStr }}
 							</span>
 						</div>

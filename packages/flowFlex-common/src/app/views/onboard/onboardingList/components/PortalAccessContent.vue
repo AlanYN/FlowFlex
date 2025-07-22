@@ -159,8 +159,11 @@
 							readonly 
 							class="flex-1"
 						/>
-						<el-button @click="copyInvitationLink">
-							Copy
+						<el-button @click="openInvitationLink">
+							<el-icon class="h-3 w-3 mr-1">
+								<View />
+							</el-icon>
+							View
 						</el-button>
 					</div>
 				</div>
@@ -176,8 +179,11 @@
 			<template #footer>
 				<div class="flex justify-end space-x-2">
 					<el-button @click="showInvitationLinkDialog = false">Close</el-button>
-					<el-button type="primary" @click="copyInvitationLink">
-						Copy Link
+					<el-button type="primary" @click="openInvitationLink">
+						<el-icon class="h-3 w-3 mr-1">
+							<View />
+						</el-icon>
+						View Link
 					</el-button>
 				</div>
 			</template>
@@ -330,7 +336,7 @@ const handleViewInvitationLink = async (user: PortalUser) => {
 	try {
 		// 获取邀请链接
 		const response = await userInvitationApi.getInvitationLink(props.onboardingId, user.email);
-		const invitationUrl = response?.data?.invitationUrl || response?.invitationUrl;
+		const invitationUrl = response?.invitationUrl || (response as any)?.data?.invitationUrl;
 		
 		if (invitationUrl) {
 			// 显示邀请链接对话框
@@ -346,25 +352,12 @@ const handleViewInvitationLink = async (user: PortalUser) => {
 	}
 };
 
-// Copy invitation link to clipboard
-const copyInvitationLink = async () => {
-	try {
-		await navigator.clipboard.writeText(currentInvitationUrl.value);
-		ElMessage.success('Invitation link copied to clipboard');
-	} catch (error) {
-		console.error('Failed to copy link:', error);
-		// Fallback for older browsers
-		try {
-			const textArea = document.createElement('textarea');
-			textArea.value = currentInvitationUrl.value;
-			document.body.appendChild(textArea);
-			textArea.select();
-			document.execCommand('copy');
-			document.body.removeChild(textArea);
-			ElMessage.success('Invitation link copied to clipboard');
-		} catch (fallbackError) {
-			ElMessage.error('Failed to copy link to clipboard');
-		}
+// Open invitation link in new tab
+const openInvitationLink = () => {
+	if (currentInvitationUrl.value) {
+		window.open(currentInvitationUrl.value, '_blank');
+	} else {
+		ElMessage.error('Invitation link not available');
 	}
 };
 

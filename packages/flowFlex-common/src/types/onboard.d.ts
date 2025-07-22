@@ -208,6 +208,8 @@ export interface StageInfo {
 
 export interface ComponentsData {
 	components: ComponentData[];
+	visibleInPortal?: boolean;
+	attachmentManagementNeeded?: boolean;
 	[key: string]: any;
 }
 
@@ -347,6 +349,7 @@ export interface TaskData {
 	actualHours: number;
 	dueDate: string | null;
 	completedDate: string | null;
+	completedBy?: string | null; // 新增完成者字段
 	completionNotes: string | null;
 	dependsOnTaskId: string | null;
 	attachmentsJson: string | null;

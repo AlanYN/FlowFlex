@@ -100,6 +100,16 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public bool IsActive { get; set; }
 
         /// <summary>
+        /// Visible in Portal - Controls whether this stage is visible in the portal
+        /// </summary>
+        public bool VisibleInPortal { get; set; }
+
+        /// <summary>
+        /// Attachment Management Needed - Indicates whether file upload is required for this stage
+        /// </summary>
+        public bool AttachmentManagementNeeded { get; set; }
+
+        /// <summary>
         /// Whether it's valid
         /// </summary>
         public bool IsValid { get; set; }

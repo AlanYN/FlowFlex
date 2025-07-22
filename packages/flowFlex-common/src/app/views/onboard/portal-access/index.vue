@@ -2,11 +2,11 @@
 	<div class="portal-access-page">
 		<div class="container">
 			<div class="header">
-				<h1>FlowFlex Onboarding Portal</h1>
-				<p>Please verify your email to access the onboarding portal</p>
+				<h1>FlowFlex Portal</h1>
+				<p>Please verify your email to access the flowflex portal</p>
 			</div>
 
-					<div v-if="verificationState === 'form'" class="verification-form">
+		<div v-if="verificationState === 'form'" class="verification-form">
 			<el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
 				<el-form-item label="Email" prop="email">
 					<el-input v-model="form.email" placeholder="Enter your email address" />

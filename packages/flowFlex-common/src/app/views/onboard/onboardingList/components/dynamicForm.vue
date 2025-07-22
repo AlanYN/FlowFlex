@@ -56,7 +56,6 @@
 									{{ question.description }}
 								</p>
 							</div>
-							{{ question.id }}
 							<!-- 短答题 -->
 							<el-input
 								v-if="question.type === 'short_answer' || question.type === 'text'"

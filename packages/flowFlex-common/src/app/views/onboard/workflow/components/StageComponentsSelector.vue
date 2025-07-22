@@ -215,6 +215,30 @@
 							</p>
 						</div>
 					</div>
+
+					<!-- Attachment Management Needed -->
+					<div
+						v-if="getFileComponent().isEnabled"
+						class="flex items-center space-x-2 p-2 border rounded-md border-primary-200 bg-primary-50 mt-2"
+					>
+						<el-switch
+							:model-value="props.modelValue.attachmentManagementNeeded || false"
+							@change="(val) => updateAttachmentManagementNeeded(val)"
+							id="attachment-management-needed"
+							size="small"
+						/>
+						<div class="flex-1 min-w-0 dark:text-black-400">
+							<label
+								for="attachment-management-needed"
+								class="text-sm leading-none font-medium cursor-pointer block truncate"
+							>
+								Attachment Management Needed
+							</label>
+							<p class="text-xs mt-1 truncate">
+								Indicates whether file upload is required for this stage
+							</p>
+						</div>
+					</div>
 				</div>
 			</el-scrollbar>
 		</div>
@@ -562,6 +586,11 @@ const toggleFileComponent = (enabled: boolean) => {
 	updateComponent('files', {
 		isEnabled: enabled,
 	});
+};
+
+const updateAttachmentManagementNeeded = (needed: boolean) => {
+	const newModelValue = { ...props.modelValue, attachmentManagementNeeded: needed };
+	emit('update:modelValue', newModelValue);
 };
 
 // 获取选中的字段tags
