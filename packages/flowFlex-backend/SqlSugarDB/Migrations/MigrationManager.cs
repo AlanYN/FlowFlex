@@ -181,8 +181,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (!exists)
                 {
                     if (_verboseLogging)
-                    {
-                        Console.WriteLine($"[MigrationManager] Executing migration: {migrationId}");
+                {
+                    Console.WriteLine($"[MigrationManager] Executing migration: {migrationId}");
                     }
 
                     // Execute migration
@@ -193,7 +193,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     if (_verboseLogging)
                     {
-                        Console.WriteLine($"[MigrationManager] Migration {migrationId} completed successfully");
+                    Console.WriteLine($"[MigrationManager] Migration {migrationId} completed successfully");
                     }
                     return true;
                 }

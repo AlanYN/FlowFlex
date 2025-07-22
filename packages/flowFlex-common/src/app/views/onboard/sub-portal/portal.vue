@@ -551,7 +551,7 @@ const loadOnboardingDetail = async () => {
 	}
 
 	try {
-		const response = await getOnboardingByLead(onboardingId.value);
+		const response = await getOnboardingByLead(onboardingId.value, true);
 		if (response.code === '200') {
 			const newStageId = processOnboardingData(response.data);
 			if (newStageId) {

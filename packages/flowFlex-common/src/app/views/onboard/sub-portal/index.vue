@@ -464,7 +464,7 @@ export default {
 		const loadOnboardingData = async () => {
 			try {
 				loading.value = true;
-				const response = await getOnboardingByLead(onboardingId.value);
+				const response = await getOnboardingByLead(onboardingId.value, true);
 				if (response.code === '200') {
 					onboardingData.value = response.data;
 				} else {
@@ -623,8 +623,39 @@ export default {
 
 		// 生命周期
 		onMounted(() => {
-			loadOnboardingData();
+			// 首先检查URL中的token参数，如果存在则进行portal验证
+			checkUrlTokenAndVerify();
 		});
+
+		// 检查URL中的token参数并自动验证
+		const checkUrlTokenAndVerify = async () => {
+			const urlToken = route.query.token as string;
+			const portalAccessToken = localStorage.getItem('portal_access_token');
+			
+			// 如果URL中有token但localStorage中没有portal_access_token，进行自动验证
+			if (urlToken && !portalAccessToken) {
+				try {
+					// 这里我们需要知道用户的邮箱才能验证
+					// 但是URL中没有邮箱信息，所以我们需要重定向到portal-access页面
+					router.replace({
+						path: '/portal-access',
+						query: { token: urlToken }
+					});
+					return;
+				} catch (error) {
+					console.error('Auto verification failed:', error);
+					// 如果自动验证失败，也重定向到portal-access页面
+					router.replace({
+						path: '/portal-access',
+						query: { token: urlToken }
+					});
+					return;
+				}
+			}
+			
+			// 如果已经有portal_access_token或者没有token参数，正常加载数据
+			loadOnboardingData();
+		};
 
 		// 返回所有需要在模板中使用的数据和方法
 		return {

@@ -31,5 +31,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="onboardingName">Onboarding name</param>
         /// <returns>Whether the email was sent successfully</returns>
         Task<bool> SendOnboardingInvitationEmailAsync(string to, string invitationUrl, string onboardingName);
+
+        /// <summary>
+        /// Send password reset confirmation email
+        /// </summary>
+        /// <param name="to">Recipient email</param>
+        /// <param name="username">Username</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        Task<bool> SendPasswordResetConfirmationAsync(string to, string username);
     }
 }

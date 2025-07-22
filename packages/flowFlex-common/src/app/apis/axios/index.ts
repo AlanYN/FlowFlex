@@ -131,7 +131,16 @@ const transform: AxiosTransform = {
 		const tokenObj = getTokenobj() as TokenObj;
 		const token = tokenObj?.accessToken?.token;
 		const authenticat = tokenObj?.accessToken?.tokenType;
-		if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
+		
+		// 检查是否需要使用portal_access_token
+		const portalAccessToken = localStorage.getItem('portal_access_token');
+		const isPortalRequest = window.location.pathname.startsWith('/customer-portal') ||
+							   window.location.pathname.startsWith('/onboard/sub-portal/portal');
+		
+		if (isPortalRequest && portalAccessToken) {
+			// 使用portal访问token
+			(config as Recordable).headers.Authorization = `Bearer ${portalAccessToken}`;
+		} else if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
 			(config as Recordable).headers.Authorization = authenticat
 				? `${authenticat} ${token}`
 				: `${options.authenticationScheme} ${token}`;
