@@ -35,7 +35,7 @@ interface PermissionState {
 }
 
 export const usePermissionStore = defineStore({
-	id: 'app-permission',
+	id: 'flowFlex-app-permission',
 	state: (): PermissionState => ({
 		// 权限代码列表
 		permCodeList: [],

@@ -208,7 +208,7 @@
 								for="file-management"
 								class="text-sm leading-none font-medium cursor-pointer block truncate"
 							>
-							Attachment Management Needed
+								Attachment Management Needed
 							</label>
 							<p class="text-xs mt-1 truncate">
 								Allow users to upload and manage files in this stage
@@ -232,7 +232,7 @@
 								for="attachment-management-needed"
 								class="text-sm leading-none font-medium cursor-pointer block truncate"
 							>
-							Required 
+								Required
 							</label>
 							<p class="text-xs mt-1 truncate">
 								Indicates whether file upload is required for this stage

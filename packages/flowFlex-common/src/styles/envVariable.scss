@@ -1,4 +1,4 @@
-:root {
+:root.sub-app-body {
 	--black-5: #ffffff0d;
 	--black-10: #ffffff1a;
 	--black-20: #ffffff33;
@@ -20,7 +20,7 @@
 	--el-border-color-light: #e4e7ed;
 }
 
-:root.dark {
+:root.dark.sub-app-body {
 	--black-5: #0000000d;
 	--black-10: #0000001a;
 	--black-20: #00000033;
@@ -43,7 +43,7 @@
 	--el-border-radius-base: 8px;
 }
 
-:root.blue {
+:root.blue.sub-app-body {
 	--primary-50: #e6f1fa;
 	--primary-100: #cce2f6;
 	--primary-200: #99c5ec;
@@ -58,7 +58,7 @@
 	--primary-500-rgb: 0, 110, 208; // RGB 值
 }
 
-:root.pruple {
+:root.pruple.sub-app-body {
 	--primary-50: #e9d9fd;
 	--primary-100: #d3b2fa;
 	--primary-200: #c89ff9;

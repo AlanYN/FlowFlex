@@ -14,7 +14,7 @@ interface MenuRoles {
 }
 
 export const MenuFunctionStore = defineStore({
-	id: 'menu-Function',
+	id: 'flowFlex-menu-Function',
 	state: (): MenuRoles => ({
 		menuId: '',
 		functionIds: [],

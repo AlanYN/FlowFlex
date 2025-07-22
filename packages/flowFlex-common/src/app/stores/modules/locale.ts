@@ -15,7 +15,7 @@ interface LocaleState {
 }
 
 export const useLocaleStore = defineStore({
-	id: 'app-locale',
+	id: 'flowFlex-app-locale',
 	state: (): LocaleState => ({
 		localInfo: lsLocaleSetting,
 	}),

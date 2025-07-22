@@ -366,6 +366,6 @@ declare global {
 			};
 			props: Record<string, any>;
 		};
-		$props: Record<string, any>;
+		__WUJIE: { mount: () => void };
 	}
 }

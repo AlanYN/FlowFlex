@@ -76,7 +76,7 @@ function handleTokenCheck(to, next) {
 }
 
 function redirectToLogin(to, next) {
-	if (to.path !== '/login') {
+	if (to.path !== '/login' && !window?.__POWERED_BY_WUJIE__) {
 		const redirectData = {
 			path: LOGIN_PATH,
 			replace: true,
@@ -144,14 +144,16 @@ async function handleTripartiteToken() {
 
 	const userStore = useUserStoreWithOut();
 	// 直接检查无界环境，避免调用可能未初始化的 useWujie
+	if (window.__POWERED_BY_WUJIE__) {
+		userStore.setLayout({
+			hideMenu: true,
+			hideEditMenu: true,
+		});
+	}
 	if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
 		console.log('无界环境处理 token');
 		console.log('window.$wujie.props:', window.$wujie.props);
 		if (userStore.getUserInfo.appCode && getTokenobj()?.accessToken?.token) return;
-		userStore.setLayout({
-			hideMenu: true || isIframe(),
-			hideEditMenu: true,
-		});
 		const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
 		if (appCode && tenantId && authorizationToken) {
 			try {

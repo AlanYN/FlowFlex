@@ -46,10 +46,16 @@ async function bootstrap() {
 	appInstance = app;
 	await app.mount('#app-root');
 
+	// 确保 sub-app-body class 始终存在
+	if (!document.documentElement.classList.contains('sub-app-body')) {
+		document.documentElement.classList.add('sub-app-body');
+	}
+
 	return app;
 }
 
 if (window.__POWERED_BY_WUJIE__) {
+	// 禁用无界的样式处理
 	console.log('无界环境');
 	window.__WUJIE_MOUNT = () => {
 		console.log('无界环境挂载开始');
@@ -76,6 +82,8 @@ if (window.__POWERED_BY_WUJIE__) {
 			appInstance = null;
 		}
 	};
+
+	window.__WUJIE.mount();
 } else {
 	console.log('非无界环境');
 	bootstrap().catch((error) => {

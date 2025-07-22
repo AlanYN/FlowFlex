@@ -1,6 +1,11 @@
 <template>
 	<div class="stage-form-container">
-		<PrototypeTabs v-model="currentTab" :tabs="tabsConfig" class="editor-tabs" content-class="editor-content">
+		<PrototypeTabs
+			v-model="currentTab"
+			:tabs="tabsConfig"
+			class="editor-tabs"
+			content-class="editor-content"
+		>
 			<TabPane value="basicInfo">
 				<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
 					<el-form-item label="Stage Name" prop="name">
@@ -8,57 +13,97 @@
 					</el-form-item>
 
 					<el-form-item label="Description" prop="description">
-						<el-input v-model="formData.description" type="textarea" :rows="3"
-							placeholder="Enter stage description" />
+						<el-input
+							v-model="formData.description"
+							type="textarea"
+							:rows="3"
+							placeholder="Enter stage description"
+						/>
 					</el-form-item>
 
 					<!-- Visible in Customer Portal -->
 					<el-form-item label="Available in Customer Portal" prop="visibleInPortal">
-						<el-switch v-model="formData.visibleInPortal" inline-prompt active-text="Yes"
-							inactive-text="No" />
+						<el-switch
+							v-model="formData.visibleInPortal"
+							inline-prompt
+							active-text="Yes"
+							inactive-text="No"
+						/>
 					</el-form-item>
 
 					<div class="flex items-center gap-2 w-full">
-						<el-form-item label="Assigned User Group" prop="defaultAssignedGroup" class="w-1/2">
-							<el-select v-model="formData.defaultAssignedGroup" placeholder="Select user group"
-								style="width: 100%">
-								<el-option v-for="item in defaultAssignedGroupOptions" :key="item.value"
-									:label="item.key" :value="item.value" />
+						<el-form-item
+							label="Assigned User Group"
+							prop="defaultAssignedGroup"
+							class="w-1/2"
+						>
+							<el-select
+								v-model="formData.defaultAssignedGroup"
+								placeholder="Select user group"
+								style="width: 100%"
+							>
+								<el-option
+									v-for="item in defaultAssignedGroupOptions"
+									:key="item.value"
+									:label="item.key"
+									:value="item.value"
+								/>
 							</el-select>
 						</el-form-item>
 
 						<el-form-item label="Default Assignee" prop="defaultAssignee" class="w-1/2">
-							<el-input v-model="formData.defaultAssignee" placeholder="Enter default assignee role" />
+							<el-input
+								v-model="formData.defaultAssignee"
+								placeholder="Enter default assignee role"
+							/>
 						</el-form-item>
 					</div>
 
 					<el-form-item label="Estimated Duration" prop="estimatedDuration">
-						<InputNumber v-model="formData.estimatedDuration as number" placeholder="e.g., 3 days" />
+						<InputNumber
+							v-model="formData.estimatedDuration as number"
+							placeholder="e.g., 3 days"
+						/>
 					</el-form-item>
 
 					<el-form-item label="Stage Color" prop="color">
 						<div class="color-picker-container">
 							<div class="color-grid">
-								<div v-for="color in colorOptions" :key="color" class="color-option"
-									:class="{ selected: formData.color === color }" :style="{ backgroundColor: color }"
-									@click="formData.color = color"></div>
+								<div
+									v-for="color in colorOptions"
+									:key="color"
+									class="color-option"
+									:class="{ selected: formData.color === color }"
+									:style="{ backgroundColor: color }"
+									@click="formData.color = color"
+								></div>
 							</div>
 						</div>
 					</el-form-item>
 				</el-form>
 			</TabPane>
 			<TabPane value="components">
-				<StageComponentsSelector :checklists="checklists" :questionnaires="questionnaires" :model-value="{
-					components: formData.components,
-					visibleInPortal: formData.visibleInPortal,
-					attachmentManagementNeeded: formData.attachmentManagementNeeded
-				}" @update:model-value="updateComponentsData" />
+				<StageComponentsSelector
+					:checklists="checklists"
+					:questionnaires="questionnaires"
+					:model-value="{
+						components: formData.components,
+						visibleInPortal: formData.visibleInPortal,
+						attachmentManagementNeeded: formData.attachmentManagementNeeded,
+					}"
+					@update:model-value="updateComponentsData"
+				/>
 			</TabPane>
 		</PrototypeTabs>
 
 		<div class="form-actions">
 			<el-button @click="$emit('cancel')">Cancel</el-button>
-			<el-button type="primary" :loading="loading" :disabled="!isFormValid" @click="submitForm">
+			<el-button
+				type="primary"
+				:loading="loading"
+				:disabled="!isFormValid"
+				@click="submitForm"
+			>
 				{{ isEditing ? 'Update Stage' : 'Add Stage' }}
 			</el-button>
 		</div>
@@ -74,23 +119,7 @@ import { Options } from '#/setting';
 import StageComponentsSelector from './StageComponentsSelector.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { Checklist, Questionnaire } from '#/onboard';
-
-// 接口定义
-interface Stage {
-	id: string;
-	name: string;
-	description?: string;
-	visibleInPortal: boolean;
-	defaultAssignedGroup: string;
-	defaultAssignee: string;
-	estimatedDuration: number;
-	requiredFieldsJson: string;
-	components: ComponentData[];
-	order: number;
-	color?: StageColorType;
-	attachmentManagementNeeded: boolean;
-}
+import { Checklist, Questionnaire, Stage } from '#/onboard';
 
 interface ComponentData {
 	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
@@ -223,8 +252,8 @@ onMounted(() => {
 					props.stage && props.stage?.color
 						? (props.stage[key] as StageColorType)
 						: (colorOptions[
-							Math.floor(Math.random() * colorOptions.length)
-						] as StageColorType);
+								Math.floor(Math.random() * colorOptions.length)
+						  ] as StageColorType);
 			} else if (key === 'components') {
 				formData.value[key] = props.stage?.components || [];
 			} else {
@@ -260,10 +289,10 @@ const emit = defineEmits(['submit', 'cancel']);
 // 更新组件数据的方法
 const updateComponentsData = (newData: any) => {
 	formData.value.components = newData.components;
-	if (newData.hasOwnProperty('visibleInPortal')) {
+	if (Object.prototype.hasOwnProperty.call(newData, 'visibleInPortal')) {
 		formData.value.visibleInPortal = newData.visibleInPortal;
 	}
-	if (newData.hasOwnProperty('attachmentManagementNeeded')) {
+	if (Object.prototype.hasOwnProperty.call(newData, 'attachmentManagementNeeded')) {
 		formData.value.attachmentManagementNeeded = newData.attachmentManagementNeeded;
 	}
 };

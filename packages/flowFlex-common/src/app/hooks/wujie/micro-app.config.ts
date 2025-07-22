@@ -16,6 +16,11 @@ export const useWujie = () => {
 	// 设置无界事件监听
 	const setupEventListeners = () => {
 		if (window.$wujie?.bus) {
+			window.$wujie.bus.$off('props-update');
+			window.$wujie.bus.$off('primary-change');
+			window.$wujie.bus.$off('theme-change');
+			window.$wujie.bus.$off('logout');
+
 			window.$wujie.bus.$on('props-update', (newProps: any) => {
 				currentProps = newProps;
 				againgWujieSubApp(newProps);
@@ -77,6 +82,12 @@ export const useWujie = () => {
 		if (currentRoute) {
 			router.push(currentRoute);
 		}
+
+		const userStore = useUserStoreWithOut();
+		userStore.setLayout({
+			hideMenu: true,
+			hideEditMenu: true,
+		});
 	};
 
 	const initWujieSubApp = () => {

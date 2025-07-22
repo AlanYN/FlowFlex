@@ -35,7 +35,7 @@ const getToTarget = (tabItem: RouteLocationNormalized) => {
 };
 
 export const useMultipleTabStore: any = defineStore({
-	id: 'app-multiple-tab',
+	id: 'flowFlex-app-multiple-tab',
 	state: (): MultipleTabState => ({
 		// Tabs that need to be cached
 		cacheTabList: new Set(),
