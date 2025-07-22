@@ -183,8 +183,12 @@
 								</div>
 								<div class="flex items-center space-x-2">
 									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+										<path 
+											stroke-linecap="round" 
+											stroke-linejoin="round" 
+											stroke-width="2"
+											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
+										/>
 									</svg>
 									<span>
 										{{ completedStages }} of {{ totalStages }} stages completed
@@ -521,7 +525,10 @@ export default {
 				return [];
 			}
 
-			return onboardingData.value.stagesProgress.map((stage, index) => {
+			// 只显示在Portal中可见的阶段
+			return onboardingData.value.stagesProgress
+				.filter(stage => stage.visibleInPortal !== false) // 默认显示，除非明确设置为false
+				.map((stage, index) => {
 				// 根据 stage.status 和 isCompleted 确定状态
 				let status = 'pending';
 				if (stage.isCompleted) {
@@ -571,7 +578,12 @@ export default {
 		});
 
 		const progressPercentage = computed(() => {
-			return customerData.value.overallProgress;
+			// 基于可见阶段重新计算进度百分比
+			if (customerStages.value.length === 0) {
+				return 0;
+			}
+			const completedVisibleStages = customerStages.value.filter(stage => stage.status === 'completed').length;
+			return Math.round((completedVisibleStages / customerStages.value.length) * 100);
 		});
 
 		const nextSteps = computed(() => {
@@ -629,7 +641,7 @@ export default {
 
 		// 检查URL中的token参数并自动验证
 		const checkUrlTokenAndVerify = async () => {
-			const urlToken = route.query.token as string;
+			const urlToken = route.query.token;
 			const portalAccessToken = localStorage.getItem('portal_access_token');
 			
 			// 如果URL中有token但localStorage中没有portal_access_token，进行自动验证

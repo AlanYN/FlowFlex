@@ -36,10 +36,14 @@ namespace FlowFlex.Application.Maps
 
             // OnboardingStageProgress  OnboardingStageProgressDto ӳ
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
+                .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()
+                .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components));
 

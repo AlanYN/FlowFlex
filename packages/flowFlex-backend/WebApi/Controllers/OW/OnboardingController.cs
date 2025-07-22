@@ -580,6 +580,18 @@ namespace FlowFlex.WebApi.Controllers.OW
             var fileName = $"onboarding_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
+
+        /// <summary>
+        /// Sync stages progress from workflow stages configuration
+        /// Updates VisibleInPortal and AttachmentManagementNeeded fields from stage definitions
+        /// </summary>
+        [HttpPost("{id}/sync-stages-progress")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SyncStagesProgressAsync(long id)
+        {
+            bool result = await _onboardingService.SyncStagesProgressAsync(id);
+            return Success(result);
+        }
     }
 
     /// <summary>

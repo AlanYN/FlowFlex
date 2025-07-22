@@ -50,7 +50,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250101000012_AddEncryptedAccessTokenField", (Action)(() => AddEncryptedAccessTokenField_20250101000012.Up(_db))),
                     ("20250101000013_MakeTokenExpiryNullable", (Action)(() => MakeTokenExpiryNullable_20250101000013.Up(_db))),
                     ("20250101000014_AddAppCodeToEvents", (Action)(() => AddAppCodeToEvents_20250101000014.Up(_db))),
-                    ("20250101000015_AddPortalVisibilityAndAttachmentFields", (Action)(() => AddPortalVisibilityAndAttachmentFields_20250101000015.Up(_db)))
+                    ("20250101000015_AddPortalVisibilityAndAttachmentFields", (Action)(() => AddPortalVisibilityAndAttachmentFields_20250101000015.Up(_db))),
+                    ("20250102000016_UpdateStagesProgressWithPortalFields", (Action)(() => UpdateStagesProgressWithPortalFields_20250102000016.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

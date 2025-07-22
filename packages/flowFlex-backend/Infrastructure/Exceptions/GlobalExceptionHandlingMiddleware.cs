@@ -67,11 +67,12 @@ namespace FlowFlex.Infrastructure.Exceptions
 
         private ApiResponse<object> CreateCRMErrorResponse(CRMException crmException)
         {
-            var statusCode = crmException.StatusCode?.ToString() ?? "400";
+            var statusCode = crmException.StatusCode.HasValue ? (int)crmException.StatusCode.Value : 400;
             return new ApiResponse<object>
             {
-                Code = int.Parse(statusCode),
-                Msg = crmException.Message, // 改为Msg字段
+                Code = statusCode,
+                Message = crmException.Message, // 设置Message字段
+                Msg = crmException.Message, // 同时设置Msg字段以保持兼容性
                 Data = crmException.ErrorData
             };
         }
@@ -81,7 +82,8 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.BadRequest,
-                Msg = "Invalid request parameters", // 改为Msg字段
+                Message = "Invalid request parameters", // 设置Message字段
+                Msg = "Invalid request parameters", // 同时设置Msg字段以保持兼容性
                 Data = new { Details = exception.Message }
             };
         }
@@ -91,7 +93,8 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.Unauthorized,
-                Msg = "Unauthorized access", // 改为Msg字段
+                Message = "Unauthorized access", // 设置Message字段
+                Msg = "Unauthorized access", // 同时设置Msg字段以保持兼容性
                 Data = null
             };
         }
@@ -101,7 +104,8 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.RequestTimeout,
-                Msg = "Request timeout", // 改为Msg字段
+                Message = "Request timeout", // 设置Message字段
+                Msg = "Request timeout", // 同时设置Msg字段以保持兼容性
                 Data = null
             };
         }
@@ -111,7 +115,8 @@ namespace FlowFlex.Infrastructure.Exceptions
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.InternalServerError,
-                Msg = "An internal server error occurred", // 改为Msg字段
+                Message = "An internal server error occurred", // 设置Message字段
+                Msg = "An internal server error occurred", // 同时设置Msg字段以保持兼容性
                 Data = null
             };
         }

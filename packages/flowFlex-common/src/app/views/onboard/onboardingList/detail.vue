@@ -229,7 +229,7 @@
 		<el-dialog
 			v-model="portalAccessDialogVisible"
 			title="Portal Access Management"
-			width="800px"
+			width="1000px"
 			:before-close="() => (portalAccessDialogVisible = false)"
 		>
 			<PortalAccessContent :onboarding-id="onboardingId" :onboarding-data="onboardingData" />

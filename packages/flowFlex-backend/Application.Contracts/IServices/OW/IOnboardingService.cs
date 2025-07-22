@@ -171,5 +171,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Export onboarding data to Excel
         /// </summary>
         Task<Stream> ExportToExcelAsync(OnboardingQueryRequest query);
+
+        /// <summary>
+        /// Sync stages progress from workflow stages configuration
+        /// Updates VisibleInPortal and AttachmentManagementNeeded fields from stage definitions
+        /// </summary>
+        Task<bool> SyncStagesProgressAsync(long id);
     }
 }

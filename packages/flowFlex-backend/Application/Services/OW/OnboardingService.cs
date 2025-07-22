@@ -3020,6 +3020,82 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Sync stages progress from workflow stages configuration
+        /// Updates VisibleInPortal and AttachmentManagementNeeded fields from stage definitions
+        /// </summary>
+        public async Task<bool> SyncStagesProgressAsync(long id)
+        {
+            try
+            {
+                var entity = await _onboardingRepository.GetByIdAsync(id);
+                if (entity == null || !entity.IsValid)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Get current workflow stages
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                if (stages == null || !stages.Any())
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "No stages found for workflow");
+                }
+
+                // Load current stages progress
+                LoadStagesProgressFromJson(entity);
+
+                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
+                {
+                    // If no stages progress exists, initialize it
+                    await InitializeStagesProgressAsync(entity, stages);
+                }
+                else
+                {
+                    // Update existing stages progress with stage configuration
+                    var stageDict = stages.ToDictionary(s => s.Id, s => s);
+                    bool hasChanges = false;
+
+                    foreach (var stageProgress in entity.StagesProgress)
+                    {
+                        if (stageDict.TryGetValue(stageProgress.StageId, out var stage))
+                        {
+                            // Check if fields need to be updated
+                            if (stageProgress.VisibleInPortal != stage.VisibleInPortal ||
+                                stageProgress.AttachmentManagementNeeded != stage.AttachmentManagementNeeded ||
+                                stageProgress.ComponentsJson != stage.ComponentsJson)
+                            {
+                                // Sync fields from stage configuration
+                                stageProgress.VisibleInPortal = stage.VisibleInPortal;
+                                stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
+                                stageProgress.ComponentsJson = stage.ComponentsJson;
+                                stageProgress.Components = stage.Components;
+                                stageProgress.EstimatedDays = stage.EstimatedDuration;
+                                stageProgress.LastUpdatedTime = DateTimeOffset.UtcNow;
+                                stageProgress.LastUpdatedBy = GetCurrentUserName();
+                                hasChanges = true;
+                            }
+                        }
+                    }
+
+                    if (hasChanges)
+                    {
+                        // Serialize updated progress back to JSON
+                        entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
+                    }
+                }
+
+                // Update tracking info
+                await UpdateStageTrackingInfoAsync(entity);
+
+                // Save changes
+                return await _onboardingRepository.UpdateAsync(entity);
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Error syncing stages progress for onboarding {id}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Initialize stages progress array for a new onboarding
         /// </summary>
         private async Task InitializeStagesProgressAsync(Onboarding entity, List<Stage> stages)
@@ -3058,6 +3134,8 @@ namespace FlowFlex.Application.Services.OW
                         EstimatedDays = stage.EstimatedDuration,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
+                        VisibleInPortal = stage.VisibleInPortal, // Sync from stage configuration
+                        AttachmentManagementNeeded = stage.AttachmentManagementNeeded, // Sync from stage configuration
                         ComponentsJson = stage.ComponentsJson, // Copy components configuration from stage
                         Components = stage.Components // Copy components list from stage
                     };
