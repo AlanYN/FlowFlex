@@ -353,8 +353,8 @@ app.UseCors("AllowAll");
 
 // Add authentication and authorization middleware
 app.UseAuthentication();
-app.UseMiddleware<FlowFlex.WebApi.Middlewares.JwtAuthenticationMiddleware>(); // 启用自定义JWT认证中间件
-app.UseMiddleware<FlowFlex.WebApi.Middlewares.TokenValidationMiddleware>();
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.JwtAuthenticationMiddleware>(); // 重新启用自定义JWT认证中间件
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.TokenValidationMiddleware>(); // 重新启用Token验证中间件
 app.UseAuthorization();
 
 app.MapControllers();

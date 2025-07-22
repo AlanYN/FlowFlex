@@ -517,7 +517,8 @@ const setQuestionnaireDetailsRef = (el: any) => {
 // 其他必要的函数（简化版本）
 const processOnboardingData = (responseData: any) => {
 	onboardingData.value = responseData;
-	workflowStages.value = responseData.stagesProgress;
+	// 只显示在Portal中可见的阶段
+	workflowStages.value = responseData.stagesProgress.filter((stage: any) => stage.visibleInPortal !== false);
 
 	let newStageId = '';
 

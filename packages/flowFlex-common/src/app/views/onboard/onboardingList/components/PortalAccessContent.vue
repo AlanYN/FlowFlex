@@ -14,7 +14,7 @@
 
 		<!-- Action Buttons -->
 		<div class="flex justify-between items-center">
-			<el-button type="success" @click="handleViewCustomerPortal" :disabled="portalUsers.length === 0">
+			<el-button type="success" @click="handleViewCustomerPortal">
 				View Customer Portal
 			</el-button>
 			<el-button type="primary" @click="handleAddButtonClick">
@@ -44,7 +44,7 @@
 						{{ formatDate(row.sentDate) }}
 					</template>
 				</el-table-column>
-				<el-table-column label="Actions" width="260">
+				<el-table-column label="Actions" width="320">
 					<template #default="{ row }">
 						<div class="flex space-x-2">
 							<el-button 

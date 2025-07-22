@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.WebApi.Model.Response;
+using FlowFlex.Domain.Shared;
 
 namespace FlowFlex.WebApi.Middlewares
 {
@@ -38,15 +39,15 @@ namespace FlowFlex.WebApi.Middlewares
 
         public async Task InvokeAsync(HttpContext context)
         {
+            // Check if authentication is required
+            if (IsPublicEndpoint(context.Request.Path))
+            {
+                await _next(context);
+                return;
+            }
+
             try
             {
-                // Check if authentication is required
-                if (IsPublicEndpoint(context.Request.Path))
-                {
-                    await _next(context);
-                    return;
-                }
-
                 // Extract JWT token
                 var token = ExtractToken(context);
 
@@ -106,9 +107,14 @@ namespace FlowFlex.WebApi.Middlewares
             {
                 await HandleUnauthorizedAsync(context, $"Invalid token: {ex.Message}");
             }
+            catch (CRMException)
+            {
+                // Let business logic exceptions pass through to GlobalExceptionHandlingMiddleware
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "JWT authentication middleware error");
+                _logger.LogError(ex, "JWT authentication middleware error for endpoint: {Path}", context.Request.Path);
                 await HandleUnauthorizedAsync(context, "Authentication error");
             }
         }
@@ -132,7 +138,9 @@ namespace FlowFlex.WebApi.Middlewares
                 "/health"
             };
 
-            return publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+            var isPublic = publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+            
+            return isPublic;
         }
 
         /// <summary>
@@ -245,7 +253,8 @@ namespace FlowFlex.WebApi.Middlewares
             var response = new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.Unauthorized,
-                Message = message,
+                Message = message, // 设置Message字段
+                Msg = message, // 同时设置Msg字段以保持兼容性
                 Data = null
             };
 

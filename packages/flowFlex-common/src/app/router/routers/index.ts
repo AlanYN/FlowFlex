@@ -40,7 +40,7 @@ export const LoginRoute: AppRouteRecordRaw = {
 export const PortalAccessRoute: AppRouteRecordRaw = {
 	path: '/portal-access',
 	name: 'PortalAccess',
-	component: () => import('@/views/onboard/portal-access/index.vue'),
+	component: () => import('@/views/onboard/sub-portal/portal-access/index.vue'),
 	meta: {
 		title: 'Portal Access Verification',
 		hideMenu: true,

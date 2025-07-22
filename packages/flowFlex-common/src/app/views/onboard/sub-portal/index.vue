@@ -525,7 +525,10 @@ export default {
 				return [];
 			}
 
-			return onboardingData.value.stagesProgress.map((stage, index) => {
+			// 只显示在Portal中可见的阶段
+			return onboardingData.value.stagesProgress
+				.filter(stage => stage.visibleInPortal !== false) // 默认显示，除非明确设置为false
+				.map((stage, index) => {
 				// 根据 stage.status 和 isCompleted 确定状态
 				let status = 'pending';
 				if (stage.isCompleted) {
@@ -575,7 +578,12 @@ export default {
 		});
 
 		const progressPercentage = computed(() => {
-			return customerData.value.overallProgress;
+			// 基于可见阶段重新计算进度百分比
+			if (customerStages.value.length === 0) {
+				return 0;
+			}
+			const completedVisibleStages = customerStages.value.filter(stage => stage.status === 'completed').length;
+			return Math.round((completedVisibleStages / customerStages.value.length) * 100);
 		});
 
 		const nextSteps = computed(() => {
