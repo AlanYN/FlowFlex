@@ -215,6 +215,7 @@ export interface UserInfo {
 	defaultTimeZone?: string;
 	attachmentId?: string;
 	avatarUrl?: string;
+	appCode?: string;
 }
 
 export interface ILayout {

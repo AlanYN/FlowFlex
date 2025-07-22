@@ -17,6 +17,8 @@ import { getProcessErrorResponseMessage } from '@/utils/utils';
 import { ElMessage } from 'element-plus';
 import { AxiosCanceler } from './axiosCancel';
 import { getTimeZoneInfo } from '@/hooks/time';
+import { useUserStoreWithOut } from '@/stores/modules/user';
+import { useWujie } from '@/hooks/wujie/micro-app.config';
 import axios from 'axios';
 import qs from 'qs';
 
@@ -139,10 +141,12 @@ const transform: AxiosTransform = {
 					?.requestOptions.Authorization;
 			}
 		}
+		const userStore = useUserStoreWithOut();
+		console.log('userStore.getUserInfo', userStore.getUserInfo);
 		(config as Recordable).headers['Time-Zone'] = `${getTimeZoneInfo().timeZone}`;
 		(config as Recordable).headers['Application-code'] = `${globSetting.ssoCode}`;
-		(config as Recordable).headers['X-App-Code'] = 'DEFAULT';
-		(config as Recordable).headers['X-Tenant-Id'] = 'DEFAULT';
+		(config as Recordable).headers['X-App-Code'] = userStore.getUserInfo?.appCode;
+		(config as Recordable).headers['X-Tenant-Id'] = userStore.getUserInfo?.tenantId;
 		// TODO: 在拦截器配置paramsSerializer
 		// const METHOD = config.method?.toUpperCase();
 		// if (METHOD === RequestEnum.GET || METHOD === RequestEnum.PUT) {
@@ -180,10 +184,18 @@ const transform: AxiosTransform = {
 		if (Object.keys(error?.response?.headers).includes('token-expired')) {
 			console.log('token过期了'); // 只是token过期��� 不包含其他地方登录了
 			axiosCanceler.removeAllPending();
+			const { tokenExpiredLogOut } = useWujie();
+			if (tokenExpiredLogOut) {
+				tokenExpiredLogOut(true);
+			}
 			window.parent.postMessage({ exceedToken: true }, '*');
 		} else if (error.response?.status === 401) {
-			window.parent.postMessage({ exceedToken: true }, '*');
 			axiosCanceler.removeAllPending();
+			const { tokenExpiredLogOut } = useWujie();
+			if (tokenExpiredLogOut) {
+				tokenExpiredLogOut(true);
+			}
+			window.parent.postMessage({ exceedToken: true }, '*');
 		}
 		if (axios.isCancel(error)) {
 			return Promise.reject(error);

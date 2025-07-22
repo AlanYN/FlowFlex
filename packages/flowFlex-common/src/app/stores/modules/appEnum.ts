@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { store } from '@/stores';
-import { DynamicFieldsList } from '#/leadAndDeal';
 import { AppEnum, Country, PhoneArea, ProjectOptions } from '#/golbal';
 
 const defaultPropertyObj = {
@@ -33,7 +32,7 @@ export const useCrmEnumStore = defineStore({
 		country: [],
 		state: [],
 		phoneArea: [],
-		propertyObj: JSON.parse(JSON.stringify(defaultPropertyObj)) as DynamicFieldsList,
+		propertyObj: JSON.parse(JSON.stringify(defaultPropertyObj)) as any,
 		productMenu: null,
 		assignOptionsCache: {},
 	}),
@@ -64,12 +63,12 @@ export const useCrmEnumStore = defineStore({
 		setProductOptions(data: ProjectOptions) {
 			this.productMenu = data;
 		},
-		setPropertyObj(data: Partial<DynamicFieldsList>) {
+		setPropertyObj(data: Partial<any>) {
 			const property = {
 				...JSON.parse(JSON.stringify(defaultPropertyObj)),
 				...data,
 			};
-			this.propertyObj = property as DynamicFieldsList;
+			this.propertyObj = property as any;
 		},
 		setAssignOptions(searchText: string, options: any[]) {
 			this.assignOptionsCache[searchText] = options;

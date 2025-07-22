@@ -15,8 +15,6 @@ const Api = (id?: string | number) => {
 
 		delete: `${globSetting.apiProName}/modules/${globSetting.apiVersion}/${id}/datas/batch`,
 
-		getFileUrl: `${globSetting.apiProName}/shared/${globSetting.apiVersion}/files/${id}/path`,
-
 		sendEmailCode: `${globSetting.apiProName}/ow/users/send-verification-code`,
 	};
 };
@@ -39,10 +37,6 @@ export function globalUploadFile(params: any, onUploadProgress?: (progressEvent)
 
 export function globalDeleteFile(id: string) {
 	return defHttp.delete({ url: `${Api().uploadFile}/${id}` });
-}
-
-export function getFileUrl(params) {
-	return defHttp.get({ url: `${Api(params).getFileUrl}` });
 }
 
 export function fileAttachment(params, onDownloadProgress?: (progressEvent) => void) {

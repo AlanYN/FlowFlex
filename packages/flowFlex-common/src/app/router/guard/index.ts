@@ -11,7 +11,7 @@ import { AxiosCanceler } from '@/apis/axios/axiosCancel';
 import { useGlobSetting } from '@/settings';
 import { ParametersToken } from '#/config';
 import { isIframe, parseUrlSearch, objectToQueryString } from '@/utils/utils';
-import { passSsoToken, setEnvironment } from '@/utils/threePartyLogin';
+import { passSsoToken, setEnvironment, wujieCrmToken } from '@/utils/threePartyLogin';
 
 import { getTokenobj } from '@/utils/auth';
 
@@ -59,17 +59,20 @@ function handleMessageGuard() {
 }
 
 function handleTokenCheck(to, next) {
-	const accessToken = getTokenobj()?.accessToken.token;
+	try {
+		const accessToken = getTokenobj()?.accessToken?.token;
+		if (!accessToken) {
+			redirectToLogin(to, next);
+			return true;
+		} else if (to.path === '/login') {
+			next({ path: HOME_PATH });
+			return true;
+		}
 
-	if (!accessToken) {
-		redirectToLogin(to, next);
-		return true;
-	} else if (to.path === '/login') {
-		next({ path: HOME_PATH });
+		return false;
+	} catch (error) {
 		return true;
 	}
-
-	return false;
 }
 
 function redirectToLogin(to, next) {
@@ -122,7 +125,7 @@ async function handleNavigateWatchForm(next) {
 
 async function createDynamicRoutes(router: Router) {
 	try {
-		const accessToken = getTokenobj()?.accessToken.token;
+		const accessToken = getTokenobj()?.accessToken?.token;
 		if (!accessToken) return;
 		const permissionStore = usePermissionStoreWithOut();
 		if (permissionStore.getFrontMenuList.length <= 0) {
@@ -138,8 +141,33 @@ async function createDynamicRoutes(router: Router) {
 
 async function handleTripartiteToken() {
 	const parameterObj = parseUrlSearch(window.location.href)?.query as ParametersToken;
-	if (parameterObj) {
-		const userStore = useUserStoreWithOut();
+
+	const userStore = useUserStoreWithOut();
+	// 直接检查无界环境，避免调用可能未初始化的 useWujie
+	if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
+		console.log('无界环境处理 token');
+		console.log('window.$wujie.props:', window.$wujie.props);
+		if (userStore.getUserInfo.appCode && getTokenobj()?.accessToken?.token) return;
+		userStore.setLayout({
+			hideMenu: true || isIframe(),
+			hideEditMenu: true,
+		});
+		const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
+		if (appCode && tenantId && authorizationToken) {
+			try {
+				await wujieCrmToken(
+					{
+						appCode,
+						tenantId,
+						authorizationToken,
+					},
+					currentRoute
+				);
+			} catch (error) {
+				console.error('无界环境 token 处理失败:', error);
+			}
+		}
+	} else if (!window.__POWERED_BY_WUJIE__ && parameterObj) {
 		const { loginType, code = '', state = '', hideEditMenu, hideMenu } = parameterObj;
 
 		userStore.setLayout({

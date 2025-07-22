@@ -4,7 +4,6 @@
 			:class="`${prefixCls}-image-wrapper`"
 			:style="getImageWrapperStyle"
 			@click="openModal()"
-			v-loading="avatarLoading"
 		>
 			<div :class="`${prefixCls}-image-mask`" class="flex" :style="getImageWrapperStyle">
 				<Upload class="w-[30px] h-[30px] m-auto" />
@@ -52,7 +51,6 @@ import CropperModal from './CropperModal.vue';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage } from 'element-plus';
 import { Upload } from '@element-plus/icons-vue';
-import { getFileUrl } from '@/apis/global';
 
 defineOptions({ name: 'CropperAvatar' });
 
@@ -82,29 +80,10 @@ const getImageWrapperStyle = computed(
 	(): CSSProperties => ({ width: unref(getWidth), height: unref(getWidth) })
 );
 
-const avatarLoading = ref(false);
-const setAvatar = async (id) => {
-	fileId.value = '';
-	sourceValue.value = '';
-	if (!id) return;
-	try {
-		avatarLoading.value = true;
-		const res = await getFileUrl(id);
-		if (res.code == '200') {
-			sourceValue.value = res.data;
-		}
-	} catch (error) {
-		avatarLoading.value = false;
-	} finally {
-		avatarLoading.value = false;
-	}
-};
-
 function handleUploadSuccess({ source, data }) {
 	if (data?.data?.code == '200') {
 		nextTick(() => {
 			fileId.value = source.fileId;
-			setAvatar(fileId.value);
 			emit('change', { source, data: data.data });
 			ElMessage.success(t('sys.cropper.uploadSuccess'));
 			cropperModalRef.value?.cancel();
@@ -130,6 +109,8 @@ const openModal = () => {
 const removeImage = () => {
 	emit('remove');
 };
+
+const setAvatar = (id) => {};
 
 defineExpose({
 	setAvatar,

@@ -9,13 +9,14 @@ import { setupRouterGuard } from '@/router/guard';
 import { vPerMission } from '@/hooks';
 import { setTheme, setPrimary } from '@/utils/theme';
 import 'default-passive-events';
-
 import ElementPlus from 'element-plus';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
+import { useWujie } from '@/hooks/wujie/micro-app.config';
+
+let appInstance: any = null;
 
 async function bootstrap() {
 	const app = createApp(App);
-
 	// Multilingual configuration
 	// 多语言配置
 	await setupI18n(app);
@@ -42,7 +43,42 @@ async function bootstrap() {
 		app.component(key, component);
 	}
 
-	app.mount('#app-root');
+	appInstance = app;
+	await app.mount('#app-root');
+
+	return app;
 }
 
-bootstrap();
+if (window.__POWERED_BY_WUJIE__) {
+	console.log('无界环境');
+	window.__WUJIE_MOUNT = () => {
+		console.log('无界环境挂载开始');
+		console.log('window.$wujie:', window.$wujie);
+
+		bootstrap()
+			.then(() => {
+				console.log('应用挂载完成，初始化无界配置');
+				// 确保在应用挂载完成后再初始化无界配置
+				setTimeout(() => {
+					const { initWujieSubApp } = useWujie();
+					initWujieSubApp();
+				}, 100);
+			})
+			.catch((error) => {
+				console.error('应用启动失败:', error);
+			});
+	};
+
+	window.__WUJIE_UNMOUNT = () => {
+		console.log('无界环境卸载');
+		if (appInstance) {
+			appInstance.unmount();
+			appInstance = null;
+		}
+	};
+} else {
+	console.log('非无界环境');
+	bootstrap().catch((error) => {
+		console.error('应用启动失败:', error);
+	});
+}

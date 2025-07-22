@@ -7,6 +7,8 @@ const itemApi = () => {
 	return {
 		// sso Activities
 		ssoLoginActivity: `${globSetting.iamUrl}/api/idm-app/user/sso/add-login-activity`,
+
+		wujieCrmToken: `${globSetting.apiProName}/ow/users/third-party-login`,
 	};
 };
 
@@ -18,4 +20,8 @@ export const addLoginActivity = (params: any) => {
 			Authorization: `Bearer ${getTokenobj().tripartiteToken}`,
 		}
 	);
+};
+
+export const wujieCrmTokenApi = (params: any) => {
+	return defHttp.post({ url: `${itemApi().wujieCrmToken}`, params });
 };
