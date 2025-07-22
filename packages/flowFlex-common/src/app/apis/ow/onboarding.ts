@@ -164,18 +164,9 @@ export function deleteOnboarding(id: string | number, confirm: boolean = false) 
  * @returns OnboardingOutputDto
  */
 export function getOnboardingByLead(leadId: string, usePortalAuth: boolean = false) {
-	const requestOptions: any = {};
-	
-	if (usePortalAuth) {
-		const portalAccessToken = localStorage.getItem('portal_access_token');
-		if (portalAccessToken) {
-			requestOptions.Authorization = `Bearer ${portalAccessToken}`;
-		}
-	}
-	
+	// 现在统一使用标准认证，usePortalAuth参数保留兼容性但不再使用特殊逻辑
 	return defHttp.get({ 
-		url: `${Api(leadId).onboarding}`,
-		...(usePortalAuth ? { requestOptions } : {})
+		url: `${Api(leadId).onboarding}`
 	});
 }
 

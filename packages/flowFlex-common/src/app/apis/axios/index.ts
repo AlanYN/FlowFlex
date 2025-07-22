@@ -132,18 +132,19 @@ const transform: AxiosTransform = {
 		const token = tokenObj?.accessToken?.token;
 		const authenticat = tokenObj?.accessToken?.tokenType;
 		
-		// 检查是否需要使用portal_access_token
+		// Portal页面优先使用标准用户认证，fallback到portal_access_token
 		const portalAccessToken = localStorage.getItem('portal_access_token');
 		const isPortalRequest = window.location.pathname.startsWith('/customer-portal') ||
 							   window.location.pathname.startsWith('/onboard/sub-portal/portal');
 		
-		if (isPortalRequest && portalAccessToken) {
-			// 使用portal访问token
-			(config as Recordable).headers.Authorization = `Bearer ${portalAccessToken}`;
-		} else if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
+		if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
+			// 优先使用标准用户认证（包括portal页面）
 			(config as Recordable).headers.Authorization = authenticat
 				? `${authenticat} ${token}`
 				: `${options.authenticationScheme} ${token}`;
+		} else if (isPortalRequest && portalAccessToken) {
+			// 当没有标准认证时，portal页面才使用portal访问token
+			(config as Recordable).headers.Authorization = `Bearer ${portalAccessToken}`;
 		} else {
 			if (Object.keys((config as Recordable)?.requestOptions).includes('Authorization')) {
 				(config as Recordable).headers.Authorization = (config as Recordable)

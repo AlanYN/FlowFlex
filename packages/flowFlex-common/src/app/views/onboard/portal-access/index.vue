@@ -10,8 +10,21 @@
 
 			<!-- Content -->
 			<div class="p-6">
+				<!-- Loading State (during auto-verification) -->
+				<div v-if="loading && verificationState === 'form'" class="text-center space-y-4">
+					<div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+						<svg class="w-8 h-8 text-blue-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+						</svg>
+					</div>
+					<h3 class="text-lg font-semibold text-gray-800">Checking Access...</h3>
+					<p class="text-gray-600">
+						Verifying your invitation, please wait...
+					</p>
+				</div>
+
 				<!-- Form State -->
-				<div v-if="verificationState === 'form'" class="space-y-4">
+				<div v-if="verificationState === 'form' && !loading" class="space-y-4">
 					<div class="text-center mb-6">
 						<div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
 							<svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,6 +237,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance } from 'element-plus';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import * as userApi from '@/apis/ow/user';
+import { useUserStore } from '@/stores/modules/user';
+import dayjs from 'dayjs';
+import { parseJWT } from '@/utils';
 
 // Router and route
 const route = useRoute();
@@ -374,11 +390,26 @@ const handleRegisterAndLogin = async () => {
 			password: registrationForm.value.password,
 		});
 
-		const loginData = loginResponse?.data || loginResponse;
+				const loginData = loginResponse?.data || loginResponse;
+
+		// Use the standard user store to set token (same as normal login)
+		const userStore = useUserStore();
+		const currentDate = dayjs(new Date()).unix();
 		
-		// Store user token for future use (this is different from portal_access_token)
-		localStorage.setItem('user_access_token', loginData.accessToken);
-		localStorage.setItem('user_info', JSON.stringify(loginData.user));
+		userStore.setTokenobj({
+			accessToken: {
+				token: loginData.accessToken,
+				expire: currentDate + (loginData.expiresIn || 86400), // Default 24 hours
+				tokenType: loginData.tokenType || 'Bearer',
+			},
+			refreshToken: loginData.accessToken, // Use access token as refresh token for simplicity
+		});
+		
+		userStore.setUserInfo({
+			...loginData.user,
+			userName: loginData.user.email || loginData.user.username,
+			userId: loginData.user.id,
+		});
 
 		// Show success
 		verificationState.value = 'success';
@@ -409,11 +440,26 @@ const handleLogin = async () => {
 			password: loginForm.value.password,
 		});
 
-		const loginData = loginResponse?.data || loginResponse;
-
-		// Store user token for future use (this is different from portal_access_token)
-		localStorage.setItem('user_access_token', loginData.accessToken);
-		localStorage.setItem('user_info', JSON.stringify(loginData.user));
+				const loginData = loginResponse?.data || loginResponse;
+		
+		// Use the standard user store to set token (same as normal login)
+		const userStore = useUserStore();
+		const currentDate = dayjs(new Date()).unix();
+		
+		userStore.setTokenobj({
+			accessToken: {
+				token: loginData.accessToken,
+				expire: currentDate + (loginData.expiresIn || 86400), // Default 24 hours
+				tokenType: loginData.tokenType || 'Bearer',
+			},
+			refreshToken: loginData.accessToken, // Use access token as refresh token for simplicity
+		});
+		
+		userStore.setUserInfo({
+			...loginData.user,
+			userName: loginData.user.email || loginData.user.username,
+			userId: loginData.user.id,
+		});
 
 		// Show success
 		verificationState.value = 'success';
@@ -479,13 +525,83 @@ const retryVerification = () => {
 	registrationForm.value.confirmPassword = '';
 };
 
-// Load data on mount
-onMounted(() => {
+// Check if current user matches the invitation email
+const checkCurrentUserAndAutoLogin = async () => {
 	const token = route.query.token as string;
 	if (!token) {
 		ElMessage.error('Invalid invitation link');
 		router.push('/');
+		return;
 	}
+
+	const userStore = useUserStore();
+	const currentUserInfo = userStore.getUserInfo;
+	const currentToken = userStore.getToken;
+
+	console.log('Portal Access - Current User Info:', currentUserInfo);
+	console.log('Portal Access - Current Token:', currentToken);
+	console.log('Portal Access - User Email:', currentUserInfo?.email);
+	console.log('Portal Access - User Info Keys:', Object.keys(currentUserInfo || {}));
+	console.log('Portal Access - User Info Full:', JSON.stringify(currentUserInfo, null, 2));
+
+	// Try to get email from user info or parse from token
+	let userEmail = currentUserInfo?.email;
+	if (!userEmail && currentToken) {
+		try {
+			const parsedToken = parseJWT(currentToken);
+			userEmail = parsedToken?.email || parsedToken?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'];
+			console.log('Portal Access - Email from token:', userEmail);
+		} catch (error) {
+			console.error('Portal Access - Failed to parse token:', error);
+		}
+	}
+
+	// If user is already logged in
+	if (currentToken && userEmail) {
+		console.log('Portal Access - Auto-verification starting for user:', userEmail);
+		try {
+			loading.value = true;
+			
+			// Verify the portal access with current user's email
+			const response = await userInvitationApi.verifyPortalAccess({
+				token,
+				email: userEmail,
+			});
+
+			const verificationData = response?.data || response;
+
+			if (verificationData.isValid) {
+				// Store portal access token and onboarding ID
+				localStorage.setItem('portal_access_token', verificationData.accessToken);
+				localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
+
+				// Auto redirect without requiring additional login
+				verificationState.value = 'success';
+				successMessage.value = 'Welcome back! Redirecting to customer portal...';
+				
+				setTimeout(() => {
+					redirectToCustomerPortal();
+				}, 1000);
+			} else {
+				// Current user doesn't match the invitation, show form
+				verificationState.value = 'form';
+			}
+		} catch (error) {
+			console.error('Auto-verification error:', error);
+			// If auto-verification fails, show the form
+			verificationState.value = 'form';
+		} finally {
+			loading.value = false;
+		}
+	} else {
+		// No current user, show the form
+		verificationState.value = 'form';
+	}
+};
+
+// Load data on mount
+onMounted(() => {
+	checkCurrentUserAndAutoLogin();
 });
 </script>
 

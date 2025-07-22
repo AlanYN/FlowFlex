@@ -183,8 +183,12 @@
 								</div>
 								<div class="flex items-center space-x-2">
 									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+										<path 
+											stroke-linecap="round" 
+											stroke-linejoin="round" 
+											stroke-width="2"
+											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
+										/>
 									</svg>
 									<span>
 										{{ completedStages }} of {{ totalStages }} stages completed
@@ -629,7 +633,7 @@ export default {
 
 		// 检查URL中的token参数并自动验证
 		const checkUrlTokenAndVerify = async () => {
-			const urlToken = route.query.token as string;
+			const urlToken = route.query.token;
 			const portalAccessToken = localStorage.getItem('portal_access_token');
 			
 			// 如果URL中有token但localStorage中没有portal_access_token，进行自动验证

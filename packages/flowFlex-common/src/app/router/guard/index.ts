@@ -59,20 +59,33 @@ function handleMessageGuard() {
 }
 
 function handleTokenCheck(to, next) {
-	try {
-		const accessToken = getTokenobj()?.accessToken?.token;
-		if (!accessToken) {
-			redirectToLogin(to, next);
-			return true;
-		} else if (to.path === '/login') {
-			next({ path: HOME_PATH });
-			return true;
+	const accessToken = getTokenobj()?.accessToken.token;
+	
+	// 对于customer-portal页面，优先检查标准认证，fallback到portal认证
+	if (to.path.startsWith('/customer-portal')) {
+		const portalAccessToken = localStorage.getItem('portal_access_token');
+		const urlToken = to.query.token;
+		
+		if (accessToken || portalAccessToken || urlToken) {
+			// 有标准用户认证、portal访问token或URL中有token参数，允许访问
+			return false;
 		}
+	}
 
+	// 对于portal-access页面，允许直接访问（不需要标准认证）
+	if (to.path === '/portal-access') {
 		return false;
-	} catch (error) {
+	}
+
+	if (!accessToken) {
+		redirectToLogin(to, next);
+		return true;
+	} else if (to.path === '/login') {
+		next({ path: HOME_PATH });
 		return true;
 	}
+
+	return false;
 }
 
 function redirectToLogin(to, next) {
@@ -125,7 +138,7 @@ async function handleNavigateWatchForm(next) {
 
 async function createDynamicRoutes(router: Router) {
 	try {
-		const accessToken = getTokenobj()?.accessToken?.token;
+		const accessToken = getTokenobj()?.accessToken.token;
 		if (!accessToken) return;
 		const permissionStore = usePermissionStoreWithOut();
 		if (permissionStore.getFrontMenuList.length <= 0) {
