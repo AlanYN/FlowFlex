@@ -22,7 +22,7 @@ public class OWContext : DbContext
     public DbSet<OnboardingFile> OnboardingFiles { get; set; }
     public DbSet<OperationChangeLog> OperationChangeLogs { get; set; }
     public DbSet<StaticFieldValue> StaticFieldValues { get; set; }
-    public DbSet<StageCompletionLog> StageCompletionLogs { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -31,7 +31,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IStageRepository _stageRepository;
-        private readonly IStageCompletionLogRepository _stageCompletionLogRepository;
+
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly IMediator _mediator;
@@ -44,7 +44,7 @@ namespace FlowFlex.Application.Services.OW
             IOnboardingRepository onboardingRepository,
             IWorkflowRepository workflowRepository,
             IStageRepository stageRepository,
-            IStageCompletionLogRepository stageCompletionLogRepository,
+
             IMapper mapper,
             UserContext userContext,
             IMediator mediator)
@@ -52,7 +52,7 @@ namespace FlowFlex.Application.Services.OW
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
-            _stageCompletionLogRepository = stageCompletionLogRepository ?? throw new ArgumentNullException(nameof(stageCompletionLogRepository));
+
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
@@ -1500,34 +1500,7 @@ namespace FlowFlex.Application.Services.OW
                 // Don't throw exception, just log the warning and continue
             }
 
-            // Check stage completion logs to see if this stage has already been completed
-            // Debug logging handled by structured logging
-            try
-            {
-                var stageCompletionLogs = await _stageCompletionLogRepository.GetByOnboardingAndStageAsync(id, currentStage.Id);
-                var completionLogs = stageCompletionLogs.Where(log =>
-                    log.LogType == "complete" &&
-                    log.Success &&
-                    log.Action.Contains("complete", StringComparison.OrdinalIgnoreCase)).ToList();
-                // Debug logging handled by structured logging
-                if (completionLogs.Any())
-                {
-                    var latestCompletionLog = completionLogs.OrderByDescending(log => log.CreateDate).First();
-                    // Debug logging handled by structured logging
-                    // Don't throw exception, allow re-completion but log the previous completion
-                }
-                // Debug logging handled by structured logging
-            }
-            catch (CRMException)
-            {
-                // Re-throw CRM exceptions (our business logic exceptions)
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail on stage completion log check errors
-                // Debug logging handled by structured logging
-            }
+          
 
             // Check if this is the last stage
             var isLastStage = currentStageIndex >= totalStages - 1;
@@ -1684,32 +1657,7 @@ namespace FlowFlex.Application.Services.OW
             // Debug logging handled by structured logging
             // Check stage completion logs to see if this stage has already been completed
             // Debug logging handled by structured logging
-            try
-            {
-                var stageCompletionLogs = await _stageCompletionLogRepository.GetByOnboardingAndStageAsync(id, stageToComplete.Id);
-                var completionLogs = stageCompletionLogs.Where(log =>
-                    log.LogType == "complete" &&
-                    log.Success &&
-                    log.Action.Contains("complete", StringComparison.OrdinalIgnoreCase)).ToList();
-                // Debug logging handled by structured logging
-                if (completionLogs.Any())
-                {
-                    var latestCompletionLog = completionLogs.OrderByDescending(log => log.CreateDate).First();
-                    // Debug logging handled by structured logging
-                    // Don't throw exception, allow re-completion but log the previous completion
-                }
-                // Debug logging handled by structured logging
-            }
-            catch (CRMException)
-            {
-                // Re-throw CRM exceptions (our business logic exceptions)
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail on stage completion log check errors
-                // Debug logging handled by structured logging
-            }
+            // Stage completion log checking functionality removed
 
             // Update stages progress for the completed stage (non-sequential completion)
             // Debug logging handled by structured logging
@@ -1753,7 +1701,7 @@ namespace FlowFlex.Application.Services.OW
                 // Find the next incomplete stage to advance to
                 var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
                 var nextStageIndex = currentStageIndex + 1;
-                
+
                 // If current stage is the completed stage and there's a next stage, advance to it
                 if (entity.CurrentStageId == stageToComplete.Id && nextStageIndex < orderedStages.Count)
                 {
@@ -1771,7 +1719,7 @@ namespace FlowFlex.Application.Services.OW
                         .Where(stage => !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
                         .OrderBy(stage => stage.Order)
                         .FirstOrDefault();
-                    
+
                     if (nextIncompleteStage != null)
                     {
                         entity.CurrentStageId = nextIncompleteStage.Id;
@@ -1840,9 +1788,6 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
             // Debug logging handled by structured logging
-            // Log stage completion
-            await LogStageCompletionAsync(entity, currentStage, input);
-
             // Check if this is the last stage
             var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
             var orderedStages = stages.OrderBy(x => x.Order).ToList();
@@ -2253,7 +2198,7 @@ namespace FlowFlex.Application.Services.OW
             entity.StageUpdatedBy = GetCurrentUserName();
             entity.StageUpdatedById = GetCurrentUserId() ?? 0;
             entity.StageUpdatedByEmail = GetCurrentUserEmail();
-            
+
             // Sync isCurrent flag in stagesProgress to match currentStageId
             LoadStagesProgressFromJson(entity);
             if (entity.StagesProgress != null && entity.StagesProgress.Any())
@@ -2262,7 +2207,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Update isCurrent flag based on currentStageId
                     stage.IsCurrent = stage.StageId == entity.CurrentStageId;
-                    
+
                     // Update stage status based on completion and current status
                     if (stage.IsCompleted)
                     {
@@ -2277,7 +2222,7 @@ namespace FlowFlex.Application.Services.OW
                         stage.Status = "Pending";
                     }
                 }
-                
+
                 // Serialize back to JSON
                 entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
             }
@@ -2572,66 +2517,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Log stage completion to change log
-        /// </summary>
-        private async Task LogStageCompletionAsync(Onboarding onboarding, Stage stage, CompleteStageInputDto input)
-        {
-            try
-            {
-                // Get real user information
-                var currentUserName = GetCurrentUserName();
-                var currentUserId = GetCurrentUserId();
-                var actualCompletedBy = !string.IsNullOrEmpty(input.CompletedBy) ? input.CompletedBy : currentUserName;
-                var actualCompletedById = input.CompletedById ?? currentUserId;
-
-                var logData = new
-                {
-                    OnboardingId = onboarding.Id,
-                    LeadId = onboarding.LeadId,
-                    StageId = stage.Id,
-                    StageName = stage.Name,
-                    CompletionNotes = input.CompletionNotes,
-                    Rating = input.Rating,
-                    Feedback = input.Feedback,
-                    AttachmentsJson = input.AttachmentsJson,
-                    AutoMoveToNext = input.AutoMoveToNext,
-                    CompletedTime = DateTimeOffset.UtcNow,
-                    CompletedBy = actualCompletedBy,
-                    CompletedById = actualCompletedById,
-                    CompletionMethod = "Manual",
-                    PreviousStatus = "InProgress",
-                    NewStatus = "Completed"
-                };
-
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding.TenantId,
-                    OnboardingId = onboarding.Id,
-                    StageId = stage.Id,
-                    StageName = stage.Name,
-                    LogType = "stage_complete",
-                    Action = "Complete Stage",
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = actualCompletedBy,
-                    ModifyBy = actualCompletedBy,
-                    CreateUserId = actualCompletedById ?? 0,
-                    ModifyUserId = actualCompletedById ?? 0
-                };
-
-                // Save to StageCompletionLog repository
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                // Debug logging handled by structured logging
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't fail the stage completion
-                // Debug logging handled by structured logging
-            }
-        }
-
-        /// <summary>
         /// Log general onboarding action to change log
         /// </summary>
         private async Task LogOnboardingActionAsync(Onboarding onboarding, string action, string logType, bool success, object additionalData = null)
@@ -2652,22 +2537,7 @@ namespace FlowFlex.Application.Services.OW
                     AdditionalData = additionalData
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding.TenantId,
-                    OnboardingId = onboarding.Id,
-                    StageId = onboarding.CurrentStageId ?? 0,
-                    StageName = "N/A",
-                    LogType = logType,
-                    Action = action,
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = success,
-                    NetworkStatus = "online",
-                    CreateBy = GetCurrentUserName(),
-                    ModifyBy = GetCurrentUserName()
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)
@@ -2697,22 +2567,7 @@ namespace FlowFlex.Application.Services.OW
                     Action = isCompleted ? "Task Completed" : "Task Marked Incomplete"
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = GetTenantIdFromOnboarding(onboardingId),
-                    OnboardingId = onboardingId,
-                    StageId = stageId,
-                    StageName = stageName,
-                    LogType = "task_completion",
-                    Action = isCompleted ? "Task Completed" : "Task Marked Incomplete",
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = completedBy ?? GetCurrentUserName(),
-                    ModifyBy = completedBy ?? GetCurrentUserName()
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging}");
             }
             catch (Exception ex)
@@ -2752,24 +2607,7 @@ namespace FlowFlex.Application.Services.OW
                     Priority = onboarding.Priority
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding.TenantId,
-                    OnboardingId = onboarding.Id,
-                    StageId = stage.Id,
-                    StageName = stage.Name,
-                    LogType = "stage_complete",
-                    Action = "Complete Stage",
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = actualCompletedBy,
-                    ModifyBy = actualCompletedBy,
-                    CreateUserId = actualCompletedById ?? 0,
-                    ModifyUserId = actualCompletedById ?? 0
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)

@@ -21,7 +21,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     private readonly IChecklistTaskRepository _taskRepository;
     private readonly IOnboardingRepository _onboardingRepository;
     private readonly IStageRepository _stageRepository;
-    private readonly IStageCompletionLogRepository _stageCompletionLogRepository;
+
     private readonly IOperationChangeLogService _operationChangeLogService;
     private readonly IMapper _mapper;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -32,7 +32,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     IChecklistTaskRepository taskRepository,
     IOnboardingRepository onboardingRepository,
     IStageRepository stageRepository,
-    IStageCompletionLogRepository stageCompletionLogRepository,
+    
     IOperationChangeLogService operationChangeLogService,
     IMapper mapper,
     IHttpContextAccessor httpContextAccessor,
@@ -42,7 +42,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         _taskRepository = taskRepository;
         _onboardingRepository = onboardingRepository;
         _stageRepository = stageRepository;
-        _stageCompletionLogRepository = stageCompletionLogRepository;
+
         _operationChangeLogService = operationChangeLogService;
         _mapper = mapper;
         _httpContextAccessor = httpContextAccessor;
@@ -320,24 +320,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
 
             var serializedLogData = System.Text.Json.JsonSerializer.Serialize(logData);
             // Debug logging handled by structured logging
-            // 1. Log to ff_stage_completion_log table (maintain original functionality)
-            var stageCompletionLog = new StageCompletionLog
-            {
-                TenantId = tenantId,
-                OnboardingId = onboarding.Id,
-                StageId = currentStage?.Id ?? 0,
-                StageName = currentStage?.Name ?? "Unknown Stage",
-                LogType = "task_completion",
-                Action = isCompleted ? "Task Completed" : "Task Marked Incomplete",
-                LogData = serializedLogData,
-                Success = true,
-                NetworkStatus = "online",
-                CreateBy = GetCurrentUserName(),
-                ModifyBy = GetCurrentUserName()
-            };
-            // Debug logging handled by structured logging
-            await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-            // Debug logging handled by structured logging}");
+            // Stage completion log functionality removed
 
             // 2. Also log to ff_operation_change_log table (new functionality)
             try
@@ -430,7 +413,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     {
         try
         {
-            var logEntries = new List<StageCompletionLog>();
+            // Stage completion log functionality removed
             var tenantId = GetTenantId();
             // Debug logging handled by structured logging
             for (int i = 0; i < inputs.Count && i < completions.Count; i++)
@@ -474,22 +457,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                     BatchOperation = true
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = tenantId,
-                    OnboardingId = onboarding.Id,
-                    StageId = currentStage?.Id ?? 0,
-                    StageName = currentStage?.Name ?? "Unknown Stage",
-                    LogType = "task_completion_batch",
-                    Action = completion.IsCompleted ? "Batch Task Completed" : "Batch Task Marked Incomplete",
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = GetCurrentUserName(),
-                    ModifyBy = GetCurrentUserName()
-                };
-
-                logEntries.Add(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
                 // Also log to ff_operation_change_log table
                 try
@@ -562,13 +530,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 }
             }
 
-            // Batch insert log entries to stage completion log
-            // Debug logging handled by structured logging
-            foreach (var logEntry in logEntries)
-            {
-                await _stageCompletionLogRepository.InsertAsync(logEntry);
-            }
-            // Debug logging handled by structured logging
+            // Stage completion log functionality removed
         }
         catch (Exception ex)
         {

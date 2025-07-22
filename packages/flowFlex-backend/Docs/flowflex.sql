@@ -418,35 +418,7 @@ CREATE TABLE ff_internal_notes (
     modify_user_id BIGINT DEFAULT 0
 );
 
--- =============================================
--- 14. Stage Completion Log Table (ff_stage_completion_log)
--- =============================================
-CREATE TABLE ff_stage_completion_log (
-    id BIGSERIAL NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
-    onboarding_id BIGINT NOT NULL,
-    stage_id BIGINT NOT NULL,
-    stage_name VARCHAR(200) DEFAULT '',
-    log_type VARCHAR(50) NOT NULL DEFAULT '',
-    action VARCHAR(100) DEFAULT '',
-    log_data JSONB DEFAULT '{}',
-    success BOOLEAN DEFAULT TRUE,
-    error_message VARCHAR(2000) DEFAULT '',
-    network_status VARCHAR(20) DEFAULT '',
-    response_time INTEGER,
-    user_agent VARCHAR(500) DEFAULT '',
-    request_url VARCHAR(500) DEFAULT '',
-    source VARCHAR(50) DEFAULT 'customer_portal',
-    ip_address VARCHAR(45) DEFAULT '',
-    session_id VARCHAR(100) DEFAULT '',
-    is_valid BOOLEAN DEFAULT TRUE,
-    create_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    modify_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    create_by VARCHAR(50) DEFAULT 'SYSTEM',
-    modify_by VARCHAR(50) DEFAULT 'SYSTEM',
-    create_user_id BIGINT DEFAULT 0,
-    modify_user_id BIGINT DEFAULT 0
-);
+-- Stage completion log table removed
 
 -- =============================================
 -- 15. Static Field Values Table (ff_static_field_values)

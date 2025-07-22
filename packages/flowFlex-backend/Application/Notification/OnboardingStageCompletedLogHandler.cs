@@ -16,18 +16,18 @@ namespace FlowFlex.Application.Notification
     public class OnboardingStageCompletedLogHandler : INotificationHandler<OnboardingStageCompletedEvent>
     {
         private readonly ILogger<OnboardingStageCompletedLogHandler> _logger;
-        private readonly IStageCompletionLogRepository _stageCompletionLogRepository;
+    
         private readonly IEventRepository _eventRepository;
         private readonly UserContext _userContext;
 
         public OnboardingStageCompletedLogHandler(
             ILogger<OnboardingStageCompletedLogHandler> logger,
-            IStageCompletionLogRepository stageCompletionLogRepository,
+    
             IEventRepository eventRepository,
             UserContext userContext)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _stageCompletionLogRepository = stageCompletionLogRepository ?? throw new ArgumentNullException(nameof(stageCompletionLogRepository));
+    
             _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
         }
@@ -42,7 +42,7 @@ namespace FlowFlex.Application.Notification
                 await SaveToEventTableAsync(notification);
 
                 // 2. 保存到原有的阶段完成日志表 ff_stage_completion_log (保持向后兼容)
-                await SaveToStageCompletionLogAsync(notification);
+                // Stage completion log functionality removed
 
                 _logger.LogInformation("成功处理 OnboardingStageCompletedEvent: {EventId}", notification.EventId);
             }
@@ -106,6 +106,7 @@ namespace FlowFlex.Application.Notification
                     ProcessCount = 1,
                     LastProcessedAt = DateTimeOffset.UtcNow,
                     RequiresRetry = false,
+                    NextRetryAt = null, // 显式设置为 null，因为不需要重试
                     MaxRetryCount = 3,
                     TenantId = eventData.TenantId
                 };
@@ -125,75 +126,7 @@ namespace FlowFlex.Application.Notification
             }
         }
 
-        /// <summary>
-        /// 保存到原有的阶段完成日志表 (保持向后兼容)
-        /// </summary>
-        private async Task SaveToStageCompletionLogAsync(OnboardingStageCompletedEvent eventData)
-        {
-            try
-            {
-                // 构建日志数据
-                var logData = new
-                {
-                    EventId = eventData.EventId,
-                    OnboardingId = eventData.OnboardingId,
-                    LeadId = eventData.LeadId,
-                    WorkflowId = eventData.WorkflowId,
-                    WorkflowName = eventData.WorkflowName,
-                    CompletedStageId = eventData.CompletedStageId,
-                    CompletedStageName = eventData.CompletedStageName,
-                    StageCategory = eventData.StageCategory,
-                    NextStageId = eventData.NextStageId,
-                    NextStageName = eventData.NextStageName,
-                    CompletionRate = eventData.CompletionRate,
-                    IsFinalStage = eventData.IsFinalStage,
-                    AssigneeName = eventData.AssigneeName,
-                    ResponsibleTeam = eventData.ResponsibleTeam,
-                    Priority = eventData.Priority,
-                    Source = eventData.Source,
-                    BusinessContext = eventData.BusinessContext,
-                    RoutingTags = eventData.RoutingTags,
-                    EventTimestamp = eventData.Timestamp,
-                    ProcessedAt = DateTimeOffset.UtcNow,
-                    ProcessedBy = _userContext?.UserName ?? "System"
-                };
-
-                // 创建阶段完成日志实体
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = eventData.TenantId,
-                    OnboardingId = eventData.OnboardingId,
-                    StageId = eventData.CompletedStageId,
-                    StageName = eventData.CompletedStageName,
-                    LogType = "stage_completion_event",
-                    Action = "OnboardingStageCompleted Event",
-                    LogData = JsonSerializer.Serialize(logData, new JsonSerializerOptions
-                    {
-                        WriteIndented = false,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    }),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = _userContext?.UserName ?? "System",
-                    ModifyBy = _userContext?.UserName ?? "System",
-                    CreateUserId = GetCurrentUserId(),
-                    ModifyUserId = GetCurrentUserId()
-                };
-
-                // 设置创建信息
-                stageCompletionLog.InitCreateInfo(_userContext);
-
-                // 保存到数据库
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-
-                _logger.LogDebug("事件已保存到 ff_stage_completion_log 表: {EventId}", eventData.EventId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "保存事件到 ff_stage_completion_log 表时发生错误: {EventId}", eventData.EventId);
-                throw;
-            }
-        }
+        // Stage completion log functionality removed
 
         /// <summary>
         /// 处理事件处理错误

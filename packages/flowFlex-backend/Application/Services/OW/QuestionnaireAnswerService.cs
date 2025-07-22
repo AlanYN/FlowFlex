@@ -21,7 +21,7 @@ namespace FlowFlex.Application.Services.OW
     public class QuestionnaireAnswerService : IQuestionnaireAnswerService, IScopedService
     {
         private readonly IQuestionnaireAnswerRepository _repository;
-        private readonly IStageCompletionLogRepository _stageCompletionLogRepository;
+    
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IOperationChangeLogService _operationChangeLogService;
@@ -32,7 +32,7 @@ namespace FlowFlex.Application.Services.OW
 
         public QuestionnaireAnswerService(
             IQuestionnaireAnswerRepository repository,
-            IStageCompletionLogRepository stageCompletionLogRepository,
+    
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
             IOperationChangeLogService operationChangeLogService,
@@ -42,7 +42,7 @@ namespace FlowFlex.Application.Services.OW
             UserContext userContext)
         {
             _repository = repository;
-            _stageCompletionLogRepository = stageCompletionLogRepository;
+    
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
             _operationChangeLogService = operationChangeLogService;
@@ -87,22 +87,7 @@ namespace FlowFlex.Application.Services.OW
                     Source = "questionnaire_answer"
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding?.TenantId ?? _userContext?.TenantId ?? "default",
-                    OnboardingId = onboardingId,
-                    StageId = stageId,
-                    StageName = stage?.Name ?? "Unknown",
-                    LogType = "questionnaire_answer_change",
-                    Action = action,
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = GetCurrentUserName(),
-                    ModifyBy = GetCurrentUserName()
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)
