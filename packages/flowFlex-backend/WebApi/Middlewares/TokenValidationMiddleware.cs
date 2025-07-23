@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.WebApi.Model.Response;
 using FlowFlex.Domain.Shared;
@@ -58,10 +59,21 @@ namespace FlowFlex.WebApi.Middlewares
                 // Let business logic exceptions pass through to GlobalExceptionHandlingMiddleware
                 throw;
             }
+            catch (SecurityTokenException)
+            {
+                // Handle JWT token specific exceptions
+                await HandleUnauthorizedAsync(context, "Invalid token");
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Handle authorization exceptions
+                await HandleUnauthorizedAsync(context, "Access denied");
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in token validation middleware for endpoint: {Path}", context.Request.Path);
-                await HandleUnauthorizedAsync(context, "Authentication error");
+                // Log error but let other exceptions pass through to GlobalExceptionHandlingMiddleware
+                _logger.LogError(ex, "Unexpected error in token validation middleware for endpoint: {Path}", context.Request.Path);
+                throw;
             }
         }
 
@@ -80,6 +92,7 @@ namespace FlowFlex.WebApi.Middlewares
                 "/api/ow/users/check-email",
                 "/api/ow/users/third-party-login",
                 "/api/ow/user-invitations/v1/verify-access",
+                "/api/ow/user-invitations/v1/verify-access-short",
                 "/swagger",
                 "/health"
             };

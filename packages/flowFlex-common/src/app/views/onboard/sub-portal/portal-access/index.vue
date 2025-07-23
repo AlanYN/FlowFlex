@@ -59,112 +59,7 @@
 					</el-form>
 				</div>
 
-				<!-- Login State -->
-				<div v-if="verificationState === 'login'" class="space-y-4">
-					<div class="text-center mb-6">
-						<div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-							<svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-							</svg>
-						</div>
-						<h3 class="text-lg font-semibold text-gray-800 mb-2">Welcome Back!</h3>
-						<p class="text-gray-600">
-							Please enter your password to access the customer portal.
-						</p>
-					</div>
 
-					<el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" label-position="top">
-						<el-form-item label="Email Address">
-							<el-input
-								v-model="form.email"
-								type="email"
-								size="large"
-								disabled
-								class="disabled-input"
-							/>
-						</el-form-item>
-
-						<el-form-item label="Password" prop="password">
-							<el-input
-								v-model="loginForm.password"
-								type="password"
-								placeholder="Enter your password"
-								size="large"
-								show-password
-								:disabled="loggingIn"
-							/>
-						</el-form-item>
-
-						<el-button
-							type="primary"
-							size="large"
-							class="w-full"
-							@click="handleLogin"
-							:loading="loggingIn"
-						>
-							Login & Continue
-						</el-button>
-					</el-form>
-				</div>
-
-				<!-- Registration State -->
-				<div v-if="verificationState === 'registration'" class="space-y-4">
-					<div class="text-center mb-6">
-						<div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-							<svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-							</svg>
-						</div>
-						<h3 class="text-lg font-semibold text-gray-800 mb-2">Welcome! Set Your Password</h3>
-						<p class="text-gray-600">
-							Your email address is not registered yet. Please set a password to create your account and access the customer portal.
-						</p>
-					</div>
-
-					<el-form ref="registrationFormRef" :model="registrationForm" :rules="registrationRules" label-position="top">
-						<el-form-item label="Email Address">
-							<el-input
-								v-model="form.email"
-								type="email"
-								size="large"
-								disabled
-								class="disabled-input"
-							/>
-						</el-form-item>
-
-						<el-form-item label="Password" prop="password">
-							<el-input
-								v-model="registrationForm.password"
-								type="password"
-								placeholder="Enter your password (minimum 6 characters)"
-								size="large"
-								show-password
-								:disabled="registering"
-							/>
-						</el-form-item>
-
-						<el-form-item label="Confirm Password" prop="confirmPassword">
-							<el-input
-								v-model="registrationForm.confirmPassword"
-								type="password"
-								placeholder="Confirm your password"
-								size="large"
-								show-password
-								:disabled="registering"
-							/>
-					</el-form-item>
-
-						<el-button
-							type="primary"
-							size="large"
-							class="w-full"
-							@click="handleRegisterAndLogin"
-							:loading="registering"
-						>
-							Create Account & Continue
-						</el-button>
-				</el-form>
-			</div>
 
 				<!-- Success State -->
 				<div v-if="verificationState === 'success'" class="text-center space-y-4">
@@ -247,15 +142,11 @@ const router = useRouter();
 
 // Refs
 const formRef = ref<FormInstance>();
-const registrationFormRef = ref<FormInstance>();
-const loginFormRef = ref<FormInstance>();
 
 // States
 const loading = ref(false);
 const registering = ref(false);
-const loggingIn = ref(false);
-const verificationState = ref<'form' | 'login' | 'registration' | 'success' | 'error' | 'expired'>('form');
-const isVerified = ref(false);
+const verificationState = ref<'form' | 'success' | 'error' | 'expired'>('form');
 const successMessage = ref('');
 const errorMessage = ref('');
 const errorDescription = ref('');
@@ -265,46 +156,11 @@ const form = ref({
 	email: '',
 });
 
-const loginForm = ref({
-	password: '',
-});
-
-const registrationForm = ref({
-	password: '',
-	confirmPassword: '',
-});
-
 // Validation rules
 const rules = {
 	email: [
 		{ required: true, message: 'Please enter your email address', trigger: 'blur' },
 		{ type: 'email' as const, message: 'Please enter a valid email address', trigger: 'blur' },
-	],
-};
-
-const loginRules = {
-	password: [
-		{ required: true, message: 'Please enter your password', trigger: 'blur' },
-	],
-};
-
-const registrationRules = {
-	password: [
-		{ required: true, message: 'Please enter your password', trigger: 'blur' },
-		{ min: 6, message: 'Password must be at least 6 characters long', trigger: 'blur' },
-	],
-	confirmPassword: [
-		{ required: true, message: 'Please confirm your password', trigger: 'blur' },
-		{
-			validator: (_rule: any, value: string, callback: any) => {
-				if (value !== registrationForm.value.password) {
-					callback(new Error('Passwords do not match'));
-				} else {
-					callback();
-				}
-			},
-			trigger: 'blur',
-		},
 	],
 };
 
@@ -316,36 +172,27 @@ const handleVerify = async () => {
 		await formRef.value.validate();
 		loading.value = true;
 
-		const token = route.query.token as string;
-		if (!token) {
+		// 只使用短URL验证
+		const shortUrlId = route.params.shortUrlId as string;
+
+		if (!shortUrlId) {
 			ElMessage.error('Invalid invitation link');
 			return;
 		}
 
-		// First verify the portal access
-		const response = await userInvitationApi.verifyPortalAccess({
-			token,
+		// 使用短URL验证
+		const response = await userInvitationApi.verifyPortalAccessByShortUrl(shortUrlId, {
 			email: form.value.email,
 		});
-
-		const verificationData = response?.data || response;
+		const verificationData = response.data || response;
 
 		if (verificationData.isValid) {
 			// Store portal access token
 			localStorage.setItem('portal_access_token', verificationData.accessToken);
 			localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
 
-			// Check if user exists
-			const emailExistsResponse = await userApi.checkEmailExists(form.value.email);
-			const emailExists = emailExistsResponse?.data || emailExistsResponse;
-
-			if (emailExists) {
-				// User exists - we need to prompt for password to login
-				verificationState.value = 'login';
-			} else {
-				// User doesn't exist, show registration form
-				verificationState.value = 'registration';
-			}
+			// 邮箱验证成功后，自动内部注册并跳转（无需密码）
+			await handleAutoRegisterAndRedirect();
 		} else {
 			if (verificationData.isExpired) {
 				verificationState.value = 'expired';
@@ -365,118 +212,7 @@ const handleVerify = async () => {
 	}
 };
 
-const handleRegisterAndLogin = async () => {
-	if (!registrationFormRef.value) return;
 
-	try {
-		await registrationFormRef.value.validate();
-		registering.value = true;
-
-		const onboardingId = localStorage.getItem('onboarding_id');
-		if (!onboardingId) {
-			throw new Error('Onboarding ID not found');
-		}
-
-		// Register the user
-		await userApi.portalAutoRegisterAndLogin({
-			email: form.value.email,
-			password: registrationForm.value.password,
-			onboardingId,
-		});
-
-		// Login the user
-		const loginResponse = await userApi.loginUser({
-			email: form.value.email,
-			password: registrationForm.value.password,
-		});
-
-				const loginData = loginResponse?.data || loginResponse;
-
-		// Use the standard user store to set token (same as normal login)
-		const userStore = useUserStore();
-		const currentDate = dayjs(new Date()).unix();
-		
-		userStore.setTokenobj({
-			accessToken: {
-				token: loginData.accessToken,
-				expire: currentDate + (loginData.expiresIn || 86400), // Default 24 hours
-				tokenType: loginData.tokenType || 'Bearer',
-			},
-			refreshToken: loginData.accessToken, // Use access token as refresh token for simplicity
-		});
-		
-		userStore.setUserInfo({
-			...loginData.user,
-			userName: loginData.user.email || loginData.user.username,
-			userId: loginData.user.id,
-		});
-
-		// Show success
-		verificationState.value = 'success';
-		successMessage.value = 'Account created successfully! Welcome to the customer portal.';
-		
-		// Auto redirect after 2 seconds
-		setTimeout(() => {
-			redirectToCustomerPortal();
-		}, 2000);
-
-	} catch (error: any) {
-		console.error('Registration error:', error);
-		ElMessage.error(error?.response?.data?.msg || error?.message || 'Failed to create account. Please try again.');
-	} finally {
-		registering.value = false;
-	}
-};
-
-const handleLogin = async () => {
-	if (!loginFormRef.value) return;
-
-	try {
-		await loginFormRef.value.validate();
-		loggingIn.value = true;
-
-		const loginResponse = await userApi.loginUser({
-			email: form.value.email,
-			password: loginForm.value.password,
-		});
-
-				const loginData = loginResponse?.data || loginResponse;
-		
-		// Use the standard user store to set token (same as normal login)
-		const userStore = useUserStore();
-		const currentDate = dayjs(new Date()).unix();
-		
-		userStore.setTokenobj({
-			accessToken: {
-				token: loginData.accessToken,
-				expire: currentDate + (loginData.expiresIn || 86400), // Default 24 hours
-				tokenType: loginData.tokenType || 'Bearer',
-			},
-			refreshToken: loginData.accessToken, // Use access token as refresh token for simplicity
-		});
-		
-		userStore.setUserInfo({
-			...loginData.user,
-			userName: loginData.user.email || loginData.user.username,
-			userId: loginData.user.id,
-		});
-
-		// Show success
-		verificationState.value = 'success';
-		successMessage.value = 'Login successful! Welcome to the customer portal.';
-		
-		// Auto redirect after 2 seconds
-		setTimeout(() => {
-			redirectToCustomerPortal();
-		}, 2000);
-
-	} catch (error: any) {
-		console.error('Login error:', error);
-		ElMessage.error(error?.response?.data?.msg || error?.message || 'Failed to login. Please check your password and try again.');
-	} finally {
-		loggingIn.value = false;
-	}
-};
 
 const redirectToCustomerPortal = () => {
 	const onboardingId = localStorage.getItem('onboarding_id');
@@ -484,6 +220,96 @@ const redirectToCustomerPortal = () => {
 		router.push(`/customer-portal?onboardingId=${onboardingId}`);
 	} else {
 		router.push('/customer-portal');
+	}
+};
+
+// 自动注册并重定向到portal页面
+const handleAutoRegisterAndRedirect = async () => {
+	try {
+		registering.value = true;
+
+		const onboardingId = localStorage.getItem('onboarding_id');
+		if (!onboardingId) {
+			throw new Error('Onboarding ID not found');
+		}
+
+		// 检查用户是否已存在
+		const emailExistsResponse = await userApi.checkEmailExists(form.value.email);
+		const emailExists = emailExistsResponse?.data || emailExistsResponse;
+
+		let loginData;
+
+		if (!emailExists) {
+			// 用户不存在，自动内部注册（无需密码）
+			const autoPassword = `portal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+			
+			await userApi.portalAutoRegisterAndLogin({
+				email: form.value.email,
+				password: autoPassword,
+				onboardingId,
+			});
+
+			// 注册后自动登录
+			const loginResponse = await userApi.loginUser({
+				email: form.value.email,
+				password: autoPassword,
+			});
+			loginData = loginResponse?.data || loginResponse;
+		} else {
+			// 用户已存在，使用短URL验证返回的access token
+			const portalAccessToken = localStorage.getItem('portal_access_token');
+			if (portalAccessToken) {
+				// 模拟loginData结构，使用portal access token
+				loginData = {
+					accessToken: portalAccessToken,
+					expiresIn: 86400, // 24 hours
+					tokenType: 'Bearer',
+					user: {
+						email: form.value.email,
+						username: form.value.email,
+						id: form.value.email, // 临时使用邮箱作为用户ID
+					}
+				};
+			} else {
+				throw new Error('Portal access token not found');
+			}
+		}
+
+		// 设置用户认证信息
+		const userStore = useUserStore();
+		const currentDate = dayjs(new Date()).unix();
+		
+		userStore.setTokenobj({
+			accessToken: {
+				token: loginData.accessToken,
+				expire: currentDate + (loginData.expiresIn || 86400), // Default 24 hours
+				tokenType: loginData.tokenType || 'Bearer',
+			},
+			refreshToken: loginData.accessToken, // Use access token as refresh token for simplicity
+		});
+		
+		userStore.setUserInfo({
+			...loginData.user,
+			userName: loginData.user.email || loginData.user.username,
+			userId: loginData.user.id,
+		});
+
+		// 显示成功状态
+		verificationState.value = 'success';
+		successMessage.value = 'Welcome! Redirecting to customer portal...';
+		
+		// 自动跳转
+		setTimeout(() => {
+			redirectToCustomerPortal();
+		}, 1000);
+
+	} catch (error: any) {
+		console.error('Auto registration error:', error);
+		verificationState.value = 'error';
+		errorMessage.value = 'Registration Failed';
+		errorDescription.value = 'Failed to access the portal. Please try again or contact support.';
+	} finally {
+		registering.value = false;
 	}
 };
 
@@ -520,15 +346,13 @@ const retryVerification = () => {
 	errorMessage.value = '';
 	errorDescription.value = '';
 	form.value.email = '';
-	loginForm.value.password = '';
-	registrationForm.value.password = '';
-	registrationForm.value.confirmPassword = '';
 };
 
 // Check if current user matches the invitation email
 const checkCurrentUserAndAutoLogin = async () => {
-	const token = route.query.token as string;
-	if (!token) {
+	const shortUrlId = route.params.shortUrlId as string;
+	
+	if (!shortUrlId) {
 		ElMessage.error('Invalid invitation link');
 		router.push('/');
 		return;
@@ -562,13 +386,11 @@ const checkCurrentUserAndAutoLogin = async () => {
 		try {
 			loading.value = true;
 			
-			// Verify the portal access with current user's email
-			const response = await userInvitationApi.verifyPortalAccess({
-				token,
+			// 使用短URL验证
+			const response = await userInvitationApi.verifyPortalAccessByShortUrl(shortUrlId, {
 				email: userEmail,
 			});
-
-			const verificationData = response?.data || response;
+			const verificationData = response.data || response;
 
 			if (verificationData.isValid) {
 				// Store portal access token and onboarding ID

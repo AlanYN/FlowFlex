@@ -74,6 +74,21 @@ namespace FlowFlex.Domain.Shared.Utils
         }
 
         /// <summary>
+        /// Generate short URL identifier using MD5 hash
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <param name="invitationToken">Invitation token</param>
+        /// <returns>32-character MD5 hash for short URL</returns>
+        public static string GenerateShortUrlId(long onboardingId, string email, string invitationToken)
+        {
+            var input = $"{onboardingId}:{email}:{invitationToken}:{DateTimeOffset.UtcNow:yyyyMMdd}";
+            using var md5 = MD5.Create();
+            var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return Convert.ToHexString(hash).ToLower();
+        }
+
+        /// <summary>
         /// Encrypt string using AES
         /// </summary>
         /// <param name="plainText">Plain text to encrypt</param>

@@ -24,6 +24,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
+        private readonly IAccessTokenService _accessTokenService;
         private readonly IMapper _mapper;
         private readonly ILogger<UserInvitationService> _logger;
         private readonly IUserContextService _userContextService;
@@ -34,6 +35,7 @@ namespace FlowFlex.Application.Services.OW
             IUserRepository userRepository,
             IEmailService emailService,
             IJwtService jwtService,
+            IAccessTokenService accessTokenService,
             IMapper mapper,
             ILogger<UserInvitationService> logger,
             IUserContextService userContextService)
@@ -43,6 +45,7 @@ namespace FlowFlex.Application.Services.OW
             _userRepository = userRepository;
             _emailService = emailService;
             _jwtService = jwtService;
+            _accessTokenService = accessTokenService;
             _mapper = mapper;
             _logger = logger;
             _userContextService = userContextService;
@@ -85,11 +88,11 @@ namespace FlowFlex.Application.Services.OW
                         existingInvitation.TokenExpiry = null; // No expiry
                         existingInvitation.Status = "Pending";
                         existingInvitation.SendCount += 1;
-                        existingInvitation.EncryptedAccessToken = CryptoHelper.EncryptPortalAccessData(
+                        existingInvitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
                             request.OnboardingId, 
-                            existingInvitation.InvitationToken, 
-                            DateTimeOffset.MaxValue); // Use max value for no expiry
-                        existingInvitation.InvitationUrl = GenerateInvitationUrl(existingInvitation.EncryptedAccessToken, request.BaseUrl);
+                            email, 
+                            existingInvitation.InvitationToken);
+                        existingInvitation.InvitationUrl = GenerateShortInvitationUrl(existingInvitation.ShortUrlId, request.BaseUrl);
                         existingInvitation.ModifyDate = DateTimeOffset.UtcNow;
                         existingInvitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
 
@@ -125,11 +128,11 @@ namespace FlowFlex.Application.Services.OW
                             TenantId = onboarding.TenantId
                         };
 
-                        invitation.EncryptedAccessToken = CryptoHelper.EncryptPortalAccessData(
+                        invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
                             request.OnboardingId, 
-                            invitation.InvitationToken, 
-                            DateTimeOffset.MaxValue); // Use max value for no expiry
-                        invitation.InvitationUrl = GenerateInvitationUrl(invitation.EncryptedAccessToken, request.BaseUrl);
+                            email, 
+                            invitation.InvitationToken);
+                        invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, request.BaseUrl);
 
                         // Create system user context for initialization
                         var systemUserContext = new UserContext
@@ -184,124 +187,17 @@ namespace FlowFlex.Application.Services.OW
             return _mapper.Map<List<PortalUserDto>>(invitations);
         }
 
-        /// <summary>
-        /// Verify portal access with encrypted invitation token
-        /// </summary>
-        /// <param name="request">Verification request</param>
-        /// <returns>Verification response</returns>
-        public async Task<PortalAccessVerificationResponseDto> VerifyPortalAccessAsync(PortalAccessVerificationRequestDto request)
-        {
-            var response = new PortalAccessVerificationResponseDto();
-
-            try
-            {
-                // First try to decrypt the token to get onboarding ID and invitation token
-                var decryptedData = CryptoHelper.DecryptPortalAccessData(request.Token);
-                if (decryptedData == null)
-                {
-                    response.IsValid = false;
-                    response.ErrorMessage = "Invalid or corrupted invitation link";
-                    response.IsExpired = false;
-                    return response;
-                }
-
-                // Skip expiry check as invitations don't expire
-                // if (decryptedData.ExpiryTime < DateTimeOffset.UtcNow)
-                // {
-                //     response.IsValid = false;
-                //     response.ErrorMessage = "This invitation link has expired. Please request a new invitation.";
-                //     response.IsExpired = true;
-                //     return response;
-                // }
-
-                // Find invitation by the decrypted token
-                var invitation = await _invitationRepository.GetByTokenAsync(decryptedData.InvitationToken);
-                if (invitation == null)
-                {
-                    response.IsValid = false;
-                    response.ErrorMessage = "Invitation not found. The link may have been revoked.";
-                    response.IsExpired = false;
-                    return response;
-                }
-
-                // Verify email matches
-                if (invitation.Email != request.Email)
-                {
-                    response.IsValid = false;
-                    response.ErrorMessage = "Email address does not match this invitation";
-                    response.IsExpired = false;
-                    return response;
-                }
-
-                // Check if invitation is still valid (Active or Pending)
-                if (invitation.Status == "Inactive")
-                {
-                    response.IsValid = false;
-                    response.ErrorMessage = "This invitation has been deactivated. Please contact support.";
-                    response.IsExpired = false;
-                    return response;
-                }
-
-                // Skip expired status check as invitations don't expire
-                // if (invitation.Status == "Expired")
-                // {
-                //     response.IsValid = false;
-                //     response.ErrorMessage = "This invitation has expired. Please request a new invitation.";
-                //     response.IsExpired = true;
-                //     return response;
-                // }
-
-                // Update invitation access date
-                invitation.LastAccessDate = DateTimeOffset.UtcNow;
-                await _invitationRepository.UpdateAsync(invitation);
-
-                // Find or create user
-                var user = await _userRepository.GetByEmailAsync(request.Email);
-                if (user == null)
-                {
-                    // Create temporary user for portal access
-                    user = new User
-                    {
-                        Email = request.Email,
-                        Username = request.Email,
-                        EmailVerified = true,
-                        Status = "active",
-                        TenantId = invitation.TenantId
-                    };
-
-                    // Create system user context for initialization
-                    var systemUserContext = new UserContext
-                    {
-                        UserName = "SYSTEM",
-                        UserId = "0",
-                        TenantId = invitation.TenantId ?? "DEFAULT",
-                        AppCode = "DEFAULT"
-                    };
-
-                    user.InitCreateInfo(systemUserContext);
-                    await _userRepository.InsertAsync(user);
-                }
-
-                // Generate access token
-                var accessToken = _jwtService.GenerateJwtToken(user.Id, user.Email, user.Username);
-
-                // Mark invitation as used
-                await _invitationRepository.MarkAsUsedAsync(request.Token, user.Id);
-
-                response.IsValid = true;
-                response.OnboardingId = invitation.OnboardingId;
-                response.Email = invitation.Email;
-                response.AccessToken = accessToken;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to verify portal access for token {Token}", request.Token);
-                response.IsValid = false;
-                response.ErrorMessage = "An error occurred during verification";
-            }
-
-            return response;
-        }
+        // Legacy token verification method - removed as we only use short URL now
+        // /// <summary>
+        // /// Verify portal access with encrypted invitation token
+        // /// </summary>
+        // /// <param name="request">Verification request</param>
+        // /// <returns>Verification response</returns>
+        // public async Task<PortalAccessVerificationResponseDto> VerifyPortalAccessAsync(PortalAccessVerificationRequestDto request)
+        // {
+        //     // This method is deprecated - use VerifyPortalAccessByShortUrlAsync instead
+        //     throw new NotImplementedException("Legacy token verification is no longer supported. Use short URL verification instead.");
+        // }
 
         /// <summary>
         /// Resend invitation
@@ -324,11 +220,11 @@ namespace FlowFlex.Application.Services.OW
                 invitation.TokenExpiry = null; // No expiry
                 invitation.Status = "Pending";
                 invitation.SendCount += 1;
-                invitation.EncryptedAccessToken = CryptoHelper.EncryptPortalAccessData(
+                invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
                     request.OnboardingId, 
-                    invitation.InvitationToken, 
-                    DateTimeOffset.MaxValue); // Use max value for no expiry
-                invitation.InvitationUrl = GenerateInvitationUrl(invitation.EncryptedAccessToken, request.BaseUrl);
+                    request.Email, 
+                    invitation.InvitationToken);
+                invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, request.BaseUrl);
                 invitation.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _invitationRepository.UpdateAsync(invitation);
@@ -498,8 +394,8 @@ namespace FlowFlex.Application.Services.OW
                     return new { invitationUrl = "", error = "Invitation not found" };
                 }
 
-                // Generate invitation URL using encrypted access token
-                var invitationUrl = GenerateInvitationUrl(invitation.EncryptedAccessToken ?? "", null);
+                // Generate short invitation URL using short URL ID
+                var invitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId ?? "", null);
 
                 return new 
                 { 
@@ -517,19 +413,147 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Generate invitation URL with encrypted token
+        /// Verify portal access with short URL ID
         /// </summary>
-        /// <param name="encryptedToken">Encrypted access token</param>
+        /// <param name="shortUrlId">Short URL identifier</param>
+        /// <param name="email">Email address</param>
+        /// <returns>Verification response</returns>
+        public async Task<PortalAccessVerificationResponseDto> VerifyPortalAccessByShortUrlAsync(string shortUrlId, string email)
+        {
+            var response = new PortalAccessVerificationResponseDto();
+
+            try
+            {
+                // Find invitation by short URL ID
+                var invitation = await _invitationRepository.GetByShortUrlIdAsync(shortUrlId);
+                if (invitation == null)
+                {
+                    response.IsValid = false;
+                    response.ErrorMessage = "Invalid invitation link. The link may have been revoked or expired.";
+                    response.IsExpired = false;
+                    return response;
+                }
+
+                // Verify email matches
+                if (invitation.Email != email)
+                {
+                    response.IsValid = false;
+                    response.ErrorMessage = "Email address does not match this invitation";
+                    response.IsExpired = false;
+                    return response;
+                }
+
+                // Check if invitation is still valid (Active or Pending)
+                if (invitation.Status == "Inactive")
+                {
+                    response.IsValid = false;
+                    response.ErrorMessage = "This invitation has been deactivated. Please contact support.";
+                    response.IsExpired = false;
+                    return response;
+                }
+
+                // Update invitation access date
+                invitation.LastAccessDate = DateTimeOffset.UtcNow;
+                await _invitationRepository.UpdateAsync(invitation);
+
+                // Find or create user
+                var user = await _userRepository.GetByEmailAsync(email);
+                if (user == null)
+                {
+                    // Create temporary user for portal access
+                    user = new User
+                    {
+                        Email = email,
+                        Username = email,
+                        EmailVerified = true,
+                        Status = "active",
+                        TenantId = invitation.TenantId
+                    };
+
+                    // Create system user context for initialization
+                    var systemUserContext = new UserContext
+                    {
+                        UserName = "SYSTEM",
+                        UserId = "0",
+                        TenantId = invitation.TenantId ?? "DEFAULT",
+                        AppCode = "DEFAULT"
+                    };
+
+                    user.InitCreateInfo(systemUserContext);
+                    await _userRepository.InsertAsync(user);
+                }
+
+                // Generate access token with details for database tracking
+                var tokenDetails = _jwtService.GenerateTokenWithDetails(
+                    user.Id, 
+                    user.Email, 
+                    user.Username, 
+                    user.TenantId ?? "DEFAULT", 
+                    "portal-access"
+                );
+
+                // Record token in database for validation
+                await _accessTokenService.RecordTokenAsync(
+                    tokenDetails.Jti,
+                    tokenDetails.UserId,
+                    tokenDetails.UserEmail,
+                    tokenDetails.Token,
+                    tokenDetails.ExpiresAt,
+                    tokenDetails.TokenType,
+                    tokenDetails.IssuedIp,
+                    tokenDetails.UserAgent,
+                    revokeOtherTokens: false // Don't revoke other tokens for portal access
+                );
+
+                // Mark invitation as used by short URL ID
+                await _invitationRepository.MarkAsUsedAsync(invitation.InvitationToken, user.Id);
+
+                response.IsValid = true;
+                response.OnboardingId = invitation.OnboardingId;
+                response.Email = invitation.Email;
+                response.AccessToken = tokenDetails.Token;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to verify portal access for short URL ID {ShortUrlId}", shortUrlId);
+                response.IsValid = false;
+                response.ErrorMessage = "An error occurred during verification";
+            }
+
+            return response;
+        }
+
+        // Legacy method - removed as we only use short URL now
+        // /// <summary>
+        // /// Generate invitation URL with encrypted token (legacy method)
+        // /// </summary>
+        // /// <param name="encryptedToken">Encrypted access token</param>
+        // /// <param name="baseUrl">Base URL (optional, will use default if not provided)</param>
+        // /// <returns>Invitation URL</returns>
+        // private string GenerateInvitationUrl(string encryptedToken, string? baseUrl = null)
+        // {
+        //     // Use provided baseUrl or fall back to default
+        //     var finalBaseUrl = !string.IsNullOrEmpty(baseUrl)
+        //         ? baseUrl.TrimEnd('/')
+        //         : "http://localhost:5173"; // Updated default for frontend port
+        //
+        //     return $"{finalBaseUrl}/portal-access?token={Uri.EscapeDataString(encryptedToken)}";
+        // }
+
+        /// <summary>
+        /// Generate short invitation URL with MD5 identifier
+        /// </summary>
+        /// <param name="shortUrlId">Short URL identifier (MD5 hash)</param>
         /// <param name="baseUrl">Base URL (optional, will use default if not provided)</param>
-        /// <returns>Invitation URL</returns>
-        private string GenerateInvitationUrl(string encryptedToken, string? baseUrl = null)
+        /// <returns>Short invitation URL</returns>
+        private string GenerateShortInvitationUrl(string shortUrlId, string? baseUrl = null)
         {
             // Use provided baseUrl or fall back to default
             var finalBaseUrl = !string.IsNullOrEmpty(baseUrl)
                 ? baseUrl.TrimEnd('/')
                 : "http://localhost:5173"; // Updated default for frontend port
 
-            return $"{finalBaseUrl}/portal-access?token={Uri.EscapeDataString(encryptedToken)}";
+            return $"{finalBaseUrl}/portal-access/{shortUrlId}";
         }
 
         /// <summary>
