@@ -1,6 +1,7 @@
 import { setPrimary, setTheme } from '@/utils/theme';
 import { router } from '@/router';
 import { useUserStoreWithOut } from '@/stores/modules/user';
+import { setupRouterGuard } from '@/router/guard';
 
 export const useWujie = () => {
 	if (!window.$wujie) {
@@ -16,11 +17,6 @@ export const useWujie = () => {
 	// 设置无界事件监听
 	const setupEventListeners = () => {
 		if (window.$wujie?.bus) {
-			window.$wujie.bus.$off('props-update');
-			window.$wujie.bus.$off('primary-change');
-			window.$wujie.bus.$off('theme-change');
-			window.$wujie.bus.$off('logout');
-
 			window.$wujie.bus.$on('props-update', (newProps: any) => {
 				currentProps = newProps;
 				againgWujieSubApp(newProps);
@@ -31,15 +27,12 @@ export const useWujie = () => {
 			});
 
 			window.$wujie.bus.$on('theme-change', (newTheme: string) => {
-				console.log('theme-change received via wujie bus:', newTheme);
 				setTheme(newTheme);
 			});
 
-			window.$wujie.bus.$on('logout', (isTokenExpired: boolean) => {
-				console.log('子应用收到主应用的退出事件', isTokenExpired);
-				window.__WUJIE_UNMOUNT();
+			window.$wujie.bus.$on('logout', async (isTokenExpired: boolean) => {
 				const userStore = useUserStoreWithOut();
-				userStore.logout(isTokenExpired, 'mainLoagout');
+				await userStore.logout(isTokenExpired, 'mainLoagout');
 			});
 		}
 	};
@@ -68,19 +61,26 @@ export const useWujie = () => {
 
 	const againgWujieSubApp = async (newProps: any) => {
 		currentProps = newProps;
-		const { theme, primary, currentRoute } = currentProps;
+		const { theme, primary, currentRoute, appCode, tenantId, authorizationToken } =
+			currentProps;
 
 		if (theme) {
-			console.log('设置主题:', theme);
 			setTheme(theme);
 		}
 		if (primary) {
-			console.log('设置主色调:', primary);
 			setPrimary(primary);
 		}
 
+		if (appCode && tenantId && authorizationToken) {
+			try {
+				window.$wujie.props = newProps;
+				await setupRouterGuard(router);
+			} catch (error) {
+				console.error('无界环境 token 处理失败:', error);
+			}
+		}
+
 		if (currentRoute) {
-			console.log('设置路由：', currentRoute, router);
 			router.push(currentRoute);
 		}
 
@@ -91,23 +91,30 @@ export const useWujie = () => {
 		});
 	};
 
-	const initWujieSubApp = () => {
+	const initWujieSubApp = async () => {
 		const currentProps = window.$wujie?.props || {};
 		if (!isMicroAppEnvironment() || !currentProps) {
-			console.log('跳过初始化，环境检查失败或 props 为空');
 			return;
 		}
 
-		const { theme, primary, currentRoute } = currentProps;
+		const { theme, primary, currentRoute, appCode, tenantId, authorizationToken } =
+			currentProps;
 
 		if (theme) {
-			console.log('设置主题:', theme);
 			setTheme(theme);
 		}
 		if (primary) {
-			console.log('设置主色调:', primary);
 			setPrimary(primary);
 		}
+
+		if (appCode && tenantId && authorizationToken) {
+			try {
+				await setupRouterGuard(router);
+			} catch (error) {
+				console.error('无界环境 token 处理失败:', error);
+			}
+		}
+
 		if (currentRoute) {
 			router.push(currentRoute);
 		}

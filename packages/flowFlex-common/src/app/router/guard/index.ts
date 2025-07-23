@@ -214,7 +214,11 @@ async function handlePermissionGuard(to, from, next) {
 	const rolePath = getMenuListPath(permissionStore.getFrontMenuList);
 
 	// 跳过 portal-access 页面的权限检查（公开页面）
-	if (!to.path.startsWith('/portal-access') && allPagePaths.includes(to.path) && !rolePath.includes(to.path)) {
+	if (
+		!to.path.startsWith('/portal-access') &&
+		allPagePaths.includes(to.path) &&
+		!rolePath.includes(to.path)
+	) {
 		to.query.status = '403';
 	}
 
