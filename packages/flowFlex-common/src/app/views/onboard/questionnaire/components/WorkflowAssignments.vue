@@ -138,7 +138,7 @@ const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({})
 const initializeAssignments = async () => {
 	extendedAssignments.value = props.assignments.map((assignment) => ({
 		...assignment,
-		stages: stagesCache.value[assignment.workflowId] || [],
+		stages: assignment.workflowId ? stagesCache.value[assignment.workflowId] || [] : [],
 		stagesLoading: false,
 	}));
 

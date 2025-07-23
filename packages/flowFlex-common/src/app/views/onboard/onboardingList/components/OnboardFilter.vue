@@ -57,13 +57,14 @@
 
 						<div class="space-y-2" v-if="filterType === 'table'">
 							<label class="text-sm font-medium text-gray-700">
-								Onboard Work Flow
+								Onboard Workflow
 							</label>
 							<el-select
 								v-model="searchParams.workFlowId"
 								placeholder="Select Work Flow"
 								clearable
 								class="w-full rounded-md"
+								@change="handleWorkflowChange"
 							>
 								<el-option label="All Work Flows" value="" />
 								<el-option
@@ -82,10 +83,12 @@
 								placeholder="Select Stage"
 								clearable
 								class="w-full rounded-md"
+								:disabled="!searchParams.workFlowId || stagesLoading"
+								:loading="stagesLoading"
 							>
 								<el-option label="All Stages" value="" />
 								<el-option
-									v-for="stage in onboardingStages"
+									v-for="stage in dynamicOnboardingStages"
 									:key="stage.id"
 									:label="stage.name"
 									:value="stage.id"
@@ -147,6 +150,7 @@ import { ref, reactive } from 'vue';
 import { Search, Close, Download } from '@element-plus/icons-vue';
 import { SearchParams } from '#/onboard';
 import InputTag from '@/components/global/u-input-tags/index.vue';
+import { getStagesByWorkflow } from '@/apis/ow';
 
 // Props
 interface Props {
@@ -158,7 +162,7 @@ interface Props {
 	filterType: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
 	lifeCycleStage: () => [],
 	allWorkflows: () => [],
 	onboardingStages: () => [],
@@ -193,6 +197,53 @@ const searchParams = reactive<SearchParams>({
 const leadIdTags = ref<string[]>([]);
 const leadNameTags = ref<string[]>([]);
 const updatedByTags = ref<string[]>([]);
+
+// 动态 stages 管理
+const dynamicOnboardingStages = ref<Array<{ id: string; name: string }>>([]);
+const stagesLoading = ref(false);
+
+// stages 数据缓存
+const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({});
+
+// 加载指定 workflow 的 stages 数据
+const loadStagesForWorkflow = async (workflowId: string) => {
+	if (!workflowId || workflowId === '0' || stagesCache.value[workflowId]) {
+		return stagesCache.value[workflowId] || [];
+	}
+
+	try {
+		stagesLoading.value = true;
+		const response = await getStagesByWorkflow(workflowId);
+		if (response.code === '200') {
+			const stages = response.data || [];
+			stagesCache.value[workflowId] = stages;
+			return stages;
+		} else {
+			stagesCache.value[workflowId] = [];
+			return [];
+		}
+	} catch (error) {
+		stagesCache.value[workflowId] = [];
+		return [];
+	} finally {
+		stagesLoading.value = false;
+	}
+};
+
+// 处理 workflow 变化
+const handleWorkflowChange = async (workflowId: string) => {
+	// 清空当前选择的 stage
+	searchParams.currentStageId = '';
+
+	if (workflowId && workflowId !== '0') {
+		// 加载对应的 stages
+		const stages = await loadStagesForWorkflow(workflowId);
+		dynamicOnboardingStages.value = stages;
+	} else {
+		// 如果没有选择 workflow，使用原始的 onboardingStages
+		dynamicOnboardingStages.value = props.onboardingStages;
+	}
+};
 
 // 标签变化处理函数
 const handleLeadIdTagsChange = (tags: string[]) => {
@@ -232,6 +283,8 @@ const handleReset = () => {
 	leadIdTags.value = [];
 	leadNameTags.value = [];
 	updatedByTags.value = [];
+	// 重置动态 stages 为原始数据
+	dynamicOnboardingStages.value = props.onboardingStages;
 
 	emit('reset');
 };

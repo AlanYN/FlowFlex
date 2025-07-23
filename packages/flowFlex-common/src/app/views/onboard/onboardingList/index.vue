@@ -121,13 +121,15 @@
 						</el-table-column>
 						<el-table-column
 							prop="workflowName"
-							label="Work Flow"
+							label="Onboard Workflow"
 							sortable="custom"
 							min-width="200"
 						>
 							<template #default="{ row }">
 								<div class="table-cell-content" :title="row.workflowName">
-									{{ row.workflowName }}
+									<span class="workflow-name-tag">
+										{{ row.workflowName }}
+									</span>
 								</div>
 							</template>
 						</el-table-column>
@@ -405,7 +407,21 @@
 							:key="workflow.id"
 							:label="workflow.name"
 							:value="workflow.id"
-						/>
+						>
+							<div class="flex items-center justify-between">
+								<div>
+									<span>{{ workflow.name }}</span>
+								</div>
+								<div class="flex items-center gap-1">
+									<el-icon
+										v-if="workflow.status === 'inactive'"
+										class="text-red-500"
+									>
+										<VideoPause />
+									</el-icon>
+								</div>
+							</div>
+						</el-option>
 					</el-select>
 				</el-form-item>
 			</el-form>
@@ -438,7 +454,7 @@ import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vu
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import '../styles/errorDialog.css';
-import { ArrowDownBold, Edit, Delete, Plus, Loading } from '@element-plus/icons-vue';
+import { ArrowDownBold, Edit, Delete, Plus, Loading, VideoPause } from '@element-plus/icons-vue';
 import {
 	queryOnboardings,
 	deleteOnboarding,
@@ -1077,8 +1093,9 @@ const fetchAllWorkflows = async () => {
 	const response = await getWorkflowList();
 	if (response.code === '200') {
 		allWorkflows.value = response.data || [];
-		if (allWorkflows.value.find((item) => item.isDefault)) {
-			allWorkflows.value.find((item) => item.isDefault).name += ' ⭐';
+		const defaultWorkflow = allWorkflows.value.find((item) => item.isDefault);
+		if (defaultWorkflow) {
+			defaultWorkflow.name = '⭐ ' + defaultWorkflow.name;
 		}
 	}
 };
@@ -1600,5 +1617,17 @@ html.dark {
 	.bg-gray-50 {
 		@apply bg-black-200 !important;
 	}
+}
+
+/* 工作流名称标签样式 */
+.workflow-name-tag {
+	@apply inline-block px-3 py-1 text-sm font-medium text-primary-600 bg-primary-50 rounded-full;
+	border: 1px solid #dbeafe;
+	white-space: nowrap;
+	transition: all 0.3s ease;
+}
+
+.workflow-name-tag:hover {
+	@apply bg-blue-100 text-blue-700;
 }
 </style>

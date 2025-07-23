@@ -283,6 +283,6 @@ onUnmounted(() => {
 });
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 @use './index.scss';
 </style>

@@ -386,12 +386,6 @@ const sortedComponents = computed(() => {
 	}
 
 	return [...onboardingActiveStageInfo.value.components].sort((a, b) => {
-		if (a.key === 'fields' && b.key !== 'fields') {
-			return -1; // 静态字段表单优先
-		}
-		if (a.key !== 'fields' && b.key === 'fields') {
-			return 1; // 静态字段表单优先
-		}
 		return a.order - b.order; // 根据order排序
 	});
 });
@@ -485,7 +479,8 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 							completedTasksMap.set(taskId, {
 								isCompleted: completedTask.isCompleted,
 								completedBy: completedTask.modifyBy || completedTask.createBy,
-								completedTime: completedTask.completedTime || completedTask.modifyDate,
+								completedTime:
+									completedTask.completedTime || completedTask.modifyDate,
 							});
 						}
 					});
@@ -505,7 +500,8 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 					return {
 						...task,
 						isCompleted: completionInfo?.isCompleted || task.isCompleted || false,
-						completedBy: completionInfo?.completedBy || task.assigneeName || task.createBy,
+						completedBy:
+							completionInfo?.completedBy || task.assigneeName || task.createBy,
 						completedDate: completionInfo?.completedTime || task.completedDate,
 					};
 				});
@@ -721,7 +717,8 @@ const handleTaskToggled = async (task: any) => {
 							: null;
 						// 更新完成者信息 - 从当前用户信息获取
 						if (task.isCompleted) {
-							taskToUpdate.completedBy = userStore.getUserInfo?.email || 'unknown@email.com';
+							taskToUpdate.completedBy =
+								userStore.getUserInfo?.email || 'unknown@email.com';
 						} else {
 							taskToUpdate.completedBy = null;
 						}
