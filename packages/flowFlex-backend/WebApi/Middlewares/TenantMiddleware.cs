@@ -87,7 +87,7 @@ namespace FlowFlex.WebApi.Middlewares
             }
 
             // 6. Default tenant ID
-            tenantId = "default";
+            tenantId = "DEFAULT";
             _logger.LogDebug($"[TenantMiddleware] Using default TenantId: {tenantId}");
             return tenantId;
         }

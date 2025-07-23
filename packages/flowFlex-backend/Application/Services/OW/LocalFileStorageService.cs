@@ -29,7 +29,7 @@ namespace FlowFlex.Application.Services.OW
             _logger = logger;
         }
 
-        public async Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "default", string tenantId = "default")
+        public async Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "DEFAULT", string tenantId = "DEFAULT")
         {
             try
             {

@@ -14,6 +14,7 @@ using BC = BCrypt.Net.BCrypt;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -774,10 +775,15 @@ namespace FlowFlex.Application.Services.OW
                     user.Status = "active"; // Ensure user is active
                     user.EmailVerified = true; // Trust third-party verification
                     
-                    // Update tenant ID if different
+                    // Update tenant ID and AppCode if different
                     if (user.TenantId != request.TenantId)
                     {
                         user.TenantId = request.TenantId;
+                    }
+                    
+                    if (user.AppCode != request.AppCode)
+                    {
+                        user.AppCode = request.AppCode;
                     }
 
                     user.ModifyDate = DateTimeOffset.Now;
@@ -797,11 +803,22 @@ namespace FlowFlex.Application.Services.OW
                         EmailVerified = true, // Trust third-party verification
                         Status = "active",
                         TenantId = request.TenantId,
-                        LastLoginDate = DateTimeOffset.Now
+                        LastLoginDate = DateTimeOffset.Now,
+                        AppCode = request.AppCode // Set AppCode from request
                     };
 
-                    // Initialize create information
-                    user.InitCreateInfo(null);
+                    // Create UserContext with correct AppCode and TenantId
+                    var thirdPartyUserContext = new UserContext
+                    {
+                        UserName = email,
+                        UserId = "0", // System created
+                        Email = email,
+                        TenantId = request.TenantId,
+                        AppCode = request.AppCode
+                    };
+
+                    // Initialize create information with correct context
+                    user.InitCreateInfo(thirdPartyUserContext);
                     await _userRepository.InsertAsync(user);
 
                     _logger.LogInformation("Created new user {UserId} for third-party login with email {Email}", 
