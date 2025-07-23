@@ -21,12 +21,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>List of portal users</returns>
         Task<List<PortalUserDto>> GetPortalUsersAsync(long onboardingId);
 
-        /// <summary>
-        /// Verify portal access with invitation token
-        /// </summary>
-        /// <param name="request">Verification request</param>
-        /// <returns>Verification response</returns>
-        Task<PortalAccessVerificationResponseDto> VerifyPortalAccessAsync(PortalAccessVerificationRequestDto request);
+        // Legacy method - removed as we only use short URL now
+        // /// <summary>
+        // /// Verify portal access with invitation token
+        // /// </summary>
+        // /// <param name="request">Verification request</param>
+        // /// <returns>Verification response</returns>
+        // Task<PortalAccessVerificationResponseDto> VerifyPortalAccessAsync(PortalAccessVerificationRequestDto request);
 
         /// <summary>
         /// Resend invitation
@@ -67,5 +68,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="onboardingId">Onboarding ID</param>
         /// <returns>Token validation result</returns>
         Task<TokenValidationResponseDto> ValidateTokenAsync(string token, long onboardingId);
+
+        /// <summary>
+        /// Verify portal access with short URL ID
+        /// </summary>
+        /// <param name="shortUrlId">Short URL identifier</param>
+        /// <param name="email">Email address</param>
+        /// <returns>Verification response</returns>
+        Task<PortalAccessVerificationResponseDto> VerifyPortalAccessByShortUrlAsync(string shortUrlId, string email);
     }
 }

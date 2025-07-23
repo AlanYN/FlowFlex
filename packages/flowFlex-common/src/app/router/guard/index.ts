@@ -73,7 +73,7 @@ function handleTokenCheck(to, next) {
 	}
 
 	// 对于portal-access页面，允许直接访问（不需要标准认证）
-	if (to.path === '/portal-access') {
+	if (to.path.startsWith('/portal-access')) {
 		return false;
 	}
 
@@ -213,7 +213,8 @@ async function handlePermissionGuard(to, from, next) {
 	const permissionStore = usePermissionStoreWithOut();
 	const rolePath = getMenuListPath(permissionStore.getFrontMenuList);
 
-	if (allPagePaths.includes(to.path) && !rolePath.includes(to.path)) {
+	// 跳过 portal-access 页面的权限检查（公开页面）
+	if (!to.path.startsWith('/portal-access') && allPagePaths.includes(to.path) && !rolePath.includes(to.path)) {
 		to.query.status = '403';
 	}
 

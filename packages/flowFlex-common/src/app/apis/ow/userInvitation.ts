@@ -54,6 +54,10 @@ export interface TokenValidationResponse {
 	errorMessage?: string;
 }
 
+export interface PortalAccessVerificationByShortUrlRequest {
+	email: string;
+}
+
 /**
  * Send user invitations
  */
@@ -95,15 +99,13 @@ export const resendInvitation = (request: ResendInvitationRequest) => {
 	});
 };
 
-/**
- * Verify portal access
- */
-export const verifyPortalAccess = (request: PortalAccessVerificationRequest) => {
-	return defHttp.post<PortalAccessVerificationResponse>({
-		url: '/api/ow/user-invitations/v1/verify-access',
-		data: request,
-	});
-};
+// Legacy token verification - removed as we only use short URL now
+// export const verifyPortalAccess = (request: PortalAccessVerificationRequest) => {
+// 	return defHttp.post<PortalAccessVerificationResponse>({
+// 		url: '/api/ow/user-invitations/v1/verify-access',
+// 		data: request,
+// 	});
+// };
 
 /**
  * Validate invitation token
@@ -129,7 +131,11 @@ export const removePortalAccess = (onboardingId: string, email: string) => {
 /**
  * Toggle portal access status (Active/Inactive)
  */
-export const togglePortalAccessStatus = (onboardingId: string, email: string, isActive: boolean) => {
+export const togglePortalAccessStatus = (
+	onboardingId: string,
+	email: string,
+	isActive: boolean
+) => {
 	return defHttp.put<{ success: boolean }>({
 		url: `/api/ow/user-invitations/v1/toggle-status/${onboardingId}?email=${encodeURIComponent(
 			email
@@ -145,5 +151,18 @@ export const getInvitationLink = (onboardingId: string, email: string) => {
 		url: `/api/ow/user-invitations/v1/invitation-link/${onboardingId}?email=${encodeURIComponent(
 			email
 		)}`,
+	});
+};
+
+/**
+ * Verify portal access with short URL ID
+ */
+export const verifyPortalAccessByShortUrl = (
+	shortUrlId: string,
+	request: PortalAccessVerificationByShortUrlRequest
+) => {
+	return defHttp.post<PortalAccessVerificationResponse>({
+		url: `/api/ow/user-invitations/v1/verify-access-short/${shortUrlId}`,
+		data: request,
 	});
 };

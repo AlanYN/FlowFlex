@@ -35,6 +35,45 @@ namespace FlowFlex.Infrastructure.Data
             // Add app filter for OwEntityBase
             db.QueryFilter.AddTableFilter<OwEntityBase>(entity =>
                 entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // Add specific filters for concrete entity types to ensure they work
+            // This is needed because SqlSugar inheritance filtering sometimes doesn't work as expected
+            
+            // Workflow filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Workflow>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Workflow>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // User filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.User>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.User>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // Onboarding filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Onboarding>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Onboarding>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // Stage filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Stage>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Stage>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // Checklist filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Checklist>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Checklist>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // Questionnaire filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Questionnaire>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Questionnaire>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
         }
 
         /// <summary>

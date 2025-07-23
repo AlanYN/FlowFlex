@@ -181,11 +181,7 @@ namespace FlowFlex.WebApi.Extensions
                     var tenantId = tenantIdClaim?.Value ?? tenantIdHeader ?? appContext?.TenantId ?? "DEFAULT";
                     var appCode = appCodeClaim?.Value ?? appCodeHeader ?? appContext?.AppCode ?? "DEFAULT";
 
-                    // If no tenant ID found and we have email, try to get tenant from email
-                    if (tenantId == "DEFAULT" && !string.IsNullOrEmpty(email))
-                    {
-                        tenantId = TenantHelper.GetTenantIdByEmail(email);
-                    }
+                    // Note: No inference from email domain - use explicit headers only
 
                     // User context logging handled by structured logging
 

@@ -52,5 +52,12 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="userId">User ID</param>
         /// <returns>Whether update was successful</returns>
         Task<bool> MarkAsUsedAsync(string token, long userId);
+
+        /// <summary>
+        /// Get invitation by short URL ID
+        /// </summary>
+        /// <param name="shortUrlId">Short URL identifier</param>
+        /// <returns>User invitation</returns>
+        Task<UserInvitation> GetByShortUrlIdAsync(string shortUrlId);
     }
 }

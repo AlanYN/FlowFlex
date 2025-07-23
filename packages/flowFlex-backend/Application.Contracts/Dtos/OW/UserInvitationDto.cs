@@ -205,4 +205,17 @@ namespace FlowFlex.Application.Contracts.Dtos.OW
         /// </summary>
         public string? ErrorMessage { get; set; }
     }
+
+    /// <summary>
+    /// Portal access verification request DTO using short URL
+    /// </summary>
+    public class PortalAccessVerificationByShortUrlRequestDto
+    {
+        /// <summary>
+        /// Email address for verification
+        /// </summary>
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+    }
 }

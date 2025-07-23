@@ -66,6 +66,13 @@ namespace FlowFlex.Domain.Entities.OW
         public DateTimeOffset? LastAccessDate { get; set; }
 
         /// <summary>
+        /// Short URL identifier (MD5 hash for compact invitation links)
+        /// </summary>
+        [StringLength(32)]
+        [SugarColumn(ColumnName = "short_url_id")]
+        public string? ShortUrlId { get; set; }
+
+        /// <summary>
         /// User ID (if user exists)
         /// </summary>
         [SugarColumn(ColumnName = "user_id")]

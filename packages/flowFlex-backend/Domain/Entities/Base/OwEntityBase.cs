@@ -26,7 +26,7 @@ namespace FlowFlex.Domain.Entities
         /// </summary>
         [MaxLength(32)]
         [SugarColumn(ColumnName = "tenant_id")]
-        public string TenantId { get; set; } = "default";
+        public string TenantId { get; set; } = "DEFAULT";
 
         /// <summary>
         /// 应用代码

@@ -38,7 +38,7 @@ export const LoginRoute: AppRouteRecordRaw = {
 };
 
 export const PortalAccessRoute: AppRouteRecordRaw = {
-	path: '/portal-access',
+	path: '/portal-access/:shortUrlId',
 	name: 'PortalAccess',
 	component: () => import('@/views/onboard/sub-portal/portal-access/index.vue'),
 	meta: {
