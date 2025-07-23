@@ -407,21 +407,7 @@
 							:key="workflow.id"
 							:label="workflow.name"
 							:value="workflow.id"
-						>
-							<div class="flex items-center justify-between">
-								<div>
-									<span>{{ workflow.name }}</span>
-								</div>
-								<div class="flex items-center gap-1">
-									<el-icon
-										v-if="workflow.status === 'inactive'"
-										class="text-red-500"
-									>
-										<VideoPause />
-									</el-icon>
-								</div>
-							</div>
-						</el-option>
+						/>
 					</el-select>
 				</el-form-item>
 			</el-form>
@@ -454,7 +440,7 @@ import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vu
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import '../styles/errorDialog.css';
-import { ArrowDownBold, Edit, Delete, Plus, Loading, VideoPause } from '@element-plus/icons-vue';
+import { ArrowDownBold, Edit, Delete, Plus, Loading } from '@element-plus/icons-vue';
 import {
 	queryOnboardings,
 	deleteOnboarding,
@@ -1092,7 +1078,7 @@ const allWorkflows = ref<any[]>([]);
 const fetchAllWorkflows = async () => {
 	const response = await getWorkflowList();
 	if (response.code === '200') {
-		allWorkflows.value = response.data || [];
+		allWorkflows.value = response.data.filter((item) => item.isActive) || [];
 		const defaultWorkflow = allWorkflows.value.find((item) => item.isDefault);
 		if (defaultWorkflow) {
 			defaultWorkflow.name = '⭐ ' + defaultWorkflow.name;
