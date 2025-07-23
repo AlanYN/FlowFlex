@@ -8,7 +8,6 @@ import { setupRouter, router } from '@/router';
 import { setupRouterGuard } from '@/router/guard';
 import { vPerMission } from '@/hooks';
 import { setTheme, setPrimary } from '@/utils/theme';
-import 'default-passive-events';
 
 import ElementPlus from 'element-plus';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
