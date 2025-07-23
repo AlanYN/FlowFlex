@@ -112,10 +112,25 @@ namespace FlowFlex.WebApi.Middlewares
                 // Let business logic exceptions pass through to GlobalExceptionHandlingMiddleware
                 throw;
             }
+            catch (InvalidOperationException)
+            {
+                // Let business logic exceptions (like file type validation) pass through
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "JWT authentication middleware error for endpoint: {Path}", context.Request.Path);
-                await HandleUnauthorizedAsync(context, "Authentication error");
+                // Only handle authentication/authorization related errors here
+                // Let all other exceptions pass through to GlobalExceptionHandlingMiddleware
+                if (ex.Message.Contains("token") || ex.Message.Contains("authentication") || ex.Message.Contains("authorization"))
+                {
+                    _logger.LogError(ex, "JWT authentication middleware error for endpoint: {Path}", context.Request.Path);
+                    await HandleUnauthorizedAsync(context, "Authentication error");
+                }
+                else
+                {
+                    // Let business logic exceptions pass through
+                    throw;
+                }
             }
         }
 

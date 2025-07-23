@@ -345,9 +345,12 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseRouting();
+
+// Global exception handling should be first to catch all exceptions
+app.UseMiddleware<FlowFlex.Infrastructure.Exceptions.GlobalExceptionHandlingMiddleware>();
+
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.AppIsolationMiddleware>();
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.TenantMiddleware>();
-app.UseMiddleware<FlowFlex.Infrastructure.Exceptions.GlobalExceptionHandlingMiddleware>();
 app.UseMiddleware<FileAccessMiddleware>();
 app.UseCors("AllowAll");
 

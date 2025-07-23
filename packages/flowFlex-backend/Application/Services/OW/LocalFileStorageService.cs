@@ -316,6 +316,8 @@ namespace FlowFlex.Application.Services.OW
                 ".mp4" => "video/mp4",
                 ".avi" => "video/x-msvideo",
                 ".mov" => "video/quicktime",
+                ".eml" => "message/rfc822",
+                ".msg" => "application/vnd.ms-outlook",
                 _ => "application/octet-stream"
             };
         }
@@ -333,6 +335,10 @@ namespace FlowFlex.Application.Services.OW
                            new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension) => true,
                 var ct when ct.StartsWith("video/") && extension.StartsWith(".") &&
                            new[] { ".mp4", ".avi", ".mov" }.Contains(extension) => true,
+                var ct when ct.StartsWith("message/") && extension.StartsWith(".") &&
+                           new[] { ".eml" }.Contains(extension) => true,
+                var ct when ct.StartsWith("application/") && extension.StartsWith(".") &&
+                           new[] { ".msg", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar" }.Contains(extension) => true,
                 _ => false
             };
         }

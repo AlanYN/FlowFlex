@@ -706,7 +706,17 @@ namespace FlowFlex.Application.Service.OW
             // Get current stages for version snapshot
             var currentStages = await _stageRepository.GetByWorkflowIdAsync(id);
 
-            // Create version history record (including stage snapshot)
+            // Update workflow start date to current date when creating new version
+            // Use today's date at start of day in local timezone
+            var today = DateTime.Today;
+            workflow.StartDate = new DateTimeOffset(today, DateTimeOffset.Now.Offset);
+
+            // Update workflow version number
+            workflow.Version += 1;
+            workflow.InitUpdateInfo(_userContext);
+            var result = await _workflowRepository.UpdateAsync(workflow);
+
+            // Create version history record (including stage snapshot) after updating workflow
             var reason = !string.IsNullOrEmpty(changeReason) 
                 ? changeReason 
                 : "Manual version creation";
@@ -715,12 +725,7 @@ namespace FlowFlex.Application.Service.OW
                 workflow,
                 currentStages,
                 "Manual Version",
-                $"{reason} - Workflow manually versioned to {workflow.Version + 1}");
-
-            // Update workflow version number
-            workflow.Version += 1;
-            workflow.InitUpdateInfo(_userContext);
-            var result = await _workflowRepository.UpdateAsync(workflow);
+                $"{reason} - Workflow manually versioned to {workflow.Version}");
 
             return result;
         }
