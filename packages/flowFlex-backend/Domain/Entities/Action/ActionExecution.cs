@@ -56,7 +56,7 @@ namespace FlowFlex.Domain.Entities.Action
         /// Trigger context data (JSON format, contains relevant data at trigger time)
         /// </summary>
         [SugarColumn(ColumnName = "trigger_context", ColumnDataType = "jsonb", IsJson = true)]
-        public JObject TriggerContext { get; set; } = new JObject();
+        public JToken TriggerContext { get; set; } = new JObject();
 
         /// <summary>
         /// Execution status (Pending, Running, Success, Failed, Cancelled)
@@ -88,13 +88,13 @@ namespace FlowFlex.Domain.Entities.Action
         /// Execution input parameters (JSON format)
         /// </summary>
         [SugarColumn(ColumnName = "execution_input", ColumnDataType = "jsonb", IsJson = true)]
-        public JObject ExecutionInput { get; set; } = new JObject();
+        public JToken ExecutionInput { get; set; } = new JObject();
 
         /// <summary>
         /// Execution output result (JSON format)
         /// </summary>
         [SugarColumn(ColumnName = "execution_output", ColumnDataType = "jsonb", IsJson = true)]
-        public JObject ExecutionOutput { get; set; } = new JObject();
+        public JToken ExecutionOutput { get; set; } = new JObject();
 
         /// <summary>
         /// Error message
@@ -113,6 +113,6 @@ namespace FlowFlex.Domain.Entities.Action
         /// Executor instance information (JSON format, records executor related information)
         /// </summary>
         [SugarColumn(ColumnName = "executor_info", ColumnDataType = "jsonb", IsJson = true)]
-        public JObject ExecutorInfo { get; set; } = new JObject();
+        public JToken ExecutorInfo { get; set; } = new JObject();
     }
 } 

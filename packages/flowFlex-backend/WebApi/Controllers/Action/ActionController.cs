@@ -3,6 +3,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using Item.Internal.StandardApi.Response;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 using System.Net;
 
 namespace FlowFlex.WebApi.Controllers.Action
@@ -217,7 +218,7 @@ namespace FlowFlex.WebApi.Controllers.Action
             try
             {
                 var result = await _actionManagementService.CreateActionTriggerMappingAsync(dto);
-                return CreatedAtAction(nameof(GetActionTriggerMapping), new { id = result.Id }, Success(result));
+                return Success(result);
             }
             catch (InvalidOperationException ex)
             {
@@ -300,14 +301,14 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="contextData">Context data for execution</param>
         /// <returns>Execution result</returns>
         [HttpPost("definitions/{actionDefinitionId}/test")]
-        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<JToken>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> TestAction(long actionDefinitionId, [FromBody] object contextData = null)
         {
             try
             {
-                await _actionExecutionService.ExecuteActionAsync(actionDefinitionId, contextData);
-                return Success("Action executed successfully");
+                var result = await _actionExecutionService.ExecuteActionAsync(actionDefinitionId, contextData);
+                return Success(result);
             }
             catch (Exception ex)
             {

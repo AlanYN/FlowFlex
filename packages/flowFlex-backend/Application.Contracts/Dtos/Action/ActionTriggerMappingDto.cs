@@ -69,4 +69,4 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// </summary>
         public DateTime UpdatedAt { get; set; }
     }
-} 
+}

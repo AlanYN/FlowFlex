@@ -6,6 +6,9 @@ using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -92,10 +95,12 @@ namespace FlowFlex.Application.Services.Action
 
             try
             {
+                var jToken = JToken.Parse(actionConfig);
+
                 switch (actionType)
                 {
                     case ActionTypeEnum.Python:
-                        ValidatePythonConfig(actionConfig);
+                        ValidatePythonConfig(jToken);
                         break;
                     case ActionTypeEnum.HttpApi:
                         // TODO: Add HTTP API config validation
@@ -107,16 +112,19 @@ namespace FlowFlex.Application.Services.Action
                         throw new ArgumentException($"Unsupported action type: {actionType}");
                 }
             }
-            catch (JsonException ex)
+            catch (Newtonsoft.Json.JsonException ex)
             {
                 throw new ArgumentException($"Invalid JSON configuration for action type {actionType}: {ex.Message}");
             }
         }
 
-        private void ValidatePythonConfig(string actionConfig)
+        private void ValidatePythonConfig(JToken actionConfig)
         {
-            var config = JsonSerializer.Deserialize<PythonActionConfigDto>(actionConfig, _jsonOptions);
-            
+            var config = actionConfig.ToObject<PythonActionConfigDto>(new Newtonsoft.Json.JsonSerializer
+            {
+                ContractResolver = new CamelCasePropertyNamesContractResolver()
+            });
+
             if (config == null)
             {
                 throw new ArgumentException("Failed to parse Python action configuration");
@@ -171,7 +179,7 @@ namespace FlowFlex.Application.Services.Action
         public async Task<ActionTriggerMappingDto> GetActionTriggerMappingAsync(long id)
         {
             var entity = await _actionTriggerMappingRepository.GetByIdAsync(id);
-            return entity != null ? _mapper.Map<ActionTriggerMappingDto>(entity) : null;
+            return _mapper.Map<ActionTriggerMappingDto>(entity);
         }
 
         public async Task<List<ActionTriggerMappingDto>> GetAllActionTriggerMappingsAsync()
@@ -197,7 +205,7 @@ namespace FlowFlex.Application.Services.Action
             // Check if mapping already exists
             var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
                 dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.TriggerEvent);
-            
+
             if (exists)
             {
                 throw new InvalidOperationException("Mapping already exists for this action and trigger");
@@ -222,7 +230,7 @@ namespace FlowFlex.Application.Services.Action
             // Check if mapping already exists (excluding current one)
             var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
                 dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.TriggerEvent, id);
-            
+
             if (exists)
             {
                 throw new InvalidOperationException("Mapping already exists for this action and trigger");
@@ -277,4 +285,4 @@ namespace FlowFlex.Application.Services.Action
 
         #endregion
     }
-} 
+}

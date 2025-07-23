@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.Base;
 using SqlSugar;
 using Newtonsoft.Json;
 using FlowFlex.Domain.Shared.JsonConverters;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Domain.Entities.Action
 {
@@ -67,13 +68,13 @@ namespace FlowFlex.Domain.Entities.Action
         /// Trigger conditions (JSON format) - defines when this mapping should be triggered
         /// </summary>
         [SugarColumn(ColumnName = "trigger_conditions", ColumnDataType = "jsonb", IsJson = true)]
-        public string TriggerConditions { get; set; } = "{}";
+        public JToken TriggerConditions { get; set; } = new JObject();
 
         /// <summary>
         /// Custom parameters for this specific mapping (JSON format)
         /// </summary>
         [SugarColumn(ColumnName = "mapping_config", ColumnDataType = "jsonb", IsJson = true)]
-        public string MappingConfig { get; set; } = "{}";
+        public JToken MappingConfig { get; set; } = new JObject();
 
         /// <summary>
         /// Description of this mapping

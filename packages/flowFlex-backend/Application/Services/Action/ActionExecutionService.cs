@@ -4,6 +4,7 @@ using FlowFlex.Domain.Shared.Enums.Action;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -29,7 +30,7 @@ namespace FlowFlex.Application.Services.Action
             _logger = logger;
         }
 
-        public async Task ExecuteActionAsync(
+        public async Task<JToken?> ExecuteActionAsync(
             long actionDefinitionId,
             object contextData = null,
             long? userId = null,
@@ -42,7 +43,7 @@ namespace FlowFlex.Application.Services.Action
                 if (actionDefinition == null)
                 {
                     _logger.LogWarning("Action definition not found: {ActionId}", actionDefinitionId);
-                    return;
+                    return null;
                 }
 
                 // Create execution record
@@ -51,9 +52,10 @@ namespace FlowFlex.Application.Services.Action
                     ActionDefinitionId = actionDefinitionId,
                     ExecutionStatus = ActionExecutionStatusEnum.Running.ToString(),
                     StartedAt = DateTime.UtcNow,
-                    TriggerContext = contextData != null ? JObject.FromObject(contextData) : new JObject(),
+                    TriggerContext = contextData != null ? JToken.FromObject(contextData) : new JObject(),
                     CreateBy = userId.ToString() ?? "",
-                    ExecutionId = SnowFlakeSingle.Instance.NextId().ToString()
+                    ExecutionId = SnowFlakeSingle.Instance.NextId().ToString(),
+                    CreateDate = DateTimeOffset.UtcNow
                 };
 
                 await _actionExecutionRepository.InsertAsync(execution, cancellationToken);
@@ -62,12 +64,13 @@ namespace FlowFlex.Application.Services.Action
                 {
                     // Get executor and execute
                     var executor = _actionExecutorFactory.CreateExecutor((ActionTypeEnum)Enum.Parse(typeof(ActionTypeEnum), actionDefinition.ActionType));
-                    var result = await executor.ExecuteAsync(actionDefinition.ActionConfig, contextData);
+                    var result = await executor.ExecuteAsync(JsonConvert.SerializeObject(actionDefinition.ActionConfig), contextData);
 
                     // Update execution record with success
                     execution.ExecutionStatus = ActionExecutionStatusEnum.Completed.ToString();
                     execution.CompletedAt = DateTime.UtcNow;
-                    execution.ExecutionOutput = result != null ? JObject.FromObject(result) : new JObject();
+                    execution.ExecutionOutput = result != null ? JToken.FromObject(result) : new JObject();
+                    execution.ModifyDate = DateTimeOffset.Now;
                     await _actionExecutionRepository.UpdateAsync(execution);
 
                     _logger.LogInformation(
@@ -89,6 +92,7 @@ namespace FlowFlex.Application.Services.Action
                         execution.Id);
                     throw;
                 }
+                return execution.ExecutionOutput;
             }
             catch (Exception ex)
             {

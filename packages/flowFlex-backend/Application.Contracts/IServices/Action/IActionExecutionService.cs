@@ -1,4 +1,5 @@
 ﻿using FlowFlex.Domain.Shared;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Contracts.IServices.Action
 {
@@ -15,7 +16,7 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// <param name="userId">User ID who triggered the execution</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Task representing the asynchronous operation</returns>
-        Task ExecuteActionAsync(
+        Task<JToken> ExecuteActionAsync(
             long actionDefinitionId,
             object contextData = null,
             long? userId = null,

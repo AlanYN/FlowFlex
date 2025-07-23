@@ -2,6 +2,7 @@
 using FlowFlex.Domain.Entities.Base;
 using SqlSugar;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Domain.Entities.Action
 {
@@ -38,7 +39,7 @@ namespace FlowFlex.Domain.Entities.Action
         /// Action configuration (JSON format, contains execution parameters)
         /// </summary>
         [SugarColumn(ColumnName = "action_config", ColumnDataType = "jsonb", IsJson = true)]
-        public string ActionConfig { get; set; } = "{}";
+        public JToken ActionConfig { get; set; } = new JObject();
 
         /// <summary>
         /// Whether this action is enabled
@@ -46,4 +47,4 @@ namespace FlowFlex.Domain.Entities.Action
         [SugarColumn(ColumnName = "is_enabled")]
         public bool IsEnabled { get; set; } = true;
     }
-} 
+}
