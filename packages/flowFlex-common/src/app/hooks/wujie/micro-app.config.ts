@@ -37,6 +37,7 @@ export const useWujie = () => {
 
 			window.$wujie.bus.$on('logout', (isTokenExpired: boolean) => {
 				console.log('子应用收到主应用的退出事件', isTokenExpired);
+				window.__WUJIE_UNMOUNT();
 				const userStore = useUserStoreWithOut();
 				userStore.logout(isTokenExpired, 'mainLoagout');
 			});
@@ -48,7 +49,6 @@ export const useWujie = () => {
 	 * @param isTokenExpired 是否是token过期,如果是true表示是token过期,如果是false表示主动退出登录
 	 */
 	const tokenExpiredLogOut = (isTokenExpired: boolean) => {
-		console.log('子应用的token过期了', isTokenExpired);
 		window.$wujie.bus.$emit('token-expired-logout', isTokenExpired);
 	};
 
@@ -80,6 +80,7 @@ export const useWujie = () => {
 		}
 
 		if (currentRoute) {
+			console.log('设置路由：', currentRoute, router);
 			router.push(currentRoute);
 		}
 
@@ -91,6 +92,7 @@ export const useWujie = () => {
 	};
 
 	const initWujieSubApp = () => {
+		const currentProps = window.$wujie?.props || {};
 		if (!isMicroAppEnvironment() || !currentProps) {
 			console.log('跳过初始化，环境检查失败或 props 为空');
 			return;
@@ -106,10 +108,15 @@ export const useWujie = () => {
 			console.log('设置主色调:', primary);
 			setPrimary(primary);
 		}
-
 		if (currentRoute) {
 			router.push(currentRoute);
 		}
+
+		const userStore = useUserStoreWithOut();
+		userStore.setLayout({
+			hideMenu: true,
+			hideEditMenu: true,
+		});
 	};
 
 	// 立即设置事件监听器

@@ -56,37 +56,25 @@ async function bootstrap() {
 
 if (window.__POWERED_BY_WUJIE__) {
 	// 禁用无界的样式处理
-	console.log('无界环境');
 	window.__WUJIE_MOUNT = () => {
-		console.log('无界环境挂载开始');
-		console.log('window.$wujie:', window.$wujie);
-
-		bootstrap()
-			.then(() => {
-				console.log('应用挂载完成，初始化无界配置');
-				// 确保在应用挂载完成后再初始化无界配置
-				setTimeout(() => {
-					const { initWujieSubApp } = useWujie();
-					initWujieSubApp();
-				}, 100);
-			})
-			.catch((error) => {
-				console.error('应用启动失败:', error);
-			});
+		bootstrap().then(() => {
+			setTimeout(() => {
+				const { initWujieSubApp } = useWujie();
+				initWujieSubApp();
+			}, 100);
+		});
 	};
 
 	window.__WUJIE_UNMOUNT = () => {
-		console.log('无界环境卸载');
-		if (appInstance) {
-			appInstance.unmount();
-			appInstance = null;
-		}
+		window.$wujie.bus.$off('props-update');
+		window.$wujie.bus.$off('primary-change');
+		window.$wujie.bus.$off('theme-change');
+		window.$wujie.bus.$off('logout');
+		appInstance && appInstance.unmount();
+		appInstance = null;
 	};
 
 	window.__WUJIE.mount();
 } else {
-	console.log('非无界环境');
-	bootstrap().catch((error) => {
-		console.error('应用启动失败:', error);
-	});
+	bootstrap();
 }

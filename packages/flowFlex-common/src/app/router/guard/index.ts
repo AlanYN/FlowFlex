@@ -60,12 +60,12 @@ function handleMessageGuard() {
 
 function handleTokenCheck(to, next) {
 	const accessToken = getTokenobj()?.accessToken.token;
-	
+
 	// 对于customer-portal页面，优先检查标准认证，fallback到portal认证
 	if (to.path.startsWith('/customer-portal')) {
 		const portalAccessToken = localStorage.getItem('portal_access_token');
 		const urlToken = to.query.token;
-		
+
 		if (accessToken || portalAccessToken || urlToken) {
 			// 有标准用户认证、portal访问token或URL中有token参数，允许访问
 			return false;
