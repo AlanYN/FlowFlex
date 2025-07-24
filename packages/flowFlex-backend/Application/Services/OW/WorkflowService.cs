@@ -352,6 +352,7 @@ namespace FlowFlex.Application.Service.OW
                 IsDefault = false, // Duplicated workflows are not default
                 Version = 1, // Reset version for duplicated workflow
                 TenantId = originalWorkflow.TenantId,
+                AppCode = originalWorkflow.AppCode, // Copy app code from original workflow
                 CreateBy = GetCurrentUserName(),
                 ModifyBy = GetCurrentUserName(),
                 CreateUserId = GetCurrentUserId(),
@@ -378,11 +379,10 @@ namespace FlowFlex.Application.Service.OW
                     ChecklistId = stage.ChecklistId,
                     QuestionnaireId = stage.QuestionnaireId,
                     Color = stage.Color,
-
-
                     WorkflowVersion = stage.WorkflowVersion,
                     IsActive = stage.IsActive,
                     TenantId = stage.TenantId,
+                    AppCode = stage.AppCode, // Copy app code from original stage
                     CreateBy = GetCurrentUserName(),
                     ModifyBy = GetCurrentUserName(),
                     CreateUserId = GetCurrentUserId(),
