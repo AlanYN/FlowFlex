@@ -19,6 +19,14 @@
 				</h1>
 			</div>
 			<div class="flex items-center space-x-2">
+				<el-button
+					type="primary"
+					@click="saveQuestionnaireAndField"
+					:loading="saveAllLoading"
+					:icon="Document"
+				>
+					Save
+				</el-button>
 				<el-button type="primary" @click="handleCompleteStage" :loading="completing">
 					<el-icon class="mr-1">
 						<Check />
@@ -32,12 +40,12 @@
 					</el-icon>
 					&nbsp;&nbsp;Portal Access Management
 				</el-button>
-				<el-button type="primary" @click="messageDialogVisible = true">
+				<!-- <el-button type="primary" @click="messageDialogVisible = true">
 					<el-icon>
 						<ChatDotSquare />
 					</el-icon>
 					&nbsp;&nbsp;Send Message
-				</el-button>
+				</el-button> -->
 			</div>
 		</div>
 
@@ -241,7 +249,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, ChatDotSquare, Loading, User } from '@element-plus/icons-vue';
+import { ArrowLeft, ChatDotSquare, Loading, User, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
@@ -760,14 +768,16 @@ const handleSaveEdit = async () => {
 	}
 };
 
-const saveAllForm = async () => {
+const saveAllLoading = ref(false);
+const saveAllForm = async (isValidate: boolean = true) => {
 	try {
+		saveAllLoading.value = true;
 		// 串行执行保存操作 - 先保存StaticForm组件
 		if (staticFormRefs.value.length > 0) {
 			for (let i = 0; i < staticFormRefs.value.length; i++) {
 				const formRef = staticFormRefs.value[i];
 				if (formRef && typeof formRef.handleSave === 'function') {
-					const result = await formRef.handleSave();
+					const result = await formRef.handleSave(isValidate);
 					if (result !== true) {
 						return false;
 					}
@@ -780,7 +790,7 @@ const saveAllForm = async () => {
 			for (let i = 0; i < questionnaireDetailsRefs.value.length; i++) {
 				const questRef = questionnaireDetailsRefs.value[i];
 				if (questRef && typeof questRef.handleSave === 'function') {
-					const result = await questRef.handleSave(false);
+					const result = await questRef.handleSave(false, isValidate);
 					if (result !== true) {
 						return false;
 					}
@@ -791,6 +801,8 @@ const saveAllForm = async () => {
 		return true;
 	} catch (error) {
 		return false;
+	} finally {
+		saveAllLoading.value = false;
 	}
 };
 
@@ -838,6 +850,16 @@ const handleCompleteStage = async () => {
 			},
 		}
 	);
+};
+
+const saveQuestionnaireAndField = async () => {
+	const res = await saveAllForm(false);
+	if (res) {
+		ElMessage.success(t('sys.api.operationSuccess'));
+		loadOnboardingDetail();
+	} else {
+		ElMessage.error(t('sys.api.operationFailed'));
+	}
 };
 
 const changeLogRef = ref<InstanceType<typeof ChangeLog>>();
