@@ -127,6 +127,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> GetInvitationLinkAsync(long onboardingId, [FromQuery] string email)
         {
+            // Don't pass backend URL, let service use configured frontend URL
             var result = await _userInvitationService.GetInvitationLinkAsync(onboardingId, email);
             return Success(result);
         }

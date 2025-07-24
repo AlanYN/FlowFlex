@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -28,6 +29,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IMapper _mapper;
         private readonly ILogger<UserInvitationService> _logger;
         private readonly IUserContextService _userContextService;
+        private readonly IConfiguration _configuration;
 
         public UserInvitationService(
             IUserInvitationRepository invitationRepository,
@@ -38,7 +40,8 @@ namespace FlowFlex.Application.Services.OW
             IAccessTokenService accessTokenService,
             IMapper mapper,
             ILogger<UserInvitationService> logger,
-            IUserContextService userContextService)
+            IUserContextService userContextService,
+            IConfiguration configuration)
         {
             _invitationRepository = invitationRepository;
             _onboardingRepository = onboardingRepository;
@@ -49,6 +52,7 @@ namespace FlowFlex.Application.Services.OW
             _mapper = mapper;
             _logger = logger;
             _userContextService = userContextService;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -92,7 +96,7 @@ namespace FlowFlex.Application.Services.OW
                             request.OnboardingId, 
                             email, 
                             existingInvitation.InvitationToken);
-                        existingInvitation.InvitationUrl = GenerateShortInvitationUrl(existingInvitation.ShortUrlId, request.BaseUrl);
+                        existingInvitation.InvitationUrl = GenerateShortInvitationUrl(existingInvitation.ShortUrlId, onboarding.TenantId ?? "DEFAULT", onboarding.AppCode ?? "DEFAULT", request.BaseUrl);
                         existingInvitation.ModifyDate = DateTimeOffset.UtcNow;
                         existingInvitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
 
@@ -132,7 +136,7 @@ namespace FlowFlex.Application.Services.OW
                             request.OnboardingId, 
                             email, 
                             invitation.InvitationToken);
-                        invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, request.BaseUrl);
+                        invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding.TenantId ?? "DEFAULT", onboarding.AppCode ?? "DEFAULT", request.BaseUrl);
 
                         // Create system user context for initialization
                         var systemUserContext = new UserContext
@@ -214,6 +218,9 @@ namespace FlowFlex.Application.Services.OW
                     throw new Exception("Invitation not found");
                 }
 
+                // Get onboarding info first
+                var onboarding = await _onboardingRepository.GetByIdAsync(request.OnboardingId);
+
                 // Update invitation
                 invitation.InvitationToken = CryptoHelper.GenerateSecureToken();
                 invitation.SentDate = DateTimeOffset.UtcNow;
@@ -224,13 +231,10 @@ namespace FlowFlex.Application.Services.OW
                     request.OnboardingId, 
                     request.Email, 
                     invitation.InvitationToken);
-                invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, request.BaseUrl);
+                invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding?.TenantId ?? "DEFAULT", onboarding?.AppCode ?? "DEFAULT", request.BaseUrl);
                 invitation.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _invitationRepository.UpdateAsync(invitation);
-
-                // Get onboarding info
-                var onboarding = await _onboardingRepository.GetByIdAsync(request.OnboardingId);
 
                 // Send invitation email
                 return await _emailService.SendOnboardingInvitationEmailAsync(
@@ -384,7 +388,7 @@ namespace FlowFlex.Application.Services.OW
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="email">Email address</param>
         /// <returns>Invitation link information</returns>
-        public async Task<object> GetInvitationLinkAsync(long onboardingId, string email)
+        public async Task<object> GetInvitationLinkAsync(long onboardingId, string email, string? baseUrl = null)
         {
             try
             {
@@ -394,8 +398,11 @@ namespace FlowFlex.Application.Services.OW
                     return new { invitationUrl = "", error = "Invitation not found" };
                 }
 
+                // Get onboarding to access tenant information
+                var onboarding = await _onboardingRepository.GetByIdAsync(invitation.OnboardingId);
+                
                 // Generate short invitation URL using short URL ID
-                var invitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId ?? "", null);
+                var invitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId ?? "", onboarding?.TenantId ?? "DEFAULT", onboarding?.AppCode ?? "DEFAULT", baseUrl);
 
                 return new 
                 { 
@@ -544,16 +551,19 @@ namespace FlowFlex.Application.Services.OW
         /// Generate short invitation URL with MD5 identifier
         /// </summary>
         /// <param name="shortUrlId">Short URL identifier (MD5 hash)</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="appCode">App Code</param>
         /// <param name="baseUrl">Base URL (optional, will use default if not provided)</param>
         /// <returns>Short invitation URL</returns>
-        private string GenerateShortInvitationUrl(string shortUrlId, string? baseUrl = null)
+        private string GenerateShortInvitationUrl(string shortUrlId, string tenantId, string appCode, string? baseUrl = null)
         {
-            // Use provided baseUrl or fall back to default
+            // Use provided baseUrl or fall back to configured frontend URL
             var finalBaseUrl = !string.IsNullOrEmpty(baseUrl)
                 ? baseUrl.TrimEnd('/')
-                : "http://localhost:5173"; // Updated default for frontend port
+                : _configuration["Frontend:BaseUrl"] ?? "https://crm-dev.item.pub";
 
-            return $"{finalBaseUrl}/portal-access/{shortUrlId}";
+            // Include tenantId and appCode as query parameters
+            return $"{finalBaseUrl}/portal-access/{shortUrlId}?tenantId={Uri.EscapeDataString(tenantId)}&appCode={Uri.EscapeDataString(appCode)}";
         }
 
         /// <summary>

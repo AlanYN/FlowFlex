@@ -350,14 +350,11 @@ namespace FlowFlex.Application.Service.OW
                 Status = originalWorkflow.Status, // Keep the same status as original
                 IsActive = originalWorkflow.IsActive, // Keep the same active status as original
                 IsDefault = false, // Duplicated workflows are not default
-                Version = 1, // Reset version for duplicated workflow
-                TenantId = originalWorkflow.TenantId,
-                AppCode = originalWorkflow.AppCode, // Copy app code from original workflow
-                CreateBy = GetCurrentUserName(),
-                ModifyBy = GetCurrentUserName(),
-                CreateUserId = GetCurrentUserId(),
-                ModifyUserId = GetCurrentUserId()
+                Version = 1 // Reset version for duplicated workflow
             };
+
+            // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
+            duplicatedWorkflow.InitCreateInfo(_userContext);
 
             var newWorkflowId = await _workflowRepository.InsertReturnSnowflakeIdAsync(duplicatedWorkflow);
 
@@ -380,17 +377,11 @@ namespace FlowFlex.Application.Service.OW
                     QuestionnaireId = stage.QuestionnaireId,
                     Color = stage.Color,
                     WorkflowVersion = stage.WorkflowVersion,
-                    IsActive = stage.IsActive,
-                    TenantId = stage.TenantId,
-                    AppCode = stage.AppCode, // Copy app code from original stage
-                    CreateBy = GetCurrentUserName(),
-                    ModifyBy = GetCurrentUserName(),
-                    CreateUserId = GetCurrentUserId(),
-                    ModifyUserId = GetCurrentUserId()
+                    IsActive = stage.IsActive
                 };
 
-                // Generate snowflake ID for the duplicated stage
-                duplicatedStage.InitNewId();
+                // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
+                duplicatedStage.InitCreateInfo(_userContext);
 
                 await _stageRepository.InsertAsync(duplicatedStage);
             }

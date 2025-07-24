@@ -204,7 +204,7 @@ export interface CompanyEnum {
 }
 
 export interface UserInfo {
-	tenantId?: number;
+	tenantId?: string;
 	userId?: string | number;
 	userName?: string;
 	realName?: string;
