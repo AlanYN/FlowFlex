@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -29,8 +31,9 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageVersionRepository _stageVersionRepository;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
+        private readonly ILogger<WorkflowService> _logger;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IWorkflowVersionRepository workflowVersionRepository, IStageVersionRepository stageVersionRepository, IMapper mapper, UserContext userContext)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IWorkflowVersionRepository workflowVersionRepository, IStageVersionRepository stageVersionRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -38,6 +41,7 @@ namespace FlowFlex.Application.Service.OW
             _stageVersionRepository = stageVersionRepository;
             _mapper = mapper;
             _userContext = userContext;
+            _logger = logger;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -75,6 +79,24 @@ namespace FlowFlex.Application.Service.OW
             entity.InitCreateInfo(_userContext);
 
             await _workflowRepository.InsertAsync(entity);
+
+            // Create stages if provided
+            if (input.Stages != null && input.Stages.Any())
+            {
+                foreach (var stageInput in input.Stages.OrderBy(s => s.Order))
+                {
+                    var stage = _mapper.Map<Stage>(stageInput);
+                    stage.WorkflowId = entity.Id;
+                    stage.WorkflowVersion = entity.Version.ToString();
+                    
+                    // Initialize create information
+                    stage.InitCreateInfo(_userContext);
+                    
+                    await _stageRepository.InsertAsync(stage);
+                }
+                
+                _logger.LogInformation("Created {StageCount} stages for workflow {WorkflowId}", input.Stages.Count, entity.Id);
+            }
 
             // Create version history record
             await _workflowVersionRepository.CreateVersionHistoryAsync(entity, "Created", "Initial workflow creation");

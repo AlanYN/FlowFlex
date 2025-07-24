@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using FlowFlex.Infrastructure.Configuration;
 using FlowFlex.Infrastructure.Services.Logging;
+using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Infrastructure.Exceptions;
 using FlowFlex.Infrastructure.Data;
 
@@ -29,11 +30,28 @@ namespace FlowFlex.Infrastructure.Extensions
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
+            services.AddOptions<AIOptions>()
+                .Bind(configuration.GetSection(AIOptions.SectionName))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+
+            services.AddOptions<MCPOptions>()
+                .Bind(configuration.GetSection(MCPOptions.SectionName))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+
             // Register logging services
             services.AddScoped<IApplicationLogger, ApplicationLogger>();
 
             // Register repository services
             services.AddScoped(typeof(IOptimizedRepository<>), typeof(OptimizedRepository<>));
+
+            // Register HttpClient for AI services
+            services.AddHttpClient();
+
+            // Register AI services (will be auto-registered via IScopedService interface)
+            // services.AddScoped<IAIService, AIService>();
+            // services.AddScoped<IMCPService, MCPService>();
 
             // Register database migration service
             services.AddDatabaseMigration();
