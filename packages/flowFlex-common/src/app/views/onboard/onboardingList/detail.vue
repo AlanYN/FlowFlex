@@ -249,7 +249,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, ChatDotSquare, Loading, User, Document } from '@element-plus/icons-vue';
+import { ArrowLeft, Loading, User, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,

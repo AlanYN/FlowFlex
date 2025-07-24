@@ -11,6 +11,7 @@ export const useGlobSetting = (): Readonly<GlobConfig> => {
 		VITE_GLOB_CODE,
 		VITE_GLOB_SSOURL,
 		VITE_GLOB_ENVIRONMENT,
+		VITE_GLOB_DOMAIN_URL,
 	} = getAppEnvConfig();
 
 	// Take global configuration
@@ -26,6 +27,7 @@ export const useGlobSetting = (): Readonly<GlobConfig> => {
 		iamUrl: '',
 		apiVersion: 'v1',
 		apiProName: '/api',
+		domainUrl: VITE_GLOB_DOMAIN_URL,
 	};
 	return glob as Readonly<GlobConfig>;
 };
