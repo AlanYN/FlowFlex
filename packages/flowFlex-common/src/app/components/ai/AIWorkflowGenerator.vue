@@ -201,8 +201,137 @@
 				</div>
 			</transition>
 
+			<!-- AI Conversation Area -->
+			<div class="ai-conversation-area" v-if="showConversation">
+				<div class="conversation-header">
+					<div class="conversation-title">
+						<div class="ai-avatar-large">
+							<el-icon><Avatar /></el-icon>
+						</div>
+						<div class="title-content">
+							<h3>AI Workflow Assistant</h3>
+							<p>Let's discuss your workflow requirements</p>
+						</div>
+					</div>
+					<div class="conversation-subtitle">
+						I'll ask you a few questions to better understand your needs
+					</div>
+				</div>
+
+				<div class="conversation-container">
+					<div class="conversation-messages" ref="conversationMessages">
+						<div
+							v-for="(message, index) in conversationHistory"
+							:key="index"
+							class="message-wrapper"
+							:class="message.role"
+						>
+							<div class="message" :class="message.role">
+								<div class="message-avatar">
+									<el-icon v-if="message.role === 'assistant'">
+										<Avatar />
+									</el-icon>
+									<el-icon v-else>
+										<User />
+									</el-icon>
+								</div>
+								<div class="message-bubble">
+									<div class="message-content">
+										<div class="message-text">{{ message.content }}</div>
+									</div>
+									<div class="message-time">{{ message.timestamp }}</div>
+								</div>
+							</div>
+						</div>
+						
+						<!-- AI Typing Indicator -->
+						<div v-if="aiTyping" class="message-wrapper assistant">
+							<div class="message assistant">
+								<div class="message-avatar">
+									<el-icon><Avatar /></el-icon>
+								</div>
+								<div class="message-bubble">
+									<div class="message-content">
+										<div class="typing-indicator">
+											<div class="typing-dots">
+												<span></span>
+												<span></span>
+												<span></span>
+											</div>
+											<span class="typing-text">AI is thinking...</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="conversation-input-area">
+						<div class="input-container">
+							<el-input
+								v-model="currentMessage"
+								type="textarea"
+								:rows="3"
+								placeholder="Type your response here..."
+								@keydown.enter.prevent="handleEnterKey"
+								class="conversation-textarea"
+								:disabled="aiTyping"
+								resize="none"
+							/>
+							<div class="input-footer">
+								<div class="input-hints">
+									<span class="hint-text">Press Enter to send, Shift+Enter for new line</span>
+								</div>
+								<div class="input-actions">
+									<el-button
+										@click="resetConversation"
+										class="reset-btn"
+										size="small"
+									>
+										<el-icon><Refresh /></el-icon>
+									</el-button>
+									<el-button
+										type="primary"
+										@click="sendMessage"
+										:loading="aiTyping"
+										:disabled="!currentMessage.trim()"
+										class="send-btn"
+									>
+										<el-icon v-if="!aiTyping"><Promotion /></el-icon>
+										Send
+									</el-button>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Conversation Actions -->
+					<div class="conversation-completion" v-if="conversationComplete">
+						<div class="completion-card">
+							<div class="completion-icon">
+								<el-icon><Check /></el-icon>
+							</div>
+							<div class="completion-content">
+								<h4>Perfect! I have all the information I need</h4>
+								<p>Based on our conversation, I can now create a customized workflow for you.</p>
+							</div>
+						</div>
+						<div class="completion-actions">
+							<el-button @click="resetConversation" class="secondary-btn">
+								<el-icon class="mr-1"><Refresh /></el-icon>
+								Start Over
+							</el-button>
+							<el-button type="primary" @click="proceedToGeneration" class="primary-btn">
+								<el-icon class="mr-1"><Setting /></el-icon>
+								Generate My Workflow
+							</el-button>
+						</div>
+					</div>
+				</div>
+			</div>
+
 			<!-- AI Input Area -->
-			<div class="ai-input-area">
+			<div class="ai-input-area" v-if="!showConversation">
 				<div class="input-title">
 					<el-icon class="mr-2"><Star /></el-icon>
 					{{ operationMode === 'create' ? 'Describe Your Workflow' : 'Describe Your Modifications' }}
@@ -219,36 +348,50 @@
 					/>
 					<div class="input-footer">
 						<div class="input-actions">
-							<!-- Both modes now only have Real-time Generation -->
-							<el-button
-								type="success"
-								:loading="realTimeGenerating"
-								@click="streamGenerateWorkflow"
-								:disabled="!input.description.trim() || (operationMode === 'modify' && !selectedWorkflowId)"
-								class="stream-btn ai-primary-btn"
-								size="large"
-							>
-								<svg v-if="!realTimeGenerating" class="mr-2 w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M12 8V4H8"></path>
-									<rect width="16" height="12" x="4" y="8" rx="2"></rect>
-									<path d="M2 14h2"></path>
-									<path d="M20 14h2"></path>
-									<path d="M15 13v2"></path>
-									<path d="M9 13v2"></path>
-								</svg>
-								{{ realTimeGenerating 
-									? 'AI is Creating...' 
-									: (operationMode === 'create' ? 'AI Real-time Generation' : 'AI Real-time Enhancement')
-								}}
-							</el-button>
+							<!-- Mode Selection -->
+							<div class="generation-mode-toggle">
+								<el-button
+									@click="startConversation"
+									class="conversation-mode-btn"
+									size="large"
+								>
+									<el-icon class="mr-2"><ChatDotRound /></el-icon>
+									Interactive Mode
+								</el-button>
+							</div>
 							
-							<el-button
-								@click="clearInput"
-								class="clear-btn"
-								size="large"
-							>
-								<el-icon><Refresh /></el-icon>
-							</el-button>
+							<!-- Direct Generation -->
+							<div class="direct-generation">
+								<el-button
+									type="success"
+									:loading="realTimeGenerating"
+									@click="streamGenerateWorkflow"
+									:disabled="!input.description.trim() || (operationMode === 'modify' && !selectedWorkflowId)"
+									class="stream-btn ai-primary-btn"
+									size="large"
+								>
+									<svg v-if="!realTimeGenerating" class="mr-2 w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M12 8V4H8"></path>
+										<rect width="16" height="12" x="4" y="8" rx="2"></rect>
+										<path d="M2 14h2"></path>
+										<path d="M20 14h2"></path>
+										<path d="M15 13v2"></path>
+										<path d="M9 13v2"></path>
+									</svg>
+									{{ realTimeGenerating 
+										? 'AI is Creating...' 
+										: (operationMode === 'create' ? 'Direct Generation' : 'Direct Enhancement')
+									}}
+								</el-button>
+								
+								<el-button
+									@click="clearInput"
+									class="clear-btn"
+									size="large"
+								>
+									<el-icon><Refresh /></el-icon>
+								</el-button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -405,7 +548,10 @@ import {
 	Clock,
 	More,
 	DocumentAdd,
-	Menu
+	Menu,
+	ChatDotRound,
+	Avatar,
+	Promotion
 } from '@element-plus/icons-vue';
 
 // Props & Emits
@@ -416,11 +562,18 @@ const router = useRouter();
 const operationMode = ref<'create' | 'modify'>('create');
 const selectedWorkflowId = ref<number | null>(null);
 const availableWorkflows = ref<any[]>([]);
-const currentWorkflow = ref<any>(null);
 const loadingWorkflows = ref(false);
 
 const generating = ref(false);
 const realTimeGenerating = ref(false);
+
+// Conversation functionality
+const showConversation = ref(false);
+const conversationHistory = ref([]);
+const currentMessage = ref('');
+const aiTyping = ref(false);
+const conversationComplete = ref(false);
+const conversationMessages = ref(null);
 
 const input = reactive({
 	description: '',
@@ -428,26 +581,130 @@ const input = reactive({
 	requirements: [] as string[]
 });
 
-const result = ref<any>(null);
-const streamSteps = ref<any[]>([]);
+const result = ref(null);
+const streamSteps = ref([]);
+const currentWorkflow = ref(null);
 
-const aiStatus = ref({
-	isAvailable: true,
-	provider: 'ZhipuAI'
-});
-
-// Computed
+// Workflow list for modification mode
+const workflowList = ref([]);
 
 // Helper function to get stage count safely
-const getStageCount = (workflow: any) => {
-	if (!workflow) return 0;
-	if (workflow.stages && Array.isArray(workflow.stages)) {
-		return workflow.stages.length;
+const getStageCount = (workflow) => {
+	return workflow.stages?.length || 0;
+};
+
+// Computed
+const aiStatus = computed(() => ({
+	provider: 'ZhipuAI',
+	isAvailable: true
+}));
+
+// Conversation Methods
+const startConversation = () => {
+	showConversation.value = true;
+	conversationHistory.value = [];
+	conversationComplete.value = false;
+	
+	// Start with AI greeting
+	setTimeout(() => {
+		addAIMessage("Hello! I'm here to help you create the perfect workflow. Let me ask you a few questions to understand your needs better.");
+		
+		setTimeout(() => {
+			addAIMessage("First, what type of process or workflow are you looking to create? For example: employee onboarding, customer support, project approval, etc.");
+		}, 1500);
+	}, 500);
+};
+
+const addAIMessage = (content) => {
+	conversationHistory.value.push({
+		role: 'assistant',
+		content,
+		timestamp: new Date().toLocaleTimeString()
+	});
+	nextTick(() => {
+		scrollToBottom();
+	});
+};
+
+const addUserMessage = (content) => {
+	conversationHistory.value.push({
+		role: 'user',
+		content,
+		timestamp: new Date().toLocaleTimeString()
+	});
+	nextTick(() => {
+		scrollToBottom();
+	});
+};
+
+const scrollToBottom = () => {
+	if (conversationMessages.value) {
+		conversationMessages.value.scrollTop = conversationMessages.value.scrollHeight;
 	}
-	if (workflow.stageCount !== undefined) {
-		return workflow.stageCount;
+};
+
+const sendMessage = async () => {
+	if (!currentMessage.value.trim()) return;
+	
+	const userMessage = currentMessage.value.trim();
+	addUserMessage(userMessage);
+	currentMessage.value = '';
+	
+	aiTyping.value = true;
+	
+	// Simulate AI processing and response
+	await simulateAIResponse(userMessage);
+	
+	aiTyping.value = false;
+};
+
+const simulateAIResponse = async (userMessage) => {
+	// Simple conversation flow simulation
+	await new Promise(resolve => setTimeout(resolve, 1500));
+	
+	const messageCount = conversationHistory.value.filter(m => m.role === 'user').length;
+	
+	if (messageCount === 1) {
+		addAIMessage("Great! Now, who will be involved in this workflow? Please tell me about the teams or roles that will participate.");
+	} else if (messageCount === 2) {
+		addAIMessage("Perfect! How many stages do you expect this workflow to have? And approximately how long should the entire process take?");
+	} else if (messageCount === 3) {
+		addAIMessage("Excellent! Are there any specific requirements, approvals, or documents that need to be collected during this process?");
+	} else if (messageCount >= 4) {
+		addAIMessage("Thank you for all the details! I now have enough information to create a comprehensive workflow for you.");
+		conversationComplete.value = true;
 	}
-	return 0;
+};
+
+const handleEnterKey = (event) => {
+	if (event.shiftKey) {
+		// Allow shift+enter for new lines
+		return;
+	}
+	sendMessage();
+};
+
+const resetConversation = () => {
+	conversationHistory.value = [];
+	conversationComplete.value = false;
+	currentMessage.value = '';
+	startConversation();
+};
+
+const proceedToGeneration = () => {
+	// Compile conversation into description
+	const userMessages = conversationHistory.value
+		.filter(m => m.role === 'user')
+		.map(m => m.content)
+		.join(' ');
+	
+	input.description = `Based on our conversation: ${userMessages}`;
+	showConversation.value = false;
+	
+	// Automatically start generation
+	setTimeout(() => {
+		streamGenerateWorkflow();
+	}, 500);
 };
 
 // Methods
@@ -1244,5 +1501,288 @@ watch(operationMode, (newMode) => {
 	.stages-grid {
 		@apply grid-cols-1;
 	}
+}
+
+/* Conversation Area Styles */
+.ai-conversation-area {
+	@apply bg-white rounded-xl border border-gray-200 p-6 mb-6;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+	max-height: 80vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.conversation-header {
+	@apply text-center mb-6 pb-4 border-b border-gray-100;
+}
+
+.conversation-title {
+	@apply flex items-center justify-center mb-3;
+}
+
+.ai-avatar-large {
+	@apply w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg mr-4;
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.title-content h3 {
+	@apply text-xl font-bold text-gray-900 mb-1;
+}
+
+.title-content p {
+	@apply text-gray-600 text-sm;
+}
+
+.conversation-subtitle {
+	@apply text-sm text-gray-500 italic;
+}
+
+.conversation-container {
+	@apply flex flex-col flex-1;
+	min-height: 0;
+}
+
+.conversation-messages {
+	@apply flex-1 overflow-y-auto mb-4 space-y-4 px-2;
+	scroll-behavior: smooth;
+	max-height: 400px;
+}
+
+.conversation-messages::-webkit-scrollbar {
+	width: 6px;
+}
+
+.conversation-messages::-webkit-scrollbar-track {
+	@apply bg-gray-100 rounded-full;
+}
+
+.conversation-messages::-webkit-scrollbar-thumb {
+	@apply bg-gray-300 rounded-full;
+}
+
+.conversation-messages::-webkit-scrollbar-thumb:hover {
+	@apply bg-gray-400;
+}
+
+.message-wrapper {
+	@apply flex items-start space-x-3 animate-fade-in;
+}
+
+.message-wrapper.assistant {
+	@apply justify-start;
+}
+
+.message-wrapper.user {
+	@apply justify-end flex-row-reverse space-x-reverse;
+}
+
+.message {
+	@apply flex items-start space-x-3 max-w-full;
+}
+
+.message-avatar {
+	@apply w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.message.assistant .message-avatar {
+	@apply bg-gradient-to-br from-blue-500 to-blue-600;
+}
+
+.message.user .message-avatar {
+	@apply bg-gradient-to-br from-green-500 to-green-600;
+}
+
+.message-bubble {
+	@apply max-w-xs lg:max-w-md relative;
+	animation: message-slide-in 0.3s ease-out;
+}
+
+.message.assistant .message-bubble {
+	@apply bg-gray-50 border border-gray-200 rounded-2xl rounded-tl-md p-3;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.message.user .message-bubble {
+	@apply bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl rounded-tr-md p-3;
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.message-content {
+	@apply text-sm leading-relaxed;
+}
+
+.message-time {
+	@apply text-xs opacity-70 mt-2;
+}
+
+.message.user .message-time {
+	@apply text-right text-blue-100;
+}
+
+.typing-indicator {
+	@apply flex items-center gap-2 py-2;
+}
+
+.typing-dots {
+	@apply flex space-x-1;
+}
+
+.typing-dots span {
+	@apply w-2 h-2 bg-blue-400 rounded-full;
+	animation: typing-bounce 1.4s ease-in-out infinite both;
+}
+
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+.typing-dots span:nth-child(3) { animation-delay: 0s; }
+
+.typing-text {
+	@apply text-gray-500 text-sm;
+}
+
+@keyframes typing-bounce {
+	0%, 80%, 100% { 
+		transform: scale(0.8);
+		opacity: 0.5;
+	}
+	40% { 
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+@keyframes message-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.animate-fade-in {
+	animation: fade-in 0.5s ease-out;
+}
+
+.conversation-input-area {
+	@apply border-t border-gray-200 pt-4 mt-auto;
+}
+
+.input-container {
+	@apply relative;
+}
+
+.conversation-textarea {
+	@apply w-full;
+}
+
+.conversation-textarea .el-textarea__inner {
+	@apply border-gray-300 rounded-xl resize-none transition-all duration-200;
+	min-height: 80px;
+}
+
+.conversation-textarea .el-textarea__inner:focus {
+	@apply border-blue-500;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input-footer {
+	@apply flex justify-between items-center mt-3;
+}
+
+.input-hints {
+	@apply flex-1;
+}
+
+.hint-text {
+	@apply text-xs text-gray-400;
+}
+
+.input-actions {
+	@apply flex items-center space-x-2;
+}
+
+.reset-btn {
+	@apply w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors;
+}
+
+.send-btn {
+	@apply px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium transition-all duration-200;
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.send-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.send-btn:disabled {
+	@apply opacity-50 cursor-not-allowed;
+	transform: none;
+}
+
+.conversation-completion {
+	@apply mt-6 animate-fade-in;
+}
+
+.completion-card {
+	@apply flex items-start p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 mb-4;
+}
+
+.completion-icon {
+	@apply mr-4 mt-1 text-2xl text-green-600;
+}
+
+.completion-content h4 {
+	@apply text-lg font-semibold mb-2 text-green-800;
+}
+
+.completion-content p {
+	@apply text-sm text-green-700;
+}
+
+.completion-actions {
+	@apply flex justify-center space-x-4;
+}
+
+.secondary-btn {
+	@apply px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors;
+}
+
+.primary-btn {
+	@apply px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200;
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.primary-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Input Area Mode Toggle */
+.generation-mode-toggle {
+	@apply mr-4;
+}
+
+.conversation-mode-btn {
+	@apply bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 transition-all duration-200;
+	box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.conversation-mode-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.direct-generation {
+	@apply flex items-center space-x-3;
 }
 </style> 
