@@ -1,0 +1,28 @@
+﻿using System.ComponentModel;
+
+namespace FlowFlex.Domain.Shared.Enums.Action
+{
+    /// <summary>
+    /// Trigger type enumeration
+    /// </summary>
+    public enum TriggerTypeEnum
+    {
+        /// <summary>
+        /// Stage completion trigger
+        /// </summary>
+        [Description("Stage")]
+        Stage = 1,
+
+        /// <summary>
+        /// Checklist task completion trigger
+        /// </summary>
+        [Description("Task")]
+        Task = 2,
+
+        /// <summary>
+        /// Questionnaire question answer trigger
+        /// </summary>
+        [Description("Question")]
+        Question = 3
+    }
+} 

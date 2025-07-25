@@ -713,7 +713,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
             _db.Ado.RollbackTran();
         }
 
-        public bool UseTran(Action action)
+        public bool UseTran(System.Action action)
         {
             var result = _db.Ado.UseTran(action);
             return result.IsSuccess;
