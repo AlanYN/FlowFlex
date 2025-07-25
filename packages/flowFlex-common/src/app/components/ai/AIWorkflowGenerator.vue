@@ -1,318 +1,386 @@
 <template>
 	<div class="ai-workflow-generator">
-		<!-- AI Input Area -->
-		<el-card class="mb-4" shadow="hover">
-			<template #header>
-				<div class="flex items-center justify-between">
-					<div class="flex items-center">
-						<el-icon class="mr-2 text-blue-500">
-							<User />
+		<!-- AI Header with Animated Background -->
+		<div class="ai-header">
+			<div class="ai-background-animation"></div>
+			<div class="ai-header-content">
+				<div class="ai-avatar">
+					<div class="ai-brain">
+						<div
+							class="brain-wave"
+							:class="{ active: generating || realTimeGenerating }"
+						></div>
+						<el-icon class="brain-icon">
+							<Star />
 						</el-icon>
-						<span class="text-lg font-semibold">AI Workflow Generator</span>
 					</div>
-					<el-tag :type="aiStatus.isAvailable ? 'success' : 'danger'" size="small">
-						{{ aiStatus.isAvailable ? 'Online' : 'Offline' }} - {{ aiStatus.provider }}
-					</el-tag>
 				</div>
-			</template>
-
-			<div class="space-y-4">
-				<!-- Mode Selection -->
-				<div class="mb-4">
-					<el-radio-group v-model="operationMode" @change="handleModeChange">
-						<el-radio value="create">Create New Workflow</el-radio>
-						<el-radio value="modify">Modify Existing Workflow</el-radio>
-					</el-radio-group>
+				<div class="ai-title">
+					<h2>AI Workflow Generator</h2>
+					<p class="ai-subtitle">
+						Powered by {{ aiStatus.provider }} •
+						{{ aiStatus.isAvailable ? 'Online' : 'Offline' }}
+					</p>
 				</div>
+				<div class="ai-status">
+					<div class="status-indicator" :class="{ online: aiStatus.isAvailable }">
+						<div class="pulse-ring"></div>
+						<div class="pulse-dot"></div>
+					</div>
+				</div>
+			</div>
+		</div>
 
-				<!-- Existing Workflow Selection (for modify mode) -->
-				<div v-if="operationMode === 'modify'" class="mb-4">
-					<label class="block text-sm font-medium text-gray-700 mb-2">
-						Select Workflow to Modify <span class="text-red-500">*</span>
-					</label>
-					<el-select 
-						v-model="selectedWorkflowId" 
-						placeholder="Choose an existing workflow"
-						class="w-full"
+		<!-- Main Content Area -->
+		<div class="ai-content">
+			<!-- Mode Selection with Animation -->
+			<div class="mode-selector">
+				<div class="mode-title">Choose Your Action</div>
+				<div class="mode-options">
+					<div
+						class="mode-card"
+						:class="{ active: operationMode === 'create' }"
+						@click="handleModeChange('create')"
+					>
+						<div class="mode-icon">
+							<el-icon><Document /></el-icon>
+						</div>
+						<div class="mode-text">
+							<div class="mode-name">Create New</div>
+							<div class="mode-desc">Generate from scratch</div>
+						</div>
+						<div class="mode-glow"></div>
+					</div>
+					<div
+						class="mode-card"
+						:class="{ active: operationMode === 'modify' }"
+						@click="handleModeChange('modify')"
+					>
+						<div class="mode-icon">
+							<el-icon><Star /></el-icon>
+						</div>
+						<div class="mode-text">
+							<div class="mode-name">Modify Existing</div>
+							<div class="mode-desc">Enhance your workflow</div>
+						</div>
+						<div class="mode-glow"></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Workflow Selection (for modify mode) -->
+			<transition name="slide-down" mode="out-in">
+				<div v-if="operationMode === 'modify'" class="workflow-selector">
+					<div class="selector-title">
+						<el-icon class="mr-2"><Star /></el-icon>
+						Select Workflow to Modify
+					</div>
+					<el-select
+						v-model="selectedWorkflowId"
+						placeholder="Choose an existing workflow..."
+						class="workflow-select"
 						@change="handleWorkflowSelect"
 						:loading="loadingWorkflows"
+						size="large"
 					>
 						<el-option
 							v-for="workflow in availableWorkflows"
 							:key="workflow.id"
 							:label="workflow.name"
 							:value="workflow.id"
+							class="workflow-option"
 						>
-							<div class="flex justify-between">
-								<span>{{ workflow.name }}</span>
-								<span class="text-gray-400">{{ workflow.stageCount }} stages</span>
+							<div class="workflow-option-content">
+								<div class="workflow-name">{{ workflow.name }}</div>
+								<div class="workflow-meta">
+									<span class="stage-count">
+										{{ getStageCount(workflow) }} stages
+									</span>
+									<span class="workflow-status">{{ workflow.status || 'active' }}</span>
+								</div>
 							</div>
 						</el-option>
 					</el-select>
-					
-					<!-- Current Workflow Display -->
-					<div v-if="currentWorkflow" class="mt-3 p-3 bg-gray-50 rounded border">
-						<h4 class="font-medium text-gray-800 mb-2">Current Workflow: {{ currentWorkflow.name }}</h4>
-						<p class="text-sm text-gray-600 mb-2">{{ currentWorkflow.description }}</p>
-						<div class="text-xs text-gray-500">
-							Stages: {{ currentWorkflow.stages?.length || 0 }} | 
-							Duration: {{ currentWorkflow.stages?.reduce((sum, stage) => sum + (stage.estimatedDuration || 0), 0) || 0 }} days
-						</div>
-					</div>
-				</div>
 
-				<!-- Natural Language Input -->
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">
-						{{ operationMode === 'create' ? 'Describe your desired workflow' : 'Describe the modifications you want to make' }} <span class="text-red-500">*</span>
-					</label>
-					<el-input
-						v-model="input.description"
-						type="textarea"
-						:rows="4"
-						:placeholder="operationMode === 'create' 
-							? 'For example: I need an employee onboarding process, including document collection, training arrangement, equipment allocation and probation evaluation...'
-							: 'For example: Add a new approval stage after document collection, change the training duration to 3 days, remove the equipment allocation step...'"
-						@input="handleInputChange"
-						:disabled="generating"
-					/>
-				</div>
-
-				<!-- Advanced Options -->
-				<el-collapse v-model="showAdvanced">
-					<el-collapse-item title="Advanced Options" name="advanced">
-						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2">
-									Industry
-								</label>
-								<el-select 
-									v-model="input.industry" 
-									placeholder="Select Industry" 
-									class="w-full"
-								>
-									<el-option label="Technology" value="Technology" />
-									<el-option label="Manufacturing" value="Manufacturing" />
-									<el-option label="Finance" value="Finance" />
-									<el-option label="Healthcare" value="Healthcare" />
-									<el-option label="Education" value="Education" />
-									<el-option label="Retail" value="Retail" />
-									<el-option label="Other" value="Other" />
-								</el-select>
+					<!-- Current Workflow Preview -->
+					<transition name="fade-in" mode="out-in">
+						<div v-if="currentWorkflow" class="current-workflow-preview">
+							<div class="preview-header">
+								<div class="workflow-title">
+									<h4>{{ currentWorkflow.name }}</h4>
+									<div class="workflow-subtitle">Selected for AI Enhancement</div>
+								</div>
+								<div class="preview-meta">
+									<el-tag size="small" type="info" class="stage-tag">
+										<el-icon class="mr-1"><List /></el-icon>
+										{{ getStageCount(currentWorkflow) }} stages
+									</el-tag>
+									<el-tag size="small" type="success" v-if="currentWorkflow.isActive" class="status-tag">
+										<el-icon class="mr-1"><Check /></el-icon>
+										Active
+									</el-tag>
+									<el-tag size="small" type="warning" v-if="currentWorkflow.isDefault" class="status-tag">
+										<el-icon class="mr-1"><Star /></el-icon>
+										Default
+									</el-tag>
+								</div>
 							</div>
-
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2">
-									Process Type
-								</label>
-								<el-select 
-									v-model="input.processType" 
-									placeholder="Select Process Type" 
-									class="w-full"
-								>
-									<el-option label="Onboarding Process" value="Onboarding" />
-									<el-option label="Approval Process" value="Approval" />
-									<el-option label="Procurement Process" value="Procurement" />
-									<el-option label="Project Management" value="Project Management" />
-									<el-option label="Customer Service" value="Customer Service" />
-									<el-option label="Other" value="Other" />
-								</el-select>
-							</div>
-
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2">
-									Context Information
-								</label>
-								<el-input
-									v-model="input.context"
-									type="textarea"
-									:rows="2"
-									placeholder="Provide additional context information..."
-								/>
-							</div>
-
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2">
-									Special Requirements
-								</label>
-								<el-input
-									v-model="requirementsText"
-									type="textarea"
-									:rows="2"
-									placeholder="One requirement per line..."
-									@input="updateRequirements"
-								/>
-							</div>
-						</div>
-
-						<div class="mt-4 space-y-2">
-							<el-checkbox v-model="input.includeApprovals">Include Approval Steps</el-checkbox>
-							<el-checkbox v-model="input.includeNotifications">Include Notification Mechanism</el-checkbox>
-						</div>
-					</el-collapse-item>
-				</el-collapse>
-
-				<!-- Action Buttons -->
-				<div class="flex justify-between items-center">
-					<div class="flex space-x-2">
-						<el-button
-							type="primary"
-							:loading="generating"
-							@click="generateWorkflow"
-							:disabled="!input.description.trim()"
-						>
-							<el-icon class="mr-1">
-								<Star />
-							</el-icon>
-							{{ generating ? 'Processing...' : (operationMode === 'create' ? 'Generate Workflow' : 'Apply Modifications') }}
-						</el-button>
-
-						<el-button
-							v-if="!generating && input.description.trim()"
-							type="success"
-							@click="streamGenerateWorkflow"
-							:disabled="generating"
-						>
-							<el-icon class="mr-1">
-								<VideoPlay />
-							</el-icon>
-							Real-time Generation
-						</el-button>
-					</div>
-
-					<el-button @click="clearInput" :disabled="generating">
-						<el-icon class="mr-1">
-							<Refresh />
-						</el-icon>
-						Clear
-					</el-button>
-				</div>
-			</div>
-		</el-card>
-
-		<!-- Real-time Generation Progress -->
-		<el-card v-if="streaming && streamSteps.length > 0" class="mb-4" shadow="hover">
-			<template #header>
-				<div class="flex items-center">
-					<el-icon class="mr-2 animate-spin">
-						<Loading />
-					</el-icon>
-					<span class="font-semibold">Generation Progress</span>
-				</div>
-			</template>
-
-			<div class="space-y-2">
-				<div
-					v-for="(step, index) in streamSteps"
-					:key="index"
-					class="flex items-center space-x-2 p-2 rounded"
-					:class="{
-						'bg-blue-50': step.type === 'progress',
-						'bg-green-50': step.type === 'complete',
-						'bg-red-50': step.type === 'error'
-					}"
-				>
-					<el-icon
-						:class="{
-							'text-blue-500': step.type === 'progress',
-							'text-green-500': step.type === 'complete',
-							'text-red-500': step.type === 'error'
-						}"
-					>
-						<Loading v-if="step.type === 'progress'" />
-						<SuccessFilled v-else-if="step.type === 'complete'" />
-						<WarningFilled v-else-if="step.type === 'error'" />
-						<InfoFilled v-else />
-					</el-icon>
-					<span>{{ step.message }}</span>
-				</div>
-			</div>
-		</el-card>
-
-		<!-- Generation Result -->
-		<el-card v-if="result" class="mb-4" shadow="hover">
-			<template #header>
-				<div class="flex items-center justify-between">
-					<div class="flex items-center">
-						<el-icon class="mr-2 text-green-500">
-							<SuccessFilled />
-						</el-icon>
-						<span class="font-semibold">Generation Result</span>
-					</div>
-					<div class="flex items-center space-x-2">
-						<el-tag type="info" size="small">
-							Confidence: {{ Math.round((result.confidenceScore || 0) * 100) }}%
-						</el-tag>
-						<el-button type="primary" size="small" @click="applyWorkflow">
-							Apply Workflow
-						</el-button>
-					</div>
-				</div>
-			</template>
-
-			<div class="space-y-4">
-				<!-- Workflow Basic Info -->
-				<div>
-					<h3 class="text-lg font-semibold text-gray-800 mb-2">
-						{{ result.generatedWorkflow?.name || 'AI Generated Workflow' }}
-					</h3>
-					<p class="text-gray-600 mb-4">{{ result.generatedWorkflow?.description || 'Generated by AI' }}</p>
-
-					<div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
-						<div>Stages: {{ result.stages?.length || 0 }}</div>
-						<div>Estimated Duration: {{ result.stages?.reduce((sum, stage) => sum + (stage.estimatedDuration || 0), 0) || 0 }} days</div>
-					</div>
-				</div>
-
-				<!-- Workflow Stages -->
-				<div>
-					<h4 class="font-semibold text-gray-700 mb-2">Workflow Stages</h4>
-					<div v-if="result.stages && result.stages.length > 0" class="space-y-2">
-						<div
-							v-for="(stage, index) in result.stages"
-							:key="index"
-							class="p-3 border rounded-lg bg-gray-50"
-						>
-							<div class="flex justify-between items-start">
-								<div class="flex-1">
-									<h5 class="font-medium text-gray-800">{{ stage.name }}</h5>
-									<p class="text-sm text-gray-600 mt-1">{{ stage.description }}</p>
-									<div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-										<span>Order: {{ stage.order }}</span>
-										<span>Team: {{ stage.assignedGroup }}</span>
-										<span>Duration: {{ stage.estimatedDuration }} days</span>
+							<div class="preview-description">{{ currentWorkflow.description || 'No description available' }}</div>
+							
+							<!-- Enhanced Stages Display -->
+							<div class="workflow-stages-container">
+								<div v-if="currentWorkflow.stages && currentWorkflow.stages.length > 0" class="stages-display">
+									<div class="stages-header">
+										<div class="header-content">
+											<el-icon class="mr-2"><Menu /></el-icon>
+											<span>Current Workflow Stages</span>
+										</div>
+										<div class="stages-count">
+											{{ currentWorkflow.stages.length }} Total
+										</div>
+									</div>
+									<div class="stages-grid">
+										<div
+											v-for="(stage, index) in currentWorkflow.stages.slice(
+												0,
+												6
+											)"
+											:key="index"
+											class="stage-card"
+											:style="{ animationDelay: (index * 0.1) + 's' }"
+										>
+											<div class="stage-header">
+												<div class="stage-number">{{ index + 1 }}</div>
+												<div class="stage-status active"></div>
+											</div>
+											<div class="stage-body">
+												<div class="stage-name">{{ stage.name }}</div>
+												<div class="stage-description">{{ stage.description || 'No description' }}</div>
+												<div class="stage-meta">
+													<span class="stage-team">
+														<el-icon class="mr-1"><User /></el-icon>
+														{{ stage.assignedGroup || 'Unassigned' }}
+													</span>
+													<span class="stage-duration">
+														<el-icon class="mr-1"><Clock /></el-icon>
+														{{ stage.estimatedDuration || 1 }}d
+													</span>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div v-if="currentWorkflow.stages.length > 6" class="more-stages-indicator">
+										<div class="more-stages-card">
+											<div class="more-icon">
+												<el-icon><More /></el-icon>
+											</div>
+											<div class="more-text">
+												+{{ currentWorkflow.stages.length - 6 }} more stages
+											</div>
+										</div>
+									</div>
+								</div>
+								
+								<!-- Enhanced No Stages Display -->
+								<div v-else class="no-stages-display">
+									<div class="no-stages-icon">
+										<el-icon><DocumentAdd /></el-icon>
+									</div>
+									<div class="no-stages-content">
+										<h5>No Stages Configured</h5>
+										<p>This workflow doesn't have any stages yet. AI will help you create a complete workflow structure.</p>
+										<div class="ai-suggestion">
+											<el-icon class="mr-2"><Star /></el-icon>
+											<span>Perfect candidate for AI enhancement!</span>
+										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-					</div>
-					<div v-else class="text-gray-500 text-sm">No stages generated</div>
+					</transition>
 				</div>
+			</transition>
 
-				<!-- AI Suggestions -->
-				<div v-if="result.suggestions && result.suggestions.length > 0">
-					<h4 class="font-semibold text-gray-700 mb-2">AI Suggestions</h4>
-					<ul class="space-y-1">
-						<li
-							v-for="(suggestion, index) in result.suggestions"
-							:key="index"
-							class="flex items-center space-x-2 text-sm text-blue-600"
-						>
-							<el-icon>
-								<InfoFilled />
-							</el-icon>
-							<span>{{ suggestion }}</span>
-						</li>
-					</ul>
+			<!-- AI Input Area -->
+			<div class="ai-input-area">
+				<div class="input-title">
+					<el-icon class="mr-2"><Star /></el-icon>
+					{{ operationMode === 'create' ? 'Describe Your Workflow' : 'Describe Your Modifications' }}
+				</div>
+				<div class="input-container">
+					<el-input
+						v-model="input.description"
+						type="textarea"
+						:placeholder="operationMode === 'create' 
+							? 'Describe your desired workflow in natural language...\n\nExample: Create a customer onboarding process with document verification, training, and feedback collection stages.' 
+							: 'Describe the modifications you want to make...\n\nExample: Add a trial period assessment stage with 30-day duration assigned to HR team.'"
+						:rows="6"
+						class="ai-textarea"
+					/>
+					<div class="input-footer">
+						<div class="input-actions">
+							<!-- Both modes now only have Real-time Generation -->
+							<el-button
+								type="success"
+								:loading="realTimeGenerating"
+								@click="streamGenerateWorkflow"
+								:disabled="!input.description.trim() || (operationMode === 'modify' && !selectedWorkflowId)"
+								class="stream-btn ai-primary-btn"
+								size="large"
+							>
+								<svg v-if="!realTimeGenerating" class="mr-2 w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M12 8V4H8"></path>
+									<rect width="16" height="12" x="4" y="8" rx="2"></rect>
+									<path d="M2 14h2"></path>
+									<path d="M20 14h2"></path>
+									<path d="M15 13v2"></path>
+									<path d="M9 13v2"></path>
+								</svg>
+								{{ realTimeGenerating 
+									? 'AI is Creating...' 
+									: (operationMode === 'create' ? 'AI Real-time Generation' : 'AI Real-time Enhancement')
+								}}
+							</el-button>
+							
+							<el-button
+								@click="clearInput"
+								class="clear-btn"
+								size="large"
+							>
+								<el-icon><Refresh /></el-icon>
+							</el-button>
+						</div>
+					</div>
 				</div>
 			</div>
-		</el-card>
+
+			<!-- Real-time Generation Display -->
+			<transition name="slide-up" mode="out-in">
+				<div v-if="realTimeGenerating && streamSteps.length > 0" class="realtime-display">
+					<div class="realtime-header">
+						<el-icon class="animate-spin"><Loading /></el-icon>
+						<span>AI is generating your workflow in real-time...</span>
+					</div>
+					<div class="stream-steps">
+						<div
+							v-for="(step, index) in streamSteps"
+							:key="index"
+							class="stream-step"
+							:class="step.type"
+						>
+							<div class="step-icon">
+								<el-icon v-if="step.type === 'thinking'"><Loading class="animate-spin" /></el-icon>
+								<el-icon v-else-if="step.type === 'generating'"><Star /></el-icon>
+								<el-icon v-else-if="step.type === 'optimizing'"><Setting /></el-icon>
+								<el-icon v-else-if="step.type === 'complete'"><Check /></el-icon>
+								<el-icon v-else-if="step.type === 'error'"><Close /></el-icon>
+							</div>
+							<div class="step-content">
+								<div class="step-title">{{ step.title }}</div>
+								<div class="step-message">{{ step.message }}</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</transition>
+
+			<!-- Generation Result -->
+			<transition name="slide-up" mode="out-in">
+				<div v-if="result && result.generatedWorkflow" class="generation-result">
+					<div class="result-header">
+						<div class="result-title">
+							<el-icon class="mr-2 text-green-500"><Check /></el-icon>
+							<span>Generation Complete</span>
+						</div>
+						<div class="result-actions">
+							<div class="confidence-score">
+								<span class="confidence-label">Confidence:</span>
+								<div class="confidence-bar">
+									<div
+										class="confidence-fill"
+										:style="{ width: (result.confidence || 90) + '%' }"
+									></div>
+								</div>
+								<span class="confidence-value">{{ result.confidence || 90 }}%</span>
+							</div>
+							<el-button
+								type="primary"
+								@click="applyWorkflow"
+								class="apply-btn"
+							>
+								<el-icon class="mr-2"><Check /></el-icon>
+								Apply Workflow
+							</el-button>
+						</div>
+					</div>
+
+					<!-- Workflow Preview -->
+					<div class="workflow-preview">
+						<div class="workflow-header">
+							<h3 class="workflow-name">{{ result.generatedWorkflow.name }}</h3>
+							<div class="workflow-meta">
+								<el-tag size="small">{{ result.stages?.length || 0 }} stages</el-tag>
+								<el-tag size="small" type="info">
+									{{ result.stages?.reduce((sum, stage) => sum + (stage.estimatedDuration || 0), 0) || 0 }} days total
+								</el-tag>
+							</div>
+						</div>
+						<div class="workflow-description">{{ result.generatedWorkflow.description }}</div>
+						
+						<!-- Stages Visualization -->
+						<div class="stages-visualization">
+							<div class="stages-title">Workflow Stages</div>
+							<div class="stages-flow">
+								<div
+									v-for="(stage, index) in result.stages"
+									:key="index"
+									class="stage-node"
+									:style="{ animationDelay: (index * 0.1) + 's' }"
+								>
+									<div class="stage-number">{{ stage.order || (index + 1) }}</div>
+									<div class="stage-content">
+										<div class="stage-name">{{ stage.name }}</div>
+										<div class="stage-details">
+											<span class="stage-team">{{ stage.assignedGroup }}</span>
+											<span class="stage-duration">{{ stage.estimatedDuration }}d</span>
+										</div>
+									</div>
+									<div v-if="index < result.stages.length - 1" class="stage-connector">
+										<div class="connector-line"></div>
+										<div class="connector-arrow">→</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- AI Suggestions -->
+						<div v-if="result.suggestions && result.suggestions.length > 0" class="ai-suggestions">
+							<div class="suggestions-title">
+								<el-icon class="mr-2"><Star /></el-icon>
+								AI Suggestions
+							</div>
+							<div class="suggestions-list">
+								<div
+									v-for="(suggestion, index) in result.suggestions"
+									:key="index"
+									class="suggestion-item"
+								>
+									<el-icon class="suggestion-icon"><InfoFilled /></el-icon>
+									<span>{{ suggestion }}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</transition>
+		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { useRouter } from 'vue-router';
 import { getTokenobj } from '@/utils/auth';
 import { 
 	generateAIWorkflow, 
@@ -325,109 +393,84 @@ import {
 import {
 	User,
 	Star,
-	VideoPlay,
 	Refresh,
 	Loading,
-	SuccessFilled,
-	WarningFilled,
-	InfoFilled
+	Document,
+	Check,
+	Close,
+	InfoFilled,
+	Setting,
+	List,
+	Warning,
+	Clock,
+	More,
+	DocumentAdd,
+	Menu
 } from '@element-plus/icons-vue';
 
-// Props and Emits
-const emit = defineEmits<{
-	workflowGenerated: [workflow: any];
-}>();
+// Props & Emits
+const emit = defineEmits(['workflowGenerated']);
+const router = useRouter();
 
 // Reactive Data
-const generating = ref(false);
-const streaming = ref(false);
-const showAdvanced = ref([]);
-const streamSteps = ref<Array<{ type: string; message: string; data?: any }>>([]);
-
-// Operation mode: 'create' or 'modify'
-const operationMode = ref('create');
+const operationMode = ref<'create' | 'modify'>('create');
 const selectedWorkflowId = ref<number | null>(null);
-const currentWorkflow = ref<any>(null);
 const availableWorkflows = ref<any[]>([]);
+const currentWorkflow = ref<any>(null);
 const loadingWorkflows = ref(false);
+
+const generating = ref(false);
+const realTimeGenerating = ref(false);
 
 const input = reactive({
 	description: '',
 	context: '',
-	requirements: [] as string[],
-	industry: '',
-	processType: '',
-	includeApprovals: true,
-	includeNotifications: true,
-	estimatedDuration: 0
+	requirements: [] as string[]
 });
 
-const requirementsText = ref('');
 const result = ref<any>(null);
+const streamSteps = ref<any[]>([]);
 
-const aiStatus = reactive({
+const aiStatus = ref({
 	isAvailable: true,
-	provider: 'ZhipuAI',
-	model: 'glm-4'
+	provider: 'ZhipuAI'
 });
 
-// Computed Properties
-const totalEstimatedDuration = computed(() => {
-	if (!result.value?.stages) return 0;
-	return result.value.stages.reduce((total: number, stage: any) => total + stage.estimatedDuration, 0);
-});
+// Computed
+
+// Helper function to get stage count safely
+const getStageCount = (workflow: any) => {
+	if (!workflow) return 0;
+	if (workflow.stages && Array.isArray(workflow.stages)) {
+		return workflow.stages.length;
+	}
+	if (workflow.stageCount !== undefined) {
+		return workflow.stageCount;
+	}
+	return 0;
+};
 
 // Methods
-const handleInputChange = () => {
-	// 可以添加实时建议逻辑
-};
-
-const updateRequirements = () => {
-	input.requirements = requirementsText.value
-		.split('\n')
-		.map(line => line.trim())
-		.filter(line => line.length > 0);
-};
-
-// Mode and workflow selection handlers
-const handleModeChange = () => {
-	if (operationMode.value === 'modify') {
+const handleModeChange = (mode: 'create' | 'modify') => {
+	operationMode.value = mode;
+	if (mode === 'create') {
+		selectedWorkflowId.value = null;
+		currentWorkflow.value = null;
+	} else {
 		loadAvailableWorkflows();
 	}
-	clearInput();
 };
 
 const loadAvailableWorkflows = async () => {
 	loadingWorkflows.value = true;
 	try {
 		const response = await getAvailableWorkflows();
-		console.log('API Response:', response); // Debug log
-		
-		if (response.success && response.data) {
-			availableWorkflows.value = response.data.map((workflow: any) => ({
-				id: workflow.id,
-				name: workflow.name,
-				description: workflow.description,
-				stageCount: workflow.stages?.length || 0
-			}));
-			console.log('Mapped workflows:', availableWorkflows.value); // Debug log
-		} else {
-			// 备用模拟数据
-			availableWorkflows.value = [
-				{ id: 1, name: 'Employee Onboarding', stageCount: 5, description: 'Standard employee onboarding process' },
-				{ id: 2, name: 'Project Approval', stageCount: 3, description: 'Project approval workflow' },
-				{ id: 3, name: 'Customer Support', stageCount: 4, description: 'Customer support process' }
-			];
+		if (response.success) {
+			availableWorkflows.value = response.data || [];
 		}
 	} catch (error) {
 		console.error('Failed to load workflows:', error);
-		// 备用模拟数据
-		availableWorkflows.value = [
-			{ id: 1, name: 'Employee Onboarding', stageCount: 5, description: 'Standard employee onboarding process' },
-			{ id: 2, name: 'Project Approval', stageCount: 3, description: 'Project approval workflow' },
-			{ id: 3, name: 'Customer Support', stageCount: 4, description: 'Customer support process' }
-		];
-		ElMessage.warning('Using sample data. Please check API connection.');
+		ElMessage.warning('Failed to load available workflows');
 	} finally {
 		loadingWorkflows.value = false;
 	}
@@ -438,42 +481,12 @@ const handleWorkflowSelect = async (workflowId: number) => {
 	
 	try {
 		const response = await getWorkflowDetails(workflowId);
-		console.log('Workflow Details Response:', response); // Debug log
-		
-		if (response.success && response.data) {
+		if (response.success) {
 			currentWorkflow.value = response.data;
-			console.log('Current workflow set:', currentWorkflow.value); // Debug log
-		} else {
-			// 备用模拟数据
-			const workflow = availableWorkflows.value.find(w => w.id === workflowId);
-			if (workflow) {
-				currentWorkflow.value = {
-					...workflow,
-					stages: [
-						{ id: 1, name: 'Document Collection', description: 'Collect required documents', order: 1, estimatedDuration: 2, assignedGroup: 'HR Team' },
-						{ id: 2, name: 'Training Schedule', description: 'Schedule orientation training', order: 2, estimatedDuration: 1, assignedGroup: 'Training Team' },
-						{ id: 3, name: 'Equipment Setup', description: 'Provide necessary equipment', order: 3, estimatedDuration: 1, assignedGroup: 'IT Team' },
-						{ id: 4, name: 'Probation Review', description: 'Initial performance review', order: 4, estimatedDuration: 5, assignedGroup: 'Manager' }
-					]
-				};
-			}
 		}
 	} catch (error) {
 		console.error('Failed to load workflow details:', error);
-		ElMessage.warning('Using sample data for workflow details');
-		// 备用模拟数据
-		const workflow = availableWorkflows.value.find(w => w.id === workflowId);
-		if (workflow) {
-			currentWorkflow.value = {
-				...workflow,
-				stages: [
-					{ id: 1, name: 'Document Collection', description: 'Collect required documents', order: 1, estimatedDuration: 2, assignedGroup: 'HR Team' },
-					{ id: 2, name: 'Training Schedule', description: 'Schedule orientation training', order: 2, estimatedDuration: 1, assignedGroup: 'Training Team' },
-					{ id: 3, name: 'Equipment Setup', description: 'Provide necessary equipment', order: 3, estimatedDuration: 1, assignedGroup: 'IT Team' },
-					{ id: 4, name: 'Probation Review', description: 'Initial performance review', order: 4, estimatedDuration: 5, assignedGroup: 'Manager' }
-				]
-			};
-		}
+		currentWorkflow.value = availableWorkflows.value.find(w => w.id === workflowId);
 	}
 };
 
@@ -532,8 +545,8 @@ const generateWorkflow = async () => {
 			ElMessage.error(response.message || (operationMode.value === 'create' ? 'Generation failed' : 'Modification failed'));
 		}
 	} catch (error) {
-		console.error('Process workflow error:', error);
-		ElMessage.error(operationMode.value === 'create' ? 'Error during generation' : 'Error during modification');
+		console.error('Generate workflow error:', error);
+		ElMessage.error('Error during workflow generation');
 	} finally {
 		generating.value = false;
 	}
@@ -545,61 +558,33 @@ const streamGenerateWorkflow = async () => {
 		return;
 	}
 
-	streaming.value = true;
-	streamSteps.value = [];
-	result.value = null;
-
-	try {
-		// 暂时使用普通生成代替流式生成，因为流式需要特殊处理
-		streamSteps.value.push({
-			type: 'start',
-			message: 'Starting workflow generation...',
-			data: null
-		});
-
-		streamSteps.value.push({
-			type: 'progress',
-			message: 'Analyzing requirements...',
-			data: null
-		});
-
-		const response = await generateAIWorkflow(input);
-
-		streamSteps.value.push({
-			type: 'progress',
-			message: 'Generating workflow structure...',
-			data: null
-		});
-
-		if (response.success) {
-			streamSteps.value.push({
-				type: 'complete',
-				message: 'Workflow generation complete!',
-				data: response.data
-			});
-			
-			result.value = response.data;
-			ElMessage.success('Workflow generated successfully!');
-		} else {
-			streamSteps.value.push({
-				type: 'error',
-				message: response.message || 'Generation failed',
-				data: null
-			});
-			ElMessage.error(response.message || 'Generation failed');
-		}
-
-		ElMessage.success('Real-time generation complete!');
-	} catch (error) {
-		console.error('Stream generate error:', error);
-		ElMessage.error('Error during real-time generation');
-		streamSteps.value.push({
-			type: 'error',
-			message: 'Error during generation'
-		});
-	} finally {
-		streaming.value = false;
+	if (operationMode.value === 'modify' && !selectedWorkflowId.value) {
+		ElMessage.warning('Please select a workflow to modify');
+		return;
 	}
+
+	realTimeGenerating.value = true;
+	streamSteps.value = [];
+	
+	// Simulate real-time generation steps
+	const steps = [
+		{ type: 'thinking', title: 'Analyzing Requirements', message: 'Understanding your workflow description...' },
+		{ type: 'generating', title: 'Generating Structure', message: 'Creating workflow stages and connections...' },
+		{ type: 'optimizing', title: 'Optimizing Flow', message: 'Optimizing stage assignments and durations...' },
+		{ type: 'complete', title: 'Generation Complete', message: 'Your workflow is ready!' }
+	];
+
+	for (let i = 0; i < steps.length; i++) {
+		await new Promise(resolve => setTimeout(resolve, 1500));
+		streamSteps.value.push(steps[i]);
+		
+		if (i === steps.length - 1) {
+			// Trigger actual generation
+			await generateWorkflow();
+		}
+	}
+
+	realTimeGenerating.value = false;
 };
 
 const applyWorkflow = async () => {
@@ -630,63 +615,634 @@ const applyWorkflow = async () => {
 };
 
 const clearInput = () => {
-	Object.assign(input, {
-		description: '',
-		context: '',
-		requirements: [],
-		industry: '',
-		processType: '',
-		includeApprovals: true,
-		includeNotifications: true,
-		estimatedDuration: 0
-	});
-	requirementsText.value = '';
+	input.description = '';
+	input.context = '';
+	input.requirements = [];
 	result.value = null;
 	streamSteps.value = [];
 };
 
-const getToken = () => {
-	// 使用项目标准的token获取方式
-	const tokenObj = getTokenobj();
-	return tokenObj?.accessToken?.token || '';
-};
-
 // Lifecycle
 onMounted(() => {
-	// 检查AI服务状态
-	checkAIStatus();
+	// Initialize AI status check
+	getAIWorkflowStatus().then(response => {
+		if (response.success) {
+			aiStatus.value = response.data;
+		}
+	}).catch(() => {
+		aiStatus.value.isAvailable = false;
+	});
 });
 
-const checkAIStatus = async () => {
-	try {
-		const response = await getAIWorkflowStatus();
-		
-		if (response.success) {
-			Object.assign(aiStatus, response.data);
-		}
-	} catch (error) {
-		console.error('Check AI status error:', error);
-		aiStatus.isAvailable = false;
+// Watch for operation mode changes
+watch(operationMode, (newMode) => {
+	if (newMode === 'modify') {
+		loadAvailableWorkflows();
 	}
-};
+});
 </script>
 
 <style scoped>
 .ai-workflow-generator {
-	max-width: 1200px;
-	margin: 0 auto;
+	@apply max-w-6xl mx-auto p-6;
 }
 
-.animate-spin {
+/* AI Header Styles */
+.ai-header {
+	@apply relative overflow-hidden rounded-2xl mb-8;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	min-height: 120px;
+}
+
+.ai-background-animation {
+	@apply absolute inset-0 opacity-20;
+	background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+	animation: float 20s ease-in-out infinite;
+}
+
+.ai-header-content {
+	@apply relative z-10 flex items-center justify-between p-6;
+}
+
+.ai-avatar {
+	@apply flex-shrink-0;
+}
+
+.ai-brain {
+	@apply relative w-16 h-16 rounded-full flex items-center justify-center;
+	background: rgba(255, 255, 255, 0.1);
+	backdrop-filter: blur(10px);
+}
+
+.brain-wave {
+	@apply absolute inset-0 rounded-full border-2 border-white opacity-0;
+	animation: pulse-wave 2s ease-out infinite;
+}
+
+.brain-wave.active {
+	@apply opacity-100;
+}
+
+.brain-icon {
+	@apply text-white text-2xl z-10;
+}
+
+.ai-title {
+	@apply flex-1 ml-6;
+}
+
+.ai-title h2 {
+	@apply text-2xl font-bold text-white mb-1;
+}
+
+.ai-subtitle {
+	@apply text-white/80 text-sm;
+}
+
+.ai-status {
+	@apply flex-shrink-0;
+}
+
+.status-indicator {
+	@apply relative w-6 h-6;
+}
+
+.pulse-ring {
+	@apply absolute inset-0 rounded-full border-2 border-red-400 opacity-75;
+	animation: pulse-ring 1.5s ease-out infinite;
+}
+
+.pulse-dot {
+	@apply absolute inset-2 rounded-full bg-red-400;
+}
+
+.status-indicator.online .pulse-ring {
+	@apply border-green-400;
+}
+
+.status-indicator.online .pulse-dot {
+	@apply bg-green-400;
+}
+
+/* Mode Selector Styles */
+.mode-selector {
+	@apply mb-8;
+}
+
+.mode-title {
+	@apply text-xl font-semibold text-gray-800 mb-4;
+}
+
+.mode-options {
+	@apply flex gap-4;
+}
+
+.mode-card {
+	@apply relative flex-1 p-6 rounded-xl border-2 border-gray-200 cursor-pointer transition-all duration-300;
+	background: linear-gradient(145deg, #ffffff, #f8fafc);
+}
+
+.mode-card:hover {
+	@apply border-blue-300 shadow-lg transform -translate-y-1;
+}
+
+.mode-card.active {
+	@apply border-blue-500 bg-blue-50;
+}
+
+.mode-card.active .mode-glow {
+	@apply opacity-100;
+}
+
+.mode-icon {
+	@apply text-3xl text-blue-500 mb-3;
+}
+
+.mode-name {
+	@apply font-semibold text-gray-800 mb-1;
+}
+
+.mode-desc {
+	@apply text-sm text-gray-600;
+}
+
+.mode-glow {
+	@apply absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300;
+	background: linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+}
+
+/* Workflow Selector Styles */
+.workflow-selector {
+	@apply mb-8 p-6 rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200;
+}
+
+.selector-title {
+	@apply flex items-center text-lg font-semibold text-gray-800 mb-4;
+}
+
+.workflow-select {
+	@apply w-full mb-4;
+}
+
+.workflow-option-content {
+	@apply py-2;
+}
+
+.workflow-name {
+	@apply font-medium text-gray-800;
+}
+
+.workflow-meta {
+	@apply flex items-center gap-3 text-sm text-gray-600 mt-1;
+}
+
+/* Enhanced Current Workflow Preview */
+.current-workflow-preview {
+	@apply p-6 rounded-xl bg-white border border-gray-200 shadow-sm;
+	background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.preview-header {
+	@apply flex items-start justify-between mb-4;
+}
+
+.workflow-title h4 {
+	@apply text-xl font-bold text-gray-800 mb-1;
+}
+
+.workflow-subtitle {
+	@apply text-sm text-blue-600 font-medium;
+}
+
+.preview-meta {
+	@apply flex items-center gap-2 flex-wrap;
+}
+
+.stage-tag, .status-tag {
+	@apply flex items-center;
+}
+
+.preview-description {
+	@apply text-gray-600 mb-6 leading-relaxed;
+}
+
+/* Enhanced Workflow Stages Container */
+.workflow-stages-container {
+	@apply mt-6;
+}
+
+.stages-display {
+	@apply space-y-4;
+}
+
+.stages-header {
+	@apply flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100;
+}
+
+.header-content {
+	@apply flex items-center text-gray-800 font-semibold;
+}
+
+.stages-count {
+	@apply text-sm text-blue-600 bg-blue-100 px-3 py-1 rounded-full;
+}
+
+.stages-grid {
+	@apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
+}
+
+.stage-card {
+	@apply p-4 rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all duration-300;
+	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+	animation: fade-in-up 0.6s ease-out both;
+}
+
+.stage-header {
+	@apply flex items-center justify-between mb-3;
+}
+
+.stage-number {
+	@apply w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex items-center justify-center;
+}
+
+.stage-status {
+	@apply w-3 h-3 rounded-full;
+}
+
+.stage-status.active {
+	@apply bg-green-400;
+}
+
+.stage-body {
+	@apply space-y-2;
+}
+
+.stage-name {
+	@apply font-semibold text-gray-800 text-sm;
+}
+
+.stage-description {
+	@apply text-xs text-gray-600 leading-relaxed;
+}
+
+.stage-meta {
+	@apply flex items-center justify-between text-xs;
+}
+
+.stage-team, .stage-duration {
+	@apply flex items-center text-gray-500;
+}
+
+.more-stages-indicator {
+	@apply mt-4;
+}
+
+.more-stages-card {
+	@apply flex items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-gray-500;
+}
+
+.more-icon {
+	@apply mr-2 text-xl;
+}
+
+.more-text {
+	@apply font-medium;
+}
+
+/* Enhanced No Stages Display */
+.no-stages-display {
+	@apply flex flex-col items-center justify-center p-8 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-dashed border-blue-200;
+}
+
+.no-stages-icon {
+	@apply text-6xl text-blue-400 mb-4;
+}
+
+.no-stages-content {
+	@apply text-center space-y-3;
+}
+
+.no-stages-content h5 {
+	@apply text-lg font-semibold text-gray-800;
+}
+
+.no-stages-content p {
+	@apply text-gray-600 max-w-md;
+}
+
+.ai-suggestion {
+	@apply flex items-center justify-center text-blue-600 font-medium bg-blue-100 px-4 py-2 rounded-full;
+}
+
+/* AI Input Area Styles */
+.ai-input-area {
+	@apply mb-8;
+}
+
+.input-title {
+	@apply flex items-center text-lg font-semibold text-gray-800 mb-4;
+}
+
+.input-container {
+	@apply relative;
+}
+
+.ai-textarea {
+	@apply transition-all duration-300;
+}
+
+.input-footer {
+	@apply flex items-center justify-between mt-4;
+}
+
+.input-actions {
+	@apply flex items-center gap-3;
+}
+
+.generate-btn, .stream-btn, .ai-primary-btn {
+	@apply relative overflow-hidden;
+}
+
+.ai-primary-btn {
+	@apply bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600;
+	box-shadow: 0 4px 15px 0 rgba(31, 38, 135, 0.37);
+}
+
+.traditional-btn {
+	@apply bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300;
+}
+
+.loading-spinner {
+	@apply w-4 h-4;
+}
+
+.spinner-ring {
+	@apply w-full h-full border-2 border-white/30 border-t-white rounded-full;
 	animation: spin 1s linear infinite;
 }
 
+/* Real-time Display */
+.realtime-display {
+	@apply mb-8 p-6 rounded-xl bg-gradient-to-r from-green-50 to-blue-50 border border-green-200;
+}
+
+.realtime-header {
+	@apply flex items-center gap-2 text-lg font-semibold text-gray-800 mb-4;
+}
+
+.stream-steps {
+	@apply space-y-3;
+}
+
+.stream-step {
+	@apply flex items-start gap-3 p-3 rounded-lg bg-white/50 backdrop-blur-sm;
+	animation: slide-in-right 0.5s ease-out;
+}
+
+.step-icon {
+	@apply w-8 h-8 rounded-full flex items-center justify-center text-white;
+}
+
+.stream-step.thinking .step-icon { @apply bg-blue-500; }
+.stream-step.generating .step-icon { @apply bg-purple-500; }
+.stream-step.optimizing .step-icon { @apply bg-orange-500; }
+.stream-step.complete .step-icon { @apply bg-green-500; }
+.stream-step.error .step-icon { @apply bg-red-500; }
+
+.step-title {
+	@apply font-semibold text-gray-800;
+}
+
+.step-message {
+	@apply text-sm text-gray-600;
+}
+
+/* Generation Result */
+.generation-result {
+	@apply p-6 rounded-xl bg-white border border-gray-200 shadow-lg;
+	animation: slide-up 0.5s ease-out;
+}
+
+.result-header {
+	@apply flex items-center justify-between mb-6;
+}
+
+.result-title {
+	@apply flex items-center text-xl font-semibold text-gray-800;
+}
+
+.result-actions {
+	@apply flex items-center gap-4;
+}
+
+.confidence-score {
+	@apply flex items-center gap-2 text-sm;
+}
+
+.confidence-bar {
+	@apply w-20 h-2 bg-gray-200 rounded-full overflow-hidden;
+}
+
+.confidence-fill {
+	@apply h-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-1000;
+}
+
+.workflow-preview {
+	@apply space-y-6;
+}
+
+.workflow-header {
+	@apply flex items-center justify-between;
+}
+
+.workflow-name {
+	@apply text-2xl font-bold text-gray-800;
+}
+
+.workflow-meta {
+	@apply flex items-center gap-2;
+}
+
+.workflow-description {
+	@apply text-gray-600 leading-relaxed;
+}
+
+/* Stages Visualization */
+.stages-visualization {
+	@apply space-y-4;
+}
+
+.stages-title {
+	@apply text-lg font-semibold text-gray-800;
+}
+
+.stages-flow {
+	@apply flex flex-wrap items-center gap-4;
+}
+
+.stage-node {
+	@apply relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200;
+	animation: fade-in-up 0.6s ease-out both;
+}
+
+.stage-number {
+	@apply w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex items-center justify-center;
+}
+
+.stage-content {
+	@apply min-w-0;
+}
+
+.stage-name {
+	@apply font-semibold text-gray-800 mb-1;
+}
+
+.stage-details {
+	@apply flex items-center gap-2 text-xs text-gray-600;
+}
+
+.stage-team {
+	@apply px-2 py-1 rounded bg-blue-100 text-blue-700;
+}
+
+.stage-duration {
+	@apply px-2 py-1 rounded bg-green-100 text-green-700;
+}
+
+.stage-connector {
+	@apply flex items-center text-gray-400;
+}
+
+.connector-line {
+	@apply w-8 h-px bg-gray-300;
+}
+
+.connector-arrow {
+	@apply text-lg;
+}
+
+/* AI Suggestions */
+.ai-suggestions {
+	@apply space-y-3;
+}
+
+.suggestions-title {
+	@apply flex items-center text-lg font-semibold text-gray-800;
+}
+
+.suggestions-list {
+	@apply space-y-2;
+}
+
+.suggestion-item {
+	@apply flex items-start gap-2 p-3 rounded-lg bg-blue-50 text-blue-800;
+}
+
+.suggestion-icon {
+	@apply text-blue-500 mt-0.5;
+}
+
+/* Animations */
+@keyframes float {
+	0%, 100% { transform: translateY(0px); }
+	50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-wave {
+	0% { transform: scale(1); opacity: 1; }
+	100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes pulse-ring {
+	0% { transform: scale(0.33); }
+	80%, 100% { opacity: 0; }
+}
+
 @keyframes spin {
-	from {
-		transform: rotate(0deg);
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+@keyframes slide-in-right {
+	from { transform: translateX(100%); opacity: 0; }
+	to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-up {
+	from { transform: translateY(20px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in-up {
+	from { transform: translateY(10px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
+/* Transitions */
+.slide-down-enter-active, .slide-down-leave-active {
+	transition: all 0.3s ease;
+}
+
+.slide-down-enter-from {
+	transform: translateY(-20px);
+	opacity: 0;
+}
+
+.slide-down-leave-to {
+	transform: translateY(-20px);
+	opacity: 0;
+}
+
+.slide-up-enter-active, .slide-up-leave-active {
+	transition: all 0.5s ease;
+}
+
+.slide-up-enter-from {
+	transform: translateY(20px);
+	opacity: 0;
+}
+
+.slide-up-leave-to {
+	transform: translateY(20px);
+	opacity: 0;
+}
+
+.fade-in-enter-active, .fade-in-leave-active {
+	transition: all 0.3s ease;
+}
+
+.fade-in-enter-from, .fade-in-leave-to {
+	opacity: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+	.mode-options {
+		@apply flex-col;
 	}
-	to {
-		transform: rotate(360deg);
+	
+	.stages-flow {
+		@apply flex-col items-stretch;
+	}
+	
+	.stage-connector {
+		@apply rotate-90 my-2;
+	}
+	
+	.result-header {
+		@apply flex-col items-start gap-4;
+	}
+	
+	.workflow-header {
+		@apply flex-col items-start gap-2;
+	}
+	
+	.input-actions {
+		@apply flex-wrap;
+	}
+	
+	.stages-grid {
+		@apply grid-cols-1;
 	}
 }
 </style> 
