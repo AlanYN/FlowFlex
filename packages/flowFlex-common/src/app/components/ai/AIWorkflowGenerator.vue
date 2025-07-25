@@ -531,7 +531,10 @@ import {
 	getAvailableWorkflows,
 	getWorkflowDetails,
 	modifyAIWorkflow,
-	type AIWorkflowModificationInput
+	sendAIChatMessage,
+	type AIWorkflowModificationInput,
+	type AIChatMessage,
+	type AIChatInput
 } from '@/apis/ai/workflow';
 import {
 	User,
@@ -569,11 +572,12 @@ const realTimeGenerating = ref(false);
 
 // Conversation functionality
 const showConversation = ref(false);
-const conversationHistory = ref([]);
+const conversationHistory = ref<AIChatMessage[]>([]);
 const currentMessage = ref('');
 const aiTyping = ref(false);
 const conversationComplete = ref(false);
 const conversationMessages = ref(null);
+const conversationSessionId = ref('');
 
 const input = reactive({
 	description: '',
@@ -604,34 +608,37 @@ const startConversation = () => {
 	showConversation.value = true;
 	conversationHistory.value = [];
 	conversationComplete.value = false;
+	conversationSessionId.value = `session_${Date.now()}`;
 	
 	// Start with AI greeting
 	setTimeout(() => {
-		addAIMessage("Hello! I'm here to help you create the perfect workflow. Let me ask you a few questions to understand your needs better.");
+		addAIMessage("Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific needs and requirements.");
 		
 		setTimeout(() => {
-			addAIMessage("First, what type of process or workflow are you looking to create? For example: employee onboarding, customer support, project approval, etc.");
+			addAIMessage("To get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind.");
 		}, 1500);
 	}, 500);
 };
 
-const addAIMessage = (content) => {
-	conversationHistory.value.push({
+const addAIMessage = (content: string) => {
+	const message: AIChatMessage = {
 		role: 'assistant',
 		content,
 		timestamp: new Date().toLocaleTimeString()
-	});
+	};
+	conversationHistory.value.push(message);
 	nextTick(() => {
 		scrollToBottom();
 	});
 };
 
-const addUserMessage = (content) => {
-	conversationHistory.value.push({
+const addUserMessage = (content: string) => {
+	const message: AIChatMessage = {
 		role: 'user',
 		content,
 		timestamp: new Date().toLocaleTimeString()
-	});
+	};
+	conversationHistory.value.push(message);
 	nextTick(() => {
 		scrollToBottom();
 	});
@@ -639,7 +646,8 @@ const addUserMessage = (content) => {
 
 const scrollToBottom = () => {
 	if (conversationMessages.value) {
-		conversationMessages.value.scrollTop = conversationMessages.value.scrollHeight;
+		const element = conversationMessages.value as HTMLElement;
+		element.scrollTop = element.scrollHeight;
 	}
 };
 
@@ -652,26 +660,77 @@ const sendMessage = async () => {
 	
 	aiTyping.value = true;
 	
-	// Simulate AI processing and response
-	await simulateAIResponse(userMessage);
+	try {
+		// Call real AI API
+		await callRealAI(userMessage);
+	} catch (error) {
+		console.error('AI conversation error:', error);
+		addAIMessage("I apologize, but I'm having trouble processing your message right now. Could you please try again?");
+	}
 	
 	aiTyping.value = false;
 };
 
-const simulateAIResponse = async (userMessage) => {
-	// Simple conversation flow simulation
+const callRealAI = async (userMessage: string) => {
+	try {
+		const chatInput: AIChatInput = {
+			messages: conversationHistory.value,
+			context: 'workflow_planning',
+			sessionId: conversationSessionId.value,
+			mode: 'workflow_planning'
+		};
+
+		const response = await sendAIChatMessage(chatInput);
+		
+		if (response.success && response.response) {
+			addAIMessage(response.response.content);
+			
+			// Check if conversation is complete
+			if (response.response.isComplete) {
+				conversationComplete.value = true;
+			}
+			
+			// Update session ID
+			if (response.sessionId) {
+				conversationSessionId.value = response.sessionId;
+			}
+		} else {
+			throw new Error(response.message || 'AI response failed');
+		}
+	} catch (error) {
+		console.error('Real AI call failed:', error);
+		// Fallback to enhanced simulation
+		await enhancedAISimulation(userMessage);
+	}
+};
+
+const enhancedAISimulation = async (userMessage: string) => {
+	// Enhanced simulation with more intelligent responses
 	await new Promise(resolve => setTimeout(resolve, 1500));
 	
 	const messageCount = conversationHistory.value.filter(m => m.role === 'user').length;
+	const lowerMessage = userMessage.toLowerCase();
 	
 	if (messageCount === 1) {
-		addAIMessage("Great! Now, who will be involved in this workflow? Please tell me about the teams or roles that will participate.");
+		// Analyze the first message and respond accordingly
+		if (lowerMessage.includes('onboard') || lowerMessage.includes('employee')) {
+			addAIMessage("Great! An employee onboarding workflow is essential for any organization. Now, who will be involved in this onboarding process? Please tell me about the teams, departments, or specific roles that will participate - for example, HR, IT, direct managers, or other stakeholders.");
+		} else if (lowerMessage.includes('approval') || lowerMessage.includes('review')) {
+			addAIMessage("Perfect! Approval workflows are crucial for maintaining control and quality. Could you tell me who will be involved in this approval process? What teams or roles need to participate, and are there different levels of approval required?");
+		} else if (lowerMessage.includes('customer') || lowerMessage.includes('support')) {
+			addAIMessage("Excellent! Customer support workflows help ensure consistent service quality. Who will be handling different parts of this process? Please describe the teams or roles involved - such as support agents, supervisors, technical teams, or escalation contacts.");
+		} else {
+			addAIMessage("That sounds like an important process to optimize! Now, could you tell me about the people and teams who will be involved? Who are the key stakeholders, and what roles or departments need to participate in this workflow?");
+		}
 	} else if (messageCount === 2) {
-		addAIMessage("Perfect! How many stages do you expect this workflow to have? And approximately how long should the entire process take?");
+		// Ask about stages and timeline
+		addAIMessage("Thank you for that information! Now I'd like to understand the structure and timing. How many main stages or steps do you envision for this workflow? And what's your target timeframe - should this be completed in days, weeks, or months?");
 	} else if (messageCount === 3) {
-		addAIMessage("Excellent! Are there any specific requirements, approvals, or documents that need to be collected during this process?");
+		// Ask about requirements and specifics
+		addAIMessage("Perfect! Now let's talk about the specific requirements. Are there any documents that need to be collected, approvals that must be obtained, or quality checkpoints that should be included? Also, are there any compliance requirements or company policies I should consider?");
 	} else if (messageCount >= 4) {
-		addAIMessage("Thank you for all the details! I now have enough information to create a comprehensive workflow for you.");
+		// Complete the conversation
+		addAIMessage("Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.");
 		conversationComplete.value = true;
 	}
 };
@@ -692,16 +751,43 @@ const resetConversation = () => {
 };
 
 const proceedToGeneration = () => {
-	// Compile conversation into description
+	// Compile conversation into a comprehensive description
 	const userMessages = conversationHistory.value
 		.filter(m => m.role === 'user')
-		.map(m => m.content)
-		.join(' ');
+		.map(m => m.content);
 	
-	input.description = `Based on our conversation: ${userMessages}`;
+	const aiMessages = conversationHistory.value
+		.filter(m => m.role === 'assistant')
+		.map(m => m.content);
+	
+	// Create a structured description based on the conversation
+	let description = 'Based on our detailed conversation:\n\n';
+	
+	if (userMessages.length > 0) {
+		description += `Workflow Type: ${userMessages[0]}\n`;
+	}
+	if (userMessages.length > 1) {
+		description += `Teams/Roles Involved: ${userMessages[1]}\n`;
+	}
+	if (userMessages.length > 2) {
+		description += `Structure & Timeline: ${userMessages[2]}\n`;
+	}
+	if (userMessages.length > 3) {
+		description += `Requirements & Specifics: ${userMessages[3]}\n`;
+	}
+	
+	// Add any additional context
+	description += '\nAdditional Context:\n';
+	description += `Session ID: ${conversationSessionId.value}\n`;
+	description += `Total Messages: ${conversationHistory.value.length}\n`;
+	description += 'This workflow was designed through an interactive AI conversation to ensure all requirements are captured.';
+	
+	input.description = description;
+	input.context = `AI Conversation Session: ${conversationSessionId.value}`;
+	
 	showConversation.value = false;
 	
-	// Automatically start generation
+	// Automatically start generation with enhanced context
 	setTimeout(() => {
 		streamGenerateWorkflow();
 	}, 500);

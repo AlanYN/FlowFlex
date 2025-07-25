@@ -14,6 +14,10 @@ const Api = (id?: string | number) => {
 		aiWorkflowValidate: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/validate`,
 		aiWorkflowParseRequirements: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/parse-requirements`,
 		aiWorkflowStatus: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/status`,
+		
+		// AI对话API
+		aiChat: `${globSetting.apiProName}/ai/chat/${globSetting.apiVersion}/conversation`,
+		aiChatStream: `${globSetting.apiProName}/ai/chat/${globSetting.apiVersion}/conversation/stream`,
 
 		// MCP服务API
 		mcpStoreContext: `${globSetting.apiProName}/mcp/${globSetting.apiVersion}/contexts`,
@@ -109,7 +113,65 @@ export function getAvailableWorkflows() {
  * @returns 工作流详情
  */
 export function getWorkflowDetails(workflowId: number) {
-	return defHttp.get({ url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}` });
+	return defHttp.get({ url: Api().getWorkflows + `/${workflowId}` });
+}
+
+// ========================= AI对话接口 =========================
+
+/**
+ * AI对话消息类型
+ */
+export interface AIChatMessage {
+	role: 'user' | 'assistant' | 'system';
+	content: string;
+	timestamp?: string;
+}
+
+/**
+ * AI对话输入参数
+ */
+export interface AIChatInput {
+	messages: AIChatMessage[];
+	context?: string;
+	sessionId?: string;
+	mode?: 'workflow_planning' | 'general';
+}
+
+/**
+ * AI对话响应
+ */
+export interface AIChatResponse {
+	success: boolean;
+	message: string;
+	response: {
+		content: string;
+		suggestions?: string[];
+		isComplete?: boolean;
+		nextQuestions?: string[];
+	};
+	sessionId: string;
+}
+
+/**
+ * 发送AI对话消息
+ * @param params AI对话输入参数
+ * @returns 对话响应
+ */
+export function sendAIChatMessage(params: AIChatInput) {
+	return defHttp.post<AIChatResponse>({ url: Api().aiChat, params });
+}
+
+/**
+ * 流式AI对话
+ * @param params AI对话输入参数
+ * @returns 流式对话响应
+ */
+export function streamAIChatMessage(params: AIChatInput) {
+	return defHttp.post({ 
+		url: Api().aiChatStream, 
+		params,
+		responseType: 'stream'
+	});
 }
 
 /**

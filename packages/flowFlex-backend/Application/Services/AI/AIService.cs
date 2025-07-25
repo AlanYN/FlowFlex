@@ -1270,6 +1270,349 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             public int EstimatedDuration { get; set; }
             public string AssignedGroup { get; set; } = string.Empty;
         }
+
+        #region AI Chat Implementation
+
+        /// <summary>
+        /// Send message to AI chat and get response
+        /// </summary>
+        public async Task<AIChatResponse> SendChatMessageAsync(AIChatInput input)
+        {
+            try
+            {
+                _logger.LogInformation("Processing AI chat message for session: {SessionId}", input.SessionId);
+
+                // Store conversation context in MCP
+                await _mcpService.StoreContextAsync(
+                    $"chat_session_{input.SessionId}",
+                    JsonSerializer.Serialize(input.Messages),
+                    new Dictionary<string, object>
+                    {
+                        { "mode", input.Mode },
+                        { "timestamp", DateTime.UtcNow },
+                        { "message_count", input.Messages.Count }
+                    }
+                );
+
+                var response = await CallAIProviderForChatAsync(input);
+
+                if (response.Success)
+                {
+                    var chatResponse = ParseChatResponse(response.Content, input);
+                    
+                    _logger.LogInformation("AI chat response generated successfully for session: {SessionId}", input.SessionId);
+                    return chatResponse;
+                }
+                else
+                {
+                    _logger.LogWarning("AI chat failed, using fallback response: {Error}", response.ErrorMessage);
+                    return GenerateFallbackChatResponse(input);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in AI chat processing for session: {SessionId}", input.SessionId);
+                return GenerateErrorChatResponse(input, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Stream chat conversation with AI
+        /// </summary>
+        public async IAsyncEnumerable<AIChatStreamResult> StreamChatAsync(AIChatInput input)
+        {
+            var sessionId = input.SessionId;
+            
+            yield return new AIChatStreamResult
+            {
+                Type = "start",
+                Content = "",
+                IsComplete = false,
+                SessionId = sessionId
+            };
+
+            var results = new List<AIChatStreamResult>();
+            Exception? streamException = null;
+
+            try
+            {
+                await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
+                {
+                    results.Add(new AIChatStreamResult
+                    {
+                        Type = "delta",
+                        Content = chunk,
+                        IsComplete = false,
+                        SessionId = sessionId
+                    });
+                }
+
+                results.Add(new AIChatStreamResult
+                {
+                    Type = "complete",
+                    Content = "",
+                    IsComplete = true,
+                    SessionId = sessionId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in streaming AI chat for session: {SessionId}", sessionId);
+                streamException = ex;
+            }
+
+            // Yield all collected results
+            foreach (var result in results)
+            {
+                yield return result;
+            }
+
+            // Handle error case
+            if (streamException != null)
+            {
+                yield return new AIChatStreamResult
+                {
+                    Type = "error",
+                    Content = $"Error: {streamException.Message}",
+                    IsComplete = true,
+                    SessionId = sessionId
+                };
+            }
+        }
+
+        private async Task<AIProviderResponse> CallAIProviderForChatAsync(AIChatInput input)
+        {
+            try
+            {
+                var prompt = BuildChatPrompt(input);
+                
+                var requestBody = new
+                {
+                    model = _aiOptions.ZhipuAI.Model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = GetChatSystemPrompt(input.Mode) },
+                        new { role = "user", content = prompt }
+                    },
+                    temperature = 0.7,
+                    max_tokens = 1000
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_aiOptions.ZhipuAI.ApiKey}");
+
+                var response = await _httpClient.PostAsync(_aiOptions.ZhipuAI.BaseUrl, content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    var messageContent = aiResponse
+                        .GetProperty("choices")[0]
+                        .GetProperty("message")
+                        .GetProperty("content")
+                        .GetString() ?? "";
+
+                    return new AIProviderResponse
+                    {
+                        Success = true,
+                        Content = messageContent
+                    };
+                }
+                else
+                {
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        private async IAsyncEnumerable<string> CallAIProviderForStreamChatAsync(AIChatInput input)
+        {
+            // For now, simulate streaming by breaking the response into chunks
+            var response = await CallAIProviderForChatAsync(input);
+            
+            if (response.Success && !string.IsNullOrEmpty(response.Content))
+            {
+                var words = response.Content.Split(' ');
+                foreach (var word in words)
+                {
+                    yield return word + " ";
+                    await Task.Delay(50); // Simulate streaming delay
+                }
+            }
+            else
+            {
+                yield return "I apologize, but I'm having trouble processing your message right now.";
+            }
+        }
+
+        private string BuildChatPrompt(AIChatInput input)
+        {
+            var prompt = new StringBuilder();
+            
+            if (input.Mode == "workflow_planning")
+            {
+                prompt.AppendLine("You are an AI Workflow Assistant helping users design business workflows.");
+                prompt.AppendLine("Your goal is to understand their requirements through conversation and help them create effective workflows.");
+                prompt.AppendLine();
+            }
+
+            prompt.AppendLine("Conversation History:");
+            foreach (var message in input.Messages.TakeLast(10)) // Limit context to last 10 messages
+            {
+                prompt.AppendLine($"{message.Role}: {message.Content}");
+            }
+
+            if (!string.IsNullOrEmpty(input.Context))
+            {
+                prompt.AppendLine();
+                prompt.AppendLine($"Context: {input.Context}");
+            }
+
+            prompt.AppendLine();
+            prompt.AppendLine("Please provide a helpful, conversational response that continues the discussion and gathers more information about their workflow needs.");
+
+            return prompt.ToString();
+        }
+
+        private string GetChatSystemPrompt(string mode)
+        {
+            return mode switch
+            {
+                "workflow_planning" => @"You are an expert AI Workflow Assistant. Your role is to:
+1. Help users design effective business workflows through conversation
+2. Ask relevant questions to understand their needs
+3. Provide professional guidance on workflow best practices
+4. Be conversational, helpful, and thorough
+5. Gradually collect information about: process type, stakeholders, timeline, requirements, and constraints
+6. Determine when you have enough information to create a comprehensive workflow
+
+Keep responses concise but thorough. Ask one or two focused questions at a time.",
+
+                _ => @"You are a helpful AI assistant. Provide clear, accurate, and helpful responses to user questions."
+            };
+        }
+
+        private AIChatResponse ParseChatResponse(string content, AIChatInput input)
+        {
+            // Analyze the response to determine if conversation is complete
+            var isComplete = DetermineChatCompletion(content, input);
+            
+            return new AIChatResponse
+            {
+                Success = true,
+                Message = "Chat response generated successfully",
+                Response = new AIChatResponseData
+                {
+                    Content = content,
+                    IsComplete = isComplete,
+                    Suggestions = ExtractSuggestions(content),
+                    NextQuestions = ExtractNextQuestions(content)
+                },
+                SessionId = input.SessionId
+            };
+        }
+
+        private bool DetermineChatCompletion(string content, AIChatInput input)
+        {
+            // Simple heuristics to determine if conversation is complete
+            var completionKeywords = new[] { "enough information", "ready to create", "comprehensive workflow", "proceed with generation" };
+            var lowerContent = content.ToLower();
+            
+            return completionKeywords.Any(keyword => lowerContent.Contains(keyword)) || 
+                   input.Messages.Count(m => m.Role == "user") >= 4;
+        }
+
+        private List<string> ExtractSuggestions(string content)
+        {
+            // Extract suggestions from AI response (simple implementation)
+            var suggestions = new List<string>();
+            
+            if (content.Contains("consider", StringComparison.OrdinalIgnoreCase))
+            {
+                suggestions.Add("Consider the suggestions mentioned in the response");
+            }
+            
+            return suggestions;
+        }
+
+        private List<string> ExtractNextQuestions(string content)
+        {
+            // Extract questions from AI response
+            var questions = new List<string>();
+            var sentences = content.Split('.', '?', '!');
+            
+            foreach (var sentence in sentences)
+            {
+                if (sentence.Trim().Contains('?'))
+                {
+                    questions.Add(sentence.Trim() + "?");
+                }
+            }
+            
+            return questions.Take(2).ToList(); // Limit to 2 questions
+        }
+
+        private AIChatResponse GenerateFallbackChatResponse(AIChatInput input)
+        {
+            var userMessageCount = input.Messages.Count(m => m.Role == "user");
+            
+            string fallbackContent = userMessageCount switch
+            {
+                1 => "That sounds like an interesting workflow! Could you tell me more about the teams or people who will be involved in this process?",
+                2 => "Great! Now, how many main stages or steps do you think this workflow should have? And what's your expected timeline?",
+                3 => "Perfect! Are there any specific requirements, documents, or approvals that need to be included in this workflow?",
+                _ => "Thank you for all the information! I believe I have enough details to help you create a comprehensive workflow. Would you like to proceed with generating it?"
+            };
+
+            return new AIChatResponse
+            {
+                Success = true,
+                Message = "Fallback response generated",
+                Response = new AIChatResponseData
+                {
+                    Content = fallbackContent,
+                    IsComplete = userMessageCount >= 4,
+                    Suggestions = new List<string>(),
+                    NextQuestions = new List<string>()
+                },
+                SessionId = input.SessionId
+            };
+        }
+
+        private AIChatResponse GenerateErrorChatResponse(AIChatInput input, string errorMessage)
+        {
+            return new AIChatResponse
+            {
+                Success = false,
+                Message = $"Chat processing failed: {errorMessage}",
+                Response = new AIChatResponseData
+                {
+                    Content = "I apologize, but I'm having trouble processing your message right now. Could you please try again?",
+                    IsComplete = false,
+                    Suggestions = new List<string> { "Try rephrasing your message", "Check your connection and try again" },
+                    NextQuestions = new List<string>()
+                },
+                SessionId = input.SessionId
+            };
+        }
+
+        #endregion
     }
 
     #region Helper Classes

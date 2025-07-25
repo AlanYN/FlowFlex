@@ -80,6 +80,20 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <param name="input">Modification input</param>
         /// <returns>Enhanced workflow result</returns>
         Task<AIWorkflowGenerationResult> EnhanceWorkflowAsync(AIWorkflowModificationInput input);
+
+        /// <summary>
+        /// Send message to AI chat and get response
+        /// </summary>
+        /// <param name="input">Chat input with messages and context</param>
+        /// <returns>AI chat response</returns>
+        Task<AIChatResponse> SendChatMessageAsync(AIChatInput input);
+
+        /// <summary>
+        /// Stream chat conversation with AI
+        /// </summary>
+        /// <param name="input">Chat input with messages and context</param>
+        /// <returns>Streaming chat response</returns>
+        IAsyncEnumerable<AIChatStreamResult> StreamChatAsync(AIChatInput input);
     }
 
     /// <summary>
@@ -319,14 +333,74 @@ namespace FlowFlex.Application.Contracts.IServices
         public Dictionary<string, object> Metadata { get; set; } = new();
     }
 
+    /// <summary>
+    /// AI workflow modification input
+    /// </summary>
     public class AIWorkflowModificationInput
     {
         public long WorkflowId { get; set; }
+        public string Enhancement { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Context { get; set; } = string.Empty;
         public List<string> Requirements { get; set; } = new();
         public bool PreserveExisting { get; set; } = true;
         public string ModificationMode { get; set; } = "modify"; // add, modify, remove, replace
+    }
+
+    // ========================= AI Chat DTOs =========================
+
+    /// <summary>
+    /// AI chat message
+    /// </summary>
+    public class AIChatMessage
+    {
+        public string Role { get; set; } = string.Empty; // 'user', 'assistant', 'system'
+        public string Content { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// AI chat input
+    /// </summary>
+    public class AIChatInput
+    {
+        public List<AIChatMessage> Messages { get; set; } = new();
+        public string Context { get; set; } = string.Empty;
+        public string SessionId { get; set; } = string.Empty;
+        public string Mode { get; set; } = "general"; // 'workflow_planning', 'general'
+    }
+
+    /// <summary>
+    /// AI chat response
+    /// </summary>
+    public class AIChatResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public AIChatResponseData Response { get; set; } = new();
+        public string SessionId { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// AI chat response data
+    /// </summary>
+    public class AIChatResponseData
+    {
+        public string Content { get; set; } = string.Empty;
+        public List<string> Suggestions { get; set; } = new();
+        public bool IsComplete { get; set; }
+        public List<string> NextQuestions { get; set; } = new();
+    }
+
+    /// <summary>
+    /// AI chat stream result
+    /// </summary>
+    public class AIChatStreamResult
+    {
+        public string Type { get; set; } = string.Empty; // 'delta', 'complete', 'error'
+        public string Content { get; set; } = string.Empty;
+        public bool IsComplete { get; set; }
+        public string SessionId { get; set; } = string.Empty;
     }
 
     #endregion
