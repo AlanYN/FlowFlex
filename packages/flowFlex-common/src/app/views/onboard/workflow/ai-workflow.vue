@@ -321,7 +321,7 @@ import {
 import AIWorkflowGenerator from '@/components/ai/AIWorkflowGenerator.vue';
 
 // APIs
-import { getWorkflowList, createWorkflow } from '@/apis/ow';
+import { getWorkflowList, createWorkflow, updateWorkflow } from '@/apis/ow';
 import { enhanceAIWorkflow, validateAIWorkflow } from '@/apis/ai/workflow';
 
 // Router
@@ -347,17 +347,29 @@ const showEnhanceDialog = ref(false);
 const enhanceRequest = ref('');
 const enhanceResult = ref(null);
 
+// Modification mode tracking
+const isModifyMode = ref(false);
+const selectedWorkflowId = ref(null);
+
 // Methods
 const handleWorkflowGenerated = (workflowData) => {
 	// workflowData 现在是完整的AI响应数据
 	generatedWorkflow.value = workflowData.generatedWorkflow;
 	generatedStages.value = workflowData.stages || [];
+	
+	// 设置操作模式信息
+	isModifyMode.value = workflowData.operationMode === 'modify';
+	selectedWorkflowId.value = workflowData.selectedWorkflowId;
+	
 	showGeneratedDialog.value = true;
 	
 	console.log('Generated workflow data:', workflowData);
 	console.log('Generated stages:', workflowData.stages);
+	console.log('Operation mode:', workflowData.operationMode);
+	console.log('Selected workflow ID:', workflowData.selectedWorkflowId);
 	
-	ElMessage.success('AI工作流生成完成！请检查并编辑后保存。');
+	const message = isModifyMode.value ? 'AI工作流修改完成！请检查并保存。' : 'AI工作流生成完成！请检查并编辑后保存。';
+	ElMessage.success(message);
 };
 
 const refreshWorkflowList = async () => {
@@ -530,19 +542,39 @@ const saveWorkflow = async () => {
 			}))
 		};
 
-		const response = await createWorkflow(workflowData);
-		if (response.success) {
-			ElMessage.success('工作流保存成功！');
-			showGeneratedDialog.value = false;
-			await refreshWorkflowList();
-			
-			// 跳转到工作流详情页
-			router.push({
-				path: '/onboard/workflow',
-				query: { id: response.data }
-			});
+		let response;
+		if (isModifyMode.value && selectedWorkflowId.value) {
+			// 修改模式：更新现有workflow
+			response = await updateWorkflow(selectedWorkflowId.value, workflowData);
+			if (response.success) {
+				ElMessage.success('工作流修改成功！');
+				showGeneratedDialog.value = false;
+				await refreshWorkflowList();
+				
+				// 跳转到工作流详情页
+				router.push({
+					path: '/onboard/onboardWorkflow',
+					query: { id: selectedWorkflowId.value }
+				});
+			} else {
+				ElMessage.error(response.message || '修改失败');
+			}
 		} else {
-			ElMessage.error(response.message || '保存失败');
+			// 创建模式：创建新workflow
+			response = await createWorkflow(workflowData);
+			if (response.success) {
+				ElMessage.success('工作流保存成功！');
+				showGeneratedDialog.value = false;
+				await refreshWorkflowList();
+				
+				// 跳转到工作流详情页
+				router.push({
+					path: '/onboard/onboardWorkflow',
+					query: { id: response.data }
+				});
+			} else {
+				ElMessage.error(response.message || '保存失败');
+			}
 		}
 	} catch (error) {
 		console.error('Save workflow error:', error);

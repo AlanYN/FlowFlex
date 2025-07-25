@@ -155,6 +155,45 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             return Success(status);
         }
+
+        /// <summary>
+        /// Modify existing workflow based on natural language description
+        /// </summary>
+        /// <param name="workflowId">Workflow ID to modify</param>
+        /// <param name="input">Modification description</param>
+        /// <returns>Modified workflow structure</returns>
+        [HttpPost("{workflowId}/modify")]
+        [ProducesResponseType<SuccessResponse<AIWorkflowGenerationResult>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 404)]
+        public async Task<IActionResult> ModifyWorkflow(
+            [FromRoute] long workflowId, 
+            [FromBody] AIWorkflowModificationInput input)
+        {
+            Console.WriteLine($"[DEBUG] ModifyWorkflow called with workflowId: {workflowId}");
+            Console.WriteLine($"[DEBUG] Input: {System.Text.Json.JsonSerializer.Serialize(input)}");
+            
+            if (input == null || string.IsNullOrEmpty(input.Description))
+            {
+                return BadRequest("Modification description is required");
+            }
+
+            // TODO: 验证workflow是否存在
+            // var workflowExists = await _workflowService.ExistsAsync(workflowId);
+            // if (!workflowExists)
+            // {
+            //     return NotFound($"Workflow with ID {workflowId} not found");
+            // }
+
+            input.WorkflowId = workflowId;
+            Console.WriteLine($"[DEBUG] Final input WorkflowId: {input.WorkflowId}");
+            
+            var result = await _aiService.EnhanceWorkflowAsync(input);
+            
+            Console.WriteLine($"[DEBUG] AI Service result: Success={result.Success}, WorkflowName={result.GeneratedWorkflow?.Name}");
+            
+            return Success(result);
+        }
     }
 
     #region Request/Response Models

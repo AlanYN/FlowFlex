@@ -10,6 +10,7 @@ const Api = (id?: string | number) => {
 		aiWorkflowGenerate: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/generate`,
 		aiWorkflowGenerateStream: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/generate/stream`,
 		aiWorkflowEnhance: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/${id}/enhance`,
+		aiWorkflowModify: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/${id}/modify`,
 		aiWorkflowValidate: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/validate`,
 		aiWorkflowParseRequirements: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/parse-requirements`,
 		aiWorkflowStatus: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/status`,
@@ -92,6 +93,32 @@ export function parseAIRequirements(naturalLanguage: string) {
  */
 export function getAIWorkflowStatus() {
 	return defHttp.get({ url: Api().aiWorkflowStatus });
+}
+
+/**
+ * 获取可用的工作流列表
+ * @returns 工作流列表
+ */
+export function getAvailableWorkflows() {
+	return defHttp.get({ url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}` });
+}
+
+/**
+ * 获取工作流详情
+ * @param workflowId 工作流ID
+ * @returns 工作流详情
+ */
+export function getWorkflowDetails(workflowId: number) {
+	return defHttp.get({ url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}` });
+}
+
+/**
+ * 修改现有工作流
+ * @param params 工作流修改输入参数
+ * @returns 修改结果
+ */
+export function modifyAIWorkflow(params: AIWorkflowModificationInput) {
+	return defHttp.post({ url: Api(params.workflowId).aiWorkflowModify, params });
 }
 
 // ========================= MCP服务接口 =========================
@@ -273,4 +300,13 @@ export interface MCPChecklistGenerationRequest {
 	context?: string;
 	includeDependencies?: boolean;
 	includeEstimates?: boolean;
+}
+
+export interface AIWorkflowModificationInput {
+	workflowId: number;
+	description: string;
+	context?: string;
+	requirements?: string[];
+	preserveExisting?: boolean;
+	modificationMode?: 'add' | 'modify' | 'remove' | 'replace';
 } 

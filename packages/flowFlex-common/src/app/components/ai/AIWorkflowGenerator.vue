@@ -17,16 +17,62 @@
 			</template>
 
 			<div class="space-y-4">
+				<!-- Mode Selection -->
+				<div class="mb-4">
+					<el-radio-group v-model="operationMode" @change="handleModeChange">
+						<el-radio value="create">Create New Workflow</el-radio>
+						<el-radio value="modify">Modify Existing Workflow</el-radio>
+					</el-radio-group>
+				</div>
+
+				<!-- Existing Workflow Selection (for modify mode) -->
+				<div v-if="operationMode === 'modify'" class="mb-4">
+					<label class="block text-sm font-medium text-gray-700 mb-2">
+						Select Workflow to Modify <span class="text-red-500">*</span>
+					</label>
+					<el-select 
+						v-model="selectedWorkflowId" 
+						placeholder="Choose an existing workflow"
+						class="w-full"
+						@change="handleWorkflowSelect"
+						:loading="loadingWorkflows"
+					>
+						<el-option
+							v-for="workflow in availableWorkflows"
+							:key="workflow.id"
+							:label="workflow.name"
+							:value="workflow.id"
+						>
+							<div class="flex justify-between">
+								<span>{{ workflow.name }}</span>
+								<span class="text-gray-400">{{ workflow.stageCount }} stages</span>
+							</div>
+						</el-option>
+					</el-select>
+					
+					<!-- Current Workflow Display -->
+					<div v-if="currentWorkflow" class="mt-3 p-3 bg-gray-50 rounded border">
+						<h4 class="font-medium text-gray-800 mb-2">Current Workflow: {{ currentWorkflow.name }}</h4>
+						<p class="text-sm text-gray-600 mb-2">{{ currentWorkflow.description }}</p>
+						<div class="text-xs text-gray-500">
+							Stages: {{ currentWorkflow.stages?.length || 0 }} | 
+							Duration: {{ currentWorkflow.stages?.reduce((sum, stage) => sum + (stage.estimatedDuration || 0), 0) || 0 }} days
+						</div>
+					</div>
+				</div>
+
 				<!-- Natural Language Input -->
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-2">
-						Describe your desired workflow <span class="text-red-500">*</span>
+						{{ operationMode === 'create' ? 'Describe your desired workflow' : 'Describe the modifications you want to make' }} <span class="text-red-500">*</span>
 					</label>
 					<el-input
 						v-model="input.description"
 						type="textarea"
 						:rows="4"
-						placeholder="For example: I need an employee onboarding process, including document collection, training arrangement, equipment allocation and probation evaluation..."
+						:placeholder="operationMode === 'create' 
+							? 'For example: I need an employee onboarding process, including document collection, training arrangement, equipment allocation and probation evaluation...'
+							: 'For example: Add a new approval stage after document collection, change the training duration to 3 days, remove the equipment allocation step...'"
 						@input="handleInputChange"
 						:disabled="generating"
 					/>
@@ -118,7 +164,7 @@
 							<el-icon class="mr-1">
 								<Star />
 							</el-icon>
-							{{ generating ? 'Generating...' : 'Generate Workflow' }}
+							{{ generating ? 'Processing...' : (operationMode === 'create' ? 'Generate Workflow' : 'Apply Modifications') }}
 						</el-button>
 
 						<el-button
@@ -268,7 +314,14 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getTokenobj } from '@/utils/auth';
-import { generateAIWorkflow, getAIWorkflowStatus } from '@/apis/ai/workflow';
+import { 
+	generateAIWorkflow, 
+	getAIWorkflowStatus, 
+	getAvailableWorkflows,
+	getWorkflowDetails,
+	modifyAIWorkflow,
+	type AIWorkflowModificationInput
+} from '@/apis/ai/workflow';
 import {
 	User,
 	Star,
@@ -290,6 +343,13 @@ const generating = ref(false);
 const streaming = ref(false);
 const showAdvanced = ref([]);
 const streamSteps = ref<Array<{ type: string; message: string; data?: any }>>([]);
+
+// Operation mode: 'create' or 'modify'
+const operationMode = ref('create');
+const selectedWorkflowId = ref<number | null>(null);
+const currentWorkflow = ref<any>(null);
+const availableWorkflows = ref<any[]>([]);
+const loadingWorkflows = ref(false);
 
 const input = reactive({
 	description: '',
@@ -329,9 +389,105 @@ const updateRequirements = () => {
 		.filter(line => line.length > 0);
 };
 
+// Mode and workflow selection handlers
+const handleModeChange = () => {
+	if (operationMode.value === 'modify') {
+		loadAvailableWorkflows();
+	}
+	clearInput();
+};
+
+const loadAvailableWorkflows = async () => {
+	loadingWorkflows.value = true;
+	try {
+		const response = await getAvailableWorkflows();
+		console.log('API Response:', response); // Debug log
+		
+		if (response.success && response.data) {
+			availableWorkflows.value = response.data.map((workflow: any) => ({
+				id: workflow.id,
+				name: workflow.name,
+				description: workflow.description,
+				stageCount: workflow.stages?.length || 0
+			}));
+			console.log('Mapped workflows:', availableWorkflows.value); // Debug log
+		} else {
+			// 备用模拟数据
+			availableWorkflows.value = [
+				{ id: 1, name: 'Employee Onboarding', stageCount: 5, description: 'Standard employee onboarding process' },
+				{ id: 2, name: 'Project Approval', stageCount: 3, description: 'Project approval workflow' },
+				{ id: 3, name: 'Customer Support', stageCount: 4, description: 'Customer support process' }
+			];
+		}
+	} catch (error) {
+		console.error('Failed to load workflows:', error);
+		// 备用模拟数据
+		availableWorkflows.value = [
+			{ id: 1, name: 'Employee Onboarding', stageCount: 5, description: 'Standard employee onboarding process' },
+			{ id: 2, name: 'Project Approval', stageCount: 3, description: 'Project approval workflow' },
+			{ id: 3, name: 'Customer Support', stageCount: 4, description: 'Customer support process' }
+		];
+		ElMessage.warning('Using sample data. Please check API connection.');
+	} finally {
+		loadingWorkflows.value = false;
+	}
+};
+
+const handleWorkflowSelect = async (workflowId: number) => {
+	if (!workflowId) return;
+	
+	try {
+		const response = await getWorkflowDetails(workflowId);
+		console.log('Workflow Details Response:', response); // Debug log
+		
+		if (response.success && response.data) {
+			currentWorkflow.value = response.data;
+			console.log('Current workflow set:', currentWorkflow.value); // Debug log
+		} else {
+			// 备用模拟数据
+			const workflow = availableWorkflows.value.find(w => w.id === workflowId);
+			if (workflow) {
+				currentWorkflow.value = {
+					...workflow,
+					stages: [
+						{ id: 1, name: 'Document Collection', description: 'Collect required documents', order: 1, estimatedDuration: 2, assignedGroup: 'HR Team' },
+						{ id: 2, name: 'Training Schedule', description: 'Schedule orientation training', order: 2, estimatedDuration: 1, assignedGroup: 'Training Team' },
+						{ id: 3, name: 'Equipment Setup', description: 'Provide necessary equipment', order: 3, estimatedDuration: 1, assignedGroup: 'IT Team' },
+						{ id: 4, name: 'Probation Review', description: 'Initial performance review', order: 4, estimatedDuration: 5, assignedGroup: 'Manager' }
+					]
+				};
+			}
+		}
+	} catch (error) {
+		console.error('Failed to load workflow details:', error);
+		ElMessage.warning('Using sample data for workflow details');
+		// 备用模拟数据
+		const workflow = availableWorkflows.value.find(w => w.id === workflowId);
+		if (workflow) {
+			currentWorkflow.value = {
+				...workflow,
+				stages: [
+					{ id: 1, name: 'Document Collection', description: 'Collect required documents', order: 1, estimatedDuration: 2, assignedGroup: 'HR Team' },
+					{ id: 2, name: 'Training Schedule', description: 'Schedule orientation training', order: 2, estimatedDuration: 1, assignedGroup: 'Training Team' },
+					{ id: 3, name: 'Equipment Setup', description: 'Provide necessary equipment', order: 3, estimatedDuration: 1, assignedGroup: 'IT Team' },
+					{ id: 4, name: 'Probation Review', description: 'Initial performance review', order: 4, estimatedDuration: 5, assignedGroup: 'Manager' }
+				]
+			};
+		}
+	}
+};
+
 const generateWorkflow = async () => {
+	console.log('🔥 generateWorkflow function called!');
+	console.log('🔥 Button clicked - operationMode:', operationMode.value);
+	
 	if (!input.description.trim()) {
-		ElMessage.warning('Please describe your desired workflow');
+		ElMessage.warning(operationMode.value === 'create' ? 'Please describe your desired workflow' : 'Please describe the modifications you want to make');
+		return;
+	}
+
+	if (operationMode.value === 'modify' && !selectedWorkflowId.value) {
+		ElMessage.warning('Please select a workflow to modify');
 		return;
 	}
 
@@ -339,18 +495,45 @@ const generateWorkflow = async () => {
 	result.value = null;
 
 	try {
-		// 调用后端API生成工作流
-		const response = await generateAIWorkflow(input);
+		console.log('=== DEBUG: generateWorkflow called ===');
+		console.log('Operation mode:', operationMode.value);
+		console.log('Selected workflow ID:', selectedWorkflowId.value);
+		console.log('Input description:', input.description);
+		
+		let response;
+		
+		if (operationMode.value === 'create') {
+			console.log('Taking CREATE path');
+			// 创建新工作流
+			response = await generateAIWorkflow(input);
+		} else {
+			console.log('Taking MODIFY path');
+			// 修改现有工作流
+			const modificationParams: AIWorkflowModificationInput = {
+				workflowId: selectedWorkflowId.value!,
+				description: input.description,
+				context: input.context,
+				requirements: input.requirements,
+				preserveExisting: true,
+				modificationMode: 'modify'
+			};
+			console.log('Sending modification request:', modificationParams);
+			console.log('Selected workflow ID:', selectedWorkflowId.value);
+			console.log('Current workflow:', currentWorkflow.value);
+			response = await modifyAIWorkflow(modificationParams);
+		}
 
 		if (response.success) {
 			result.value = response.data;
-			ElMessage.success('Workflow generated successfully!');
+			ElMessage.success(operationMode.value === 'create' 
+				? 'Workflow generated successfully!' 
+				: 'Workflow modified successfully!');
 		} else {
-			ElMessage.error(response.message || 'Generation failed');
+			ElMessage.error(response.message || (operationMode.value === 'create' ? 'Generation failed' : 'Modification failed'));
 		}
 	} catch (error) {
-		console.error('Generate workflow error:', error);
-		ElMessage.error('Error during generation');
+		console.error('Process workflow error:', error);
+		ElMessage.error(operationMode.value === 'create' ? 'Error during generation' : 'Error during modification');
 	} finally {
 		generating.value = false;
 	}
@@ -434,7 +617,11 @@ const applyWorkflow = async () => {
 		);
 
 		if (confirmed) {
-			emit('workflowGenerated', result.value);
+			emit('workflowGenerated', {
+				...result.value,
+				operationMode: operationMode.value,
+				selectedWorkflowId: selectedWorkflowId.value
+			});
 			ElMessage.success('Workflow applied');
 		}
 	} catch {

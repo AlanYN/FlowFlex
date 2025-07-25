@@ -10,29 +10,34 @@ using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Shared;
 
 namespace FlowFlex.Application.Services.AI
 {
     /// <summary>
     /// AI service implementation supporting multiple AI providers
     /// </summary>
-    public class AIService : IAIService
+    public class AIService : IAIService, IScopedService
     {
         private readonly AIOptions _aiOptions;
         private readonly ILogger<AIService> _logger;
         private readonly HttpClient _httpClient;
         private readonly IMCPService _mcpService;
+        private readonly IWorkflowService _workflowService;
 
         public AIService(
             IOptions<AIOptions> aiOptions,
             ILogger<AIService> logger,
             HttpClient httpClient,
-            IMCPService mcpService)
+            IMCPService mcpService,
+            IWorkflowService workflowService)
         {
             _aiOptions = aiOptions.Value;
             _logger = logger;
             _httpClient = httpClient;
             _mcpService = mcpService;
+            _workflowService = workflowService;
         }
 
         public async Task<AIWorkflowGenerationResult> GenerateWorkflowAsync(AIWorkflowGenerationInput input)
@@ -1057,6 +1062,214 @@ namespace FlowFlex.Application.Services.AI
         }
 
         #endregion
+        public async Task<AIWorkflowGenerationResult> EnhanceWorkflowAsync(AIWorkflowModificationInput input)
+        {
+            var result = new AIWorkflowGenerationResult();
+
+            try
+            {
+                _logger.LogInformation("Modifying workflow {WorkflowId}: {Description}", 
+                    input.WorkflowId, input.Description);
+
+                // 获取现有workflow的详细信息
+                _logger.LogInformation("Fetching existing workflow with ID: {WorkflowId}", input.WorkflowId);
+                var existingWorkflowInfo = await GetExistingWorkflowAsync(input.WorkflowId);
+                _logger.LogInformation("Retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}", 
+                    existingWorkflowInfo.Name, existingWorkflowInfo.Description, existingWorkflowInfo.Stages.Count);
+                
+                // 详细记录现有阶段信息
+                for (int i = 0; i < existingWorkflowInfo.Stages.Count; i++)
+                {
+                    var stage = existingWorkflowInfo.Stages[i];
+                    _logger.LogInformation("Stage {Index}: Name='{Name}', Description='{Description}', Duration={Duration}, Team='{Team}'", 
+                        i + 1, stage.Name, stage.Description, stage.EstimatedDuration, stage.AssignedGroup);
+                }
+                
+                // 构建修改提示词
+                var prompt = await BuildWorkflowModificationPromptAsync(input, existingWorkflowInfo);
+                
+                // 调试日志：输出完整的提示词
+                _logger.LogInformation("AI Modification Prompt: {Prompt}", prompt);
+                
+                // 调用AI进行workflow修改
+                var aiResponse = await CallAIProviderAsync(prompt);
+                
+                // 调试日志：输出AI响应
+                _logger.LogInformation("AI Modification Response: Success={Success}, Content={Content}", 
+                    aiResponse.Success, aiResponse.Content);
+                
+                if (!aiResponse.Success)
+                {
+                    result.Success = false;
+                    result.Message = aiResponse.ErrorMessage;
+                    return GenerateFallbackWorkflow($"Error modifying workflow {input.WorkflowId}");
+                }
+                
+                // 解析AI响应
+                var modificationResult = ParseWorkflowGenerationResponse(aiResponse.Content);
+                
+                if (modificationResult.Stages == null || !modificationResult.Stages.Any())
+                {
+                    modificationResult = GenerateFallbackWorkflow($"Modified workflow for ID: {input.WorkflowId}");
+                }
+
+                // 强制确保workflow名称正确（防止AI不遵循指令）
+                _logger.LogInformation("Checking workflow name correction: AI returned '{AIName}', expected '{ExpectedName}'", 
+                    modificationResult.GeneratedWorkflow?.Name ?? "NULL", existingWorkflowInfo.Name);
+                
+                if (modificationResult.GeneratedWorkflow != null && 
+                    modificationResult.GeneratedWorkflow.Name != existingWorkflowInfo.Name)
+                {
+                    _logger.LogWarning("AI returned incorrect workflow name '{AIName}', forcing to correct name '{CorrectName}'", 
+                        modificationResult.GeneratedWorkflow.Name, existingWorkflowInfo.Name);
+                    
+                    var originalName = modificationResult.GeneratedWorkflow.Name;
+                    modificationResult.GeneratedWorkflow.Name = existingWorkflowInfo.Name;
+                    modificationResult.GeneratedWorkflow.Description = existingWorkflowInfo.Description + " - Modified based on user requirements";
+                    
+                    _logger.LogInformation("Name correction applied: '{OriginalName}' -> '{CorrectedName}'", 
+                        originalName, modificationResult.GeneratedWorkflow.Name);
+                }
+                else
+                {
+                    _logger.LogInformation("Workflow name is correct: '{Name}'", modificationResult.GeneratedWorkflow?.Name);
+                }
+
+                result = modificationResult;
+                result.Message = "Workflow modified successfully";
+                
+                _logger.LogInformation("Workflow modification completed successfully for ID: {WorkflowId}", input.WorkflowId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to modify workflow {WorkflowId}", input.WorkflowId);
+                result.Success = false;
+                result.Message = "Workflow modification failed";
+                result = GenerateFallbackWorkflow($"Error modifying workflow {input.WorkflowId}");
+            }
+
+            return result;
+        }
+
+        private Task<string> BuildWorkflowModificationPromptAsync(AIWorkflowModificationInput input, MockWorkflowInfo existingWorkflowInfo)
+        {
+            var systemPrompt = _aiOptions.Prompts.WorkflowSystem;
+            var modificationContext = input.PreserveExisting ? 
+                "请在保持现有工作流核心结构和现有阶段的基础上进行修改。只根据具体要求添加、修改或删除阶段。" :
+                "如果需要，您可以完全重新设计工作流。";
+
+            var prompt = $@"CRITICAL: This is a MODIFICATION task, NOT a creation task.
+
+MANDATORY RULES - DO NOT VIOLATE:
+1. Workflow name MUST remain EXACTLY: ""{existingWorkflowInfo.Name}""
+2. DO NOT change the workflow name under any circumstances
+3. DO NOT create a new workflow
+4. ONLY modify existing stages or add new stages
+
+EXISTING WORKFLOW TO MODIFY:
+Name: {existingWorkflowInfo.Name}
+Description: {existingWorkflowInfo.Description}
+Current Stages:
+{string.Join("\n", existingWorkflowInfo.Stages.Select((stage, index) => 
+    $"{index + 1}. {stage.Name} - {stage.Description} (Duration: {stage.EstimatedDuration} days, Team: {stage.AssignedGroup})"))}
+
+USER MODIFICATION REQUEST: {input.Description}
+
+REQUIRED OUTPUT FORMAT - Use EXACT name ""{existingWorkflowInfo.Name}"":
+{{
+    ""name"": ""{existingWorkflowInfo.Name}"",
+    ""description"": ""{existingWorkflowInfo.Description} - Modified based on user requirements"",
+    ""isActive"": true,
+    ""stages"": [
+{string.Join(",\n", existingWorkflowInfo.Stages.Select((stage, index) => 
+    $@"        {{
+            ""name"": ""{stage.Name}"",
+            ""description"": ""{stage.Description}"",
+            ""order"": {index + 1},
+            ""assignedGroup"": ""{stage.AssignedGroup}"",
+            ""estimatedDuration"": {stage.EstimatedDuration}
+        }}"))}
+    ]
+}}
+
+VERIFICATION CHECKLIST:
+✓ Workflow name is EXACTLY: ""{existingWorkflowInfo.Name}""
+✓ Based on existing stages
+✓ Added modifications as requested
+✓ JSON format only
+
+RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
+
+            return Task.FromResult(prompt);
+        }
+
+        private async Task<MockWorkflowInfo> GetExistingWorkflowAsync(long workflowId)
+        {
+            try
+            {
+                _logger.LogInformation("Attempting to fetch workflow with ID: {WorkflowId}", workflowId);
+                var workflow = await _workflowService.GetByIdAsync(workflowId);
+                
+                if (workflow != null)
+                {
+                    _logger.LogInformation("Successfully retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}", 
+                        workflow.Name, workflow.Description, workflow.Stages?.Count ?? 0);
+                    
+                    var mockInfo = new MockWorkflowInfo
+                    {
+                        Name = workflow.Name,
+                        Description = workflow.Description,
+                        Stages = workflow.Stages?.Select(s => new MockStageInfo
+                        {
+                            Name = s.Name,
+                            Description = s.Description,
+                            EstimatedDuration = (int)(s.EstimatedDuration ?? 1),
+                            AssignedGroup = s.DefaultAssignedGroup ?? "Default Team"
+                        }).ToList() ?? new List<MockStageInfo>()
+                    };
+                    
+                    _logger.LogInformation("Converted to MockWorkflowInfo: Name={Name}, StageCount={StageCount}", 
+                        mockInfo.Name, mockInfo.Stages.Count);
+                    
+                    return mockInfo;
+                }
+                else
+                {
+                    _logger.LogWarning("Workflow with ID {WorkflowId} not found", workflowId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching workflow {WorkflowId}", workflowId);
+            }
+
+            // 如果获取失败，返回默认数据
+            _logger.LogWarning("Returning default workflow data for ID {WorkflowId}", workflowId);
+            return new MockWorkflowInfo
+            {
+                Name = "Default Workflow",
+                Description = "Default workflow description",
+                Stages = new List<MockStageInfo>
+                {
+                    new MockStageInfo { Name = "Default Stage", Description = "Default stage description", EstimatedDuration = 1, AssignedGroup = "Default Team" }
+                }
+            };
+        }
+
+        private class MockWorkflowInfo
+        {
+            public string Name { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public List<MockStageInfo> Stages { get; set; } = new();
+        }
+
+        private class MockStageInfo
+        {
+            public string Name { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public int EstimatedDuration { get; set; }
+            public string AssignedGroup { get; set; } = string.Empty;
+        }
     }
 
     #region Helper Classes

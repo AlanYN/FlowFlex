@@ -73,6 +73,13 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <param name="naturalLanguage">Natural language input</param>
         /// <returns>Structured requirements</returns>
         Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage);
+
+        /// <summary>
+        /// Enhance existing workflow using modification input
+        /// </summary>
+        /// <param name="input">Modification input</param>
+        /// <returns>Enhanced workflow result</returns>
+        Task<AIWorkflowGenerationResult> EnhanceWorkflowAsync(AIWorkflowModificationInput input);
     }
 
     /// <summary>
@@ -310,6 +317,16 @@ namespace FlowFlex.Application.Contracts.IServices
         public List<MCPEntity> Entities { get; set; } = new();
         public List<MCPRelationship> Relationships { get; set; } = new();
         public Dictionary<string, object> Metadata { get; set; } = new();
+    }
+
+    public class AIWorkflowModificationInput
+    {
+        public long WorkflowId { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public string Context { get; set; } = string.Empty;
+        public List<string> Requirements { get; set; } = new();
+        public bool PreserveExisting { get; set; } = true;
+        public string ModificationMode { get; set; } = "modify"; // add, modify, remove, replace
     }
 
     #endregion

@@ -131,14 +131,26 @@ namespace FlowFlex.Application.Service.OW
             // Detect if there are actual changes
             bool hasChanges = HasWorkflowChanges(entity, input);
 
-            // If set as default, need to cancel other default workflows first
-            if (input.IsDefault && !entity.IsDefault)
+            // Only handle IsDefault changes if explicitly provided in the input
+            // For AI-generated updates, we preserve the existing IsDefault state
+            bool shouldUpdateDefaultStatus = ShouldUpdateDefaultStatus(input, entity);
+            
+            if (shouldUpdateDefaultStatus)
             {
-                await _workflowRepository.SetDefaultWorkflowAsync(id);
+                // If set as default, need to cancel other default workflows first
+                if (input.IsDefault && !entity.IsDefault)
+                {
+                    await _workflowRepository.SetDefaultWorkflowAsync(id);
+                }
+                else if (!input.IsDefault && entity.IsDefault)
+                {
+                    await _workflowRepository.RemoveDefaultWorkflowAsync(id);
+                }
             }
-            else if (!input.IsDefault && entity.IsDefault)
+            else
             {
-                await _workflowRepository.RemoveDefaultWorkflowAsync(id);
+                // Preserve existing IsDefault state for AI updates
+                input.IsDefault = entity.IsDefault;
             }
 
             // Only create version history record when there are actual changes
@@ -155,6 +167,54 @@ namespace FlowFlex.Application.Service.OW
             entity.InitUpdateInfo(_userContext);
 
             var updateResult = await _workflowRepository.UpdateAsync(entity);
+
+            // Handle stages update if provided
+            if (updateResult && input.Stages != null)
+            {
+                // Get existing stages
+                var existingStages = await _stageRepository.GetByWorkflowIdAsync(id);
+                
+                // Delete existing stages that are not in the input
+                var stagesToDelete = existingStages.Where(existing => 
+                    !input.Stages.Any(inputStage => 
+                        inputStage.Name.Equals(existing.Name, StringComparison.OrdinalIgnoreCase))).ToList();
+                
+                foreach (var stageToDelete in stagesToDelete)
+                {
+                    await _stageRepository.DeleteAsync(stageToDelete);
+                }
+                
+                // Update or create stages
+                foreach (var stageInput in input.Stages.OrderBy(s => s.Order))
+                {
+                    var existingStage = existingStages.FirstOrDefault(s => 
+                        s.Name.Equals(stageInput.Name, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (existingStage != null)
+                    {
+                        // Update existing stage
+                        _mapper.Map(stageInput, existingStage);
+                        existingStage.WorkflowId = id;
+                        existingStage.WorkflowVersion = entity.Version.ToString();
+                        existingStage.InitUpdateInfo(_userContext);
+                        
+                        await _stageRepository.UpdateAsync(existingStage);
+                    }
+                    else
+                    {
+                        // Create new stage
+                        var newStage = _mapper.Map<Stage>(stageInput);
+                        newStage.WorkflowId = id;
+                        newStage.WorkflowVersion = entity.Version.ToString();
+                        newStage.InitCreateInfo(_userContext);
+                        
+                        await _stageRepository.InsertAsync(newStage);
+                    }
+                }
+                
+                _logger.LogInformation("Updated stages for workflow {WorkflowId}: {StageCount} stages processed", 
+                    id, input.Stages.Count);
+            }
 
             // If there are changes and update is successful, create version history record (save post-change information) - Disabled automatic version creation
             // if (hasChanges && updateResult)
@@ -762,6 +822,24 @@ namespace FlowFlex.Application.Service.OW
             {
                 return new List<FlowFlex.Domain.Shared.Models.StageComponent>();
             }
+        }
+
+        /// <summary>
+        /// Determine if we should update the IsDefault status based on the context
+        /// For AI-generated updates, we typically want to preserve the existing state
+        /// </summary>
+        private bool ShouldUpdateDefaultStatus(WorkflowInputDto input, Workflow entity)
+        {
+            // If this is likely an AI-generated update (has stages but no explicit default handling),
+            // we should preserve the existing IsDefault state
+            if (input.Stages != null && input.Stages.Any())
+            {
+                // This looks like an AI workflow modification - preserve existing default state
+                return false;
+            }
+            
+            // For regular user updates, allow IsDefault changes
+            return true;
         }
 
         // 缓存相关方法已移除
