@@ -158,7 +158,20 @@ export interface AIChatResponse {
  * @returns 对话响应
  */
 export function sendAIChatMessage(params: AIChatInput) {
-	return defHttp.post<AIChatResponse>({ url: Api().aiChat, params });
+	console.log('📡 API: Sending AI chat message to:', Api().aiChat);
+	console.log('📡 API: Chat params:', params);
+	
+	return defHttp.post<AIChatResponse>({ url: Api().aiChat, params })
+		.then(response => {
+			console.log('📡 API: AI chat response received:', response);
+			// 后端返回的是标准API响应格式 { data: AIChatResponse, success: boolean, ... }
+			// 但defHttp已经解包了data字段，所以response就是AIChatResponse
+			return response;
+		})
+		.catch(error => {
+			console.error('📡 API: AI chat request failed:', error);
+			throw error;
+		});
 }
 
 /**

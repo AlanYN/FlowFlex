@@ -1384,16 +1384,22 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         {
             try
             {
-                var prompt = BuildChatPrompt(input);
+                // 构建消息数组，直接使用对话历史
+                var messages = new List<object>();
+                
+                // 添加系统提示
+                messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode) });
+                
+                // 添加对话历史（最近10条消息）
+                foreach (var message in input.Messages.TakeLast(10))
+                {
+                    messages.Add(new { role = message.Role, content = message.Content });
+                }
                 
                 var requestBody = new
                 {
                     model = _aiOptions.ZhipuAI.Model,
-                    messages = new[]
-                    {
-                        new { role = "system", content = GetChatSystemPrompt(input.Mode) },
-                        new { role = "user", content = prompt }
-                    },
+                    messages = messages.ToArray(),
                     temperature = 0.7,
                     max_tokens = 1000
                 };
@@ -1404,8 +1410,15 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_aiOptions.ZhipuAI.ApiKey}");
 
-                var response = await _httpClient.PostAsync(_aiOptions.ZhipuAI.BaseUrl, content);
+                // 使用正确的ZhipuAI chat completions endpoint
+                var apiUrl = $"{_aiOptions.ZhipuAI.BaseUrl}/chat/completions";
+                
+                _logger.LogInformation("Calling ZhipuAI API: {Url} with {MessageCount} messages", apiUrl, messages.Count);
+                
+                var response = await _httpClient.PostAsync(apiUrl, content);
                 var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("ZhipuAI API Response: {StatusCode} - {Content}", response.StatusCode, responseContent);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -1416,6 +1429,8 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                         .GetProperty("content")
                         .GetString() ?? "";
 
+                    _logger.LogInformation("ZhipuAI generated response: {Response}", messageContent);
+
                     return new AIProviderResponse
                     {
                         Success = true,
@@ -1424,6 +1439,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 }
                 else
                 {
+                    _logger.LogWarning("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
                     return new AIProviderResponse
                     {
                         Success = false,
@@ -1433,6 +1449,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error calling ZhipuAI API for chat");
                 return new AIProviderResponse
                 {
                     Success = false,
@@ -1494,17 +1511,31 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         {
             return mode switch
             {
-                "workflow_planning" => @"You are an expert AI Workflow Assistant. Your role is to:
-1. Help users design effective business workflows through conversation
-2. Ask relevant questions to understand their needs
-3. Provide professional guidance on workflow best practices
-4. Be conversational, helpful, and thorough
-5. Gradually collect information about: process type, stakeholders, timeline, requirements, and constraints
-6. Determine when you have enough information to create a comprehensive workflow
+                "workflow_planning" => @"You are an expert AI Workflow Assistant specialized in business process design. Your role is to:
 
-Keep responses concise but thorough. Ask one or two focused questions at a time.",
+1. **Understand User Needs**: Engage in natural conversation to deeply understand the user's workflow requirements
+2. **Ask Smart Questions**: Ask relevant, specific questions to gather essential information about:
+   - Process type and business context
+   - Key stakeholders and their roles
+   - Timeline and urgency requirements
+   - Specific requirements, documents, or approvals needed
+   - Compliance or regulatory considerations
+3. **Provide Expert Guidance**: Offer professional insights and best practices for workflow design
+4. **Be Conversational**: Maintain a friendly, helpful tone while being thorough and professional
+5. **Progressive Discovery**: Gradually build understanding through multiple exchanges rather than overwhelming with too many questions at once
+6. **Completion Detection**: When you have sufficient information (typically after 3-4 meaningful exchanges), indicate readiness to proceed with workflow creation
 
-                _ => @"You are a helpful AI assistant. Provide clear, accurate, and helpful responses to user questions."
+Guidelines:
+- Ask 1-2 focused questions per response
+- Acknowledge and build upon previous answers
+- Provide brief explanations of why certain information is important
+- Use business terminology appropriately
+- Be encouraging and supportive throughout the conversation
+- Respond in the same language as the user's input
+
+Remember: Your goal is to collect enough detailed information to create a comprehensive, practical workflow that meets the user's specific needs.",
+
+                _ => @"You are a helpful, knowledgeable AI assistant. Provide clear, accurate, and helpful responses to user questions. Be conversational, friendly, and thorough in your explanations."
             };
         }
 

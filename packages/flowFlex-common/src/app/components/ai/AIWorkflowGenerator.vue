@@ -673,6 +673,10 @@ const sendMessage = async () => {
 
 const callRealAI = async (userMessage: string) => {
 	try {
+		console.log('🤖 Calling real AI with message:', userMessage);
+		console.log('🤖 Conversation history:', conversationHistory.value);
+		console.log('🤖 Session ID:', conversationSessionId.value);
+		
 		const chatInput: AIChatInput = {
 			messages: conversationHistory.value,
 			context: 'workflow_planning',
@@ -680,25 +684,35 @@ const callRealAI = async (userMessage: string) => {
 			mode: 'workflow_planning'
 		};
 
+		console.log('🤖 Sending chat input:', chatInput);
 		const response = await sendAIChatMessage(chatInput);
+		console.log('🤖 AI response received:', response);
 		
-		if (response.success && response.response) {
-			addAIMessage(response.response.content);
+		// 处理后端返回的标准API响应格式
+		// response 应该直接是 AIChatResponse，但如果有data包装则解包
+		const aiResponse = (response as any).data || response;
+		console.log('🤖 Processed AI response:', aiResponse);
+		
+		if (aiResponse.success && aiResponse.response) {
+			console.log('✅ AI response successful, adding message:', aiResponse.response.content);
+			addAIMessage(aiResponse.response.content);
 			
 			// Check if conversation is complete
-			if (response.response.isComplete) {
+			if (aiResponse.response.isComplete) {
 				conversationComplete.value = true;
 			}
 			
 			// Update session ID
-			if (response.sessionId) {
-				conversationSessionId.value = response.sessionId;
+			if (aiResponse.sessionId) {
+				conversationSessionId.value = aiResponse.sessionId;
 			}
 		} else {
-			throw new Error(response.message || 'AI response failed');
+			console.error('❌ AI response failed:', aiResponse);
+			throw new Error(aiResponse.message || 'AI response failed');
 		}
 	} catch (error) {
-		console.error('Real AI call failed:', error);
+		console.error('❌ Real AI call failed:', error);
+		console.log('🔄 Falling back to enhanced simulation');
 		// Fallback to enhanced simulation
 		await enhancedAISimulation(userMessage);
 	}
