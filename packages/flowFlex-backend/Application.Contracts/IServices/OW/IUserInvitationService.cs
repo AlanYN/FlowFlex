@@ -58,8 +58,9 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="email">Email address</param>
+        /// <param name="baseUrl">Base URL (optional)</param>
         /// <returns>Invitation link information</returns>
-        Task<object> GetInvitationLinkAsync(long onboardingId, string email);
+        Task<object> GetInvitationLinkAsync(long onboardingId, string email, string? baseUrl = null);
 
         /// <summary>
         /// Validate invitation token

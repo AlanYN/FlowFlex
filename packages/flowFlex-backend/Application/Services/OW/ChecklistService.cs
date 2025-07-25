@@ -383,8 +383,14 @@ public class ChecklistService : IChecklistService, IScopedService
             EstimatedHours = sourceChecklist.EstimatedHours,
             IsActive = true,
             // Copy assignments from source checklist
-            AssignmentsJson = sourceChecklist.AssignmentsJson
+            AssignmentsJson = sourceChecklist.AssignmentsJson,
+            // Copy tenant and app information from source checklist
+            TenantId = sourceChecklist.TenantId,
+            AppCode = sourceChecklist.AppCode
         };
+
+        // Initialize create information with proper ID and timestamps
+        newChecklist.InitCreateInfo(_userContext);
 
         var newChecklistId = await _checklistRepository.InsertReturnSnowflakeIdAsync(newChecklist);
 
@@ -408,8 +414,17 @@ public class ChecklistService : IChecklistService, IScopedService
                     DueDate = task.DueDate,
                     AttachmentsJson = task.AttachmentsJson,
                     Status = "Pending",
-                    IsActive = true
+                    IsActive = true,
+                    // Copy tenant and app information from source task
+                    TenantId = task.TenantId,
+                    AppCode = task.AppCode
                 }).ToList();
+
+                // Initialize create info for each task
+                foreach (var task in newTasks)
+                {
+                    task.InitCreateInfo(_userContext);
+                }
 
                 await _checklistTaskRepository.InsertRangeAsync(newTasks);
 
@@ -469,6 +484,12 @@ public class ChecklistService : IChecklistService, IScopedService
         instance.IsTemplate = false;
         instance.TemplateId = templateId;
         instance.Type = "Instance";
+        // Copy tenant and app information from template
+        instance.TenantId = template.TenantId;
+        instance.AppCode = template.AppCode;
+
+        // Initialize create information with proper ID and timestamps
+        instance.InitCreateInfo(_userContext);
 
         var instanceId = await _checklistRepository.InsertReturnSnowflakeIdAsync(instance);
 
@@ -488,8 +509,17 @@ public class ChecklistService : IChecklistService, IScopedService
                 Order = task.Order,
                 EstimatedHours = task.EstimatedHours,
                 Status = "Pending",
-                IsActive = true
+                IsActive = true,
+                // Copy tenant and app information from template task
+                TenantId = task.TenantId,
+                AppCode = task.AppCode
             }).ToList();
+
+            // Initialize create info for each task
+            foreach (var task in instanceTasks)
+            {
+                task.InitCreateInfo(_userContext);
+            }
 
             await _checklistTaskRepository.InsertRangeAsync(instanceTasks);
 

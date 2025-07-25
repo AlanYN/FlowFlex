@@ -482,7 +482,10 @@ namespace FlowFlex.Application.Service.OW
                 IsActive = true,
                 Version = 1,
                 // Copy assignments from source questionnaire
-                Assignments = sourceQuestionnaire.Assignments
+                Assignments = sourceQuestionnaire.Assignments,
+                // Copy tenant and app information from source questionnaire
+                TenantId = sourceQuestionnaire.TenantId,
+                AppCode = sourceQuestionnaire.AppCode
             };
 
             // Initialize create information with proper ID and timestamps
@@ -742,6 +745,12 @@ namespace FlowFlex.Application.Service.OW
             entity.TemplateId = templateId;
             entity.StructureJson = template.StructureJson; // Inherit template structure
             entity.Version = 1;
+            // Copy tenant and app information from template
+            entity.TenantId = template.TenantId;
+            entity.AppCode = template.AppCode;
+
+            // Initialize create information with proper ID and timestamps
+            entity.InitCreateInfo(_userContext);
 
             // Calculate question statistics
             await CalculateQuestionStatistics(entity);

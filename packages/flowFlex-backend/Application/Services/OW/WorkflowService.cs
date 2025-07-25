@@ -372,13 +372,11 @@ namespace FlowFlex.Application.Service.OW
                 Status = originalWorkflow.Status, // Keep the same status as original
                 IsActive = originalWorkflow.IsActive, // Keep the same active status as original
                 IsDefault = false, // Duplicated workflows are not default
-                Version = 1, // Reset version for duplicated workflow
-                TenantId = originalWorkflow.TenantId,
-                CreateBy = GetCurrentUserName(),
-                ModifyBy = GetCurrentUserName(),
-                CreateUserId = GetCurrentUserId(),
-                ModifyUserId = GetCurrentUserId()
+                Version = 1 // Reset version for duplicated workflow
             };
+
+            // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
+            duplicatedWorkflow.InitCreateInfo(_userContext);
 
             var newWorkflowId = await _workflowRepository.InsertReturnSnowflakeIdAsync(duplicatedWorkflow);
 
@@ -400,19 +398,12 @@ namespace FlowFlex.Application.Service.OW
                     ChecklistId = stage.ChecklistId,
                     QuestionnaireId = stage.QuestionnaireId,
                     Color = stage.Color,
-
-
                     WorkflowVersion = stage.WorkflowVersion,
-                    IsActive = stage.IsActive,
-                    TenantId = stage.TenantId,
-                    CreateBy = GetCurrentUserName(),
-                    ModifyBy = GetCurrentUserName(),
-                    CreateUserId = GetCurrentUserId(),
-                    ModifyUserId = GetCurrentUserId()
+                    IsActive = stage.IsActive
                 };
 
-                // Generate snowflake ID for the duplicated stage
-                duplicatedStage.InitNewId();
+                // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
+                duplicatedStage.InitCreateInfo(_userContext);
 
                 await _stageRepository.InsertAsync(duplicatedStage);
             }

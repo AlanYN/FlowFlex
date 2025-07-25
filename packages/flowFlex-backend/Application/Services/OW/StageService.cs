@@ -529,11 +529,15 @@ namespace FlowFlex.Application.Service.OW
                 ChecklistId = sourceStage.ChecklistId,
                 QuestionnaireId = sourceStage.QuestionnaireId,
                 Color = sourceStage.Color,
-
                 WorkflowVersion = targetWorkflow.Version.ToString(),
-                IsActive = sourceStage.IsActive
-            }
-            ;
+                IsActive = sourceStage.IsActive,
+                // Copy tenant and app information from source stage
+                TenantId = sourceStage.TenantId,
+                AppCode = sourceStage.AppCode
+            };
+
+            // Initialize create information with proper ID and timestamps
+            newStage.InitCreateInfo(_userContext);
 
             await _stageRepository.InsertAsync(newStage);
             return newStage.Id;

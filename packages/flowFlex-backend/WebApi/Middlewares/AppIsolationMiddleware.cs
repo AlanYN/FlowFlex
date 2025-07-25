@@ -97,8 +97,9 @@ namespace FlowFlex.WebApi.Middlewares
                 return appCode;
             }
 
-            // 3. Get from query parameters
-            appCode = context.Request.Query["appCode"].FirstOrDefault();
+            // 3. Get from query parameters (support both appCode and app_code)
+            appCode = context.Request.Query["appCode"].FirstOrDefault()
+                   ?? context.Request.Query["app_code"].FirstOrDefault();
             if (!string.IsNullOrEmpty(appCode))
             {
                 _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from query parameter: {AppCode}", appCode);
@@ -144,8 +145,9 @@ namespace FlowFlex.WebApi.Middlewares
                 return tenantId;
             }
 
-            // 3. Get from query parameters
-            tenantId = context.Request.Query["tenantId"].FirstOrDefault();
+            // 3. Get from query parameters (support both tenantId and tenant_id)
+            tenantId = context.Request.Query["tenantId"].FirstOrDefault()
+                    ?? context.Request.Query["tenant_id"].FirstOrDefault();
             if (!string.IsNullOrEmpty(tenantId))
             {
                 _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from query parameter: {TenantId}", tenantId);

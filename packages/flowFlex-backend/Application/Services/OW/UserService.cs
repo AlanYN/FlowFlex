@@ -66,15 +66,8 @@ namespace FlowFlex.Application.Services.OW
             _logger.LogInformation("RegisterAsync called for email: {Email}, SkipEmailVerification: {SkipEmailVerification}", 
                 request.Email, request.SkipEmailVerification);
 
-            // Get current tenant ID from context, fallback to email domain inference
-            var currentTenantId = _userContextService.GetCurrentTenantId();
-            if (string.IsNullOrEmpty(currentTenantId) || currentTenantId == "DEFAULT")
-            {
-                currentTenantId = TenantHelper.GetTenantIdByEmail(request.Email);
-            }
-
-            // Check if email already exists in current tenant
-            var existingUser = await _userRepository.GetByEmailAndTenantAsync(request.Email, currentTenantId);
+            // Check if email already exists (no tenant validation)
+            var existingUser = await _userRepository.GetByEmailAsync(request.Email);
 
             if (existingUser != null)
             {
@@ -107,12 +100,12 @@ namespace FlowFlex.Application.Services.OW
                         {
                             if (wasAlreadyVerified)
                             {
-                                // Send password reset confirmation for existing verified users
+                                // Send password reset confirmation for already verified users
                                 await _emailService.SendPasswordResetConfirmationAsync(existingUser.Email, existingUser.Username);
                             }
                             else
                             {
-                                // Send welcome email for newly verified users
+                                // Send welcome email for first-time verified users
                                 await _emailService.SendWelcomeEmailAsync(existingUser.Email, existingUser.Username);
                             }
                         }
@@ -122,11 +115,11 @@ namespace FlowFlex.Application.Services.OW
                         }
                     });
 
-                    _logger.LogInformation("Portal user password reset completed successfully for email: {Email}", request.Email);
+                    _logger.LogInformation("Portal user registration/password reset completed successfully for: {Email}", request.Email);
                     return _mapper.Map<UserDto>(existingUser);
                 }
 
-                // If email already exists and not skipping verification
+                // For verified users, check if verification code is correct and allow password reset
                 if (existingUser.EmailVerified)
                 {
                     // For verified users, check if verification code is correct and allow password reset
@@ -219,7 +212,7 @@ namespace FlowFlex.Application.Services.OW
                     Status = "active",
                     EmailVerificationCode = null,
                     VerificationCodeExpiry = null,
-                    TenantId = currentTenantId
+                    TenantId = "DEFAULT" // Set default tenant ID
                 };
 
                 // Initialize create information
@@ -255,15 +248,8 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>Whether sending was successful</returns>
         public async Task<bool> SendVerificationCodeAsync(SendVerificationCodeRequestDto request)
         {
-            // Get current tenant ID from context, fallback to email domain inference
-            var currentTenantId = _userContextService.GetCurrentTenantId();
-            if (string.IsNullOrEmpty(currentTenantId) || currentTenantId == "DEFAULT")
-            {
-                currentTenantId = TenantHelper.GetTenantIdByEmail(request.Email);
-            }
-
-            // Get user in current tenant
-            var user = await _userRepository.GetByEmailAndTenantAsync(request.Email, currentTenantId);
+            // Get user by email directly (no tenant validation)
+            var user = await _userRepository.GetByEmailAsync(request.Email);
 
             // Generate verification code
             var verificationCode = GenerateVerificationCode();
@@ -280,7 +266,7 @@ namespace FlowFlex.Application.Services.OW
                     Status = "pending", // Pending verification status
                     EmailVerificationCode = verificationCode,
                     VerificationCodeExpiry = DateTimeOffset.Now.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
-                    TenantId = currentTenantId // Set tenant ID
+                    TenantId = "DEFAULT" // Set default tenant ID
                 };
 
                 // Initialize create information with proper ID and timestamps
@@ -305,19 +291,12 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Verify email
         /// </summary>
-        /// <param name="request">Verify email request</param>
+        /// <param name="request">Email verification request</param>
         /// <returns>Whether verification was successful</returns>
         public async Task<bool> VerifyEmailAsync(VerifyEmailRequestDto request)
         {
-            // Get current tenant ID from context, fallback to email domain inference
-            var currentTenantId = _userContextService.GetCurrentTenantId();
-            if (string.IsNullOrEmpty(currentTenantId) || currentTenantId == "DEFAULT")
-            {
-                currentTenantId = TenantHelper.GetTenantIdByEmail(request.Email);
-            }
-
-            // Get user in current tenant
-            var user = await _userRepository.GetByEmailAndTenantAsync(request.Email, currentTenantId);
+            // Get user by email directly (no tenant validation)
+            var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
             {
                 throw new CRMException(System.Net.HttpStatusCode.NotFound, "User does not exist");
@@ -359,15 +338,8 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>Login response</returns>
         public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request)
         {
-            // Get current tenant ID from context, fallback to email domain inference
-            var currentTenantId = _userContextService.GetCurrentTenantId();
-            if (string.IsNullOrEmpty(currentTenantId) || currentTenantId == "DEFAULT")
-            {
-                currentTenantId = TenantHelper.GetTenantIdByEmail(request.Email);
-            }
-
-            // Get user in current tenant
-            var user = await _userRepository.GetByEmailAndTenantAsync(request.Email, currentTenantId);
+            // Get user by email directly (no tenant validation)
+            var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
             {
                 throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "User does not exist");
@@ -425,15 +397,8 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>Login response</returns>
         public async Task<LoginResponseDto> LoginWithCodeAsync(LoginWithCodeRequestDto request)
         {
-            // Get current tenant ID from context, fallback to email domain inference
-            var currentTenantId = _userContextService.GetCurrentTenantId();
-            if (string.IsNullOrEmpty(currentTenantId) || currentTenantId == "DEFAULT")
-            {
-                currentTenantId = TenantHelper.GetTenantIdByEmail(request.Email);
-            }
-
-            // Get user in current tenant
-            var user = await _userRepository.GetByEmailAndTenantAsync(request.Email, currentTenantId);
+            // Get user by email directly (no tenant validation)
+            var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
             {
                 throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "User does not exist");
@@ -597,15 +562,8 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>User DTO</returns>
         public async Task<UserDto> CreateTestUserAsync(string email, string password)
         {
-            // Get current tenant ID from context, fallback to email domain inference
-            var currentTenantId = _userContextService.GetCurrentTenantId();
-            if (string.IsNullOrEmpty(currentTenantId) || currentTenantId == "DEFAULT")
-            {
-                currentTenantId = TenantHelper.GetTenantIdByEmail(email);
-            }
-
-            // Check if user already exists in current tenant
-            var existingUser = await _userRepository.GetByEmailAndTenantAsync(email, currentTenantId);
+            // Check if user already exists (no tenant validation)
+            var existingUser = await _userRepository.GetByEmailAsync(email);
             if (existingUser != null)
             {
                 return _mapper.Map<UserDto>(existingUser);
@@ -619,7 +577,7 @@ namespace FlowFlex.Application.Services.OW
                 PasswordHash = BC.HashPassword(password),
                 EmailVerified = true,
                 Status = "active",
-                TenantId = currentTenantId
+                TenantId = "DEFAULT" // Set default tenant ID
             };
             user.InitCreateInfo(null);
 

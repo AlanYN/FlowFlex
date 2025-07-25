@@ -76,6 +76,7 @@
 							v-model="loginForm.email"
 							:placeholder="t('sys.login.accountPlaceholder')"
 							class="!bg-white/10 !text-white !placeholder-white/50"
+							@keyup.enter="handleLogin"
 						/>
 					</el-form-item>
 					<el-form-item prop="password">
@@ -88,6 +89,7 @@
 							:placeholder="t('sys.login.passwordPlaceholder')"
 							show-password
 							class="!bg-white/10 !text-white !placeholder-white/50"
+							@keyup.enter="handleLogin"
 						/>
 					</el-form-item>
 					<el-form-item class="mt-6">

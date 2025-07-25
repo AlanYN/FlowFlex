@@ -163,6 +163,8 @@ export interface GlobConfig {
 	apiProName?: string;
 	// 调用iam的接口域名
 	iamUrl?: string;
+	// 门户访问地址
+	domainUrl?: string;
 }
 
 export interface GlobEnvConfig {
@@ -180,6 +182,8 @@ export interface GlobEnvConfig {
 	VITE_GLOB_SSOURL?: string;
 	// 当前环境
 	VITE_GLOB_ENVIRONMENT?: string;
+	// 门户访问地址
+	VITE_GLOB_DOMAIN_URL?: string;
 }
 
 export interface RoleMenu {
@@ -200,7 +204,7 @@ export interface CompanyEnum {
 }
 
 export interface UserInfo {
-	tenantId?: number;
+	tenantId?: string;
 	userId?: string | number;
 	userName?: string;
 	realName?: string;
