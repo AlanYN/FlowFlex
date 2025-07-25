@@ -6,9 +6,8 @@ using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -103,7 +102,7 @@ namespace FlowFlex.Application.Services.Action
                         ValidatePythonConfig(jToken);
                         break;
                     case ActionTypeEnum.HttpApi:
-                        // TODO: Add HTTP API config validation
+                        ValidateHttpApiConfig(jToken);
                         break;
                     case ActionTypeEnum.SendEmail:
                         // TODO: Add Email config validation
@@ -136,6 +135,31 @@ namespace FlowFlex.Application.Services.Action
             }
 
             _logger.LogInformation("Python action configuration validated successfully");
+        }
+
+        private void ValidateHttpApiConfig(JToken actionConfig)
+        {
+            var config = actionConfig.ToObject<HttpApiConfigDto>(new Newtonsoft.Json.JsonSerializer
+            {
+                ContractResolver = new CamelCasePropertyNamesContractResolver()
+            });
+
+            if (config == null)
+            {
+                throw new ArgumentException("Failed to parse HTTP API action configuration");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.Url))
+            {
+                throw new ArgumentException("HTTP API URL is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.Method))
+            {
+                throw new ArgumentException("HTTP API Method is required");
+            }
+
+            _logger.LogInformation("HTTP API action configuration validated successfully");
         }
 
         public async Task<bool> DeleteActionDefinitionAsync(long id)
