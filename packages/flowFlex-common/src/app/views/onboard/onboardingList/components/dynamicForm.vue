@@ -501,7 +501,7 @@
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
 import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData } from '#/onboard';
-import { Section } from '#/section';
+import { QuestionnaireSection } from '#/section';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -697,7 +697,7 @@ const handleInputChange = (questionId: string, value: any) => {
 };
 
 // 复杂表单值变化处理
-const handleHasOtherQuestion = (question: Section, value: any) => {
+const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 	if (question.type == 'radio') {
 		handleRadioClick(question.id, value);
 	} else {
