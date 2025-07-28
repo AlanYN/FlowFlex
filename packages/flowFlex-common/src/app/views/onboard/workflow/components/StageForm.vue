@@ -119,18 +119,8 @@ import { Options } from '#/setting';
 import StageComponentsSelector from './StageComponentsSelector.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { Checklist, Questionnaire, Stage } from '#/onboard';
+import { Checklist, Questionnaire, Stage, ComponentData } from '#/onboard';
 
-interface ComponentData {
-	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
-	order: number;
-	isEnabled: boolean;
-	staticFields: string[];
-	checklistIds: string[];
-	questionnaireIds: string[];
-	checklistNames?: string[];
-	questionnaireNames?: string[];
-}
 // 颜色选项
 const colorOptions = stageColorOptions;
 

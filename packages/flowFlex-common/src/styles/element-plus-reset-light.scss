@@ -381,6 +381,11 @@
 		}
 	}
 
+	.el-tag {
+		border-radius: 20px;
+		@apply px-2
+	}
+
 	.el-tag.el-tag--primary {
 		@apply bg-primary-500 text-white-100;
 	}

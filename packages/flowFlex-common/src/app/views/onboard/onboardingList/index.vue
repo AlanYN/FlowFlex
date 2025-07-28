@@ -1605,7 +1605,7 @@ html.dark {
 
 /* 工作流名称标签样式 */
 .workflow-name-tag {
-	@apply block px-3 py-1 text-sm font-medium text-primary-600 bg-primary-50 rounded-full truncate;
+	@apply block px-3 py-1 text-sm text-center font-medium text-primary-600 bg-primary-50 rounded-full truncate;
 	border: 1px solid #dbeafe;
 	transition: all 0.3s ease;
 }

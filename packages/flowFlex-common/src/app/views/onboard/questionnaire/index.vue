@@ -96,14 +96,14 @@
 					>
 						<!-- 卡片头部 -->
 						<template #header>
-							<div class="card-header -m-5 p-4 pb-3">
+							<div class="card-header -m-5 p-4">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center space-x-3">
 										<div class="card-icon p-2 rounded-full">
 											<el-icon class="h-5 w-5"><Document /></el-icon>
 										</div>
 										<h3
-											class="card-title text-2xl font-semibold leading-tight tracking-tight line-clamp-2"
+											class="card-title text-xl font-semibold leading-tight tracking-tight line-clamp-2"
 											:title="questionnaire.name"
 											style="line-height: 60px"
 										>
@@ -241,30 +241,6 @@
 								</div>
 							</div>
 						</div>
-
-						<!-- 卡片底部 -->
-						<template #footer>
-							<div class="card-footer flex justify-between -m-6 mt-0 p-4">
-								<el-button
-									plain
-									size="small"
-									class="card-action-btn"
-									@click="handlePreviewQuestionnaire(questionnaire.id)"
-								>
-									<el-icon class="mr-2"><View /></el-icon>
-									Preview
-								</el-button>
-								<el-button
-									plain
-									size="small"
-									class="card-action-btn"
-									@click="handleNewQuestionnaire(questionnaire.id)"
-								>
-									<el-icon class="mr-2"><Edit /></el-icon>
-									Edit
-								</el-button>
-							</div>
-						</template>
 					</el-card>
 				</template>
 			</div>
@@ -348,6 +324,8 @@
 			v-model:visible="showPreview"
 			:questionnaire-id="selectedQuestionnaireId"
 			:questionnaire-data="selectedQuestionnaireData"
+			:workflows="workflows"
+			:all-stages="allStages"
 		/>
 	</div>
 </template>
@@ -682,6 +660,7 @@ const handlePreviewQuestionnaire = async (id: string) => {
 						accept: item.accept || '',
 						step: typeof item.step === 'number' ? item.step : undefined,
 					})),
+					...section,
 				})) || [];
 
 			// 构建完整的预览数据
@@ -702,6 +681,8 @@ const handlePreviewQuestionnaire = async (id: string) => {
 	} catch (error) {
 		ElMessage.error('Failed to prepare preview data');
 	}
+
+	console.log('selectedQuestionnaireData.value:', selectedQuestionnaireData.value);
 };
 
 const handleDeleteQuestionnaire = (id: string) => {
@@ -850,6 +831,9 @@ const handleLimitUpdate = () => {
 	border: 1px solid var(--primary-100);
 	@apply dark:border-black-200 dark:bg-black-400;
 	transition: all 0.3s ease;
+	border-bottom: 6px solid var(--primary-500);
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 }
 
 .questionnaire-card:hover {
@@ -860,7 +844,6 @@ const handleLimitUpdate = () => {
 .card-header {
 	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
 	@apply dark:from-primary-600 dark:to-primary-500;
-	min-height: 100px; /* 减少头部最小高度 */
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
@@ -882,7 +865,6 @@ const handleLimitUpdate = () => {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	word-break: break-word;
-	height: 2.6em; /* 减少高度，更紧凑 */
 }
 
 .card-more-btn {
@@ -898,9 +880,10 @@ const handleLimitUpdate = () => {
 .card-link {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
-	width: 150px; /* 固定宽度 */
+	width: 149px; /* 固定宽度 */
 	flex-shrink: 0; /* 防止收缩 */
 	padding-right: 8px; /* 增加右边距 */
+	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
 }
 
 .card-link:hover {
@@ -957,12 +940,6 @@ const handleLimitUpdate = () => {
 .card-value {
 	color: var(--primary-700);
 	@apply dark:text-primary-300;
-}
-
-.card-footer {
-	background-color: var(--primary-50);
-	border-top: 1px solid var(--primary-100);
-	@apply dark:bg-primary-400 dark:border-primary-500;
 }
 
 /* 删除对话框样式 */

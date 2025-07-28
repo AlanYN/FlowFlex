@@ -4,8 +4,11 @@
 		<div class="workflow-header">
 			<h1 class="title">Workflows</h1>
 			<div class="actions">
-
-				<el-button type="primary" @click="showNewWorkflowDialog" :disabled="loading.createWorkflow">
+				<el-button
+					type="primary"
+					@click="showNewWorkflowDialog"
+					:disabled="loading.createWorkflow"
+				>
 					<el-icon v-if="loading.createWorkflow">
 						<Loading />
 					</el-icon>
@@ -26,25 +29,44 @@
 
 			<!-- 工作流内容 -->
 			<div class="workflow-list" v-else-if="workflow">
-				<div class="workflow-card rounded-md" :class="{ active: (displayWorkflow || workflow).isActive }">
+				<div
+					class="workflow-card rounded-md"
+					:class="{ active: (displayWorkflow || workflow).isActive }"
+				>
 					<div class="workflow-card-header">
 						<div class="left-section">
 							<div class="title-and-tags">
 								<span class="workflow-name">
 									{{ (displayWorkflow || workflow).name }}
 								</span>
-								<el-tag v-if="(displayWorkflow || workflow).isDefault" type="warning" effect="light"
-									size="small" class="default-tag rounded-md">
+								<el-tag
+									v-if="(displayWorkflow || workflow).isDefault"
+									type="warning"
+									effect="light"
+									size="small"
+									class="default-tag rounded-md"
+								>
 									<div class="flex items-center gapx-2">
 										<StarIcon class="star-icon" />
 										Default
 									</div>
 								</el-tag>
-								<el-tag v-if="(displayWorkflow || workflow).status === 'active'" type="success"
-									effect="light" size="small" class="rounded-md">
+								<el-tag
+									v-if="(displayWorkflow || workflow).status === 'active'"
+									type="success"
+									effect="light"
+									size="small"
+									class="rounded-md"
+								>
 									Active
 								</el-tag>
-								<el-tag v-else type="info" size="small" effect="light" class="rounded-md">
+								<el-tag
+									v-else
+									type="info"
+									size="small"
+									effect="light"
+									class="rounded-md"
+								>
 									Inactive
 								</el-tag>
 							</div>
@@ -54,10 +76,19 @@
 						</div>
 						<div class="right-section">
 							<!-- 工作流选择器 -->
-							<el-select v-model="selectedWorkflow" placeholder="Select Workflow" size="default"
-								class="workflow-selector" @change="onWorkflowChange">
-								<el-option v-for="workflowItem in workflowListData" :key="workflowItem.id"
-									:label="workflowItem.name" :value="workflowItem.id">
+							<el-select
+								v-model="selectedWorkflow"
+								placeholder="Select Workflow"
+								size="default"
+								class="workflow-selector"
+								@change="onWorkflowChange"
+							>
+								<el-option
+									v-for="workflowItem in workflowListData"
+									:key="workflowItem.id"
+									:label="workflowItem.name"
+									:value="workflowItem.id"
+								>
 									<div class="flex items-center justify-between">
 										<div>
 											<el-icon v-if="workflowItem.id === workflow?.id">
@@ -67,7 +98,10 @@
 										</div>
 										<div class="flex items-center gap-1">
 											<div v-if="workflowItem.isDefault">⭐</div>
-											<el-icon v-if="workflowItem.status === 'inactive'" class="inactive-icon">
+											<el-icon
+												v-if="workflowItem.status === 'inactive'"
+												class="inactive-icon"
+											>
 												<VideoPause />
 											</el-icon>
 										</div>
@@ -76,13 +110,18 @@
 							</el-select>
 
 							<!-- 更多操作按钮 -->
-							<el-dropdown trigger="click" @command="(cmd) => workflow && handleCommand(cmd, workflow)"
-								:disabled="loading.activateWorkflow ||
+							<el-dropdown
+								trigger="click"
+								@command="(cmd) => workflow && handleCommand(cmd)"
+								:disabled="
+									loading.activateWorkflow ||
 									loading.deactivateWorkflow ||
 									loading.duplicateWorkflow ||
 									loading.updateWorkflow ||
 									loading.exportWorkflow
-									" :teleported="false" :popper-options="{
+								"
+								:teleported="false"
+								:popper-options="{
 									modifiers: [
 										{
 											name: 'computeStyles',
@@ -92,16 +131,22 @@
 											},
 										},
 									],
-								}">
-								<el-button class="more-actions-btn rounded-md" aria-label="More actions"
-									:aria-expanded="false">
-									<el-icon v-if="
-										loading.activateWorkflow ||
-										loading.deactivateWorkflow ||
-										loading.duplicateWorkflow ||
-										loading.updateWorkflow ||
-										loading.exportWorkflow
-									">
+								}"
+							>
+								<el-button
+									class="more-actions-btn rounded-md"
+									aria-label="More actions"
+									:aria-expanded="false"
+								>
+									<el-icon
+										v-if="
+											loading.activateWorkflow ||
+											loading.deactivateWorkflow ||
+											loading.duplicateWorkflow ||
+											loading.updateWorkflow ||
+											loading.exportWorkflow
+										"
+									>
 										<Loading />
 									</el-icon>
 									<el-icon v-else>
@@ -116,21 +161,31 @@
 											</el-icon>
 											Edit Workflow
 										</el-dropdown-item>
-										<el-dropdown-item v-if="
-											!workflow.isDefault && workflow.status === 'active'
-										" divided command="setDefault">
+										<el-dropdown-item
+											v-if="
+												!workflow.isDefault && workflow.status === 'active'
+											"
+											divided
+											command="setDefault"
+										>
 											<el-icon>
 												<Star />
 											</el-icon>
 											Set as Default
 										</el-dropdown-item>
-										<el-dropdown-item v-if="workflow.status === 'active'" command="deactivate">
+										<el-dropdown-item
+											v-if="workflow.status === 'active'"
+											command="deactivate"
+										>
 											<el-icon>
 												<CircleClose />
 											</el-icon>
 											Set as Inactive
 										</el-dropdown-item>
-										<el-dropdown-item v-if="workflow.status === 'inactive'" command="activate">
+										<el-dropdown-item
+											v-if="workflow.status === 'inactive'"
+											command="activate"
+										>
 											<el-icon>
 												<Check />
 											</el-icon>
@@ -191,7 +246,10 @@
 									</span>
 								</div>
 								<div v-if="(displayWorkflow || workflow).endDate" class="date-item">
-									<el-icon class="calendar-icon" style="color: var(--el-color-danger)">
+									<el-icon
+										class="calendar-icon"
+										style="color: var(--el-color-danger)"
+									>
 										<Calendar />
 									</el-icon>
 									<span class="date-label">End:</span>
@@ -203,7 +261,11 @@
 								</div>
 							</div>
 							<div class="action-buttons-group">
-								<button class="save-version-btn" @click="saveNewVersion" :disabled="!workflow || loading.createVersion">
+								<button
+									class="save-version-btn"
+									@click="saveNewVersion"
+									:disabled="!workflow || loading.createVersion"
+								>
 									<el-icon v-if="loading.createVersion" class="mr-1 text-primary">
 										<Loading />
 									</el-icon>
@@ -212,7 +274,11 @@
 									</el-icon>
 									<span>Save New Version</span>
 								</button>
-								<button class="add-stage-btn" @click="addStage()" :disabled="loading.createStage">
+								<button
+									class="add-stage-btn"
+									@click="addStage()"
+									:disabled="loading.createStage"
+								>
 									<el-icon v-if="loading.createStage" class="mr-1 text-primary">
 										<Loading />
 									</el-icon>
@@ -227,12 +293,22 @@
 						<!-- Stages 标题 -->
 						<div class="stages-header">
 							<div class="stages-header-actions">
-								<el-tag v-if="displayWorkflow && displayWorkflow.id !== workflow.id" type="info"
-									effect="light" size="small" class="viewing-history-tag">
+								<el-tag
+									v-if="displayWorkflow && displayWorkflow.id !== workflow.id"
+									type="info"
+									effect="light"
+									size="small"
+									class="viewing-history-tag"
+								>
 									Viewing Historical Version
 								</el-tag>
-								<el-button v-if="displayWorkflow && displayWorkflow.id !== workflow.id" type="primary"
-									size="small" @click="displayWorkflow = null" class="back-to-current-btn">
+								<el-button
+									v-if="displayWorkflow && displayWorkflow.id !== workflow.id"
+									type="primary"
+									size="small"
+									@click="displayWorkflow = null"
+									class="back-to-current-btn"
+								>
 									<el-icon>
 										<ArrowLeft />
 									</el-icon>
@@ -241,15 +317,23 @@
 							</div>
 						</div>
 
-						<StagesList v-model:stages="(displayWorkflow || workflow).stages" :workflow-id="workflow.id"
-							:is-editing="isEditing &&
+						<StagesList
+							v-model:stages="(displayWorkflow || workflow).stages"
+							:workflow-id="workflow.id"
+							:is-editing="
+								isEditing &&
 								(!displayWorkflow || displayWorkflow.id === workflow.id)
-								" :loading="{
+							"
+							:loading="{
 								stages: loading.stages,
 								deleteStage: loading.deleteStage,
 								sortStages: loading.sortStages,
-							}" @edit="(stage) => editStage(stage)" @delete="(stageId) => deleteStage(stageId)" @drag-start="onDragStart"
-							@order-changed="() => updateStagesOrder()" />
+							}"
+							@edit="(stage) => editStage(stage)"
+							@delete="(stageId) => deleteStage(stageId)"
+							@drag-start="onDragStart"
+							@order-changed="() => updateStagesOrder()"
+						/>
 					</div>
 
 					<!-- 总阶段数信息 -->
@@ -263,8 +347,16 @@
 		</div>
 
 		<!-- 工作流表单对话框 -->
-		<el-dialog v-model="dialogVisible.workflowForm" :title="dialogTitle" :width="dialogWidth + 'px'"
-			destroy-on-close custom-class="workflow-dialog" :show-close="true" :close-on-click-modal="false" draggable>
+		<el-dialog
+			v-model="dialogVisible.workflowForm"
+			:title="dialogTitle"
+			:width="dialogWidth + 'px'"
+			destroy-on-close
+			custom-class="workflow-dialog"
+			:show-close="true"
+			:close-on-click-modal="false"
+			draggable
+		>
 			<template #header>
 				<div class="dialog-header">
 					<h2 class="dialog-title">
@@ -275,18 +367,32 @@
 					</p>
 				</div>
 			</template>
-			<NewWorkflowForm v-if="dialogVisible.workflowForm" :initial-data="isEditingWorkflow
-					? isEditingFromHistory
-						? editingWorkflowData
-						: workflow
-					: undefined
-				" :is-editing="isEditingWorkflow" @submit="handleWorkflowSubmit" @cancel="handleWorkflowCancel"
-				:loading="isEditingWorkflow ? loading.updateWorkflow : loading.createWorkflow" />
+			<NewWorkflowForm
+				v-if="dialogVisible.workflowForm"
+				:initial-data="
+					isEditingWorkflow
+						? isEditingFromHistory
+							? editingWorkflowData
+							: workflow
+						: undefined
+				"
+				:is-editing="isEditingWorkflow"
+				@submit="handleWorkflowSubmit"
+				@cancel="handleWorkflowCancel"
+				:loading="isEditingWorkflow ? loading.updateWorkflow : loading.createWorkflow"
+			/>
 		</el-dialog>
 
 		<!-- 版本历史对话框 -->
-		<el-dialog v-model="dialogVisible.versionHistory" width="1000px" destroy-on-close
-			custom-class="version-history-dialog" :show-close="true" :close-on-click-modal="false" draggable>
+		<el-dialog
+			v-model="dialogVisible.versionHistory"
+			width="1000px"
+			destroy-on-close
+			custom-class="version-history-dialog"
+			:show-close="true"
+			:close-on-click-modal="false"
+			draggable
+		>
 			<template #header>
 				<div class="version-dialog-header">
 					<h2 class="version-dialog-title">Workflow Version History</h2>
@@ -295,16 +401,26 @@
 			</template>
 
 			<div class="version-history-content">
-				<el-table :data="versionHistoryData" :border="false" :stripe="false" v-loading="loading.versions"
-					class="version-history-table" header-row-class-name="version-table-header"
-					row-class-name="version-table-row">
+				<el-table
+					:data="versionHistoryData"
+					:border="false"
+					:stripe="false"
+					v-loading="loading.versions"
+					class="version-history-table"
+					header-row-class-name="version-table-header"
+					row-class-name="version-table-row"
+				>
 					<template #empty>
 						<el-empty description="No Data" :image-size="50" />
 					</template>
 
 					<el-table-column prop="name" label="Name" width="200">
 						<template #default="scope">
-							<el-tooltip :content="scope.row.name" placement="top" :disabled="!scope.row.name || scope.row.name.length <= 25">
+							<el-tooltip
+								:content="scope.row.name"
+								placement="top"
+								:disabled="!scope.row.name || scope.row.name.length <= 25"
+							>
 								<div class="version-name">{{ scope.row.name }}</div>
 							</el-tooltip>
 						</template>
@@ -320,8 +436,12 @@
 
 					<el-table-column prop="status" label="Status" width="100" align="center">
 						<template #default="scope">
-							<el-tag :type="scope.row.status === 'Active' ? 'success' : 'info'" effect="light"
-								size="small" class="status-tag">
+							<el-tag
+								:type="scope.row.status === 'Active' ? 'success' : 'info'"
+								effect="light"
+								size="small"
+								class="status-tag"
+							>
 								{{ scope.row.status }}
 							</el-tag>
 						</template>
@@ -329,11 +449,22 @@
 
 					<el-table-column prop="isDefault" label="Default" width="100" align="center">
 						<template #default="scope">
-							<el-tag v-if="scope.row.isDefault" type="warning" effect="light" size="small"
-								class="default-tag">
+							<el-tag
+								v-if="scope.row.isDefault"
+								type="warning"
+								effect="light"
+								size="small"
+								class="default-tag"
+							>
 								Default
 							</el-tag>
-							<el-tag v-else type="info" effect="light" size="small" class="status-tag">
+							<el-tag
+								v-else
+								type="info"
+								effect="light"
+								size="small"
+								class="status-tag"
+							>
 								No
 							</el-tag>
 						</template>
@@ -341,7 +472,10 @@
 
 					<el-table-column prop="startDate" label="Start Date" width="130">
 						<template #default="scope">
-							<el-tooltip :content="formatDate(scope.row.startDate) || 'Not set'" placement="top">
+							<el-tooltip
+								:content="formatDate(scope.row.startDate) || 'Not set'"
+								placement="top"
+							>
 								<span class="date-text">
 									{{ formatDate(scope.row.startDate) || 'Not set' }}
 								</span>
@@ -368,13 +502,24 @@
 					<el-table-column fixed="right" label="Actions" width="130">
 						<template #default="scope">
 							<div class="action-buttons">
-								<el-button link type="primary" size="small" @click="selectVersion(scope.row)"
-									class="view-btn">
+								<el-button
+									link
+									type="primary"
+									size="small"
+									@click="selectVersion(scope.row)"
+									class="view-btn"
+								>
 									View Stages
 								</el-button>
 								<el-tooltip content="Edit Workflow" placement="top">
-									<el-button link type="primary" size="small" class="edit-btn"
-										@click="editWorkflowVersion(scope.row)" :disabled="loading.updateWorkflow">
+									<el-button
+										link
+										type="primary"
+										size="small"
+										class="edit-btn"
+										@click="editWorkflowVersion(scope.row)"
+										:disabled="loading.updateWorkflow"
+									>
 										<el-icon>
 											<Edit />
 										</el-icon>
@@ -396,9 +541,16 @@
 		</el-dialog>
 
 		<!-- 新建/编辑阶段对话框 -->
-		<el-dialog v-model="dialogVisible.stageForm" :title="isEditingStage ? 'Edit Stage' : 'Add New Stage'"
-			:width="bigDialogWidth" destroy-on-close custom-class="workflow-dialog" :show-close="true"
-			:close-on-click-modal="false" draggable>
+		<el-dialog
+			v-model="dialogVisible.stageForm"
+			:title="isEditingStage ? 'Edit Stage' : 'Add New Stage'"
+			:width="bigDialogWidth"
+			destroy-on-close
+			custom-class="workflow-dialog"
+			:show-close="true"
+			:close-on-click-modal="false"
+			draggable
+		>
 			<template #header>
 				<div class="dialog-header">
 					<h2 class="dialog-title">
@@ -413,14 +565,26 @@
 					</p>
 				</div>
 			</template>
-			<StageForm v-if="dialogVisible.stageForm" :stage="currentStage" :is-editing="isEditingStage"
-				:loading="isEditingStage ? loading.updateStage : loading.createStage" :checklists="checklists"
-				:questionnaires="questionnaires" @submit="submitStage" @cancel="dialogVisible.stageForm = false" />
+			<StageForm
+				v-if="dialogVisible.stageForm"
+				:stage="currentStage"
+				:is-editing="isEditingStage"
+				:loading="isEditingStage ? loading.updateStage : loading.createStage"
+				:checklists="checklists"
+				:questionnaires="questionnaires"
+				@submit="submitStage"
+				@cancel="dialogVisible.stageForm = false"
+			/>
 		</el-dialog>
 
 		<!-- 合并阶段对话框 -->
-		<el-dialog v-model="dialogVisible.combineStages" title="Combine Stages" :width="dialogWidth" destroy-on-close
-			draggable>
+		<el-dialog
+			v-model="dialogVisible.combineStages"
+			title="Combine Stages"
+			:width="dialogWidth"
+			destroy-on-close
+			draggable
+		>
 			<div v-if="dialogVisible.combineStages" class="combine-stages-form">
 				<p class="text-sm text-muted mb-4">
 					Select the stages you want to combine. The selected stages will be merged into a
@@ -429,13 +593,20 @@
 
 				<div class="stages-to-combine-list mb-4">
 					<el-checkbox-group v-model="stagesToCombine">
-						<div v-for="stage in getWorkflowStages()" :key="stage.id" class="stage-item-select">
+						<div
+							v-for="stage in getWorkflowStages()"
+							:key="stage.id"
+							class="stage-item-select"
+						>
 							<el-checkbox :label="stage.id">
 								<div class="flex items-center">
-									<div class="stage-color-indicator" :style="{
-										backgroundColor:
-											stage.color || getAvatarColor(stage.name),
-									}"></div>
+									<div
+										class="stage-color-indicator"
+										:style="{
+											backgroundColor:
+												stage.color || getAvatarColor(stage.name),
+										}"
+									></div>
 									<span>{{ stage.name }}</span>
 								</div>
 							</el-checkbox>
@@ -446,12 +617,19 @@
 				<div class="combined-stage-info space-y-4">
 					<div>
 						<label class="block text-sm font-medium mb-1">New Stage Name</label>
-						<el-input v-model="combinedStageName" placeholder="Enter name for combined stage" />
+						<el-input
+							v-model="combinedStageName"
+							placeholder="Enter name for combined stage"
+						/>
 					</div>
 
 					<div>
 						<label class="block text-sm font-medium mb-1">Assigned Group</label>
-						<el-select v-model="combinedStageGroup" placeholder="Select group" class="w-full">
+						<el-select
+							v-model="combinedStageGroup"
+							placeholder="Select group"
+							class="w-full"
+						>
 							<el-option label="Account Management" value="Account Management" />
 							<el-option label="Sales" value="Sales" />
 							<el-option label="Customer" value="Customer" />
@@ -469,22 +647,33 @@
 				</div>
 
 				<div class="flex justify-end space-x-2 mt-6">
-					<el-button @click="dialogVisible.combineStages = false" :disabled="loading.combineStages">
+					<el-button
+						@click="dialogVisible.combineStages = false"
+						:disabled="loading.combineStages"
+					>
 						Cancel
 					</el-button>
-					<el-button type="primary" :loading="loading.combineStages" :disabled="stagesToCombine.length < 2 ||
-						!combinedStageName ||
-						!combinedStageGroup ||
-						!combinedStageDuration ||
-						loading.combineStages
-						" class="combine-btn" :class="{
+					<el-button
+						type="primary"
+						:loading="loading.combineStages"
+						:disabled="
+							stagesToCombine.length < 2 ||
+							!combinedStageName ||
+							!combinedStageGroup ||
+							!combinedStageDuration ||
+							loading.combineStages
+						"
+						class="combine-btn"
+						:class="{
 							'disabled-btn':
 								stagesToCombine.length < 2 ||
 								!combinedStageName ||
 								!combinedStageGroup ||
 								!combinedStageDuration ||
 								loading.combineStages,
-						}" @click="combineSelectedStages">
+						}"
+						@click="combineSelectedStages"
+					>
 						Combine Stages
 					</el-button>
 				</div>
@@ -867,7 +1056,7 @@ const editWorkflowVersion = (version: any) => {
 	}
 };
 
-const handleCommand = (command: string, currentWorkflow: Workflow) => {
+const handleCommand = (command: string) => {
 	switch (command) {
 		case 'edit':
 			isEditingWorkflow.value = true;
@@ -1074,7 +1263,8 @@ const activateWorkflow = async () => {
 		if (endDate < currentDate) {
 			// End date已过期，显示警告提示
 			ElMessageBox.confirm(
-				`⚠️ Warning: The workflow "${workflow.value.name
+				`⚠️ Warning: The workflow "${
+					workflow.value.name
 				}" has an expired end date (${formatDate(workflow.value.endDate)}). 
 
 Activating an expired workflow may cause issues with the onboarding process. Do you want to continue activating this workflow?`,
@@ -1451,8 +1641,9 @@ const exportWorkflow = async () => {
 		// 检查返回的是否为文件流
 		if (res instanceof Blob) {
 			// 生成基础文件名（不含扩展名）
-			const baseFileName = `${workflow.value.name}_workflow_${new Date().toISOString().split('T')[0]
-				}`;
+			const baseFileName = `${workflow.value.name}_workflow_${
+				new Date().toISOString().split('T')[0]
+			}`;
 
 			// 下载文件，自动检测文件类型
 			const success = downloadFileFromBlob(res, baseFileName);
@@ -1936,7 +2127,7 @@ const saveNewVersion = async () => {
 	display: inline-block;
 }
 
-.space-y-4>*+* {
+.space-y-4 > * + * {
 	margin-top: 1rem;
 }
 
@@ -1945,7 +2136,7 @@ const saveNewVersion = async () => {
 	justify-content: flex-end;
 }
 
-.space-x-2>*+* {
+.space-x-2 > * + * {
 	margin-left: 0.5rem;
 }
 
@@ -2172,8 +2363,6 @@ const saveNewVersion = async () => {
 	margin: 0;
 }
 
-
-
 .close-btn {
 	color: #6b7280;
 	border-color: #d1d5db;
@@ -2272,7 +2461,6 @@ const saveNewVersion = async () => {
 
 /* 确保删除按钮为纯红色 - 仅限于删除确认对话框 */
 .delete-confirmation-dialog {
-
 	.el-message-box__btns .danger-confirm-btn,
 	.danger-confirm-btn {
 		background: var(--el-color-danger) !important;
@@ -2346,7 +2534,6 @@ const saveNewVersion = async () => {
 
 /* 停用确认对话框的警告按钮样式 */
 .deactivate-confirmation-dialog {
-
 	.el-message-box__btns .warning-confirm-btn,
 	.warning-confirm-btn {
 		background: var(--el-color-warning) !important;
@@ -2418,7 +2605,6 @@ const saveNewVersion = async () => {
 
 /* 过期日期确认对话框的警告按钮样式 */
 .expired-date-confirmation-dialog {
-
 	.el-message-box__btns .warning-confirm-btn,
 	.warning-confirm-btn {
 		background: var(--el-color-warning) !important;

@@ -17,7 +17,12 @@
 			</div>
 		</template>
 		<el-scrollbar max-height="70vh">
-			<PreviewContent :questionnaire="questionnaire" :loading="loading" />
+			<PreviewContent
+				:questionnaire="questionnaire"
+				:loading="loading"
+				:workflows="workflows"
+				:all-stages="allStages"
+			/>
 		</el-scrollbar>
 
 		<template #footer>
@@ -34,12 +39,15 @@ import { ElMessage, ElScrollbar } from 'element-plus';
 import { getQuestionnaireDetail } from '@/apis/ow/questionnaire';
 import { bigDialogWidth } from '@/settings/projectSetting';
 import PreviewContent from './PreviewContent.vue';
+import { Workflow } from '#/onboard';
 
 // 定义组件属性
 interface Props {
 	questionnaireId?: string;
 	questionnaireData?: any;
 	visible?: boolean;
+	workflows: Workflow[];
+	allStages: any[];
 }
 
 const props = withDefaults(defineProps<Props>(), {

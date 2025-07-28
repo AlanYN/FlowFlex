@@ -20,7 +20,7 @@
 					:key="`assignment-${index}`"
 					class="assignment-item"
 				>
-					<div class="assignment-item-header">
+					<div class="assignment-item-header mb-2">
 						<span class="assignment-label">Assignment {{ index + 1 }}</span>
 						<el-button
 							v-if="extendedAssignments.length > 1"
@@ -34,8 +34,11 @@
 						</el-button>
 					</div>
 
-					<el-form :model="assignment" label-position="top">
-						<el-form-item label="Workflow">
+					<el-form :model="assignment" label-position="left" label-width="80px">
+						<el-form-item>
+							<template #label>
+								<span class="font-bold">Workflow</span>
+							</template>
 							<el-select
 								v-model="assignment.workflowId"
 								placeholder="Select workflow"
@@ -65,7 +68,10 @@
 							</el-select>
 						</el-form-item>
 
-						<el-form-item label="Stage">
+						<el-form-item>
+							<template #label>
+								<span class="font-bold">Stage</span>
+							</template>
 							<el-select
 								v-model="assignment.stageId"
 								placeholder="Select stage"
@@ -306,7 +312,6 @@ defineExpose({
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 0.75rem;
 }
 
 .assignment-label {

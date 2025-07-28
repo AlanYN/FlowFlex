@@ -371,6 +371,7 @@ const questionTypes = [
 		id: 'rating',
 		name: 'Rating',
 		icon: 'Star',
+		isNew: true,
 	},
 	{
 		id: 'multiple_choice_grid',
