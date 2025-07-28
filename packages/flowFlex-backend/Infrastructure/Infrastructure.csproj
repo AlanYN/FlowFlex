@@ -43,6 +43,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Domain\Domain.csproj" />
+    <ProjectReference Include="..\Application.Contracts\Application.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
