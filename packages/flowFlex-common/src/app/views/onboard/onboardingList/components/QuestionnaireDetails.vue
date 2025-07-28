@@ -1,8 +1,6 @@
 <template>
 	<div class="customer-block" v-if="hasQuestionnaireData">
 		<h2 class="text-lg font-semibold">Questionnaire-{{ questionnaireData.name }}</h2>
-		<el-divider />
-
 		<!-- 阶段描述 -->
 		<div class="flex flex-col gap-4">
 			<!-- 问卷表单 -->

@@ -73,53 +73,70 @@
 
 				<!-- 右侧编辑区域 -->
 				<div class="editor-panel">
-					<el-scrollbar ref="editorScrollbarRef">
-						<PrototypeTabs
-							v-model="currentTab"
-							:tabs="tabsConfig"
-							class="editor-tabs"
-							content-class="editor-content"
-						>
+					<PrototypeTabs
+						v-model="currentTab"
+						:tabs="tabsConfig"
+						class="editor-tabs"
+						content-class="editor-content"
+					>
+						<el-scrollbar ref="editorScrollbarRef">
 							<TabPane value="questions" class="questions-pane">
 								<el-card class="editor-card rounded-md">
-									<!-- 分区编辑器 -->
-									<div class="section-header">
-										<h3 class="section-title">Section Editor</h3>
+									<!-- 当前分区信息 -->
+									<div class="mb-4">
+										<div v-if="!isEditingTitle" class="title-display">
+											<div class="text-2xl font-bold">
+												{{ currentSection.name || 'Untitled Section' }}
+											</div>
+											<el-button
+												type="primary"
+												link
+												size="large"
+												@click="isEditingTitle = true"
+												class="edit-btn"
+												:icon="Edit"
+											/>
+										</div>
+										<div v-else class="title-edit">
+											<el-input
+												v-model="currentSection.name"
+												placeholder="Enter section title"
+												@keyup.enter="
+													isEditingTitle = false;
+													updateCurrentSection();
+												"
+												@keyup.esc="isEditingTitle = false"
+												@blur="
+													isEditingTitle = false;
+													updateCurrentSection();
+												"
+												ref="titleInputRef"
+											/>
+										</div>
 									</div>
 
-									<!-- 当前分区信息 -->
-									<div class="current-section-info">
-										<el-form :model="currentSection" label-position="top">
-											<el-row :gutter="16">
-												<el-col :span="12">
-													<el-form-item label="Section Title">
-														<el-input
-															v-model="currentSection.title"
-															placeholder="Enter section title"
-															@input="updateCurrentSection"
-														/>
-													</el-form-item>
-												</el-col>
-												<el-col :span="12">
-													<el-form-item label="Section Description">
-														<el-input
-															v-model="currentSection.description"
-															placeholder="Enter section description"
-															@input="updateCurrentSection"
-														/>
-													</el-form-item>
-												</el-col>
-											</el-row>
-										</el-form>
-									</div>
+									<el-form :model="currentSection" label-position="top">
+										<div class="current-section-info">
+											<el-form-item label="Section Description">
+												<el-input
+													v-model="currentSection.description"
+													placeholder="Enter section description"
+													@input="updateCurrentSection"
+												/>
+											</el-form-item>
+										</div>
+									</el-form>
 
 									<!-- 问题列表 -->
 									<QuestionsList
 										:questions="currentSection.items"
 										:question-types="questionTypes"
+										:sections="sectionsForJumpRules"
+										:current-section-index="currentSectionIndex"
 										@remove-question="handleRemoveQuestion"
 										@edit-question="handleEditQuestion"
 										@drag-end="handleQuestionDragEnd"
+										@update-jump-rules="handleUpdateJumpRules"
 									/>
 
 									<el-divider />
@@ -140,10 +157,15 @@
 							</TabPane>
 
 							<TabPane value="preview" class="preview-pane">
-								<PreviewContent :questionnaire="previewData" :loading="false" />
+								<PreviewContent
+									:questionnaire="previewData"
+									:loading="false"
+									:workflows="workflows"
+									:all-stages="allStages"
+								/>
 							</TabPane>
-						</PrototypeTabs>
-					</el-scrollbar>
+						</el-scrollbar>
+					</PrototypeTabs>
 				</div>
 			</div>
 		</div>
@@ -154,6 +176,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { Edit } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
@@ -165,6 +188,7 @@ import SectionManager from './components/SectionManager.vue';
 import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
 import QuestionEditor from './components/QuestionEditor.vue';
 import QuestionsList from './components/QuestionsList.vue';
+import { Section } from '#/section';
 
 // 引入API
 import {
@@ -172,7 +196,7 @@ import {
 	getQuestionnaireDetail,
 	updateQuestionnaire,
 } from '@/apis/ow/questionnaire';
-import { getWorkflows } from '@/apis/ow';
+import { getWorkflows, getAllStages } from '@/apis/ow';
 
 const router = useRouter();
 const route = useRoute();
@@ -194,6 +218,7 @@ const debouncedUpdateScrollbars = () => {
 const isEditMode = computed(() => !!route.query.questionnaireId);
 const questionnaireId = computed(() => route.query.questionnaireId as string);
 const loading = ref(false);
+const isEditingTitle = ref(false);
 
 // 加载问卷数据（编辑模式）
 const loadQuestionnaireData = async () => {
@@ -215,7 +240,7 @@ const loadQuestionnaireData = async () => {
 					structure = { sections: [] };
 				}
 			}
-
+			console.log('structure:', structure);
 			// 填充问卷基本信息
 			questionnaire.name = data.name || '';
 			questionnaire.description = data.description || '';
@@ -226,7 +251,7 @@ const loadQuestionnaireData = async () => {
 			if (structure?.sections && Array.isArray(structure.sections)) {
 				questionnaire.sections = structure.sections.map((section: any) => ({
 					id: section.id || `section-${Date.now()}-${Math.random()}`,
-					title: section.title || 'Untitled Section',
+					name: section.name || 'Untitled Section',
 					description: section.description || '',
 					// 处理questions字段（API返回的是questions，我们内部使用items）
 					items: (section.questions || section.items || []).map((item: any) => ({
@@ -245,6 +270,9 @@ const loadQuestionnaireData = async () => {
 						max: item.max,
 						minLabel: item.minLabel || '',
 						maxLabel: item.maxLabel || '',
+						// 恢复跳转规则
+						jumpRules: item.jumpRules || [],
+						...item,
 					})),
 				}));
 			}
@@ -254,7 +282,7 @@ const loadQuestionnaireData = async () => {
 				questionnaire.sections = [
 					{
 						id: `section-${Date.now()}`,
-						title: 'Untitled Section',
+						name: 'Untitled Section',
 						description: '',
 						items: [],
 					},
@@ -307,79 +335,68 @@ const questionTypes = [
 		id: 'short_answer',
 		name: 'Short answer',
 		icon: 'EditPen',
-		description: 'Single line text input',
 	},
 	{
 		id: 'paragraph',
 		name: 'Paragraph',
 		icon: 'Document',
-		description: 'Multi-line text input',
 	},
 	{
 		id: 'multiple_choice',
 		name: 'Multiple choice',
 		icon: 'CircleCheck',
-		description: 'Choose one option',
+		isNew: true,
 	},
 	{
 		id: 'checkboxes',
 		name: 'Checkboxes',
 		icon: 'Select',
-		description: 'Choose multiple options',
 	},
 	{
 		id: 'dropdown',
 		name: 'Dropdown',
 		icon: 'ArrowDown',
-		description: 'Select from dropdown',
 	},
 	{
 		id: 'file_upload',
 		name: 'File upload',
 		icon: 'Upload',
-		description: 'File attachment',
 	},
 	{
 		id: 'linear_scale',
 		name: 'Linear scale',
 		icon: 'Histogram',
-		description: 'Rate on a scale',
 	},
 	{
 		id: 'rating',
 		name: 'Rating',
 		icon: 'Star',
-		description: 'Rate with stars',
-		isNew: true,
 	},
 	{
 		id: 'multiple_choice_grid',
 		name: 'Multiple choice grid',
 		icon: 'Grid',
-		description: 'Multiple choices in a grid',
 	},
 	{
 		id: 'checkbox_grid',
 		name: 'Checkbox grid',
 		icon: 'Grid',
-		description: 'Single choice in a grid',
 	},
 	{
 		id: 'date',
 		name: 'Date',
 		icon: 'Calendar',
-		description: 'Date picker',
 	},
 	{
 		id: 'time',
 		name: 'Time',
 		icon: 'Clock',
-		description: 'Time picker',
 	},
 ];
 
 // 工作流数据
 const workflows = ref<any[]>([]);
+const allStages = ref<any[]>([]);
 
 // 状态管理
 const currentTab = ref('questions');
@@ -406,7 +423,7 @@ const questionnaire = reactive({
 	sections: [
 		{
 			id: `section-${Date.now()}`,
-			title: 'Untitled Section',
+			name: '',
 			description: '',
 			items: [] as Array<{
 				id: string;
@@ -422,9 +439,11 @@ const questionnaire = reactive({
 				max?: number;
 				minLabel?: string;
 				maxLabel?: string;
+				jumpRules?: any[];
+				iconType?: string;
 			}>,
 		},
-	],
+	] as Section[],
 });
 
 // 当前分区
@@ -487,6 +506,18 @@ const previewData = computed(() => {
 	};
 });
 
+// 为跳转规则转换sections数据格式
+const sectionsForJumpRules = computed(() => {
+	return questionnaire.sections.map((section, index) => ({
+		id: section.id,
+		name: section.name,
+		description: section.description,
+		questions: section.items.map((item) => item.id),
+		order: index,
+		items: section.items,
+	}));
+});
+
 // 方法定义
 const handleGoBack = () => {
 	router.push('/onboard/questionnaire');
@@ -499,7 +530,7 @@ const togglePreview = () => {
 const handleAddSection = () => {
 	questionnaire.sections.push({
 		id: `section-${Date.now()}`,
-		title: 'Untitled Section',
+		name: 'Untitled Section',
 		description: '',
 		items: [],
 	});
@@ -559,6 +590,15 @@ const handleQuestionDragEnd = (questions: any[]) => {
 	questionnaire.sections[currentSectionIndex.value].items = questions;
 };
 
+const handleUpdateJumpRules = (questionIndex: number, rules: any[]) => {
+	console.log('rules:', rules);
+	// 更新指定问题的跳转规则
+	const question = questionnaire.sections[currentSectionIndex.value].items[questionIndex];
+	if (question) {
+		question.jumpRules = rules;
+	}
+};
+
 const handleSaveQuestionnaire = async () => {
 	if (!questionnaire.name.trim()) {
 		return;
@@ -574,7 +614,7 @@ const handleSaveQuestionnaire = async () => {
 		const structureJson = JSON.stringify({
 			sections: questionnaire.sections.map((section) => ({
 				id: section.id,
-				title: section.title,
+				name: section.name,
 				description: section.description,
 				// API期望的是questions字段，不是items
 				questions: section.items.map((item) => ({
@@ -593,6 +633,9 @@ const handleSaveQuestionnaire = async () => {
 					max: item.max,
 					minLabel: item.minLabel || '',
 					maxLabel: item.maxLabel || '',
+					// 跳转规则
+					jumpRules: item.jumpRules || [],
+					iconType: item.iconType || 'star',
 				})),
 			})),
 		});
@@ -718,9 +761,21 @@ const handleUpdateQuestion = (updatedQuestion: any) => {
 	editingQuestion.value = null;
 };
 
+// 获取所有stages
+const fetchAllStages = async () => {
+	try {
+		const response = await getAllStages();
+		if (response.code === '200') {
+			allStages.value = response.data || [];
+		}
+	} catch (error) {
+		console.error('Failed to fetch all stages:', error);
+	}
+};
+
 onMounted(async () => {
 	// 初始化数据 - 先加载问卷数据和工作流
-	await Promise.all([loadQuestionnaireData(), fetchWorkflows()]);
+	await Promise.all([loadQuestionnaireData(), fetchWorkflows(), fetchAllStages()]);
 
 	// 获取stages的逻辑已经移动到WorkflowAssignments.vue中
 	// 当WorkflowAssignments组件挂载后会自动加载stages数据
@@ -790,13 +845,6 @@ onMounted(async () => {
 	margin: 0 0 1rem 0;
 }
 
-.section-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 1rem;
-}
-
 .editor-panel {
 	height: 100%;
 	overflow: hidden;
@@ -845,5 +893,29 @@ onMounted(async () => {
 .dark .current-section-info {
 	background-color: var(--primary-700);
 	border-color: var(--primary-600);
+}
+
+.title-display {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.title-display h1 {
+	margin: 0;
+	flex: 1;
+}
+
+.edit-btn {
+	opacity: 0.6;
+	transition: opacity 0.2s;
+}
+
+.edit-btn:hover {
+	opacity: 1;
+}
+
+.title-edit {
+	width: 50%;
 }
 </style>

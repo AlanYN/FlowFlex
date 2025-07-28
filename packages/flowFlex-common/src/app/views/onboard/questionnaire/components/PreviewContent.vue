@@ -22,27 +22,71 @@
 							{{ questionnaire.description }}
 						</p>
 
-						<!-- Workflow和Stage标签 -->
-						<div
-							v-if="questionnaire.workflowName || questionnaire.stageName"
-							class="flex flex-wrap gap-2 mt-3"
-						>
-							<el-tag
-								v-if="questionnaire.workflowName"
-								type="primary"
-								size="default"
-								class="workflow-tag"
-							>
-								{{ questionnaire.workflowName }}
-							</el-tag>
-							<el-tag
-								v-if="questionnaire.stageName"
-								type="primary"
-								size="default"
-								class="stage-tag"
-							>
-								{{ questionnaire.stageName }}
-							</el-tag>
+						<!-- Assignments区域 -->
+						<div v-if="questionnaire.assignments" class="space-y-2 mt-3">
+							<div class="flex items-center text-sm">
+								<span class="assignment-label">Assignments:</span>
+							</div>
+							<div class="flex items-start gap-2 flex-wrap assignments-container">
+								<!-- 显示前5个组合的assignments -->
+								<span
+									class="assignment-tag"
+									v-for="assignment in getDisplayedAssignments(
+										questionnaire.assignments
+									)"
+									:key="`${assignment.workflowId}-${assignment.stageId}`"
+									:title="`${getWorkflowName(
+										assignment.workflowId
+									)} → ${getStageName(assignment.stageId)}`"
+								>
+									<text
+										class="w-full overflow-hidden text-ellipsis whitespace-nowrap"
+									>
+										{{
+											`${getWorkflowName(
+												assignment.workflowId
+											)} → ${getStageName(assignment.stageId)}`
+										}}
+									</text>
+								</span>
+								<!-- 显示剩余数量的按钮 -->
+								<el-popover
+									v-if="
+										questionnaire.assignments &&
+										getRemainingCount(questionnaire.assignments) > 0
+									"
+									placement="top"
+									:width="400"
+									trigger="click"
+								>
+									<template #reference>
+										<span class="assignment-tag-more">
+											+{{ getRemainingCount(questionnaire.assignments) }}
+										</span>
+									</template>
+									<div class="popover-content">
+										<h4 class="popover-title">More Assignments</h4>
+										<div class="popover-tags">
+											<span
+												class="popover-tag"
+												v-for="assignment in getRemainingAssignments(
+													questionnaire.assignments
+												)"
+												:key="`${assignment.workflowId}-${assignment.stageId}`"
+												:title="`${getWorkflowName(
+													assignment.workflowId
+												)} → ${getStageName(assignment.stageId)}`"
+											>
+												{{
+													`${getWorkflowName(
+														assignment.workflowId
+													)} → ${getStageName(assignment.stageId)}`
+												}}
+											</span>
+										</div>
+									</div>
+								</el-popover>
+							</div>
 						</div>
 					</div>
 					<div class="ml-6 text-right text-sm space-y-1">
@@ -167,6 +211,7 @@
 									item.options
 								"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+								@change="handleRadioChange(sectionIndex, itemIndex, item, $event)"
 								class="w-full"
 							>
 								<div class="space-y-2">
@@ -176,7 +221,19 @@
 										:value="option.value || option.label"
 										class="preview-radio w-full"
 									>
-										{{ option.label || option.text || option.value }}
+										<div v-if="option.isOther">
+											<el-input
+												v-model="
+													previewData[
+														getItemKey(sectionIndex, itemIndex, true)
+													]
+												"
+												:placeholder="item.placeholder || 'Your answer'"
+											/>
+										</div>
+										<div v-else>
+											{{ option.label || option.text || option.value }}
+										</div>
 									</el-radio>
 								</div>
 							</el-radio-group>
@@ -188,6 +245,9 @@
 									item.options
 								"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+								@change="
+									handleCheckboxChange(sectionIndex, itemIndex, item, $event)
+								"
 								class="w-full"
 							>
 								<div class="space-y-2">
@@ -197,7 +257,19 @@
 										:value="option.value || option.label"
 										class="preview-checkbox w-full"
 									>
-										{{ option.label || option.text || option.value }}
+										<div v-if="option.isOther">
+											<el-input
+												v-model="
+													previewData[
+														getItemKey(sectionIndex, itemIndex, true)
+													]
+												"
+												:placeholder="item.placeholder || 'Your answer'"
+											/>
+										</div>
+										<div v-else>
+											{{ option.label || option.text || option.value }}
+										</div>
 									</el-checkbox>
 								</div>
 							</el-checkbox-group>
@@ -265,6 +337,8 @@
 								<el-rate
 									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 									:max="item.max || 5"
+									:icons="getSelectedFilledIcon(item.iconType)"
+									:void-icon="getSelectedVoidIcon(item.iconType)"
 									class="preview-rating"
 								/>
 								<span v-if="item.showText" class="text-sm text-gray-500">
@@ -627,27 +701,6 @@
 					</div>
 				</div>
 			</div>
-
-			<!-- 问卷底部信息 -->
-			<!-- <div
-				v-if="questionnaire.createBy || questionnaire.modifyBy"
-				class="text-xs text-gray-500 border-t pt-4"
-			>
-				<div class="flex justify-between">
-					<div v-if="questionnaire.createBy">
-						Created by {{ questionnaire.createBy }}
-						<span v-if="questionnaire.createDate">
-							on {{ formatDate(questionnaire.createDate) }}
-						</span>
-					</div>
-					<div v-if="questionnaire.modifyBy">
-						Last modified by {{ questionnaire.modifyBy }}
-						<span v-if="questionnaire.modifyDate">
-							on {{ formatDate(questionnaire.modifyDate) }}
-						</span>
-					</div>
-				</div>
-			</div> -->
 		</div>
 
 		<!-- 空状态 -->
@@ -664,16 +717,27 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Document, Upload, Loading, Star, Warning } from '@element-plus/icons-vue';
+import { Workflow } from '#/onboard';
+
+import IconStar from '~icons/mdi/star';
+import IconStarOutline from '~icons/mdi/star-outline';
+import IconHeart from '~icons/mdi/heart';
+import IconHeartOutline from '~icons/mdi/heart-outline';
+import IconThumbUp from '~icons/mdi/thumb-up';
+import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
 
 // 定义组件属性
 interface Props {
 	questionnaire?: any;
 	loading?: boolean;
+	workflows: Workflow[];
+	allStages?: any[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	questionnaire: null,
 	loading: false,
+	allStages: () => [],
 });
 
 // 预览数据存储 - 独立于原始问卷数据
@@ -683,8 +747,8 @@ const previewData = ref<Record<string, any>>({});
 const validationErrors = ref<Record<string, string>>({});
 
 // 生成问题项的唯一键
-const getItemKey = (sectionIndex: number, itemIndex: number) => {
-	return `section_${sectionIndex}_item_${itemIndex}`;
+const getItemKey = (sectionIndex: number, itemIndex: number, isOther?: boolean) => {
+	return `section_${sectionIndex}_item_${itemIndex}${isOther ? '_other' : ''}`;
 };
 
 // 生成网格问题的唯一键
@@ -794,31 +858,6 @@ watch(
 	{ immediate: true, deep: true }
 );
 
-// 格式化问题类型
-// const formatQuestionType = (type: string) => {
-// 	const typeMap: Record<string, string> = {
-// 		short_answer: 'Short answer',
-// 		paragraph: 'Paragraph',
-// 		multiple_choice: 'Multiple choice',
-// 		checkboxes: 'Checkboxes',
-// 		dropdown: 'Dropdown',
-// 		number: 'Number',
-// 		date: 'Date',
-// 		time: 'Time',
-// 		datetime: 'Date & Time',
-// 		rating: 'Rating',
-// 		slider: 'Slider',
-// 		file: 'File upload',
-// 		file_upload: 'File upload',
-// 		linear_scale: 'Linear scale',
-// 		multiple_choice_grid: 'Multiple choice grid',
-// 		checkbox_grid: 'Single choice grid',
-// 		divider: 'Divider',
-// 		description: 'Description',
-// 	};
-// 	return typeMap[type] || type;
-// };
-
 // 处理文件选择（仅本地预览，不上传）
 const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fileList: any[]) => {
 	console.log('handleFileChange called:', { sectionIndex, itemIndex, file, fileList });
@@ -831,6 +870,43 @@ const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fi
 		lastModified: f.raw?.lastModified || Date.now(),
 	}));
 	console.log('File data stored:', previewData.value[key]);
+};
+
+// 处理单选变化 - 清空Other输入框
+const handleRadioChange = (sectionIndex: number, itemIndex: number, item: any, value: string) => {
+	const otherTextKey = getItemKey(sectionIndex, itemIndex, true);
+
+	// 查找Other选项
+	const otherOption = item.options?.find((option: any) => option.isOther);
+	if (otherOption) {
+		const otherValue = otherOption.value || otherOption.label;
+
+		// 如果选择的不是Other选项，清空Other文本输入框
+		if (value !== otherValue) {
+			previewData.value[otherTextKey] = '';
+		}
+	}
+};
+
+// 处理多选变化 - 清空Other输入框
+const handleCheckboxChange = (
+	sectionIndex: number,
+	itemIndex: number,
+	item: any,
+	value: string[]
+) => {
+	const otherTextKey = getItemKey(sectionIndex, itemIndex, true);
+
+	// 查找Other选项
+	const otherOption = item.options?.find((option: any) => option.isOther);
+	if (otherOption) {
+		const otherValue = otherOption.value || otherOption.label;
+
+		// 如果Other选项被取消选择，清空Other文本输入框
+		if (Array.isArray(value) && !value.includes(otherValue)) {
+			previewData.value[otherTextKey] = '';
+		}
+	}
 };
 
 // 处理网格多选选项变化
@@ -1061,6 +1137,68 @@ const getFieldError = (sectionIndex: number, itemIndex: number) => {
 	return validationErrors.value[key] || '';
 };
 
+// Assignment 处理函数（参考 index.vue 的实现）
+const getWorkflowName = (workflowId: string) => {
+	if (!workflowId || workflowId === '0') return 'Unknown Workflow';
+	const workflow = props.workflows.find((w) => w.id === workflowId);
+	return workflow?.name || workflowId;
+};
+
+const getStageName = (stageId: string) => {
+	if (!stageId || stageId === '0') return 'Unknown Stage';
+	const stage = props.allStages?.find((s) => s.id === stageId);
+	return stage ? stage.name : stageId;
+};
+
+// 获取显示的分配数量（去重）
+const getDisplayedAssignments = (assignments: any[]) => {
+	const displayedCount = 5; // 显示5个
+	if (!assignments || assignments.length === 0) {
+		return [];
+	}
+
+	// 根据workflowId+stageId组合进行去重
+	const uniqueAssignments = assignments.filter((assignment, index, self) => {
+		return (
+			index ===
+			self.findIndex(
+				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
+			)
+		);
+	});
+
+	// 返回前N个去重后的数据
+	return uniqueAssignments.slice(0, displayedCount);
+};
+
+// 获取去重后的所有数据
+const getUniqueAssignments = (assignments: any[]) => {
+	if (!assignments || assignments.length === 0) {
+		return [];
+	}
+
+	return assignments.filter((assignment, index, self) => {
+		return (
+			index ===
+			self.findIndex(
+				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
+			)
+		);
+	});
+};
+
+// 获取剩余数量（去重后）
+const getRemainingCount = (assignments: any[]) => {
+	const uniqueAssignments = getUniqueAssignments(assignments);
+	return Math.max(0, uniqueAssignments.length - 5);
+};
+
+// 获取剩余的标签（去重后，跳过前5个）
+const getRemainingAssignments = (assignments: any[]) => {
+	const uniqueAssignments = getUniqueAssignments(assignments);
+	return uniqueAssignments.slice(5);
+};
+
 // 暴露校验方法给父组件
 defineExpose({
 	validateForm,
@@ -1069,7 +1207,29 @@ defineExpose({
 	previewData,
 });
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+// 图标选项
+const iconOptions = {
+	star: {
+		filledIcon: [IconStar, IconStar, IconStar],
+		voidIcon: IconStarOutline,
+	},
+	heart: {
+		filledIcon: [IconHeart, IconHeart, IconHeart],
+		voidIcon: IconHeartOutline,
+	},
+	thumbs: {
+		filledIcon: [IconThumbUp, IconThumbUp, IconThumbUp],
+		voidIcon: IconThumbUpOutline,
+	},
+};
+
+const getSelectedFilledIcon = (iconType: string) => {
+	return iconOptions[iconType]?.filledIcon;
+};
+
+const getSelectedVoidIcon = (iconType: string) => {
+	return iconOptions[iconType]?.voidIcon;
+};
 </script>
 
 <style scoped lang="scss">
@@ -1090,14 +1250,70 @@ defineExpose({
 	@apply dark:text-primary-200;
 }
 
-/* Workflow和Stage标签样式 */
-.workflow-tag,
-.stage-tag {
-	background-color: var(--primary-100) !important;
-	color: var(--primary-700) !important;
-	border-color: var(--primary-200) !important;
-	font-weight: 500;
-	@apply dark:bg-primary-700 dark:text-primary-100 dark:border-primary-600;
+/* Assignments样式 */
+.assignment-label {
+	@apply text-gray-500 dark:text-gray-400 font-medium;
+	min-width: 70px;
+}
+
+.assignment-tag {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	white-space: nowrap;
+	max-width: 300px; /* 固定宽度 */
+	flex-shrink: 0; /* 防止收缩 */
+	padding-right: 8px; /* 增加右边距 */
+}
+
+.assignment-tag:hover {
+	@apply bg-primary-100 border-primary-300;
+}
+
+.assignment-tag-more {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	white-space: nowrap;
+	width: 40px; /* 固定宽度 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	justify-content: center; /* 文本居中 */
+	flex-shrink: 0; /* 防止收缩 */
+	margin-right: 8px; /* 增加右边距 */
+}
+
+.assignment-tag-more:hover {
+	@apply bg-primary-100 border-primary-300;
+}
+
+.popover-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--primary-700);
+	@apply dark:text-primary-300;
+	margin-bottom: 10px;
+}
+
+.popover-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.popover-tag {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	white-space: nowrap;
+	width: 150px; /* 与主要标签保持一致的固定宽度 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	justify-content: flex-start; /* 左对齐显示，优先显示workflow */
+	flex-shrink: 0; /* 防止收缩 */
+}
+
+.popover-tag:hover {
+	@apply bg-primary-100 border-primary-300;
+}
+
+/* Assignments容器样式 */
+.assignments-container {
+	overflow: hidden;
 }
 
 /* 章节样式 */

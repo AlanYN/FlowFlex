@@ -192,6 +192,33 @@ export interface ComponentData {
 	questionnaireIds: string[];
 	checklistNames?: string[];
 	questionnaireNames?: string[];
+	allowDraft: boolean;
+	allowMultipleSubmissions: false;
+	assignments: {
+		stageId: string;
+		workflowId: string;
+	}[];
+	category: string;
+	createBy: string;
+	createDate: string;
+	description: string;
+	estimatedMinutes: number;
+	id: string;
+	isActive: boolean;
+	isTemplate: boolean;
+	modifyBy: string;
+	modifyDate: string;
+	name: string;
+	previewImageUrl: string;
+	requiredQuestions: number;
+	sections: [];
+	status: string;
+	structureJson: string;
+	tagsJson: string;
+	totalQuestions: number;
+	type: string;
+	version: number;
+	hasError?: boolean;
 }
 
 export interface StageInfo {
@@ -396,4 +423,21 @@ export interface QuestionnaireData {
 	questionnaireId: string;
 	stageId: string;
 	answerJson: QuestionnaireAnswer[];
+}
+
+export interface Assignment {
+	workflowId: string | null;
+	stageId: string | null;
+}
+
+export interface ExtendedAssignment extends Assignment {
+	stages: Array<{ id: string; name: string }>;
+	stagesLoading: boolean;
+}
+
+export interface Workflow {
+	id: string;
+	name: string;
+	isDefault?: boolean;
+	status?: string;
 }

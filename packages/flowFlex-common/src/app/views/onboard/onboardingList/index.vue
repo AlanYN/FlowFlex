@@ -126,10 +126,8 @@
 							min-width="200"
 						>
 							<template #default="{ row }">
-								<div class="table-cell-content" :title="row.workflowName">
-									<span class="workflow-name-tag">
-										{{ row.workflowName }}
-									</span>
+								<div class="workflow-name-tag" :title="row.workflowName">
+									{{ row.workflowName }}
 								</div>
 							</template>
 						</el-table-column>
@@ -1607,9 +1605,8 @@ html.dark {
 
 /* 工作流名称标签样式 */
 .workflow-name-tag {
-	@apply inline-block px-3 py-1 text-sm font-medium text-primary-600 bg-primary-50 rounded-full;
+	@apply block px-3 py-1 text-sm font-medium text-primary-600 bg-primary-50 rounded-full truncate;
 	border: 1px solid #dbeafe;
-	white-space: nowrap;
 	transition: all 0.3s ease;
 }
 

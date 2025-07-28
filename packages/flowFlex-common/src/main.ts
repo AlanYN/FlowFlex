@@ -13,16 +13,17 @@ import ElementPlus from 'element-plus';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 import { useWujie } from '@/hooks/wujie/micro-app.config';
 import { initPortalAccess } from '@/utils/portalAccess';
+import { Icon } from '@iconify/vue';
 
 let appInstance: any = null;
 
 async function bootstrap() {
 	const app = createApp(App);
-	
+
 	// Initialize portal access tenant info from URL if needed
 	// 如果是portal访问页面，从URL中提取租户信息
 	initPortalAccess();
-	
+
 	// Multilingual configuration
 	// 多语言配置
 	await setupI18n(app);
@@ -45,6 +46,7 @@ async function bootstrap() {
 	setPrimary(localStorage.getItem('primary') || 'blue');
 
 	app.use(ElementPlus);
+	app.component('Icon', Icon);
 	for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 		app.component(key, component);
 	}

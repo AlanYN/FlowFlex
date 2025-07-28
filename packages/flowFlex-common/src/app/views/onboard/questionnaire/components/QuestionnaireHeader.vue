@@ -22,14 +22,6 @@
 			</div>
 			<div class="header-actions">
 				<el-button
-					type="default"
-					class="preview-button"
-					@click="$emit('toggle-preview')"
-					:icon="currentTab === 'questions' ? View : Edit"
-				>
-					{{ currentTab === 'questions' ? 'Preview' : 'Edit' }}
-				</el-button>
-				<el-button
 					type="primary"
 					class="save-button"
 					@click="$emit('save-questionnaire')"
@@ -44,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { Back, View, Edit, Document } from '@element-plus/icons-vue';
+import { Back, Document } from '@element-plus/icons-vue';
 
 interface Props {
 	title: string;

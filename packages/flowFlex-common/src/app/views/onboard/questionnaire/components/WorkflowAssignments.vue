@@ -103,23 +103,7 @@
 import { Plus, Delete, VideoPause } from '@element-plus/icons-vue';
 import { ref, watch, onMounted } from 'vue';
 import { getStagesByWorkflow } from '@/apis/ow';
-
-interface Assignment {
-	workflowId: string | null;
-	stageId: string | null;
-}
-
-interface ExtendedAssignment extends Assignment {
-	stages: Array<{ id: string; name: string }>;
-	stagesLoading: boolean;
-}
-
-interface Workflow {
-	id: string;
-	name: string;
-	isDefault?: boolean;
-	status?: string;
-}
+import { Assignment, ExtendedAssignment, Workflow } from '#/onboard';
 
 interface Props {
 	assignments: Assignment[];
@@ -314,7 +298,7 @@ defineExpose({
 	background: var(--primary-50);
 	border: 1px solid var(--primary-200);
 	border-radius: 0.5rem;
-	padding: 1rem;
+	padding: 1rem 1rem 0 1rem;
 	@apply dark:bg-primary-700 dark:border-primary-600;
 }
 

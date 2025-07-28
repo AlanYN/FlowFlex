@@ -69,6 +69,7 @@
 				@update-option-label="handleOptionLabelUpdate"
 				@add-option="handleAddOption"
 				@remove-option="handleRemoveOption"
+				@add-other-option="handleAddOtherOption"
 			/>
 
 			<!-- 网格编辑器 -->
@@ -105,6 +106,15 @@
 				@update-max-label="(label) => (newQuestion.maxLabel = label)"
 			/>
 
+			<!-- 评分编辑器 -->
+			<RatingEditor
+				v-if="needsRating(newQuestion.type)"
+				:max="newQuestion.max"
+				:icon-type="newQuestion.iconType"
+				@update-max="(value) => (newQuestion.max = value)"
+				@update-icon-type="(type) => (newQuestion.iconType = type)"
+			/>
+
 			<div class="action-buttons">
 				<el-button
 					type="primary"
@@ -136,12 +146,12 @@ import { Plus } from '@element-plus/icons-vue';
 import OptionsEditor from './OptionsEditor.vue';
 import GridEditor from './GridEditor.vue';
 import LinearScaleEditor from './LinearScaleEditor.vue';
+import RatingEditor from './RatingEditor.vue';
 
 interface QuestionType {
 	id: string;
 	name: string;
 	icon: string;
-	description: string;
 	isNew?: boolean;
 }
 
@@ -167,7 +177,7 @@ const getInitialFormData = () => ({
 	question: '',
 	description: '',
 	required: false,
-	options: [] as Array<{ id: string; value: string; label: string }>,
+	options: [] as Array<{ id: string; value: string; label: string; isOther?: boolean }>,
 	rows: [] as Array<{ id: string; label: string; isOther?: boolean }>,
 	columns: [] as Array<{ id: string; label: string; isOther?: boolean }>,
 	requireOneResponsePerRow: false,
@@ -175,6 +185,7 @@ const getInitialFormData = () => ({
 	max: 5,
 	minLabel: '',
 	maxLabel: '',
+	iconType: 'star',
 });
 
 // 新问题数据 - 使用计算属性来处理编辑状态
@@ -228,6 +239,7 @@ const loadEditingData = () => {
 			max: props.editingQuestion.max || 5,
 			minLabel: props.editingQuestion.minLabel || '',
 			maxLabel: props.editingQuestion.maxLabel || '',
+			iconType: props.editingQuestion.iconType || 'star',
 		});
 	} else if (!props.isEditing) {
 		// 非编辑模式时使用当前选中的问题类型
@@ -300,6 +312,8 @@ const handleQuestionTypeChange = (type: string) => {
 	newQuestion.max = 5;
 	newQuestion.minLabel = '';
 	newQuestion.maxLabel = '';
+	newQuestion.max = 5;
+	newQuestion.iconType = 'star';
 
 	// 清空输入框
 	newOption.label = '';
@@ -317,6 +331,17 @@ const handleAddOption = () => {
 		id: `option-${Date.now()}`,
 		value: generatedValue,
 		label: newOption.label,
+	});
+
+	newOption.label = '';
+};
+
+const handleAddOtherOption = () => {
+	newQuestion.options.push({
+		id: `option-${Date.now()}`,
+		value: generateOptionValue(newOption.label, newQuestion.options),
+		label: newOption.label,
+		isOther: true,
 	});
 
 	newOption.label = '';
@@ -392,6 +417,7 @@ const handleAddQuestion = () => {
 		max: newQuestion.max,
 		minLabel: newQuestion.minLabel,
 		maxLabel: newQuestion.maxLabel,
+		iconType: newQuestion.iconType,
 	};
 
 	if (props.isEditing) {
@@ -420,6 +446,10 @@ const needsGrid = (type: string) => {
 
 const needsLinearScale = (type: string) => {
 	return type === 'linear_scale';
+};
+
+const needsRating = (type: string) => {
+	return type === 'rating';
 };
 
 const getQuestionTypeIcon = (type: string) => {

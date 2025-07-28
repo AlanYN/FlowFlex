@@ -1,6 +1,6 @@
 <template>
 	<div class="dynamic-form">
-		<el-collapse v-model="activeCollapses" class="questionnaire-sections">
+		<div class="questionnaire-sections">
 			<!-- 加载状态 -->
 			<div v-if="loading" class="flex justify-center items-center py-8">
 				<el-icon class="animate-spin mr-2"><Loading /></el-icon>
@@ -8,451 +8,514 @@
 			</div>
 
 			<!-- 问卷内容 -->
-			<template
-				v-else
-				v-for="(questionnaire, qIndex) in formattedQuestionnaires"
-				:key="qIndex"
-			>
-				<!-- 问卷标题 -->
-				<div v-if="formattedQuestionnaires.length > 1" class="questionnaire-header">
-					<h3 class="questionnaire-title">
-						{{ questionnaire.title }}
-						<span v-if="questionnaire.hasError" class="error-indicator">
+			<template v-else>
+				<!-- 问卷描述 -->
+				<div
+					v-if="
+						formattedQuestionnaires.length > 0 && formattedQuestionnaires[0].description
+					"
+					class="text-sm text-gray-500 mt-4"
+				>
+					<div>
+						{{ formattedQuestionnaires[0].description }}
+						<span v-if="!!formattedQuestionnaires[0]?.hasError" class="error-indicator">
 							(Load Error)
 						</span>
-					</h3>
-					<el-divider class="questionnaire-divider" />
+					</div>
+
+					<el-divider />
 				</div>
 
 				<!-- 错误状态显示 -->
-				<div v-if="questionnaire.hasError" class="questionnaire-error">
+				<div v-if="!!formattedQuestionnaires[0]?.hasError" class="questionnaire-error">
 					<el-alert
 						title="Failed to load questionnaire"
-						:description="`There was an error loading the questionnaire structure for '${questionnaire.title}'. Please check the data format.`"
+						:description="`There was an error loading the questionnaire structure for '${formattedQuestionnaires[0].title}'. Please check the data format.`"
 						type="warning"
 						show-icon
 						:closable="false"
 					/>
 				</div>
 
-				<el-collapse-item
-					v-for="section in questionnaire.sections"
-					:key="section.id"
-					:title="section.title"
-					:name="section.id"
-				>
-					<div class="space-y-4">
+				<!-- 当前 Section 内容 -->
+				<div v-if="currentSection" class="space-y-4">
+					<div class="flex flex-col space-y-1.5 p-6 bg-primary-50 section-header">
+						<h4 class="section-title">
+							{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
+						</h4>
+						<p v-if="currentSection.description" class="section-description">
+							{{ currentSection.description }}
+						</p>
+					</div>
+
+					<div
+						v-for="(question, questionIndex) in currentSection.questions"
+						:key="question.id"
+						class="question-item"
+					>
+						<div class="mb-2">
+							<span class="text-sm font-medium text-gray-700">
+								{{ currentSectionIndex + 1 }}-{{ questionIndex + 1 }}.
+								{{ question.title }}
+								<span v-if="question.required" class="text-red-500">*</span>
+							</span>
+							<p v-if="question.description" class="text-xs text-gray-500 mt-1">
+								{{ question.description }}
+							</p>
+						</div>
+						<!-- 短答题 -->
+						<el-input
+							v-if="question.type === 'short_answer' || question.type === 'text'"
+							v-model="formData[question.id]"
+							:placeholder="'Enter ' + question.question"
+							@input="handleInputChange(question.id, $event)"
+						/>
+
+						<!-- 长答题 -->
+						<el-input
+							v-else-if="
+								question.type === 'long_answer' ||
+								question.type === 'paragraph' ||
+								question.type === 'textarea'
+							"
+							v-model="formData[question.id]"
+							type="textarea"
+							:rows="3"
+							:placeholder="'Enter ' + question.question"
+							@input="handleInputChange(question.id, $event)"
+						/>
+
+						<!-- 单选题 -->
 						<div
-							v-for="question in section.questions"
-							:key="question.id"
-							class="question-item"
+							v-else-if="
+								question.type === 'multiple_choice' || question.type === 'radio'
+							"
+							class="w-full"
 						>
-							<div class="mb-2">
-								<span class="text-sm font-medium text-gray-700">
-									{{ question.title }}
-									<span v-if="question.required" class="text-red-500">*</span>
-								</span>
-								<p v-if="question.description" class="text-xs text-gray-500 mt-1">
-									{{ question.description }}
-								</p>
-							</div>
-							<!-- 短答题 -->
-							<el-input
-								v-if="question.type === 'short_answer' || question.type === 'text'"
-								v-model="formData[question.id]"
-								:placeholder="'Enter ' + question.question"
-								@input="handleInputChange(question.id, $event)"
-							/>
-
-							<!-- 长答题 -->
-							<el-input
-								v-else-if="
-									question.type === 'long_answer' ||
-									question.type === 'paragraph' ||
-									question.type === 'textarea'
-								"
-								v-model="formData[question.id]"
-								type="textarea"
-								:rows="3"
-								:placeholder="'Enter ' + question.question"
-								@input="handleInputChange(question.id, $event)"
-							/>
-
-							<!-- 单选题 -->
-							<el-radio-group
-								v-else-if="
-									question.type === 'multiple_choice' || question.type === 'radio'
-								"
-								v-model="formData[question.id]"
-								@change="handleInputChange(question.id, $event)"
-								class="w-full"
-							>
-								<div class="space-y-2">
-									<el-radio
-										v-for="option in question.options"
-										:key="option.id || option.value"
-										:value="option.value || option.label"
-										class="w-full"
-									>
-										{{ option.label || option.text || option.value }}
-									</el-radio>
-								</div>
-							</el-radio-group>
-
-							<!-- 多选题 -->
-							<el-checkbox-group
-								v-else-if="
-									question.type === 'checkboxes' || question.type === 'checkbox'
-								"
-								v-model="formData[question.id]"
-								@change="handleInputChange(question.id, $event)"
-								class="w-full"
-							>
-								<div class="space-y-2">
-									<el-checkbox
-										v-for="option in question.options"
-										:key="option.id || option.value"
-										:value="option.value || option.label"
-										class="w-full"
-									>
-										{{ option.label || option.text || option.value }}
-									</el-checkbox>
-								</div>
-							</el-checkbox-group>
-
-							<!-- 下拉选择 -->
-							<el-select
-								v-else-if="
-									question.type === 'dropdown' || question.type === 'select'
-								"
-								v-model="formData[question.id]"
-								:placeholder="'Select ' + question.question"
-								class="w-full"
-								@change="handleInputChange(question.id, $event)"
-							>
-								<el-option
+							<div class="space-y-2">
+								<div
 									v-for="option in question.options"
 									:key="option.id || option.value"
-									:label="option.label || option.text || option.value"
-									:value="option.value || option.label"
-								/>
-							</el-select>
-
-							<!-- 日期选择 -->
-							<el-date-picker
-								v-else-if="question.type === 'date'"
-								v-model="formData[question.id]"
-								type="date"
-								:placeholder="'Select date'"
-								class="w-full"
-								@change="handleInputChange(question.id, $event)"
-							/>
-
-							<!-- 时间选择 -->
-							<el-time-picker
-								v-else-if="question.type === 'time'"
-								v-model="formData[question.id]"
-								:placeholder="'Select time'"
-								class="w-full"
-								@change="handleInputChange(question.id, $event)"
-							/>
-
-							<!-- 日期时间选择 -->
-							<el-date-picker
-								v-else-if="question.type === 'datetime'"
-								v-model="formData[question.id]"
-								type="datetime"
-								:placeholder="'Select date and time'"
-								class="w-full"
-								@change="handleInputChange(question.id, $event)"
-							/>
-
-							<!-- 评分 -->
-							<div
-								v-else-if="question.type === 'rating'"
-								class="flex items-center space-x-2"
-							>
-								<el-rate
-									v-model="formData[question.id]"
-									:max="question.max || 5"
-									@change="handleInputChange(question.id, $event)"
-								/>
-								<span v-if="question.showText" class="text-sm text-gray-500">
-									({{ question.max || 5 }} stars)
-								</span>
-							</div>
-
-							<!-- 线性量表 -->
-							<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
-								<el-slider
-									v-model="formData[question.id]"
-									:min="question.min || 1"
-									:max="question.max || 5"
-									:step="1"
-									:show-stops="true"
-									:show-input="false"
-									@change="handleInputChange(question.id, $event)"
-								/>
-								<div class="flex justify-between text-xs text-gray-500">
-									<span>{{ question.minLabel || question.min || 1 }}</span>
-									<span>{{ question.maxLabel || question.max || 5 }}</span>
+									class="w-full cursor-pointer flex items-center space-x-2 p-2 hover:bg-gray-50 rounded"
+									@click="handleHasOtherQuestion(question, option.value)"
+								>
+									<div
+										:class="[
+											'w-4 h-4 border-2 rounded-full flex items-center justify-center',
+											formData[question.id] === (option.value || option.label)
+												? 'border-blue-500 bg-blue-500'
+												: 'border-gray-300',
+										]"
+									>
+										<div
+											v-if="
+												formData[question.id] ===
+												(option.value || option.label)
+											"
+											class="w-2 h-2 bg-white rounded-full"
+										></div>
+									</div>
+									<div v-if="option.isOther">
+										<el-input
+											@click.stop
+											:disabled="formData[question.id] != option.value"
+											v-model="formData[`${question.id}_${option.id}`]"
+											placeholder="Enter other"
+										/>
+									</div>
+									<span v-else class="text-sm">
+										{{ option.label || option.text || option.value }}
+									</span>
 								</div>
 							</div>
+						</div>
 
-							<!-- 文件上传 -->
-							<div
-								v-else-if="
-									question.type === 'file' || question.type === 'file_upload'
-								"
-								class="w-full"
-							>
-								<el-upload
-									drag
-									:auto-upload="false"
-									:show-file-list="true"
-									:on-change="
-										(file, fileList) => {
-											handleFileChange(question.id, file, fileList);
-										}
-									"
-									:accept="question.accept"
+						<!-- 多选题 -->
+						<el-checkbox-group
+							v-else-if="
+								question.type === 'checkboxes' || question.type === 'checkbox'
+							"
+							v-model="formData[question.id]"
+							@change="handleHasOtherQuestion(question, $event)"
+							class="w-full"
+						>
+							<div class="space-y-2">
+								<el-checkbox
+									v-for="option in question.options"
+									:key="option.id"
+									:value="option.value"
 									class="w-full"
 								>
-									<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
-									<div class="el-upload__text">
-										Drop file here or
-										<em>click to select</em>
+									<div v-if="option.isOther">
+										<el-input
+											:disabled="
+												!formData[question.id].includes(option.value)
+											"
+											v-model="formData[`${question.id}_${option.id}`]"
+											placeholder="Enter other"
+										/>
 									</div>
-									<div v-if="question.accept" class="el-upload__tip text-xs">
-										Accepted formats: {{ question.accept }}
-									</div>
-								</el-upload>
+									<span v-else class="text-sm">
+										{{ option.label }}
+									</span>
+								</el-checkbox>
 							</div>
+						</el-checkbox-group>
 
-							<!-- 多选网格 -->
-							<div
-								v-else-if="question.type === 'multiple_choice_grid'"
-								class="preview-grid"
+						<!-- 下拉选择 -->
+						<el-select
+							v-else-if="question.type === 'dropdown' || question.type === 'select'"
+							v-model="formData[question.id]"
+							:placeholder="'Select ' + question.question"
+							class="w-full"
+							@change="handleInputChange(question.id, $event)"
+						>
+							<el-option
+								v-for="option in question.options"
+								:key="option.id || option.value"
+								:label="option.label || option.text || option.value"
+								:value="option.value || option.label"
+							/>
+						</el-select>
+
+						<!-- 日期选择 -->
+						<el-date-picker
+							v-else-if="question.type === 'date'"
+							v-model="formData[question.id]"
+							type="date"
+							:placeholder="'Select date'"
+							class="w-full"
+							@change="handleInputChange(question.id, $event)"
+						/>
+
+						<!-- 时间选择 -->
+						<el-time-picker
+							v-else-if="question.type === 'time'"
+							v-model="formData[question.id]"
+							:placeholder="'Select time'"
+							class="w-full"
+							@change="handleInputChange(question.id, $event)"
+						/>
+
+						<!-- 日期时间选择 -->
+						<el-date-picker
+							v-else-if="question.type === 'datetime'"
+							v-model="formData[question.id]"
+							type="datetime"
+							:placeholder="'Select date and time'"
+							class="w-full"
+							@change="handleInputChange(question.id, $event)"
+						/>
+
+						<!-- 评分 -->
+						<div
+							v-else-if="question.type === 'rating'"
+							class="flex items-center space-x-2"
+						>
+							<el-rate
+								v-model="formData[question.id]"
+								:max="question.max || 5"
+								:icons="getSelectedFilledIcon(question.iconType)"
+								:void-icon="getSelectedVoidIcon(question.iconType)"
+								@change="handleInputChange(question.id, $event)"
+							/>
+							<span v-if="question.showText" class="text-sm text-gray-500">
+								({{ question.max || 5 }} stars)
+							</span>
+						</div>
+
+						<!-- 线性量表 -->
+						<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
+							<el-slider
+								v-model="formData[question.id]"
+								:min="question.min || 1"
+								:max="question.max || 5"
+								:step="1"
+								:show-stops="true"
+								:show-input="false"
+								@change="handleInputChange(question.id, $event)"
+							/>
+							<div class="flex justify-between text-xs text-gray-500">
+								<span>{{ question.minLabel || question.min || 1 }}</span>
+								<span>{{ question.maxLabel || question.max || 5 }}</span>
+							</div>
+						</div>
+
+						<!-- 文件上传 -->
+						<div
+							v-else-if="question.type === 'file' || question.type === 'file_upload'"
+							class="w-full"
+						>
+							<el-upload
+								drag
+								:auto-upload="false"
+								:show-file-list="true"
+								:on-change="
+									(file, fileList) => {
+										handleFileChange(question.id, file, fileList);
+									}
+								"
+								:accept="question.accept"
+								class="w-full"
 							>
-								<div
-									v-if="question.columns && question.rows"
-									class="grid-container"
-								>
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in question.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
-									<div
-										v-for="(row, rowIndex) in question.rows"
-										:key="rowIndex"
-										class="grid-row"
-									>
-										<div class="grid-cell grid-row-header">{{ row.label }}</div>
-										<div
-											v-for="(column, colIndex) in question.columns"
-											:key="colIndex"
-											class="grid-cell grid-checkbox-cell gap-x-2"
-										>
-											<el-checkbox-group
-												v-model="
-													formData[`${question.id}_${row.id || rowIndex}`]
-												"
-												@change="
-													handleInputChange(
-														`${question.id}_${row.id || rowIndex}`,
-														$event
-													)
-												"
-											>
-												<el-checkbox
-													:value="
-														column.value ||
-														column.label ||
-														`col_${colIndex}`
-													"
-													class="grid-checkbox"
-												/>
-											</el-checkbox-group>
+								<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
+								<div class="el-upload__text">
+									Drop file here or
+									<em>click to select</em>
+								</div>
+								<div v-if="question.accept" class="el-upload__tip text-xs">
+									Accepted formats: {{ question.accept }}
+								</div>
+							</el-upload>
+						</div>
 
-											<!-- Other选项的文字输入框 -->
-											<div
-												v-if="
-													column.isOther &&
-													formData[
-														`${question.id}_${row.id || rowIndex}`
-													]?.includes(
-														column.value ||
-															column.label ||
-															`col_${colIndex}`
-													)
-												"
-											>
-												<el-input
-													v-model="
-														formData[
-															`${question.id}_${
-																row.id || rowIndex
-															}_other_text`
-														]
-													"
-													placeholder="Please specify..."
-													size="small"
-													class="other-input"
-												/>
-											</div>
-										</div>
+						<!-- 多选网格 -->
+						<div
+							v-else-if="question.type === 'multiple_choice_grid'"
+							class="preview-grid"
+						>
+							<div v-if="question.columns && question.rows" class="grid-container">
+								<div class="grid-header">
+									<div class="grid-cell grid-row-header"></div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-column-header"
+									>
+										{{ column.label }}
+										<el-tag
+											v-if="column.isOther"
+											size="small"
+											type="warning"
+											class="other-column-tag"
+										>
+											Other
+										</el-tag>
 									</div>
 								</div>
-							</div>
-
-							<!-- 单选网格 (Checkbox grid) -->
-							<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid">
 								<div
-									v-if="
-										question.rows &&
-										question.rows.length > 0 &&
-										question.columns &&
-										question.columns.length > 0
-									"
-									class="grid-container"
+									v-for="(row, rowIndex) in question.rows"
+									:key="rowIndex"
+									class="grid-row"
 								>
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in question.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
+									<div class="grid-cell grid-row-header">{{ row.label }}</div>
 									<div
-										v-for="(row, rowIndex) in question.rows"
-										:key="rowIndex"
-										class="grid-row"
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-checkbox-cell gap-x-2"
 									>
-										<div class="grid-cell grid-row-header">{{ row.label }}</div>
-										<div
-											v-for="(column, colIndex) in question.columns"
-											:key="colIndex"
-											class="grid-cell grid-radio-cell gap-x-2"
+										<el-checkbox-group
+											v-model="formData[`${question.id}_${row.id}`]"
+											@change="handleHasOtherQuestion(question, column.id)"
 										>
-											<el-radio
+											<el-checkbox :value="column.id" class="grid-checkbox" />
+										</el-checkbox-group>
+
+										<!-- Other选项的文字输入框 -->
+										<div v-if="column.isOther">
+											<el-input
 												v-model="
-													formData[`${question.id}_${row.id || rowIndex}`]
+													formData[
+														`${question.id}_${row.id}_${column.id}`
+													]
 												"
-												:name="`grid_${question.id}_${rowIndex}`"
-												:value="
-													column.value ||
-													column.label ||
-													`${rowIndex}_${colIndex}`
-												"
-												@change="
-													handleInputChange(
-														`${question.id}_${row.id || rowIndex}`,
-														$event
+												:disabled="
+													!formData[`${question.id}_${row.id}`]?.includes(
+														column.value || column.label
 													)
 												"
-												class="grid-radio"
+												placeholder="Please specify..."
+												size="small"
+												class="other-input"
 											/>
-
-											<!-- Other选项的文字输入框 -->
-											<div
-												v-if="
-													column.isOther &&
-													formData[
-														`${question.id}_${row.id || rowIndex}`
-													] ===
-														(column.value ||
-															column.label ||
-															`${rowIndex}_${colIndex}`)
-												"
-											>
-												<el-input
-													v-model="
-														formData[
-															`${question.id}_${
-																row.id || rowIndex
-															}_other_text`
-														]
-													"
-													placeholder="Please specify..."
-													size="small"
-													class="other-input"
-												/>
-											</div>
 										</div>
-									</div>
-								</div>
-
-								<!-- 如果没有数据，显示占位符 -->
-								<div
-									v-else
-									class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
-								>
-									<el-icon class="mr-2"><Warning /></el-icon>
-									Checkbox grid: No rows or columns data available
-									<div class="text-xs mt-1">
-										Rows: {{ question.rows?.length || 0 }}, Columns:
-										{{ question.columns?.length || 0 }}
 									</div>
 								</div>
 							</div>
 						</div>
-						<div
-							v-if="!section.questions || section.questions.length <= 0"
-							class="empty-state-container"
-						>
-							<el-empty
-								:image-size="60"
-								description="No questions available in this section"
+
+						<!-- 单选网格 (Checkbox grid) -->
+						<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid">
+							<div
+								v-if="
+									question.rows &&
+									question.rows.length > 0 &&
+									question.columns &&
+									question.columns.length > 0
+								"
+								class="grid-container"
 							>
-								<template #description>
-									<p class="text-gray-500 text-sm">
-										This section doesn't contain any questions yet.
-									</p>
-								</template>
-							</el-empty>
+								<div class="grid-header">
+									<div class="grid-cell grid-row-header"></div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-column-header"
+									>
+										{{ column.label }}
+										<el-tag
+											v-if="column.isOther"
+											size="small"
+											type="warning"
+											class="other-column-tag"
+										>
+											Other
+										</el-tag>
+									</div>
+								</div>
+								<div
+									v-for="(row, rowIndex) in question.rows"
+									:key="rowIndex"
+									class="grid-row"
+								>
+									<div class="grid-cell grid-row-header">{{ row.label }}</div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-radio-cell gap-x-2"
+									>
+										<el-radio
+											v-model="formData[`${question.id}_${row.id}`]"
+											:name="`grid_${question.id}_${rowIndex}`"
+											:value="
+												column.value ||
+												column.label ||
+												`${rowIndex}_${colIndex}`
+											"
+											@change="handleHasOtherQuestion(question, $event)"
+											class="grid-radio"
+										/>
+
+										<!-- Other选项的文字输入框 -->
+										<div v-if="column.isOther">
+											<el-input
+												v-model="
+													formData[
+														`${question.id}_${row.id}_${column.id}`
+													]
+												"
+												:disabled="
+													formData[`${question.id}_${row.id}`] !=
+													(column.value || column.label)
+												"
+												placeholder="Please specify..."
+												size="small"
+												class="other-input"
+											/>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- 如果没有数据，显示占位符 -->
+							<div
+								v-else
+								class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
+							>
+								<el-icon class="mr-2"><Warning /></el-icon>
+								Checkbox grid: No rows or columns data available
+								<div class="text-xs mt-1">
+									Rows: {{ question.rows?.length || 0 }}, Columns:
+									{{ question.columns?.length || 0 }}
+								</div>
+							</div>
 						</div>
 					</div>
-				</el-collapse-item>
+					<div
+						v-if="!currentSection.questions || currentSection.questions.length <= 0"
+						class="empty-state-container"
+					>
+						<el-empty
+							:image-size="60"
+							description="No questions available in this section"
+						>
+							<template #description>
+								<p class="text-gray-500 text-sm">
+									This section doesn't contain any questions yet.
+								</p>
+							</template>
+						</el-empty>
+					</div>
+
+					<!-- 统一的底部导航控件 -->
+					<div v-if="totalSections > 1" class="bottom-navigation">
+						<!-- 左侧：上一页按钮 -->
+						<div class="nav-left">
+							<el-button
+								v-if="!isFirstSection"
+								@click="goToPreviousSection"
+								class="pagination-btn"
+							>
+								<el-icon class="mr-1"><ArrowLeft /></el-icon>
+								Previous
+							</el-button>
+						</div>
+
+						<!-- 中间：进度指示器 -->
+						<div class="section-progress">
+							<div class="section-dots">
+								<button
+									v-for="(section, index) in formattedQuestionnaires[0].sections"
+									:key="section.id"
+									@click="goToSection(index)"
+									:class="[
+										'section-dot',
+										{ active: index === currentSectionIndex },
+									]"
+									:title="section.title"
+								></button>
+							</div>
+						</div>
+
+						<!-- 右侧：下一页按钮 -->
+						<div class="nav-right">
+							<el-button
+								v-if="!isLastSection"
+								@click="goToNextSection"
+								type="primary"
+								class="pagination-btn"
+							>
+								Next
+								<el-icon class="ml-1"><ArrowRight /></el-icon>
+							</el-button>
+						</div>
+					</div>
+				</div>
+
+				<!-- 如果没有当前 section 的占位符 -->
+				<div v-else-if="totalSections === 0" class="no-sections-placeholder">
+					<el-empty description="No sections available" :image-size="80">
+						<template #description>
+							<p class="text-gray-500">
+								This questionnaire doesn't have any sections configured.
+							</p>
+						</template>
+					</el-empty>
+				</div>
 			</template>
-		</el-collapse>
+		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { Upload, Loading, Warning } from '@element-plus/icons-vue';
-import { QuestionnaireAnswer, QuestionnaireData } from '#/onboard';
+import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
+import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
+import { QuestionnaireAnswer, QuestionnaireData, ComponentData } from '#/onboard';
+import { Section } from '#/section';
+
+// 使用 MDI 图标库
+import IconStar from '~icons/mdi/star';
+import IconStarOutline from '~icons/mdi/star-outline';
+import IconHeart from '~icons/mdi/heart';
+import IconHeartOutline from '~icons/mdi/heart-outline';
+import IconThumbUp from '~icons/mdi/thumb-up';
+import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
 
 // 组件属性
 interface Props {
 	stageId: string;
 	onboardingId?: string;
-	questionnaireData?: any;
+	questionnaireData?: ComponentData;
 	isStageCompleted?: boolean;
 	questionnaireAnswers?: {
 		lastModifiedAt: string;
@@ -474,13 +537,34 @@ interface Props {
 const props = defineProps<Props>();
 
 const formData = ref<Record<string, any>>({});
-const activeCollapses = ref<string[]>([]); // 初始为空数组，稍后会填充所有section的id
 const loading = ref(false);
+const currentSectionIndex = ref(0);
 
 // 计算属性 - 检查是否有问卷数据
 const hasQuestionnaireData = computed(() => {
 	return props.questionnaireData && props.questionnaireData.id;
 });
+
+// 计算属性 - 当前显示的 section
+const currentSection = computed(() => {
+	if (!hasQuestionnaireData.value || formattedQuestionnaires.value.length === 0) return null;
+	const questionnaire = formattedQuestionnaires.value[0];
+	if (!questionnaire.sections || questionnaire.sections.length === 0) return null;
+	return questionnaire.sections[currentSectionIndex.value] || null;
+});
+
+// 计算属性 - 所有 sections 的总数
+const totalSections = computed(() => {
+	if (!hasQuestionnaireData.value || formattedQuestionnaires.value.length === 0) return 0;
+	const questionnaire = formattedQuestionnaires.value[0];
+	return questionnaire.sections?.length || 0;
+});
+
+// 计算属性 - 是否是第一页
+const isFirstSection = computed(() => currentSectionIndex.value === 0);
+
+// 计算属性 - 是否是最后一页
+const isLastSection = computed(() => currentSectionIndex.value >= totalSections.value - 1);
 
 // 格式化问卷数据 - 现在处理单个问卷对象
 const formattedQuestionnaires = computed(() => {
@@ -491,7 +575,7 @@ const formattedQuestionnaires = computed(() => {
 	try {
 		// 处理 structureJson
 		let structure: any = {};
-		if (questionnaire.structureJson) {
+		if (questionnaire?.structureJson) {
 			try {
 				structure = JSON.parse(questionnaire.structureJson);
 			} catch (parseError) {
@@ -506,17 +590,17 @@ const formattedQuestionnaires = computed(() => {
 
 		const processedQuestionnaire = {
 			...questionnaire,
-			title: questionnaire.name || 'Questionnaire',
+			title: questionnaire?.name || 'Questionnaire',
 			sections: structure.sections.map((section: any) => ({
 				...section,
-				id: section.id || `section_${Math.random()}`,
-				title: section.title || section.name || `Section ${section.id || 'Unknown'}`,
+				id: section?.id,
+				title: section.title || section.name,
 				questions: (section.questions || []).map((question: any) => ({
 					...question,
 					// 保持原有的title作为问题内容
 					question: question.title || question.question || '',
 					// 使用原始的question.id，不要重新生成
-					id: question.id || `question_${Math.random()}`,
+					id: question.id,
 				})),
 			})),
 		};
@@ -527,7 +611,7 @@ const formattedQuestionnaires = computed(() => {
 		return [
 			{
 				...questionnaire,
-				title: questionnaire.name || 'Questionnaire (Error)',
+				title: questionnaire?.name || 'Questionnaire (Error)',
 				sections: [
 					{
 						id: `error_section`,
@@ -542,99 +626,42 @@ const formattedQuestionnaires = computed(() => {
 });
 
 // 根据答案数组填充表单
-const applyAnswers = (answers?: any[]) => {
+const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 	if (!Array.isArray(answers) || answers.length === 0) return;
-
-	answers.forEach((ans: any) => {
+	answers.forEach((ans) => {
 		if (!ans || !ans.questionId) return;
 
 		// 检查是否是网格问题（包含下划线分隔的ID）
-		const isGridQuestion =
-			ans.questionId.includes('_') && !ans.questionId.endsWith('_other_text');
-
-		if (isGridQuestion) {
-			// 解析网格问题的答案
-			let responseText = ans.responseText || '';
-			let mainAnswer = responseText;
-			let otherText = '';
-
-			// 检查是否包含Other文本 - 格式: "Option A (Other: custom text)"
-			const otherMatch = responseText.match(/^(.+?)\s*\(Other:\s*(.+?)\)$/);
-			if (otherMatch) {
-				mainAnswer = otherMatch[1].trim();
-				otherText = otherMatch[2].trim();
-			}
-
-			// 如果整个答案就是Other格式 - 格式: "Other: custom text"
-			const pureOtherMatch = responseText.match(/^Other:\s*(.+)$/);
-			if (pureOtherMatch) {
-				mainAnswer = 'Other';
-				otherText = pureOtherMatch[1].trim();
-			}
-
-			// 确定问题类型并设置正确的数据格式
-			const questionId = ans.questionId.split('_')[0];
-			const question = findQuestionById(questionId);
-
-			if (question?.type === 'multiple_choice_grid') {
+		if (ans.type === 'multiple_choice_grid' || ans.type === 'checkbox_grid') {
+			if (ans?.type === 'multiple_choice_grid') {
 				// 多选网格：将逗号分隔的字符串转换为数组
-				const selectedValues = mainAnswer
-					.split(',')
-					.map((v) => v.trim())
-					.filter((v) => v);
+				const selectedValues = ans.answer;
 
 				formData.value[ans.questionId] = selectedValues;
-			} else if (question?.type === 'checkbox_grid') {
+			} else if (ans?.type === 'checkbox_grid') {
 				// 单选网格：直接设置字符串值
-				formData.value[ans.questionId] = mainAnswer;
+				formData.value[ans.questionId] = ans.answer;
 			}
 
-			// 如果有Other文本，设置到对应的other_text字段
-			if (otherText) {
-				const otherTextKey = `${ans.questionId}_other_text`;
-				formData.value[otherTextKey] = otherText;
+			if (ans.responseText) {
+				const responseText = JSON.parse(ans.responseText);
+				Object.keys(responseText).forEach((key) => {
+					formData.value[key] = responseText[key];
+				});
+			}
+		} else if (ans.type === 'checkbox' || ans.type === 'radio') {
+			formData.value[ans.questionId] = ans.answer;
+			if (ans.responseText) {
+				const responseText = JSON.parse(ans.responseText);
+				Object.keys(responseText).forEach((key) => {
+					formData.value[key] = responseText[key];
+				});
 			}
 		} else {
-			// 非网格问题，直接设置值
-			formData.value[ans.questionId] = ans.responseText;
+			formData.value[ans.questionId] = ans.answer;
 		}
 	});
 };
-
-// 辅助函数：根据ID查找问题
-const findQuestionById = (questionId: string) => {
-	for (const questionnaire of formattedQuestionnaires.value) {
-		for (const section of questionnaire.sections) {
-			for (const question of section.questions || []) {
-				if (question.id === questionId) {
-					return question;
-				}
-			}
-		}
-	}
-	return null;
-};
-
-// 监听问卷数据变化，自动展开所有sections
-watch(
-	formattedQuestionnaires,
-	(newQuestionnaires) => {
-		if (newQuestionnaires.length > 0) {
-			const allSectionIds: string[] = [];
-			newQuestionnaires.forEach((questionnaire) => {
-				questionnaire.sections.forEach((section: any) => {
-					allSectionIds.push(section.id);
-				});
-			});
-
-			// 只有当activeCollapses为空时才设置默认值，避免重复设置
-			if (activeCollapses.value.length === 0 && allSectionIds.length > 0) {
-				activeCollapses.value = allSectionIds;
-			}
-		}
-	},
-	{ immediate: true }
-);
 
 // 监听答案数据变化，确保答案能正确应用
 watch(
@@ -650,47 +677,56 @@ watch(
 	{ immediate: true, deep: true }
 );
 
+// 处理单选按钮点击（支持取消选择）
+const handleRadioClick = (questionId: string, optionValue: string) => {
+	// 检查当前点击的选项是否已经被选中
+	if (formData.value[questionId] === optionValue) {
+		// 如果已经选中，则取消选择
+		formData.value[questionId] = '';
+		handleInputChange(questionId, '');
+	} else {
+		// 如果没有选中，则正常选择该选项
+		formData.value[questionId] = optionValue;
+		handleInputChange(questionId, optionValue);
+	}
+};
+
 // 处理表单值变化
 const handleInputChange = (questionId: string, value: any) => {
 	formData.value[questionId] = value;
+};
 
-	// 检查是否是网格问题，如果是，处理Other选项的清空逻辑
-	if (questionId.includes('_') && !questionId.endsWith('_other_text')) {
-		const baseQuestionId = questionId.split('_')[0];
-		const question = findQuestionById(baseQuestionId);
-
-		if (
-			question &&
-			(question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid')
-		) {
-			// 检查Other选项的状态
-			if (question.columns && question.columns.some((col: any) => col.isOther)) {
-				const otherTextKey = `${questionId}_other_text`;
-
-				if (question.type === 'multiple_choice_grid') {
-					// 多选网格：检查Other选项是否被取消选择
-					const otherColumn = question.columns.find((col: any) => col.isOther);
-					if (otherColumn) {
-						const otherValue = otherColumn.value || otherColumn.label || 'Other';
-						if (Array.isArray(value) && !value.includes(otherValue)) {
-							formData.value[otherTextKey] = '';
-						}
-					}
-				} else if (question.type === 'checkbox_grid') {
-					// 单选网格：检查是否不再选择Other选项
-					const otherColumn = question.columns.find((col: any) => col.isOther);
-					if (otherColumn) {
-						const rowIndex = questionId.split('_').pop();
-						const colIndex = question.columns.findIndex((col: any) => col.isOther);
-						const otherValue =
-							otherColumn.value || otherColumn.label || `${rowIndex}_${colIndex}`;
-						if (value !== otherValue) {
-							formData.value[otherTextKey] = '';
-						}
-					}
-				}
+// 复杂表单值变化处理
+const handleHasOtherQuestion = (question: Section, value: any) => {
+	if (question.type == 'radio') {
+		handleRadioClick(question.id, value);
+	} else {
+		formData.value[question.id] = value;
+	}
+	if (question.type == 'radio' || question.type == 'checkbox') {
+		question.options.forEach((option) => {
+			if (
+				option.isOther &&
+				((!Array.isArray(value) && formData.value[question.id] !== option.value) ||
+					(Array.isArray(value) && !formData.value[question.id].includes(option.value)))
+			) {
+				formData.value[`${question.id}_${option.id}`] = '';
 			}
-		}
+		});
+	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
+		question.rows.forEach((row) => {
+			question.columns.forEach((column) => {
+				if (
+					column.isOther &&
+					((!Array.isArray(value) &&
+						formData.value[`${question.id}_${row.id}`] !== column.id) ||
+						(Array.isArray(value) &&
+							!formData.value[`${question.id}_${row.id}`].includes(column.id)))
+				) {
+					formData.value[`${question.id}_${row.id}_${column.id}`] = '';
+				}
+			});
+		});
 	}
 };
 
@@ -783,10 +819,9 @@ const validateForm = () => {
 // 转换表单数据为API格式
 const transformFormDataForAPI = () => {
 	const apiData: QuestionnaireData[] = [];
-
 	for (const questionnaire of formattedQuestionnaires.value) {
 		const questionnaireData: QuestionnaireData = {
-			questionnaireId: questionnaire.id,
+			questionnaireId: questionnaire?.id || '',
 			stageId: props.stageId,
 			answerJson: [],
 		};
@@ -796,42 +831,51 @@ const transformFormDataForAPI = () => {
 				if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
 					// 网格类型：为每一行创建单独的答案记录
 					if (question.rows && question.rows.length > 0) {
-						question.rows.forEach((row: any, rowIndex: number) => {
-							const gridKey = `${question.id}_${row.id || rowIndex}`;
+						question.rows.forEach((row: any) => {
+							const gridKey = `${question.id}_${row.id}`;
 							const gridValue = formData.value[gridKey];
 
 							// 处理Other选项的文本
-							let responseText = '';
-							if (Array.isArray(gridValue)) {
-								// 多选情况
-								responseText = gridValue.join(', ');
-							} else {
-								// 单选情况
-								responseText = gridValue || '';
-							}
+							let responseText = {};
 
-							// 检查是否有Other文本输入
-							const otherTextKey = `${question.id}_${row.id || rowIndex}_other_text`;
-							const otherText = formData.value[otherTextKey];
-							if (otherText && otherText.trim()) {
-								// 如果有Other文本，添加到响应中
-								if (responseText) {
-									responseText += ` (Other: ${otherText})`;
-								} else {
-									responseText = `Other: ${otherText}`;
+							question.columns.forEach((column: any) => {
+								const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+								if (column.isOther && formData.value[otherTextKey]) {
+									responseText[otherTextKey] = formData.value[otherTextKey];
 								}
-							}
-
+							});
 							const answer: QuestionnaireAnswer = {
 								questionId: gridKey,
 								question: `${question.question} - ${row.label}`,
 								answer: gridValue,
 								type: question.type,
-								responseText: responseText,
+								responseText: JSON.stringify(responseText),
 							};
 							questionnaireData.answerJson.push(answer);
 						});
 					}
+				} else if (question.type === 'checkbox' || question.type === 'radio') {
+					// 单选题
+					let responseText = {};
+					question.options.forEach((option: any) => {
+						const otherTextKey = `${question.id}_${option.id}`;
+						if (option.isOther && formData.value[otherTextKey]) {
+							const otherText = formData.value[otherTextKey];
+							if (otherText && otherText.trim()) {
+								responseText = {
+									[otherTextKey]: otherText,
+								};
+							}
+						}
+					});
+					const answer: QuestionnaireAnswer = {
+						questionId: question.id,
+						question: question.question,
+						answer: formData.value[question.id],
+						type: question.type,
+						responseText: JSON.stringify(responseText),
+					};
+					questionnaireData.answerJson.push(answer);
 				} else {
 					// 普通类型的问题
 					const answer: QuestionnaireAnswer = {
@@ -931,11 +975,106 @@ const getFormData = () => {
 	return result;
 };
 
+// 根据跳转规则获取目标section ID
+const getJumpTargetSection = () => {
+	if (!currentSection.value?.questions) return null;
+
+	// 从最后一个问题开始向前查找，找到最后一个有效的跳转规则
+	const questions = currentSection.value.questions;
+
+	// 倒序遍历问题数组，找到最后一个符合条件的跳转规则
+	for (let i = questions.length - 1; i >= 0; i--) {
+		const question = questions[i];
+
+		// 检查是否是单选题且有跳转规则
+		if (
+			(question.type === 'radio' || question.type === 'multiple_choice') &&
+			question.jumpRules &&
+			question.jumpRules.length > 0
+		) {
+			const userAnswer = formData.value[question.id];
+
+			// 检查用户是否已经选择了答案
+			if (userAnswer && userAnswer !== '') {
+				// 查找匹配的跳转规则
+				const matchingRule = question.jumpRules.find((rule) => {
+					return (
+						rule.optionId &&
+						question.options.some(
+							(option) =>
+								option.id === rule.optionId &&
+								(option.value === userAnswer || option.label === userAnswer)
+						)
+					);
+				});
+
+				// 如果找到匹配的跳转规则，立即返回
+				if (matchingRule) {
+					console.log(
+						'Found jump rule from question:',
+						question.id,
+						'target:',
+						matchingRule.targetSectionId
+					);
+					return matchingRule.targetSectionId;
+				}
+			}
+		}
+	}
+
+	return null;
+};
+
+// 根据section ID查找在sections数组中的索引
+const findSectionIndexById = (sectionId: string) => {
+	if (!formattedQuestionnaires.value.length) return -1;
+
+	const questionnaire = formattedQuestionnaires.value[0];
+	if (!questionnaire.sections) return -1;
+
+	return questionnaire.sections.findIndex((section) => section.id === sectionId);
+};
+
+// 分页控制方法
+const goToPreviousSection = () => {
+	if (!isFirstSection.value) {
+		currentSectionIndex.value--;
+	}
+};
+
+const goToNextSection = () => {
+	console.log('goToNextSection', currentSection.value);
+	console.log('formData:', formData.value);
+
+	// 检查是否有跳转规则需要应用
+	const targetSectionId = getJumpTargetSection();
+
+	if (targetSectionId) {
+		// 根据跳转规则跳转到指定section
+		const targetSectionIndex = findSectionIndexById(targetSectionId);
+		if (targetSectionIndex !== -1) {
+			console.log('Jumping to section:', targetSectionId, 'at index:', targetSectionIndex);
+			currentSectionIndex.value = targetSectionIndex;
+			return;
+		}
+	}
+
+	// 没有跳转规则或找不到目标section，使用默认的下一个section
+	if (!isLastSection.value) {
+		currentSectionIndex.value++;
+	}
+};
+
+const goToSection = (index: number) => {
+	if (index >= 0 && index < totalSections.value) {
+		currentSectionIndex.value = index;
+	}
+};
+
 // 不再监听 props 重新拉取答案，父组件负责注入
 
 // 初始化
 onMounted(async () => {
-	// 等待下一个tick确保计算属性已更新
 	await nextTick();
 
 	// 初始化表单数据
@@ -944,40 +1083,25 @@ onMounted(async () => {
 			questionnaire.sections.forEach((section: any) => {
 				section.questions.forEach((question: any) => {
 					// 根据问题类型初始化表单数据
-					if (question.type === 'multiple_choice_grid') {
+					if (
+						question.type === 'multiple_choice_grid' ||
+						question.type === 'checkbox_grid'
+					) {
 						// 多选网格：为每一行初始化多选值（数组）
 						if (question.rows && question.rows.length > 0) {
-							question.rows.forEach((row: any, rowIndex: number) => {
-								const key = `${question.id}_${row.id || rowIndex}`;
+							question.rows.forEach((row: any) => {
+								const key = `${question.id}_${row.id}`;
 								if (!(key in formData.value)) {
 									formData.value[key] = [];
 								}
-
-								// 为Other选项初始化文本字段
-								const otherTextKey = `${question.id}_${
-									row.id || rowIndex
-								}_other_text`;
-								if (!(otherTextKey in formData.value)) {
-									formData.value[otherTextKey] = '';
-								}
-							});
-						}
-					} else if (question.type === 'checkbox_grid') {
-						// 单选网格：为每一行初始化单选值
-						if (question.rows && question.rows.length > 0) {
-							question.rows.forEach((row: any, rowIndex: number) => {
-								const key = `${question.id}_${row.id || rowIndex}`;
-								if (!(key in formData.value)) {
-									formData.value[key] = null;
-								}
-
-								// 为Other选项初始化文本字段
-								const otherTextKey = `${question.id}_${
-									row.id || rowIndex
-								}_other_text`;
-								if (!(otherTextKey in formData.value)) {
-									formData.value[otherTextKey] = '';
-								}
+								question.columns.forEach((column: any) => {
+									if (column.isOther) {
+										const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+										if (!(otherTextKey in formData.value)) {
+											formData.value[otherTextKey] = '';
+										}
+									}
+								});
 							});
 						}
 					} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
@@ -992,18 +1116,66 @@ onMounted(async () => {
 						}
 					}
 				});
+
+				section?.columns?.forEach((column: any) => {
+					if (column.isOther) {
+						const otherTextKey = `${section.id}_${column.id}`;
+						if (!(otherTextKey in formData.value)) {
+							formData.value[otherTextKey] = '';
+						}
+					}
+				});
+
+				section?.options?.forEach((option: any) => {
+					if (option.isOther) {
+						const otherTextKey = `${section.id}_${option.id}`;
+						if (!(otherTextKey in formData.value)) {
+							formData.value[otherTextKey] = '';
+						}
+					}
+				});
 			});
 		});
-
 		// 初始化完毕后再应用答案，防止被覆盖
 		applyAnswers(props.questionnaireAnswers);
 	}
 });
 
+// 图标选项
+const iconOptions = {
+	star: {
+		filledIcon: [IconStar, IconStar, IconStar],
+		voidIcon: IconStarOutline,
+	},
+	heart: {
+		filledIcon: [IconHeart, IconHeart, IconHeart],
+		voidIcon: IconHeartOutline,
+	},
+	thumbs: {
+		filledIcon: [IconThumbUp, IconThumbUp, IconThumbUp],
+		voidIcon: IconThumbUpOutline,
+	},
+};
+
+const getSelectedFilledIcon = (iconType: string) => {
+	return iconOptions[iconType]?.filledIcon;
+};
+
+const getSelectedVoidIcon = (iconType: string) => {
+	return iconOptions[iconType]?.voidIcon;
+};
+
 defineExpose({
 	validateForm,
 	transformFormDataForAPI,
 	getFormData,
+	goToPreviousSection,
+	goToNextSection,
+	goToSection,
+	currentSectionIndex: readonly(currentSectionIndex),
+	totalSections,
+	isFirstSection,
+	isLastSection,
 });
 </script>
 
@@ -1025,25 +1197,6 @@ defineExpose({
 	}
 }
 
-/* 多问卷标题样式 */
-.questionnaire-header {
-	margin: 24px 0 16px 0;
-
-	&:first-child {
-		margin-top: 0;
-	}
-}
-
-.questionnaire-title {
-	font-size: 18px;
-	font-weight: 600;
-	color: #1f2937;
-	margin: 0 0 8px 0;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
 .error-indicator {
 	font-size: 14px;
 	font-weight: normal;
@@ -1054,12 +1207,107 @@ defineExpose({
 	border: 1px solid #fecaca;
 }
 
-.questionnaire-divider {
-	margin: 8px 0 0 0;
-}
-
 .questionnaire-error {
 	margin-bottom: 16px;
+}
+
+/* 统一的底部导航样式 */
+.bottom-navigation {
+	margin-top: 32px;
+	padding: 20px;
+	background-color: #f9fafb;
+	border-radius: 8px;
+	border: 1px solid #e5e7eb;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 60px;
+}
+
+/* 左侧导航区域 */
+.nav-left {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	min-width: 120px;
+}
+
+/* 右侧导航区域 */
+.nav-right {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-width: 120px;
+}
+
+/* 进度指示器区域 */
+.section-progress {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+}
+
+.section-dots {
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+	align-items: center;
+}
+
+.section-dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	border: 2px solid #d1d5db;
+	background-color: #f9fafb;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	padding: 0;
+	outline: none;
+
+	&:hover {
+		border-color: var(--primary-400);
+		background-color: var(--primary-50);
+	}
+
+	&.active {
+		border-color: var(--primary-500);
+		background-color: var(--primary-500);
+	}
+}
+
+.pagination-btn {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* Section 标题样式 */
+.section-header {
+	background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+	border: 1px solid var(--primary-200);
+	border-radius: 8px;
+}
+
+.section-title {
+	font-size: 18px;
+	font-weight: 600;
+	color: var(--primary-800);
+	margin: 0;
+}
+
+.section-description {
+	font-size: 14px;
+	color: var(--primary-600);
+	margin: 0;
+	line-height: 1.5;
+}
+
+/* 无section占位符 */
+.no-sections-placeholder {
+	margin: 40px 0;
+	text-align: center;
 }
 
 .question-item {
@@ -1111,15 +1359,48 @@ html.dark {
 		color: #9ca3af !important;
 	}
 
-	/* 多问卷暗色主题 */
-	.questionnaire-title {
-		color: var(--white-100);
-	}
-
 	.error-indicator {
 		color: #fca5a5;
 		background-color: rgba(239, 68, 68, 0.1);
 		border-color: rgba(239, 68, 68, 0.3);
+	}
+
+	/* 底部导航暗色主题 */
+	.bottom-navigation {
+		background-color: var(--black-200);
+		border-color: var(--black-100);
+	}
+
+	.section-dot {
+		border-color: var(--black-100);
+		background-color: var(--black-200);
+
+		&:hover {
+			border-color: var(--primary-400);
+			background-color: var(--primary-800);
+		}
+
+		&.active {
+			border-color: var(--primary-500);
+			background-color: var(--primary-500);
+		}
+	}
+
+	.section-header {
+		background: linear-gradient(135deg, var(--primary-800) 0%, var(--primary-700) 100%);
+		border-color: var(--primary-600);
+	}
+
+	.section-title {
+		color: var(--white-100);
+	}
+
+	.section-description {
+		color: var(--primary-200);
+	}
+
+	.no-sections-placeholder {
+		color: var(--white-200);
 	}
 }
 
