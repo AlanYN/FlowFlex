@@ -880,7 +880,7 @@ const handleLimitUpdate = () => {
 .card-link {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
-	width: 149px; /* 固定宽度 */
+	width: calc(100% / 3 - 10px); /* 固定宽度 */
 	flex-shrink: 0; /* 防止收缩 */
 	padding-right: 8px; /* 增加右边距 */
 	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
@@ -899,6 +899,7 @@ const handleLimitUpdate = () => {
 	justify-content: center; /* 文本居中 */
 	flex-shrink: 0; /* 防止收缩 */
 	margin-right: 8px; /* 增加右边距 */
+	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
 }
 
 .card-link-more:hover {
@@ -1240,6 +1241,7 @@ const handleLimitUpdate = () => {
 	text-overflow: ellipsis;
 	justify-content: flex-start; /* 左对齐显示，优先显示workflow */
 	flex-shrink: 0; /* 防止收缩 */
+	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
 }
 
 .popover-tag:hover {
@@ -1249,7 +1251,6 @@ const handleLimitUpdate = () => {
 /* Assignments容器样式 */
 .assignments-container {
 	height: 60px !important; /* 固定高度 */
-	overflow: hidden;
 }
 
 /* 暗色主题样式 */
