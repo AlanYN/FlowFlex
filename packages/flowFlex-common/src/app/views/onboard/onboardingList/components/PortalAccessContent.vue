@@ -589,15 +589,15 @@ watchEffect(async () => {
 
 /* Portal Table 样式 */
 :deep(.portal-table .el-table__header-wrapper) {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 }
 
 :deep(.portal-table .el-table__header) {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 }
 
 :deep(.portal-table .el-table__header th) {
-	background-color: #eff6ff !important;
+	background-color: var(--primary-10) !important;
 	border: none;
 	font-weight: 500;
 }

@@ -1226,11 +1226,11 @@ onMounted(async () => {
 }
 
 :deep(.el-table .bg-blue-50) {
-	background-color: #eff6ff !important;
+	background-color: var(--primary-10) !important;
 }
 
 :deep(.el-table th) {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 	border-bottom: 1px solid #e5e7eb;
 	color: #374151;
 	font-weight: 500;
@@ -1270,7 +1270,7 @@ onMounted(async () => {
 }
 
 .stage-card :deep(.el-card__header) {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 	border-bottom: 1px solid #e5e7eb;
 	padding: 12px 20px;
 }

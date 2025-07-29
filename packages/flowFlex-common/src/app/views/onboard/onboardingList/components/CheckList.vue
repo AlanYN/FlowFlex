@@ -65,7 +65,13 @@
 							<el-icon class="completion-icon"><Check /></el-icon>
 							<span class="completion-text">
 								Completed by
-								{{ task.completedBy || task.assigneeName || task.createBy || defaultStr }} on
+								{{
+									task.completedBy ||
+									task.assigneeName ||
+									task.createBy ||
+									defaultStr
+								}}
+								on
 								{{ formatDate(task.completedDate) || defaultStr }}
 							</span>
 						</div>
@@ -263,7 +269,7 @@ const formatDate = (dateString: string | null): string => {
 
 	&:hover:not(.completed) {
 		border-color: #3b82f6;
-		background-color: #eff6ff;
+		background-color: var(--primary-10);
 		box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
 	}
 

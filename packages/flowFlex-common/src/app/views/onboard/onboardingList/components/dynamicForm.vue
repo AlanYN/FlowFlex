@@ -142,7 +142,7 @@
 									<div v-if="option.isOther">
 										<el-input
 											:disabled="
-												!formData[question.id].includes(option.value)
+												!formData[question.id]?.includes(option.value)
 											"
 											v-model="formData[`${question.id}_${option.id}`]"
 											placeholder="Enter other"
@@ -702,7 +702,7 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 			if (
 				option.isOther &&
 				((!Array.isArray(value) && formData.value[question.id] !== option.value) ||
-					(Array.isArray(value) && !formData.value[question.id].includes(option.value)))
+					(Array.isArray(value) && !formData.value[question.id]?.includes(option.value)))
 			) {
 				formData.value[`${question.id}_${option.id}`] = '';
 			}
@@ -715,7 +715,7 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 					((!Array.isArray(value) &&
 						formData.value[`${question.id}_${row.id}`] !== column.id) ||
 						(Array.isArray(value) &&
-							!formData.value[`${question.id}_${row.id}`].includes(column.id)))
+							!formData.value[`${question.id}_${row.id}`]?.includes(column.id)))
 				) {
 					formData.value[`${question.id}_${row.id}_${column.id}`] = '';
 				}

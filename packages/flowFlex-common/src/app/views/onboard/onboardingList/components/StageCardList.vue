@@ -246,7 +246,7 @@ defineProps({
 }
 
 .stage-card :deep(.el-card__header) {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 	border-bottom: 1px solid #e5e7eb;
 	padding: 12px 20px;
 }
@@ -316,7 +316,7 @@ defineProps({
 	}
 
 	.stage-card :deep(.el-card__header) {
-		background-color: #eff6ff;
+		background-color: var(--primary-10);
 		border-bottom: 1px solid #e5e7eb;
 		padding: 12px 20px;
 	}

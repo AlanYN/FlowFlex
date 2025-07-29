@@ -48,6 +48,7 @@ export default {
 				'black-500': 'var(--black-500)',
 				'black-600': 'var(--black-600)',
 				'black-700': 'var(--black-700)',
+				'primary-10': 'var(--primary-10)',
 				'primary-50': 'var(--primary-50)',
 				'primary-100': 'var(--primary-100)',
 				'primary-200': 'var(--primary-200)',

@@ -143,7 +143,7 @@
 }
 
 .bg-blue-50 {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 }
 
 .bg-gray-50 {
