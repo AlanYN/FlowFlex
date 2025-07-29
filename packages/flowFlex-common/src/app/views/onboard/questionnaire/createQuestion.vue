@@ -852,7 +852,6 @@ onMounted(async () => {
 }
 
 .editor-tabs {
-	height: 100%;
 	display: flex;
 	flex-direction: column;
 }
