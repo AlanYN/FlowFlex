@@ -34,7 +34,6 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 var migrations = new[]
                 {
                     ("20250101000000_InitialCreate", (Action)(() => InitialCreate_20250101000000.Up(_db))),
-                    ("20250101000001_CreateRemainingTables", (Action)(() => CreateRemainingTables_20250101000001.Up(_db))),
                     ("20250101000002_AddAssignmentsJsonColumn", (Action)(() => Migration_20250101000002_AddAssignmentsJsonColumn.Up(_db))),
                     ("20250101000003_RemoveWorkflowStageColumns", (Action)(() => Migration_20250101000003_RemoveWorkflowStageColumns.Up(_db))),
                     ("20250101000004_AddQuestionnaireAssignmentsJsonColumn", (Action)(() => Migration_20250101000004_AddQuestionnaireAssignmentsJsonColumn.Up(_db))),
@@ -44,7 +43,6 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250101000008_CreateUserInvitationsTable", (Action)(() => CreateUserInvitationsTable_20250101000008.Up(_db))),
                     ("20250101000009_AddShortUrlIdToUserInvitations", (Action)(() => AddShortUrlIdToUserInvitations_20250101000009.Up(_db))),
                     ("20250101000010_AddStageIdToChecklistTaskCompletion", (Action)(() => AddStageIdToChecklistTaskCompletion_20250101000009.Up(_db))),
-                    ("20250101000011_AddStageVersionComponentsField", (Action)(() => Migration_20250101000011_AddStageVersionComponentsField.Up(_db))),
                     ("20241219000001_AddAppCodeColumn", (Action)(() => AddAppCodeColumnMigration.Execute(_db))),
                     ("20241219000002_AddAppCodeColumnSafe", (Action)(() => AddAppCodeColumnSafeMigration.Execute(_db))),
                     ("20250101000012_CreateAccessTokenTable", (Action)(() => CreateAccessTokenTable_20250101000010.Up(_db))),
@@ -223,7 +221,6 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 // SeedDemoData_20250101000002.Down(_db);
-                CreateRemainingTables_20250101000001.Down(_db);
                 InitialCreate_20250101000000.Down(_db);
 
                 // Clear migration history

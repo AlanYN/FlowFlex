@@ -119,7 +119,6 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.ChecklistMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.QuestionnaireMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.StageMapProfile>();
-    config.AddProfile<FlowFlex.Application.Maps.WorkflowVersionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.InternalNoteMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.StaticFieldValueMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.OnboardingFileMapProfile>();
@@ -128,7 +127,6 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskCompletionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskMapProfile>();
 
-    config.AddProfile<FlowFlex.Application.Maps.StageVersionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.QuestionnaireSectionMapProfile>();
 }, assemblies);
 

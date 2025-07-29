@@ -25,7 +25,6 @@ namespace FlowFlex.Application.Service.OW
     {
         private readonly IStageRepository _stageRepository;
         private readonly IWorkflowRepository _workflowRepository;
-        private readonly IWorkflowVersionRepository _workflowVersionRepository;
         private readonly IMapper _mapper;
         private readonly IOperationChangeLogService _operationLogService;
         private readonly IStageAssignmentSyncService _syncService;
@@ -36,11 +35,10 @@ namespace FlowFlex.Application.Service.OW
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IWorkflowVersionRepository workflowVersionRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, UserContext userContext)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, UserContext userContext)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
-            _workflowVersionRepository = workflowVersionRepository;
             _mapper = mapper;
             _operationLogService = operationLogService;
             _syncService = syncService;
@@ -71,9 +69,6 @@ namespace FlowFlex.Application.Service.OW
             {
                 entity.Order = await _stageRepository.GetNextOrderAsync(input.WorkflowId);
             }
-
-            // Set workflow version
-            entity.WorkflowVersion = workflow.Version.ToString();
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
@@ -257,8 +252,6 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private bool HasStageChanges(Stage entity, StageInputDto input)
         {
-            // Compare if each field has changes
-            if (entity.WorkflowId != input.WorkflowId) return true;
             if (entity.Name != input.Name) return true;
             if (entity.PortalName != input.PortalName) return true;
             if (entity.InternalName != input.InternalName) return true;
@@ -275,33 +268,6 @@ namespace FlowFlex.Application.Service.OW
 
 
             return false; // No changes
-        }
-
-        /// <summary>
-        /// Create new workflow version for stage changes
-        /// </summary>
-        private async Task CreateWorkflowVersionForStageChangeAsync(long workflowId, string changeReason)
-        {
-            // Get workflow information
-            var workflow = await _workflowRepository.GetByIdAsync(workflowId);
-            if (workflow == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
-            }
-
-            // Get all current stages for version snapshot
-            var currentStages = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-
-            // Create version history record (including stage snapshot)
-            await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(
-                workflow,
-                currentStages,
-                "Stage Updated",
-                $"{changeReason} - Workflow updated to version {workflow.Version + 1}");
-
-            // Update workflow version number
-            workflow.Version += 1;
-            await _workflowRepository.UpdateAsync(workflow);
         }
 
         public async Task<bool> DeleteAsync(long id, bool confirm = false)
@@ -325,12 +291,6 @@ namespace FlowFlex.Application.Service.OW
 
             // Delete stage first
             var deleteResult = await _stageRepository.DeleteAsync(entity);
-
-            // If deletion is successful, create new WorkflowVersion (save changed state after stage deletion) - Disabled automatic version creation
-            // if (deleteResult)
-            // {
-            //     await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stage '{stageName}' deleted");
-            // }
 
             return deleteResult;
         }
@@ -464,7 +424,6 @@ namespace FlowFlex.Application.Service.OW
                 EstimatedDuration = input.EstimatedDuration,
                 Order = stagesToCombine.Min(s => s.Order), // Use minimum order number
                 Color = input.Color,
-                WorkflowVersion = stagesToCombine.First().WorkflowVersion,
                 IsActive = true
             };
 
@@ -529,8 +488,7 @@ namespace FlowFlex.Application.Service.OW
                 ChecklistId = sourceStage.ChecklistId,
                 QuestionnaireId = sourceStage.QuestionnaireId,
                 Color = sourceStage.Color,
-                WorkflowVersion = targetWorkflow.Version.ToString(),
-                IsActive = sourceStage.IsActive,
+                IsActive = true,
                 // Copy tenant and app information from source stage
                 TenantId = sourceStage.TenantId,
                 AppCode = sourceStage.AppCode

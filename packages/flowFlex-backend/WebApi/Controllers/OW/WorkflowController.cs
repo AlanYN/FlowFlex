@@ -168,13 +168,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Get workflow version history
         /// </summary>
-        [HttpGet("{id}/versions")]
-        [ProducesResponseType<SuccessResponse<List<WorkflowVersionDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetVersionHistory(long id)
-        {
-            var versions = await _workflowService.GetVersionHistoryAsync(id);
-            return Success(versions);
-        }
+        // 移除GetVersionHistory、GetStagesByVersionId、GetVersionDetail、CreateFromVersion、CreateNewVersion等与版本历史相关的接口实现
 
         /// <summary>
         /// Get stages by workflow id
@@ -209,51 +203,6 @@ namespace FlowFlex.WebApi.Controllers.OW
             var stream = await _workflowService.ExportMultipleDetailedToExcelAsync(search);
             var fileName = $"workflows_detailed_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-        }
-
-        /// <summary>
-        /// Get stages by workflow version id
-        /// </summary>
-        [HttpGet("{workflowId}/versions/{versionId}/stages")]
-        [ProducesResponseType<SuccessResponse<List<StageOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetStagesByVersionId(long workflowId, long versionId)
-        {
-            var data = await _workflowService.GetStagesByVersionIdAsync(workflowId, versionId);
-            return Success(data);
-        }
-
-        /// <summary>
-        /// Get workflow version detail with stages
-        /// </summary>
-        [HttpGet("{workflowId}/versions/{versionId}")]
-        [ProducesResponseType<SuccessResponse<WorkflowVersionDetailDto>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetVersionDetail(long workflowId, long versionId)
-        {
-            var data = await _workflowService.GetVersionDetailAsync(workflowId, versionId);
-            return Success(data);
-        }
-
-        /// <summary>
-        /// Create workflow from version with stages
-        /// </summary>
-        [HttpPost("create-from-version")]
-        [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> CreateFromVersion([FromBody] CreateWorkflowFromVersionInputDto input)
-        {
-            var id = await _workflowService.CreateFromVersionAsync(input);
-            return Success(id);
-        }
-
-        /// <summary>
-        /// Manually create a new workflow version
-        /// </summary>
-        [HttpPost("{id}/create-version")]
-        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> CreateNewVersion(long id, [FromBody] CreateVersionRequest request = null)
-        {
-            var changeReason = request?.ChangeReason;
-            var result = await _workflowService.CreateNewVersionAsync(id, changeReason);
-            return Success(result);
         }
     }
 

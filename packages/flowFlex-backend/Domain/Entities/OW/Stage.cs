@@ -88,14 +88,6 @@ namespace FlowFlex.Domain.Entities.OW
 
 
 
-
-        /// <summary>
-        /// Workflow Version
-        /// </summary>
-        [StringLength(32)]
-        [SugarColumn(ColumnName = "workflow_version")]
-        public string WorkflowVersion { get; set; }
-
         /// <summary>
         /// Is Active
         /// </summary>

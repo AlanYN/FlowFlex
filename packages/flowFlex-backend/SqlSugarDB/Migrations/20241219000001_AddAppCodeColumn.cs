@@ -15,24 +15,25 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             try
             {
-                var tableNames = new string[]
+                var tables = new[]
                 {
-                    "ff_users", "ff_workflow", "ff_workflow_version", "ff_stage", "ff_stage_version",
-                    "ff_onboarding", "ff_questionnaire", "ff_questionnaire_section", "ff_questionnaire_answers",
-                    "ff_checklist", "ff_checklist_task", "ff_checklist_task_completion", "ff_internal_notes",
-                    "ff_onboarding_file", "ff_operation_change_log", "ff_static_field_values", "ff_stage_completion_log"
+                    "ff_users", "ff_workflow", "ff_stage",
+                    "ff_checklist", "ff_checklist_task", "ff_checklist_task_completion",
+                    "ff_onboarding", "ff_onboarding_stage", "ff_onboarding_stage_log",
+                    "ff_questionnaire", "ff_questionnaire_section", "ff_questionnaire_question",
+                    "ff_questionnaire_answer", "ff_stage_file", "ff_stage_note"
                 };
 
-                foreach (var tableName in tableNames)
+                foreach (var tableName in tables)
                 {
                     AddAppCodeColumnToTable(db, tableName);
                 }
 
                 // Create indexes for better performance
-                CreateIndexes(db, tableNames);
+                CreateIndexes(db, tables);
 
                 // Add comments for app_code columns
-                AddComments(db, tableNames);
+                AddComments(db, tables);
 
                 Console.WriteLine("App code columns added successfully to all tables");
             }
