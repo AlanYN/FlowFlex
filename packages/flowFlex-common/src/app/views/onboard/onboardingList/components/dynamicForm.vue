@@ -300,7 +300,7 @@
 									>
 										<el-checkbox-group
 											v-model="formData[`${question.id}_${row.id}`]"
-											@change="handleHasOtherQuestion(question, column.id)"
+											@change="handleHasOtherQuestion(question, row.id)"
 										>
 											<el-checkbox :value="column.id" class="grid-checkbox" />
 										</el-checkbox-group>
@@ -376,7 +376,7 @@
 												column.label ||
 												`${rowIndex}_${colIndex}`
 											"
-											@change="handleHasOtherQuestion(question, $event)"
+											@change="handleHasOtherQuestion(question, row.id)"
 											class="grid-radio"
 										/>
 
@@ -710,18 +710,18 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 			}
 		});
 	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
-		question.rows.forEach((row) => {
-			question.columns.forEach((column) => {
-				if (
-					column.isOther &&
-					((!Array.isArray(formData.value[`${question.id}_${row.id}`]) &&
-						formData.value[`${question.id}_${row.id}`] !== column.id) ||
-						(Array.isArray(formData.value[`${question.id}_${row.id}`]) &&
-							!formData.value[`${question.id}_${row.id}`]?.includes(column.id)))
-				) {
-					formData.value[`${question.id}_${row.id}_${column.id}`] = '';
-				}
-			});
+		console.log('question.columns:', question.columns);
+		console.log('formData.value:', formData.value);
+		question.columns.forEach((column) => {
+			if (
+				column.isOther &&
+				((!Array.isArray(formData.value[`${question.id}_${value}`]) &&
+					formData.value[`${question.id}_${value}`] !== column.id) ||
+					(Array.isArray(formData.value[`${question.id}_${value}`]) &&
+						!formData.value[`${question.id}_${value}`]?.includes(column.id)))
+			) {
+				formData.value[`${question.id}_${value}_${column.id}`] = '';
+			}
 		});
 	}
 };
@@ -1065,7 +1065,8 @@ onMounted(async () => {
 							question.rows.forEach((row: any) => {
 								const key = `${question.id}_${row.id}`;
 								if (!(key in formData.value)) {
-									formData.value[key] = [];
+									formData.value[key] =
+										question.type === 'multiple_choice_grid' ? [] : '';
 								}
 								question.columns.forEach((column: any) => {
 									if (column.isOther) {
