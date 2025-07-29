@@ -20,16 +20,17 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CreateHelperFunctions(db);
 
                 // Define table names to update
-                var tableNames = new string[]
+                var tables = new[]
                 {
-                    "ff_users", "ff_workflow", "ff_workflow_version", "ff_stage", "ff_stage_version",
-                    "ff_onboarding", "ff_questionnaire", "ff_questionnaire_section", "ff_questionnaire_answers",
-                    "ff_checklist", "ff_checklist_task", "ff_checklist_task_completion", "ff_internal_notes",
-                    "ff_onboarding_file", "ff_operation_change_log", "ff_static_field_values", "ff_stage_completion_log"
+                    "ff_users", "ff_workflow", "ff_stage",
+                    "ff_checklist", "ff_checklist_task", "ff_checklist_task_completion",
+                    "ff_onboarding", "ff_onboarding_stage", "ff_onboarding_stage_log",
+                    "ff_questionnaire", "ff_questionnaire_section", "ff_questionnaire_question",
+                    "ff_questionnaire_answer", "ff_stage_file", "ff_stage_note"
                 };
 
                 // Execute the migration using PostgreSQL functions
-                ExecuteSafeMigration(db, tableNames);
+                ExecuteSafeMigration(db, tables);
 
                 // Clean up helper functions
                 CleanupHelperFunctions(db);

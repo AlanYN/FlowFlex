@@ -31,16 +31,16 @@
 			<div class="workflow-list" v-else-if="workflow">
 				<div
 					class="workflow-card rounded-md"
-					:class="{ active: (displayWorkflow || workflow).isActive }"
+					:class="{ active: workflow.isActive }"
 				>
 					<div class="workflow-card-header">
 						<div class="left-section">
 							<div class="title-and-tags">
 								<span class="workflow-name">
-									{{ (displayWorkflow || workflow).name }}
+									{{ workflow.name }}
 								</span>
 								<el-tag
-									v-if="(displayWorkflow || workflow).isDefault"
+									v-if="workflow.isDefault"
 									type="warning"
 									effect="light"
 									size="small"
@@ -52,7 +52,7 @@
 									</div>
 								</el-tag>
 								<el-tag
-									v-if="(displayWorkflow || workflow).status === 'active'"
+									v-if="workflow.status === 'active'"
 									type="success"
 									effect="light"
 									size="small"
@@ -71,7 +71,7 @@
 								</el-tag>
 							</div>
 							<span class="workflow-desc">
-								{{ (displayWorkflow || workflow).description }}
+								{{ workflow.description }}
 							</span>
 						</div>
 						<div class="right-section">
@@ -203,12 +203,7 @@
 											</el-icon>
 											Add Stage
 										</el-dropdown-item>
-										<el-dropdown-item command="versionHistory">
-											<el-icon>
-												<Clock />
-											</el-icon>
-											Version History
-										</el-dropdown-item>
+
 										<!-- <el-dropdown-item
 											command="combineStages"
 											:disabled="workflow.stages.length < 2"
@@ -239,13 +234,11 @@
 									<span class="date-label">Start:</span>
 									<span class="date-value">
 										{{
-											formatDate(
-												(displayWorkflow || workflow).startDate || ''
-											)
+											formatDate(workflow.startDate || '')
 										}}
 									</span>
 								</div>
-								<div v-if="(displayWorkflow || workflow).endDate" class="date-item">
+								<div v-if="workflow.endDate" class="date-item">
 									<el-icon
 										class="calendar-icon"
 										style="color: var(--el-color-danger)"
@@ -255,25 +248,12 @@
 									<span class="date-label">End:</span>
 									<span class="date-value">
 										{{
-											formatDate((displayWorkflow || workflow).endDate || '')
+											formatDate(workflow.endDate || '')
 										}}
 									</span>
 								</div>
 							</div>
 							<div class="action-buttons-group">
-								<button
-									class="save-version-btn"
-									@click="saveNewVersion"
-									:disabled="!workflow || loading.createVersion"
-								>
-									<el-icon v-if="loading.createVersion" class="mr-1 text-primary">
-										<Loading />
-									</el-icon>
-									<el-icon v-else class="mr-1 text-primary">
-										<Plus />
-									</el-icon>
-									<span>Save New Version</span>
-								</button>
 								<button
 									class="add-stage-btn"
 									@click="addStage()"
@@ -293,37 +273,14 @@
 						<!-- Stages 标题 -->
 						<div class="stages-header">
 							<div class="stages-header-actions">
-								<el-tag
-									v-if="displayWorkflow && displayWorkflow.id !== workflow.id"
-									type="info"
-									effect="light"
-									size="small"
-									class="viewing-history-tag"
-								>
-									Viewing Historical Version
-								</el-tag>
-								<el-button
-									v-if="displayWorkflow && displayWorkflow.id !== workflow.id"
-									type="primary"
-									size="small"
-									@click="displayWorkflow = null"
-									class="back-to-current-btn"
-								>
-									<el-icon>
-										<ArrowLeft />
-									</el-icon>
-									Back to Current
-								</el-button>
+
 							</div>
 						</div>
 
 						<StagesList
-							v-model:stages="(displayWorkflow || workflow).stages"
+							v-model:stages="workflow.stages"
 							:workflow-id="workflow.id"
-							:is-editing="
-								isEditing &&
-								(!displayWorkflow || displayWorkflow.id === workflow.id)
-							"
+							:is-editing="isEditing"
 							:loading="{
 								stages: loading.stages,
 								deleteStage: loading.deleteStage,
@@ -383,162 +340,7 @@
 			/>
 		</el-dialog>
 
-		<!-- 版本历史对话框 -->
-		<el-dialog
-			v-model="dialogVisible.versionHistory"
-			width="1000px"
-			destroy-on-close
-			custom-class="version-history-dialog"
-			:show-close="true"
-			:close-on-click-modal="false"
-			draggable
-		>
-			<template #header>
-				<div class="version-dialog-header">
-					<h2 class="version-dialog-title">Workflow Version History</h2>
-					<p class="version-dialog-subtitle">View and manage all workflow versions.</p>
-				</div>
-			</template>
 
-			<div class="version-history-content">
-				<el-table
-					:data="versionHistoryData"
-					:border="false"
-					:stripe="false"
-					v-loading="loading.versions"
-					class="version-history-table"
-					header-row-class-name="version-table-header"
-					row-class-name="version-table-row"
-				>
-					<template #empty>
-						<el-empty description="No Data" :image-size="50" />
-					</template>
-
-					<el-table-column prop="name" label="Name" width="200">
-						<template #default="scope">
-							<el-tooltip
-								:content="scope.row.name"
-								placement="top"
-								:disabled="!scope.row.name || scope.row.name.length <= 25"
-							>
-								<div class="version-name">{{ scope.row.name }}</div>
-							</el-tooltip>
-						</template>
-					</el-table-column>
-
-					<el-table-column prop="version" label="Version" width="80" align="center">
-						<template #default="scope">
-							<el-tag type="primary" effect="light" size="small" class="version-tag">
-								{{ scope.row.version }}
-							</el-tag>
-						</template>
-					</el-table-column>
-
-					<el-table-column prop="status" label="Status" width="100" align="center">
-						<template #default="scope">
-							<el-tag
-								:type="scope.row.status === 'Active' ? 'success' : 'info'"
-								effect="light"
-								size="small"
-								class="status-tag"
-							>
-								{{ scope.row.status }}
-							</el-tag>
-						</template>
-					</el-table-column>
-
-					<el-table-column prop="isDefault" label="Default" width="100" align="center">
-						<template #default="scope">
-							<el-tag
-								v-if="scope.row.isDefault"
-								type="warning"
-								effect="light"
-								size="small"
-								class="default-tag"
-							>
-								Default
-							</el-tag>
-							<el-tag
-								v-else
-								type="info"
-								effect="light"
-								size="small"
-								class="status-tag"
-							>
-								No
-							</el-tag>
-						</template>
-					</el-table-column>
-
-					<el-table-column prop="startDate" label="Start Date" width="130">
-						<template #default="scope">
-							<el-tooltip
-								:content="formatDate(scope.row.startDate) || 'Not set'"
-								placement="top"
-							>
-								<span class="date-text">
-									{{ formatDate(scope.row.startDate) || 'Not set' }}
-								</span>
-							</el-tooltip>
-						</template>
-					</el-table-column>
-
-					<el-table-column prop="createdBy" label="Created By" width="120">
-						<template #default="scope">
-							<el-tooltip :content="scope.row.createdBy || 'Admin'" placement="top">
-								<span class="created-by">{{ scope.row.createdBy || 'Admin' }}</span>
-							</el-tooltip>
-						</template>
-					</el-table-column>
-
-					<el-table-column prop="createdAt" label="Created At" width="140">
-						<template #default="scope">
-							<el-tooltip :content="formatDate(scope.row.createdAt)" placement="top">
-								<span class="date-text">{{ formatDate(scope.row.createdAt) }}</span>
-							</el-tooltip>
-						</template>
-					</el-table-column>
-
-					<el-table-column fixed="right" label="Actions" width="130">
-						<template #default="scope">
-							<div class="action-buttons">
-								<el-button
-									link
-									type="primary"
-									size="small"
-									@click="selectVersion(scope.row)"
-									class="view-btn"
-								>
-									View Stages
-								</el-button>
-								<el-tooltip content="Edit Workflow" placement="top">
-									<el-button
-										link
-										type="primary"
-										size="small"
-										class="edit-btn"
-										@click="editWorkflowVersion(scope.row)"
-										:disabled="loading.updateWorkflow"
-									>
-										<el-icon>
-											<Edit />
-										</el-icon>
-									</el-button>
-								</el-tooltip>
-							</div>
-						</template>
-					</el-table-column>
-				</el-table>
-			</div>
-
-			<template #footer>
-				<div class="version-dialog-footer">
-					<el-button @click="dialogVisible.versionHistory = false" class="close-btn">
-						Close
-					</el-button>
-				</div>
-			</template>
-		</el-dialog>
 
 		<!-- 新建/编辑阶段对话框 -->
 		<el-dialog
@@ -715,10 +517,6 @@ import {
 	deactivateWorkflow as deactivateWorkflowApi,
 	activateWorkflow as activateWorkflowApi,
 	duplicateWorkflow as duplicateWorkflowApi,
-	getWorkflowVersions,
-	getWorkflowVersionStages,
-	createWorkflowFromVersion as createWorkflowFromVersionApi,
-	createWorkflowVersion,
 	createStage,
 	getStagesByWorkflow,
 	combineStages,
@@ -741,24 +539,19 @@ const { t } = useI18n();
 
 // 状态
 const workflow = ref<Workflow | null>(null); // 当前操作的工作流
-const displayWorkflow = ref<Workflow | null>(null); // 当前展示的工作流（可能是历史版本）
+
 const isEditing = ref(true);
 const currentStage = ref<Stage | null>(null);
 const isEditingStage = ref(false);
-const selectedVersion = ref<string>('');
 const selectedWorkflow = ref<string>('');
-const versionHistoryData = ref<any[]>([]); // 版本历史数据
 const workflowListData = ref<any[]>([]); // 工作流列表数据
 const isEditingWorkflow = ref(false);
-const isEditingFromHistory = ref(false); // 标识是否从历史版本编辑
-const editingWorkflowData = ref<any>(null); // 存储正在编辑的工作流数据（用于历史版本编辑） // 是否为编辑模式
 const originalStagesOrder = ref<Stage[]>([]); // 保存拖动前的原始阶段顺序
 
 // API加载状态变量
 const loading = reactive({
 	workflows: false, // 获取工作流列表
 	stages: false, // 获取阶段列表
-	versions: false, // 获取版本历史
 	createWorkflow: false, // 创建工作流
 	updateWorkflow: false, // 更新工作流
 	activateWorkflow: false, // 激活工作流
@@ -770,7 +563,6 @@ const loading = reactive({
 	sortStages: false, // 排序阶段
 	combineStages: false, // 合并阶段
 	exportWorkflow: false, // 导出工作流
-	createVersion: false, // 创建版本
 });
 
 // 合并阶段相关状态
@@ -783,22 +575,16 @@ const combinedStageDuration = ref<number>(1);
 const dialogVisible = reactive({
 	workflowForm: false,
 	stageForm: false,
-	versionHistory: false,
 	combineStages: false,
 });
 
 // 计算对话框标题
 const dialogTitle = computed(() => {
-	if (isEditingWorkflow.value) {
-		const currentWorkflow = isEditingFromHistory.value
-			? editingWorkflowData.value
-			: workflow.value;
-		if (currentWorkflow) {
-			const versionInfo = currentWorkflow.version
-				? ` (Version ${currentWorkflow.version})`
-				: '';
-			return `Edit Workflow${versionInfo}`;
-		}
+	if (isEditingWorkflow.value && workflow.value) {
+		const versionInfo = workflow.value.version
+			? ` (Version ${workflow.value.version})`
+			: '';
+		return `Edit Workflow${versionInfo}`;
 	}
 	return 'Create New Workflow';
 });
@@ -816,13 +602,7 @@ const dialogSubtitle = computed(() => {
 	return 'Create a new workflow version for the onboarding process.';
 });
 
-// 监听选中版本变化
-watch(selectedVersion, (newValue) => {
-	if (newValue && workflow.value && newValue !== workflow.value.id) {
-		// 如果选择了不同的版本，设置当前工作流
-		setCurrentWorkflow(newValue);
-	}
-});
+
 
 // 工作流切换处理
 const onWorkflowChange = (workflowId: string) => {
@@ -868,7 +648,6 @@ onMounted(async () => {
 	fetchChecklists();
 	fetchQuestionnaires();
 	if (workflow.value) {
-		selectedVersion.value = workflow.value.id;
 		selectedWorkflow.value = workflow.value.id;
 	}
 });
@@ -898,20 +677,12 @@ const fetchWorkflows = async () => {
 
 // 设置当前工作流并获取阶段
 const setCurrentWorkflow = async (workflowId: string | number) => {
-	// 首先从工作流列表中查找
+	// 从工作流列表中查找
 	let selectedWorkflowData = workflowListData.value.find((wf) => wf.id === workflowId);
-
-	// 如果在工作流列表中没找到，可能是版本历史中的工作流，从版本历史中查找
-	if (!selectedWorkflowData && versionHistoryData.value.length > 0) {
-		selectedWorkflowData = versionHistoryData.value.find((wf) => wf.id === workflowId);
-	}
 
 	if (selectedWorkflowData) {
 		workflow.value = selectedWorkflowData;
 		selectedWorkflow.value = workflowId.toString();
-		selectedVersion.value = workflowId.toString();
-		// 重置展示工作流，回到当前工作流
-		displayWorkflow.value = null;
 		// 获取工作流关联的阶段
 		await fetchStages(workflowId);
 	} else {
@@ -934,22 +705,6 @@ const fetchStages = async (workflowId: string | number) => {
 	}
 };
 
-// 获取工作流版本历史
-const fetchVersionHistory = async (id: string | number) => {
-	try {
-		loading.versions = true;
-		const res = await getWorkflowVersions(id);
-		if (res.code === '200') {
-			return res.data;
-		} else {
-			ElMessage.error(res.msg || t('sys.api.operationFailed'));
-			return [];
-		}
-	} finally {
-		loading.versions = false;
-	}
-};
-
 // 方法
 const formatDate = (date: string) => {
 	return timeZoneConvert(date, false, projectDate);
@@ -957,111 +712,19 @@ const formatDate = (date: string) => {
 
 const showNewWorkflowDialog = () => {
 	isEditingWorkflow.value = false;
-	isEditingFromHistory.value = false; // 重置历史版本编辑标识
-	editingWorkflowData.value = null; // 清空编辑数据
 	dialogVisible.workflowForm = true;
 };
 
-const showVersionHistory = async () => {
-	if (workflow.value) {
-		try {
-			loading.versions = true;
-			const versionData = await fetchVersionHistory(workflow.value.id);
-			if (versionData && versionData.length > 0) {
-				// 更新版本历史数据
-				versionHistoryData.value = versionData;
-			} else {
-				versionHistoryData.value = [];
-			}
-			dialogVisible.versionHistory = true;
-		} finally {
-			loading.versions = false;
-		}
-	} else {
-		versionHistoryData.value = [];
-		dialogVisible.versionHistory = true;
-	}
-};
 
-const selectVersion = async (version: any) => {
-	try {
-		// 关闭版本历史对话框
-		dialogVisible.versionHistory = false;
 
-		// 获取历史版本的stage信息
-		if (workflow.value && version.id !== workflow.value.id) {
-			// 调用接口获取历史版本的stages
-			const stagesRes = await getWorkflowVersionStages(workflow.value.id, version.id);
-			if (stagesRes.code === '200') {
-				// 设置展示的工作流为历史版本，包含获取到的stages
-				displayWorkflow.value = {
-					...version,
-					stages: stagesRes.data || [],
-				};
-			} else {
-				// 如果获取stages失败，仍然设置版本但使用空的stages
-				displayWorkflow.value = {
-					...version,
-					stages: [],
-				};
-				ElMessage.warning('Failed to load stages for this version');
-			}
-		} else {
-			// 如果是当前版本，直接使用现有的stages
-			displayWorkflow.value = {
-				...version,
-				stages: version.stages || [],
-			};
-		}
 
-		ElMessage.success(`Now viewing ${version.name} (Version ${version.version || 'N/A'})`);
-	} catch (error) {
-		ElMessage.error('Failed to view selected version');
-		console.error('Error viewing selected version:', error);
-	}
-};
 
-const editWorkflowVersion = (version: any) => {
-	try {
-		// 检查是否已经在编辑状态
-		if (dialogVisible.workflowForm) {
-			ElMessage.warning(
-				'Another workflow is currently being edited. Please close the current dialog first.'
-			);
-			return;
-		}
 
-		// 只存储要编辑的工作流基本信息，不包含 stages，不影响当前显示
-		editingWorkflowData.value = {
-			id: version.id,
-			name: version.name,
-			description: version.description,
-			startDate: version.startDate,
-			endDate: version.endDate,
-			status: version.status,
-			isDefault: version.isDefault,
-			version: version.version,
-			// 不包含 stages，避免影响当前页面显示
-		};
-
-		// 设置为编辑模式和历史版本编辑标识
-		isEditingWorkflow.value = true;
-		isEditingFromHistory.value = true;
-		// 关闭版本历史对话框
-		dialogVisible.versionHistory = false;
-		// 打开工作流编辑对话框
-		dialogVisible.workflowForm = true;
-	} catch (error) {
-		console.error('Error opening workflow for editing:', error);
-	}
-};
 
 const handleCommand = (command: string) => {
 	switch (command) {
 		case 'edit':
 			isEditingWorkflow.value = true;
-			isEditingFromHistory.value = false; // 重置历史版本编辑标识
-			editingWorkflowData.value = null; // 清空编辑数据
 			dialogVisible.workflowForm = true;
 			break;
 		case 'setDefault':
@@ -1075,9 +738,6 @@ const handleCommand = (command: string) => {
 			break;
 		case 'addStage':
 			addStage();
-			break;
-		case 'versionHistory':
-			showVersionHistory();
 			break;
 		case 'duplicate':
 			duplicateWorkflow();
@@ -1094,12 +754,7 @@ const handleCommand = (command: string) => {
 // 处理工作流提交
 const handleWorkflowSubmit = async (workflowData: Partial<Workflow>) => {
 	if (isEditingWorkflow.value) {
-		// 检查是否是从历史版本编辑
-		if (isEditingFromHistory.value) {
-			await createWorkflowFromHistoryVersion(workflowData);
-		} else {
-			await updateWorkflow(workflowData);
-		}
+		await updateWorkflow(workflowData);
 	} else {
 		await createWorkflow(workflowData);
 	}
@@ -1108,8 +763,6 @@ const handleWorkflowSubmit = async (workflowData: Partial<Workflow>) => {
 // 处理工作流取消
 const handleWorkflowCancel = () => {
 	dialogVisible.workflowForm = false;
-	isEditingFromHistory.value = false;
-	editingWorkflowData.value = null;
 };
 
 const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
@@ -1158,8 +811,6 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 			ElMessage.success(t('sys.api.operationSuccess'));
 			// 重新获取工作流列表
 			dialogVisible.workflowForm = false;
-			isEditingFromHistory.value = false; // 重置历史版本编辑标识
-			editingWorkflowData.value = null; // 清空编辑数据
 			await fetchWorkflows();
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
@@ -1169,47 +820,7 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 	}
 };
 
-const createWorkflowFromHistoryVersion = async (updatedWorkflow: Partial<Workflow>) => {
-	if (!editingWorkflowData.value || !workflow.value) return;
 
-	try {
-		loading.updateWorkflow = true;
-		// 准备接口参数 - 使用 createWorkflowFromVersion API
-		const params = {
-			name: updatedWorkflow.name || editingWorkflowData.value.name,
-			description: updatedWorkflow.description || editingWorkflowData.value.description,
-			isDefault:
-				updatedWorkflow.isDefault !== undefined
-					? updatedWorkflow.isDefault
-					: editingWorkflowData.value.isDefault,
-			status: updatedWorkflow.status || editingWorkflowData.value.status,
-			startDate: updatedWorkflow.startDate || editingWorkflowData.value.startDate,
-			endDate:
-				updatedWorkflow.endDate !== undefined
-					? updatedWorkflow.endDate
-					: editingWorkflowData.value.endDate,
-			isActive: (updatedWorkflow.status || editingWorkflowData.value.status) === 'active',
-			versionId: editingWorkflowData.value.id, // 使用历史版本的ID
-			originalWorkflowId: workflow.value.id, // 添加原始工作流ID参数
-		};
-
-		// 调用从版本创建工作流API
-		const res = await createWorkflowFromVersionApi(workflow.value.id, params);
-
-		if (res.code === '200') {
-			ElMessage.success('Workflow created successfully from history version');
-			// 重新获取工作流列表
-			dialogVisible.workflowForm = false;
-			isEditingFromHistory.value = false; // 重置历史版本编辑标识
-			editingWorkflowData.value = null; // 清空编辑数据
-			await fetchWorkflows();
-		} else {
-			ElMessage.error(res.msg || t('sys.api.operationFailed'));
-		}
-	} finally {
-		loading.updateWorkflow = false;
-	}
-};
 
 const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 	if (!workflow.value) return;
@@ -1241,8 +852,6 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 			ElMessage.success(t('sys.api.operationSuccess'));
 			// 重新获取工作流列表
 			dialogVisible.workflowForm = false;
-			isEditingFromHistory.value = false; // 重置历史版本编辑标识
-			editingWorkflowData.value = null; // 清空编辑数据
 			await fetchWorkflows();
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
@@ -1762,36 +1371,7 @@ const resetCombineStagesForm = () => {
 	combinedStageDuration.value = 1;
 };
 
-// 保存新版本
-const saveNewVersion = async () => {
-	if (!workflow.value) return;
 
-	try {
-		loading.createVersion = true;
-		const params = {
-			changeReason: 'Manual version creation from UI',
-		};
-
-		const res = await createWorkflowVersion(workflow.value.id, params);
-
-		if (res.code === '200') {
-			ElMessage.success('New version created successfully');
-			// 保存当前工作流ID，避免切换到默认工作流
-			const currentWorkflowId = workflow.value.id;
-			// 重新获取工作流列表以更新当前工作流的StartDate
-			await fetchWorkflows();
-			// 确保当前工作流保持选中状态
-			await setCurrentWorkflow(currentWorkflowId);
-		} else {
-			ElMessage.error(res.msg || t('sys.api.operationFailed'));
-		}
-	} catch (error) {
-		ElMessage.error(t('sys.api.operationFailed'));
-		console.error('Error creating new version:', error);
-	} finally {
-		loading.createVersion = false;
-	}
-};
 </script>
 
 <style lang="scss" scoped>
@@ -2036,7 +1616,6 @@ const saveNewVersion = async () => {
 	gap: 12px;
 }
 
-.save-version-btn,
 .add-stage-btn {
 	display: inline-flex;
 	align-items: center;
@@ -2051,12 +1630,10 @@ const saveNewVersion = async () => {
 	transition: all 0.2s ease;
 }
 
-.save-version-btn:hover,
 .add-stage-btn:hover {
 	background-color: rgba(var(--primary-500-rgb, 36, 104, 242), 0.1);
 }
 
-.save-version-btn:disabled,
 .add-stage-btn:disabled {
 	opacity: 0.6;
 	cursor: not-allowed;

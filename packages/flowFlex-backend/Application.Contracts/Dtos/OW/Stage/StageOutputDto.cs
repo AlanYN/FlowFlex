@@ -90,11 +90,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; }
 
         /// <summary>
-        /// Workflow version
-        /// </summary>
-        public string WorkflowVersion { get; set; }
-
-        /// <summary>
         /// Whether it's active
         /// </summary>
         public bool IsActive { get; set; }

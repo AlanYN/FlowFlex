@@ -12,23 +12,35 @@ namespace FlowFlex.SqlSugarDB.Migrations
             // Add columns to ff_stage table
             db.Ado.ExecuteCommand(@"
                 ALTER TABLE ff_stage 
-                ADD COLUMN visible_in_portal BOOLEAN DEFAULT TRUE;
+                ADD COLUMN IF NOT EXISTS visible_in_portal BOOLEAN NOT NULL DEFAULT TRUE;
             ");
 
             db.Ado.ExecuteCommand(@"
                 ALTER TABLE ff_stage 
-                ADD COLUMN attachment_management_needed BOOLEAN DEFAULT FALSE;
+                ADD COLUMN IF NOT EXISTS attachment_management_needed BOOLEAN NOT NULL DEFAULT FALSE;
             ");
 
-            // Add columns to ff_stage_version table
+            // Add comments to columns
             db.Ado.ExecuteCommand(@"
-                ALTER TABLE ff_stage_version 
-                ADD COLUMN visible_in_portal BOOLEAN DEFAULT TRUE;
+                COMMENT ON COLUMN ff_stage.visible_in_portal IS 'Controls whether this stage is visible in the portal';
+                COMMENT ON COLUMN ff_stage.attachment_management_needed IS 'Indicates whether file upload is required for this stage';
+            ");
+
+            // Add columns to ff_onboarding_stage table
+            db.Ado.ExecuteCommand(@"
+                ALTER TABLE ff_onboarding_stage 
+                ADD COLUMN IF NOT EXISTS visible_in_portal BOOLEAN NOT NULL DEFAULT TRUE;
             ");
 
             db.Ado.ExecuteCommand(@"
-                ALTER TABLE ff_stage_version 
-                ADD COLUMN attachment_management_needed BOOLEAN DEFAULT FALSE;
+                ALTER TABLE ff_onboarding_stage 
+                ADD COLUMN IF NOT EXISTS attachment_management_needed BOOLEAN NOT NULL DEFAULT FALSE;
+            ");
+
+            // Add comments to columns
+            db.Ado.ExecuteCommand(@"
+                COMMENT ON COLUMN ff_onboarding_stage.visible_in_portal IS 'Controls whether this stage is visible in the portal';
+                COMMENT ON COLUMN ff_onboarding_stage.attachment_management_needed IS 'Indicates whether file upload is required for this stage';
             ");
 
             // Create indexes for better query performance
@@ -52,17 +64,6 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             db.Ado.ExecuteCommand(@"
                 DROP INDEX IF EXISTS idx_stage_attachment_management_needed;
-            ");
-
-            // Drop columns from ff_stage_version table
-            db.Ado.ExecuteCommand(@"
-                ALTER TABLE ff_stage_version 
-                DROP COLUMN IF EXISTS visible_in_portal;
-            ");
-
-            db.Ado.ExecuteCommand(@"
-                ALTER TABLE ff_stage_version 
-                DROP COLUMN IF EXISTS attachment_management_needed;
             ");
 
             // Drop columns from ff_stage table

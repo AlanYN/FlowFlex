@@ -72,10 +72,6 @@ export function updateWorkflow(id: string | number, params: any) {
 	return defHttp.put({ url: `${Api(id).workflow}`, params });
 }
 
-export function createWorkflowFromVersion(id: string | number, params: any) {
-	return defHttp.post({ url: `${Api(id).historyWorkflow}`, params });
-}
-
 /**
  * 分页查询工作流 [W05]
  * @param params WorkflowQueryRequest
@@ -120,29 +116,6 @@ export function setDefaultWorkflow(id: string | number) {
  */
 export function duplicateWorkflow(id: string | number, params: any) {
 	return defHttp.post({ url: `${Api(id).workflowDuplicate}`, params });
-}
-
-/**
- * 获取工作流版本历史 [W10]
- * @param id 工作流ID
- * @returns List<WorkflowVersionDto>
- */
-export function getWorkflowVersions(id: string | number) {
-	return defHttp.get({ url: `${Api(id).workflowVersions}` });
-}
-
-export function getWorkflowVersionStages(id: string | number, versionId: string | number) {
-	return defHttp.get({ url: `${Api(id).workflowVersions}/${versionId}/stages` });
-}
-
-/**
- * 手动创建工作流版本 [W12]
- * @param id 工作流ID
- * @param params CreateVersionRequest
- * @returns bool
- */
-export function createWorkflowVersion(id: string | number, params?: any) {
-	return defHttp.post({ url: `${Api(id).workflowCreateVersion}`, params });
 }
 
 /**

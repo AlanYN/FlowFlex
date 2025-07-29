@@ -25,25 +25,8 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> SetDefaultAsync(long id);
         Task<bool> RemoveDefaultAsync(long id);
         Task<long> DuplicateAsync(long id, DuplicateWorkflowInputDto input);
-        Task<List<WorkflowVersionDto>> GetVersionHistoryAsync(long id);
         Task<Stream> ExportDetailedToExcelAsync(long workflowId);
         Task<Stream> ExportMultipleDetailedToExcelAsync(WorkflowExportSearch search);
-
-        /// <summary>
-        /// Get stages by workflow version id
-        /// </summary>
-        /// <param name="workflowId">Workflow ID</param>
-        /// <param name="versionId">Version ID</param>
-        /// <returns>Stage list</returns>
-        Task<List<StageOutputDto>> GetStagesByVersionIdAsync(long workflowId, long versionId);
-
-        /// <summary>
-        /// Get workflow version detail with stages
-        /// </summary>
-        /// <param name="workflowId">Workflow ID</param>
-        /// <param name="versionId">Version ID</param>
-        /// <returns>Version detail with stages</returns>
-        Task<WorkflowVersionDetailDto> GetVersionDetailAsync(long workflowId, long versionId);
 
         /// <summary>
         /// Create workflow from version with stages

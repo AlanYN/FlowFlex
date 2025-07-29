@@ -27,18 +27,14 @@ namespace FlowFlex.Application.Service.OW
     {
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IStageRepository _stageRepository;
-        private readonly IWorkflowVersionRepository _workflowVersionRepository;
-        private readonly IStageVersionRepository _stageVersionRepository;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<WorkflowService> _logger;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IWorkflowVersionRepository workflowVersionRepository, IStageVersionRepository stageVersionRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
-            _workflowVersionRepository = workflowVersionRepository;
-            _stageVersionRepository = stageVersionRepository;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -87,7 +83,6 @@ namespace FlowFlex.Application.Service.OW
                 {
                     var stage = _mapper.Map<Stage>(stageInput);
                     stage.WorkflowId = entity.Id;
-                    stage.WorkflowVersion = entity.Version.ToString();
                     
                     // Initialize create information
                     stage.InitCreateInfo(_userContext);
@@ -97,9 +92,6 @@ namespace FlowFlex.Application.Service.OW
                 
                 _logger.LogInformation("Created {StageCount} stages for workflow {WorkflowId}", input.Stages.Count, entity.Id);
             }
-
-            // Create version history record
-            await _workflowVersionRepository.CreateVersionHistoryAsync(entity, "Created", "Initial workflow creation");
 
             return entity.Id;
         }
@@ -195,7 +187,6 @@ namespace FlowFlex.Application.Service.OW
                         // Update existing stage
                         _mapper.Map(stageInput, existingStage);
                         existingStage.WorkflowId = id;
-                        existingStage.WorkflowVersion = entity.Version.ToString();
                         existingStage.InitUpdateInfo(_userContext);
                         
                         await _stageRepository.UpdateAsync(existingStage);
@@ -205,7 +196,6 @@ namespace FlowFlex.Application.Service.OW
                         // Create new stage
                         var newStage = _mapper.Map<Stage>(stageInput);
                         newStage.WorkflowId = id;
-                        newStage.WorkflowVersion = entity.Version.ToString();
                         newStage.InitCreateInfo(_userContext);
                         
                         await _stageRepository.InsertAsync(newStage);
@@ -458,7 +448,6 @@ namespace FlowFlex.Application.Service.OW
                     ChecklistId = stage.ChecklistId,
                     QuestionnaireId = stage.QuestionnaireId,
                     Color = stage.Color,
-                    WorkflowVersion = stage.WorkflowVersion,
                     IsActive = stage.IsActive
                 };
 
@@ -527,29 +516,6 @@ namespace FlowFlex.Application.Service.OW
             }
         }
 
-        public async Task<List<WorkflowVersionDto>> GetVersionHistoryAsync(long id)
-        {
-            var workflow = await _workflowRepository.GetByIdAsync(id);
-            if (workflow == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {id} not found");
-            }
-
-            var versions = await _workflowVersionRepository.GetVersionHistoryAsync(id);
-
-            // 如果没有版本历史记录，为现有工作流创建初始版�?
-            if (!versions.Any())
-            {
-                var stages = await _stageRepository.GetByWorkflowIdAsync(id);
-                await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(workflow, stages, "Initial", "Initial version created for existing workflow");
-
-                // 重新获取版本历史
-                versions = await _workflowVersionRepository.GetVersionHistoryAsync(id);
-            }
-
-            return _mapper.Map<List<WorkflowVersionDto>>(versions);
-        }
-
         public async Task<Stream> ExportDetailedToExcelAsync(long workflowId)
         {
             var workflow = await _workflowRepository.GetWithStagesAsync(workflowId);
@@ -558,7 +524,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
             }
 
-            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // 使用专门?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportToExcel(workflow);
         }
 
@@ -587,108 +553,16 @@ namespace FlowFlex.Application.Service.OW
                 workflows = await _workflowRepository.GetActiveWorkflowsAsync();
             }
 
-            // 使用专门�?WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // 使用专门?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportMultipleToExcel(workflows);
         }
-
-        /// <summary>
-        /// Get stages by workflow version id
-        /// </summary>
-        public async Task<List<StageOutputDto>> GetStagesByVersionIdAsync(long workflowId, long versionId)
-        {
-            // 验证工作流是否存�?
-            var workflow = await _workflowRepository.GetByIdAsync(workflowId);
-            if (workflow == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
-            }
-
-            // 验证版本是否存在
-            var version = await _workflowVersionRepository.GetVersionDetailAsync(versionId);
-            if (version == null || version.OriginalWorkflowId != workflowId)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {versionId} not found for workflow {workflowId}");
-            }
-
-            // 获取版本快照中的阶段列表
-            var stageVersions = await _stageVersionRepository.GetByWorkflowVersionIdAsync(versionId);
-
-            // 转换为StageOutputDto
-            var stageOutputs = stageVersions.Select(sv => new StageOutputDto
-            {
-                Id = sv.OriginalStageId,
-                WorkflowId = workflowId,
-                Name = sv.Name,
-                Description = sv.Description,
-                DefaultAssignedGroup = sv.DefaultAssignedGroup,
-                DefaultAssignee = sv.DefaultAssignee,
-                EstimatedDuration = sv.EstimatedDuration,
-                Order = sv.OrderIndex,
-                ChecklistId = sv.ChecklistId,
-                QuestionnaireId = sv.QuestionnaireId,
-                Color = sv.Color,
-                ComponentsJson = sv.ComponentsJson, // Include Components configuration from version
-                Components = ParseComponentsFromJson(sv.ComponentsJson), // Parse JSON to Components array
-                WorkflowVersion = sv.WorkflowVersion,
-                IsActive = sv.IsActive,
-                CreateDate = sv.CreateDate,
-                CreateBy = sv.CreateBy
-            }).ToList();
-
-            return stageOutputs;
-        }
-
-        /// <summary>
-        /// Get workflow version detail with stages
-        /// </summary>
-        public async Task<WorkflowVersionDetailDto> GetVersionDetailAsync(long workflowId, long versionId)
-        {
-            // 验证工作流是否存�?
-            var workflow = await _workflowRepository.GetByIdAsync(workflowId);
-            if (workflow == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
-            }
-
-            // 获取版本详情
-            var version = await _workflowVersionRepository.GetVersionDetailAsync(versionId);
-            if (version == null || version.OriginalWorkflowId != workflowId)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {versionId} not found for workflow {workflowId}");
-            }
-
-            // 获取版本的阶段列�?
-            var stages = await GetStagesByVersionIdAsync(workflowId, versionId);
-
-            // 构建返回结果
-            var result = new WorkflowVersionDetailDto
-            {
-                Id = version.Id,
-                OriginalWorkflowId = version.OriginalWorkflowId,
-                Name = version.Name,
-                Description = version.Description,
-                Status = version.Status,
-                IsDefault = version.IsDefault,
-                StartDate = version.StartDate,
-                EndDate = version.EndDate,
-                Version = version.Version,
-                IsActive = version.IsActive,
-                CreatedBy = version.CreateBy,
-                CreatedAt = version.CreateDate,
-                ChangeType = version.ChangeType,
-                ChangeReason = version.ChangeReason,
-                Stages = stages
-            };
-
-            return result;
-        }
-
+      
         /// <summary>
         /// Create workflow from version with stages
         /// </summary>
         public async Task<long> CreateFromVersionAsync(CreateWorkflowFromVersionInputDto input)
         {
-            // 验证原始工作流是否存�?
+            // 验证原始工作流是否存?
             var originalWorkflow = await _workflowRepository.GetByIdAsync(input.OriginalWorkflowId);
             if (originalWorkflow == null)
             {
@@ -696,19 +570,19 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // 验证版本是否存在
-            var version = await _workflowVersionRepository.GetVersionDetailAsync(input.VersionId);
-            if (version == null || version.OriginalWorkflowId != input.OriginalWorkflowId)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {input.VersionId} not found for workflow {input.OriginalWorkflowId}");
-            }
+            // var version = await _workflowVersionRepository.GetVersionDetailAsync(input.VersionId); // Removed
+            // if (version == null || version.OriginalWorkflowId != input.OriginalWorkflowId) // Removed
+            // {
+            //     throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {input.VersionId} not found for workflow {input.OriginalWorkflowId}"); // Removed
+            // } // Removed
 
-            // 验证新工作流名称唯一�?
+            // 验证新工作流名称唯一?
             if (await _workflowRepository.ExistsNameAsync(input.Name))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Workflow name '{input.Name}' already exists");
             }
 
-            // 如果设置为默认，需要先取消其他默认工作�?
+            // 如果设置为默认，需要先取消其他默认工作?
             if (input.IsDefault)
             {
                 var existingDefault = await _workflowRepository.GetDefaultWorkflowAsync();
@@ -750,8 +624,6 @@ namespace FlowFlex.Application.Service.OW
                         ChecklistId = stageInput.ChecklistId,
                         QuestionnaireId = stageInput.QuestionnaireId,
                         Color = stageInput.Color,
-
-                        WorkflowVersion = "1",
                         IsActive = true
                     };
 
@@ -760,7 +632,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // 创建版本历史记录
-            await _workflowVersionRepository.CreateVersionHistoryAsync(newWorkflow, "Created", $"Created from version {version.Version} of workflow '{version.Name}'");
+            // await _workflowVersionRepository.CreateVersionHistoryAsync(newWorkflow, "Created", $"Created from version {version.Version} of workflow '{version.Name}'"); // Removed
 
             return newWorkflow.Id;
         }
@@ -794,11 +666,11 @@ namespace FlowFlex.Application.Service.OW
                 ? changeReason 
                 : "Manual version creation";
 
-            await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync(
-                workflow,
-                currentStages,
-                "Manual Version",
-                $"{reason} - Workflow manually versioned to {workflow.Version}");
+            // await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync( // Removed
+            //     workflow, // Removed
+            //     currentStages, // Removed
+            //     "Manual Version", // Removed
+            //     $"{reason} - Workflow manually versioned to {workflow.Version}"); // Removed
 
             return result;
         }
