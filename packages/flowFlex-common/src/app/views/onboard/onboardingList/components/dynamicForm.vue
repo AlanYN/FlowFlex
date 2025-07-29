@@ -315,10 +315,10 @@
 												"
 												:disabled="
 													!formData[`${question.id}_${row.id}`]?.includes(
-														column.value || column.label
+														column.id
 													)
 												"
-												placeholder="Please specify..."
+												placeholder="Enter other"
 												size="small"
 												class="other-input"
 											/>
@@ -643,7 +643,7 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 					formData.value[key] = responseText[key];
 				});
 			}
-		} else if (ans.type === 'checkbox' || ans.type === 'radio') {
+		} else if (ans.type === 'multiple_choice' || ans.type === 'checkboxes') {
 			formData.value[ans.questionId] = ans.answer;
 			if (ans.responseText) {
 				const responseText = JSON.parse(ans.responseText);
@@ -692,17 +692,19 @@ const handleInputChange = (questionId: string, value: any) => {
 
 // 复杂表单值变化处理
 const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
-	if (question.type == 'radio') {
+	if (question.type == 'multiple_choice') {
 		handleRadioClick(question.id, value);
 	} else {
 		formData.value[question.id] = value;
 	}
-	if (question.type == 'radio' || question.type == 'checkbox') {
+	if (question.type == 'multiple_choice' || question.type == 'checkboxes') {
 		question.options.forEach((option) => {
 			if (
 				option.isOther &&
-				((!Array.isArray(value) && formData.value[question.id] !== option.value) ||
-					(Array.isArray(value) && !formData.value[question.id]?.includes(option.value)))
+				((!Array.isArray(formData.value[question.id]) &&
+					formData.value[question.id] !== option.value) ||
+					(Array.isArray(formData.value[question.id]) &&
+						!formData.value[question.id]?.includes(option.value)))
 			) {
 				formData.value[`${question.id}_${option.id}`] = '';
 			}
@@ -712,9 +714,9 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 			question.columns.forEach((column) => {
 				if (
 					column.isOther &&
-					((!Array.isArray(value) &&
+					((!Array.isArray(formData.value[`${question.id}_${row.id}`]) &&
 						formData.value[`${question.id}_${row.id}`] !== column.id) ||
-						(Array.isArray(value) &&
+						(Array.isArray(formData.value[`${question.id}_${row.id}`]) &&
 							!formData.value[`${question.id}_${row.id}`]?.includes(column.id)))
 				) {
 					formData.value[`${question.id}_${row.id}_${column.id}`] = '';
@@ -848,7 +850,7 @@ const transformFormDataForAPI = () => {
 							questionnaireData.answerJson.push(answer);
 						});
 					}
-				} else if (question.type === 'checkbox' || question.type === 'radio') {
+				} else if (question.type === 'checkboxes' || question.type === 'multiple_choice') {
 					// 单选题
 					let responseText = {};
 					question.options.forEach((option: any) => {
@@ -959,7 +961,7 @@ const getJumpTargetSection = () => {
 
 		// 检查是否是单选题且有跳转规则
 		if (
-			(question.type === 'radio' || question.type === 'multiple_choice') &&
+			(question.type === 'multiple_choice' || question.type === 'checkboxes') &&
 			question.jumpRules &&
 			question.jumpRules.length > 0
 		) {
