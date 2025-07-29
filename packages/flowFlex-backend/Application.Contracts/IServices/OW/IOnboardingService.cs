@@ -177,5 +177,21 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Updates VisibleInPortal and AttachmentManagementNeeded fields from stage definitions
         /// </summary>
         Task<bool> SyncStagesProgressAsync(long id);
+
+        /// <summary>
+        /// Query onboardings by stage status using JSONB operators
+        /// Utilizes PostgreSQL JSONB querying capabilities for efficient filtering
+        /// </summary>
+        Task<List<OnboardingOutputDto>> QueryByStageStatusAsync(string status);
+
+        /// <summary>
+        /// Query onboardings by completion status using JSONB operators
+        /// </summary>
+        Task<List<OnboardingOutputDto>> QueryByCompletionStatusAsync(bool isCompleted);
+
+        /// <summary>
+        /// Query onboardings by specific stage ID using JSONB operators
+        /// </summary>
+        Task<List<OnboardingOutputDto>> QueryByStageIdAsync(long stageId);
     }
 }

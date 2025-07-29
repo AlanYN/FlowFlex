@@ -13,6 +13,7 @@ namespace FlowFlex.SqlSugarDB
     public class BaseRepository<T> : IBaseRepository<T> where T : class, new()
     {
         public ISqlSugarClient db;
+        private bool _filtersConfigured = false;
 
         protected static string[] ModifyColumn =>
         [
@@ -24,6 +25,34 @@ namespace FlowFlex.SqlSugarDB
         public BaseRepository(ISqlSugarClient context)
         {
             db = context;
+        }
+
+        /// <summary>
+        /// Safely configure tenant and app filters if not already configured
+        /// </summary>
+        protected virtual void EnsureFiltersConfigured()
+        {
+            if (_filtersConfigured || db.QueryFilter.GeFilterList.Any())
+            {
+                return;
+            }
+
+            try
+            {
+                // Add basic tenant and app filters directly without IHttpContextAccessor
+                // These will use default values that can be overridden by specific repositories
+                db.QueryFilter.AddTableFilter<Domain.Entities.Base.AbstractEntityBase>(entity =>
+                    entity.TenantId == "DEFAULT");
+                db.QueryFilter.AddTableFilter<Domain.Entities.Base.AbstractEntityBase>(entity =>
+                    entity.AppCode == "DEFAULT");
+
+                _filtersConfigured = true;
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail the repository operations
+                Console.WriteLine($"Warning: Failed to configure base filters: {ex.Message}");
+            }
         }
 
         #region Insert
@@ -488,6 +517,7 @@ namespace FlowFlex.SqlSugarDB
 
         public async Task<T> GetByIdAsync(object id, bool copyNew = false, CancellationToken cancellationToken = default)
         {
+            EnsureFiltersConfigured();
             db.Ado.CancellationToken = cancellationToken;
             var dbNew = copyNew ? db.CopyNew() : db;
             return await dbNew.Queryable<T>().InSingleAsync(id);

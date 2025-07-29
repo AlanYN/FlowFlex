@@ -2,3 +2,4 @@ packages/flowFlex-backend/WebApi/wwwroot/
 *.cursorules
 packages/flowFlex-common/.cursor/mcp.json
 packages/flowFlex-backend/WebApi/appsettings.Development.json
+Docs/

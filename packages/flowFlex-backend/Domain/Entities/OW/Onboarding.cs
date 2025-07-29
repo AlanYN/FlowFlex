@@ -201,9 +201,9 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Stage Progress Details (stored in JSON format)
+        /// Stage Progress Details (stored in JSONB format for better performance and querying)
         /// </summary>
-        [SugarColumn(ColumnName = "stages_progress_json")]
+        [SugarColumn(ColumnName = "stages_progress_json", ColumnDataType = "jsonb")]
         public string StagesProgressJson { get; set; }
 
         /// <summary>

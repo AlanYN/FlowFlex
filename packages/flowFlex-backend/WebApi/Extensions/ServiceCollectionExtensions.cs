@@ -47,7 +47,7 @@ namespace FlowFlex.WebApi.Extensions
             var commandTimeout = configuration.GetValue<int>("Database:CommandTimeout", 30);
 
             // Register SqlSugar
-            services.AddSingleton<ISqlSugarClient>(sp =>
+            services.AddScoped<ISqlSugarClient>(sp =>
             {
                 var config = new ConnectionConfig()
                 {
@@ -125,12 +125,8 @@ namespace FlowFlex.WebApi.Extensions
                     // Set command timeout using the correct API
                     provider.Ado.CommandTimeOut = commandTimeout;
 
-                    // Configure application and tenant filters for data isolation
-                    var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
-                    if (httpContextAccessor != null)
-                    {
-                        FlowFlex.Infrastructure.Data.AppTenantFilter.ConfigureFilters(provider, httpContextAccessor);
-                    }
+                    // Note: Tenant and app filters are handled at repository level
+                    // to avoid IServiceProvider disposal issues in SqlSugar configuration
                 });
 
                 return sqlSugarClient;
@@ -142,10 +138,12 @@ namespace FlowFlex.WebApi.Extensions
             // Register UserContext - get from HTTP request headers, JWT claims, and AppContext
             services.AddScoped<UserContext>(provider =>
             {
-                var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
-                var httpContext = httpContextAccessor?.HttpContext;
+                try
+                {
+                    var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
+                    var httpContext = httpContextAccessor?.HttpContext;
 
-                if (httpContext != null)
+                    if (httpContext != null)
                 {
                     // Get AppContext from middleware if available
                     var appContext = httpContext.Items["AppContext"] as AppContext;
@@ -195,15 +193,41 @@ namespace FlowFlex.WebApi.Extensions
                     };
                 }
 
-                // Default values for test environment or when no HTTP context
-                return new UserContext
+                    // Default values for test environment or when no HTTP context
+                    return new UserContext
+                    {
+                        UserId = "1",
+                        UserName = "TestUser",
+                        Email = string.Empty,
+                        TenantId = "DEFAULT",
+                        AppCode = "DEFAULT"
+                    };
+                }
+                catch (ObjectDisposedException)
                 {
-                    UserId = "1",
-                    UserName = "TestUser",
-                    Email = string.Empty,
-                    TenantId = "DEFAULT",
-                    AppCode = "DEFAULT"
-                };
+                    // Service provider was disposed during shutdown, return safe default
+                    return new UserContext
+                    {
+                        UserId = "1",
+                        UserName = "System",
+                        Email = string.Empty,
+                        TenantId = "DEFAULT",
+                        AppCode = "DEFAULT"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    // Any other error, log and return safe default
+                    Console.WriteLine($"Warning: Failed to create UserContext: {ex.Message}");
+                    return new UserContext
+                    {
+                        UserId = "1",
+                        UserName = "System",
+                        Email = string.Empty,
+                        TenantId = "DEFAULT",
+                        AppCode = "DEFAULT"
+                    };
+                }
             });
 
             // Register necessary ASP.NET Core services
@@ -248,9 +272,14 @@ namespace FlowFlex.WebApi.Extensions
                     return userContext.TenantId;
                 }
             }
+            catch (ObjectDisposedException)
+            {
+                // Service provider was disposed, use default
+                return "DEFAULT";
+            }
             catch
             {
-                // Ignore service resolution errors during startup
+                // Ignore other service resolution errors during startup
             }
 
             return "default";

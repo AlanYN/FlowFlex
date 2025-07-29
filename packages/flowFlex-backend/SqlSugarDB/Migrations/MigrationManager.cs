@@ -53,7 +53,9 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250101000015_AddAppCodeToEvents", (Action)(() => AddAppCodeToEvents_20250101000014.Up(_db))),
                     ("20250101000016_AddPortalVisibilityAndAttachmentFields", (Action)(() => AddPortalVisibilityAndAttachmentFields_20250101000015.Up(_db))),
                     ("20250102000017_UpdateStagesProgressWithPortalFields", (Action)(() => UpdateStagesProgressWithPortalFields_20250102000016.Up(_db))),
-                    ("20250102000018_FixEventsNextRetryAtColumn", (Action)(() => FixEventsNextRetryAtColumn_20250102000017.Up(_db)))
+                    ("20250102000018_FixEventsNextRetryAtColumn", (Action)(() => FixEventsNextRetryAtColumn_20250102000017.Up(_db))),
+                    ("20250103000001_SimplifyStagesProgressStructure", (Action)(() => SimplifyStagesProgressStructure_20250103000001.Up(_db))),
+                    ("20250103000002_ConvertStagesProgressToJsonb", (Action)(() => ConvertStagesProgressToJsonb_20250103000002.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

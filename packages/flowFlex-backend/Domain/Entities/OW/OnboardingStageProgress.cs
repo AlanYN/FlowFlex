@@ -1,29 +1,19 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace FlowFlex.Domain.Entities.OW
 {
     /// <summary>
-    /// Onboarding Stage Progress - Progress information for each stage
+    /// Onboarding Stage Progress - Progress information for each stage (simplified version)
+    /// Only stores stageId and completion-related fields. Other fields are dynamically loaded from Stage entity.
     /// </summary>
     public class OnboardingStageProgress
     {
         /// <summary>
-        /// Stage ID
+        /// Stage ID - Reference to the Stage entity
         /// </summary>
-
         public long StageId { get; set; }
-
-        /// <summary>
-        /// Stage Name
-        /// </summary>
-        [StringLength(200)]
-        public string StageName { get; set; }
-
-        /// <summary>
-        /// Stage Order
-        /// </summary>
-        public int StageOrder { get; set; }
 
         /// <summary>
         /// Completion Status (Pending/InProgress/Completed/Skipped/Rejected/Terminated)
@@ -58,16 +48,42 @@ namespace FlowFlex.Domain.Entities.OW
         public string CompletedBy { get; set; }
 
         /// <summary>
-        /// Estimated Days (supports decimal)
+        /// Notes (completion notes, feedback, etc.)
         /// </summary>
+        public string Notes { get; set; }
+
+        /// <summary>
+        /// Is Current Stage
+        /// </summary>
+        public bool IsCurrent { get; set; } = false;
+
+        // === Below fields are dynamically populated from Stage entity and not stored in JSON ===
+        
+        /// <summary>
+        /// Stage Name (from Stage entity) - Not stored in JSON
+        /// </summary>
+        [JsonIgnore]
+        public string StageName { get; set; }
+
+        /// <summary>
+        /// Stage Order (from Stage entity) - Not stored in JSON
+        /// </summary>
+        [JsonIgnore]
+        public int StageOrder { get; set; }
+
+        /// <summary>
+        /// Estimated Days (from Stage entity) - Not stored in JSON
+        /// </summary>
+        [JsonIgnore]
         public decimal? EstimatedDays { get; set; }
 
         /// <summary>
-        /// Actual Days Used
+        /// Actual Days (calculated) - Not stored in JSON
         /// </summary>
-        public int? ActualDays
-        {
-            get
+        [JsonIgnore]
+        public int? ActualDays 
+        { 
+            get 
             {
                 if (StartTime.HasValue && CompletionTime.HasValue)
                 {
@@ -78,27 +94,31 @@ namespace FlowFlex.Domain.Entities.OW
         }
 
         /// <summary>
-        /// Notes
+        /// Visible in Portal (from Stage entity) - Not stored in JSON
         /// </summary>
-        [StringLength(500)]
-        public string Notes { get; set; }
+        [JsonIgnore]
+        public bool VisibleInPortal { get; set; } = true;
 
         /// <summary>
-        /// Is Current Stage
+        /// Attachment Management Needed (from Stage entity) - Not stored in JSON
         /// </summary>
-        public bool IsCurrent { get; set; } = false;
+        [JsonIgnore]
+        public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
-        /// Completion Method (Manual/Auto/System)
+        /// Stage Components Configuration JSON (from Stage entity) - Not stored in JSON
         /// </summary>
-        [StringLength(20)]
-        public string CompletionMethod { get; set; } = "Manual";
+        [JsonIgnore]
+        public string ComponentsJson { get; set; }
 
         /// <summary>
-        /// Can Re-Complete
+        /// Stage Components List (from Stage entity) - Not stored in JSON
         /// </summary>
-        public bool CanReComplete { get; set; } = true;
+        [JsonIgnore]
+        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
 
+        // === Legacy fields for backward compatibility - will be removed in future versions ===
+        
         /// <summary>
         /// Last Updated Time
         /// </summary>
@@ -111,10 +131,21 @@ namespace FlowFlex.Domain.Entities.OW
         public string LastUpdatedBy { get; set; }
 
         /// <summary>
-        /// Rejection Reason (when Status is Rejected)
+        /// Rejection Reason
         /// </summary>
-        [StringLength(1000)]
+        [StringLength(500)]
         public string RejectionReason { get; set; }
+
+        /// <summary>
+        /// Rejected By ID
+        /// </summary>
+        public long? RejectedById { get; set; }
+
+        /// <summary>
+        /// Rejected By Name
+        /// </summary>
+        [StringLength(100)]
+        public string RejectedBy { get; set; }
 
         /// <summary>
         /// Rejection Time
@@ -122,15 +153,15 @@ namespace FlowFlex.Domain.Entities.OW
         public DateTimeOffset? RejectionTime { get; set; }
 
         /// <summary>
-        /// Rejected By
+        /// Termination Reason
         /// </summary>
-        [StringLength(100)]
-        public string RejectedBy { get; set; }
+        [StringLength(500)]
+        public string TerminationReason { get; set; }
 
         /// <summary>
-        /// Is Terminated
+        /// Terminated By ID
         /// </summary>
-        public bool IsTerminated { get; set; } = false;
+        public long? TerminatedById { get; set; }
 
         /// <summary>
         /// Termination Time
@@ -142,25 +173,5 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [StringLength(100)]
         public string TerminatedBy { get; set; }
-
-        /// <summary>
-        /// Visible in Portal - Controls whether this stage is visible in the portal
-        /// </summary>
-        public bool VisibleInPortal { get; set; } = true;
-
-        /// <summary>
-        /// Attachment Management Needed - Indicates whether file upload is required for this stage
-        /// </summary>
-        public bool AttachmentManagementNeeded { get; set; } = false;
-
-        /// <summary>
-        /// Stage Components Configuration (JSON)
-        /// </summary>
-        public string ComponentsJson { get; set; }
-
-        /// <summary>
-        /// Stage Components List (not mapped to database)
-        /// </summary>
-        public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
     }
 }
