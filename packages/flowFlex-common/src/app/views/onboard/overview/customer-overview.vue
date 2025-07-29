@@ -962,21 +962,21 @@ const processQuestionnaireData = (
 					}
 
 					responses.push({
-							id: question.id,
-							question: question.title,
-							description: question.description,
-							answer: processedAnswer,
-							answeredBy:
-								firstAnsweredBy || answerData?.lastModifiedBy || answer?.createBy || '',
-							answeredDate: answer?.createDate || '',
-							firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
-							lastUpdated: lastUpdated || answer?.modifyDate || '',
-							updatedBy: updatedBy || answer?.modifyBy || '',
-							questionType: question.type,
-							section: section.title,
-							required: question.required || false,
-							questionConfig: question.config || question, // 存储完整的问题配置
-						});
+						id: question.id,
+						question: question.title,
+						description: question.description,
+						answer: processedAnswer,
+						answeredBy:
+							firstAnsweredBy || answerData?.lastModifiedBy || answer?.createBy || '',
+						answeredDate: answer?.createDate || '',
+						firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
+						lastUpdated: lastUpdated || answer?.modifyDate || '',
+						updatedBy: updatedBy || answer?.modifyBy || '',
+						questionType: question.type,
+						section: section.title,
+						required: question.required || false,
+						questionConfig: question.config || question, // 存储完整的问题配置
+					});
 				}
 			});
 		});
@@ -1089,11 +1089,11 @@ const loadData = async () => {
 			const chunkProcessed = chunk.map((questionnaire) => {
 				// Find answer by strict stage+questionnaire matching
 				let answer: QuestionnaireAnswer | null = null;
-				
+
 				// Use strict stage+questionnaire key lookup
 				const key = `${questionnaire.stageId}:${questionnaire.id}`;
 				answer = stageQuestionnaireAnswersMap.get(key) || null;
-				
+
 				return processQuestionnaireData(questionnaire, answer);
 			});
 			processed.push(...chunkProcessed);
@@ -1327,7 +1327,7 @@ const handleExportExcel = () => {
 
 const handleExportPDF = async () => {
 	let element: HTMLElement | null = null;
-	let exportButtons: NodeListOf<Element> | null = null;
+	let exportButtons: any | null = null;
 	let filterSection: Element | null = null;
 	let originalHtml = '';
 
@@ -1354,7 +1354,11 @@ const handleExportPDF = async () => {
 			const currentDisplay = (btn as HTMLElement).style.display;
 			console.log(`[PDF Export] Export button ${index} current display: "${currentDisplay}"`);
 			(btn as HTMLElement).style.display = 'none';
-			console.log(`[PDF Export] Export button ${index} after hiding: "${(btn as HTMLElement).style.display}"`);
+			console.log(
+				`[PDF Export] Export button ${index} after hiding: "${
+					(btn as HTMLElement).style.display
+				}"`
+			);
 		});
 
 		// 隐藏搜索过滤区域 - 更精确定位
@@ -1362,7 +1366,11 @@ const handleExportPDF = async () => {
 			const currentDisplay = (filterSection as HTMLElement).style.display;
 			console.log(`[PDF Export] Filter section current display: "${currentDisplay}"`);
 			(filterSection as HTMLElement).style.display = 'none';
-			console.log(`[PDF Export] Filter section after hiding: "${(filterSection as HTMLElement).style.display}"`);
+			console.log(
+				`[PDF Export] Filter section after hiding: "${
+					(filterSection as HTMLElement).style.display
+				}"`
+			);
 		}
 
 		// 保存整个元素的HTML内容，以便稍后恢复
@@ -1512,7 +1520,7 @@ const handleExportPDF = async () => {
 		console.log('[PDF Export] Element available:', !!element);
 		console.log('[PDF Export] Export buttons available:', !!exportButtons);
 		console.log('[PDF Export] Filter section available:', !!filterSection);
-		
+
 		// 确保无论成功还是失败都恢复页面元素
 		if (element && exportButtons) {
 			console.log('[PDF Export] Restoring export buttons...');
@@ -1522,10 +1530,14 @@ const handleExportPDF = async () => {
 				// 移除display属性以确保完全恢复
 				(btn as HTMLElement).style.removeProperty('display');
 				const afterRestore = (btn as HTMLElement).style.display;
-				console.log(`[PDF Export] Export button ${index} - before: "${beforeRestore}", after: "${afterRestore}"`);
+				console.log(
+					`[PDF Export] Export button ${index} - before: "${beforeRestore}", after: "${afterRestore}"`
+				);
 			});
 		} else {
-			console.log('[PDF Export] Cannot restore export buttons - element or buttons not found');
+			console.log(
+				'[PDF Export] Cannot restore export buttons - element or buttons not found'
+			);
 		}
 
 		if (filterSection) {
@@ -1535,22 +1547,28 @@ const handleExportPDF = async () => {
 			// 移除display属性以确保完全恢复
 			(filterSection as HTMLElement).style.removeProperty('display');
 			const afterRestore = (filterSection as HTMLElement).style.display;
-			console.log(`[PDF Export] Filter section - before: "${beforeRestore}", after: "${afterRestore}"`);
+			console.log(
+				`[PDF Export] Filter section - before: "${beforeRestore}", after: "${afterRestore}"`
+			);
 		} else {
 			console.log('[PDF Export] Cannot restore filter section - not found');
 		}
-		
+
 		// 强制Vue重新渲染以确保UI正确更新
 		console.log('[PDF Export] Triggering Vue re-render...');
 		nextTick(() => {
 			console.log('[PDF Export] Vue re-render completed');
 		});
-		
+
 		// 备用恢复方案：直接查找所有可能被隐藏的元素
 		console.log('[PDF Export] Starting backup restoration...');
-		const allHiddenElements = document.querySelectorAll('[style*="display: none"], [style*="display:none"]');
-		console.log(`[PDF Export] Found ${allHiddenElements.length} hidden elements for backup restoration`);
-		
+		const allHiddenElements = document.querySelectorAll(
+			'[style*="display: none"], [style*="display:none"]'
+		);
+		console.log(
+			`[PDF Export] Found ${allHiddenElements.length} hidden elements for backup restoration`
+		);
+
 		allHiddenElements.forEach((el, index) => {
 			const element = el as HTMLElement;
 			const currentStyle = element.style.display;
@@ -1559,7 +1577,7 @@ const handleExportPDF = async () => {
 				console.log(`[PDF Export] Backup restored element ${index}`);
 			}
 		});
-		
+
 		console.log('[PDF Export] Element restoration completed');
 	}
 };
@@ -1614,27 +1632,27 @@ onMounted(() => {
 
 // Question type checking methods
 const isShortAnswerType = (type: string): boolean => {
-	return ['short_answer', 'text'].includes(type);
+	return ['short_answer'].includes(type);
 };
 
 const isParagraphType = (type: string): boolean => {
-	return ['paragraph', 'long_answer', 'textarea'].includes(type);
+	return ['paragraph'].includes(type);
 };
 
 const isMultipleChoiceType = (type: string): boolean => {
-	return ['multiple_choice', 'radio'].includes(type);
+	return ['multiple_choice'].includes(type);
 };
 
 const isCheckboxType = (type: string): boolean => {
-	return ['checkboxes', 'checkbox'].includes(type);
+	return ['checkboxes'].includes(type);
 };
 
 const isDropdownType = (type: string): boolean => {
-	return ['dropdown', 'select'].includes(type);
+	return ['dropdown'].includes(type);
 };
 
 const isDateTimeType = (type: string): boolean => {
-	return ['date', 'time', 'datetime'].includes(type);
+	return ['time', 'date'].includes(type);
 };
 
 const isRatingType = (type: string): boolean => {
@@ -1660,7 +1678,7 @@ const getLinearScaleMax = (questionConfig: any): number => {
 };
 
 const isFileUploadType = (type: string): boolean => {
-	return ['file', 'file_upload'].includes(type);
+	return ['file_upload'].includes(type);
 };
 
 const isCheckboxGridType = (type: string): boolean => {

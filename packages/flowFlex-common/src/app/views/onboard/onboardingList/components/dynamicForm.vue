@@ -86,12 +86,7 @@
 						/>
 
 						<!-- 单选题 -->
-						<div
-							v-else-if="
-								question.type === 'multiple_choice' || question.type === 'radio'
-							"
-							class="w-full"
-						>
+						<div v-else-if="question.type === 'multiple_choice'" class="w-full">
 							<div class="space-y-2">
 								<div
 									v-for="option in question.options"
@@ -132,9 +127,7 @@
 
 						<!-- 多选题 -->
 						<el-checkbox-group
-							v-else-if="
-								question.type === 'checkboxes' || question.type === 'checkbox'
-							"
+							v-else-if="question.type === 'checkboxes'"
 							v-model="formData[question.id]"
 							@change="handleHasOtherQuestion(question, $event)"
 							class="w-full"
@@ -164,7 +157,7 @@
 
 						<!-- 下拉选择 -->
 						<el-select
-							v-else-if="question.type === 'dropdown' || question.type === 'select'"
+							v-else-if="question.type === 'dropdown'"
 							v-model="formData[question.id]"
 							:placeholder="'Select ' + question.question"
 							class="w-full"
@@ -234,6 +227,7 @@
 								:show-stops="true"
 								:show-input="false"
 								@change="handleInputChange(question.id, $event)"
+								class="preview-linear-scale"
 							/>
 							<div class="flex justify-between text-xs text-gray-500">
 								<span>{{ question.minLabel || question.min || 1 }}</span>
@@ -922,7 +916,7 @@ const getFormData = () => {
 
 		if (hasValue) {
 			// 根据问题类型确定字段类型
-			let fieldType = 'text';
+			let fieldType = '';
 			let isRequired = false;
 
 			// 查找对应的问题信息来确定类型和是否必填
@@ -933,30 +927,7 @@ const getFormData = () => {
 						const isGridField = fieldKey.startsWith(`${question.id}_`);
 
 						if (question.id === fieldKey || isGridField) {
-							// 映射问题类型到字段类型
-							const typeMap = {
-								short_answer: 'text',
-								text: 'text',
-								long_answer: 'textarea',
-								paragraph: 'textarea',
-								textarea: 'textarea',
-								multiple_choice: 'radio',
-								radio: 'radio',
-								checkboxes: 'checkbox',
-								checkbox: 'checkbox',
-								dropdown: 'select',
-								select: 'select',
-								date: 'date',
-								time: 'time',
-								datetime: 'datetime',
-								rating: 'rating',
-								linear_scale: 'range',
-								file: 'file',
-								file_upload: 'file',
-								multiple_choice_grid: 'grid',
-								checkbox_grid: 'grid',
-							};
-							fieldType = typeMap[question.type] || 'text';
+							fieldType = question?.type;
 							isRequired = question.required || false;
 						}
 					});
@@ -1514,6 +1485,21 @@ html.dark {
 	width: 100%;
 }
 
+/* 线性量表样式 */
+.preview-linear-scale {
+	:deep(.el-slider__runway) {
+		background-color: var(--primary-100);
+		@apply dark:bg-black-200;
+	}
+
+	:deep(.el-slider__bar) {
+		background-color: var(--primary-500);
+	}
+
+	:deep(.el-slider__button) {
+		border-color: var(--primary-500);
+	}
+}
 /* 暗色主题支持 */
 html.dark {
 	.preview-grid {

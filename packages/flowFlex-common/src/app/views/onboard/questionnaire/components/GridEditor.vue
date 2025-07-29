@@ -16,17 +16,41 @@
 					<!-- 行列表 -->
 					<div class="grid-items-container">
 						<div v-for="(row, index) in rows" :key="row.id" class="grid-editor-item">
-							<span class="grid-item-number">{{ index + 1 }}.</span>
-							<span class="grid-item-label">{{ row.label }}</span>
-							<el-button
-								type="danger"
-								text
-								size="small"
-								@click="removeRow(row.id)"
-								class="grid-delete-btn"
-							>
-								<el-icon><Close /></el-icon>
-							</el-button>
+							<div class="flex items-center gap-2">
+								<span class="grid-item-number">{{ index + 1 }}.</span>
+								<div v-if="!editingRows[row.id]" class="grid-item-label">
+									{{ row.label }}
+								</div>
+								<el-input
+									v-else
+									:model-value="editingRows[row.id]"
+									class="grid-edit-input"
+									@input="updateEditingRow(row.id, $event)"
+									@keyup.enter="saveRowEdit(row.id)"
+									@blur="saveRowEdit(row.id)"
+								/>
+								<el-button
+									v-if="!editingRows[row.id]"
+									type="primary"
+									link
+									size="small"
+									@click="startRowEdit(row.id, row.label)"
+									class="grid-edit-btn"
+									:icon="Edit"
+								/>
+							</div>
+
+							<div class="grid-item-actions">
+								<el-button
+									type="danger"
+									text
+									size="small"
+									@click="removeRow(row.id)"
+									class="grid-delete-btn"
+								>
+									<el-icon><Close /></el-icon>
+								</el-button>
+							</div>
 						</div>
 
 						<!-- 添加行输入 -->
@@ -60,37 +84,61 @@
 					<!-- 列列表 -->
 					<div class="grid-items-container">
 						<div
-							v-for="column in columns"
+							v-for="(column, index) in columns"
 							:key="column.id"
 							class="grid-editor-item"
 							:class="{ 'grid-item-other': column.isOther }"
 						>
-							<el-icon class="grid-column-icon"><Check /></el-icon>
-							<span class="grid-item-label">
-								{{ column.label }}
-								<el-tag
-									v-if="column.isOther"
+							<div class="flex items-center gap-2">
+								<span class="grid-item-number">{{ index + 1 }}.</span>
+
+								<!-- 列标签显示/编辑 -->
+								<div v-if="!editingColumns[column.id]" class="grid-item-label">
+									{{ column.label }}
+									<el-tag
+										v-if="column.isOther"
+										size="small"
+										type="warning"
+										class="other-tag"
+									>
+										Other
+									</el-tag>
+								</div>
+								<el-input
+									v-else
+									:model-value="editingColumns[column.id]"
+									class="grid-edit-input"
+									@input="updateEditingColumn(column.id, $event)"
+									@keyup.enter="saveColumnEdit(column.id)"
+									@blur="saveColumnEdit(column.id)"
+								/>
+								<el-button
+									v-if="!editingColumns[column.id]"
+									type="primary"
+									link
 									size="small"
-									type="warning"
-									class="other-tag"
+									@click="startColumnEdit(column.id, column.label)"
+									class="grid-edit-btn"
+									:icon="Edit"
+								/>
+							</div>
+
+							<div class="grid-item-actions">
+								<el-button
+									type="danger"
+									text
+									size="small"
+									@click="removeColumn(column.id)"
+									class="grid-delete-btn"
 								>
-									Other
-								</el-tag>
-							</span>
-							<el-button
-								type="danger"
-								text
-								size="small"
-								@click="removeColumn(column.id)"
-								class="grid-delete-btn"
-							>
-								<el-icon><Close /></el-icon>
-							</el-button>
+									<el-icon><Close /></el-icon>
+								</el-button>
+							</div>
 						</div>
 
 						<!-- 添加列输入 -->
 						<div class="grid-add-item">
-							<el-icon class="grid-column-icon"><Check /></el-icon>
+							<span class="grid-item-number">{{ columns.length + 1 }}.</span>
 							<el-input
 								:model-value="newColumn.label"
 								placeholder="Add column"
@@ -143,8 +191,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Close, Check, Plus } from '@element-plus/icons-vue';
+import { computed, ref } from 'vue';
+import { Close, Plus, Edit } from '@element-plus/icons-vue';
 
 interface GridItem {
 	id: string;
@@ -176,7 +224,13 @@ const emits = defineEmits<{
 	'update-new-row-label': [label: string];
 	'update-new-column-label': [label: string];
 	'update-require-one-response-per-row': [value: boolean];
+	'update-row-label': [id: string, label: string];
+	'update-column-label': [id: string, label: string];
 }>();
+
+// 编辑状态管理
+const editingRows = ref<Record<string, string>>({});
+const editingColumns = ref<Record<string, string>>({});
 
 // 检查是否已有Other列
 const hasOtherColumn = computed(() => {
@@ -213,6 +267,48 @@ const updateNewColumnLabel = (label: string) => {
 
 const updateRequireOneResponsePerRow = (value: boolean) => {
 	emits('update-require-one-response-per-row', value);
+};
+
+// 行编辑功能
+const startRowEdit = (id: string, currentLabel: string) => {
+	editingRows.value[id] = currentLabel;
+};
+
+const updateEditingRow = (id: string, value: string) => {
+	editingRows.value[id] = value;
+};
+
+const saveRowEdit = (id: string) => {
+	console.log('saveRowEdit', id, editingRows.value);
+	const newLabel = editingRows.value[id]?.trim();
+	if (newLabel && newLabel !== props.rows.find((row) => row.id === id)?.label) {
+		emits('update-row-label', id, newLabel);
+	} else if (!newLabel) {
+		// 如果输入为空，删除该项
+		removeRow(id);
+	}
+	delete editingRows.value[id];
+};
+
+// 列编辑功能
+const startColumnEdit = (id: string, currentLabel: string) => {
+	editingColumns.value[id] = currentLabel;
+};
+
+const updateEditingColumn = (id: string, value: string) => {
+	editingColumns.value[id] = value;
+};
+
+const saveColumnEdit = (id: string) => {
+	console.log('saveColumnEdit', id, editingColumns.value);
+	const newLabel = editingColumns.value[id]?.trim();
+	if (newLabel && newLabel !== props.columns.find((column) => column.id === id)?.label) {
+		emits('update-column-label', id, newLabel);
+	} else if (!newLabel) {
+		// 如果输入为空，删除该项
+		removeColumn(id);
+	}
+	delete editingColumns.value[id];
 };
 </script>
 
@@ -275,6 +371,7 @@ const updateRequireOneResponsePerRow = (value: boolean) => {
 .grid-editor-item {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	gap: 0.75rem;
 	padding: 0.5rem;
 	border-radius: 0.375rem;
@@ -303,6 +400,30 @@ const updateRequireOneResponsePerRow = (value: boolean) => {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
+}
+
+.grid-edit-input {
+	flex: 1;
+}
+
+.grid-item-actions {
+	display: flex;
+	gap: 0.25rem;
+	opacity: 0.6;
+	transition: opacity 0.2s;
+}
+
+.grid-editor-item:hover .grid-item-actions {
+	opacity: 1;
+}
+
+.grid-edit-btn {
+	opacity: 0.8;
+	transition: opacity 0.2s;
+}
+
+.grid-edit-btn:hover {
+	opacity: 1;
 }
 
 .other-tag {

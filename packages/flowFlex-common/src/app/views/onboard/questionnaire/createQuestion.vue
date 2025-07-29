@@ -256,7 +256,7 @@ const loadQuestionnaireData = async () => {
 					// 处理questions字段（API返回的是questions，我们内部使用items）
 					items: (section.questions || section.items || []).map((item: any) => ({
 						id: item.id || `question-${Date.now()}-${Math.random()}`,
-						type: mapApiTypeToInternalType(item.type || 'short_answer'),
+						type: item?.type || 'short_answer',
 						question: item.title || item.question || '',
 						description: item.description || '',
 						required: item.required ?? true,
@@ -621,7 +621,7 @@ const handleSaveQuestionnaire = async () => {
 				questions: section.items.map((item) => ({
 					id: item.id,
 					title: item.question, // API期望的是title字段，不是question
-					type: mapInternalTypeToApiType(item.type),
+					type: item?.type,
 					description: item.description,
 					required: item.required,
 					options: item.options || [],
@@ -685,42 +685,6 @@ const handleSaveQuestionnaire = async () => {
 	} finally {
 		saving.value = false;
 	}
-};
-
-// 问题类型映射函数
-const mapApiTypeToInternalType = (apiType: string): string => {
-	const typeMapping: Record<string, string> = {
-		text: 'short_answer',
-		email: 'short_answer',
-		phone: 'short_answer',
-		textarea: 'paragraph',
-		select: 'dropdown',
-		radio: 'multiple_choice',
-		checkbox: 'checkboxes',
-		file: 'file_upload',
-		date: 'date',
-		time: 'time',
-		datetime: 'datetime',
-		number: 'short_answer',
-		url: 'short_answer',
-	};
-	return typeMapping[apiType] || apiType;
-};
-
-// 内部类型映射到API类型
-const mapInternalTypeToApiType = (internalType: string): string => {
-	const typeMapping: Record<string, string> = {
-		short_answer: 'text',
-		paragraph: 'textarea',
-		dropdown: 'select',
-		multiple_choice: 'radio',
-		checkboxes: 'checkbox',
-		file_upload: 'file',
-		date: 'date',
-		time: 'time',
-		datetime: 'datetime',
-	};
-	return typeMapping[internalType] || internalType;
 };
 
 // 编辑问题状态

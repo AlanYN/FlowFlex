@@ -659,6 +659,7 @@ const handlePreviewQuestionnaire = async (id: string) => {
 						placeholder: item.placeholder || '',
 						accept: item.accept || '',
 						step: typeof item.step === 'number' ? item.step : undefined,
+						...item,
 					})),
 					...section,
 				})) || [];

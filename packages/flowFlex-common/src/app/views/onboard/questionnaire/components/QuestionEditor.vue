@@ -70,6 +70,7 @@
 				@add-option="handleAddOption"
 				@remove-option="handleRemoveOption"
 				@add-other-option="handleAddOtherOption"
+				@update-existing-option-label="updateExistingOptions"
 			/>
 
 			<!-- 网格编辑器 -->
@@ -91,6 +92,8 @@
 				@update-require-one-response-per-row="
 					(value) => (newQuestion.requireOneResponsePerRow = value)
 				"
+				@update-row-label="updateRowLabel"
+				@update-column-label="updateColumnLabel"
 			/>
 
 			<!-- 线性量表编辑器 -->
@@ -347,6 +350,12 @@ const handleAddOtherOption = () => {
 	newOption.label = '';
 };
 
+const updateExistingOptions = (id: string, label: string) => {
+	if (newQuestion.options.find((option) => option.id === id)) {
+		newQuestion.options.find((option) => option.id === id)!.label = label;
+	}
+};
+
 // 删除选项
 const handleRemoveOption = (id: string) => {
 	newQuestion.options = newQuestion.options.filter((option) => option.id !== id);
@@ -397,6 +406,17 @@ const handleAddOtherColumn = () => {
 // 删除列
 const handleRemoveColumn = (id: string) => {
 	newQuestion.columns = newQuestion.columns.filter((column) => column.id !== id);
+};
+
+const updateRowLabel = (id: string, label: string) => {
+	if (newQuestion.rows.find((row) => row.id === id)) {
+		newQuestion.rows.find((row) => row.id === id)!.label = label;
+	}
+};
+const updateColumnLabel = (id: string, label: string) => {
+	if (newQuestion.columns.find((column) => column.id === id)) {
+		newQuestion.columns.find((column) => column.id === id)!.label = label;
+	}
 };
 
 // 添加或更新问题

@@ -182,7 +182,7 @@
 							</div>
 							<!-- 短文本输入 -->
 							<el-input
-								v-if="item.type === 'short_answer' || item.type === 'text'"
+								v-if="item.type === 'short_answer'"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								:placeholder="item.placeholder || 'Your answer'"
 								:class="[
@@ -193,7 +193,7 @@
 
 							<!-- 长文本输入 -->
 							<el-input
-								v-else-if="item.type === 'paragraph' || item.type === 'textarea'"
+								v-else-if="item.type === 'paragraph'"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								type="textarea"
 								:rows="typeof item.rows === 'number' ? item.rows : 3"
@@ -206,10 +206,7 @@
 
 							<!-- 单选题 -->
 							<el-radio-group
-								v-else-if="
-									(item.type === 'multiple_choice' || item.type === 'radio') &&
-									item.options
-								"
+								v-else-if="item.type === 'multiple_choice' && item.options"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								@change="handleRadioChange(sectionIndex, itemIndex, item, $event)"
 								class="w-full"
@@ -240,10 +237,7 @@
 
 							<!-- 多选题 -->
 							<el-checkbox-group
-								v-else-if="
-									(item.type === 'checkboxes' || item.type === 'checkbox') &&
-									item.options
-								"
+								v-else-if="item.type === 'checkboxes' && item.options"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								@change="
 									handleCheckboxChange(sectionIndex, itemIndex, item, $event)
@@ -276,7 +270,7 @@
 
 							<!-- 下拉选择 -->
 							<el-select
-								v-else-if="item.type === 'dropdown' || item.type === 'select'"
+								v-else-if="item.type === 'dropdown'"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								:placeholder="item.placeholder || 'Please select'"
 								:class="[
@@ -344,21 +338,6 @@
 								<span v-if="item.showText" class="text-sm text-gray-500">
 									({{ item.max || 5 }} stars)
 								</span>
-							</div>
-
-							<!-- 滑块 -->
-							<div v-else-if="item.type === 'slider'" class="space-y-2">
-								<el-slider
-									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-									:min="item.min || 0"
-									:max="item.max || 100"
-									:step="item.step || 1"
-									class="preview-slider"
-								/>
-								<div class="flex justify-between text-xs text-gray-500">
-									<span>{{ item.min || 0 }}</span>
-									<span>{{ item.max || 100 }}</span>
-								</div>
 							</div>
 
 							<!-- 文件上传 -->
@@ -774,19 +753,14 @@ const initializePreviewData = () => {
 			// 根据问题类型设置默认值
 			switch (item.type) {
 				case 'short_answer':
-				case 'text':
 				case 'paragraph':
-				case 'textarea':
 					newPreviewData[key] = '';
 					break;
 				case 'multiple_choice':
-				case 'radio':
 				case 'dropdown':
-				case 'select':
 					newPreviewData[key] = '';
 					break;
 				case 'checkboxes':
-				case 'checkbox':
 					newPreviewData[key] = [];
 					break;
 				case 'number':
@@ -794,7 +768,6 @@ const initializePreviewData = () => {
 					break;
 				case 'date':
 				case 'time':
-				case 'datetime':
 					newPreviewData[key] = null;
 					break;
 				case 'rating':
@@ -836,7 +809,6 @@ const initializePreviewData = () => {
 						});
 					}
 					break;
-				case 'file':
 				case 'file_upload':
 					newPreviewData[getItemKey(sectionIndex, itemIndex)] = [];
 					break;
@@ -1003,23 +975,17 @@ const validateForm = (): ValidationResult => {
 			// 根据问题类型进行不同的校验
 			switch (item.type) {
 				case 'short_answer':
-				case 'text':
 				case 'paragraph':
-				case 'textarea':
 					isFieldValid = value && value.trim() !== '';
 					errorMessage = 'This field is required';
 					break;
 
 				case 'multiple_choice':
-				case 'radio':
-				case 'dropdown':
-				case 'select':
 					isFieldValid = value && value !== '';
 					errorMessage = 'Please select an option';
 					break;
 
 				case 'checkboxes':
-				case 'checkbox':
 					isFieldValid = Array.isArray(value) && value.length > 0;
 					errorMessage = 'Please select at least one option';
 					break;
@@ -1031,7 +997,6 @@ const validateForm = (): ValidationResult => {
 
 				case 'date':
 				case 'time':
-				case 'datetime':
 					isFieldValid = value !== null && value !== undefined;
 					errorMessage = 'Please select a date/time';
 					break;
