@@ -28,6 +28,7 @@ export interface QuestionWithJumpRules {
 		id: string;
 		value: string;
 		label: string;
+		isOther: boolean;
 	}>;
 	jumpRules?: JumpRule[]; // 跳转规则
 }

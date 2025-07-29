@@ -87,7 +87,7 @@
 						</div>
 					</div>
 				</div>
-				<div v-if="!hasOtherOption" class="add-other-section">
+				<div v-if="!hasOtherOption && type != 'dropdown'" class="add-other-section">
 					<el-button
 						type="success"
 						size="small"
@@ -123,6 +123,7 @@ interface NewOption {
 interface Props {
 	options: Option[];
 	newOption: NewOption;
+	type: string;
 }
 
 const props = defineProps<Props>();

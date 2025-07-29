@@ -27,7 +27,8 @@
 
 				<div class="rules-list">
 					<div v-for="option in questionOptions" :key="option.id" class="rule-item">
-						<div class="option-label">{{ option.label }}</div>
+						<el-tag v-if="option.isOther" type="warning">Other</el-tag>
+						<div v-else class="option-label">{{ option.label }}</div>
 						<el-select
 							v-model="jumpRules[option.id]"
 							placeholder="Continue to next section"

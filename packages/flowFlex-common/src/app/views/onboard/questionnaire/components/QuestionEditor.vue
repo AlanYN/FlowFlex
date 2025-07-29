@@ -65,6 +65,7 @@
 				v-if="needsOptions(newQuestion.type)"
 				:options="newQuestion.options"
 				:new-option="newOptionForEditor"
+				:type="newQuestion.type"
 				@update-option-value="handleOptionValueUpdate"
 				@update-option-label="handleOptionLabelUpdate"
 				@add-option="handleAddOption"
