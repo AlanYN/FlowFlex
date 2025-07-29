@@ -97,15 +97,14 @@
 						<!-- 卡片头部 -->
 						<template #header>
 							<div class="card-header -m-5 p-4">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center space-x-3">
-										<div class="card-icon p-2 rounded-full">
+								<div class="flex items-center justify-between w-full">
+									<div class="flex items-center space-x-3 flex-1 min-w-0">
+										<div class="card-icon p-2 rounded-full flex-shrink-0">
 											<el-icon class="h-5 w-5"><Document /></el-icon>
 										</div>
 										<h3
-											class="card-title text-xl font-semibold leading-tight tracking-tight line-clamp-2"
+											class="card-title text-xl font-semibold leading-tight tracking-tight truncate"
 											:title="questionnaire.name"
-											style="line-height: 60px"
 										>
 											{{ questionnaire.name }}
 										</h3>
@@ -113,6 +112,7 @@
 									<el-dropdown
 										trigger="click"
 										@command="(cmd) => handleCommand(cmd, questionnaire)"
+										class="flex-shrink-0"
 									>
 										<el-button text class="card-more-btn">
 											<el-icon class="h-4 w-4"><More /></el-icon>
@@ -860,12 +860,6 @@ const handleLimitUpdate = () => {
 .card-title {
 	color: var(--primary-800);
 	@apply dark:text-white;
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	word-break: break-word;
 }
 
 .card-more-btn {

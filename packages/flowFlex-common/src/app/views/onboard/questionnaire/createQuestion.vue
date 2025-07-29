@@ -424,7 +424,7 @@ const questionnaire = reactive({
 	sections: [
 		{
 			id: `section-${Date.now()}`,
-			name: '',
+			name: 'Untitled Section',
 			description: '',
 			items: [] as Array<{
 				id: string;
@@ -551,6 +551,7 @@ const handleRemoveSection = (index: number) => {
 };
 
 const setCurrentSection = (index: number) => {
+	cancelEditQuestion();
 	currentSectionIndex.value = index;
 };
 
@@ -708,11 +709,14 @@ const handleEditQuestion = (index: number) => {
 const cancelEditQuestion = () => {
 	isEditingQuestion.value = false;
 	editingQuestion.value = null;
+	pressentQuestionType.value = 'short_answer';
 
 	// 调用子组件的方法重置表单
 	questionEditorRef.value?.resetForm();
 	// 恢复当前选中的问题类型
-	questionEditorRef.value?.updateQuestionType(pressentQuestionType.value);
+	nextTick(() => {
+		questionEditorRef.value?.updateQuestionType(pressentQuestionType.value);
+	});
 };
 
 const handleUpdateQuestion = (updatedQuestion: any) => {

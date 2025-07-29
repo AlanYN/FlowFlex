@@ -1396,6 +1396,7 @@ const setAsDefault = async () => {
 		const params = {
 			...workflow.value,
 			isDefault: true,
+			stages: null,
 		};
 
 		const res = await updateWorkflowApi(workflow.value.id, params);
