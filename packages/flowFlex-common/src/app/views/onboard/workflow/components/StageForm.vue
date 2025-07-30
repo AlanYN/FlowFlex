@@ -196,7 +196,7 @@ const tabsConfig = [
 const formData = ref({
 	name: '',
 	description: '',
-	visibleInPortal: true,
+	visibleInPortal: false,
 	defaultAssignedGroup: '',
 	defaultAssignee: '',
 	estimatedDuration: null as number | null,

@@ -29,10 +29,7 @@
 
 			<!-- 工作流内容 -->
 			<div class="workflow-list" v-else-if="workflow">
-				<div
-					class="workflow-card rounded-md"
-					:class="{ active: workflow.isActive }"
-				>
+				<div class="workflow-card rounded-md" :class="{ active: workflow.isActive }">
 					<div class="workflow-card-header">
 						<div class="left-section">
 							<div class="title-and-tags">
@@ -233,9 +230,7 @@
 									</el-icon>
 									<span class="date-label">Start:</span>
 									<span class="date-value">
-										{{
-											formatDate(workflow.startDate || '')
-										}}
+										{{ formatDate(workflow.startDate || '') }}
 									</span>
 								</div>
 								<div v-if="workflow.endDate" class="date-item">
@@ -247,9 +242,7 @@
 									</el-icon>
 									<span class="date-label">End:</span>
 									<span class="date-value">
-										{{
-											formatDate(workflow.endDate || '')
-										}}
+										{{ formatDate(workflow.endDate || '') }}
 									</span>
 								</div>
 							</div>
@@ -272,9 +265,7 @@
 
 						<!-- Stages 标题 -->
 						<div class="stages-header">
-							<div class="stages-header-actions">
-
-							</div>
+							<div class="stages-header-actions"></div>
 						</div>
 
 						<StagesList
@@ -295,24 +286,23 @@
 
 					<!-- 总阶段数信息 -->
 					<div class="workflow-footer">
-						<p class="stage-count">
-							Total stages: {{ workflow?.stages?.length || 0 }}
-						</p>
+						<p class="stage-count">Total stages: {{ workflow?.stages?.length || 0 }}</p>
 					</div>
 				</div>
 			</div>
-			
+
 			<!-- 空状态 - 没有工作流时显示 -->
 			<div v-else class="empty-state-container rounded-md">
 				<div class="empty-state-content">
 					<el-icon class="empty-state-icon"><DocumentAdd /></el-icon>
 					<h2 class="empty-state-title">No Workflows Created Yet</h2>
 					<p class="empty-state-desc">
-						Workflows help you organize and manage the entire onboarding process. Create your first workflow to get started.
+						Workflows help you organize and manage the entire onboarding process. Create
+						your first workflow to get started.
 					</p>
-					<el-button 
-						type="primary" 
-						size="large" 
+					<el-button
+						type="primary"
+						size="large"
 						@click="showNewWorkflowDialog"
 						:loading="loading.createWorkflow"
 						class="create-workflow-btn"
@@ -354,8 +344,6 @@
 				:loading="isEditingWorkflow ? loading.updateWorkflow : loading.createWorkflow"
 			/>
 		</el-dialog>
-
-
 
 		<!-- 新建/编辑阶段对话框 -->
 		<el-dialog
@@ -500,12 +488,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	Plus,
 	MoreFilled,
-	Clock,
 	Calendar,
 	Edit,
 	CircleClose,
@@ -515,7 +502,6 @@ import {
 	// Connection,
 	Loading,
 	Star,
-	ArrowLeft,
 	VideoPause,
 	DocumentAdd,
 } from '@element-plus/icons-vue';
@@ -555,9 +541,9 @@ const { t } = useI18n();
 
 // 状态
 const workflow = ref<Workflow | null>(null); // 当前操作的工作流
-const displayWorkflow = ref<Workflow | null>(null); // 用于显示的工作流副本
-const isEditingFromHistory = ref(false); // 是否从历史版本编辑
-const editingWorkflowData = ref<Workflow | null>(null); // 编辑中的工作流数据
+// const displayWorkflow = ref<Workflow | null>(null); // 用于显示的工作流副本
+// const isEditingFromHistory = ref(false); // 是否从历史版本编辑
+// const editingWorkflowData = ref<Workflow | null>(null); // 编辑中的工作流数据
 
 const isEditing = ref(true);
 const currentStage = ref<Stage | null>(null);
@@ -600,9 +586,7 @@ const dialogVisible = reactive({
 // 计算对话框标题
 const dialogTitle = computed(() => {
 	if (isEditingWorkflow.value && workflow.value) {
-		const versionInfo = workflow.value.version
-			? ` (Version ${workflow.value.version})`
-			: '';
+		const versionInfo = workflow.value.version ? ` (Version ${workflow.value.version})` : '';
 		return `Edit Workflow${versionInfo}`;
 	}
 	return 'Create New Workflow';
@@ -618,8 +602,6 @@ const dialogSubtitle = computed(() => {
 	}
 	return 'Create a new workflow version for the onboarding process.';
 });
-
-
 
 // 工作流切换处理
 const onWorkflowChange = (workflowId: string) => {
@@ -732,12 +714,6 @@ const showNewWorkflowDialog = () => {
 	dialogVisible.workflowForm = true;
 };
 
-
-
-
-
-
-
 const handleCommand = (command: string) => {
 	switch (command) {
 		case 'edit':
@@ -836,8 +812,6 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 		loading.createWorkflow = false;
 	}
 };
-
-
 
 const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 	if (!workflow.value) return;
@@ -1387,8 +1361,6 @@ const resetCombineStagesForm = () => {
 	combinedStageGroup.value = '';
 	combinedStageDuration.value = 1;
 };
-
-
 </script>
 
 <style lang="scss" scoped>
