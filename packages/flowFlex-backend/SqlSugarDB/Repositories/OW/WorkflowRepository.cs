@@ -5,6 +5,8 @@ using System.Linq.Expressions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using Microsoft.AspNetCore.Http;
+using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -13,8 +15,16 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class WorkflowRepository : BaseRepository<Workflow>, IWorkflowRepository, IScopedService
     {
-        public WorkflowRepository(ISqlSugarClient sqlSugarClient) : base(sqlSugarClient)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<WorkflowRepository> _logger;
+
+        public WorkflowRepository(
+            ISqlSugarClient sqlSugarClient,
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<WorkflowRepository> logger) : base(sqlSugarClient)
         {
+            _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         /// <summary>
@@ -168,10 +178,34 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<Workflow>> GetActiveWorkflowsAsync()
         {
-            return await db.Queryable<Workflow>()
-                .Where(x => x.IsActive == true && x.IsValid == true)
-                .OrderBy(x => x.Name)
-                .ToListAsync();
+            // 记录当前请求头
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                _logger.LogInformation($"[WorkflowRepository] GetActiveWorkflowsAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+            }
+
+            // 显式添加租户和应用过滤条件
+            var query = db.Queryable<Workflow>()
+                .Where(x => x.IsActive == true && x.IsValid == true);
+            
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            _logger.LogInformation($"[WorkflowRepository] GetActiveWorkflowsAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            // 显式添加过滤条件
+            query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
+            
+            // 执行查询
+            var result = await query.OrderBy(x => x.Name).ToListAsync();
+            
+            _logger.LogInformation($"[WorkflowRepository] GetActiveWorkflowsAsync returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            return result;
         }
 
         /// <summary>
@@ -179,11 +213,36 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<Workflow>> GetAllWorkflowsAsync()
         {
-            return await db.Queryable<Workflow>()
-                .Where(x => x.IsValid == true)
-                .Includes(x => x.Stages.Where(s => s.IsValid == true).ToList())
-                .OrderByDescending(x => x.CreateDate)
-                .ToListAsync();
+            // 记录当前请求头
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                _logger.LogInformation($"[WorkflowRepository] GetAllWorkflowsAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+            }
+
+            // 显式添加租户和应用过滤条件
+            var query = db.Queryable<Workflow>().Where(x => x.IsValid == true);
+            
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            _logger.LogInformation($"[WorkflowRepository] GetAllWorkflowsAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            // 显式添加过滤条件
+            query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
+            
+            // 包含关联的 Stages
+            query = query.Includes(x => x.Stages.Where(s => s.IsValid == true).ToList());
+            
+            // 执行查询
+            var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
+            
+            _logger.LogInformation($"[WorkflowRepository] GetAllWorkflowsAsync returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            return result;
         }
 
         /// <summary>
@@ -191,10 +250,33 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<Workflow>> GetAllOptimizedAsync()
         {
-            return await db.Queryable<Workflow>()
-                .Where(x => x.IsValid == true)
-                .OrderByDescending(x => x.CreateDate)
-                .ToListAsync();
+            // 记录当前请求头
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                _logger.LogInformation($"[WorkflowRepository] GetAllOptimizedAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+            }
+
+            // 显式添加租户和应用过滤条件
+            var query = db.Queryable<Workflow>().Where(x => x.IsValid == true);
+            
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            _logger.LogInformation($"[WorkflowRepository] GetAllOptimizedAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            // 显式添加过滤条件
+            query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
+            
+            // 执行查询
+            var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
+            
+            _logger.LogInformation($"[WorkflowRepository] GetAllOptimizedAsync returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            return result;
         }
 
         /// <summary>
@@ -243,6 +325,123 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .Where(x => workflowIds.Contains(x.Id) && x.IsValid == true)
                 .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
+        }
+
+        /// <summary>
+        /// 获取所有工作流列表，确保应用租户和应用过滤器
+        /// </summary>
+        public override async Task<List<Workflow>> GetListAsync(CancellationToken cancellationToken = default, bool copyNew = false)
+        {
+            // 记录当前请求头
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                _logger.LogInformation($"[WorkflowRepository] GetListAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+            }
+
+            // 显式添加租户和应用过滤条件
+            var query = db.Queryable<Workflow>().Where(x => x.IsValid == true);
+            
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            _logger.LogInformation($"[WorkflowRepository] Applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            // 显式添加过滤条件
+            query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
+            
+            // 执行查询
+            var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync(cancellationToken);
+            
+            _logger.LogInformation($"[WorkflowRepository] Query returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            return result;
+        }
+
+        /// <summary>
+        /// 直接查询，使用显式过滤条件
+        /// </summary>
+        public async Task<List<Workflow>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
+        {
+            _logger.LogInformation($"[WorkflowRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
+            
+            // 临时禁用全局过滤器
+            db.QueryFilter.ClearAndBackup();
+            
+            try
+            {
+                // 使用显式过滤条件
+                var query = db.Queryable<Workflow>()
+                    .Where(x => x.IsValid == true)
+                    .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
+                
+                // 执行查询
+                var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync();
+                
+                _logger.LogInformation($"[WorkflowRepository] Query returned {result.Count} workflows with explicit filters");
+                
+                return result;
+            }
+            finally
+            {
+                // 恢复全局过滤器
+                db.QueryFilter.Restore();
+            }
+        }
+
+        /// <summary>
+        /// 获取当前租户ID
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // 从请求头获取
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+
+            // 从 AppContext 获取
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is AppContext appContext)
+            {
+                return appContext.TenantId;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// 获取当前应用代码
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // 从请求头获取
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+
+            // 从 AppContext 获取
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is AppContext appContext)
+            {
+                return appContext.AppCode;
+            }
+
+            return "DEFAULT";
         }
     }
 }

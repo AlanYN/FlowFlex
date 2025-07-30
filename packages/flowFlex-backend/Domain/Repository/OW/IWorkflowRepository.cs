@@ -74,5 +74,13 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get workflows that are about to expire (remind ahead by specified days)
         /// </summary>
         Task<List<Workflow>> GetExpiringWorkflowsAsync(int daysAhead = 7);
+
+        /// <summary>
+        /// 直接查询，使用显式过滤条件
+        /// </summary>
+        /// <param name="tenantId">租户ID</param>
+        /// <param name="appCode">应用代码</param>
+        /// <returns>工作流列表</returns>
+        Task<List<Workflow>> GetListWithExplicitFiltersAsync(string tenantId, string appCode);
     }
 }

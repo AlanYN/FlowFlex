@@ -3,6 +3,9 @@ using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Repository;
 using SqlSugar;
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Http;
+using System.Reflection;
+using System.Linq;
 
 namespace FlowFlex.SqlSugarDB
 {
@@ -13,7 +16,6 @@ namespace FlowFlex.SqlSugarDB
     public class BaseRepository<T> : IBaseRepository<T> where T : class, new()
     {
         public ISqlSugarClient db;
-        private bool _filtersConfigured = false;
 
         protected static string[] ModifyColumn =>
         [
@@ -25,34 +27,6 @@ namespace FlowFlex.SqlSugarDB
         public BaseRepository(ISqlSugarClient context)
         {
             db = context;
-        }
-
-        /// <summary>
-        /// Safely configure tenant and app filters if not already configured
-        /// </summary>
-        protected virtual void EnsureFiltersConfigured()
-        {
-            if (_filtersConfigured || db.QueryFilter.GeFilterList.Any())
-            {
-                return;
-            }
-
-            try
-            {
-                // Add basic tenant and app filters directly without IHttpContextAccessor
-                // These will use default values that can be overridden by specific repositories
-                db.QueryFilter.AddTableFilter<Domain.Entities.Base.AbstractEntityBase>(entity =>
-                    entity.TenantId == "DEFAULT");
-                db.QueryFilter.AddTableFilter<Domain.Entities.Base.AbstractEntityBase>(entity =>
-                    entity.AppCode == "DEFAULT");
-
-                _filtersConfigured = true;
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail the repository operations
-                Console.WriteLine($"Warning: Failed to configure base filters: {ex.Message}");
-            }
         }
 
         #region Insert
@@ -415,21 +389,6 @@ namespace FlowFlex.SqlSugarDB
         /// Batch update data (async)
         /// </summary>
         /// <returns>Whether successful</returns>
-        public async Task<bool> UpdateRangeAsync(T[] updateObjs, Expression<Func<T, object>>? updateColumns = null,
-            CancellationToken cancellationToken = default)
-        {
-            var backupFilters = BackupFilters();
-
-            var result = await UpdateRangeAsync(updateObjs.ToList(), updateColumns, cancellationToken);
-
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
-        }
-
-        /// <summary>
-        /// Batch update data (async)
-        /// </summary>
-        /// <returns>Whether successful</returns>
         public async Task<bool> UpdateRangeAsync(List<T> updateObjs, Expression<Func<T, object>>? updateColumns = null,
             CancellationToken cancellationToken = default)
         {
@@ -440,7 +399,7 @@ namespace FlowFlex.SqlSugarDB
 
             if (updateColumns != null)
             {
-                if (updateObjs.First() is EntityBaseCreateInfo)
+                if (updateObjs.FirstOrDefault() is EntityBaseCreateInfo)
                 {
                     result = await db.Updateable(updateObjs).UpdateColumns(ModifyColumn)
                         .UpdateColumns(updateColumns, true).UseParameter()
@@ -459,6 +418,17 @@ namespace FlowFlex.SqlSugarDB
 
             RestoreFiltersIfChanged(backupFilters);
             return result;
+        }
+
+        /// <summary>
+        /// Batch update data (async)
+        /// </summary>
+        /// <returns>Whether successful</returns>
+        public async Task<bool> UpdateRangeAsync(T[] updateObjs, Expression<Func<T, object>>? updateColumns = null,
+            CancellationToken cancellationToken = default)
+        {
+            // 将数组转换为列表，然后调用列表版本的方法
+            return await UpdateRangeAsync(updateObjs.ToList(), updateColumns, cancellationToken);
         }
 
         /// <summary>
@@ -517,7 +487,6 @@ namespace FlowFlex.SqlSugarDB
 
         public async Task<T> GetByIdAsync(object id, bool copyNew = false, CancellationToken cancellationToken = default)
         {
-            EnsureFiltersConfigured();
             db.Ado.CancellationToken = cancellationToken;
             var dbNew = copyNew ? db.CopyNew() : db;
             return await dbNew.Queryable<T>().InSingleAsync(id);
@@ -565,10 +534,56 @@ namespace FlowFlex.SqlSugarDB
         /// Get all data (async)
         /// </summary>
         /// <returns>Return value</returns>
-        public async Task<List<T>> GetListAsync(CancellationToken cancellationToken = default, bool copyNew = false)
+        public virtual async Task<List<T>> GetListAsync(CancellationToken cancellationToken = default, bool copyNew = false)
         {
             var dbNew = copyNew ? db.CopyNew() : db;
             dbNew.Ado.CancellationToken = cancellationToken;
+            
+            // 检查并记录当前查询过滤器状态
+            var filterCount = dbNew.QueryFilter.GeFilterList?.Count ?? 0;
+            Console.WriteLine($"[BaseRepository] GetListAsync(all) executing with {filterCount} filters applied");
+            
+            // 如果是实体类型，检查租户过滤器是否存在
+            if (typeof(AbstractEntityBase).IsAssignableFrom(typeof(T)))
+            {
+                Console.WriteLine($"[BaseRepository] Entity type {typeof(T).Name} should have tenant filters applied");
+                
+                // 检查当前 HttpContext 中的租户ID和应用代码
+                var httpContext = new HttpContextAccessor().HttpContext;
+                if (httpContext != null)
+                {
+                    var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                    var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                    Console.WriteLine($"[BaseRepository] Current request headers: X-Tenant-Id={tenantId}, X-App-Code={appCode}");
+                    
+                    // 备份过滤器状态
+                    var backupFilters = BackupFilters();
+                    
+                    // 获取实体类型
+                    var entityType = typeof(T);
+                    var propertyTenantId = entityType.GetProperty("TenantId");
+                    var propertyAppCode = entityType.GetProperty("AppCode");
+                    
+                    // 如果实体有 TenantId 和 AppCode 属性，添加显式过滤条件
+                    if (propertyTenantId != null && propertyAppCode != null && 
+                        !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(appCode))
+                    {
+                        Console.WriteLine($"[BaseRepository] Adding explicit filter conditions: TenantId={tenantId}, AppCode={appCode}");
+                        
+                        // 使用 SqlSugar 的 Where 方法添加显式过滤条件
+                        var queryable = dbNew.Queryable<T>();
+                        queryable = queryable.Where($"{propertyTenantId.Name} = @0 AND {propertyAppCode.Name} = @1", tenantId, appCode);
+                        var result = await queryable.ToListAsync();
+                        
+                        Console.WriteLine($"[BaseRepository] Query returned {result.Count} items");
+                        
+                        // 恢复过滤器状态（如果发生变化）
+                        RestoreFiltersIfChanged(backupFilters);
+                        return result;
+                    }
+                }
+            }
+            
             return await dbNew.Queryable<T>().ToListAsync();
         }
 
@@ -580,6 +595,33 @@ namespace FlowFlex.SqlSugarDB
         {
             var dbNew = copyNew ? db.CopyNew() : db;
             dbNew.Ado.CancellationToken = cancellationToken;
+            
+            // 检查并记录当前查询过滤器状态
+            var filterCount = dbNew.QueryFilter.GeFilterList?.Count ?? 0;
+            Console.WriteLine($"[BaseRepository] GetListAsync executing with {filterCount} filters applied");
+            
+            // 如果是实体类型，检查租户过滤器是否存在
+            if (typeof(AbstractEntityBase).IsAssignableFrom(typeof(T)))
+            {
+                Console.WriteLine($"[BaseRepository] Entity type {typeof(T).Name} should have tenant filters applied");
+                
+                // 检查当前 HttpContext 中的租户ID和应用代码
+                var httpContext = new HttpContextAccessor().HttpContext;
+                if (httpContext != null)
+                {
+                    var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                    var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                    Console.WriteLine($"[BaseRepository] Current request headers: X-Tenant-Id={tenantId}, X-App-Code={appCode}");
+                }
+                
+                // 备份过滤器状态
+                var backupFilters = BackupFilters();
+                var result = await dbNew.Queryable<T>().Where(whereExpression).ToListAsync();
+                // 恢复过滤器状态（如果发生变化）
+                RestoreFiltersIfChanged(backupFilters);
+                return result;
+            }
+            
             return await dbNew.Queryable<T>().Where(whereExpression).ToListAsync();
         }
 

@@ -23,13 +23,23 @@ namespace FlowFlex.WebApi.Middlewares
             // Get tenant ID
             var tenantId = GetTenantId(context);
 
-            // Log tenant information
+            // 详细记录租户ID的来源和值
             _logger.LogInformation($"[TenantMiddleware] Request: {context.Request.Method} {context.Request.Path}, TenantId: {tenantId}");
+            
+            // 记录当前请求的所有头部信息，用于调试
+            _logger.LogDebug($"[TenantMiddleware] Request headers: {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
+            
+            // 记录当前用户的Claims信息，用于调试
+            if (context.User?.Identity?.IsAuthenticated == true)
+            {
+                _logger.LogDebug($"[TenantMiddleware] User claims: {string.Join(", ", context.User.Claims.Select(c => $"{c.Type}={c.Value}"))}");
+            }
 
             // Ensure tenant ID is in request headers
             if (!context.Request.Headers.ContainsKey("X-Tenant-Id"))
             {
                 context.Request.Headers["X-Tenant-Id"] = tenantId;
+                _logger.LogDebug($"[TenantMiddleware] Added X-Tenant-Id header: {tenantId}");
             }
 
             // Add tenant ID to response headers (for debugging)
@@ -68,6 +78,12 @@ namespace FlowFlex.WebApi.Middlewares
 
             // 4. Get from JWT Token (if available)
             // Extract tenant ID from JWT token when authentication is implemented
+            var tenantIdClaim = context.User?.FindFirst("tenantId");
+            if (tenantIdClaim != null && !string.IsNullOrEmpty(tenantIdClaim.Value))
+            {
+                _logger.LogDebug($"[TenantMiddleware] Found TenantId from JWT claim: {tenantIdClaim.Value}");
+                return tenantIdClaim.Value;
+            }
 
             // 5. Infer tenant ID from user email domain (example logic)
             var userEmail = context.Request.Headers["X-User-Email"].FirstOrDefault();
@@ -86,7 +102,7 @@ namespace FlowFlex.WebApi.Middlewares
                 }
             }
 
-            // 6. Default tenant ID
+            // 6. 使用默认租户ID "DEFAULT"
             tenantId = "DEFAULT";
             _logger.LogDebug($"[TenantMiddleware] Using default TenantId: {tenantId}");
             return tenantId;

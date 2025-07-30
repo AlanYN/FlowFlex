@@ -80,5 +80,13 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get onboarding count by status
         /// </summary>
         Task<Dictionary<string, int>> GetCountByStatusAsync();
+
+        /// <summary>
+        /// 直接查询，使用显式过滤条件
+        /// </summary>
+        /// <param name="tenantId">租户ID</param>
+        /// <param name="appCode">应用代码</param>
+        /// <returns>入职流程列表</returns>
+        Task<List<Onboarding>> GetListWithExplicitFiltersAsync(string tenantId, string appCode);
     }
 }

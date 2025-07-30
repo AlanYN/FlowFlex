@@ -6,6 +6,8 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using Microsoft.AspNetCore.Http;
+using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -14,8 +16,68 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class QuestionnaireRepository : BaseRepository<Questionnaire>, IQuestionnaireRepository, IScopedService
     {
-        public QuestionnaireRepository(ISqlSugarClient sqlSugarClient) : base(sqlSugarClient)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<QuestionnaireRepository> _logger;
+
+        public QuestionnaireRepository(
+            ISqlSugarClient sqlSugarClient,
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<QuestionnaireRepository> logger) : base(sqlSugarClient)
         {
+            _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// 获取当前租户ID
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // 从请求头获取
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+
+            // 从 AppContext 获取
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is AppContext appContext)
+            {
+                return appContext.TenantId;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// 获取当前应用代码
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // 从请求头获取
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+
+            // 从 AppContext 获取
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is AppContext appContext)
+            {
+                return appContext.AppCode;
+            }
+
+            return "DEFAULT";
         }
 
         /// <summary>
@@ -109,11 +171,29 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             string sortField = "CreateDate",
             string sortDirection = "desc")
         {
+            // 记录当前请求头
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                _logger.LogInformation($"[QuestionnaireRepository] GetPagedAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+            }
+
             // Build basic query condition list (without workflowId and stageId since they're in JSON now)
             var whereExpressions = new List<Expression<Func<Questionnaire, bool>>>();
 
             // Basic filter conditions
             whereExpressions.Add(x => x.IsValid == true);
+
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            _logger.LogInformation($"[QuestionnaireRepository] GetPagedAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            // 添加租户和应用过滤条件
+            whereExpressions.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
             if (!string.IsNullOrWhiteSpace(name))
             {
@@ -183,12 +263,16 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // Calculate total count
             var totalCount = allItems.Count;
+            
+            _logger.LogInformation($"[QuestionnaireRepository] GetPagedAsync found {totalCount} total questionnaires with TenantId={currentTenantId}, AppCode={currentAppCode}");
 
             // Apply pagination
             var items = allItems
                 .Skip((pageIndex - 1) * pageSize)
                 .Take(pageSize)
                 .ToList();
+            
+            _logger.LogInformation($"[QuestionnaireRepository] GetPagedAsync returned {items.Count} questionnaires for page {pageIndex}");
 
             return (items, totalCount);
         }
@@ -438,6 +522,71 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .OrderBy(x => x.Name)
                 .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
                 .ToListAsync();
+        }
+
+        /// <summary>
+        /// 获取所有问卷列表，确保应用租户和应用过滤器
+        /// </summary>
+        public override async Task<List<Questionnaire>> GetListAsync(CancellationToken cancellationToken = default, bool copyNew = false)
+        {
+            // 记录当前请求头
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                _logger.LogInformation($"[QuestionnaireRepository] GetListAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+            }
+
+            // 显式添加租户和应用过滤条件
+            var query = db.Queryable<Questionnaire>().Where(x => x.IsValid == true);
+            
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            _logger.LogInformation($"[QuestionnaireRepository] GetListAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            // 显式添加过滤条件
+            query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
+            
+            // 执行查询
+            var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync(cancellationToken);
+            
+            _logger.LogInformation($"[QuestionnaireRepository] GetListAsync returned {result.Count} questionnaires with TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
+            return result;
+        }
+
+        /// <summary>
+        /// 直接查询，使用显式过滤条件
+        /// </summary>
+        public async Task<List<Questionnaire>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
+        {
+            _logger.LogInformation($"[QuestionnaireRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
+            
+            // 临时禁用全局过滤器
+            db.QueryFilter.ClearAndBackup();
+            
+            try
+            {
+                // 使用显式过滤条件
+                var query = db.Queryable<Questionnaire>()
+                    .Where(x => x.IsValid == true)
+                    .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
+                
+                // 执行查询
+                var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
+                
+                _logger.LogInformation($"[QuestionnaireRepository] GetListWithExplicitFiltersAsync returned {result.Count} questionnaires with explicit filters");
+                
+                return result;
+            }
+            finally
+            {
+                // 恢复全局过滤器
+                db.QueryFilter.Restore();
+            }
         }
     }
 }

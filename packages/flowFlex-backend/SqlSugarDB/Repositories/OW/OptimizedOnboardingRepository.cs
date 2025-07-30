@@ -221,6 +221,33 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
             return result.ToDictionary(x => x.Status, x => x.Count);
         }
 
+        /// <summary>
+        /// 直接查询，使用显式过滤条件
+        /// </summary>
+        public async Task<List<Onboarding>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
+        {
+            // 临时禁用全局过滤器
+            _db.QueryFilter.ClearAndBackup();
+            
+            try
+            {
+                // 使用显式过滤条件
+                var query = _db.Queryable<Onboarding>()
+                    .Where(x => x.IsValid == true)
+                    .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
+                
+                // 执行查询
+                var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
+                
+                return result;
+            }
+            finally
+            {
+                // 恢复全局过滤器
+                _db.QueryFilter.Restore();
+            }
+        }
+
         public async Task<Dictionary<string, object>> GetStatisticsAsync()
         {
             var totalCount = await _db.Queryable<Onboarding>()

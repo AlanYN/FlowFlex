@@ -344,11 +344,14 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseRouting();
 
-// Global exception handling should be first to catch all exceptions
+// 全局异常处理应该放在第一位，以捕获所有异常
 app.UseMiddleware<FlowFlex.Infrastructure.Exceptions.GlobalExceptionHandlingMiddleware>();
 
+// 应用隔离中间件和租户中间件
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.AppIsolationMiddleware>();
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.TenantMiddleware>();
+// 添加过滤器验证中间件，确保过滤器正确应用
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.FilterValidationMiddleware>();
 app.UseMiddleware<FileAccessMiddleware>();
 app.UseCors("AllowAll");
 
