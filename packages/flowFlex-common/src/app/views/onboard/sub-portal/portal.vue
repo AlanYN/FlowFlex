@@ -8,18 +8,27 @@
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
 					<button @click="sidebarOpen = false" class="p-1 rounded-md hover:bg-gray-100">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M6 18L18 6M6 6l12 12" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
 						</svg>
 					</button>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
-					<div v-for="item in navigation" :key="item.name" :class="[
-						'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
-						currentView === item.view
-							? 'bg-blue-100 text-blue-900'
-							: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-					]" @click="handleNavigation(item)">
+					<div
+						v-for="item in navigation"
+						:key="item.name"
+						:class="[
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							currentView === item.view
+								? 'bg-blue-100 text-blue-900'
+								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+						]"
+						@click="handleNavigation(item)"
+					>
 						<component :is="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
@@ -30,10 +39,18 @@
 					<div class="rounded-lg border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
 							<div class="bg-blue-100 p-2 rounded-full">
-								<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor"
-									viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+								<svg
+									class="h-5 w-5 text-blue-600"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+									/>
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -57,12 +74,17 @@
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
-					<div v-for="item in navigation" :key="item.name" :class="[
-						'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
-						currentView === item.view
-							? 'bg-blue-100 text-blue-900'
-							: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-					]" @click="handleNavigation(item)">
+					<div
+						v-for="item in navigation"
+						:key="item.name"
+						:class="[
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							currentView === item.view
+								? 'bg-blue-100 text-blue-900'
+								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+						]"
+						@click="handleNavigation(item)"
+					>
 						<component :is="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
@@ -73,10 +95,18 @@
 					<div class="rounded-lg border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
 							<div class="bg-blue-100 p-2 rounded-full">
-								<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor"
-									viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+								<svg
+									class="h-5 w-5 text-blue-600"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+									/>
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -90,9 +120,18 @@
 						</div>
 						<div class="space-y-1">
 							<div class="flex items-center text-xs text-gray-500">
-								<svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+								<svg
+									class="h-3 w-3 mr-1"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+									/>
 								</svg>
 								Account Manager: {{ customerData.accountManager }}
 							</div>
@@ -108,8 +147,12 @@
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
 				<button @click="sidebarOpen = true" class="p-1 rounded-md hover:bg-gray-100">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-							d="M4 6h16M4 12h16M4 18h16" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 6h16M4 12h16M4 18h16"
+						/>
 					</svg>
 				</button>
 				<h1 class="text-lg font-semibold">Customer Portal</h1>
@@ -123,19 +166,28 @@
 					<!-- 顶部导航栏 -->
 					<div class="flex justify-between items-center mb-6">
 						<div class="flex items-center">
-							<el-button link size="small" @click="handleBack"
-								class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded">
+							<el-button
+								link
+								size="small"
+								@click="handleBack"
+								class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
+							>
 								<el-icon class="text-lg">
 									<ArrowLeft />
 								</el-icon>
 								Back
 							</el-button>
 							<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-								Onboarding Details: {{ onboardingData?.leadId }} {{ onboardingData?.leadName }}
+								Onboarding Details: {{ onboardingData?.leadId }}
+								{{ onboardingData?.leadName }}
 							</h1>
 						</div>
 						<div class="flex items-center space-x-2">
-							<el-button type="primary" @click="handleCompleteStage" :loading="completing">
+							<el-button
+								type="primary"
+								@click="handleCompleteStage"
+								:loading="completing"
+							>
 								<el-icon class="mr-1">
 									<Check />
 								</el-icon>
@@ -148,17 +200,25 @@
 					<div class="flex gap-6">
 						<!-- 左侧阶段详情 (2/3 宽度) -->
 						<div class="flex-[2]">
-							<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
+							<div
+								class="rounded-md el-card is-always-shadow rounded-md el-card__header"
+							>
 								<div
-									class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg">
+									class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
+								>
 									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 								</div>
 							</div>
 							<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
 								<div class="space-y-6 mt-4">
 									<!-- Stage Details 加载状态 -->
-									<div v-if="stageDataLoading" class="bg-white dark:bg-black-300 rounded-md p-8">
-										<div class="flex flex-col items-center justify-center space-y-4">
+									<div
+										v-if="stageDataLoading"
+										class="bg-white dark:bg-black-300 rounded-md p-8"
+									>
+										<div
+											class="flex flex-col items-center justify-center space-y-4"
+										>
 											<el-icon class="is-loading text-4xl text-primary-500">
 												<Loading />
 											</el-icon>
@@ -169,40 +229,74 @@
 									</div>
 
 									<!-- 根据Stage Components动态渲染 -->
-									<template v-if="!stageDataLoading && onboardingActiveStageInfo?.components">
-										<div v-for="component in sortedComponents"
-											:key="`${component.key}-${component.order}`" v-show="component.isEnabled">
+									<template
+										v-if="
+											!stageDataLoading &&
+											onboardingActiveStageInfo?.components
+										"
+									>
+										<div
+											v-for="component in sortedComponents"
+											:key="`${component.key}-${component.order}`"
+											v-show="component.isEnabled"
+										>
 											<!-- 静态字段表单 -->
-											<StaticForm v-if="
-												component.key === 'fields' &&
-												component?.staticFields &&
-												component.staticFields?.length > 0
-											" :ref="setStaticFormRef" :static-fields="component.staticFields" :onboarding-id="onboardingId"
-												:stage-id="activeStage" @save-success="refreshChangeLog" />
+											<StaticForm
+												v-if="
+													component.key === 'fields' &&
+													component?.staticFields &&
+													component.staticFields?.length > 0
+												"
+												:ref="setStaticFormRef"
+												:static-fields="component.staticFields"
+												:onboarding-id="onboardingId"
+												:stage-id="activeStage"
+												@save-success="refreshChangeLog"
+											/>
 
 											<!-- 检查清单组件 -->
-											<CheckList v-else-if="
-												component.key === 'checklist' &&
-												component?.checklistIds &&
-												component.checklistIds?.length > 0
-											" :loading="checkLoading" :checklist-data="getChecklistDataForComponent(component)"
-												@task-toggled="handleTaskToggled" />
+											<CheckList
+												v-else-if="
+													component.key === 'checklist' &&
+													component?.checklistIds &&
+													component.checklistIds?.length > 0
+												"
+												:loading="checkLoading"
+												:checklist-data="
+													getChecklistDataForComponent(component)
+												"
+												@task-toggled="handleTaskToggled"
+											/>
 
 											<!-- 问卷组件 -->
-											<QuestionnaireDetails v-else-if="
-												component.key === 'questionnaires' &&
-												component?.questionnaireIds &&
-												component.questionnaireIds?.length > 0
-											" :ref="setQuestionnaireDetailsRef" :stage-id="activeStage" :lead-data="onboardingData"
-												:workflow-stages="workflowStages" :questionnaire-data="getQuestionnaireDataForComponent(component)
-													" :onboardingId="onboardingId" @stage-updated="handleStageUpdated" :questionnaire-answers="getQuestionnaireAnswersForComponent(component)
-													" />
+											<QuestionnaireDetails
+												v-else-if="
+													component.key === 'questionnaires' &&
+													component?.questionnaireIds &&
+													component.questionnaireIds?.length > 0
+												"
+												:ref="setQuestionnaireDetailsRef"
+												:stage-id="activeStage"
+												:lead-data="onboardingData"
+												:workflow-stages="workflowStages"
+												:questionnaire-data="
+													getQuestionnaireDataForComponent(component)
+												"
+												:onboardingId="onboardingId"
+												@stage-updated="handleStageUpdated"
+												:questionnaire-answers="
+													getQuestionnaireAnswersForComponent(component)
+												"
+											/>
 
 											<!-- 文件组件 -->
-											<Documents v-else-if="component.key === 'files'"
-												:onboarding-id="onboardingId" :stage-id="activeStage"
+											<Documents
+												v-else-if="component.key === 'files'"
+												:onboarding-id="onboardingId"
+												:stage-id="activeStage"
 												@document-uploaded="handleDocumentUploaded"
-												@document-deleted="handleDocumentDeleted" />
+												@document-deleted="handleDocumentDeleted"
+											/>
 										</div>
 									</template>
 								</div>
@@ -215,42 +309,59 @@
 								<div class="space-y-6">
 									<!-- OnboardingProgress组件 -->
 									<div class="rounded-md overflow-hidden">
-										<OnboardingProgress v-if="onboardingData && onboardingId"
-											:active-stage="activeStage" :onboarding-data="onboardingData"
-											:workflow-stages="workflowStages" @set-active-stage="setActiveStageWithData"
+										<OnboardingProgress
+											v-if="onboardingData && onboardingId"
+											:active-stage="activeStage"
+											:onboarding-data="onboardingData"
+											:workflow-stages="workflowStages"
+											@set-active-stage="setActiveStageWithData"
 											@stage-completed="loadOnboardingDetail"
-											class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600" />
+											class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600"
+										/>
 									</div>
 
 									<!-- 笔记区域 -->
-									<div class="rounded-md overflow-hidden">
+									<!-- <div class="rounded-md overflow-hidden">
 										<InternalNotes v-if="activeStage && onboardingId" :onboarding-id="onboardingId"
 											:stage-id="activeStage" @note-added="handleNoteAdded" />
-									</div>
+									</div> -->
 								</div>
 							</el-scrollbar>
 						</div>
 					</div>
 
-
-
 					<!-- 编辑对话框 -->
-					<el-dialog v-model="editDialogVisible" title="Edit Onboarding" width="500px"
-						:before-close="handleEditDialogClose">
+					<el-dialog
+						v-model="editDialogVisible"
+						title="Edit Onboarding"
+						width="500px"
+						:before-close="handleEditDialogClose"
+					>
 						<el-form :model="editForm" label-width="100px">
 							<el-form-item label="Priority">
-								<el-select v-model="editForm.priority" placeholder="Select Priority" class="w-full">
+								<el-select
+									v-model="editForm.priority"
+									placeholder="Select Priority"
+									class="w-full"
+								>
 									<el-option label="High" value="High" />
 									<el-option label="Medium" value="Medium" />
 									<el-option label="Low" value="Low" />
 								</el-select>
 							</el-form-item>
 							<el-form-item label="Assignee">
-								<el-input v-model="editForm.assignee" placeholder="Enter assignee name" />
+								<el-input
+									v-model="editForm.assignee"
+									placeholder="Enter assignee name"
+								/>
 							</el-form-item>
 							<el-form-item label="Notes">
-								<el-input v-model="editForm.notes" type="textarea" :rows="3"
-									placeholder="Enter notes" />
+								<el-input
+									v-model="editForm.notes"
+									type="textarea"
+									:rows="3"
+									placeholder="Enter notes"
+								/>
 							</el-form-item>
 						</el-form>
 
@@ -263,8 +374,6 @@
 							</div>
 						</template>
 					</el-dialog>
-
-
 				</div>
 			</main>
 		</div>
@@ -286,14 +395,13 @@ import {
 	getQuestionnaireAnswer,
 	completeCurrentStage,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
+import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
 // 导入组件
 import OnboardingProgress from '../onboardingList/components/OnboardingProgress.vue';
 import QuestionnaireDetails from '../onboardingList/components/QuestionnaireDetails.vue';
-import InternalNotes from '../onboardingList/components/InternalNotes.vue';
 
 import CheckList from '../onboardingList/components/CheckList.vue';
 import Documents from '../onboardingList/components/Documents.vue';
@@ -312,30 +420,6 @@ const DetailsIcon = {
 	template: `
 		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-		</svg>
-	`,
-};
-
-const MessageSquareIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-		</svg>
-	`,
-};
-
-const FileTextIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-		</svg>
-	`,
-};
-
-const PhoneIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
 		</svg>
 	`,
 };
@@ -413,7 +497,7 @@ const navigation = ref([
 // 存储批量查询到的数据
 const checklistsData = ref<any[]>([]);
 const questionnairesData = ref<any[]>([]);
-const questionnaireAnswersMap = ref<Record<string, any[]>>({});
+const questionnaireAnswersMap = ref<SectionAnswer[]>([]);
 
 // Loading状态管理
 const stageDataLoading = ref(false);
@@ -480,8 +564,8 @@ const handleNavigation = (item: any) => {
 		router.push({
 			path: '/customer-portal',
 			query: {
-				onboardingId: onboardingId.value
-			}
+				onboardingId: onboardingId.value,
+			},
 		});
 	} else {
 		currentView.value = item.view;
@@ -493,8 +577,8 @@ const handleBack = () => {
 	router.push({
 		path: '/customer-portal',
 		query: {
-			onboardingId: onboardingId.value
-		}
+			onboardingId: onboardingId.value,
+		},
 	});
 };
 
@@ -518,14 +602,18 @@ const setQuestionnaireDetailsRef = (el: any) => {
 const processOnboardingData = (responseData: any) => {
 	onboardingData.value = responseData;
 	// 只显示在Portal中可见的阶段
-	workflowStages.value = responseData.stagesProgress.filter((stage: any) => stage.visibleInPortal !== false);
+	workflowStages.value = responseData.stagesProgress.filter(
+		(stage: any) => stage.visibleInPortal !== false
+	);
 
 	let newStageId = '';
 
 	// 优先使用路由中的 stageId
 	if (stageIdFromRoute.value) {
 		// 验证路由中的 stageId 是否存在于工作流阶段中
-		const foundStage = workflowStages.value.find(stage => stage.stageId === stageIdFromRoute.value);
+		const foundStage = workflowStages.value.find(
+			(stage) => stage.stageId === stageIdFromRoute.value
+		);
 		if (foundStage) {
 			newStageId = stageIdFromRoute.value;
 		}
@@ -533,9 +621,12 @@ const processOnboardingData = (responseData: any) => {
 
 	// 如果路由中没有 stageId 或者无效，则使用默认逻辑
 	if (!newStageId) {
-		const sortedStages = [...workflowStages.value].sort((a, b) => (a.order || 0) - (b.order || 0));
+		const sortedStages = [...workflowStages.value].sort(
+			(a, b) => (a.order || 0) - (b.order || 0)
+		);
 		const firstIncompleteStage = sortedStages.find((stage) => !stage.isCompleted);
-		newStageId = firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
+		newStageId =
+			firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
 	}
 
 	onboardingActiveStageInfo.value = workflowStages.value.find(
@@ -597,8 +688,6 @@ const getQuestionnaireAnswersForComponent = (component: ComponentData) => {
 	return questionnaireAnswersMap.value[qId] || [];
 };
 
-
-
 // 批量加载检查清单数据
 const loadCheckListData = async (onboardingId: string, stageId: string) => {
 	if (!onboardingActiveStageInfo.value?.components) return;
@@ -649,7 +738,8 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 					(task: any) => task.isCompleted
 				).length;
 				const totalTasks = checklist.tasks.length;
-				const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+				const completionRate =
+					totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
 				return {
 					...checklist,
@@ -695,12 +785,15 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 		await nextTick();
 		// 处理答案
 		if (answerRes.code === '200' && answerRes.data && Array.isArray(answerRes.data)) {
-			const map: Record<string, any[]> = {};
+			const map: SectionAnswer[] = [];
 			answerRes.data.forEach((item: any) => {
 				if (item.questionnaireId && item.answerJson) {
 					let parsed;
 					try {
-						parsed = typeof item.answerJson === 'string' ? JSON.parse(item.answerJson) : item.answerJson;
+						parsed =
+							typeof item.answerJson === 'string'
+								? JSON.parse(item.answerJson)
+								: item.answerJson;
 					} catch {
 						parsed = null;
 					}
@@ -779,12 +872,16 @@ const handleTaskToggled = async (task: any) => {
 					const taskToUpdate = checklist.tasks?.find((t: any) => t.id === task.id);
 					if (taskToUpdate) {
 						taskToUpdate.isCompleted = task.isCompleted;
-						taskToUpdate.completedDate = task.isCompleted ? new Date().toISOString() : null;
+						taskToUpdate.completedDate = task.isCompleted
+							? new Date().toISOString()
+							: null;
 
-						const completedTasks = checklist.tasks?.filter((t: any) => t.isCompleted).length || 0;
+						const completedTasks =
+							checklist.tasks?.filter((t: any) => t.isCompleted).length || 0;
 						const totalTasks = checklist.tasks?.length || 0;
 						checklist.completedTasks = completedTasks;
-						checklist.completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+						checklist.completionRate =
+							totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 					}
 				}
 			});
@@ -849,25 +946,8 @@ const handleCompleteStage = async () => {
 	);
 };
 
-const handleCustomerOverview = () => {
-	router.push({
-		name: 'CustomerOverview',
-		params: {
-			leadId: onboardingId.value,
-		},
-		query: {
-			companyName: onboardingData.value?.leadName || '',
-			from: 'onboardingDetail',
-		},
-	});
-};
-
 const handleStageUpdated = async () => {
 	loadOnboardingDetail();
-};
-
-const handleNoteAdded = () => {
-	refreshChangeLog();
 };
 
 const handleDocumentUploaded = () => {
@@ -913,7 +993,7 @@ onMounted(async () => {
 watch(stageIdFromRoute, async (newStageId) => {
 	if (newStageId && workflowStages.value.length > 0) {
 		// 验证新的 stageId 是否有效
-		const foundStage = workflowStages.value.find(stage => stage.stageId === newStageId);
+		const foundStage = workflowStages.value.find((stage) => stage.stageId === newStageId);
 		if (foundStage && activeStage.value !== newStageId) {
 			await setActiveStageWithData(newStageId);
 		}
