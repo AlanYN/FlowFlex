@@ -468,6 +468,62 @@
 							</div>
 						</div>
 					</div>
+					
+					<!-- 空状态 - 没有检查清单时显示 -->
+					<div 
+						v-if="!loading && filteredChecklists.length === 0" 
+						class="empty-state-container rounded-lg bg-white shadow-sm border border-gray-200"
+					>
+						<div class="empty-state-content">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="64"
+								height="64"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="empty-state-icon"
+							>
+								<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+								<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+								<path d="M12 11h4" />
+								<path d="M12 16h4" />
+								<path d="M8 11h.01" />
+								<path d="M8 16h.01" />
+							</svg>
+							<h2 class="empty-state-title">No Checklists Found</h2>
+							<p class="empty-state-desc">
+								Create your first checklist to help manage tasks during the onboarding process.
+							</p>
+							<el-button 
+								type="primary" 
+								size="large" 
+								@click="openCreateDialog"
+								:loading="createLoading"
+								class="create-checklist-btn"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="mr-2"
+								>
+									<path d="M12 5v14" />
+									<path d="M5 12h14" />
+								</svg>
+								<span>Create Checklist</span>
+							</el-button>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -2552,5 +2608,47 @@ const getStageNameById = (stageId) => {
 	font-size: 12px;
 	line-height: 1;
 	font-weight: bold;
+}
+
+/* 空状态样式 */
+.empty-state-container {
+	padding: 60px 20px;
+	text-align: center;
+	margin-bottom: 16px;
+}
+
+.empty-state-content {
+	max-width: 500px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.empty-state-icon {
+	color: var(--primary-300, #93c5fd);
+	margin-bottom: 24px;
+}
+
+.empty-state-title {
+	font-size: 24px;
+	font-weight: 600;
+	color: #303133;
+	margin: 0 0 16px 0;
+}
+
+.empty-state-desc {
+	font-size: 16px;
+	color: #606266;
+	margin: 0 0 32px 0;
+	line-height: 1.6;
+}
+
+.create-checklist-btn {
+	padding: 12px 24px;
+	font-size: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 </style>
