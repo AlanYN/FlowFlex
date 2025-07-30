@@ -21,6 +21,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.AnswerJson, opt => opt.MapFrom(src => src.AnswerJson))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
                 .ForMember(dest => dest.CompletionRate, opt => opt.MapFrom(src => src.CompletionRate))
+                .ForMember(dest => dest.CurrentSectionIndex, opt => opt.MapFrom(src => src.CurrentSectionIndex))
                 .ForMember(dest => dest.SubmitTime, opt => opt.MapFrom(src => src.SubmitTime))
                 .ForMember(dest => dest.ReviewTime, opt => opt.MapFrom(src => src.ReviewTime))
                 .ForMember(dest => dest.ReviewerId, opt => opt.MapFrom(src => src.ReviewerId))
@@ -43,11 +44,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.AnswerJson, opt => opt.MapFrom(src => src.AnswerJson))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status ?? "Draft"))
                 .ForMember(dest => dest.CompletionRate, opt => opt.MapFrom(src => src.CompletionRate ?? 0))
+                .ForMember(dest => dest.CurrentSectionIndex, opt => opt.MapFrom(src => src.CurrentSectionIndex ?? 0))
                 .ForMember(dest => dest.UserAgent, opt => opt.MapFrom(src => src.UserAgent))
-                // 设置默认�?
+                // 设置默认?
                 .ForMember(dest => dest.Version, opt => opt.MapFrom(src => 1))
                 .ForMember(dest => dest.IsLatest, opt => opt.MapFrom(src => true))
-                // 忽略基类属性和其他属�?
+                // 忽略基类属性和其他属?
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())

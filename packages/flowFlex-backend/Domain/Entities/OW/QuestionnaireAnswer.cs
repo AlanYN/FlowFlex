@@ -59,6 +59,13 @@ namespace FlowFlex.Domain.Entities.OW
         public int CompletionRate { get; set; } = 0;
 
         /// <summary>
+        /// Current Section Index
+        /// </summary>
+        [Column("current_section_index")]
+        [SugarColumn(ColumnName = "current_section_index")]
+        public int CurrentSectionIndex { get; set; } = 0;
+
+        /// <summary>
         /// Submit Time
         /// </summary>
         [Column("submit_time")]
