@@ -166,22 +166,7 @@
 										>
 											{{ formatDate(row.startDate) || defaultStr }}
 										</span>
-									</div>
-									<div class="flex items-center">
-										<span class="font-medium mr-1">ETA:</span>
-										<span
-											class="table-cell-content flex-1"
-											:title="
-												formatDate(row.estimatedCompletionDate) ||
-												defaultStr
-											"
-										>
-											{{
-												formatDate(row.estimatedCompletionDate) ||
-												defaultStr
-											}}
-										</span>
-									</div>
+									</div>									
 									<div
 										v-if="isOverdue(row.estimatedCompletionDate)"
 										class="flex items-center text-red-500"

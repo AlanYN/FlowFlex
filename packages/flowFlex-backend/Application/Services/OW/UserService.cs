@@ -159,12 +159,12 @@ namespace FlowFlex.Application.Services.OW
                         }
                         else
                         {
-                            throw new CRMException(System.Net.HttpStatusCode.BadRequest, "Verification code has expired");
+                            throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
                         }
                     }
                     else
                     {
-                        throw new CRMException(System.Net.HttpStatusCode.Conflict, "Email is already registered. Please use a different email address or reset your password if you forgot it.");
+                        throw new CRMException(System.Net.HttpStatusCode.OK, "Email is already registered. Please use a different email address or reset your password if you forgot it.");
                     }
                 }
                 else
@@ -173,13 +173,13 @@ namespace FlowFlex.Application.Services.OW
                     // Verify verification code for normal registration
                     if (existingUser.EmailVerificationCode != request.VerificationCode)
                     {
-                        throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "Verification code is incorrect");
+                        throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code is incorrect");
                     }
 
                     // Verify if verification code has expired
                     if (existingUser.VerificationCodeExpiry < DateTimeOffset.Now)
                     {
-                        throw new CRMException(System.Net.HttpStatusCode.BadRequest, "Verification code has expired");
+                        throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
                     }
 
                     // Update user information and verify email
@@ -238,7 +238,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // If email doesn't exist, need to send verification code first
-            throw new CRMException(System.Net.HttpStatusCode.BadRequest, "Please get verification code first");
+            throw new CRMException(System.Net.HttpStatusCode.OK, "Please get verification code first");
         }
 
         /// <summary>
@@ -299,25 +299,25 @@ namespace FlowFlex.Application.Services.OW
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
             {
-                throw new CRMException(System.Net.HttpStatusCode.NotFound, "User does not exist");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "User does not exist");
             }
 
             // Verify verification code
             if (string.IsNullOrEmpty(user.EmailVerificationCode))
             {
-                throw new CRMException(System.Net.HttpStatusCode.BadRequest, "No verification code found for this user. Please request a new verification code.");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "No verification code found for this user. Please request a new verification code.");
             }
 
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
                 _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
-                throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "Verification code is incorrect");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code is incorrect");
             }
 
             // Verify if verification code has expired
             if (user.VerificationCodeExpiry < DateTimeOffset.Now)
             {
-                throw new CRMException(System.Net.HttpStatusCode.BadRequest, "Verification code has expired");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
             }
 
             // Update user email verification status
@@ -342,25 +342,25 @@ namespace FlowFlex.Application.Services.OW
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
             {
-                throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "User does not exist");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "User does not exist");
             }
 
             // Check if user has set password
             if (string.IsNullOrEmpty(user.PasswordHash))
             {
-                throw new CRMException(System.Net.HttpStatusCode.BadRequest, "User has not set password, please use verification code login or reset password");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "User has not set password, please use verification code login or reset password");
             }
 
             // Verify password
             if (!BC.Verify(request.Password, user.PasswordHash))
             {
-                throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "Password is incorrect");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "Password is incorrect");
             }
 
             // Check user status
             if (user.Status != "active")
             {
-                throw new CRMException(System.Net.HttpStatusCode.Forbidden, "User account is not active");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "User account is not active");
             }
 
             // Generate JWT token with details
@@ -401,31 +401,31 @@ namespace FlowFlex.Application.Services.OW
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
             {
-                throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "User does not exist");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "User does not exist");
             }
 
             // Verify verification code
             if (string.IsNullOrEmpty(user.EmailVerificationCode))
             {
-                throw new CRMException(System.Net.HttpStatusCode.BadRequest, "No verification code found for this user. Please request a new verification code.");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "No verification code found for this user. Please request a new verification code.");
             }
 
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
                 _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
-                throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "Verification code is incorrect");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code is incorrect");
             }
 
             // Verify if verification code has expired
             if (user.VerificationCodeExpiry < DateTimeOffset.Now)
             {
-                throw new CRMException(System.Net.HttpStatusCode.BadRequest, "Verification code has expired");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
             }
 
             // Verify user status - allow pending status users to login with verification code
             if (user.Status != "active" && user.Status != "pending")
             {
-                throw new CRMException(System.Net.HttpStatusCode.Forbidden, "User account is not active");
+                throw new CRMException(System.Net.HttpStatusCode.OK, "User account is not active");
             }
 
             // If user status is pending, automatically activate user after successful verification code login
@@ -896,19 +896,19 @@ namespace FlowFlex.Application.Services.OW
                 // Handle specific database constraint violations
                 if (ex.Message.Contains("duplicate key value violates unique constraint \"idx_users_email_tenant\""))
                 {
-                    throw new CRMException(HttpStatusCode.Conflict, 
+                    throw new CRMException(HttpStatusCode.OK, 
                         $"User with email '{email}' already exists in tenant '{request.TenantId}'. Please use the existing user account or contact administrator.");
                 }
                 
                 // Handle other known exceptions with user-friendly messages
                 if (ex.Message.Contains("duplicate key"))
                 {
-                    throw new CRMException(HttpStatusCode.Conflict, 
+                    throw new CRMException(HttpStatusCode.OK, 
                         "User account conflict detected. Please contact administrator for assistance.");
                 }
                 
                 // For unknown exceptions, provide a generic message but preserve the original for logging
-                throw new CRMException(HttpStatusCode.InternalServerError, 
+                throw new CRMException(HttpStatusCode.OK, 
                     "Third-party login failed. Please try again or contact administrator if the problem persists.");
             }
         }
