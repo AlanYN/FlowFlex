@@ -296,9 +296,30 @@
 					<!-- 总阶段数信息 -->
 					<div class="workflow-footer">
 						<p class="stage-count">
-							Total stages: {{ (displayWorkflow || workflow).stages.length }}
+							Total stages: {{ workflow?.stages?.length || 0 }}
 						</p>
 					</div>
+				</div>
+			</div>
+			
+			<!-- 空状态 - 没有工作流时显示 -->
+			<div v-else class="empty-state-container rounded-md">
+				<div class="empty-state-content">
+					<el-icon class="empty-state-icon"><DocumentAdd /></el-icon>
+					<h2 class="empty-state-title">No Workflows Created Yet</h2>
+					<p class="empty-state-desc">
+						Workflows help you organize and manage the entire onboarding process. Create your first workflow to get started.
+					</p>
+					<el-button 
+						type="primary" 
+						size="large" 
+						@click="showNewWorkflowDialog"
+						:loading="loading.createWorkflow"
+						class="create-workflow-btn"
+					>
+						<el-icon><Plus /></el-icon>
+						<span>Create Workflow</span>
+					</el-button>
 				</div>
 			</div>
 		</div>
@@ -326,13 +347,7 @@
 			</template>
 			<NewWorkflowForm
 				v-if="dialogVisible.workflowForm"
-				:initial-data="
-					isEditingWorkflow
-						? isEditingFromHistory
-							? editingWorkflowData
-							: workflow
-						: undefined
-				"
+				:initial-data="isEditingWorkflow && workflow ? workflow : undefined"
 				:is-editing="isEditingWorkflow"
 				@submit="handleWorkflowSubmit"
 				@cancel="handleWorkflowCancel"
@@ -502,6 +517,7 @@ import {
 	Star,
 	ArrowLeft,
 	VideoPause,
+	DocumentAdd,
 } from '@element-plus/icons-vue';
 
 import StarIcon from '@assets/svg/workflow/star.svg';
@@ -539,6 +555,9 @@ const { t } = useI18n();
 
 // 状态
 const workflow = ref<Workflow | null>(null); // 当前操作的工作流
+const displayWorkflow = ref<Workflow | null>(null); // 用于显示的工作流副本
+const isEditingFromHistory = ref(false); // 是否从历史版本编辑
+const editingWorkflowData = ref<Workflow | null>(null); // 编辑中的工作流数据
 
 const isEditing = ref(true);
 const currentStage = ref<Stage | null>(null);
@@ -592,9 +611,7 @@ const dialogTitle = computed(() => {
 // 计算对话框副标题
 const dialogSubtitle = computed(() => {
 	if (isEditingWorkflow.value) {
-		const currentWorkflow = isEditingFromHistory.value
-			? editingWorkflowData.value
-			: workflow.value;
+		const currentWorkflow = workflow.value;
 		if (currentWorkflow) {
 			return `Update the details for "${currentWorkflow.name}".`;
 		}
@@ -2001,6 +2018,48 @@ const resetCombineStagesForm = () => {
 .version-badge {
 	font-size: 12px;
 	opacity: 0.7;
+}
+
+/* 空状态样式 */
+.empty-state-container {
+	background-color: #fff;
+	border: 1px dashed var(--el-border-color, #dcdfe6);
+	padding: 60px 20px;
+	text-align: center;
+	margin-bottom: 16px;
+}
+
+.empty-state-content {
+	max-width: 500px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.empty-state-icon {
+	font-size: 64px;
+	color: var(--primary-300, #93c5fd);
+	margin-bottom: 24px;
+}
+
+.empty-state-title {
+	font-size: 24px;
+	font-weight: 600;
+	color: #303133;
+	margin: 0 0 16px 0;
+}
+
+.empty-state-desc {
+	font-size: 16px;
+	color: #606266;
+	margin: 0 0 32px 0;
+	line-height: 1.6;
+}
+
+.create-workflow-btn {
+	padding: 12px 24px;
+	font-size: 16px;
 }
 </style>
 

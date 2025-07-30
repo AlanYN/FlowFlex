@@ -204,7 +204,6 @@ import { ElMessage } from 'element-plus';
 import { Plus, Refresh, View, Message, Switch } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
-import { useGlobSetting } from '@/settings';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 
 // Props
@@ -346,10 +345,21 @@ const handleViewInvitationLink = async (user: PortalUser) => {
 		const invitationUrl = response?.invitationUrl || (response as any)?.data?.invitationUrl;
 
 		if (invitationUrl) {
-			// 显示邀请链接对话框
-			currentInvitationUser.value = user;
-			currentInvitationUrl.value = invitationUrl;
-			showInvitationLinkDialog.value = true;
+			// 解析URL，仅保留路径部分
+			try {
+				const url = new URL(invitationUrl);
+				const localInvitationUrl = `${url.pathname}${url.search}`;
+				
+				// 显示邀请链接对话框
+				currentInvitationUser.value = user;
+				currentInvitationUrl.value = localInvitationUrl;
+				showInvitationLinkDialog.value = true;
+			} catch (error) {
+				// 如果URL解析失败，使用原始URL
+				currentInvitationUser.value = user;
+				currentInvitationUrl.value = invitationUrl;
+				showInvitationLinkDialog.value = true;
+			}
 		} else {
 			ElMessage.warning('Unable to retrieve invitation link');
 		}
@@ -392,8 +402,7 @@ const resendInvitation = async (email: string) => {
 
 const handleViewCustomerPortal = () => {
 	// Generate customer portal URL using current environment
-	const baseUrl = useGlobSetting().domainUrl;
-	const customerPortalUrl = `${baseUrl}/customer-portal?onboardingId=${props.onboardingId}`;
+	const customerPortalUrl = `/customer-portal?onboardingId=${props.onboardingId}`;
 
 	// Open in new window/tab
 	window.open(customerPortalUrl, '_blank');

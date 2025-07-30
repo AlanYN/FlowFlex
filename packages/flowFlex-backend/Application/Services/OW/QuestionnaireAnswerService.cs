@@ -137,6 +137,7 @@ namespace FlowFlex.Application.Services.OW
                     existingAnswer.AnswerJson = updatedAnswerJson;
                     existingAnswer.Status = input.Status ?? "Draft";
                     existingAnswer.CompletionRate = (int)Math.Round(input.CompletionRate ?? 0);
+                    existingAnswer.CurrentSectionIndex = input.CurrentSectionIndex ?? existingAnswer.CurrentSectionIndex;
                     existingAnswer.InitUpdateInfo(_userContext);
 
                     if (input.Status == "Submitted")
@@ -177,6 +178,7 @@ namespace FlowFlex.Application.Services.OW
                         AnswerJson = processedAnswerJson,
                         Status = input.Status ?? "Draft",
                         CompletionRate = (int)Math.Round(input.CompletionRate ?? 0),
+                        CurrentSectionIndex = input.CurrentSectionIndex ?? 0,
                         SubmitTime = input.Status == "Submitted" ? DateTimeOffset.Now : null,
                         Version = await GetNextVersionAsync(input.OnboardingId, input.StageId),
                         IsLatest = true,
@@ -187,7 +189,6 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with proper ID and timestamps
                     entity.InitCreateInfo(_userContext);
-                    // Debug logging handled by structured logging
                     // Debug logging handled by structured logging ?? "NULL"}");
 
                     // Use SqlSugar ORM insert
@@ -328,6 +329,7 @@ namespace FlowFlex.Application.Services.OW
                     newEntity.Id = 0; // Reset ID to create new record
                     newEntity.AnswerJson = newAnswerJson;
                     newEntity.Status = input.Status ?? existing.Status;
+                    newEntity.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
                     newEntity.InitCreateInfo(_userContext);
                     newEntity.Version = existing.Version + 1;
 
@@ -344,6 +346,7 @@ namespace FlowFlex.Application.Services.OW
                     existing.AnswerJson = newAnswerJson;
                     existing.Status = input.Status ?? existing.Status;
                     existing.CompletionRate = input.CompletionRate.HasValue ? (int)Math.Round(input.CompletionRate.Value) : existing.CompletionRate;
+                    existing.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
                     existing.InitUpdateInfo(_userContext);
 
                     await _repository.UpdateAsync(existing);
