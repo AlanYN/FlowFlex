@@ -63,6 +63,7 @@
 								{{ question.description }}
 							</p>
 						</div>
+
 						<!-- 短答题 -->
 						<el-input
 							v-if="question.type === 'short_answer' || question.type === 'text'"
@@ -447,7 +448,7 @@
 
 						<!-- 中间：进度指示器 -->
 						<div class="section-progress">
-							<div class="section-dots">
+							<!-- <div class="section-dots">
 								<button
 									v-for="(section, index) in formattedQuestionnaires[0].sections"
 									:key="section.id"
@@ -458,7 +459,7 @@
 									]"
 									:title="section.title"
 								></button>
-							</div>
+							</div> -->
 						</div>
 
 						<!-- 右侧：下一页按钮 -->
@@ -494,8 +495,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
 import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
-import { QuestionnaireAnswer, QuestionnaireData, ComponentData } from '#/onboard';
+import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
+import { ElNotification } from 'element-plus';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -511,21 +513,7 @@ interface Props {
 	onboardingId?: string;
 	questionnaireData?: ComponentData;
 	isStageCompleted?: boolean;
-	questionnaireAnswers?: {
-		lastModifiedAt: string;
-		lastModifiedBy: string;
-		question: string;
-		questionId: string;
-		responseText: string;
-		type: string;
-		answer: string;
-		changeHistory: {
-			action: string;
-			timestamp: string;
-			timestampUtc: string;
-			user: string;
-		}[];
-	}[];
+	questionnaireAnswers?: SectionAnswer;
 }
 
 const props = defineProps<Props>();
@@ -655,6 +643,11 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 			formData.value[ans.questionId] = ans.answer;
 		}
 	});
+	nextTick(() => {
+		if (props.questionnaireAnswers?.currentSectionIndex) {
+			currentSectionIndex.value = props.questionnaireAnswers?.currentSectionIndex || 0;
+		}
+	});
 };
 
 // 监听答案数据变化，确保答案能正确应用
@@ -664,7 +657,7 @@ watch(
 		if (newAnswers && formattedQuestionnaires.value.length > 0) {
 			// 确保表单数据已初始化后再应用答案
 			nextTick(() => {
-				applyAnswers(newAnswers);
+				applyAnswers(newAnswers.answer);
 			});
 		}
 	},
@@ -733,7 +726,7 @@ const handleFileChange = (questionId: string, file: any, fileList: any[]) => {
 };
 
 // 验证表单
-const validateForm = () => {
+const validateForm = (presentQuestionIndex?: number) => {
 	let isValid = true;
 	const errors: string[] = [];
 
@@ -741,71 +734,93 @@ const validateForm = () => {
 		return { isValid: true, errors: [] };
 	}
 
-	formattedQuestionnaires.value.forEach((questionnaire, qIndex) => {
-		questionnaire.sections.forEach((section: any, sIndex: number) => {
-			if (!section.questions || section.questions.length === 0) {
-				return;
-			}
+	const questionnaire = formattedQuestionnaires.value[0];
+	let vailSection: any[] = [];
+	if (presentQuestionIndex != undefined && presentQuestionIndex != null) {
+		vailSection = [questionnaire.sections[presentQuestionIndex]];
+	} else {
+		vailSection = questionnaire.sections.slice(
+			currentSectionIndex.value,
+			questionnaire.sections.length
+		);
+	}
 
-			section.questions.forEach((question: any, qIdx: number) => {
-				if (question.required) {
-					const questionText =
-						question.title || question.question || `Question ${question.id}`;
-
-					if (question.type === 'multiple_choice_grid') {
-						// 多选网格：检查每一行是否都有选择
-						if (question.rows && question.rows.length > 0) {
-							let allRowsCompleted = true;
-							question.rows.forEach((row: any, rowIndex: number) => {
-								const gridKey = `${question.id}_${row.id || rowIndex}`;
-								const gridValue = formData.value[gridKey];
-								if (!Array.isArray(gridValue) || gridValue.length === 0) {
-									allRowsCompleted = false;
-								}
-							});
-							if (!allRowsCompleted) {
-								isValid = false;
-								const errorMsg = `${questionText} - Please complete all rows in the grid`;
-								errors.push(errorMsg);
+	vailSection.forEach((section: any, sIndex: number) => {
+		if (!section.questions || section.questions.length === 0) {
+			return true;
+		}
+		section.questions.forEach((question: any, qIdx: number) => {
+			if (question.required) {
+				if (question.type === 'multiple_choice_grid') {
+					// 多选网格：检查每一行是否都有选择
+					if (question.rows && question.rows.length > 0) {
+						let allRowsCompleted = true;
+						question.rows.forEach((row: any, rowIndex: number) => {
+							const gridKey = `${question.id}_${row.id || rowIndex}`;
+							const gridValue = formData.value[gridKey];
+							if (!Array.isArray(gridValue) || gridValue.length === 0) {
+								allRowsCompleted = false;
 							}
-						}
-					} else if (question.type === 'checkbox_grid') {
-						// 单选网格：检查每一行是否都有选择
-						if (question.rows && question.rows.length > 0) {
-							let allRowsCompleted = true;
-							question.rows.forEach((row: any, rowIndex: number) => {
-								const gridKey = `${question.id}_${row.id || rowIndex}`;
-								const gridValue = formData.value[gridKey];
-								if (!gridValue || gridValue === '') {
-									allRowsCompleted = false;
-								}
-							});
-							if (!allRowsCompleted) {
-								isValid = false;
-								const errorMsg = `${questionText} - Please complete all rows in the grid`;
-								errors.push(errorMsg);
-							}
-						}
-					} else {
-						// 其他类型的验证
-						const value = formData.value[question.id];
-
-						// 更严格的空值检查
-						const isEmpty =
-							value === null ||
-							value === undefined ||
-							value === '' ||
-							(typeof value === 'string' && value.trim() === '') ||
-							(Array.isArray(value) && value.length === 0);
-
-						if (isEmpty) {
+						});
+						if (!allRowsCompleted) {
 							isValid = false;
-							const errorMsg = `${questionText} is required`;
+							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+								qIdx + 1
+							}`;
 							errors.push(errorMsg);
 						}
 					}
+				} else if (question.type === 'checkbox_grid') {
+					// 单选网格：检查每一行是否都有选择
+					if (question.rows && question.rows.length > 0) {
+						let allRowsCompleted = true;
+						question.rows.forEach((row: any, rowIndex: number) => {
+							const gridKey = `${question.id}_${row.id || rowIndex}`;
+							const gridValue = formData.value[gridKey];
+							if (!gridValue || gridValue === '') {
+								allRowsCompleted = false;
+							}
+						});
+						if (!allRowsCompleted) {
+							isValid = false;
+							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+								qIdx + 1
+							}`;
+							errors.push(errorMsg);
+						}
+					}
+				} else if (question.type == 'rating') {
+					const value = formData.value[question.id];
+					if ((typeof value === 'number' && value < 1) || !value) {
+						isValid = false;
+						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
+						errors.push(errorMsg);
+					}
+				} else if (question.type == 'linear_scale') {
+					const value = formData.value[question.id];
+					if ((typeof value === 'number' && value <= question.min) || !value) {
+						isValid = false;
+						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
+						errors.push(errorMsg);
+					}
+				} else {
+					// 其他类型的验证  其他类型的验证也需要单独处理
+					const value = formData.value[question.id];
+					// 更严格的空值检查
+					const isEmpty =
+						value === null ||
+						value === undefined ||
+						value === '' ||
+						(typeof value === 'string' && value.trim() === '') ||
+						(Array.isArray(value) && value.length === 0);
+
+					if (isEmpty) {
+						isValid = false;
+						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
+						errors.push(errorMsg);
+					}
 				}
-			});
+			}
 		});
 	});
 
@@ -896,6 +911,7 @@ const transformFormDataForAPI = () => {
 			answerJson: JSON.stringify({
 				responses: item.answerJson,
 			}),
+			currentSectionIndex: currentSectionIndex.value,
 		};
 	});
 };
@@ -1015,10 +1031,19 @@ const goToPreviousSection = () => {
 	}
 };
 
-const goToNextSection = () => {
-	console.log('goToNextSection', currentSection.value);
-	console.log('formData:', formData.value);
-
+const goToNextSection = async () => {
+	const { isValid, errors } = await validateForm(currentSectionIndex.value);
+	if (!isValid) {
+		const errorHtml = errors.map((error) => `<p>${error}</p>`).join('');
+		ElNotification({
+			title: 'Please complete all required fields',
+			dangerouslyUseHTMLString: true,
+			message: errorHtml,
+			type: 'warning',
+			duration: 0,
+		});
+		return;
+	}
 	// 检查是否有跳转规则需要应用
 	const targetSectionId = getJumpTargetSection();
 
@@ -1111,7 +1136,7 @@ onMounted(async () => {
 			});
 		});
 		// 初始化完毕后再应用答案，防止被覆盖
-		applyAnswers(props.questionnaireAnswers);
+		applyAnswers(props.questionnaireAnswers?.answer);
 	}
 });
 

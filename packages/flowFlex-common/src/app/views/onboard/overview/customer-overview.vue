@@ -186,25 +186,7 @@
 						>
 							<el-table-column label="Section" width="150">
 								<template #default="{ row }">
-									<div
-										style="
-											color: rgb(0, 0, 0);
-											background-color: rgb(255, 255, 255);
-											box-sizing: border-box;
-											border-width: 1px;
-											border-style: solid;
-											border-color: rgb(206, 206, 206);
-											border-radius: 9999px;
-											width: 130px;
-											overflow: hidden;
-											overflow-wrap: break-word;
-											text-overflow: ellipsis;
-											white-space: break-spaces;
-											font-size: 12px;
-											line-height: 20px;
-											padding-left: 6px;
-										"
-									>
+									<div>
 										{{ row.section }}
 									</div>
 								</template>
@@ -910,7 +892,7 @@ const processQuestionnaireData = (
 							lastUpdated: lastUpdated || answer?.modifyDate || '',
 							updatedBy: updatedBy || answer?.modifyBy || '',
 							questionType: question.type,
-							section: section.title,
+							section: section.name,
 							required: question.required || false,
 							questionConfig: question.config || question, // 存储完整的问题配置
 						});
@@ -973,7 +955,7 @@ const processQuestionnaireData = (
 						lastUpdated: lastUpdated || answer?.modifyDate || '',
 						updatedBy: updatedBy || answer?.modifyBy || '',
 						questionType: question.type,
-						section: section.title,
+						section: section.name,
 						required: question.required || false,
 						questionConfig: question.config || question, // 存储完整的问题配置
 					});

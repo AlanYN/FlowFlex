@@ -4,6 +4,7 @@
 		<!-- 阶段描述 -->
 		<div class="flex flex-col gap-4">
 			<!-- 问卷表单 -->
+
 			<DynamicForm
 				ref="dynamicFormRef"
 				:stageId="stageId"
@@ -46,8 +47,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
-import { OnboardingItem } from '#/onboard';
+import { ElMessage, ElNotification } from 'element-plus';
+import { OnboardingItem, SectionAnswer } from '#/onboard';
 
 import { saveQuestionnaireAnswer } from '@/apis/ow/onboarding';
 import DynamicForm from './dynamicForm.vue';
@@ -59,16 +60,7 @@ interface Props {
 	leadData: OnboardingItem | null;
 	workflowStages: any[];
 	questionnaireData?: any;
-	questionnaireAnswers?: {
-		lastModifiedAt: string;
-		lastModifiedBy: string;
-		question: string;
-		questionId: string;
-		responseText: string;
-		type: string;
-		answer: string;
-		changeHistory: any[];
-	}[];
+	questionnaireAnswers?: SectionAnswer;
 }
 
 const props = defineProps<Props>();
@@ -119,11 +111,17 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 			const dynamicFormValid = await dynamicFormRef.value?.validateForm();
 			if (!dynamicFormValid?.isValid || !props?.onboardingId) {
 				if (!dynamicFormValid?.isValid) {
-					ElMessage.error(
-						`Please complete all required fields:\n${dynamicFormValid?.errors?.join(
-							'\n'
-						)}`
-					);
+					console.log('dynamicFormValid?.errors:', dynamicFormValid?.errors);
+					const errorHtml = dynamicFormValid?.errors
+						?.map((error) => `<p>${error}</p>`)
+						.join('');
+					ElNotification({
+						title: 'Please complete all required fields',
+						dangerouslyUseHTMLString: true,
+						message: errorHtml,
+						type: 'warning',
+						duration: 0,
+					});
 				}
 				return false;
 			}

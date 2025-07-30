@@ -134,6 +134,7 @@
 								<!-- 文件组件 -->
 								<Documents
 									v-else-if="component.key === 'files'"
+									ref="documentsRef"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									@document-uploaded="handleDocumentUploaded"
@@ -260,7 +261,7 @@ import {
 	getQuestionnaireAnswer,
 	completeCurrentStage,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
+import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
@@ -296,7 +297,7 @@ const saving = ref(false);
 const checklistsData = ref<any[]>([]);
 const questionnairesData = ref<any[]>([]);
 // 问卷答案映射：questionnaireId -> responses[]
-const questionnaireAnswersMap = ref<Record<string, any[]>>({});
+const questionnaireAnswersMap = ref<SectionAnswer[]>([]);
 
 // Loading状态管理
 const stageDataLoading = ref(false); // 初始加载和阶段完成后的数据加载状态
@@ -327,6 +328,7 @@ const onboardingId = computed(() => {
 const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
 const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+const documentsRef = ref<any[]>([]);
 
 // 函数式ref，用于收集StaticForm组件实例
 const setStaticFormRef = (el: any) => {
@@ -571,7 +573,7 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 		await nextTick();
 		// 处理答案
 		if (answerRes.code === '200' && answerRes.data && Array.isArray(answerRes.data)) {
-			const map: Record<string, any[]> = {};
+			const map: SectionAnswer[] = [];
 			answerRes.data.forEach((item: any) => {
 				if (item.questionnaireId && item.answerJson) {
 					let parsed;
@@ -584,7 +586,10 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 						parsed = null;
 					}
 					if (parsed && Array.isArray(parsed.responses)) {
-						map[item.questionnaireId] = parsed.responses;
+						map[item.questionnaireId] = {
+							answer: parsed.responses,
+							...item,
+						};
 					}
 				}
 			});

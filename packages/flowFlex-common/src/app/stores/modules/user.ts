@@ -155,6 +155,8 @@ export const useUserStore = defineStore({
 						userName: user.email || user.username,
 						userId: user.id,
 					});
+				} else {
+					ElMessage.warning(data.msg || t('sys.api.operationFailed'));
 				}
 			} catch (error) {
 				return Promise.reject(error);

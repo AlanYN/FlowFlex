@@ -412,11 +412,19 @@ export interface ChecklistData {
 
 // 类型定义
 export interface QuestionnaireAnswer {
-	questionId: string;
+	lastModifiedAt?: string;
+	lastModifiedBy?: string;
 	question: string;
-	answer: any;
-	type: string;
+	questionId: string;
 	responseText: string;
+	type: string;
+	answer: string;
+	changeHistory?: {
+		action: string;
+		timestamp: string;
+		timestampUtc: string;
+		user: string;
+	}[];
 }
 
 export interface QuestionnaireData {
@@ -440,4 +448,25 @@ export interface Workflow {
 	name: string;
 	isDefault?: boolean;
 	status?: string;
+}
+
+export interface SectionAnswer {
+	answer: QuestionnaireAnswer[];
+	completionRate: number;
+	createBy: string;
+	createDate: string;
+	id: string;
+	ipAddress: string;
+	isLatest: boolean;
+	modifyBy: string;
+	modifyDate: string;
+	onboardingId: string;
+	questionnaireId: string;
+	reviewNotes: string;
+	stageId: string;
+	status: string;
+	tenantId: string;
+	userAgent: string;
+	version: number;
+	currentSectionIndex: number;
 }

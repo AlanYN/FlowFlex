@@ -166,7 +166,7 @@
 										>
 											{{ formatDate(row.startDate) || defaultStr }}
 										</span>
-									</div>									
+									</div>
 									<div
 										v-if="isOverdue(row.estimatedCompletionDate)"
 										class="flex items-center text-red-500"
