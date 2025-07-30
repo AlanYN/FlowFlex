@@ -306,7 +306,7 @@
 			<div v-else class="empty-state-container rounded-md">
 				<div class="empty-state-content">
 					<el-icon class="empty-state-icon"><DocumentAdd /></el-icon>
-					<h2 class="empty-state-title">No Workflows Created Yet</h2>
+					<h2 class="empty-state-title">No Workflows Found</h2>
 					<p class="empty-state-desc">
 						Workflows help you organize and manage the entire onboarding process. Create your first workflow to get started.
 					</p>
