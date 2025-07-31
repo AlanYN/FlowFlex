@@ -22,7 +22,7 @@ namespace FlowFlex.Domain.Shared.Models
         /// <summary>
         /// Application code for application isolation
         /// </summary>
-        public string AppCode { get; set; } = "DEFAULT";
+        public string AppCode { get; set; }
 
 
         /// <summary>

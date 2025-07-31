@@ -72,7 +72,7 @@
 					/>
 				</el-col>
 				<el-col :span="6">
-					<el-select v-model="priorityFilter" placeholder="优先级筛选" clearable>
+					<el-select v-model="priorityFilter" placeholder="优先级筛选" clearable :teleported="false">
 						<el-option label="全部" value="" />
 						<el-option label="高优先级" value="high" />
 						<el-option label="普通" value="normal" />
@@ -80,7 +80,7 @@
 					</el-select>
 				</el-col>
 				<el-col :span="6">
-					<el-select v-model="categoryFilter" placeholder="分类筛选" clearable>
+					<el-select v-model="categoryFilter" placeholder="分类筛选" clearable :teleported="false">
 						<el-option label="全部" value="" />
 						<el-option label="欢迎消息" value="welcome" />
 						<el-option label="状态更新" value="update" />
@@ -166,7 +166,8 @@
 						v-model="composeForm.recipient"
 						placeholder="选择收件人"
 						style="width: 100%"
-					>
+					
+					:teleported="false">
 						<el-option-group label="团队成员">
 							<el-option
 								v-for="member in teamMembers"

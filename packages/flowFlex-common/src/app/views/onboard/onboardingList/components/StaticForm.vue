@@ -82,7 +82,8 @@
 					placeholder="Select Life Cycle Stage"
 					clearable
 					class="text-sm min-w-[250px]"
-				>
+				
+				:teleported="false">
 					<el-option
 						v-for="stage in lifeCycleStage"
 						:key="stage.id"
@@ -98,7 +99,8 @@
 					placeholder="Select Priority"
 					clearable
 					class="text-sm min-w-[250px]"
-				>
+				
+				:teleported="false">
 					<el-option label="Urgent" value="Urgent" />
 					<el-option label="High" value="High" />
 					<el-option label="Medium" value="Medium" />
@@ -199,7 +201,8 @@
 					placeholder="Select Payment Term"
 					clearable
 					class="text-sm min-w-[250px]"
-				>
+				
+				:teleported="false">
 					<el-option label="Net 30" value="Net 30" />
 					<el-option label="Net 15" value="Net 15" />
 					<el-option label="Net 45" value="Net 45" />
@@ -267,7 +270,8 @@
 					v-model="formData.status"
 					placeholder="Select Status"
 					class="text-sm min-w-[250px]"
-				>
+				
+				:teleported="false">
 					<el-option label="Draft" value="Draft" />
 					<el-option label="Active" value="Active" />
 					<el-option label="Inactive" value="Inactive" />
@@ -286,7 +290,8 @@
 					placeholder="Select Category"
 					clearable
 					class="text-sm min-w-[250px]"
-				>
+				
+				:teleported="false">
 					<el-option label="AR/Collector" value="AR/Collector" />
 					<el-option label="CSR" value="CSR" />
 					<el-option label="Sales" value="Sales" />
@@ -304,7 +309,8 @@
 					:loading="assigneeLoading"
 					:disabled="!formData.accountHolderCategory"
 					class="text-sm min-w-[250px]"
-				>
+				
+				:teleported="false">
 					<el-option
 						v-for="user in assigneeOptions"
 						:key="user.id"
@@ -349,7 +355,8 @@
 					clearable
 					:loading="locationLoading"
 					class="text-sm min-w-[250px]"
-				>
+				
+				:teleported="false">
 					<el-option
 						v-for="location in locationOptions"
 						:key="location.id"

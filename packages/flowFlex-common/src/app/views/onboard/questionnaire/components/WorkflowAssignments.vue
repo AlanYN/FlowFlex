@@ -45,7 +45,8 @@
 								style="width: 100%"
 								@change="handleWorkflowChange(index, $event)"
 								clearable
-							>
+							
+							:teleported="false">
 								<el-option
 									v-for="workflow in workflows"
 									:key="workflow.id"
@@ -81,7 +82,8 @@
 								:loading="assignment.stagesLoading"
 								@change="handleStageChange(index, $event)"
 								clearable
-							>
+							
+							:teleported="false">
 								<el-option
 									v-for="stage in assignment.stages"
 									:key="stage.id"

@@ -112,6 +112,28 @@ namespace FlowFlex.Application.Service.OW
                 await CreateSectionsAsync(entity.Id, input.Sections);
             }
 
+            // 获取有效的stage assignments用于同步
+            var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
+                .Select(a => (a.WorkflowId, a.StageId))
+                .ToList() ?? new List<(long, long)>();
+            
+            // 同步stage components
+            if (newAssignments.Any())
+            {
+                try
+                {
+                    await _syncService.SyncStageComponentsFromQuestionnaireAssignmentsAsync(
+                        entity.Id,
+                        new List<(long, long)>(), // 创建时没有旧assignments
+                        newAssignments);
+                }
+                catch (Exception ex)
+                {
+                    // 记录错误但不影响创建操作
+                    Console.WriteLine($"Failed to sync stage components for new questionnaire {entity.Id}: {ex.Message}");
+                }
+            }
+
             // Cache removed, no need to clean up
 
             return entity.Id;

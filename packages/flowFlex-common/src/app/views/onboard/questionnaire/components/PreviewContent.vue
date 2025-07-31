@@ -277,7 +277,8 @@
 									'w-full preview-select',
 									{ 'error-select': getFieldError(sectionIndex, itemIndex) },
 								]"
-							>
+							
+							:teleported="false">
 								<el-option
 									v-for="(option, optionIndex) in item.options"
 									:key="option.id || optionIndex"

@@ -203,7 +203,8 @@
 						v-model="editForm.priority"
 						placeholder="Select Priority"
 						class="w-full"
-					>
+					
+					:teleported="false">
 						<el-option label="High" value="High" />
 						<el-option label="Medium" value="Medium" />
 						<el-option label="Low" value="Low" />

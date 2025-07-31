@@ -37,6 +37,7 @@
 							class="section-selector"
 							clearable
 							@change="(value) => handleRuleChange(option.id, value)"
+							:teleported="false"
 						>
 							<el-option
 								v-for="section in availableSections"

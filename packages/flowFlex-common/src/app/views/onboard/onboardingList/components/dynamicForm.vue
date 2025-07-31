@@ -163,7 +163,8 @@
 							:placeholder="'Select ' + question.question"
 							class="w-full"
 							@change="handleInputChange(question.id, $event)"
-						>
+						
+						:teleported="false">
 							<el-option
 								v-for="option in question.options"
 								:key="option.id || option.value"

@@ -157,7 +157,8 @@
 											size="small"
 											placeholder="Select"
 											class="team-select"
-										>
+										
+										:teleported="false">
 											<el-option label="Sales" value="Sales" />
 											<el-option label="IT" value="IT" />
 											<el-option label="HR" value="HR" />

@@ -108,6 +108,28 @@ public class ChecklistService : IChecklistService, IScopedService
 
         await _checklistRepository.InsertAsync(entity);
 
+        // 获取有效的stage assignments用于同步
+        var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
+            .Select(a => (a.WorkflowId, a.StageId))
+            .ToList() ?? new List<(long, long)>();
+        
+        // 同步stage components
+        if (newAssignments.Any())
+        {
+            try
+            {
+                await _syncService.SyncStageComponentsFromChecklistAssignmentsAsync(
+                    entity.Id,
+                    new List<(long, long)>(), // 创建时没有旧assignments
+                    newAssignments);
+            }
+            catch (Exception ex)
+            {
+                // 记录错误但不影响创建操作
+                Console.WriteLine($"Failed to sync stage components for new checklist {entity.Id}: {ex.Message}");
+            }
+        }
+
         return entity.Id;
     }
 

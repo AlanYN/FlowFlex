@@ -12,7 +12,8 @@
 		@update:model-value="emit('update:modelValue', $event)"
 		@blur="emit('blur')"
 		@change="emit('change', $event)"
-	>
+	
+	:teleported="false">
 		<el-option
 			v-for="item in options as StringKeyOptions[]"
 			:key="item.key"

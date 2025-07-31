@@ -12,7 +12,7 @@
 		<!-- Description -->
 		<div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
 			<p class="text-sm text-blue-700 dark:text-blue-300">
-				Create login credentials for customers to access the onboarding portal. They will
+				Create login credentials for customers to access the customer portal. They will
 				receive an email with instructions to set up their password and complete the
 				application form.
 			</p>

@@ -34,7 +34,8 @@
 					v-model="formData.defaultAssignedGroup"
 					placeholder="Select user group"
 					style="width: 100%"
-				>
+				
+				:teleported="false">
 					<el-option label="Account Management" value="Account Management" />
 					<el-option label="Sales" value="Sales" />
 					<el-option label="Customer" value="Customer" />

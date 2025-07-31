@@ -12,7 +12,8 @@
 					multiple
 					placeholder="Select recipients"
 					class="w-full"
-				>
+				
+				:teleported="false">
 					<el-option
 						v-for="user in users"
 						:key="user.id"

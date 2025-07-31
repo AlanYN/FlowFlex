@@ -19,7 +19,8 @@
 					@click.stop="preventBlur"
 					@mousedown.stop="preventBlur"
 					@blur="handleBlur"
-				>
+				
+				:teleported="false">
 					<el-option
 						v-for="item in phoneCodeOptions"
 						:key="item.key"

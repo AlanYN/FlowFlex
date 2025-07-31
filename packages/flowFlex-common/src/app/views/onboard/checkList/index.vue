@@ -557,7 +557,7 @@
 				</el-form-item>
 
 				<el-form-item label="Team" required>
-					<el-select v-model="formData.team" placeholder="Select team" class="w-full">
+					<el-select v-model="formData.team" placeholder="Select team" class="w-full" :teleported="false">
 						<el-option
 							v-for="team in availableTeams"
 							:key="team"

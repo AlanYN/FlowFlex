@@ -151,7 +151,8 @@
 						v-model="formData[field.name]"
 						:placeholder="field.placeholder"
 						style="width: 100%"
-					>
+					
+					:teleported="false">
 						<el-option
 							v-for="option in field.options"
 							:key="option.value"

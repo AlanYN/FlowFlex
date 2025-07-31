@@ -82,7 +82,8 @@
 						@change="handleWorkflowSelect"
 						:loading="loadingWorkflows"
 						size="large"
-					>
+					
+					:teleported="false">
 						<el-option
 							v-for="workflow in availableWorkflows"
 							:key="workflow.id"

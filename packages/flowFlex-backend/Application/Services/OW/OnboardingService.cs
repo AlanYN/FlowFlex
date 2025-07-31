@@ -230,6 +230,7 @@ namespace FlowFlex.Application.Services.OW
                 entity.InitCreateInfo(_userContext);
                 // Ensure AppCode is set correctly from UserContext
                 entity.AppCode = appCode;
+                entity.TenantId = tenantId;
                 // Debug logging handled by structured logging
                 // Generate unique ID if not set
                 if (entity.Id == 0)
@@ -355,6 +356,7 @@ namespace FlowFlex.Application.Services.OW
                         var parameters = new
                         {
                             TenantId = entity.TenantId,
+                            AppCode = entity.AppCode,
                             IsValid = true,
                             CreateDate = DateTimeOffset.UtcNow,
                             ModifyDate = DateTimeOffset.UtcNow,

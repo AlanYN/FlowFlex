@@ -16,7 +16,8 @@
 			@blur="!props.setting ? saveTimeZone() : null"
 			filterable
 			clearable
-		>
+		
+		:teleported="false">
 			<el-option
 				v-for="item in timeZoneList"
 				:key="item.timeZoneId"
