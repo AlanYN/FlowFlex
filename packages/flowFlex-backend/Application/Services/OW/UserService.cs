@@ -750,10 +750,6 @@ namespace FlowFlex.Application.Services.OW
 
                 // Extract email from token (required for user identification)
                 email = tokenInfo.Email;
-                if (string.IsNullOrWhiteSpace(email))
-                {
-                    throw new Exception("Email not found in authorization token");
-                }
 
                 // Extract username (fallback to email if not available)
                 var username = !string.IsNullOrWhiteSpace(tokenInfo.Username) ? tokenInfo.Username : email;

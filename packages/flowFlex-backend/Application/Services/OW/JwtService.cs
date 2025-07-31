@@ -13,6 +13,7 @@ using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
+using System.Text.Json;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -419,13 +420,55 @@ namespace FlowFlex.Application.Services.OW
 
                 // Try multiple email claim types
                 var emailClaim = jwtToken.Claims.FirstOrDefault(x =>
-                    x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email || x.Type == "email");
+                    x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email || x.Type == "email" ||
+                    x.Type == "mail" || x.Type == "emailaddress" || x.Type == "email_address");
                 result.Email = emailClaim?.Value;
 
                 // Try multiple username claim types
                 var usernameClaim = jwtToken.Claims.FirstOrDefault(x =>
-                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" || x.Type == "name");
+                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" || 
+                    x.Type == "name" || x.Type == "given_name" || x.Type == "sub" || 
+                    x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 result.Username = usernameClaim?.Value;
+
+                // If email is empty, use username as fallback
+                if (string.IsNullOrWhiteSpace(result.Email) && !string.IsNullOrWhiteSpace(result.Username))
+                {
+                    result.Email = result.Username;
+                    _logger.LogWarning("Email claim not found in token, using username as email: {Username}", result.Username);
+                }
+
+                // Check for data field which might contain nested user information
+                var dataClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "data");
+                if (dataClaim != null && string.IsNullOrWhiteSpace(result.Email))
+                {
+                    try
+                    {
+                        // Try to parse data as JSON
+                        var dataJson = JsonSerializer.Deserialize<JsonElement>(dataClaim.Value);
+                        
+                        // Check for email in data
+                        if (dataJson.TryGetProperty("user_name", out var userName) && userName.ValueKind == JsonValueKind.String)
+                        {
+                            if (string.IsNullOrWhiteSpace(result.Username))
+                            {
+                                result.Username = userName.GetString();
+                                _logger.LogInformation("Extracted username from data.user_name: {Username}", result.Username);
+                            }
+                            
+                            // If still no email, use username from data
+                            if (string.IsNullOrWhiteSpace(result.Email))
+                            {
+                                result.Email = userName.GetString();
+                                _logger.LogWarning("No email found, using data.user_name as email: {Email}", result.Email);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse data claim as JSON");
+                    }
+                }
 
                 // Try multiple tenant ID claim types
                 var tenantIdClaim = jwtToken.Claims.FirstOrDefault(x =>
@@ -440,7 +483,7 @@ namespace FlowFlex.Application.Services.OW
                 
                 if (!result.IsValid && string.IsNullOrWhiteSpace(result.Email))
                 {
-                    result.ErrorMessage = "Email not found in token claims";
+                    result.ErrorMessage = "Email not found in token claims and no username available as fallback";
                 }
                 else if (!result.IsValid && result.IsExpired)
                 {
@@ -514,12 +557,57 @@ namespace FlowFlex.Application.Services.OW
                     result.UserId = userId;
                 }
 
+                // Try multiple email claim types
                 var emailClaim = jwtToken.Claims.FirstOrDefault(x =>
-                    x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email);
+                    x.Type == JwtRegisteredClaimNames.Email || x.Type == ClaimTypes.Email || x.Type == "email" ||
+                    x.Type == "mail" || x.Type == "emailaddress" || x.Type == "email_address");
                 result.Email = emailClaim?.Value;
 
-                var usernameClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "username");
+                // Try multiple username claim types
+                var usernameClaim = jwtToken.Claims.FirstOrDefault(x =>
+                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" || 
+                    x.Type == "name" || x.Type == "given_name" || x.Type == "sub" || 
+                    x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 result.Username = usernameClaim?.Value;
+
+                // If email is empty, use username as fallback
+                if (string.IsNullOrWhiteSpace(result.Email) && !string.IsNullOrWhiteSpace(result.Username))
+                {
+                    result.Email = result.Username;
+                    _logger.LogWarning("Email claim not found in token, using username as email: {Username}", result.Username);
+                }
+
+                // Check for data field which might contain nested user information
+                var dataClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "data");
+                if (dataClaim != null && string.IsNullOrWhiteSpace(result.Email))
+                {
+                    try
+                    {
+                        // Try to parse data as JSON
+                        var dataJson = JsonSerializer.Deserialize<JsonElement>(dataClaim.Value);
+                        
+                        // Check for email in data
+                        if (dataJson.TryGetProperty("user_name", out var userName) && userName.ValueKind == JsonValueKind.String)
+                        {
+                            if (string.IsNullOrWhiteSpace(result.Username))
+                            {
+                                result.Username = userName.GetString();
+                                _logger.LogInformation("Extracted username from data.user_name: {Username}", result.Username);
+                            }
+                            
+                            // If still no email, use username from data
+                            if (string.IsNullOrWhiteSpace(result.Email))
+                            {
+                                result.Email = userName.GetString();
+                                _logger.LogWarning("No email found, using data.user_name as email: {Email}", result.Email);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse data claim as JSON");
+                    }
+                }
 
                 var tenantIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "tenantId");
                 result.TenantId = tenantIdClaim?.Value;
