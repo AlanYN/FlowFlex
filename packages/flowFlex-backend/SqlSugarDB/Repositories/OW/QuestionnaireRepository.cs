@@ -141,8 +141,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<bool> IsNameExistsAsync(string name, string category = null, long? excludeId = null)
         {
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            _logger.LogInformation($"[QuestionnaireRepository] IsNameExistsAsync with name={name}, category={category}, TenantId={currentTenantId}, AppCode={currentAppCode}");
+            
             var query = db.Queryable<Questionnaire>()
-                .Where(x => x.Name == name && x.IsValid == true);
+                .Where(x => x.Name == name && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode); // 添加租户和应用代码过滤
 
             if (!string.IsNullOrWhiteSpace(category))
             {

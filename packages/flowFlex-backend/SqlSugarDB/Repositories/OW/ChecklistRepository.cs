@@ -130,10 +130,17 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     /// </summary>
     public async Task<bool> IsNameExistsAsync(string name, string team, long? excludeId = null)
     {
+        // 获取当前租户ID和应用代码
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+        
+        _logger.LogInformation($"[ChecklistRepository] IsNameExistsAsync with name={name}, team={team}, TenantId={currentTenantId}, AppCode={currentAppCode}");
+        
         var whereExpression = Expressionable.Create<Checklist>()
             .And(x => x.Name == name)
             .And(x => x.Team == team)
             .And(x => x.IsValid == true)
+            .And(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode) // 添加租户和应用代码过滤
             .AndIF(excludeId.HasValue, x => x.Id != excludeId.Value)
             .ToExpression();
 
