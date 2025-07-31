@@ -62,7 +62,19 @@ const leads: AppRouteModule = {
 				hidden: false,
 				status: true,
 			},
-		},		
+		},
+		{
+			path: 'workflow/ai-workflow',
+			name: 'AIWorkflow',
+			component: () => import('@/views/onboard/workflow/ai-workflow.vue'),
+			meta: {
+				title: 'AI Workflow',
+				ordinal: 2.1,
+				hidden: false,
+				status: true,
+				beta: true,
+			},
+		},
 		{
 			path: 'checklist',
 			name: 'Checklist',

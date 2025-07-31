@@ -1,5 +1,5 @@
 import { defHttp } from '@/apis/axios';
-import { getCurrentBaseUrl } from '@/utils/url';
+import { getCurrentBaseUrl, getCorrectBaseUrl } from '@/utils/url';
 
 export interface PortalUser {
 	id: string;
@@ -62,10 +62,11 @@ export interface PortalAccessVerificationByShortUrlRequest {
  * Send user invitations
  */
 export const sendInvitations = (request: UserInvitationRequest) => {
-	// 自动获取当前浏览器的基础URL
+	// 自动获取当前浏览器的基础URL，并确保使用正确的域名
+	const baseUrl = request.baseUrl || getCurrentBaseUrl();
 	const finalRequest = {
 		...request,
-		baseUrl: request.baseUrl || getCurrentBaseUrl(),
+		baseUrl: getCorrectBaseUrl(baseUrl),
 	};
 
 	return defHttp.post({
@@ -87,10 +88,11 @@ export const getPortalUsers = (onboardingId: string) => {
  * Resend invitation
  */
 export const resendInvitation = (request: ResendInvitationRequest) => {
-	// 自动获取当前浏览器的基础URL
+	// 自动获取当前浏览器的基础URL，并确保使用正确的域名
+	const baseUrl = request.baseUrl || getCurrentBaseUrl();
 	const finalRequest = {
 		...request,
-		baseUrl: request.baseUrl || getCurrentBaseUrl(),
+		baseUrl: getCorrectBaseUrl(baseUrl),
 	};
 
 	return defHttp.post<{ success: boolean }>({
