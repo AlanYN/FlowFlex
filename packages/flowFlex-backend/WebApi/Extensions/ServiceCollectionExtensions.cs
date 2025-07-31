@@ -172,12 +172,13 @@ namespace FlowFlex.WebApi.Extensions
                         appCodeHeader = httpContext.Request.Headers["AppCode"].FirstOrDefault();
                     }
 
-                    // Determine final values with priority: JWT claims > headers > AppContext > defaults
-                    var userId = userIdClaim?.Value ?? userIdHeader ?? "1";
+                    // Determine final values with priority: headers > JWT claims > AppContext > defaults
+                    // 修改优先级顺序，使header优先级高于JWT token
+                    var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
                     var email = emailClaim?.Value ?? string.Empty;
-                    var userName = usernameClaim?.Value ?? userNameHeader ?? email ?? "System";
-                    var tenantId = tenantIdClaim?.Value ?? tenantIdHeader ?? appContext?.TenantId ?? "DEFAULT";
-                    var appCode = appCodeClaim?.Value ?? appCodeHeader ?? appContext?.AppCode ?? "DEFAULT";
+                    var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
+                    var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "DEFAULT";
+                    var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "DEFAULT";
 
                     // Note: No inference from email domain - use explicit headers only
 

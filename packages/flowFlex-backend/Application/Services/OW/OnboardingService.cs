@@ -228,9 +228,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Initialize create information with proper ID and timestamps
                 entity.InitCreateInfo(_userContext);
-                // Ensure AppCode is set correctly from UserContext
-                entity.AppCode = appCode;
-                entity.TenantId = tenantId;
+                
+               
                 // Debug logging handled by structured logging
                 // Generate unique ID if not set
                 if (entity.Id == 0)
@@ -336,14 +335,14 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var sql = @"
                 INSERT INTO ff_onboarding (
-                    tenant_id, is_valid, create_date, modify_date, create_by, modify_by,
+                    tenant_id, app_code, is_valid, create_date, modify_date, create_by, modify_by,
                     create_user_id, modify_user_id, workflow_id, current_stage_order,
                     lead_id, lead_name, lead_email, lead_phone, status, completion_rate,
                     priority, is_priority_set, notes, is_active, stages_progress_json, id,
                     current_stage_id, contact_person, contact_email, life_cycle_stage_id, 
                     life_cycle_stage_name, start_date, current_stage_start_time
                 ) VALUES (
-                    @TenantId, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
+                    @TenantId, @AppCode, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
                     @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
                     @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
                     @Priority, @IsPrioritySet, @Notes, @IsActive, @StagesProgressJson::jsonb, @Id,

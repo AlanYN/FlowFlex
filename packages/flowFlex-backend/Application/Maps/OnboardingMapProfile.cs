@@ -21,6 +21,7 @@ namespace FlowFlex.Application.Maps
             CreateMap<OnboardingInputDto, Onboarding>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
+                .ForMember(dest => dest.AppCode, opt => opt.Ignore()) // 忽略AppCode，防止更新时被修改
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())

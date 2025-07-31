@@ -778,10 +778,7 @@ namespace FlowFlex.Application.Service.OW
             entity.TemplateId = templateId;
             entity.StructureJson = template.StructureJson; // Inherit template structure
             entity.Version = 1;
-            // Copy tenant and app information from template
-            entity.TenantId = template.TenantId;
-            entity.AppCode = template.AppCode;
-
+            // 不再从模板复制tenant和app信息，而是使用UserContext中的值
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
 
