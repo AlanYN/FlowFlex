@@ -222,14 +222,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted } from 'vue'; // 移除 computed
 import { Clock, Document, RefreshRight } from '@element-plus/icons-vue';
 import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
 import {
 	getChangeLogsByOnboarding,
 	type ChangeLogItem,
-	parseQuestionnaireAnswerChanges,
 	parseTaskStatusChanges,
 	parseStaticFieldChanges,
 	getOperationTypeInfo,
@@ -237,6 +236,7 @@ import {
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import { getStageQuestionnairesBatch } from '@/apis/ow/questionnaire'; // 使用批量获取API
 
 // Props
 interface Props {
@@ -253,6 +253,23 @@ const changes = ref<ChangeLogItem[]>([]);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
+const questionnaireConfigCache = ref<Map<string, any>>(new Map()); // 问卷配置缓存
+
+interface ProcessedChange extends ChangeLogItem {
+	type: string;
+	typeIcon: string;
+	typeColor: string;
+	answerChanges?: string[];
+	fieldChanges?: Array<{
+		fieldName: string;
+		beforeValue: string;
+		afterValue: string;
+	}>;
+	taskInfo?: any;
+	fileInfo?: any;
+}
+
+const processedChanges = ref<ProcessedChange[]>([]); // 修正类型
 
 // 防止重复请求
 
@@ -289,13 +306,19 @@ const loadChangeLogs = async () => {
 				updatedBy: item.operatorName || 'Unknown', // 操作人
 				dateTime: item.operationTime || item.createDate || '', // 操作时间
 				extendedInfo: item.extendedData, // 扩展信息
+				stageId: item.stageId, // 添加 stageId 映射
+				onboardingId: item.onboardingId, // 也添加 onboardingId 以备后用
 			}));
+
+			// 处理变更数据
+			await processChangesData();
 
 			// 更新总数（如果进行了前端过滤）
 			total.value = response?.data?.totalCount || 0;
 		} else {
 			ElMessage.error(response.msg || t('sys.api.operationFailed'));
 			changes.value = [];
+			processedChanges.value = [];
 			total.value = 0;
 		}
 	} finally {
@@ -303,11 +326,12 @@ const loadChangeLogs = async () => {
 	}
 };
 
-// 处理后的变更数据
-const processedChanges = computed(() => {
-	return changes.value.map((change) => {
+// 处理变更数据
+const processChangesData = async () => {
+	const processedData = [];
+	
+	for (const change of changes.value) {
 		// 如果API直接返回了处理过的数据，则使用它们
-		// 否则使用本地处理逻辑
 		const typeInfo =
 			change.typeIcon && change.typeColor
 				? { label: change.type, icon: change.typeIcon, color: change.typeColor }
@@ -329,10 +353,17 @@ const processedChanges = computed(() => {
 			case 'Answer Update':
 			case 'QuestionnaireAnswerUpdate':
 			case 'QuestionnaireAnswerSubmit':
-				answerChanges = parseQuestionnaireAnswerChanges(
+				try {
+					answerChanges = await parseQuestionnaireAnswerChangesWithConfig(
 					change.beforeData,
-					change.afterData
+						change.afterData,
+						change // Pass the current change to identify the questionnaire
 				);
+				} catch (error) {
+					console.warn('Enhanced parsing failed, using basic parsing:', error);
+					// 回退到基本解析
+					answerChanges = ['问卷答案已更新'];
+				}
 				break;
 
 			case 'Field Change':
@@ -375,7 +406,7 @@ const processedChanges = computed(() => {
 				break;
 		}
 
-		return {
+		processedData.push({
 			...change,
 			type: typeInfo.label,
 			typeIcon: typeInfo.icon,
@@ -384,9 +415,249 @@ const processedChanges = computed(() => {
 			fieldChanges,
 			taskInfo,
 			fileInfo,
-		};
-	});
-});
+		});
+	}
+	
+	processedChanges.value = processedData;
+};
+
+// 获取问卷配置（通过阶段ID）
+const getQuestionnaireConfigByStageId = async (stageId: string | number): Promise<any> => {
+	console.log('🔍 Getting questionnaire config by stageId:', stageId);
+	const cacheKey = `stage_${String(stageId)}`;
+	
+	// 检查缓存
+	if (questionnaireConfigCache.value.has(cacheKey)) {
+		console.log('📋 Using cached config for stage:', stageId);
+		return questionnaireConfigCache.value.get(cacheKey);
+	}
+
+	try {
+		console.log('🌐 Calling getStageQuestionnairesBatch API with stageId:', stageId);
+		// 使用批量API获取阶段对应的问卷
+		const response = await getStageQuestionnairesBatch([String(stageId)]);
+		console.log('📦 API Response:', response);
+		
+		if (response.success && response.data && response.data.stageQuestionnaires) {
+			const stageData = response.data.stageQuestionnaires[String(stageId)];
+			console.log('📄 Stage data:', stageData);
+			
+			if (stageData && Array.isArray(stageData) && stageData.length > 0) {
+				// 获取第一个问卷的配置（一个阶段可能有多个问卷，这里取第一个）
+				const questionnaire = stageData[0];
+				console.log('📝 First questionnaire:', questionnaire);
+				let questionnaireConfig = null;
+				
+				if (questionnaire.structureJson) {
+					try {
+						questionnaireConfig = JSON.parse(questionnaire.structureJson);
+						console.log('✅ Parsed questionnaire config successfully');
+					} catch (error) {
+						console.warn('Failed to parse questionnaire structure:', error);
+					}
+				}
+				
+				// 缓存配置
+				questionnaireConfigCache.value.set(cacheKey, questionnaireConfig);
+				return questionnaireConfig;
+			}
+		}
+	} catch (error) {
+		console.warn('❌ Failed to fetch questionnaire config by stage ID:', error);
+	}
+	
+	return null;
+};
+
+// 增强的答案格式化函数
+const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string => {
+	if (!response.answer && !response.responseText) {
+		return 'No answer';
+	}
+
+	const answer = response.answer || response.responseText;
+	const type = response.type;
+	const questionId = response.questionId;
+
+	// 查找问题配置
+	let questionConfig = null;
+	if (questionnaireConfig && questionnaireConfig.sections && Array.isArray(questionnaireConfig.sections)) {
+		for (const section of questionnaireConfig.sections) {
+			if (section.questions && Array.isArray(section.questions)) {
+				const question = section.questions.find((q: any) => 
+					q.id === questionId || 
+					`question-${q.id}` === questionId ||
+					q.questionId === questionId
+				);
+				if (question) {
+					questionConfig = question;
+					break;
+				}
+			}
+		}
+	}
+
+	switch (type) {
+		case 'multiple_choice':
+			// 处理单选题
+			if (questionConfig && questionConfig.options && Array.isArray(questionConfig.options)) {
+				const option = questionConfig.options.find((opt: any) => opt.value === answer);
+				return option?.label || String(answer);
+			}
+			return String(answer);
+
+		case 'dropdown':
+			// 处理下拉选择
+			if (questionConfig && questionConfig.options && Array.isArray(questionConfig.options)) {
+				const option = questionConfig.options.find((opt: any) => opt.value === answer);
+				return option?.label || String(answer);
+			}
+			return String(answer);
+
+		case 'checkboxes':
+			// 处理多选题
+			let answerValues: string[] = [];
+			
+			if (Array.isArray(answer)) {
+				answerValues = answer.map((item) => String(item)).filter(Boolean);
+			} else {
+				const answerStr = String(answer);
+				try {
+					const parsed = JSON.parse(answerStr);
+					if (Array.isArray(parsed)) {
+						answerValues = parsed.map((item) => String(item)).filter(Boolean);
+					} else {
+						answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+					}
+				} catch {
+					answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+				}
+			}
+
+			if (questionConfig && questionConfig.options && Array.isArray(questionConfig.options)) {
+				const optionMap = new Map<string, string>();
+				questionConfig.options.forEach((option: any) => {
+					if (option && option.value !== undefined && option.label !== undefined) {
+						optionMap.set(option.value, option.label);
+					}
+				});
+				const labels = answerValues.map(value => optionMap.get(value) || value);
+				return labels.join(', ');
+			}
+			return answerValues.join(', ');
+
+		default:
+			// 对于其他类型，使用原有逻辑
+			if (type === 'file' || type === 'file_upload') {
+				if (Array.isArray(answer)) {
+					const fileNames = answer.map((file: any) => {
+						if (typeof file === 'object' && file && file.name) {
+							return file.name;
+						}
+						return 'Unknown file';
+					});
+					return `Files: ${fileNames.join(', ')}`;
+				} else if (typeof answer === 'object' && answer && answer.name) {
+					return `File: ${answer.name}`;
+				} else if (typeof answer === 'string' && answer !== '[object Object]') {
+					return `File: ${answer}`;
+				}
+				return 'File uploaded';
+			}
+			return String(answer);
+	}
+};
+
+// 增强的问卷答案变更解析
+const parseQuestionnaireAnswerChangesWithConfig = async (beforeData: any, afterData: any, currentChange?: any): Promise<string[]> => {
+	if (!afterData) return [];
+
+	try {
+		const after = typeof afterData === 'string' ? JSON.parse(afterData) : afterData;
+		const changesList: string[] = [];
+
+		// 从当前变更记录中获取 stageId
+		let stageId = null;
+		
+		// 首先尝试从 currentChange 获取
+		if (currentChange?.stageId) {
+			stageId = String(currentChange.stageId);
+			console.log('🎯 Found stageId in currentChange:', stageId);
+		} 
+		// 然后尝试从 props 获取
+		else if (props.stageId) {
+			stageId = String(props.stageId);
+			console.log('🎯 Using stageId from props:', stageId);
+		} 
+		else {
+			console.log('❌ No stageId found anywhere');
+		}
+
+		// 获取问卷配置（通过阶段ID）
+		let questionnaireConfig = null;
+		if (stageId) {
+			console.log('🚀 Calling getQuestionnaireConfigByStageId with:', stageId);
+			questionnaireConfig = await getQuestionnaireConfigByStageId(stageId);
+			console.log('📋 Got questionnaireConfig:', questionnaireConfig);
+		} else {
+			console.log('❌ No stageId available, skipping questionnaire config fetch');
+		}
+
+		// 处理问卷答案提交的情况（只有 afterData）
+		if (!beforeData && after.responses) {
+			after.responses.forEach((response: any) => {
+				if (response.answer || response.responseText) {
+					const formattedAnswer = formatAnswerWithConfig(response, questionnaireConfig);
+					changesList.push(`${response.question || response.questionId}: ${formattedAnswer}`);
+				}
+			});
+			return changesList;
+		}
+
+		// 处理问卷答案更新的情况（有 beforeData 和 afterData）
+		if (beforeData && afterData) {
+			const before = typeof beforeData === 'string' ? JSON.parse(beforeData) : beforeData;
+
+			if (before.responses && after.responses) {
+				const beforeMap = new Map();
+				const afterMap = new Map();
+
+				before.responses.forEach((resp: any) => {
+					beforeMap.set(resp.questionId, resp);
+				});
+
+				after.responses.forEach((resp: any) => {
+					afterMap.set(resp.questionId, resp);
+				});
+
+				// 比较变化
+				afterMap.forEach((afterResp: any, questionId: string) => {
+					const beforeResp = beforeMap.get(questionId);
+
+					if (!beforeResp) {
+						// 新增的答案
+						const formattedAnswer = formatAnswerWithConfig(afterResp, questionnaireConfig);
+						changesList.push(`${afterResp.question || questionId}: ${formattedAnswer}`);
+					} else if (
+						JSON.stringify(beforeResp.answer) !== JSON.stringify(afterResp.answer)
+					) {
+						// 修改的答案
+						const beforeAnswer = formatAnswerWithConfig(beforeResp, questionnaireConfig);
+						const afterAnswer = formatAnswerWithConfig(afterResp, questionnaireConfig);
+						changesList.push(
+							`${afterResp.question || questionId}: ${beforeAnswer} → ${afterAnswer}`
+						);
+					}
+				});
+			}
+		}
+
+		return changesList;
+	} catch (error) {
+		console.error('Error parsing questionnaire answer changes:', error);
+		return [];
+	}
+};
 
 // 辅助函数
 const extractTaskName = (details: string): string => {

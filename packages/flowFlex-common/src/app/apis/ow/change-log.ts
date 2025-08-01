@@ -200,6 +200,18 @@ function formatAnswerForDisplay(response: any): string {
 	const type = response.type;
 
 	switch (type) {
+		case 'multiple_choice':
+			// 处理单选题 - 尝试从问题配置中获取对应的 label
+			return getChoiceLabel(answer, response.questionConfig || response.config) || String(answer);
+
+		case 'dropdown':
+			// 处理下拉选择 - 尝试从问题配置中获取对应的 label
+			return getChoiceLabel(answer, response.questionConfig || response.config) || String(answer);
+
+		case 'checkboxes':
+			// 处理复选框 - 获取多个选项的 labels
+			return getCheckboxLabels(answer, response.questionConfig || response.config);
+
 		case 'file':
 		case 'file_upload':
 			// 处理文件上传
@@ -226,22 +238,6 @@ function formatAnswerForDisplay(response: any): string {
 			}
 			return `Grid: ${answer}`;
 
-		case 'checkbox':
-		case 'checkboxes':
-			// 处理复选框
-			if (Array.isArray(answer)) {
-				return answer.join(', ');
-			}
-			try {
-				const parsed = JSON.parse(String(answer));
-				if (Array.isArray(parsed)) {
-					return parsed.join(', ');
-				}
-			} catch {
-				// 如果解析失败，返回原值
-			}
-			return String(answer);
-
 		case 'rating':
 			return `${answer}/5`;
 
@@ -251,6 +247,65 @@ function formatAnswerForDisplay(response: any): string {
 		default:
 			return String(answer);
 	}
+}
+
+/**
+ * 获取单选或下拉选择的 label
+ */
+function getChoiceLabel(answer: string, questionConfig: any): string | null {
+	if (!answer || !questionConfig?.options) {
+		return null;
+	}
+
+	// 查找匹配的选项
+	const option = questionConfig.options.find((opt: any) => opt.value === answer);
+	return option?.label || null;
+}
+
+/**
+ * 获取多选题的 labels
+ */
+function getCheckboxLabels(answer: any, questionConfig: any): string {
+	if (!answer) {
+		return 'No answer';
+	}
+
+	// 首先处理答案格式
+	let answerValues: string[] = [];
+	
+	if (Array.isArray(answer)) {
+		answerValues = answer.map((item) => String(item)).filter(Boolean);
+	} else {
+		const answerStr = String(answer);
+		try {
+			// 尝试解析 JSON 数组
+			const parsed = JSON.parse(answerStr);
+			if (Array.isArray(parsed)) {
+				answerValues = parsed.map((item) => String(item)).filter(Boolean);
+			} else {
+				// 如果不是数组，按逗号分割
+				answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+			}
+		} catch {
+			// 解析失败，按逗号分割
+			answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+		}
+	}
+
+	// 如果没有选项配置，直接返回值
+	if (!questionConfig?.options) {
+		return answerValues.join(', ');
+	}
+
+	// 创建值到标签的映射
+	const optionMap = new Map<string, string>();
+	questionConfig.options.forEach((option: any) => {
+		optionMap.set(option.value, option.label);
+	});
+
+	// 将值转换为标签
+	const labels = answerValues.map(value => optionMap.get(value) || value);
+	return labels.join(', ');
 }
 
 /**

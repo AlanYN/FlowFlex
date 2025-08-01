@@ -236,7 +236,7 @@
 												<el-icon class="mr-1" size="12">
 													<Check />
 												</el-icon>
-												{{ row.answer }}
+												{{ getMultipleChoiceLabel(row.answer, row.questionConfig) }}
 											</el-tag>
 										</div>
 
@@ -246,12 +246,12 @@
 											class="checkbox-answers"
 										>
 											<template
-												v-if="getCheckboxAnswers(row.answer).length > 0"
+												v-if="getCheckboxLabels(row.answer, row.questionConfig).length > 0"
 											>
 												<div class="flex flex-wrap gap-1">
 													<el-tag
-														v-for="(item, index) in getCheckboxAnswers(
-															row.answer
+														v-for="(item, index) in getCheckboxLabels(
+															row.answer, row.questionConfig
 														)"
 														:key="`${item}-${index}`"
 														type="success"
@@ -266,9 +266,9 @@
 													</el-tag>
 												</div>
 												<div class="mt-1 text-xs text-gray-500">
-													{{ getCheckboxAnswers(row.answer).length }}
+													{{ getCheckboxLabels(row.answer, row.questionConfig).length }}
 													option{{
-														getCheckboxAnswers(row.answer).length > 1
+														getCheckboxLabels(row.answer, row.questionConfig).length > 1
 															? 's'
 															: ''
 													}}
@@ -292,7 +292,7 @@
 												<el-icon class="mr-1" size="12">
 													<Check />
 												</el-icon>
-												{{ row.answer }}
+												{{ getDropdownLabel(row.answer, row.questionConfig) }}
 											</el-tag>
 										</div>
 
@@ -1253,7 +1253,7 @@ const allQuestionsForExport = computed(() => {
 	const responses: any[] = [];
 	processedData.value.forEach((questionnaire) => {
 		questionnaire.responses.forEach((response) => {
-			// 处理答案显示，确保多选表格等特殊类型正确显示
+			// 处理答案显示，确保所有选择类型都显示正确的 label
 			let displayAnswer = response.answer || '';
 			
 			// 如果是多选表格类型，转换为label显示
@@ -1261,10 +1261,18 @@ const allQuestionsForExport = computed(() => {
 				const labels = getGridAnswerLabels(response.answer, response.questionConfig);
 				displayAnswer = labels.join(', ');
 			}
-			// 如果是多选类型，确保数组格式正确显示
+			// 如果是多选类型，转换为label显示
 			else if (response.questionType === 'checkboxes' && response.answer) {
-				const checkboxAnswers = getCheckboxAnswers(response.answer);
-				displayAnswer = checkboxAnswers.join(', ');
+				const labels = getCheckboxLabels(response.answer, response.questionConfig);
+				displayAnswer = labels.join(', ');
+			}
+			// 如果是单选类型，转换为label显示
+			else if (response.questionType === 'multiple_choice' && response.answer) {
+				displayAnswer = getMultipleChoiceLabel(response.answer, response.questionConfig);
+			}
+			// 如果是下拉选择类型，转换为label显示
+			else if (response.questionType === 'dropdown' && response.answer) {
+				displayAnswer = getDropdownLabel(response.answer, response.questionConfig);
 			}
 			// 其他类型保持原样
 			else {
@@ -1914,6 +1922,42 @@ const getCheckboxAnswers = (answer: any): string[] => {
 			.map((item) => item.trim())
 			.filter(Boolean);
 	}
+};
+
+// Get label for multiple choice answer
+const getMultipleChoiceLabel = (answer: string, questionConfig: any): string => {
+	if (!answer || !questionConfig?.options) return answer;
+	
+	// Find the option with matching value
+	const option = questionConfig.options.find((opt: any) => opt.value === answer);
+	return option?.label || answer;
+};
+
+// Get labels for dropdown answer
+const getDropdownLabel = (answer: string, questionConfig: any): string => {
+	if (!answer || !questionConfig?.options) return answer;
+	
+	// Find the option with matching value
+	const option = questionConfig.options.find((opt: any) => opt.value === answer);
+	return option?.label || answer;
+};
+
+// Get labels for checkbox answers
+const getCheckboxLabels = (answer: any, questionConfig: any): string[] => {
+	if (!answer || !questionConfig?.options) {
+		return getCheckboxAnswers(answer);
+	}
+	
+	const answerValues = getCheckboxAnswers(answer);
+	
+	// Create a map of value to label
+	const optionMap = new Map<string, string>();
+	questionConfig.options.forEach((option: any) => {
+		optionMap.set(option.value, option.label);
+	});
+	
+	// Convert values to labels
+	return answerValues.map(value => optionMap.get(value) || value);
 };
 
 // 解析网格答案，将column ID转换为对应的label
