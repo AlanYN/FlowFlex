@@ -89,8 +89,7 @@
 								class="w-full"
 								no-data-text="No questionnaires found"
 								filter-placeholder="Type to search questionnaires..."
-							
-							:teleported="false">
+								:teleported="false">
 								<el-option
 									v-for="questionnaire in questionnaires"
 									:key="questionnaire.id"
@@ -112,8 +111,7 @@
 								class="w-full"
 								no-data-text="No sections found"
 								filter-placeholder="Type to search sections..."
-							
-							:teleported="false">
+								:teleported="false">
 								<el-option
 									v-for="section in sections"
 									:key="section"
@@ -314,19 +312,42 @@
 											v-else-if="isRatingType(row.questionType)"
 											class="flex items-center"
 										>
-											<el-rate
-												v-if="row.answer"
-												:model-value="parseFloat(String(row.answer))"
-												disabled
-												:max="5"
-												size="small"
-											/>
-											<span
-												v-if="row.answer"
-												class="ml-2 text-sm text-gray-600"
-											>
-												({{ row.answer }}/5)
-											</span>
+											<template v-if="row.answer">
+												<!-- 使用自定义图标显示 -->
+												<div class="flex items-center">
+													<component
+														v-for="i in parseInt(String(row.answer))"
+														:key="`filled-${i}`"
+														:is="
+															getIconForType(
+																row.questionConfig?.iconType ||
+																	'star',
+																true
+															)
+														"
+														class="w-4 h-4 text-yellow-500 mr-1"
+													/>
+													<component
+														v-for="i in getRatingMax(
+															row.questionConfig
+														) - parseInt(String(row.answer))"
+														:key="`empty-${i}`"
+														:is="
+															getIconForType(
+																row.questionConfig?.iconType ||
+																	'star',
+																false
+															)
+														"
+														class="w-4 h-4 text-gray-300 mr-1"
+													/>
+												</div>
+												<span class="ml-2 text-sm text-gray-600">
+													({{ row.answer }}/{{
+														getRatingMax(row.questionConfig)
+													}})
+												</span>
+											</template>
 										</div>
 
 										<!-- 线性量表 -->
@@ -407,12 +428,18 @@
 											class="grid-answer"
 										>
 											<template
-												v-if="getCheckboxAnswers(row.answer).length > 0"
+												v-if="
+													getGridAnswerLabels(
+														row.answer,
+														row.questionConfig
+													).length > 0
+												"
 											>
 												<div class="flex flex-wrap gap-1">
 													<el-tag
-														v-for="(item, index) in getCheckboxAnswers(
-															row.answer
+														v-for="(item, index) in getGridAnswerLabels(
+															row.answer,
+															row.questionConfig
 														)"
 														:key="`${item}-${index}`"
 														type="warning"
@@ -427,9 +454,17 @@
 													</el-tag>
 												</div>
 												<div class="mt-1 text-xs text-gray-500">
-													{{ getCheckboxAnswers(row.answer).length }}
+													{{
+														getGridAnswerLabels(
+															row.answer,
+															row.questionConfig
+														).length
+													}}
 													grid selection{{
-														getCheckboxAnswers(row.answer).length > 1
+														getGridAnswerLabels(
+															row.answer,
+															row.questionConfig
+														).length > 1
 															? 's'
 															: ''
 													}}
@@ -574,6 +609,12 @@ import {
 	Calendar,
 	Check,
 } from '@element-plus/icons-vue';
+import IconStar from '~icons/mdi/star';
+import IconStarOutline from '~icons/mdi/star-outline';
+import IconHeart from '~icons/mdi/heart';
+import IconHeartOutline from '~icons/mdi/heart-outline';
+import IconThumbUp from '~icons/mdi/thumb-up';
+import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -883,7 +924,7 @@ const processQuestionnaireData = (
 							id: gridAnswer.questionId, // 使用网格行的完整ID
 							question: gridAnswer.question || question.title, // 使用网格行的问题标题
 							description: question.description,
-							answer: gridAnswer.responseText || gridAnswer.answer || '',
+							answer: gridAnswer.answer || gridAnswer.responseText || '',
 							answeredBy:
 								firstAnsweredBy ||
 								gridAnswer?.lastModifiedBy ||
@@ -942,7 +983,7 @@ const processQuestionnaireData = (
 						processedAnswer = answerData?.answer || '';
 					} else {
 						// 对于其他类型，优先使用responseText，如果没有则使用answer
-						processedAnswer = answerData?.responseText || answerData?.answer || '';
+						processedAnswer = answerData?.answer || answerData?.responseText || '';
 					}
 
 					responses.push({
@@ -1212,17 +1253,36 @@ const allQuestionsForExport = computed(() => {
 	const responses: any[] = [];
 	processedData.value.forEach((questionnaire) => {
 		questionnaire.responses.forEach((response) => {
+			// 处理答案显示，确保多选表格等特殊类型正确显示
+			let displayAnswer = response.answer || '';
+			
+			// 如果是多选表格类型，转换为label显示
+			if (response.questionType === 'multiple_choice_grid' && response.questionConfig) {
+				const labels = getGridAnswerLabels(response.answer, response.questionConfig);
+				displayAnswer = labels.join(', ');
+			}
+			// 如果是多选类型，确保数组格式正确显示
+			else if (response.questionType === 'checkboxes' && response.answer) {
+				const checkboxAnswers = getCheckboxAnswers(response.answer);
+				displayAnswer = checkboxAnswers.join(', ');
+			}
+			// 其他类型保持原样
+			else {
+				displayAnswer = response.answer || '';
+			}
+			
 			// Include ALL questions, regardless of whether they have answers
 			responses.push({
 				questionnaire: questionnaire.name,
 				questionnaireId: questionnaire.id,
 				section: response.section,
 				question: response.question,
-				answer: response.answer || '',
+				answer: displayAnswer,
 				answeredBy: response.answeredBy || '',
 				answeredDate: response.answeredDate || '',
 				lastUpdated: response.lastUpdated || '',
 				updatedBy: response.updatedBy || '',
+				questionType: response.questionType, // 添加问题类型用于调试
 			});
 		});
 	});
@@ -1310,86 +1370,201 @@ const handleExportExcel = () => {
 };
 
 const handleExportPDF = async () => {
-	let element: HTMLElement | null = null;
-	let exportButtons: any | null = null;
-	let filterSection: Element | null = null;
-	let originalHtml = '';
-
 	try {
 		console.log('[PDF Export] Starting PDF export process...');
 		ElMessage.info('Generating PDF, please wait...');
 
 		// 获取页面内容元素
-		element = document.querySelector('.pb-6.bg-gray-50') as HTMLElement;
-		console.log('[PDF Export] Found main element:', !!element);
-		if (!element) {
+		const sourceElement = document.querySelector('.pb-6.bg-gray-50') as HTMLElement;
+		console.log('[PDF Export] Found main element:', !!sourceElement);
+		if (!sourceElement) {
 			throw new Error('Page content not found');
 		}
 
-		// 临时隐藏导出按钮和搜索过滤区域
-		exportButtons = element.querySelectorAll('.flex.items-center.space-x-2');
-		filterSection = element.querySelector('el-card .pt-6'); // 更精确的搜索和过滤区域选择器
+		// 创建克隆元素用于PDF导出，避免影响原页面
+		const clonedElement = sourceElement.cloneNode(true) as HTMLElement;
+		
+		// 在克隆元素中应用PDF优化样式
+		// 1. 移除导出按钮和搜索过滤区域
+		const exportButtons = clonedElement.querySelectorAll('.flex.items-center.space-x-2');
+		exportButtons.forEach((btn) => btn.remove());
 
-		console.log('[PDF Export] Found export buttons:', exportButtons.length);
-		console.log('[PDF Export] Found filter section:', !!filterSection);
-
-		// 检查导出按钮的当前显示状态
-		exportButtons.forEach((btn, index) => {
-			const currentDisplay = (btn as HTMLElement).style.display;
-			console.log(`[PDF Export] Export button ${index} current display: "${currentDisplay}"`);
-			(btn as HTMLElement).style.display = 'none';
-			console.log(
-				`[PDF Export] Export button ${index} after hiding: "${
-					(btn as HTMLElement).style.display
-				}"`
-			);
-		});
-
-		// 隐藏搜索过滤区域 - 更精确定位
+		const filterSection = clonedElement.querySelector('el-card .pt-6');
 		if (filterSection) {
-			const currentDisplay = (filterSection as HTMLElement).style.display;
-			console.log(`[PDF Export] Filter section current display: "${currentDisplay}"`);
-			(filterSection as HTMLElement).style.display = 'none';
-			console.log(
-				`[PDF Export] Filter section after hiding: "${
-					(filterSection as HTMLElement).style.display
-				}"`
-			);
+			filterSection.remove();
 		}
 
-		// 保存整个元素的HTML内容，以便稍后恢复
-		originalHtml = element.innerHTML;
-		console.log('[PDF Export] Saved original HTML length:', originalHtml.length);
+		// 2. 确保标题完全可见
+		const titleElement = clonedElement.querySelector('h1') as HTMLElement;
+		if (titleElement) {
+			titleElement.style.whiteSpace = 'nowrap';
+			titleElement.style.overflow = 'visible';
+			titleElement.style.textOverflow = 'clip';
+			titleElement.style.maxWidth = 'none';
+			titleElement.style.fontSize = '1.5rem';
+			titleElement.style.fontWeight = '700';
+			titleElement.style.color = '#111827';
+			titleElement.style.display = 'block';
+			titleElement.style.visibility = 'visible';
+		}
 
-		// 临时替换勾选SVG图标为Unicode字符以确保PDF中正确显示
-		const checkSvgIcons = element.querySelectorAll('svg');
+		// 3. 确保Summary部分完整可见并手动创建内容
+		console.log('[PDF Export] Searching for Summary section...');
+		
+		// 尝试多种选择器查找Summary部分
+		let summarySection = clonedElement.querySelector('el-card.mt-6') as HTMLElement;
+		console.log('[PDF Export] Found with el-card.mt-6:', !!summarySection);
+		
+		if (!summarySection) {
+			summarySection = clonedElement.querySelector('.mt-6') as HTMLElement;
+			console.log('[PDF Export] Found with .mt-6:', !!summarySection);
+		}
+		
+		if (!summarySection) {
+			// 尝试查找包含"Response Summary"文字的元素
+			const allElements = Array.from(clonedElement.querySelectorAll('*'));
+			for (const el of allElements) {
+				if (el.textContent?.includes('Response Summary')) {
+					summarySection = (el.closest('el-card') as HTMLElement) || (el.closest('.el-card') as HTMLElement);
+					console.log('[PDF Export] Found by text content:', !!summarySection);
+					break;
+				}
+			}
+		}
+		
+		// 调试信息
+		console.log('[PDF Export] Final Summary section found:', !!summarySection);
+		console.log('[PDF Export] Filtered data length:', filteredData.value.length);
+		console.log('[PDF Export] Will create manually:', !summarySection && filteredData.value.length > 0);
+		
+		// 强制创建Summary部分以确保显示
+		if (filteredData.value.length > 0) {
+			// 如果找到了现有的Summary，先移除它
+			if (summarySection) {
+				console.log('[PDF Export] Removing existing Summary section');
+				summarySection.remove();
+			}
+			console.log('[PDF Export] Creating Summary section manually...');
+			summarySection = document.createElement('div');
+			summarySection.className = 'el-card is-always-shadow mt-6';
+			// 应用与Element Plus卡片相同的样式
+			summarySection.style.marginTop = '24px';
+			summarySection.style.border = '1px solid #ebeef5';
+			summarySection.style.borderRadius = '4px';
+			summarySection.style.backgroundColor = '#ffffff';
+			summarySection.style.boxShadow = '0 2px 12px 0 rgba(0, 0, 0, 0.1)';
+			summarySection.style.overflow = 'hidden';
+			summarySection.style.display = 'block';
+			summarySection.style.visibility = 'visible';
+			
+			// 创建标题部分
+			const headerDiv = document.createElement('div');
+			headerDiv.style.padding = '18px 20px';
+			headerDiv.style.borderBottom = '1px solid #ebeef5';
+			headerDiv.style.backgroundColor = '#fafafa';
+			headerDiv.style.fontSize = '1.125rem';
+			headerDiv.style.fontWeight = '500';
+			headerDiv.style.color = '#303133';
+			headerDiv.textContent = 'Response Summary';
+			
+			// 创建内容部分
+			const contentDiv = document.createElement('div');
+			contentDiv.style.padding = '20px';
+			
+			// 创建网格容器
+			const gridDiv = document.createElement('div');
+			gridDiv.style.display = 'grid';
+			gridDiv.style.gridTemplateColumns = 'repeat(4, 1fr)';
+			gridDiv.style.gap = '1rem';
+			
+			// 创建统计项目
+			const statsData = [
+				{ value: filteredData.value.length, label: 'Questionnaires', color: '#2563eb' },
+				{ value: totalResponsesCount.value, label: 'Total Responses', color: '#16a34a' },
+				{ value: sections.value.length, label: 'Sections', color: '#9333ea' },
+				{ value: uniqueContributors.value, label: 'Contributors', color: '#ea580c' }
+			];
+			
+			statsData.forEach(stat => {
+				const statDiv = document.createElement('div');
+				statDiv.style.textAlign = 'center';
+				
+				const valueDiv = document.createElement('div');
+				valueDiv.style.fontSize = '1.5rem';
+				valueDiv.style.lineHeight = '2rem';
+				valueDiv.style.fontWeight = '700';
+				valueDiv.style.color = stat.color;
+				valueDiv.textContent = String(stat.value);
+				
+				const labelDiv = document.createElement('div');
+				labelDiv.style.fontSize = '0.875rem';
+				labelDiv.style.lineHeight = '1.25rem';
+				labelDiv.style.color = '#6b7280';
+				labelDiv.textContent = stat.label;
+				
+				statDiv.appendChild(valueDiv);
+				statDiv.appendChild(labelDiv);
+				gridDiv.appendChild(statDiv);
+			});
+			
+			contentDiv.appendChild(gridDiv);
+			summarySection.appendChild(headerDiv);
+			summarySection.appendChild(contentDiv);
+			// 确保Summary section添加到正确的位置（内容的最后）
+			const mainContent = clonedElement.querySelector('.space-y-6') || clonedElement;
+			mainContent.appendChild(summarySection);
+			console.log('[PDF Export] Summary section created and appended successfully');
+			
+			// 验证Summary section是否真的被添加了
+			const verifySection = clonedElement.querySelector('.mt-6');
+			console.log('[PDF Export] Summary section verification:', !!verifySection);
+			if (verifySection) {
+				console.log('[PDF Export] Summary section content:', verifySection.textContent?.substring(0, 100));
+			}
+		} else if (summarySection) {
+			console.log('[PDF Export] Existing Summary section found, applying styles');
+		}
+		
+		if (summarySection) {
+			summarySection.style.pageBreakInside = 'avoid';
+			summarySection.style.marginTop = '24px';
+			summarySection.style.display = 'block';
+			summarySection.style.visibility = 'visible';
+			summarySection.style.height = 'auto';
+			summarySection.style.minHeight = '120px'; // 确保有最小高度
+			summarySection.style.width = '100%';
+			summarySection.style.position = 'relative';
+			summarySection.style.zIndex = '1';
+			console.log('[PDF Export] Summary section styles applied');
+		}
 
+		// 4. 确保所有统计数字可见
+		const statNumbers = clonedElement.querySelectorAll('.text-2xl.font-bold');
+		statNumbers.forEach((stat) => {
+			const statEl = stat as HTMLElement;
+			statEl.style.display = 'block';
+			statEl.style.visibility = 'visible';
+			statEl.style.fontSize = '1.5rem';
+			statEl.style.fontWeight = '700';
+		});
+
+		// 5. 替换SVG图标为文本
+		const checkSvgIcons = clonedElement.querySelectorAll('svg');
 		checkSvgIcons.forEach((svg) => {
-			// 只处理勾选图标
 			const pathElement = svg.querySelector('path');
 			if (pathElement) {
 				const pathData = pathElement.getAttribute('d');
-
-				// 检查是否是勾选图标 (Check icon)
 				if (pathData && pathData.includes('M406.656 706.944')) {
-					// 获取父元素的计算样式来继承颜色
-					const computedStyle = window.getComputedStyle(svg);
-					const inheritedColor = computedStyle.color || 'currentColor';
-
-					// 创建替代的文本节点
 					const textSpan = document.createElement('span');
 					textSpan.textContent = '✓';
-					textSpan.style.fontSize = computedStyle.fontSize || '12px';
-					textSpan.style.color = inheritedColor;
+					textSpan.style.fontSize = '12px';
+					textSpan.style.color = 'currentColor';
 					textSpan.style.display = 'inline-block';
 					textSpan.style.width = '12px';
 					textSpan.style.height = '12px';
 					textSpan.style.textAlign = 'center';
 					textSpan.style.lineHeight = '12px';
 					textSpan.style.fontWeight = 'bold';
-					textSpan.style.verticalAlign = 'middle';
-
-					// 替换SVG
 					if (svg.parentNode) {
 						svg.parentNode.replaceChild(textSpan, svg);
 					}
@@ -1397,71 +1572,150 @@ const handleExportPDF = async () => {
 			}
 		});
 
+		// 6. 设置克隆元素的基本样式
+		clonedElement.style.position = 'fixed';
+		clonedElement.style.top = '0px';
+		clonedElement.style.left = '0px';
+		clonedElement.style.width = sourceElement.offsetWidth + 'px';
+		clonedElement.style.height = 'auto';
+		clonedElement.style.backgroundColor = '#ffffff';
+		clonedElement.style.zIndex = '-1000';
+		clonedElement.style.visibility = 'hidden';
+		clonedElement.style.pointerEvents = 'none';
+		
+		// 将克隆元素添加到文档中
+		document.body.appendChild(clonedElement);
+
+		// 等待渲染完成
+		await nextTick();
+		
+		// 给元素更多时间进行布局
+		await new Promise(resolve => setTimeout(resolve, 300));
+		
+		// 最终验证Summary section的存在和位置
+		const finalSummaryCheck = clonedElement.querySelector('.mt-6');
+		console.log('[PDF Export] Final Summary check before canvas:', !!finalSummaryCheck);
+		console.log('[PDF Export] Cloned element height:', clonedElement.scrollHeight);
+		console.log('[PDF Export] Summary section position:', finalSummaryCheck?.getBoundingClientRect());
+
+		// 确保Summary section在正确位置并可见
+		const summaryInClone = clonedElement.querySelector('.mt-6') as HTMLElement;
+		if (summaryInClone) {
+			summaryInClone.style.display = 'block';
+			summaryInClone.style.visibility = 'visible';
+			summaryInClone.style.opacity = '1';
+			summaryInClone.style.position = 'static';
+			summaryInClone.style.width = '100%';
+			summaryInClone.style.minHeight = '150px';
+			summaryInClone.style.backgroundColor = '#ffffff';
+			summaryInClone.style.border = '1px solid #ddd';
+			summaryInClone.style.borderRadius = '8px';
+			summaryInClone.style.padding = '20px';
+			summaryInClone.style.marginTop = '30px';
+			console.log('[PDF Export] Summary section final styling applied');
+		}
+
+		// 最后强制确保Summary section可见
+		const finalSummary = clonedElement.querySelector('.mt-6') as HTMLElement;
+		if (finalSummary) {
+			finalSummary.style.display = 'block !important';
+			finalSummary.style.visibility = 'visible !important';
+			finalSummary.style.opacity = '1 !important';
+			finalSummary.style.position = 'static !important';
+			finalSummary.style.height = 'auto !important';
+			finalSummary.style.width = '100% !important';
+			finalSummary.style.transform = 'none !important';
+			finalSummary.style.left = 'auto !important';
+			finalSummary.style.top = 'auto !important';
+			console.log('[PDF Export] Final summary forced visible');
+		}
+		
+		// 临时将克隆元素设置为可见用于html2canvas
+		clonedElement.style.visibility = 'visible';
+		clonedElement.style.position = 'absolute';
+		clonedElement.style.top = '0px';
+		clonedElement.style.left = '0px';
+		
+		// 强制重新计算布局
+		clonedElement.offsetHeight; // 触发回流
+		
+		// 再次等待一下确保布局完成
+		await new Promise(resolve => setTimeout(resolve, 100));
+		
+		// 最终确认Summary section的完整性
+		const finalSummaryForCanvas = clonedElement.querySelector('.mt-6') as HTMLElement;
+		if (finalSummaryForCanvas) {
+			// 强制设置所有可能影响渲染的样式
+			finalSummaryForCanvas.style.cssText = `
+				display: block !important;
+				visibility: visible !important;
+				opacity: 1 !important;
+				position: relative !important;
+				height: auto !important;
+				width: 100% !important;
+				margin-top: 24px !important;
+				background-color: #ffffff !important;
+				border: 1px solid #ebeef5 !important;
+				border-radius: 4px !important;
+				box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1) !important;
+				overflow: visible !important;
+				transform: none !important;
+				left: auto !important;
+				top: auto !important;
+				right: auto !important;
+				bottom: auto !important;
+				z-index: 1 !important;
+			`;
+			
+			// 确保内部元素也可见
+			const summaryChildren = finalSummaryForCanvas.querySelectorAll('*');
+			summaryChildren.forEach((child) => {
+				const childEl = child as HTMLElement;
+				childEl.style.visibility = 'visible';
+				childEl.style.opacity = '1';
+			});
+			
+			console.log('[PDF Export] Final Summary forced for canvas with cssText');
+		}
+		
 		// 生成canvas
 		console.log('[PDF Export] Starting html2canvas generation...');
-		const canvas = await html2canvas(element, {
-			scale: 1.2, // 进一步降低缩放比例以减小文件大小
+		const canvas = await html2canvas(clonedElement, {
+			scale: 1, // 降低缩放，避免渲染问题
 			useCORS: true,
 			allowTaint: true,
 			backgroundColor: '#ffffff',
-			width: element.scrollWidth,
-			height: element.scrollHeight,
-			logging: false, // 关闭日志以提高性能
-			removeContainer: true, // 移除临时容器
-			foreignObjectRendering: false, // 禁用外部对象渲染以提高兼容性
-			imageTimeout: 15000, // 增加图像超时时间
+			width: clonedElement.offsetWidth,
+			height: clonedElement.scrollHeight,
+			logging: true, // 开启日志以调试
+			removeContainer: false, // 保留容器
+			foreignObjectRendering: true, // 启用外部对象渲染
+			imageTimeout: 15000,
+			scrollX: 0,
+			scrollY: 0,
 			onclone: (clonedDoc) => {
-				// 在克隆的文档中确保所有文字都可见
-				const clonedElement = clonedDoc.querySelector('.pb-6.bg-gray-50');
-				if (clonedElement) {
-					// 特别处理Element Plus标签内的文字
-					const elTags = clonedElement.querySelectorAll('.el-tag');
-					elTags.forEach((tag: any) => {
-						// 确保标签内的所有文字都是黑色且可见
-						const tagContent = tag.querySelector('.el-tag__content');
-						if (tagContent) {
-							tagContent.style.color = '#000000 !important';
-							tagContent.style.opacity = '1';
-							tagContent.style.zIndex = '999';
-						}
-
-						// 处理标签内的所有文本节点
-						const allTextElements = tag.querySelectorAll('*');
-						allTextElements.forEach((textEl: any) => {
-							textEl.style.color = '#000000 !important';
-							textEl.style.opacity = '1';
-						});
-
-						// 直接设置标签本身的文字颜色
-						tag.style.color = '#000000 !important';
-					});
-
-					// 强制所有其他文本元素使用黑色
-					const textElements = clonedElement.querySelectorAll('*');
-					textElements.forEach((el: any) => {
-						const computedStyle = window.getComputedStyle(el);
-						if (computedStyle.color && computedStyle.color !== 'rgb(0, 0, 0)') {
-							el.style.color = '#000000 !important';
-						}
-					});
+				// 在克隆文档中再次确保Summary可见
+				const summaryInClonedDoc = clonedDoc.querySelector('.mt-6') as HTMLElement;
+				if (summaryInClonedDoc) {
+					summaryInClonedDoc.style.display = 'block';
+					summaryInClonedDoc.style.visibility = 'visible';
+					summaryInClonedDoc.style.opacity = '1';
+					console.log('[PDF Export] Summary ensured in onclone callback');
 				}
-			},
+			}
 		});
 
-		// 恢复原始HTML内容
-		if (element && originalHtml) {
-			console.log('[PDF Export] Restoring original HTML content...');
-			element.innerHTML = originalHtml;
-			console.log('[PDF Export] Original HTML content restored');
-		}
+		// 移除克隆元素
+		document.body.removeChild(clonedElement);
+		
+		console.log('[PDF Export] Canvas dimensions:', canvas.width, 'x', canvas.height);
+		console.log('[PDF Export] Canvas created successfully');
 
-		// 动态调整图片质量以优化文件大小
-		let quality = 0.7;
+		// 动态调整图片质量
+		let quality = 0.8;
 		let imgData = canvas.toDataURL('image/jpeg', quality);
 
-		// 如果图片数据过大，进一步降低质量
 		while (imgData.length > 2000000 && quality > 0.4) {
-			// 2MB 限制
 			quality -= 0.1;
 			imgData = canvas.toDataURL('image/jpeg', quality);
 		}
@@ -1470,7 +1724,7 @@ const handleExportPDF = async () => {
 			orientation: 'portrait',
 			unit: 'mm',
 			format: 'a4',
-			compress: true, // 启用PDF压缩
+			compress: true,
 		});
 
 		const imgWidth = 210; // A4 width in mm
@@ -1499,70 +1753,6 @@ const handleExportPDF = async () => {
 	} catch (error) {
 		console.error('[PDF Export] Export PDF failed:', error);
 		ElMessage.error('Failed to export PDF file');
-	} finally {
-		console.log('[PDF Export] Entering finally block - starting element restoration...');
-		console.log('[PDF Export] Element available:', !!element);
-		console.log('[PDF Export] Export buttons available:', !!exportButtons);
-		console.log('[PDF Export] Filter section available:', !!filterSection);
-
-		// 确保无论成功还是失败都恢复页面元素
-		if (element && exportButtons) {
-			console.log('[PDF Export] Restoring export buttons...');
-			exportButtons.forEach((btn, index) => {
-				const beforeRestore = (btn as HTMLElement).style.display;
-				(btn as HTMLElement).style.display = '';
-				// 移除display属性以确保完全恢复
-				(btn as HTMLElement).style.removeProperty('display');
-				const afterRestore = (btn as HTMLElement).style.display;
-				console.log(
-					`[PDF Export] Export button ${index} - before: "${beforeRestore}", after: "${afterRestore}"`
-				);
-			});
-		} else {
-			console.log(
-				'[PDF Export] Cannot restore export buttons - element or buttons not found'
-			);
-		}
-
-		if (filterSection) {
-			console.log('[PDF Export] Restoring filter section...');
-			const beforeRestore = (filterSection as HTMLElement).style.display;
-			(filterSection as HTMLElement).style.display = '';
-			// 移除display属性以确保完全恢复
-			(filterSection as HTMLElement).style.removeProperty('display');
-			const afterRestore = (filterSection as HTMLElement).style.display;
-			console.log(
-				`[PDF Export] Filter section - before: "${beforeRestore}", after: "${afterRestore}"`
-			);
-		} else {
-			console.log('[PDF Export] Cannot restore filter section - not found');
-		}
-
-		// 强制Vue重新渲染以确保UI正确更新
-		console.log('[PDF Export] Triggering Vue re-render...');
-		nextTick(() => {
-			console.log('[PDF Export] Vue re-render completed');
-		});
-
-		// 备用恢复方案：直接查找所有可能被隐藏的元素
-		console.log('[PDF Export] Starting backup restoration...');
-		const allHiddenElements = document.querySelectorAll(
-			'[style*="display: none"], [style*="display:none"]'
-		);
-		console.log(
-			`[PDF Export] Found ${allHiddenElements.length} hidden elements for backup restoration`
-		);
-
-		allHiddenElements.forEach((el, index) => {
-			const element = el as HTMLElement;
-			const currentStyle = element.style.display;
-			if (currentStyle === 'none') {
-				element.style.removeProperty('display');
-				console.log(`[PDF Export] Backup restored element ${index}`);
-			}
-		});
-
-		console.log('[PDF Export] Element restoration completed');
 	}
 };
 
@@ -1661,6 +1851,27 @@ const getLinearScaleMax = (questionConfig: any): number => {
 	return 10;
 };
 
+// 获取评分的最大值
+const getRatingMax = (questionConfig: any): number => {
+	// 尝试从不同可能的配置字段获取最大值
+	if (questionConfig?.max !== undefined) return questionConfig.max;
+	if (questionConfig?.maxValue !== undefined) return questionConfig.maxValue;
+	if (questionConfig?.scale?.max !== undefined) return questionConfig.scale.max;
+	if (questionConfig?.scaleMax !== undefined) return questionConfig.scaleMax;
+	if (questionConfig?.range?.max !== undefined) return questionConfig.range.max;
+	if (questionConfig?.settings?.max !== undefined) return questionConfig.settings.max;
+
+	// 默认返回5（评分通常是5分制）
+	return 5;
+};
+
+// 根据图标类型获取对应的图标组件
+const getIconForType = (iconType: string, filled: boolean) => {
+	const type = iconType || 'star';
+	const iconConfig = iconOptions[type as keyof typeof iconOptions] || iconOptions.star;
+	return filled ? iconConfig.filledIcon : iconConfig.voidIcon;
+};
+
 const isFileUploadType = (type: string): boolean => {
 	return ['file_upload'].includes(type);
 };
@@ -1703,6 +1914,39 @@ const getCheckboxAnswers = (answer: any): string[] => {
 			.map((item) => item.trim())
 			.filter(Boolean);
 	}
+};
+
+// 解析网格答案，将column ID转换为对应的label
+const getGridAnswerLabels = (answer: any, questionConfig: any): string[] => {
+	if (!answer || !questionConfig?.columns) return [];
+
+	// 获取原始答案数组
+	const answerIds = getCheckboxAnswers(answer);
+
+	// 创建column ID到label的映射
+	const columnMap = new Map<string, string>();
+	questionConfig.columns.forEach((column: any) => {
+		columnMap.set(column.id, column.label);
+	});
+
+	// 将ID转换为对应的label
+	return answerIds.map((id) => columnMap.get(id) || id).filter(Boolean);
+};
+
+// 图标选项配置
+const iconOptions = {
+	star: {
+		filledIcon: IconStar,
+		voidIcon: IconStarOutline,
+	},
+	heart: {
+		filledIcon: IconHeart,
+		voidIcon: IconHeartOutline,
+	},
+	thumbs: {
+		filledIcon: IconThumbUp,
+		voidIcon: IconThumbUpOutline,
+	},
 };
 
 const getFileAnswers = (answer: any): Array<{ name: string; size?: number }> => {
@@ -2055,5 +2299,18 @@ html.dark {
 	z-index: 10 !important;
 	color: inherit !important;
 	font-weight: bold !important;
+}
+
+/* PDF导出优化样式 */
+.pdf-export-title {
+	white-space: nowrap !important;
+	overflow: hidden !important;
+	text-overflow: ellipsis !important;
+	max-width: 600px !important;
+}
+
+.pdf-export-summary {
+	page-break-inside: avoid !important;
+	margin-top: 24px !important;
 }
 </style>

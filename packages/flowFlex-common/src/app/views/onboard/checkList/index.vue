@@ -924,7 +924,7 @@ const taskLoadingCache = new Map();
 const loadChecklistTasks = async (checklistId, forceReload = false) => {
 	const checklist = checklists.value.find((c) => c.id === checklistId);
 	if (!checklist) {
-		console.warn(`Checklist not found: ${checklistId}`);
+		
 		return;
 	}
 	if (checklist.tasksLoaded && !forceReload) {
@@ -947,7 +947,7 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 
 	const loadPromise = (async () => {
 		try {
-			console.log(`Loading tasks for checklist: ${checklistId}`);
+	
 			
 			// 添加超时机制
 			const timeoutPromise = new Promise((_, reject) => {
@@ -955,9 +955,9 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 			});
 
 			const tasks = await Promise.race([getChecklistTasks(checklistId), timeoutPromise]);
-			console.log(`Tasks loaded for checklist ${checklistId}:`, tasks);
-
-			const processedTasks = (tasks.data || tasks || [])
+			const tasksData = tasks.data || tasks || [];
+			
+			const processedTasks = tasksData
 				.map((task) => ({
 					...task,
 					completed: task.isCompleted || task.completed || false,
@@ -974,7 +974,6 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 
 			// 强制触发响应式更新
 			checklists.value = [...checklists.value];
-			console.log(`Tasks loaded successfully for checklist ${checklistId}, count: ${processedTasks.length}`);
 			return processedTasks;
 		} catch (taskError) {
 			console.error(`Failed to load tasks for checklist ${checklistId}:`, taskError);
@@ -997,7 +996,7 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 			
 			// 确保在任何情况下都设置 tasksLoaded 为 true
 			if (!checklist.tasksLoaded) {
-				console.warn(`Force setting tasksLoaded=true for checklist ${checklistId}`);
+		
 				checklist.tasksLoaded = true;
 				checklists.value = [...checklists.value];
 			}
@@ -1011,7 +1010,7 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 // 优化的workflow和stage加载逻辑 - 使用统一的getAllStages接口
 const loadWorkflowsAndStages = async () => {
 	try {
-		console.log('开始加载 workflows 和 stages...');
+
 
 		// 并行加载workflows和stages，提高性能
 		const [workflowResponse, stagesResponse] = await Promise.all([
@@ -1022,27 +1021,23 @@ const loadWorkflowsAndStages = async () => {
 		// 处理workflows响应
 		if (workflowResponse.code === '200') {
 			workflows.value = workflowResponse.data || [];
-			console.log('Workflows 加载成功:', workflows.value.length, '个');
+	
 		} else {
 			workflows.value = [];
-			console.warn('Workflows 加载失败:', workflowResponse);
+
 		}
 
 		// 处理stages响应
 		if (stagesResponse.code === '200') {
 			// 所有stages都已经包含workflowId，直接使用
 			stages.value = stagesResponse.data || [];
-			console.log('Stages 加载成功，总计:', stages.value.length, '个');
-			console.log(
-				'所有 stages:',
-				stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
-			);
+
 		} else {
 			stages.value = [];
-			console.warn('Stages 加载失败:', stagesResponse);
+
 		}
 
-		console.log('Workflows 和 Stages 加载完成');
+
 	} catch (err) {
 		console.error('Failed to load workflows and stages:', err);
 		workflows.value = [];
@@ -1144,6 +1139,8 @@ const addTask = async (checklistId) => {
 				completed: false,
 				estimatedMinutes: 0,
 			});
+			// 确保设置为已加载状态
+			checklist.tasksLoaded = true;
 			// 强制触发响应式更新
 			checklists.value = [...checklists.value];
 		}
@@ -1253,7 +1250,7 @@ const loadStagesByWorkflow = async (workflowName) => {
 					stage.workflowId.toString() !== selectedWorkflow.id.toString()
 			);
 			stages.value = [...otherWorkflowStages, ...stagesWithWorkflowId];
-			console.log(`Loaded ${workflowStages.length} stages for workflow: ${workflowName}`);
+	
 		} else {
 			console.warn('Failed to load stages, API response code:', response.code);
 		}
@@ -1877,8 +1874,7 @@ const getAssignmentsForPdf = (checklist) => {
 // 创建PDF内容的函数
 const createPdfContent = (checklist) => {
 	const tasks = checklist.tasks || [];
-	console.log('PDF Export - Checklist:', checklist);
-	console.log('PDF Export - Tasks:', tasks);
+	
 
 	const tasksHtml =
 		tasks.length > 0
@@ -2167,11 +2163,11 @@ const submitDialog = async () => {
 		const currentExpandedIds = [...expandedChecklists.value];
 		const taskLoadedChecklists = new Map();
 		
-		// 保存已加载任务的清单
+		// 保存已加载任务的清单状态（包括没有任务的checklist）
 		checklists.value.forEach((checklist) => {
-			if (checklist.tasksLoaded && checklist.tasks?.length > 0) {
+			if (checklist.tasksLoaded) {
 				taskLoadedChecklists.set(checklist.id, {
-					tasks: checklist.tasks,
+					tasks: checklist.tasks || [],
 					tasksLoaded: true
 				});
 			}
@@ -2357,10 +2353,7 @@ const getWorkflowNameById = (workflowId) => {
 	if (!workflowId) return '';
 	const workflow = workflows.value.find((w) => w.id.toString() === workflowId.toString());
 	if (!workflow) {
-		console.log(
-			`Workflow not found for ID: ${workflowId}. Available workflows:`,
-			workflows.value.map((w) => ({ id: w.id, name: w.name }))
-		);
+		// Workflow not found, return default value
 	}
 	return workflow ? workflow.name : '--';
 };
@@ -2370,10 +2363,7 @@ const getStageNameById = (stageId) => {
 	if (!stageId) return '';
 	const stage = stages.value.find((s) => s.id.toString() === stageId.toString());
 	if (!stage) {
-		console.log(
-			`Stage not found for ID: ${stageId}. Available stages:`,
-			stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
-		);
+		// Stage not found, return default value
 	}
 	return stage ? stage.name : '--';
 };
