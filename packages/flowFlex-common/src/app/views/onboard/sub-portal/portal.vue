@@ -180,20 +180,30 @@
 							<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
 								Onboarding Details: {{ onboardingData?.leadId }}
 								{{ onboardingData?.leadName }}
-							</h1>
-						</div>
-						<div class="flex items-center space-x-2">
-							<el-button
-								type="primary"
-								@click="handleCompleteStage"
-								:loading="completing"
-							>
-								<el-icon class="mr-1">
-									<Check />
-								</el-icon>
-								Complete Stage
-							</el-button>
-						</div>
+												</h1>
+				</div>
+				<div class="flex items-center space-x-2">
+					<el-button
+						type="primary"
+						@click="saveQuestionnaireAndField"
+						:loading="saveAllLoading"
+					>
+						<el-icon class="mr-1">
+							<Document />
+						</el-icon>
+						Save
+					</el-button>
+					<el-button
+						type="primary"
+						@click="handleCompleteStage"
+						:loading="completing"
+					>
+						<el-icon class="mr-1">
+							<Check />
+						</el-icon>
+						Complete Stage
+					</el-button>
+				</div>
 					</div>
 
 					<!-- 主要内容区域 -->
@@ -343,8 +353,8 @@
 									v-model="editForm.priority"
 									placeholder="Select Priority"
 									class="w-full"
-								
-								:teleported="false">
+									:teleported="false"
+								>
 									<el-option label="High" value="High" />
 									<el-option label="Medium" value="Medium" />
 									<el-option label="Low" value="Low" />
@@ -385,7 +395,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Loading, Check } from '@element-plus/icons-vue';
+import { ArrowLeft, Loading, Check, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
@@ -498,7 +508,7 @@ const navigation = ref([
 // 存储批量查询到的数据
 const checklistsData = ref<any[]>([]);
 const questionnairesData = ref<any[]>([]);
-const questionnaireAnswersMap = ref<SectionAnswer[]>([]);
+const questionnaireAnswersMap = ref<Record<string, SectionAnswer>>({});
 
 // Loading状态管理
 const stageDataLoading = ref(false);
@@ -683,10 +693,10 @@ const getQuestionnaireDataForComponent = (component: ComponentData) => {
 
 const getQuestionnaireAnswersForComponent = (component: ComponentData) => {
 	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
-		return [];
+		return undefined;
 	}
 	const qId = component.questionnaireIds[0];
-	return questionnaireAnswersMap.value[qId] || [];
+	return questionnaireAnswersMap.value[qId];
 };
 
 // 批量加载检查清单数据
@@ -786,7 +796,7 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 		await nextTick();
 		// 处理答案
 		if (answerRes.code === '200' && answerRes.data && Array.isArray(answerRes.data)) {
-			const map: SectionAnswer[] = [];
+			const map: Record<string, SectionAnswer> = {};
 			answerRes.data.forEach((item: any) => {
 				if (item.questionnaireId && item.answerJson) {
 					let parsed;
@@ -799,7 +809,10 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 						parsed = null;
 					}
 					if (parsed && Array.isArray(parsed.responses)) {
-						map[item.questionnaireId] = parsed.responses;
+						map[item.questionnaireId] = {
+							answer: parsed.responses,
+							...item,
+						};
 					}
 				}
 			});
@@ -909,6 +922,45 @@ const setActiveStageWithData = async (stageId: string) => {
 	await loadStaticFieldValues();
 };
 
+// 保存所有表单数据的函数
+const saveAllLoading = ref(false);
+const saveAllForm = async (isValidate: boolean = true) => {
+	try {
+		saveAllLoading.value = true;
+		// 串行执行保存操作 - 先保存StaticForm组件
+		if (staticFormRefs.value.length > 0) {
+			for (let i = 0; i < staticFormRefs.value.length; i++) {
+				const formRef = staticFormRefs.value[i];
+				if (formRef && typeof formRef.handleSave === 'function') {
+					const result = await formRef.handleSave(isValidate);
+					if (result !== true) {
+						return false;
+					}
+				}
+			}
+		}
+
+		// 串行执行保存操作 - 再保存QuestionnaireDetails组件
+		if (questionnaireDetailsRefs.value.length > 0) {
+			for (let i = 0; i < questionnaireDetailsRefs.value.length; i++) {
+				const questRef = questionnaireDetailsRefs.value[i];
+				if (questRef && typeof questRef.handleSave === 'function') {
+					const result = await questRef.handleSave(false, isValidate);
+					if (result !== true) {
+						return false;
+					}
+				}
+			}
+		}
+
+		return true;
+	} catch (error) {
+		return false;
+	} finally {
+		saveAllLoading.value = false;
+	}
+};
+
 // 其他处理函数
 const handleCompleteStage = async () => {
 	ElMessageBox.confirm(
@@ -922,18 +974,27 @@ const handleCompleteStage = async () => {
 			showConfirmButton: true,
 			beforeClose: async (action, instance, done) => {
 				if (action === 'confirm') {
+					// 显示loading状态
 					instance.confirmButtonLoading = true;
 					instance.confirmButtonText = 'Completing...';
 					completing.value = true;
 					try {
-						const res = await completeCurrentStage(onboardingId.value, {
-							currentStageId: activeStage.value,
-						});
-						if (res.code === '200') {
-							ElMessage.success(t('sys.api.operationSuccess'));
-							loadOnboardingDetail();
+						// 先保存所有表单数据
+						const res = await saveAllForm();
+						if (!res) {
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Complete Stage';
 						} else {
-							ElMessage.error(res.msg || t('sys.api.operationFailed'));
+							// 保存成功后再完成阶段
+							const res = await completeCurrentStage(onboardingId.value, {
+								currentStageId: activeStage.value,
+							});
+							if (res.code === '200') {
+								ElMessage.success(t('sys.api.operationSuccess'));
+								loadOnboardingDetail();
+							} else {
+								ElMessage.error(res.msg || t('sys.api.operationFailed'));
+							}
 						}
 						done();
 					} finally {
@@ -945,6 +1006,16 @@ const handleCompleteStage = async () => {
 			},
 		}
 	);
+};
+
+const saveQuestionnaireAndField = async () => {
+	const res = await saveAllForm(false);
+	if (res) {
+		ElMessage.success(t('sys.api.operationSuccess'));
+		loadOnboardingDetail();
+	} else {
+		ElMessage.error(t('sys.api.operationFailed'));
+	}
 };
 
 const handleStageUpdated = async () => {
