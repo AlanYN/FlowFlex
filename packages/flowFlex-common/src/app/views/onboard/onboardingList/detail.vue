@@ -782,10 +782,7 @@ const saveAllForm = async (isValidate: boolean = true) => {
 			for (let i = 0; i < staticFormRefs.value.length; i++) {
 				const formRef = staticFormRefs.value[i];
 				if (formRef && typeof formRef.handleSave === 'function') {
-					const result = await formRef.handleSave(isValidate);
-					if (result !== true) {
-						return false;
-					}
+					return await formRef.handleSave(isValidate);
 				}
 			}
 		}
@@ -795,10 +792,7 @@ const saveAllForm = async (isValidate: boolean = true) => {
 			for (let i = 0; i < questionnaireDetailsRefs.value.length; i++) {
 				const questRef = questionnaireDetailsRefs.value[i];
 				if (questRef && typeof questRef.handleSave === 'function') {
-					const result = await questRef.handleSave(false, isValidate);
-					if (result !== true) {
-						return false;
-					}
+					return await questRef.handleSave(false, isValidate);
 				}
 			}
 		}

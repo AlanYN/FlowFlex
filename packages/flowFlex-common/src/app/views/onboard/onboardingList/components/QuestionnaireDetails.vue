@@ -4,7 +4,6 @@
 		<!-- 阶段描述 -->
 		<div class="flex flex-col gap-4">
 			<!-- 问卷表单 -->
-
 			<DynamicForm
 				ref="dynamicFormRef"
 				:stageId="stageId"
@@ -73,11 +72,11 @@ const emit = defineEmits<{
 // 响应式数据
 const stageHistory = ref<any[]>([]);
 const saving = ref(false);
-const dynamicFormRef = ref();
+const dynamicFormRef = ref<InstanceType<typeof DynamicForm>>();
 
 // 计算属性 - 检查是否有问卷数据
 const hasQuestionnaireData = computed(() => {
-	return props.questionnaireData;
+	return !!props?.questionnaireData;
 });
 
 const isStageCompleted = computed(() => {
@@ -109,7 +108,7 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 		if (isValidate) {
 			// 验证动态表单
 			const dynamicFormValid = await dynamicFormRef.value?.validateForm();
-			if (!dynamicFormValid?.isValid || !props?.onboardingId) {
+			if (dynamicFormValid && (!dynamicFormValid?.isValid || !props?.onboardingId)) {
 				if (!dynamicFormValid?.isValid) {
 					console.log('dynamicFormValid?.errors:', dynamicFormValid?.errors);
 					const errorHtml = dynamicFormValid?.errors
@@ -126,7 +125,7 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 			}
 		}
 
-		const dynamicForm = await dynamicFormRef.value?.transformFormDataForAPI();
+		const dynamicForm = (await dynamicFormRef.value?.transformFormDataForAPI()) || [];
 		const res = await Promise.all([
 			...dynamicForm.map((item) =>
 				saveQuestionnaireAnswer(props?.onboardingId || '', props.stageId, {
@@ -135,7 +134,6 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 				})
 			),
 		]);
-
 		if (res[0]?.code == '200') {
 			isTip && isValidate && ElMessage.success('Questionnaire saved successfully');
 			return true;

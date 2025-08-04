@@ -752,7 +752,6 @@ const handleFileChange = (questionId: string, file: any, fileList: any[]) => {
 const validateForm = (presentQuestionIndex?: number) => {
 	let isValid = true;
 	const errors: string[] = [];
-
 	if (!formattedQuestionnaires.value || formattedQuestionnaires.value.length === 0) {
 		return { isValid: true, errors: [] };
 	}
@@ -846,7 +845,6 @@ const validateForm = (presentQuestionIndex?: number) => {
 			}
 		});
 	});
-
 	return { isValid, errors };
 };
 
@@ -928,7 +926,7 @@ const transformFormDataForAPI = () => {
 		apiData.push(questionnaireData);
 	}
 
-	return apiData.map((item) => {
+	return apiData?.map((item) => {
 		return {
 			...item,
 			answerJson: JSON.stringify({
