@@ -120,7 +120,6 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 						dangerouslyUseHTMLString: true,
 						message: errorHtml,
 						type: 'warning',
-						duration: 0,
 					});
 				}
 				return false;

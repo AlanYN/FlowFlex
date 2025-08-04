@@ -1,6 +1,6 @@
 <template>
 	<div class="dynamic-form">
-		<div class="questionnaire-sections">
+		<div class="questionnaire-sections mt-4">
 			<!-- 加载状态 -->
 			<div v-if="loading" class="flex justify-center items-center py-8">
 				<el-icon class="animate-spin mr-2"><Loading /></el-icon>
@@ -14,7 +14,7 @@
 					v-if="
 						formattedQuestionnaires.length > 0 && formattedQuestionnaires[0].description
 					"
-					class="text-sm text-gray-500 mt-4"
+					class="text-sm text-gray-500"
 				>
 					<div>
 						{{ formattedQuestionnaires[0].description }}
@@ -641,7 +641,10 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 					// 将字符串转换为数组
 					const answerStr = String(ans.answer);
 					if (answerStr.includes(',')) {
-						formData.value[ans.questionId] = answerStr.split(',').map(item => item.trim()).filter(Boolean);
+						formData.value[ans.questionId] = answerStr
+							.split(',')
+							.map((item) => item.trim())
+							.filter(Boolean);
 					} else {
 						formData.value[ans.questionId] = [answerStr];
 					}
@@ -652,7 +655,7 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 				// 单选题保持原有逻辑
 				formData.value[ans.questionId] = ans.answer;
 			}
-			
+
 			if (ans.responseText) {
 				const responseText = JSON.parse(ans.responseText);
 				Object.keys(responseText).forEach((key) => {
@@ -1060,7 +1063,6 @@ const goToNextSection = async () => {
 			dangerouslyUseHTMLString: true,
 			message: errorHtml,
 			type: 'warning',
-			duration: 0,
 		});
 		return;
 	}
