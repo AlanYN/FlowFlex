@@ -632,7 +632,27 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 				});
 			}
 		} else if (ans.type === 'multiple_choice' || ans.type === 'checkboxes') {
-			formData.value[ans.questionId] = ans.answer;
+			// 对于多选题，需要将答案转换为数组格式
+			if (ans.type === 'checkboxes') {
+				// 处理多选题答案：确保是数组格式
+				if (Array.isArray(ans.answer)) {
+					formData.value[ans.questionId] = ans.answer;
+				} else if (ans.answer) {
+					// 将字符串转换为数组
+					const answerStr = String(ans.answer);
+					if (answerStr.includes(',')) {
+						formData.value[ans.questionId] = answerStr.split(',').map(item => item.trim()).filter(Boolean);
+					} else {
+						formData.value[ans.questionId] = [answerStr];
+					}
+				} else {
+					formData.value[ans.questionId] = [];
+				}
+			} else {
+				// 单选题保持原有逻辑
+				formData.value[ans.questionId] = ans.answer;
+			}
+			
 			if (ans.responseText) {
 				const responseText = JSON.parse(ans.responseText);
 				Object.keys(responseText).forEach((key) => {
