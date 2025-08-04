@@ -189,7 +189,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportDetailedToExcel(long id)
         {
             var stream = await _workflowService.ExportDetailedToExcelAsync(id);
-            var fileName = $"workflow_detailed_{id}_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"workflow_detailed_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
@@ -201,7 +201,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportMultipleDetailedToExcel([FromBody] WorkflowExportSearch search)
         {
             var stream = await _workflowService.ExportMultipleDetailedToExcelAsync(search);
-            var fileName = $"workflows_detailed_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"workflows_detailed_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
     }

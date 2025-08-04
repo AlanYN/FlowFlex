@@ -529,7 +529,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportToExcelAsync([FromBody] OnboardingQueryRequest query)
         {
             var stream = await _onboardingService.ExportToExcelAsync(query);
-            var fileName = $"onboarding_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"onboarding_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
@@ -577,7 +577,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             };
 
             var stream = await _onboardingService.ExportToExcelAsync(query);
-            var fileName = $"onboarding_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"onboarding_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 

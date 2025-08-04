@@ -234,12 +234,19 @@ export default {
 
 		formatDate(dateString) {
 			if (!dateString) return '';
-			const date = new Date(dateString);
-			return date.toLocaleDateString('zh-CN', {
-				year: 'numeric',
-				month: '2-digit',
-				day: '2-digit',
-			});
+			try {
+				const date = new Date(dateString);
+				if (isNaN(date.getTime())) {
+					return String(dateString);
+				}
+				// Format as MM/dd/yyyy (US format)
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const day = String(date.getDate()).padStart(2, '0');
+				const year = date.getFullYear();
+				return `${month}/${day}/${year}`;
+			} catch {
+				return String(dateString);
+			}
 		},
 	},
 };

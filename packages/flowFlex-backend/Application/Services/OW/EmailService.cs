@@ -37,7 +37,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var subject = "FlowFlex - Email Verification Code";
+                var subject = "ITEM WFE - Email Verification Code";
                 var body = $@"
                 <html>
                 <head>
@@ -57,14 +57,14 @@ namespace FlowFlex.Application.Services.OW
                         </div>
                         <div class='content'>
                             <p>Hello,</p>
-                            <p>Thank you for registering with FlowFlex system. Please use the following verification code to complete your email verification:</p>
+                            <p>Thank you for registering with ITEM WFE system. Please use the following verification code to complete your email verification:</p>
                             <div class='code'>{verificationCode}</div>
                             <p>This verification code is valid for {_emailOptions.VerificationCodeExpiryMinutes} minutes. Please complete the verification as soon as possible.</p>
                             <p>If you did not request this verification code, please ignore this email.</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} FlowFlex. All rights reserved.</p>
+                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>
@@ -89,7 +89,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var subject = "Welcome to FlowFlex!";
+                var subject = "Welcome to ITEM WFE!";
                 var body = $@"
                 <html>
                 <head>
@@ -104,17 +104,17 @@ namespace FlowFlex.Application.Services.OW
                 <body>
                     <div class='container'>
                         <div class='header'>
-                            <h2>Welcome to FlowFlex!</h2>
+                            <h2>Welcome to ITEM WFE!</h2>
                         </div>
                         <div class='content'>
                             <p>Dear {username},</p>
-                            <p>Welcome to FlowFlex! Your email has been successfully verified.</p>
+                            <p>Welcome to ITEM WFE! Your email has been successfully verified.</p>
                             <p>You can now log in to the system using your email and password.</p>
                             <p>If you have any questions, please feel free to contact our support team.</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} FlowFlex. All rights reserved.</p>
+                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>
@@ -140,7 +140,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var subject = "FlowFlex - Customer Portal Access Invitation";
+                var subject = "ITEM WFE - Customer Portal Access Invitation";
                 var body = $@"
                 <html>
                 <head>
@@ -166,7 +166,7 @@ namespace FlowFlex.Application.Services.OW
                             <div class='info-box'>
                                 <p><strong>What you can do in the Customer Portal:</strong></p>
                                 <ul>
-                                    <li>Track your onboarding progress</li>
+                                    <li>Track your Customer Portal progress</li>
                                     <li>Upload required documents</li>
                                     <li>Communicate with your account manager</li>
                                     <li>Access important updates and notifications</li>
@@ -181,11 +181,11 @@ namespace FlowFlex.Application.Services.OW
                             <p><strong>Note:</strong> This invitation link is secure and will require email verification before granting access.</p>
                             
                             <p>If you have any questions, please don't hesitate to contact our support team.</p>
-                            <p>Thank you for choosing FlowFlex!</p>
+                            <p>Thank you for choosing ITEM WFE!</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} FlowFlex. All rights reserved.</p>
+                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>
@@ -210,7 +210,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var subject = "FlowFlex - Password Reset Confirmation";
+                var subject = "ITEM WFE - Password Reset Confirmation";
                 var body = $@"
                 <html>
                 <head>
@@ -233,13 +233,13 @@ namespace FlowFlex.Application.Services.OW
                             
                             <div class='success-box'>
                                 <p><strong>✅ Password Reset Successful!</strong></p>
-                                <p>Your password has been successfully reset for your FlowFlex Customer Portal account.</p>
+                                <p>Your password has been successfully reset for your ITEM WFE Customer Portal account.</p>
                             </div>
                             
                             <p><strong>Account Details:</strong></p>
                             <ul>
                                 <li>Email: {to}</li>
-                                <li>Reset Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss} UTC</li>
+                                <li>Reset Time: {DateTime.Now:MM/dd/yyyy HH:mm:ss} UTC</li>
                             </ul>
                             
                             <p>You can now log in to the Customer Portal using your new password.</p>
@@ -252,11 +252,11 @@ namespace FlowFlex.Application.Services.OW
                             </ul>
                             
                             <p>If you have any questions or concerns, please contact our support team.</p>
-                            <p>Thank you for using FlowFlex!</p>
+                            <p>Thank you for using ITEM WFE!</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} FlowFlex. All rights reserved.</p>
+                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>
