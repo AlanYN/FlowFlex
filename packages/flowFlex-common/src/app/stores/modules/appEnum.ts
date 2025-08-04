@@ -27,7 +27,7 @@ const defaultPropertyObj = {
 };
 
 export const useCrmEnumStore = defineStore({
-	id: 'flowFlex-app',
+	id: 'item-wfe-app',
 	state: (): AppEnum => ({
 		country: [],
 		state: [],

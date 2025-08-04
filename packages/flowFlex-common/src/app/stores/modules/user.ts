@@ -36,7 +36,7 @@ function deleteAllCookies() {
 }
 
 export const useUserStore = defineStore({
-	id: 'flowFlex-app-user',
+	id: 'item-wfe-app-user',
 	state: (): UserState => ({
 		// user info
 		userInfo: null,
