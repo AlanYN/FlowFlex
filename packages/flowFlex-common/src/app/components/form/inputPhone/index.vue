@@ -9,8 +9,7 @@
 					clearable
 					filterable
 					:filter-method="filterPhoneCode"
-				
-				:teleported="false">
+				>
 					<el-option
 						v-for="item in phoneCodeOptions"
 						:key="item.key"

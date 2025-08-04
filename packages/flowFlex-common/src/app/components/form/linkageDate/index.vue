@@ -9,8 +9,7 @@
 			clearable
 			filterable
 			@change="handleMonthChange"
-		
-		:teleported="false">
+		>
 			<el-option
 				v-for="item in monthOptions"
 				:key="item.value"
@@ -25,8 +24,7 @@
 			class="rounded-lg w-[150px]"
 			clearable
 			filterable
-		
-		:teleported="false">
+		>
 			<el-option
 				v-for="item in dateOptions"
 				:key="item.value"

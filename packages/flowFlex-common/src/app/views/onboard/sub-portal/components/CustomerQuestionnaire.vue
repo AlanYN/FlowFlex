@@ -43,7 +43,7 @@
 					</el-form-item>
 
 					<el-form-item label="行业类型" prop="industry">
-						<el-select v-model="formData.industry" placeholder="请选择行业类型" :teleported="false">
+						<el-select v-model="formData.industry" placeholder="请选择行业类型">
 							<el-option label="制造业" value="manufacturing" />
 							<el-option label="零售业" value="retail" />
 							<el-option label="物流运输" value="logistics" />
@@ -59,8 +59,7 @@
 						<el-select
 							v-model="formData.annualRevenue"
 							placeholder="请选择年营业额范围"
-						
-						:teleported="false">
+						>
 							<el-option label="100万以下" value="under_1m" />
 							<el-option label="100万-500万" value="1m_5m" />
 							<el-option label="500万-1000万" value="5m_10m" />
@@ -103,8 +102,7 @@
 						<el-select
 							v-model="formData.monthlyOrders"
 							placeholder="请选择月订单量范围"
-						
-						:teleported="false">
+						>
 							<el-option label="100单以下" value="under_100" />
 							<el-option label="100-500单" value="100_500" />
 							<el-option label="500-1000单" value="500_1000" />
@@ -171,7 +169,7 @@
 					</el-form-item>
 
 					<el-form-item label="技术团队规模" prop="techTeamSize">
-						<el-select v-model="formData.techTeamSize" placeholder="请选择技术团队规模" :teleported="false">
+						<el-select v-model="formData.techTeamSize" placeholder="请选择技术团队规模">
 							<el-option label="无技术团队" value="none" />
 							<el-option label="1-3人" value="small" />
 							<el-option label="4-10人" value="medium" />

@@ -78,7 +78,6 @@
 								placeholder="Select Workflow"
 								size="default"
 								class="workflow-selector"
-								:teleported="false"
 								@change="onWorkflowChange"
 							>
 								<el-option
@@ -118,7 +117,6 @@
 									loading.updateWorkflow ||
 									loading.exportWorkflow
 								"
-								:teleported="false"
 								:popper-options="{
 									modifiers: [
 										{
@@ -435,7 +433,6 @@
 							v-model="combinedStageGroup"
 							placeholder="Select group"
 							class="w-full"
-							:teleported="false"
 						>
 							<el-option label="Account Management" value="Account Management" />
 							<el-option label="Sales" value="Sales" />

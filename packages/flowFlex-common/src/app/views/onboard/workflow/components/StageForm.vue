@@ -41,8 +41,7 @@
 								v-model="formData.defaultAssignedGroup"
 								placeholder="Select user group"
 								style="width: 100%"
-							
-							:teleported="false">
+							>
 								<el-option
 									v-for="item in defaultAssignedGroupOptions"
 									:key="item.value"

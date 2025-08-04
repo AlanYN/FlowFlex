@@ -8,8 +8,7 @@
 					class="rounded-lg w-[90px]"
 					clearable
 					filterable
-				
-				:teleported="false">
+				>
 					<el-option
 						v-for="item in typeOptions"
 						:key="item.key"

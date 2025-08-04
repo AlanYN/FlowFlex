@@ -94,12 +94,7 @@
 					/>
 				</el-col>
 				<el-col :span="5">
-					<el-select
-						v-model="stageFilter"
-						placeholder="阶段筛选"
-						clearable
-						:teleported="false"
-					>
+					<el-select v-model="stageFilter" placeholder="阶段筛选" clearable>
 						<el-option label="全部阶段" value="" />
 						<el-option
 							v-for="stage in stages"
@@ -110,12 +105,7 @@
 					</el-select>
 				</el-col>
 				<el-col :span="5">
-					<el-select
-						v-model="statusFilter"
-						placeholder="状态筛选"
-						clearable
-						:teleported="false"
-					>
+					<el-select v-model="statusFilter" placeholder="状态筛选" clearable>
 						<el-option label="全部状态" value="" />
 						<el-option label="已审批" value="approved" />
 						<el-option label="审核中" value="under_review" />
@@ -124,12 +114,7 @@
 					</el-select>
 				</el-col>
 				<el-col :span="6">
-					<el-select
-						v-model="typeFilter"
-						placeholder="文件类型"
-						clearable
-						:teleported="false"
-					>
+					<el-select v-model="typeFilter" placeholder="文件类型" clearable>
 						<el-option label="全部类型" value="" />
 						<el-option label="PDF" value="pdf" />
 						<el-option label="图片" value="image" />

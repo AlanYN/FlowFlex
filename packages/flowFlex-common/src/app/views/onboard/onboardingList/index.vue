@@ -355,8 +355,7 @@
 						clearable
 						class="w-full rounded-md"
 						@change="changeLifeCycleStage"
-					
-					:teleported="false">
+					>
 						<el-option
 							v-for="stage in lifeCycleStage"
 							:key="stage.id"
@@ -372,8 +371,7 @@
 						placeholder="Select Priority"
 						clearable
 						class="w-full rounded-md"
-					
-					:teleported="false">
+					>
 						<el-option label="High" value="High" />
 						<el-option label="Medium" value="Medium" />
 						<el-option label="Low" value="Low" />
@@ -386,8 +384,7 @@
 						placeholder="Select Work Flow"
 						clearable
 						class="w-full rounded-md"
-					
-					:teleported="false">
+					>
 						<el-option
 							v-for="workflow in allWorkflows"
 							:key="workflow.id"

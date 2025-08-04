@@ -42,8 +42,7 @@
 								style="width: 100%"
 								@change="handleWorkflowChange(index, $event)"
 								clearable
-							
-							:teleported="false">
+							>
 								<el-option
 									v-for="workflow in workflows"
 									:key="workflow.id"
@@ -75,8 +74,7 @@
 								:loading="assignment.stagesLoading"
 								@change="handleStageChange(index, $event)"
 								clearable
-							
-							:teleported="false">
+							>
 								<el-option
 									v-for="stage in assignment.stages"
 									:key="stage.id"
@@ -140,16 +138,15 @@ const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({})
 // 初始化数据
 const initializeAssignments = async () => {
 	// 过滤掉stageId无效的assignments，但保留有效的workflowId
-	const validAssignments = props.assignments.filter(assignment => 
-		assignment.workflowId && 
-		assignment.workflowId !== '0'
+	const validAssignments = props.assignments.filter(
+		(assignment) => assignment.workflowId && assignment.workflowId !== '0'
 		// 允许stageId为空或0，用户可以重新选择
 	);
 
 	extendedAssignments.value = validAssignments.map((assignment) => ({
 		...assignment,
 		// 如果stageId为0或'0'，将其设为空字符串，让用户重新选择
-		stageId: (assignment.stageId === '0' || assignment.stageId === 0) ? '' : assignment.stageId,
+		stageId: assignment.stageId === '0' || assignment.stageId === 0 ? '' : assignment.stageId,
 		stages: (assignment.workflowId && stagesCache.value[assignment.workflowId]) || [],
 		stagesLoading: false,
 	}));
@@ -177,7 +174,11 @@ const loadAllStagesData = async () => {
 
 	// 更新 extendedAssignments 中的 stages 数据
 	extendedAssignments.value.forEach((assignment) => {
-		if (assignment.workflowId && assignment.workflowId !== null && stagesCache.value[assignment.workflowId]) {
+		if (
+			assignment.workflowId &&
+			assignment.workflowId !== null &&
+			stagesCache.value[assignment.workflowId]
+		) {
 			assignment.stages = stagesCache.value[assignment.workflowId];
 		}
 	});
@@ -189,8 +190,8 @@ const loadStagesForWorkflow = async (workflowId: string) => {
 
 	// 优先使用传入的stages数据
 	if (props.stages) {
-		const workflowStages = props.stages.filter(stage => 
-			stage.workflowId && stage.workflowId.toString() === workflowId.toString()
+		const workflowStages = props.stages.filter(
+			(stage) => stage.workflowId && stage.workflowId.toString() === workflowId.toString()
 		);
 		stagesCache.value[workflowId] = workflowStages;
 		return;
@@ -294,14 +295,14 @@ onMounted(async () => {
 	// 如果传入了stages数据，预先缓存所有stages
 	if (props.stages) {
 		const workflowStagesMap: Record<string, Array<{ id: string; name: string }>> = {};
-		props.stages.forEach(stage => {
+		props.stages.forEach((stage) => {
 			if (stage.workflowId) {
 				if (!workflowStagesMap[stage.workflowId]) {
 					workflowStagesMap[stage.workflowId] = [];
 				}
 				workflowStagesMap[stage.workflowId].push({
 					id: stage.id,
-					name: stage.name
+					name: stage.name,
 				});
 			}
 		});

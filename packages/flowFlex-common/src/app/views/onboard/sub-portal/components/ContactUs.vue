@@ -85,8 +85,7 @@
 									v-model="contactForm.recipient"
 									placeholder="选择联系对象"
 									style="width: 100%"
-								
-								:teleported="false">
+								>
 									<el-option-group label="团队成员">
 										<el-option
 											v-for="member in availableMembers"
@@ -119,8 +118,7 @@
 									v-model="contactForm.issueType"
 									placeholder="选择问题类型"
 									style="width: 100%"
-								
-								:teleported="false">
+								>
 									<el-option label="一般咨询" value="general" />
 									<el-option label="技术问题" value="technical" />
 									<el-option label="账单问题" value="billing" />

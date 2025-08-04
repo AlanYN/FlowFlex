@@ -82,8 +82,7 @@
 						@change="handleWorkflowSelect"
 						:loading="loadingWorkflows"
 						size="large"
-					
-					:teleported="false">
+					>
 						<el-option
 							v-for="workflow in availableWorkflows"
 							:key="workflow.id"
@@ -97,7 +96,9 @@
 									<span class="stage-count">
 										{{ getStageCount(workflow) }} stages
 									</span>
-									<span class="workflow-status">{{ workflow.status || 'active' }}</span>
+									<span class="workflow-status">
+										{{ workflow.status || 'active' }}
+									</span>
 								</div>
 							</div>
 						</el-option>
@@ -116,21 +117,38 @@
 										<el-icon class="mr-1"><List /></el-icon>
 										{{ getStageCount(currentWorkflow) }} stages
 									</el-tag>
-									<el-tag size="small" type="success" v-if="currentWorkflow.isActive" class="status-tag">
+									<el-tag
+										size="small"
+										type="success"
+										v-if="currentWorkflow.isActive"
+										class="status-tag"
+									>
 										<el-icon class="mr-1"><Check /></el-icon>
 										Active
 									</el-tag>
-									<el-tag size="small" type="warning" v-if="currentWorkflow.isDefault" class="status-tag">
+									<el-tag
+										size="small"
+										type="warning"
+										v-if="currentWorkflow.isDefault"
+										class="status-tag"
+									>
 										<el-icon class="mr-1"><Star /></el-icon>
 										Default
 									</el-tag>
 								</div>
 							</div>
-							<div class="preview-description">{{ currentWorkflow.description || 'No description available' }}</div>
-							
+							<div class="preview-description">
+								{{ currentWorkflow.description || 'No description available' }}
+							</div>
+
 							<!-- Enhanced Stages Display -->
 							<div class="workflow-stages-container">
-								<div v-if="currentWorkflow.stages && currentWorkflow.stages.length > 0" class="stages-display">
+								<div
+									v-if="
+										currentWorkflow.stages && currentWorkflow.stages.length > 0
+									"
+									class="stages-display"
+								>
 									<div class="stages-header">
 										<div class="header-content">
 											<el-icon class="mr-2"><Menu /></el-icon>
@@ -148,7 +166,7 @@
 											)"
 											:key="index"
 											class="stage-card"
-											:style="{ animationDelay: (index * 0.1) + 's' }"
+											:style="{ animationDelay: index * 0.1 + 's' }"
 										>
 											<div class="stage-header">
 												<div class="stage-number">{{ index + 1 }}</div>
@@ -156,7 +174,9 @@
 											</div>
 											<div class="stage-body">
 												<div class="stage-name">{{ stage.name }}</div>
-												<div class="stage-description">{{ stage.description || 'No description' }}</div>
+												<div class="stage-description">
+													{{ stage.description || 'No description' }}
+												</div>
 												<div class="stage-meta">
 													<span class="stage-team">
 														<el-icon class="mr-1"><User /></el-icon>
@@ -170,7 +190,10 @@
 											</div>
 										</div>
 									</div>
-									<div v-if="currentWorkflow.stages.length > 6" class="more-stages-indicator">
+									<div
+										v-if="currentWorkflow.stages.length > 6"
+										class="more-stages-indicator"
+									>
 										<div class="more-stages-card">
 											<div class="more-icon">
 												<el-icon><More /></el-icon>
@@ -181,7 +204,7 @@
 										</div>
 									</div>
 								</div>
-								
+
 								<!-- Enhanced No Stages Display -->
 								<div v-else class="no-stages-display">
 									<div class="no-stages-icon">
@@ -189,7 +212,10 @@
 									</div>
 									<div class="no-stages-content">
 										<h5>No Stages Configured</h5>
-										<p>This workflow doesn't have any stages yet. AI will help you create a complete workflow structure.</p>
+										<p>
+											This workflow doesn't have any stages yet. AI will help
+											you create a complete workflow structure.
+										</p>
 										<div class="ai-suggestion">
 											<el-icon class="mr-2"><Star /></el-icon>
 											<span>Perfect candidate for AI enhancement!</span>
@@ -244,7 +270,7 @@
 								</div>
 							</div>
 						</div>
-						
+
 						<!-- AI Typing Indicator -->
 						<div v-if="aiTyping" class="message-wrapper assistant">
 							<div class="message assistant">
@@ -281,7 +307,9 @@
 							/>
 							<div class="input-footer">
 								<div class="input-hints">
-									<span class="hint-text">Press Enter to send, Shift+Enter for new line</span>
+									<span class="hint-text">
+										Press Enter to send, Shift+Enter for new line
+									</span>
 								</div>
 								<div class="input-actions">
 									<el-button
@@ -314,7 +342,10 @@
 							</div>
 							<div class="completion-content">
 								<h4>Perfect! I have all the information I need</h4>
-								<p>Based on our conversation, I can now create a customized workflow for you.</p>
+								<p>
+									Based on our conversation, I can now create a customized
+									workflow for you.
+								</p>
 							</div>
 						</div>
 						<div class="completion-actions">
@@ -322,7 +353,11 @@
 								<el-icon class="mr-1"><Refresh /></el-icon>
 								Start Over
 							</el-button>
-							<el-button type="primary" @click="proceedToGeneration" class="primary-btn">
+							<el-button
+								type="primary"
+								@click="proceedToGeneration"
+								class="primary-btn"
+							>
 								<el-icon class="mr-1"><Setting /></el-icon>
 								Generate My Workflow
 							</el-button>
@@ -335,15 +370,21 @@
 			<div class="ai-input-area" v-if="!showConversation">
 				<div class="input-title">
 					<el-icon class="mr-2"><Star /></el-icon>
-					{{ operationMode === 'create' ? 'Describe Your Workflow' : 'Describe Your Modifications' }}
+					{{
+						operationMode === 'create'
+							? 'Describe Your Workflow'
+							: 'Describe Your Modifications'
+					}}
 				</div>
 				<div class="input-container">
 					<el-input
 						v-model="input.description"
 						type="textarea"
-						:placeholder="operationMode === 'create' 
-							? 'Describe your desired workflow in natural language...\n\nExample: Create a customer onboarding process with document verification, training, and feedback collection stages.' 
-							: 'Describe the modifications you want to make...\n\nExample: Add a trial period assessment stage with 30-day duration assigned to HR team.'"
+						:placeholder="
+							operationMode === 'create'
+								? 'Describe your desired workflow in natural language...\n\nExample: Create a customer onboarding process with document verification, training, and feedback collection stages.'
+								: 'Describe the modifications you want to make...\n\nExample: Add a trial period assessment stage with 30-day duration assigned to HR team.'
+						"
 						:rows="6"
 						class="ai-textarea"
 					/>
@@ -360,36 +401,50 @@
 									Interactive Mode
 								</el-button>
 							</div>
-							
+
 							<!-- Direct Generation -->
 							<div class="direct-generation">
 								<el-button
 									type="success"
 									:loading="realTimeGenerating"
 									@click="streamGenerateWorkflow"
-									:disabled="!input.description.trim() || (operationMode === 'modify' && !selectedWorkflowId)"
+									:disabled="
+										!input.description.trim() ||
+										(operationMode === 'modify' && !selectedWorkflowId)
+									"
 									class="stream-btn ai-primary-btn"
 									size="large"
 								>
-									<svg v-if="!realTimeGenerating" class="mr-2 w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-										<path d="M12 8V4H8"></path>
-										<rect width="16" height="12" x="4" y="8" rx="2"></rect>
-										<path d="M2 14h2"></path>
-										<path d="M20 14h2"></path>
-										<path d="M15 13v2"></path>
-										<path d="M9 13v2"></path>
+									<svg
+										v-if="!realTimeGenerating"
+										class="mr-2 w-5 h-5"
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path d="M12 8V4H8" />
+										<rect width="16" height="12" x="4" y="8" rx="2" />
+										<path d="M2 14h2" />
+										<path d="M20 14h2" />
+										<path d="M15 13v2" />
+										<path d="M9 13v2" />
 									</svg>
-									{{ realTimeGenerating 
-										? 'AI is Creating...' 
-										: (operationMode === 'create' ? 'Direct Generation' : 'Direct Enhancement')
+									{{
+										realTimeGenerating
+											? 'AI is Creating...'
+											: operationMode === 'create'
+											? 'Direct Generation'
+											: 'Direct Enhancement'
 									}}
 								</el-button>
-								
-								<el-button
-									@click="clearInput"
-									class="clear-btn"
-									size="large"
-								>
+
+								<el-button @click="clearInput" class="clear-btn" size="large">
 									<el-icon><Refresh /></el-icon>
 								</el-button>
 							</div>
@@ -413,9 +468,13 @@
 							:class="step.type"
 						>
 							<div class="step-icon">
-								<el-icon v-if="step.type === 'thinking'"><Loading class="animate-spin" /></el-icon>
+								<el-icon v-if="step.type === 'thinking'">
+									<Loading class="animate-spin" />
+								</el-icon>
 								<el-icon v-else-if="step.type === 'generating'"><Star /></el-icon>
-								<el-icon v-else-if="step.type === 'optimizing'"><Setting /></el-icon>
+								<el-icon v-else-if="step.type === 'optimizing'">
+									<Setting />
+								</el-icon>
 								<el-icon v-else-if="step.type === 'complete'"><Check /></el-icon>
 								<el-icon v-else-if="step.type === 'error'"><Close /></el-icon>
 							</div>
@@ -447,11 +506,7 @@
 								</div>
 								<span class="confidence-value">{{ result.confidence || 90 }}%</span>
 							</div>
-							<el-button
-								type="primary"
-								@click="applyWorkflow"
-								class="apply-btn"
-							>
+							<el-button type="primary" @click="applyWorkflow" class="apply-btn">
 								<el-icon class="mr-2"><Check /></el-icon>
 								Apply Workflow
 							</el-button>
@@ -463,14 +518,24 @@
 						<div class="workflow-header">
 							<h3 class="workflow-name">{{ result.generatedWorkflow.name }}</h3>
 							<div class="workflow-meta">
-								<el-tag size="small">{{ result.stages?.length || 0 }} stages</el-tag>
+								<el-tag size="small">
+									{{ result.stages?.length || 0 }} stages
+								</el-tag>
 								<el-tag size="small" type="info">
-									{{ result.stages?.reduce((sum, stage) => sum + (stage.estimatedDuration || 0), 0) || 0 }} days total
+									{{
+										result.stages?.reduce(
+											(sum, stage) => sum + (stage.estimatedDuration || 0),
+											0
+										) || 0
+									}}
+									days total
 								</el-tag>
 							</div>
 						</div>
-						<div class="workflow-description">{{ result.generatedWorkflow.description }}</div>
-						
+						<div class="workflow-description">
+							{{ result.generatedWorkflow.description }}
+						</div>
+
 						<!-- Stages Visualization -->
 						<div class="stages-visualization">
 							<div class="stages-title">Workflow Stages</div>
@@ -479,17 +544,24 @@
 									v-for="(stage, index) in result.stages"
 									:key="index"
 									class="stage-node"
-									:style="{ animationDelay: (index * 0.1) + 's' }"
+									:style="{ animationDelay: index * 0.1 + 's' }"
 								>
-									<div class="stage-number">{{ stage.order || (index + 1) }}</div>
+									<div class="stage-number">{{ stage.order || index + 1 }}</div>
 									<div class="stage-content">
 										<div class="stage-name">{{ stage.name }}</div>
 										<div class="stage-details">
-											<span class="stage-team">{{ stage.assignedGroup }}</span>
-											<span class="stage-duration">{{ stage.estimatedDuration }}d</span>
+											<span class="stage-team">
+												{{ stage.assignedGroup }}
+											</span>
+											<span class="stage-duration">
+												{{ stage.estimatedDuration }}d
+											</span>
 										</div>
 									</div>
-									<div v-if="index < result.stages.length - 1" class="stage-connector">
+									<div
+										v-if="index < result.stages.length - 1"
+										class="stage-connector"
+									>
 										<div class="connector-line"></div>
 										<div class="connector-arrow">→</div>
 									</div>
@@ -498,7 +570,10 @@
 						</div>
 
 						<!-- AI Suggestions -->
-						<div v-if="result.suggestions && result.suggestions.length > 0" class="ai-suggestions">
+						<div
+							v-if="result.suggestions && result.suggestions.length > 0"
+							class="ai-suggestions"
+						>
 							<div class="suggestions-title">
 								<el-icon class="mr-2"><Star /></el-icon>
 								AI Suggestions
@@ -526,16 +601,16 @@ import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useRouter } from 'vue-router';
 import { getTokenobj } from '@/utils/auth';
-import { 
-	generateAIWorkflow, 
-	getAIWorkflowStatus, 
+import {
+	generateAIWorkflow,
+	getAIWorkflowStatus,
 	getAvailableWorkflows,
 	getWorkflowDetails,
 	modifyAIWorkflow,
 	sendAIChatMessage,
 	type AIWorkflowModificationInput,
 	type AIChatMessage,
-	type AIChatInput
+	type AIChatInput,
 } from '@/apis/ai/workflow';
 import {
 	User,
@@ -555,7 +630,7 @@ import {
 	Menu,
 	ChatDotRound,
 	Avatar,
-	Promotion
+	Promotion,
 } from '@element-plus/icons-vue';
 
 // Props & Emits
@@ -583,7 +658,7 @@ const conversationSessionId = ref('');
 const input = reactive({
 	description: '',
 	context: '',
-	requirements: [] as string[]
+	requirements: [] as string[],
 });
 
 const result = ref(null);
@@ -601,7 +676,7 @@ const getStageCount = (workflow) => {
 // Computed
 const aiStatus = computed(() => ({
 	provider: 'ZhipuAI',
-	isAvailable: true
+	isAvailable: true,
 }));
 
 // Conversation Methods
@@ -610,13 +685,17 @@ const startConversation = () => {
 	conversationHistory.value = [];
 	conversationComplete.value = false;
 	conversationSessionId.value = `session_${Date.now()}`;
-	
+
 	// Start with AI greeting
 	setTimeout(() => {
-		addAIMessage("Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific needs and requirements.");
-		
+		addAIMessage(
+			"Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific needs and requirements."
+		);
+
 		setTimeout(() => {
-			addAIMessage("To get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind.");
+			addAIMessage(
+				"To get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind."
+			);
 		}, 1500);
 	}, 500);
 };
@@ -625,7 +704,7 @@ const addAIMessage = (content: string) => {
 	const message: AIChatMessage = {
 		role: 'assistant',
 		content,
-		timestamp: new Date().toLocaleTimeString()
+		timestamp: new Date().toLocaleTimeString(),
 	};
 	conversationHistory.value.push(message);
 	nextTick(() => {
@@ -637,7 +716,7 @@ const addUserMessage = (content: string) => {
 	const message: AIChatMessage = {
 		role: 'user',
 		content,
-		timestamp: new Date().toLocaleTimeString()
+		timestamp: new Date().toLocaleTimeString(),
 	};
 	conversationHistory.value.push(message);
 	nextTick(() => {
@@ -654,21 +733,23 @@ const scrollToBottom = () => {
 
 const sendMessage = async () => {
 	if (!currentMessage.value.trim()) return;
-	
+
 	const userMessage = currentMessage.value.trim();
 	addUserMessage(userMessage);
 	currentMessage.value = '';
-	
+
 	aiTyping.value = true;
-	
+
 	try {
 		// Call real AI API
 		await callRealAI(userMessage);
 	} catch (error) {
 		console.error('AI conversation error:', error);
-		addAIMessage("I apologize, but I'm having trouble processing your message right now. Could you please try again?");
+		addAIMessage(
+			"I apologize, but I'm having trouble processing your message right now. Could you please try again?"
+		);
 	}
-	
+
 	aiTyping.value = false;
 };
 
@@ -677,32 +758,32 @@ const callRealAI = async (userMessage: string) => {
 		console.log('🤖 Calling real AI with message:', userMessage);
 		console.log('🤖 Conversation history:', conversationHistory.value);
 		console.log('🤖 Session ID:', conversationSessionId.value);
-		
+
 		const chatInput: AIChatInput = {
 			messages: conversationHistory.value,
 			context: 'workflow_planning',
 			sessionId: conversationSessionId.value,
-			mode: 'workflow_planning'
+			mode: 'workflow_planning',
 		};
 
 		console.log('🤖 Sending chat input:', chatInput);
 		const response = await sendAIChatMessage(chatInput);
 		console.log('🤖 AI response received:', response);
-		
+
 		// 处理后端返回的标准API响应格式
 		// response 应该直接是 AIChatResponse，但如果有data包装则解包
 		const aiResponse = (response as any).data || response;
 		console.log('🤖 Processed AI response:', aiResponse);
-		
+
 		if (aiResponse.success && aiResponse.response) {
 			console.log('✅ AI response successful, adding message:', aiResponse.response.content);
 			addAIMessage(aiResponse.response.content);
-			
+
 			// Check if conversation is complete
 			if (aiResponse.response.isComplete) {
 				conversationComplete.value = true;
 			}
-			
+
 			// Update session ID
 			if (aiResponse.sessionId) {
 				conversationSessionId.value = aiResponse.sessionId;
@@ -721,31 +802,45 @@ const callRealAI = async (userMessage: string) => {
 
 const enhancedAISimulation = async (userMessage: string) => {
 	// Enhanced simulation with more intelligent responses
-	await new Promise(resolve => setTimeout(resolve, 1500));
-	
-	const messageCount = conversationHistory.value.filter(m => m.role === 'user').length;
+	await new Promise((resolve) => setTimeout(resolve, 1500));
+
+	const messageCount = conversationHistory.value.filter((m) => m.role === 'user').length;
 	const lowerMessage = userMessage.toLowerCase();
-	
+
 	if (messageCount === 1) {
 		// Analyze the first message and respond accordingly
 		if (lowerMessage.includes('onboard') || lowerMessage.includes('employee')) {
-			addAIMessage("Great! An employee onboarding workflow is essential for any organization. Now, who will be involved in this onboarding process? Please tell me about the teams, departments, or specific roles that will participate - for example, HR, IT, direct managers, or other stakeholders.");
+			addAIMessage(
+				'Great! An employee onboarding workflow is essential for any organization. Now, who will be involved in this onboarding process? Please tell me about the teams, departments, or specific roles that will participate - for example, HR, IT, direct managers, or other stakeholders.'
+			);
 		} else if (lowerMessage.includes('approval') || lowerMessage.includes('review')) {
-			addAIMessage("Perfect! Approval workflows are crucial for maintaining control and quality. Could you tell me who will be involved in this approval process? What teams or roles need to participate, and are there different levels of approval required?");
+			addAIMessage(
+				'Perfect! Approval workflows are crucial for maintaining control and quality. Could you tell me who will be involved in this approval process? What teams or roles need to participate, and are there different levels of approval required?'
+			);
 		} else if (lowerMessage.includes('customer') || lowerMessage.includes('support')) {
-			addAIMessage("Excellent! Customer support workflows help ensure consistent service quality. Who will be handling different parts of this process? Please describe the teams or roles involved - such as support agents, supervisors, technical teams, or escalation contacts.");
+			addAIMessage(
+				'Excellent! Customer support workflows help ensure consistent service quality. Who will be handling different parts of this process? Please describe the teams or roles involved - such as support agents, supervisors, technical teams, or escalation contacts.'
+			);
 		} else {
-			addAIMessage("That sounds like an important process to optimize! Now, could you tell me about the people and teams who will be involved? Who are the key stakeholders, and what roles or departments need to participate in this workflow?");
+			addAIMessage(
+				'That sounds like an important process to optimize! Now, could you tell me about the people and teams who will be involved? Who are the key stakeholders, and what roles or departments need to participate in this workflow?'
+			);
 		}
 	} else if (messageCount === 2) {
 		// Ask about stages and timeline
-		addAIMessage("Thank you for that information! Now I'd like to understand the structure and timing. How many main stages or steps do you envision for this workflow? And what's your target timeframe - should this be completed in days, weeks, or months?");
+		addAIMessage(
+			"Thank you for that information! Now I'd like to understand the structure and timing. How many main stages or steps do you envision for this workflow? And what's your target timeframe - should this be completed in days, weeks, or months?"
+		);
 	} else if (messageCount === 3) {
 		// Ask about requirements and specifics
-		addAIMessage("Perfect! Now let's talk about the specific requirements. Are there any documents that need to be collected, approvals that must be obtained, or quality checkpoints that should be included? Also, are there any compliance requirements or company policies I should consider?");
+		addAIMessage(
+			"Perfect! Now let's talk about the specific requirements. Are there any documents that need to be collected, approvals that must be obtained, or quality checkpoints that should be included? Also, are there any compliance requirements or company policies I should consider?"
+		);
 	} else if (messageCount >= 4) {
 		// Complete the conversation
-		addAIMessage("Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.");
+		addAIMessage(
+			'Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.'
+		);
 		conversationComplete.value = true;
 	}
 };
@@ -768,16 +863,16 @@ const resetConversation = () => {
 const proceedToGeneration = () => {
 	// Compile conversation into a comprehensive description
 	const userMessages = conversationHistory.value
-		.filter(m => m.role === 'user')
-		.map(m => m.content);
-	
+		.filter((m) => m.role === 'user')
+		.map((m) => m.content);
+
 	const aiMessages = conversationHistory.value
-		.filter(m => m.role === 'assistant')
-		.map(m => m.content);
-	
+		.filter((m) => m.role === 'assistant')
+		.map((m) => m.content);
+
 	// Create a structured description based on the conversation
 	let description = 'Based on our detailed conversation:\n\n';
-	
+
 	if (userMessages.length > 0) {
 		description += `Workflow Type: ${userMessages[0]}\n`;
 	}
@@ -790,18 +885,19 @@ const proceedToGeneration = () => {
 	if (userMessages.length > 3) {
 		description += `Requirements & Specifics: ${userMessages[3]}\n`;
 	}
-	
+
 	// Add any additional context
 	description += '\nAdditional Context:\n';
 	description += `Session ID: ${conversationSessionId.value}\n`;
 	description += `Total Messages: ${conversationHistory.value.length}\n`;
-	description += 'This workflow was designed through an interactive AI conversation to ensure all requirements are captured.';
-	
+	description +=
+		'This workflow was designed through an interactive AI conversation to ensure all requirements are captured.';
+
 	input.description = description;
 	input.context = `AI Conversation Session: ${conversationSessionId.value}`;
-	
+
 	showConversation.value = false;
-	
+
 	// Automatically start generation with enhanced context
 	setTimeout(() => {
 		streamGenerateWorkflow();
@@ -836,7 +932,7 @@ const loadAvailableWorkflows = async () => {
 
 const handleWorkflowSelect = async (workflowId: number) => {
 	if (!workflowId) return;
-	
+
 	try {
 		const response = await getWorkflowDetails(workflowId);
 		if (response.success) {
@@ -844,16 +940,20 @@ const handleWorkflowSelect = async (workflowId: number) => {
 		}
 	} catch (error) {
 		console.error('Failed to load workflow details:', error);
-		currentWorkflow.value = availableWorkflows.value.find(w => w.id === workflowId);
+		currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
 	}
 };
 
 const generateWorkflow = async () => {
 	console.log('🔥 generateWorkflow function called!');
 	console.log('🔥 Button clicked - operationMode:', operationMode.value);
-	
+
 	if (!input.description.trim()) {
-		ElMessage.warning(operationMode.value === 'create' ? 'Please describe your desired workflow' : 'Please describe the modifications you want to make');
+		ElMessage.warning(
+			operationMode.value === 'create'
+				? 'Please describe your desired workflow'
+				: 'Please describe the modifications you want to make'
+		);
 		return;
 	}
 
@@ -870,9 +970,9 @@ const generateWorkflow = async () => {
 		console.log('Operation mode:', operationMode.value);
 		console.log('Selected workflow ID:', selectedWorkflowId.value);
 		console.log('Input description:', input.description);
-		
+
 		let response;
-		
+
 		if (operationMode.value === 'create') {
 			console.log('Taking CREATE path');
 			// 创建新工作流
@@ -886,7 +986,7 @@ const generateWorkflow = async () => {
 				context: input.context,
 				requirements: input.requirements,
 				preserveExisting: true,
-				modificationMode: 'modify'
+				modificationMode: 'modify',
 			};
 			console.log('Sending modification request:', modificationParams);
 			console.log('Selected workflow ID:', selectedWorkflowId.value);
@@ -896,11 +996,16 @@ const generateWorkflow = async () => {
 
 		if (response.success) {
 			result.value = response.data;
-			ElMessage.success(operationMode.value === 'create' 
-				? 'Workflow generated successfully!' 
-				: 'Workflow modified successfully!');
+			ElMessage.success(
+				operationMode.value === 'create'
+					? 'Workflow generated successfully!'
+					: 'Workflow modified successfully!'
+			);
 		} else {
-			ElMessage.error(response.message || (operationMode.value === 'create' ? 'Generation failed' : 'Modification failed'));
+			ElMessage.error(
+				response.message ||
+					(operationMode.value === 'create' ? 'Generation failed' : 'Modification failed')
+			);
 		}
 	} catch (error) {
 		console.error('Generate workflow error:', error);
@@ -923,19 +1028,31 @@ const streamGenerateWorkflow = async () => {
 
 	realTimeGenerating.value = true;
 	streamSteps.value = [];
-	
+
 	// Simulate real-time generation steps
 	const steps = [
-		{ type: 'thinking', title: 'Analyzing Requirements', message: 'Understanding your workflow description...' },
-		{ type: 'generating', title: 'Generating Structure', message: 'Creating workflow stages and connections...' },
-		{ type: 'optimizing', title: 'Optimizing Flow', message: 'Optimizing stage assignments and durations...' },
-		{ type: 'complete', title: 'Generation Complete', message: 'Your workflow is ready!' }
+		{
+			type: 'thinking',
+			title: 'Analyzing Requirements',
+			message: 'Understanding your workflow description...',
+		},
+		{
+			type: 'generating',
+			title: 'Generating Structure',
+			message: 'Creating workflow stages and connections...',
+		},
+		{
+			type: 'optimizing',
+			title: 'Optimizing Flow',
+			message: 'Optimizing stage assignments and durations...',
+		},
+		{ type: 'complete', title: 'Generation Complete', message: 'Your workflow is ready!' },
 	];
 
 	for (let i = 0; i < steps.length; i++) {
-		await new Promise(resolve => setTimeout(resolve, 1500));
+		await new Promise((resolve) => setTimeout(resolve, 1500));
 		streamSteps.value.push(steps[i]);
-		
+
 		if (i === steps.length - 1) {
 			// Trigger actual generation
 			await generateWorkflow();
@@ -955,7 +1072,7 @@ const applyWorkflow = async () => {
 			{
 				confirmButtonText: 'Confirm',
 				cancelButtonText: 'Cancel',
-				type: 'warning'
+				type: 'warning',
 			}
 		);
 
@@ -963,7 +1080,7 @@ const applyWorkflow = async () => {
 			emit('workflowGenerated', {
 				...result.value,
 				operationMode: operationMode.value,
-				selectedWorkflowId: selectedWorkflowId.value
+				selectedWorkflowId: selectedWorkflowId.value,
 			});
 			ElMessage.success('Workflow applied');
 		}
@@ -983,13 +1100,15 @@ const clearInput = () => {
 // Lifecycle
 onMounted(() => {
 	// Initialize AI status check
-	getAIWorkflowStatus().then(response => {
-		if (response.success) {
-			aiStatus.value = response.data;
-		}
-	}).catch(() => {
-		aiStatus.value.isAvailable = false;
-	});
+	getAIWorkflowStatus()
+		.then((response) => {
+			if (response.success) {
+				aiStatus.value = response.data;
+			}
+		})
+		.catch(() => {
+			aiStatus.value.isAvailable = false;
+		});
 });
 
 // Watch for operation mode changes
@@ -1176,7 +1295,8 @@ watch(operationMode, (newMode) => {
 	@apply flex items-center gap-2 flex-wrap;
 }
 
-.stage-tag, .status-tag {
+.stage-tag,
+.status-tag {
 	@apply flex items-center;
 }
 
@@ -1247,7 +1367,8 @@ watch(operationMode, (newMode) => {
 	@apply flex items-center justify-between text-xs;
 }
 
-.stage-team, .stage-duration {
+.stage-team,
+.stage-duration {
 	@apply flex items-center text-gray-500;
 }
 
@@ -1317,7 +1438,9 @@ watch(operationMode, (newMode) => {
 	@apply flex items-center gap-3;
 }
 
-.generate-btn, .stream-btn, .ai-primary-btn {
+.generate-btn,
+.stream-btn,
+.ai-primary-btn {
 	@apply relative overflow-hidden;
 }
 
@@ -1361,11 +1484,21 @@ watch(operationMode, (newMode) => {
 	@apply w-8 h-8 rounded-full flex items-center justify-center text-white;
 }
 
-.stream-step.thinking .step-icon { @apply bg-blue-500; }
-.stream-step.generating .step-icon { @apply bg-purple-500; }
-.stream-step.optimizing .step-icon { @apply bg-orange-500; }
-.stream-step.complete .step-icon { @apply bg-green-500; }
-.stream-step.error .step-icon { @apply bg-red-500; }
+.stream-step.thinking .step-icon {
+	@apply bg-blue-500;
+}
+.stream-step.generating .step-icon {
+	@apply bg-purple-500;
+}
+.stream-step.optimizing .step-icon {
+	@apply bg-orange-500;
+}
+.stream-step.complete .step-icon {
+	@apply bg-green-500;
+}
+.stream-step.error .step-icon {
+	@apply bg-red-500;
+}
 
 .step-title {
 	@apply font-semibold text-gray-800;
@@ -1502,42 +1635,81 @@ watch(operationMode, (newMode) => {
 
 /* Animations */
 @keyframes float {
-	0%, 100% { transform: translateY(0px); }
-	50% { transform: translateY(-10px); }
+	0%,
+	100% {
+		transform: translateY(0px);
+	}
+	50% {
+		transform: translateY(-10px);
+	}
 }
 
 @keyframes pulse-wave {
-	0% { transform: scale(1); opacity: 1; }
-	100% { transform: scale(1.5); opacity: 0; }
+	0% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	100% {
+		transform: scale(1.5);
+		opacity: 0;
+	}
 }
 
 @keyframes pulse-ring {
-	0% { transform: scale(0.33); }
-	80%, 100% { opacity: 0; }
+	0% {
+		transform: scale(0.33);
+	}
+	80%,
+	100% {
+		opacity: 0;
+	}
 }
 
 @keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 @keyframes slide-in-right {
-	from { transform: translateX(100%); opacity: 0; }
-	to { transform: translateX(0); opacity: 1; }
+	from {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
 }
 
 @keyframes slide-up {
-	from { transform: translateY(20px); opacity: 0; }
-	to { transform: translateY(0); opacity: 1; }
+	from {
+		transform: translateY(20px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
 }
 
 @keyframes fade-in-up {
-	from { transform: translateY(10px); opacity: 0; }
-	to { transform: translateY(0); opacity: 1; }
+	from {
+		transform: translateY(10px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
 }
 
 /* Transitions */
-.slide-down-enter-active, .slide-down-leave-active {
+.slide-down-enter-active,
+.slide-down-leave-active {
 	transition: all 0.3s ease;
 }
 
@@ -1551,7 +1723,8 @@ watch(operationMode, (newMode) => {
 	opacity: 0;
 }
 
-.slide-up-enter-active, .slide-up-leave-active {
+.slide-up-enter-active,
+.slide-up-leave-active {
 	transition: all 0.5s ease;
 }
 
@@ -1565,11 +1738,13 @@ watch(operationMode, (newMode) => {
 	opacity: 0;
 }
 
-.fade-in-enter-active, .fade-in-leave-active {
+.fade-in-enter-active,
+.fade-in-leave-active {
 	transition: all 0.3s ease;
 }
 
-.fade-in-enter-from, .fade-in-leave-to {
+.fade-in-enter-from,
+.fade-in-leave-to {
 	opacity: 0;
 }
 
@@ -1578,27 +1753,27 @@ watch(operationMode, (newMode) => {
 	.mode-options {
 		@apply flex-col;
 	}
-	
+
 	.stages-flow {
 		@apply flex-col items-stretch;
 	}
-	
+
 	.stage-connector {
 		@apply rotate-90 my-2;
 	}
-	
+
 	.result-header {
 		@apply flex-col items-start gap-4;
 	}
-	
+
 	.workflow-header {
 		@apply flex-col items-start gap-2;
 	}
-	
+
 	.input-actions {
 		@apply flex-wrap;
 	}
-	
+
 	.stages-grid {
 		@apply grid-cols-1;
 	}
@@ -1734,20 +1909,28 @@ watch(operationMode, (newMode) => {
 	animation: typing-bounce 1.4s ease-in-out infinite both;
 }
 
-.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
-.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
-.typing-dots span:nth-child(3) { animation-delay: 0s; }
+.typing-dots span:nth-child(1) {
+	animation-delay: -0.32s;
+}
+.typing-dots span:nth-child(2) {
+	animation-delay: -0.16s;
+}
+.typing-dots span:nth-child(3) {
+	animation-delay: 0s;
+}
 
 .typing-text {
 	@apply text-gray-500 text-sm;
 }
 
 @keyframes typing-bounce {
-	0%, 80%, 100% { 
+	0%,
+	80%,
+	100% {
 		transform: scale(0.8);
 		opacity: 0.5;
 	}
-	40% { 
+	40% {
 		transform: scale(1);
 		opacity: 1;
 	}
@@ -1765,8 +1948,12 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes fade-in {
-	from { opacity: 0; }
-	to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 .animate-fade-in {
@@ -1886,4 +2073,4 @@ watch(operationMode, (newMode) => {
 .direct-generation {
 	@apply flex items-center space-x-3;
 }
-</style> 
+</style>

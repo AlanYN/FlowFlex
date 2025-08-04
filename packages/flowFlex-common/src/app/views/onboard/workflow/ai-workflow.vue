@@ -5,7 +5,9 @@
 			<div class="flex items-center justify-between">
 				<div>
 					<h1 class="text-2xl font-bold text-gray-900">AI Workflow Generator</h1>
-					<p class="text-gray-600 mt-1">Use artificial intelligence to quickly create and optimize workflows</p>
+					<p class="text-gray-600 mt-1">
+						Use artificial intelligence to quickly create and optimize workflows
+					</p>
 				</div>
 				<div class="flex space-x-2">
 					<el-button @click="showWorkflowList = !showWorkflowList">
@@ -56,7 +58,9 @@
 									{{ workflow.isActive ? 'Active' : 'Draft' }}
 								</el-tag>
 							</div>
-							<p class="text-xs text-gray-600 mb-2">{{ workflow.description || 'No description available' }}</p>
+							<p class="text-xs text-gray-600 mb-2">
+								{{ workflow.description || 'No description available' }}
+							</p>
 							<div class="flex items-center justify-between text-xs text-gray-500">
 								<span class="stages-count">
 									<el-icon class="mr-1"><List /></el-icon>
@@ -66,7 +70,10 @@
 							</div>
 						</div>
 
-						<div v-if="workflowList.length === 0" class="empty-state text-center py-8 text-gray-500">
+						<div
+							v-if="workflowList.length === 0"
+							class="empty-state text-center py-8 text-gray-500"
+						>
 							<el-icon class="text-2xl mb-2">
 								<Document />
 							</el-icon>
@@ -97,7 +104,9 @@
 					<div class="workflow-info">
 						<h3 class="workflow-title">{{ generatedWorkflow?.name }}</h3>
 						<div class="workflow-meta">
-							<span class="meta-badge">{{ isModifyMode ? 'AI-Enhanced' : 'AI-Generated' }}</span>
+							<span class="meta-badge">
+								{{ isModifyMode ? 'AI-Enhanced' : 'AI-Generated' }}
+							</span>
 							<span class="meta-divider">•</span>
 							<span class="stages-count">{{ generatedStages.length }} stages</span>
 							<span class="meta-divider">•</span>
@@ -135,9 +144,9 @@
 									/>
 								</div>
 								<div class="stage-actions">
-									<el-button 
-										size="small" 
-										type="danger" 
+									<el-button
+										size="small"
+										type="danger"
 										@click="removeStage(index)"
 										class="remove-stage-btn"
 									>
@@ -157,8 +166,7 @@
 											size="small"
 											placeholder="Select"
 											class="team-select"
-										
-										:teleported="false">
+										>
 											<el-option label="Sales" value="Sales" />
 											<el-option label="IT" value="IT" />
 											<el-option label="HR" value="HR" />
@@ -195,7 +203,12 @@
 								<!-- Required Fields -->
 								<div class="required-fields-section">
 									<label class="meta-label">Required Fields:</label>
-									<div v-if="stage.requiredFields && stage.requiredFields.length > 0" class="fields-tags-container">
+									<div
+										v-if="
+											stage.requiredFields && stage.requiredFields.length > 0
+										"
+										class="fields-tags-container"
+									>
 										<el-tag
 											v-for="(field, fieldIndex) in stage.requiredFields"
 											:key="fieldIndex"
@@ -207,14 +220,18 @@
 											{{ field }}
 										</el-tag>
 									</div>
-									<el-button 
-										size="small" 
-										@click="addRequiredField(index)" 
+									<el-button
+										size="small"
+										@click="addRequiredField(index)"
 										class="add-field-btn"
 										type="dashed"
 									>
 										<el-icon><Plus /></el-icon>
-										{{ stage.requiredFields && stage.requiredFields.length > 0 ? 'Add More' : 'Add Fields' }}
+										{{
+											stage.requiredFields && stage.requiredFields.length > 0
+												? 'Add More'
+												: 'Add Fields'
+										}}
 									</el-button>
 								</div>
 							</div>
@@ -236,22 +253,40 @@
 					<div class="footer-content">
 						<div class="footer-left">
 							<div class="workflow-summary">
-								<span class="summary-text">Total: {{ generatedStages.length }} stages, {{ getTotalDuration() }} days</span>
+								<span class="summary-text">
+									Total: {{ generatedStages.length }} stages,
+									{{ getTotalDuration() }} days
+								</span>
 							</div>
 						</div>
 						<div class="footer-center">
-							<el-button @click="enhanceWorkflow" :loading="enhancing" class="ai-enhance-btn">
+							<el-button
+								@click="enhanceWorkflow"
+								:loading="enhancing"
+								class="ai-enhance-btn"
+							>
 								<el-icon class="mr-1"><Star /></el-icon>
 								AI Enhance
 							</el-button>
-							<el-button @click="validateWorkflow" :loading="validating" class="ai-validate-btn">
+							<el-button
+								@click="validateWorkflow"
+								:loading="validating"
+								class="ai-validate-btn"
+							>
 								<el-icon class="mr-1"><Check /></el-icon>
 								Validate
 							</el-button>
 						</div>
 						<div class="footer-right">
-							<el-button @click="showGeneratedDialog = false" class="cancel-btn">Cancel</el-button>
-							<el-button type="primary" @click="saveWorkflow" :loading="saving" class="save-workflow-btn">
+							<el-button @click="showGeneratedDialog = false" class="cancel-btn">
+								Cancel
+							</el-button>
+							<el-button
+								type="primary"
+								@click="saveWorkflow"
+								:loading="saving"
+								class="save-workflow-btn"
+							>
 								{{ isModifyMode ? 'Update Workflow' : 'Save Workflow' }}
 							</el-button>
 						</div>
@@ -261,7 +296,12 @@
 		</el-dialog>
 
 		<!-- Field Addition Dialog -->
-		<el-dialog v-model="showFieldDialog" title="✨ Add Required Field" width="400px" class="ai-field-dialog">
+		<el-dialog
+			v-model="showFieldDialog"
+			title="✨ Add Required Field"
+			width="400px"
+			class="ai-field-dialog"
+		>
 			<div class="field-dialog-content">
 				<p class="text-sm text-gray-600 mb-4">Add a new required field for this stage:</p>
 				<el-input
@@ -274,16 +314,25 @@
 			<template #footer>
 				<div class="flex justify-end space-x-2">
 					<el-button @click="showFieldDialog = false">Cancel</el-button>
-					<el-button type="primary" @click="confirmAddField" class="ai-confirm-btn">Add Field</el-button>
+					<el-button type="primary" @click="confirmAddField" class="ai-confirm-btn">
+						Add Field
+					</el-button>
 				</div>
 			</template>
 		</el-dialog>
 
 		<!-- AI Enhancement Dialog -->
-		<el-dialog v-model="showEnhanceDialog" title="🚀 AI Workflow Enhancement" width="600px" class="ai-enhance-dialog">
+		<el-dialog
+			v-model="showEnhanceDialog"
+			title="🚀 AI Workflow Enhancement"
+			width="600px"
+			class="ai-enhance-dialog"
+		>
 			<div class="enhance-dialog-content">
 				<div class="mb-4">
-					<p class="text-sm text-gray-600 mb-2">Describe how you'd like to enhance this workflow:</p>
+					<p class="text-sm text-gray-600 mb-2">
+						Describe how you'd like to enhance this workflow:
+					</p>
 					<el-input
 						v-model="enhanceRequest"
 						type="textarea"
@@ -292,11 +341,17 @@
 						class="ai-enhance-input"
 					/>
 				</div>
-				
+
 				<div v-if="enhanceResult" class="enhancement-result mt-4">
-					<h4 class="text-md font-medium text-gray-800 mb-2">AI Enhancement Suggestions:</h4>
+					<h4 class="text-md font-medium text-gray-800 mb-2">
+						AI Enhancement Suggestions:
+					</h4>
 					<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-						<div v-for="(suggestion, index) in enhanceResult.suggestions" :key="index" class="mb-2">
+						<div
+							v-for="(suggestion, index) in enhanceResult.suggestions"
+							:key="index"
+							class="mb-2"
+						>
 							<div class="flex items-start space-x-2">
 								<el-icon class="text-blue-500 mt-0.5"><Star /></el-icon>
 								<span class="text-sm text-gray-700">{{ suggestion }}</span>
@@ -308,7 +363,12 @@
 			<template #footer>
 				<div class="flex justify-between">
 					<el-button @click="showEnhanceDialog = false">Cancel</el-button>
-					<el-button type="primary" @click="applyEnhancement" :loading="enhancing" class="ai-apply-btn">
+					<el-button
+						type="primary"
+						@click="applyEnhancement"
+						:loading="enhancing"
+						class="ai-apply-btn"
+					>
 						<el-icon class="mr-1"><Star /></el-icon>
 						Apply Suggestions
 					</el-button>
@@ -332,7 +392,7 @@ import {
 	Check,
 	InfoFilled,
 	ArrowDown,
-	ArrowRight
+	ArrowRight,
 } from '@element-plus/icons-vue';
 
 // Components
@@ -374,19 +434,21 @@ const handleWorkflowGenerated = (workflowData) => {
 	// workflowData 现在是完整的AI响应数据
 	generatedWorkflow.value = workflowData.generatedWorkflow;
 	generatedStages.value = workflowData.stages || [];
-	
+
 	// 设置操作模式信息
 	isModifyMode.value = workflowData.operationMode === 'modify';
 	selectedWorkflowId.value = workflowData.selectedWorkflowId;
-	
+
 	showGeneratedDialog.value = true;
-	
+
 	console.log('Generated workflow data:', workflowData);
 	console.log('Generated stages:', workflowData.stages);
 	console.log('Operation mode:', workflowData.operationMode);
 	console.log('Selected workflow ID:', workflowData.selectedWorkflowId);
-	
-	const message = isModifyMode.value ? 'AI workflow modification completed! Please review and save.' : 'AI workflow generated successfully! Please review, edit, and save.';
+
+	const message = isModifyMode.value
+		? 'AI workflow modification completed! Please review and save.'
+		: 'AI workflow generated successfully! Please review, edit, and save.';
 	ElMessage.success(message);
 };
 
@@ -406,14 +468,14 @@ const goToTraditionalCreate = () => {
 };
 
 const addStage = () => {
-	const newOrder = Math.max(...generatedStages.value.map(s => s.order), 0) + 1;
+	const newOrder = Math.max(...generatedStages.value.map((s) => s.order), 0) + 1;
 	generatedStages.value.push({
 		name: `New Stage ${newOrder}`,
 		description: '',
 		order: newOrder,
 		assignedGroup: 'General',
 		requiredFields: [],
-		estimatedDuration: 1
+		estimatedDuration: 1,
 	});
 };
 
@@ -440,12 +502,14 @@ const confirmAddField = () => {
 		ElMessage.warning('Field name cannot be empty');
 		return;
 	}
-	
+
 	if (currentStageIndex.value >= 0) {
 		if (!generatedStages.value[currentStageIndex.value].requiredFields) {
 			generatedStages.value[currentStageIndex.value].requiredFields = [];
 		}
-		generatedStages.value[currentStageIndex.value].requiredFields.push(newFieldName.value.trim());
+		generatedStages.value[currentStageIndex.value].requiredFields.push(
+			newFieldName.value.trim()
+		);
 		newFieldName.value = '';
 		showFieldDialog.value = false;
 	}
@@ -489,7 +553,7 @@ const applyEnhancement = async () => {
 		ElMessage.warning('Please describe your enhancement requirements');
 		return;
 	}
-	
+
 	enhancing.value = true;
 	try {
 		// This would call the AI enhancement API
@@ -513,26 +577,32 @@ const validateWorkflow = async () => {
 	try {
 		const workflowData = {
 			...generatedWorkflow.value,
-			stages: generatedStages.value
+			stages: generatedStages.value,
 		};
 
 		const response = await validateAIWorkflow(workflowData);
 		if (response.success) {
 			const result = response.data;
 			if (result.isValid) {
-				ElMessage.success(`Workflow validated! Quality Score: ${Math.round(result.qualityScore * 100)}%`);
+				ElMessage.success(
+					`Workflow validated! Quality Score: ${Math.round(result.qualityScore * 100)}%`
+				);
 			} else {
-				const errors = result.issues.filter(issue => issue.severity === 'Error');
-				const warnings = result.issues.filter(issue => issue.severity === 'Warning');
-				
+				const errors = result.issues.filter((issue) => issue.severity === 'Error');
+				const warnings = result.issues.filter((issue) => issue.severity === 'Warning');
+
 				let message = 'Workflow validation issues:\n';
 				if (errors.length > 0) {
-					message += `Errors (${errors.length}): ${errors.map(e => e.message).join(', ')}\n`;
+					message += `Errors (${errors.length}): ${errors
+						.map((e) => e.message)
+						.join(', ')}\n`;
 				}
 				if (warnings.length > 0) {
-					message += `Warnings (${warnings.length}): ${warnings.map(w => w.message).join(', ')}`;
+					message += `Warnings (${warnings.length}): ${warnings
+						.map((w) => w.message)
+						.join(', ')}`;
 				}
-				
+
 				ElMessage.warning(message);
 			}
 		}
@@ -548,7 +618,7 @@ const saveWorkflow = async () => {
 	console.log('Saving workflow - generatedWorkflow:', generatedWorkflow.value);
 	console.log('Saving workflow - generatedStages:', generatedStages.value);
 	console.log('Saving workflow - stages length:', generatedStages.value.length);
-	
+
 	if (!generatedWorkflow.value || generatedStages.value.length === 0) {
 		ElMessage.warning('Please ensure the workflow includes at least one stage');
 		return;
@@ -560,18 +630,18 @@ const saveWorkflow = async () => {
 			name: generatedWorkflow.value.name,
 			description: generatedWorkflow.value.description,
 			isActive: generatedWorkflow.value.isActive,
-			status: "active",
+			status: 'active',
 			startDate: new Date().toISOString(),
 			// 注意：后端期望的是大写的Stages
 			stages: generatedStages.value.map((stage, index) => ({
 				name: stage.name,
 				description: stage.description,
-				order: stage.order || (index + 1),
-				defaultAssignedGroup: stage.assignedGroup || "执行团队",
+				order: stage.order || index + 1,
+				defaultAssignedGroup: stage.assignedGroup || '执行团队',
 				estimatedDuration: stage.estimatedDuration || 1,
 				isActive: true,
-				workflowVersion: "1"
-			}))
+				workflowVersion: '1',
+			})),
 		};
 
 		let response;
@@ -582,11 +652,11 @@ const saveWorkflow = async () => {
 				ElMessage.success('Workflow updated successfully!');
 				showGeneratedDialog.value = false;
 				await refreshWorkflowList();
-				
+
 				// 跳转到工作流详情页
 				router.push({
 					path: '/onboard/onboardWorkflow',
-					query: { id: selectedWorkflowId.value }
+					query: { id: selectedWorkflowId.value },
 				});
 			} else {
 				ElMessage.error(response.message || 'Update failed');
@@ -598,11 +668,11 @@ const saveWorkflow = async () => {
 				ElMessage.success('Workflow saved successfully!');
 				showGeneratedDialog.value = false;
 				await refreshWorkflowList();
-				
+
 				// 跳转到工作流详情页
 				router.push({
 					path: '/onboard/onboardWorkflow',
-					query: { id: response.data }
+					query: { id: response.data },
 				});
 			} else {
 				ElMessage.error(response.message || 'Save failed');
@@ -1251,4 +1321,4 @@ onMounted(() => {
 		opacity: 0;
 	}
 }
-</style> 
+</style>

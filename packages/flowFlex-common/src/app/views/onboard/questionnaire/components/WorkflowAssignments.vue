@@ -45,8 +45,7 @@
 								style="width: 100%"
 								@change="handleWorkflowChange(index, $event)"
 								clearable
-							
-							:teleported="false">
+							>
 								<el-option
 									v-for="workflow in workflows"
 									:key="workflow.id"
@@ -82,8 +81,7 @@
 								:loading="assignment.stagesLoading"
 								@change="handleStageChange(index, $event)"
 								clearable
-							
-							:teleported="false">
+							>
 								<el-option
 									v-for="stage in assignment.stages"
 									:key="stage.id"
@@ -152,9 +150,7 @@ const initializeAssignments = async () => {
 // 加载所有需要的 stages 数据
 const loadAllStagesData = async () => {
 	const workflowIds = [
-		...new Set(
-			extendedAssignments.value.map((a) => a.workflowId).filter((id) => id)
-		),
+		...new Set(extendedAssignments.value.map((a) => a.workflowId).filter((id) => id)),
 	];
 
 	for (const workflowId of workflowIds) {
@@ -165,10 +161,7 @@ const loadAllStagesData = async () => {
 
 	// 更新 extendedAssignments 中的 stages 数据
 	extendedAssignments.value.forEach((assignment) => {
-		if (
-			assignment.workflowId &&
-			stagesCache.value[assignment.workflowId]
-		) {
+		if (assignment.workflowId && stagesCache.value[assignment.workflowId]) {
 			assignment.stages = stagesCache.value[assignment.workflowId];
 		}
 	});

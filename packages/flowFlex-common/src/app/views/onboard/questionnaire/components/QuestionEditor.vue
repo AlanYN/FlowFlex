@@ -10,8 +10,7 @@
 							placeholder="Select question type"
 							style="width: 100%"
 							@change="handleQuestionTypeChange"
-						
-						:teleported="false">
+						>
 							<template #prefix>
 								<div v-if="newQuestion.type" class="type-option">
 									<el-icon class="type-icon">

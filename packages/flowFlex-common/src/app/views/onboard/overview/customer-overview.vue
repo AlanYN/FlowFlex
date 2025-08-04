@@ -89,8 +89,7 @@
 								class="w-full"
 								no-data-text="No questionnaires found"
 								filter-placeholder="Type to search questionnaires..."
-							
-							:teleported="false">
+							>
 								<el-option
 									v-for="questionnaire in questionnaires"
 									:key="questionnaire.id"
@@ -112,8 +111,7 @@
 								class="w-full"
 								no-data-text="No sections found"
 								filter-placeholder="Type to search sections..."
-							
-							:teleported="false">
+							>
 								<el-option
 									v-for="section in sections"
 									:key="section"

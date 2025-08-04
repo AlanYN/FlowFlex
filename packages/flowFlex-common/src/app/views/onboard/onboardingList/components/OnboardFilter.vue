@@ -44,8 +44,7 @@
 								placeholder="Select Stage"
 								clearable
 								class="w-full rounded-md"
-							
-							:teleported="false">
+							>
 								<el-option label="All Stages" value="" />
 								<el-option
 									v-for="stage in lifeCycleStage"
@@ -66,8 +65,7 @@
 								clearable
 								class="w-full rounded-md"
 								@change="handleWorkflowChange"
-							
-							:teleported="false">
+							>
 								<el-option label="All Work Flows" value="" />
 								<el-option
 									v-for="workflow in allWorkflows"
@@ -89,8 +87,7 @@
 								class="w-full rounded-md"
 								:disabled="!searchParams.workFlowId || stagesLoading"
 								:loading="stagesLoading"
-							
-							:teleported="false">
+							>
 								<el-option label="All Stages" value="" />
 								<el-option
 									v-for="stage in dynamicOnboardingStages"
@@ -120,8 +117,7 @@
 								placeholder="Select Priority"
 								clearable
 								class="w-full rounded-md"
-							
-							:teleported="false">
+							>
 								<el-option label="All Priorities" value="" />
 								<el-option label="High" value="High" />
 								<el-option label="Medium" value="Medium" />

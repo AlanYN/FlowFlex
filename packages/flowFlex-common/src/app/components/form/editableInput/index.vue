@@ -108,8 +108,7 @@
 				:loading="assignKeyLoading"
 				@blur="handleBlur"
 				@change="handleSelectChange"
-			
-			:teleported="false">
+			>
 				<el-option
 					v-for="item in assignKeyOptions"
 					:key="item.key"
@@ -162,8 +161,7 @@
 				:remote-method="remoteMethod"
 				@blur="handleBlur"
 				@change="handleSelectChange"
-			
-			:teleported="false">
+			>
 				<el-option
 					v-for="item in !property?.remote
 						? options.map((item) => ({

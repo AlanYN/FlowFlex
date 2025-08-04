@@ -15,8 +15,7 @@
 							placeholder="Select minimum"
 							class="range-select"
 							@change="updateMin"
-						
-						:teleported="false">
+						>
 							<el-option
 								v-for="num in [0, 1]"
 								:key="num"
@@ -33,8 +32,7 @@
 							placeholder="Select maximum"
 							class="range-select"
 							@change="updateMax"
-						
-						:teleported="false">
+						>
 							<el-option
 								v-for="num in [2, 3, 4, 5, 6, 7, 8, 9, 10]"
 								:key="num"

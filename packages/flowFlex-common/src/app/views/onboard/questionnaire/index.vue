@@ -44,8 +44,7 @@
 						placeholder="Select workflow"
 						class="w-full filter-select"
 						@change="handleWorkflowChange"
-					
-					:teleported="false">
+					>
 						<el-option label="All Workflows" value="all" />
 						<el-option
 							v-for="workflow in workflows"
@@ -64,8 +63,7 @@
 						class="w-full filter-select"
 						:disabled="selectedWorkflow === 'all' || stagesLoading"
 						:loading="stagesLoading"
-					
-					:teleported="false">
+					>
 						<el-option label="All Stages" value="all" />
 						<el-option
 							v-for="stage in workflowStages"

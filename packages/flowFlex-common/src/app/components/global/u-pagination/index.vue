@@ -18,8 +18,7 @@
 				placeholder="Select"
 				class="w-20 mr-5 page-limit"
 				@change="handleSizeChange"
-			
-			:teleported="false">
+			>
 				<el-option
 					v-for="(item, index) in pageOfNumber"
 					:key="index"
