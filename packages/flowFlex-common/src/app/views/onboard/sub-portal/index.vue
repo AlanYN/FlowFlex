@@ -540,6 +540,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getOnboardingByLead } from '@/apis/ow/onboarding';
+import { formatDateUS } from '@/hooks/time';
 import MessageCenter from './components/MessageCenter.vue';
 import DocumentCenter from './components/DocumentCenter.vue';
 import ContactUs from './components/ContactUs.vue';
@@ -686,11 +687,11 @@ export default {
 				phone: '',
 				currentStage: data.currentStageName,
 				overallProgress: Math.round(data.completionRate || 0),
-				startDate: data.startDate ? new Date(data.startDate).toLocaleDateString() : '',
+				startDate: data.startDate ? formatDateUS(data.startDate) : '',
 				estimatedCompletion: data.estimatedCompletionDate
-					? new Date(data.estimatedCompletionDate).toLocaleDateString()
+					? formatDateUS(data.estimatedCompletionDate)
 					: data.targetCompletionDate
-					? new Date(data.targetCompletionDate).toLocaleDateString()
+					? formatDateUS(data.targetCompletionDate)
 					: '',
 				accountManager: data.stageUpdatedBy || '',
 				onboardingId: data.id,
@@ -744,7 +745,7 @@ export default {
 						editable: status !== 'completed', // 简化条件：只要未完成就可编辑
 						color: colors[index % colors.length],
 						completedDate: stage.completionTime
-							? new Date(stage.completionTime).toLocaleDateString()
+							? formatDateUS(stage.completionTime)
 							: null,
 						portalVisible: true,
 						portalEditable: status !== 'completed',

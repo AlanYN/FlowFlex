@@ -1198,10 +1198,11 @@ const filteredData = computed(() => {
 			...questionnaire,
 			responses: questionnaire.responses.filter((response) => {
 				const searchLower = appliedSearchTerm.value.toLowerCase();
+				const answerText = String(response.answer || '').toLowerCase();
 				const matchesSearch =
 					!appliedSearchTerm.value ||
 					response.question.toLowerCase().includes(searchLower) ||
-					response.answer.toLowerCase().includes(searchLower) ||
+					answerText.includes(searchLower) ||
 					response.section.toLowerCase().includes(searchLower);
 
 				const matchesQuestionnaire =
@@ -1257,8 +1258,8 @@ const allResponses = computed(() => {
 					question: response.question,
 					answer: response.answer,
 					answeredBy: response.answeredBy,
-					answeredDate: response.answeredDate,
-					lastUpdated: response.lastUpdated,
+					answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
+					lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
 					updatedBy: response.updatedBy,
 					required: response.required,
 					type: response.questionType,
@@ -1308,10 +1309,59 @@ const allQuestionsForExport = computed(() => {
 				question: response.question,
 				answer: displayAnswer,
 				answeredBy: response.answeredBy || '',
-				answeredDate: response.answeredDate || '',
-				lastUpdated: response.lastUpdated || '',
+				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
+				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
 				updatedBy: response.updatedBy || '',
 				questionType: response.questionType, // 添加问题类型用于调试
+			});
+		});
+	});
+	return responses;
+});
+
+// Filtered questions for export (based on current filters and search)
+const filteredQuestionsForExport = computed(() => {
+	const responses: any[] = [];
+	filteredData.value.forEach((questionnaire) => {
+		questionnaire.responses.forEach((response) => {
+			// 处理答案显示，确保所有选择类型都显示正确的 label
+			let displayAnswer = response.answer || '';
+			
+			// 如果是多选表格类型，转换为label显示
+			if (response.questionType === 'multiple_choice_grid' && response.questionConfig) {
+				const labels = getGridAnswerLabels(response.answer, response.questionConfig);
+				displayAnswer = labels.join(', ');
+			}
+			// 如果是多选类型，转换为label显示
+			else if (response.questionType === 'checkboxes' && response.answer) {
+				const labels = getCheckboxLabels(response.answer, response.questionConfig);
+				displayAnswer = labels.join(', ');
+			}
+			// 如果是单选类型，转换为label显示
+			else if (response.questionType === 'multiple_choice' && response.answer) {
+				displayAnswer = getMultipleChoiceLabel(response.answer, response.questionConfig);
+			}
+			// 如果是下拉选择类型，转换为label显示
+			else if (response.questionType === 'dropdown' && response.answer) {
+				displayAnswer = getDropdownLabel(response.answer, response.questionConfig);
+			}
+			// 其他类型保持原样
+			else {
+				displayAnswer = response.answer || '';
+			}
+			
+			// Include ALL filtered questions, regardless of whether they have answers
+			responses.push({
+				questionnaire: questionnaire.name,
+				questionnaireId: questionnaire.id,
+				section: response.section,
+				question: response.question,
+				answer: displayAnswer,
+				answeredBy: response.answeredBy || '',
+				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
+				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
+				updatedBy: response.updatedBy || '',
+				questionType: response.questionType,
 			});
 		});
 	});
@@ -1333,13 +1383,31 @@ const uniqueContributors = computed(() => {
 // Removed pagination handlers
 
 // Utility functions
-const formatDate = (dateString: string) => {
+const formatDateUS = (dateString: string) => {
 	if (!dateString) return '';
 	try {
-		return new Date(dateString).toLocaleString();
+		const date = new Date(dateString);
+		if (isNaN(date.getTime())) {
+			return dateString;
+		}
+		
+		// Format as MM/dd/yyyy HH:mm:ss (US format)
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		
+		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
 	} catch {
 		return dateString;
 	}
+};
+
+// Legacy function kept for compatibility, now uses US format
+const formatDate = (dateString: string) => {
+	return formatDateUS(dateString);
 };
 
 // 判断答案是否有效（有实际内容）
@@ -1376,22 +1444,29 @@ const handleBack = () => {
 
 const handleExportExcel = () => {
 	try {
-		// Use the computed property that includes ALL questions, regardless of answers
-		const exportData = allQuestionsForExport.value;
+		// Use filtered data to match what user sees on screen
+		const exportData = filteredQuestionsForExport.value;
 
 		if (exportData.length === 0) {
-			ElMessage.warning('No questionnaire data available to export');
+			ElMessage.warning('No questionnaire data available to export with current filters');
 			return;
 		}
 
 		const worksheet = XLSX.utils.json_to_sheet(exportData);
 		const workbook = XLSX.utils.book_new();
 		XLSX.utils.book_append_sheet(workbook, worksheet, 'Customer Overview');
-		XLSX.writeFile(
-			workbook,
-			`Customer_Overview_${customerData.value?.leadName}_${customerData.value?.leadId}.xlsx`
-		);
-		ElMessage.success(`Excel file exported successfully with ${exportData.length} questions`);
+		
+		// Add filter info to filename if filters are active
+		let filename = `Customer_Overview_${customerData.value?.leadName}_${customerData.value?.leadId}`;
+		if (hasActiveFilters.value) {
+			filename += '_Filtered';
+		}
+		filename += '.xlsx';
+		
+		XLSX.writeFile(workbook, filename);
+		
+		const filterInfo = hasActiveFilters.value ? ' (filtered data)' : '';
+		ElMessage.success(`Excel file exported successfully with ${exportData.length} questions${filterInfo}`);
 	} catch (error) {
 		console.error('Export Excel failed:', error);
 		ElMessage.error('Failed to export Excel file');
@@ -2098,7 +2173,13 @@ const formatAnswerDate = (dateStr: any): string => {
 		if (isNaN(date.getTime())) {
 			return dateString;
 		}
-		return date.toLocaleDateString();
+		
+		// Use US date format for consistency
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		
+		return `${month}/${day}/${year}`;
 	} catch {
 		return dateString;
 	}

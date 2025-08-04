@@ -646,9 +646,10 @@ export function getCheckListIsCompleted(onboardingId: string | number, stageId: 
 	});
 }
 
-export function exportOnboarding() {
+export function exportOnboarding(params?: any) {
 	return defHttp.get({
 		url: `${Api().exportOnboarding}`,
+		params,
 		responseType: 'blob',
 	});
 }

@@ -874,8 +874,41 @@ const handleExport = async () => {
 	try {
 		loading.value = true;
 
+		// 构建导出参数
+		let exportParams: any = {};
+		let exportMessage = '';
+
+		// 如果有选中的数据，优先导出选中的数据
+		if (selectedItems.value.length > 0) {
+			// 导出选中的数据 - 使用选中项的 leadId
+			const selectedLeadIds = selectedItems.value.map(item => item.leadId).join(',');
+			exportParams = {
+				leadId: selectedLeadIds,
+				pageSize: 10000, // 大页面以确保获取所有匹配的数据
+			};
+			exportMessage = `Selected ${selectedItems.value.length} items exported successfully`;
+		} else {
+			// 没有选中数据时，按当前搜索条件导出
+			exportParams = {
+				...omitBy(
+					pick(searchParams, [
+						'leadId',
+						'leadName', 
+						'lifeCycleStageName',
+						'currentStageId',
+						'updatedBy',
+						'priority',
+						'workFlowId',
+					]),
+					(value) => isNil(value) || value === ''
+				),
+				pageSize: 10000, // 大页面以确保获取所有匹配的数据
+			};
+			exportMessage = 'Filtered data exported successfully';
+		}
+
 		// 调用导出接口
-		const response = await exportOnboarding();
+		const response = await exportOnboarding(exportParams);
 
 		// 创建下载链接
 		const blob = new Blob([response], {
@@ -885,13 +918,14 @@ const handleExport = async () => {
 		const link = document.createElement('a');
 		link.href = url;
 
-		// 设置文件名，包含时间戳
+		// 设置文件名，包含时间戳和导出类型
 		const timestamp = new Date()
 			.toISOString()
 			.slice(0, 19)
 			.replace(/[-:]/g, '')
 			.replace('T', '_');
-		link.download = `Onboarding_List_${timestamp}.xlsx`;
+		const fileNameSuffix = selectedItems.value.length > 0 ? 'Selected' : 'Filtered';
+		link.download = `Onboarding_List_${fileNameSuffix}_${timestamp}.xlsx`;
 
 		// 触发下载
 		document.body.appendChild(link);
@@ -899,7 +933,7 @@ const handleExport = async () => {
 		document.body.removeChild(link);
 		window.URL.revokeObjectURL(url);
 
-		ElMessage.success('Export completed successfully');
+		ElMessage.success(exportMessage);
 	} finally {
 		loading.value = false;
 	}

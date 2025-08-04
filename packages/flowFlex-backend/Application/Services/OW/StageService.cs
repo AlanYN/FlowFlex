@@ -564,7 +564,7 @@ namespace FlowFlex.Application.Service.OW
                     Details = log.ExtendedData ?? string.Empty,
                     OperatedBy = log.OperatorName,
                     OperatedTime = log.OperationTime,
-                    OperatedTimeDisplay = log.OperationTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    OperatedTimeDisplay = log.OperationTime.ToString("MM/dd/yyyy HH:mm:ss"),
                     Result = log.OperationStatus,
                     LogTypeTag = log.OperationType
                 }).ToList(),

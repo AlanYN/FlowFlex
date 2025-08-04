@@ -900,7 +900,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     action = action, // "created", "modified"
                     user = user,
-                    timestamp = time.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    timestamp = time.ToString("MM/dd/yyyy HH:mm:ss.fff"),
                     timestampUtc = time.UtcDateTime
                 };
 
@@ -928,7 +928,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // 添加最后修改信息（用于快速访问）
                 responseObj["lastModifiedBy"] = user;
-                responseObj["lastModifiedAt"] = time.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+                responseObj["lastModifiedAt"] = time.ToString("MM/dd/yyyy HH:mm:ss.fff");
             }
             catch (Exception ex)
             {

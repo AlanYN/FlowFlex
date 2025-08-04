@@ -2814,34 +2814,32 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
-                Id = item.Id.ToString(),
+                Id = item.LeadId,
                 CompanyName = item.LeadName,
                 LifeCycleStage = item.LifeCycleStageName,
+                WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                StartDate = item.StartDate?.ToString("yyyy-MM-dd") ?? "",
-                Eta = item.EstimatedCompletionDate?.ToString("yyyy-MM-dd") ?? "",
                 Priority = item.Priority,
-                Progress = (int)item.CompletionRate
+                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                UpdatedBy = item.ModifyBy,
+                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
 
             // Generate CSV content
             var csvContent = new StringBuilder();
-            csvContent.AppendLine("id,companyName,lifeCycleStage,onboardStage,updatedBy,updateTime,startDate,eta,priority,progress");
+            csvContent.AppendLine("Lead ID,Company/Contact Name,Life Cycle Stage,Onboard Workflow,Onboard Stage,Priority,Timeline,Updated By,Update Time");
 
             foreach (var item in exportData)
             {
-                csvContent.AppendLine($"{item.Id}," +
+                csvContent.AppendLine($"\"{item.Id}\"," +
                     $"\"{item.CompanyName?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.LifeCycleStage?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.WorkFlow?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.OnboardStage?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.UpdatedBy?.Replace("\"", "\"\"")}\"," +
-                    $"{item.UpdateTime:yyyy-MM-dd HH:mm:ss}," +
-                    $"\"{item.StartDate}\"," +
-                    $"\"{item.Eta}\"," +
                     $"\"{item.Priority?.Replace("\"", "\"\"")}\"," +
-                    $"{item.Progress}");
+                    $"\"{item.Timeline?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.UpdatedBy?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.UpdateTime}\"");
             }
 
             // Convert to stream
@@ -2861,17 +2859,15 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
-                Id = item.Id.ToString(),
+                Id = item.LeadId,
                 CompanyName = item.LeadName,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                StartDate = item.StartDate?.ToString("yyyy-MM-dd") ?? "",
-                Eta = item.EstimatedCompletionDate?.ToString("yyyy-MM-dd") ?? "",
                 Priority = item.Priority,
-                Progress = (int)item.CompletionRate
+                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                UpdatedBy = item.ModifyBy,
+                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
 
             // Use EPPlus to generate Excel file (avoid NPOI version conflict)
@@ -2889,8 +2885,8 @@ namespace FlowFlex.Application.Services.OW
             // Set headers
             var headers = new[]
             {
-                "ID", "Company Name", "Life Cycle Stage", "Work Flow", "Onboard Stage",
-                "Updated By", "Update Time", "Start Date", "ETA", "Priority", "Progress"
+                "Lead ID", "Company/Contact Name", "Life Cycle Stage", "Onboard Workflow", "Onboard Stage",
+                "Priority", "Timeline", "Updated By", "Update Time"
             };
 
             for (int i = 0; i < headers.Length; i++)
@@ -2908,12 +2904,10 @@ namespace FlowFlex.Application.Services.OW
                 worksheet.Cells[row + 2, 3].Value = item.LifeCycleStage;
                 worksheet.Cells[row + 2, 4].Value = item.WorkFlow;
                 worksheet.Cells[row + 2, 5].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 6].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 7].Value = item.UpdateTime;
-                worksheet.Cells[row + 2, 8].Value = item.StartDate;
-                worksheet.Cells[row + 2, 9].Value = item.Eta;
-                worksheet.Cells[row + 2, 10].Value = item.Priority;
-                worksheet.Cells[row + 2, 11].Value = item.Progress;
+                worksheet.Cells[row + 2, 6].Value = item.Priority;
+                worksheet.Cells[row + 2, 7].Value = item.Timeline;
+                worksheet.Cells[row + 2, 8].Value = item.UpdatedBy;
+                worksheet.Cells[row + 2, 9].Value = item.UpdateTime;
             }
 
             // Auto-fit columns

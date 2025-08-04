@@ -688,7 +688,19 @@ const saveWorkflow = async () => {
 
 const formatDate = (dateString) => {
 	if (!dateString) return '';
-	return new Date(dateString).toLocaleDateString();
+	try {
+		const date = new Date(dateString);
+		if (isNaN(date.getTime())) {
+			return String(dateString);
+		}
+		// Format as MM/dd/yyyy (US format)
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		return `${month}/${day}/${year}`;
+	} catch {
+		return String(dateString);
+	}
 };
 
 const getPriorityType = (priority) => {

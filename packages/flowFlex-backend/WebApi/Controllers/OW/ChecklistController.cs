@@ -164,7 +164,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportToPdf(long id)
         {
             var stream = await _checklistService.ExportToPdfAsync(id);
-            var fileName = $"checklist_{id}_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.pdf";
+            var fileName = $"checklist_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.pdf";
             return File(stream, "application/pdf", fileName);
         }
 

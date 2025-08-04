@@ -229,17 +229,17 @@ const formatDate = (dateString: string) => {
 
 	try {
 		const date = new Date(dateString);
-		// 格式化为 YYYY-MM-DD HH:mm
-		return date
-			.toLocaleString('zh-CN', {
-				year: 'numeric',
-				month: '2-digit',
-				day: '2-digit',
-				hour: '2-digit',
-				minute: '2-digit',
-				hour12: false,
-			})
-			.replace(/\//g, '-');
+		if (isNaN(date.getTime())) {
+			return dateString;
+		}
+		// Format as MM/dd/yyyy HH:mm:ss (US format)
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
 	} catch (error) {
 		console.error('Error formatting date:', error);
 		return dateString;

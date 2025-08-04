@@ -239,7 +239,7 @@ namespace FlowFlex.Application.Services.OW
                             <p><strong>Account Details:</strong></p>
                             <ul>
                                 <li>Email: {to}</li>
-                                <li>Reset Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss} UTC</li>
+                                <li>Reset Time: {DateTime.Now:MM/dd/yyyy HH:mm:ss} UTC</li>
                             </ul>
                             
                             <p>You can now log in to the Customer Portal using your new password.</p>

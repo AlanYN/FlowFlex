@@ -506,7 +506,7 @@ import {
 } from '@element-plus/icons-vue';
 
 import StarIcon from '@assets/svg/workflow/star.svg';
-import { timeZoneConvert } from '@/hooks/time';
+import { timeZoneConvert, formatDateUSOnly } from '@/hooks/time';
 import { projectDate, dialogWidth, bigDialogWidth } from '@/settings/projectSetting';
 import { useI18n } from '@/hooks/useI18n';
 
@@ -705,7 +705,7 @@ const fetchStages = async (workflowId: string | number) => {
 
 // 方法
 const formatDate = (date: string) => {
-	return timeZoneConvert(date, false, projectDate);
+	return formatDateUSOnly(date);
 };
 
 const showNewWorkflowDialog = () => {
