@@ -61,6 +61,7 @@ namespace FlowFlex.Application.Services.OW
                             <div class='code'>{verificationCode}</div>
                             <p>This verification code is valid for {_emailOptions.VerificationCodeExpiryMinutes} minutes. Please complete the verification as soon as possible.</p>
                             <p>If you did not request this verification code, please ignore this email.</p>
+                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
@@ -110,7 +111,7 @@ namespace FlowFlex.Application.Services.OW
                             <p>Dear {username},</p>
                             <p>Welcome to ITEM WFE! Your email has been successfully verified.</p>
                             <p>You can now log in to the system using your email and password.</p>
-                            <p>If you have any questions, please feel free to contact our support team.</p>
+                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
@@ -180,8 +181,8 @@ namespace FlowFlex.Application.Services.OW
                             
                             <p><strong>Note:</strong> This invitation link is secure and will require email verification before granting access.</p>
                             
-                            <p>If you have any questions, please don't hesitate to contact our support team.</p>
                             <p>Thank you for choosing ITEM WFE!</p>
+                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
@@ -251,8 +252,8 @@ namespace FlowFlex.Application.Services.OW
                                 <li>We recommend using a strong, unique password</li>
                             </ul>
                             
-                            <p>If you have any questions or concerns, please contact our support team.</p>
                             <p>Thank you for using ITEM WFE!</p>
+                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>

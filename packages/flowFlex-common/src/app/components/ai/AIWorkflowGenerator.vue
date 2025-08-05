@@ -131,10 +131,7 @@
 									</div>
 									<div class="stages-grid">
 										<div
-											v-for="(stage, index) in currentWorkflow.stages.slice(
-												0,
-												6
-											)"
+											v-for="(stage, index) in currentWorkflow.stages"
 											:key="index"
 											class="stage-card"
 											:style="{ animationDelay: index * 0.1 + 's' }"
@@ -158,19 +155,6 @@
 														{{ stage.estimatedDuration || 1 }}d
 													</span>
 												</div>
-											</div>
-										</div>
-									</div>
-									<div
-										v-if="currentWorkflow.stages.length > 6"
-										class="more-stages-indicator"
-									>
-										<div class="more-stages-card">
-											<div class="more-icon">
-												<el-icon><More /></el-icon>
-											</div>
-											<div class="more-text">
-												+{{ currentWorkflow.stages.length - 6 }} more stages
 											</div>
 										</div>
 									</div>
@@ -630,7 +614,6 @@ import {
 	Setting,
 	List,
 	Clock,
-	More,
 	DocumentAdd,
 	Menu,
 	ChatDotRound,
@@ -1631,22 +1614,6 @@ watch(operationMode, (newMode) => {
 .stage-team,
 .stage-duration {
 	@apply flex items-center text-gray-500;
-}
-
-.more-stages-indicator {
-	@apply mt-4;
-}
-
-.more-stages-card {
-	@apply flex items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-gray-500;
-}
-
-.more-icon {
-	@apply mr-2 text-xl;
-}
-
-.more-text {
-	@apply font-medium;
 }
 
 /* Enhanced No Stages Display */

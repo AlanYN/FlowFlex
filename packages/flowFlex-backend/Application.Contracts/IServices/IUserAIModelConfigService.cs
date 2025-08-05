@@ -7,20 +7,21 @@ namespace FlowFlex.Application.Contracts.IServices
 {
     /// <summary>
     /// AI模型配置服务接口
+    /// 基于租户隔离，不再依赖用户ID进行数据隔离
     /// </summary>
     public interface IAIModelConfigService : IScopedService
     {
         /// <summary>
-        /// 获取用户的所有AI模型配置
+        /// 获取当前租户的所有AI模型配置
         /// </summary>
-        /// <param name="userId">用户ID</param>
+        /// <param name="userId">用户ID（保留兼容性，实际使用租户隔离）</param>
         /// <returns>AI模型配置列表</returns>
         Task<List<AIModelConfig>> GetUserAIModelConfigsAsync(long userId);
 
         /// <summary>
-        /// 获取用户的默认AI模型配置
+        /// 获取当前租户的默认AI模型配置
         /// </summary>
-        /// <param name="userId">用户ID</param>
+        /// <param name="userId">用户ID（保留兼容性，实际使用租户隔离）</param>
         /// <returns>默认AI模型配置</returns>
         Task<AIModelConfig> GetUserDefaultConfigAsync(long userId);
 

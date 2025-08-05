@@ -33,7 +33,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 获取当前用户的所有AI模型配置
+        /// 获取当前租户的所有AI模型配置
         /// </summary>
         /// <returns>AI模型配置列表</returns>
         [HttpGet("models")]
@@ -44,19 +44,20 @@ namespace FlowFlex.WebApi.Controllers.AI
             try
             {
                 // 使用租户隔离查询，只返回当前租户的配置
-                var userId = GetCurrentUserId();
+                // 服务层通过UserContext自动获取租户信息，不再依赖用户ID
+                var userId = GetCurrentUserId(); // 保留用于兼容性，但服务层实际使用租户隔离
                 var configs = await _configService.GetUserAIModelConfigsAsync(userId);
                 return Success(configs);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to get user AI model configurations");
+                _logger.LogError(ex, "Failed to get tenant AI model configurations");
                 return BadRequest("Failed to get AI model configurations");
             }
         }
 
         /// <summary>
-        /// 获取当前用户的默认AI模型配置
+        /// 获取当前租户的默认AI模型配置
         /// </summary>
         /// <returns>默认AI模型配置</returns>
         [HttpGet("models/default")]
@@ -67,7 +68,8 @@ namespace FlowFlex.WebApi.Controllers.AI
             try
             {
                 // 使用租户隔离查询，只返回当前租户的默认配置
-                var userId = GetCurrentUserId();
+                // 服务层通过UserContext自动获取租户信息，不再依赖用户ID
+                var userId = GetCurrentUserId(); // 保留用于兼容性，但服务层实际使用租户隔离
                 var config = await _configService.GetUserDefaultConfigAsync(userId);
                 if (config == null)
                 {
@@ -77,7 +79,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to get user default AI model configuration");
+                _logger.LogError(ex, "Failed to get tenant default AI model configuration");
                 return BadRequest("Failed to get default AI model configuration");
             }
         }
@@ -94,8 +96,9 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             try
             {
-                // 使用租户隔离，UserContext会自动处理用户ID和租户信息
-                config.UserId = GetCurrentUserId();
+                // 使用租户隔离，UserContext会自动处理租户信息
+                // 服务层会从UserContext自动获取TenantId和AppCode
+                config.UserId = GetCurrentUserId(); // 保留用于审计追踪
                 var id = await _configService.CreateConfigAsync(config);
                 return Success(id);
             }
@@ -190,6 +193,18 @@ namespace FlowFlex.WebApi.Controllers.AI
             try
             {
                 var result = await _configService.TestConnectionAsync(config);
+                
+                // 如果有配置ID，获取更新后的配置状态返回给前端
+                if (config.Id > 0)
+                {
+                    var updatedConfig = await _configService.GetConfigByIdAsync(config.Id);
+                    if (updatedConfig != null)
+                    {
+                        _logger.LogInformation("After test, config ID: {ConfigId} isAvailable: {IsAvailable}", 
+                            config.Id, updatedConfig.IsAvailable);
+                    }
+                }
+                
                 return Success(result);
             }
             catch (Exception ex)
@@ -200,9 +215,9 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 获取支持的AI提供商列表
+        /// Get supported AI providers list
         /// </summary>
-        /// <returns>AI提供商列表</returns>
+        /// <returns>AI providers list</returns>
         [HttpGet("providers")]
         [ProducesResponseType<SuccessResponse<List<AIProviderInfo>>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -214,39 +229,93 @@ namespace FlowFlex.WebApi.Controllers.AI
                 {
                     new AIProviderInfo
                     {
-                        Name = "zhipuai",
-                        DisplayName = "智谱AI",
-                        Icon = "🤖",
-                        Description = "智谱AI GLM系列大模型，支持文本生成、对话问答等功能。BaseURL示例：https://open.bigmodel.cn/api/paas/v4",
-                        Website = "https://zhipuai.cn",
-                        SupportedModels = new[] { "glm-4", "glm-4v", "glm-3-turbo" }
-                    },
-                    new AIProviderInfo
-                    {
                         Name = "openai",
                         DisplayName = "OpenAI",
                         Icon = "🚀",
-                        Description = "OpenAI GPT系列模型，业界领先的大语言模型。BaseURL示例：https://api.openai.com",
+                        Description = "Industry-leading large language models from OpenAI, including GPT-4 and GPT-3.5. BaseURL example: https://api.openai.com/v1",
                         Website = "https://openai.com",
-                        SupportedModels = new[] { "gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4o", "gpt-4o-mini" }
+                        SupportedModels = new[] { "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo" }
                     },
                     new AIProviderInfo
                     {
                         Name = "claude",
-                        DisplayName = "Claude",
+                        DisplayName = "Claude (Anthropic)",
                         Icon = "🎭",
-                        Description = "Anthropic Claude系列模型，注重安全和有用性。BaseURL示例：https://api.anthropic.com",
+                        Description = "Advanced AI models by Anthropic, focusing on safety and helpfulness. BaseURL example: https://api.anthropic.com",
                         Website = "https://claude.ai",
-                        SupportedModels = new[] { "claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307" }
+                        SupportedModels = new[] { "claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307", "claude-3-5-sonnet-20241022" }
+                    },
+                    new AIProviderInfo
+                    {
+                        Name = "zhipuai",
+                        DisplayName = "ZhipuAI (GLM)",
+                        Icon = "🤖",
+                        Description = "Chinese AI models from ZhipuAI, supporting text generation and conversation. BaseURL example: https://open.bigmodel.cn/api/paas/v4",
+                        Website = "https://zhipuai.cn",
+                        SupportedModels = new[] { "glm-4", "glm-4v", "glm-4-plus", "glm-3-turbo" }
                     },
                     new AIProviderInfo
                     {
                         Name = "deepseek",
                         DisplayName = "DeepSeek",
                         Icon = "🔍",
-                        Description = "DeepSeek系列模型，专注于代码生成和数学推理。BaseURL示例：https://api.deepseek.com",
+                        Description = "Specialized in code generation and mathematical reasoning. BaseURL example: https://api.deepseek.com/v1",
                         Website = "https://deepseek.com",
                         SupportedModels = new[] { "deepseek-chat", "deepseek-coder", "deepseek-math" }
+                    },
+                    new AIProviderInfo
+                    {
+                        Name = "gemini",
+                        DisplayName = "Google Gemini (coming soon)",
+                        Icon = "💎",
+                        Description = "Google's multimodal AI models with advanced reasoning capabilities. BaseURL example: https://generativelanguage.googleapis.com/v1beta",
+                        Website = "https://ai.google.dev",
+                        SupportedModels = new[] { "gemini-pro", "gemini-pro-vision", "gemini-ultra (coming soon)" }
+                    },
+                    new AIProviderInfo
+                    {
+                        Name = "mistral",
+                        DisplayName = "Mistral AI (coming soon)",
+                        Icon = "🌪️",
+                        Description = "European AI company providing efficient and powerful language models. BaseURL example: https://api.mistral.ai/v1",
+                        Website = "https://mistral.ai",
+                        SupportedModels = new[] { "mistral-large", "mistral-medium", "mistral-small (coming soon)" }
+                    },
+                    new AIProviderInfo
+                    {
+                        Name = "cohere",
+                        DisplayName = "Cohere (coming soon)",
+                        Icon = "🧠",
+                        Description = "Enterprise-focused language models with strong multilingual capabilities. BaseURL example: https://api.cohere.ai/v1",
+                        Website = "https://cohere.com",
+                        SupportedModels = new[] { "command", "command-light", "command-nightly (coming soon)" }
+                    },
+                    new AIProviderInfo
+                    {
+                        Name = "qwen",
+                        DisplayName = "Alibaba Qwen (coming soon)",
+                        Icon = "☁️",
+                        Description = "Alibaba's Qwen series models with strong Chinese and English capabilities. BaseURL example: https://dashscope.aliyuncs.com/api/v1",
+                        Website = "https://tongyi.aliyun.com",
+                        SupportedModels = new[] { "qwen-turbo", "qwen-plus", "qwen-max (coming soon)" }
+                    },
+                    new AIProviderInfo
+                    {
+                        Name = "baidu",
+                        DisplayName = "Baidu ERNIE (coming soon)",
+                        Icon = "🐻",
+                        Description = "Baidu's ERNIE series models optimized for Chinese language understanding. BaseURL example: https://aip.baidubce.com/rpc/2.0/ai_custom/v1",
+                        Website = "https://cloud.baidu.com/product/wenxinworkshop",
+                        SupportedModels = new[] { "ernie-bot", "ernie-bot-turbo", "ernie-bot-4 (coming soon)" }
+                    },
+                    new AIProviderInfo
+                    {
+                        Name = "moonshot",
+                        DisplayName = "Moonshot AI (coming soon)",
+                        Icon = "🌙",
+                        Description = "Kimi models with exceptional long-context capabilities up to 2M tokens. BaseURL example: https://api.moonshot.cn/v1",
+                        Website = "https://kimi.moonshot.cn",
+                        SupportedModels = new[] { "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k (coming soon)" }
                     }
                 };
 
