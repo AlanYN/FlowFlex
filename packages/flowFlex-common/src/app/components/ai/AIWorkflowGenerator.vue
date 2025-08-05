@@ -272,7 +272,7 @@
 								type="textarea"
 								:rows="3"
 								placeholder="Type your response here..."
-								@keydown.enter.prevent="handleEnterKey"
+								@keydown.enter="handleEnterKey"
 								class="conversation-textarea"
 								:disabled="aiTyping"
 								resize="none"
@@ -984,9 +984,11 @@ const enhancedAISimulation = async (userMessage: string) => {
 
 const handleEnterKey = (event) => {
 	if (event.shiftKey) {
-		// Allow shift+enter for new lines
+		// Allow shift+enter for new lines - don't prevent default
 		return;
 	}
+	// Prevent default for regular Enter (send message)
+	event.preventDefault();
 	sendMessage();
 };
 
@@ -1669,16 +1671,46 @@ watch(operationMode, (newMode) => {
 	@apply w-full mb-4;
 }
 
+.workflow-select :deep(.el-input__inner) {
+	font-size: 13px !important;
+	padding: 8px 12px !important;
+	line-height: 1.4 !important;
+}
+
+.workflow-select :deep(.el-select__placeholder) {
+	font-size: 13px !important;
+}
+
 .workflow-option-content {
 	@apply py-2;
 }
 
 .workflow-name {
 	@apply font-medium text-gray-800;
+	font-size: 13px !important;
 }
 
 .workflow-meta {
-	@apply flex items-center gap-3 text-sm text-gray-600 mt-1;
+	@apply flex items-center gap-3 text-gray-600 mt-1;
+	font-size: 11px !important;
+}
+
+/* Dropdown option styling */
+:deep(.el-select-dropdown .el-select-dropdown__item) {
+	padding: 8px 12px !important;
+	line-height: 1.3 !important;
+	min-height: auto !important;
+}
+
+:deep(.workflow-option .workflow-name) {
+	font-size: 13px !important;
+	font-weight: 500 !important;
+	line-height: 1.4 !important;
+}
+
+:deep(.workflow-option .workflow-meta) {
+	font-size: 11px !important;
+	margin-top: 3px !important;
 }
 
 /* Enhanced Current Workflow Preview */
@@ -2568,7 +2600,7 @@ watch(operationMode, (newMode) => {
 			rgba(241, 245, 249, 0.9) 100%
 		);
 	position: relative;
-	z-index: 9999998;
+	z-index: 1199;
 	backdrop-filter: blur(20px);
 	border-radius: 0 0 24px 24px;
 	box-shadow: 
@@ -2587,7 +2619,7 @@ watch(operationMode, (newMode) => {
 
 .ai-model-selector-bottom .el-select {
 	position: relative;
-	z-index: 9999998;
+	z-index: 1199;
 }
 
 /* Conversation Input Area Styles - Enhanced */
@@ -3136,7 +3168,7 @@ watch(operationMode, (newMode) => {
 	min-width: 320px !important;
 	width: auto !important;
 	max-width: none !important;
-	z-index: 9999999 !important;
+	z-index: 1200 !important;
 	position: fixed !important;
 }
 
@@ -3145,17 +3177,17 @@ watch(operationMode, (newMode) => {
 }
 
 :deep(.el-popper) {
-	z-index: 9999999 !important;
+	z-index: 1200 !important;
 	position: relative !important;
 }
 
 :deep(.el-select-dropdown) {
-	z-index: 9999999 !important;
+	z-index: 1200 !important;
 	position: relative !important;
 }
 
 :deep(.el-select__popper) {
-	z-index: 9999999 !important;
+	z-index: 1200 !important;
 	position: relative !important;
 }
 

@@ -509,20 +509,22 @@ onMounted(async () => {
 
 <style scoped>
 .ai-config-page {
-	padding: 24px;
-	max-width: 1400px;
-	margin: 0 auto;
+	padding: 16px 24px;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .page-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 24px;
-	padding: 24px;
+	margin-bottom: 20px;
+	padding: 20px 32px;
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 	color: white;
 	border-radius: 12px;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .header-content h1 {
@@ -540,8 +542,19 @@ onMounted(async () => {
 .models-table {
 	background: white;
 	border-radius: 12px;
-	padding: 24px;
+	padding: 20px;
 	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* 表格容器优化 */
+.models-table :deep(.el-table) {
+	width: 100%;
+}
+
+.models-table :deep(.el-table__body-wrapper) {
+	width: 100%;
 }
 
 .action-buttons {
@@ -554,11 +567,11 @@ onMounted(async () => {
 
 .action-buttons .el-button {
 	font-size: 11px;
-	padding: 2px 6px;
+	padding: 4px 8px;
 	white-space: nowrap;
 	flex-shrink: 0;
 	min-width: auto;
-	height: 24px;
+	height: 28px;
 	line-height: 1.2;
 }
 
@@ -567,7 +580,22 @@ onMounted(async () => {
 	opacity: 0.5;
 }
 
-/* 当Actions列宽度不够时的响应式处理 */
+/* 响应式设计优化 */
+@media (max-width: 1400px) {
+	.ai-config-page {
+		padding: 12px 16px;
+	}
+	
+	.page-header {
+		padding: 16px 24px;
+		margin-bottom: 16px;
+	}
+	
+	.models-table {
+		padding: 16px;
+	}
+}
+
 @media (max-width: 1200px) {
 	.action-buttons {
 		gap: 4px;
@@ -575,7 +603,41 @@ onMounted(async () => {
 	
 	.action-buttons .el-button {
 		font-size: 10px;
+		padding: 2px 6px;
+		height: 24px;
+	}
+}
+
+@media (max-width: 768px) {
+	.ai-config-page {
+		padding: 8px 12px;
+	}
+	
+	.page-header {
+		flex-direction: column;
+		gap: 16px;
+		text-align: center;
+		padding: 16px;
+	}
+	
+	.header-content h1 {
+		font-size: 24px;
+	}
+	
+	.models-table {
+		padding: 12px;
+		overflow-x: auto;
+	}
+	
+	.action-buttons {
+		flex-wrap: wrap;
+		gap: 2px;
+	}
+	
+	.action-buttons .el-button {
+		font-size: 9px;
 		padding: 1px 4px;
+		height: 20px;
 	}
 }
 
@@ -589,5 +651,40 @@ onMounted(async () => {
 
 .el-slider {
 	width: 100%;
+}
+
+/* 对话框优化 */
+:deep(.el-dialog) {
+	max-width: 90vw;
+	margin: 5vh auto;
+}
+
+:deep(.el-dialog__body) {
+	padding: 20px;
+}
+
+/* 表单优化 */
+:deep(.el-form-item) {
+	margin-bottom: 18px;
+}
+
+:deep(.el-form-item__label) {
+	font-weight: 500;
+}
+
+/* 表格样式优化 */
+:deep(.el-table) {
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+:deep(.el-table th) {
+	background-color: #f8fafc;
+	font-weight: 600;
+	color: #374151;
+}
+
+:deep(.el-table tr:hover > td) {
+	background-color: #f9fafb;
 }
 </style> 

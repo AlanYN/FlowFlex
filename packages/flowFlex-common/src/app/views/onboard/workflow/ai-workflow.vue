@@ -389,8 +389,11 @@
 			width="60%"
 			:close-on-click-modal="false"
 			top="5vh"
+			class="ai-config-dialog"
 		>
-			<AIModelConfig />
+			<div class="ai-config-container">
+				<AIModelConfig />
+			</div>
 		</el-dialog>
 
 	</div>
@@ -1384,21 +1387,32 @@ onMounted(() => {
 }
 
 /* AI Model Config Dialog Styles */
-.ai-model-config-dialog .el-dialog__header {
+.ai-config-dialog {
+	max-height: 85vh;
+}
+
+.ai-config-dialog .el-dialog__header {
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 	color: white;
 	padding: 1.5rem;
 	border-radius: 12px 12px 0 0;
 }
 
-.ai-model-config-dialog .el-dialog__header .el-dialog__title {
+.ai-config-dialog .el-dialog__header .el-dialog__title {
 	font-size: 1.5rem;
 	font-weight: 700;
 	color: white;
 }
 
-.ai-model-config-dialog .el-dialog__body {
+.ai-config-dialog .el-dialog__body {
 	padding: 0;
 	background: #f8fafc;
+	max-height: 70vh;
+	overflow-y: auto;
+}
+
+.ai-config-container {
+	height: auto;
+	min-height: fit-content;
 }
 </style> 
