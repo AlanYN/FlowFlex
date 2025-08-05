@@ -50,7 +50,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 记录请求头信息（用于调试）
+        /// 记录请求头信息（用于test）
         /// </summary>
         private void LogRequestHeaders()
         {
