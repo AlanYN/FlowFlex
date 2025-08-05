@@ -94,14 +94,18 @@
 							v-if="questionnaire.totalQuestions"
 							class="flex items-center text-gray-600"
 						>
-							<el-icon class="mr-1"><Document /></el-icon>
+							<el-icon class="mr-1">
+								<Document />
+							</el-icon>
 							{{ questionnaire.totalQuestions }} items
 						</div>
 						<div
 							v-if="questionnaire.requiredQuestions"
 							class="flex items-center text-red-500"
 						>
-							<el-icon class="mr-1"><Star /></el-icon>
+							<el-icon class="mr-1">
+								<Star />
+							</el-icon>
 							{{ questionnaire.requiredQuestions }} required
 						</div>
 					</div>
@@ -177,7 +181,9 @@
 								v-if="getFieldError(sectionIndex, itemIndex)"
 								class="text-red-500 text-sm mb-2 flex items-center"
 							>
-								<el-icon class="mr-1"><Warning /></el-icon>
+								<el-icon class="mr-1">
+									<Warning />
+								</el-icon>
 								{{ getFieldError(sectionIndex, itemIndex) }}
 							</div>
 							<!-- 短文本输入 -->
@@ -302,6 +308,7 @@
 								v-else-if="item.type === 'date'"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								type="date"
+								:format="projectDate"
 								:placeholder="item.placeholder || 'Select date'"
 								class="preview-date w-full"
 							/>
@@ -312,15 +319,6 @@
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								:placeholder="item.placeholder || 'Select time'"
 								class="preview-time w-full"
-							/>
-
-							<!-- 日期时间选择 -->
-							<el-date-picker
-								v-else-if="item.type === 'datetime'"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								type="datetime"
-								:placeholder="item.placeholder || 'Select date and time'"
-								class="preview-datetime w-full"
 							/>
 
 							<!-- 评分 -->
@@ -364,7 +362,9 @@
 									:accept="item.accept"
 									class="upload-demo w-full"
 								>
-									<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
+									<el-icon class="el-icon--upload text-4xl">
+										<Upload />
+									</el-icon>
 									<div class="el-upload__text">
 										Drop file here or
 										<em>click to select</em>
@@ -526,7 +526,9 @@
 									v-else
 									class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
 								>
-									<el-icon class="mr-2"><Warning /></el-icon>
+									<el-icon class="mr-2">
+										<Warning />
+									</el-icon>
 									Multiple choice grid: No options, columns or rows data available
 								</div>
 							</div>
@@ -634,7 +636,9 @@
 									v-else
 									class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
 								>
-									<el-icon class="mr-2"><Warning /></el-icon>
+									<el-icon class="mr-2">
+										<Warning />
+									</el-icon>
 									Checkbox grid: No rows or columns data available
 									<div class="text-xs mt-1">
 										Rows: {{ item.rows?.length || 0 }}, Columns:
@@ -662,7 +666,9 @@
 								v-else
 								class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
 							>
-								<el-icon class="mr-2"><Warning /></el-icon>
+								<el-icon class="mr-2">
+									<Warning />
+								</el-icon>
 								Unsupported question type: {{ item.type }}
 							</div>
 						</div>
@@ -673,7 +679,9 @@
 
 		<!-- 空状态 -->
 		<div v-else class="text-center py-12">
-			<el-icon class="text-6xl text-gray-400 mb-4"><Document /></el-icon>
+			<el-icon class="text-6xl text-gray-400 mb-4">
+				<Document />
+			</el-icon>
 			<p class="text-gray-500 text-lg">No data available</p>
 			<p class="text-gray-400 text-sm mt-2">
 				The questionnaire may not exist or failed to load
@@ -685,6 +693,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Document, Upload, Loading, Star, Warning } from '@element-plus/icons-vue';
+import { projectDate } from '@/settings/projectSetting';
 import { Workflow } from '#/onboard';
 
 import IconStar from '~icons/mdi/star';
@@ -1213,9 +1222,12 @@ const getSelectedVoidIcon = (iconType: string) => {
 .assignment-tag {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
-	max-width: 300px; /* 固定宽度 */
-	flex-shrink: 0; /* 防止收缩 */
-	padding-right: 8px; /* 增加右边距 */
+	max-width: 300px;
+	/* 固定宽度 */
+	flex-shrink: 0;
+	/* 防止收缩 */
+	padding-right: 8px;
+	/* 增加右边距 */
 }
 
 .assignment-tag:hover {
@@ -1225,12 +1237,16 @@ const getSelectedVoidIcon = (iconType: string) => {
 .assignment-tag-more {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
-	width: 40px; /* 固定宽度 */
+	width: 40px;
+	/* 固定宽度 */
 	overflow: hidden;
 	text-overflow: ellipsis;
-	justify-content: center; /* 文本居中 */
-	flex-shrink: 0; /* 防止收缩 */
-	margin-right: 8px; /* 增加右边距 */
+	justify-content: center;
+	/* 文本居中 */
+	flex-shrink: 0;
+	/* 防止收缩 */
+	margin-right: 8px;
+	/* 增加右边距 */
 }
 
 .assignment-tag-more:hover {
@@ -1254,11 +1270,14 @@ const getSelectedVoidIcon = (iconType: string) => {
 .popover-tag {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
-	width: 150px; /* 与主要标签保持一致的固定宽度 */
+	width: 150px;
+	/* 与主要标签保持一致的固定宽度 */
 	overflow: hidden;
 	text-overflow: ellipsis;
-	justify-content: flex-start; /* 左对齐显示，优先显示workflow */
-	flex-shrink: 0; /* 防止收缩 */
+	justify-content: flex-start;
+	/* 左对齐显示，优先显示workflow */
+	flex-shrink: 0;
+	/* 防止收缩 */
 }
 
 .popover-tag:hover {

@@ -179,6 +179,7 @@
 							type="date"
 							:placeholder="'Select date'"
 							class="w-full"
+							:format="projectDate"
 							@change="handleInputChange(question.id, $event)"
 						/>
 
@@ -190,17 +191,6 @@
 							class="w-full"
 							@change="handleInputChange(question.id, $event)"
 						/>
-
-						<!-- 日期时间选择 -->
-						<el-date-picker
-							v-else-if="question.type === 'datetime'"
-							v-model="formData[question.id]"
-							type="datetime"
-							:placeholder="'Select date and time'"
-							class="w-full"
-							@change="handleInputChange(question.id, $event)"
-						/>
-
 						<!-- 评分 -->
 						<div
 							v-else-if="question.type === 'rating'"
@@ -498,6 +488,7 @@ import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/i
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 import { ElNotification } from 'element-plus';
+import { projectDate } from '@/settings/projectSetting';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
