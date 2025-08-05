@@ -11,95 +11,111 @@
 		>
 			<template #item="{ element: item, index }">
 				<div class="question-item flex">
-					<div class="drag-handle">
-						<DragIcon class="drag-icon" />
-					</div>
-					<div class="flex-1">
-						<div class="question-header">
-							<div class="question-left">
-								<div class="question-info">
-									<div class="flex items-center gap-2 truncate">
-										{{ currentSectionIndex + 1 }}.{{ index + 1 }}.
-										<el-tag size="small" class="card-tag">
-											{{ getQuestionTypeName(item.type) }}
-										</el-tag>
-										<el-tag v-if="item.required" size="small" type="danger">
-											Required
-										</el-tag>
-									</div>
-									<div class="question-meta mt-2">
-										<div class="question-text">{{ item.question }}</div>
+					<template v-if="editingQuestionId === item.id">
+						<div class="w-full">
+							<QuestionEditor
+								:question-types="questionTypes"
+								:pressent-question-type="item.type"
+								:editing-question="editingQuestion"
+								:is-editing="true"
+								@update-question="handleUpdateQuestion"
+								@cancel-edit="cancelEditQuestion"
+							/>
+						</div>
+					</template>
+					<template v-else>
+						<div class="drag-handle">
+							<DragIcon class="drag-icon" />
+						</div>
+						<div class="flex-1">
+							<div class="question-header">
+								<div class="question-left">
+									<div class="question-info">
+										<div class="flex items-center gap-2 truncate">
+											{{ currentSectionIndex + 1 }}.{{ index + 1 }}.
+											<el-tag size="small" class="card-tag">
+												{{ getQuestionTypeName(item.type) }}
+											</el-tag>
+											<el-tag v-if="item.required" size="small" type="danger">
+												Required
+											</el-tag>
+										</div>
+										<div class="question-meta mt-2">
+											<div class="question-text">{{ item.question }}</div>
+										</div>
 									</div>
 								</div>
-							</div>
-							<div class="question-actions">
-								<el-dropdown
-									v-if="item.type === 'multiple_choice'"
-									placement="bottom"
-								>
-									<el-button :icon="More" link />
-									<template #dropdown>
-										<el-dropdown-menu>
-											<el-dropdown-item @click="openJumpRuleEditor(index)">
-												<div class="flex items-center gap-2">
-													<Icon
-														icon="mdi:transit-connection-variant"
-														class="drag-icon"
-													/>
-													<span class="text-xs">
-														Go to Section Based on Answer
-													</span>
-												</div>
-											</el-dropdown-item>
-										</el-dropdown-menu>
-									</template>
-								</el-dropdown>
-								<div class="flex">
+								<div class="question-actions">
+									<el-dropdown
+										v-if="item.type === 'multiple_choice'"
+										placement="bottom"
+									>
+										<el-button :icon="More" link />
+										<template #dropdown>
+											<el-dropdown-menu>
+												<el-dropdown-item
+													@click="openJumpRuleEditor(index)"
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="mdi:transit-connection-variant"
+															class="drag-icon"
+														/>
+														<span class="text-xs">
+															Go to Section Based on Answer
+														</span>
+													</div>
+												</el-dropdown-item>
+											</el-dropdown-menu>
+										</template>
+									</el-dropdown>
+									<div class="flex">
+										<el-button
+											type="primary"
+											link
+											@click="editQuestion(index)"
+											:icon="Edit"
+											class="edit-question-btn"
+										/>
+									</div>
 									<el-button
-										type="primary"
+										type="danger"
 										link
-										@click="editQuestion(index)"
-										:icon="Edit"
-										class="edit-question-btn"
+										@click="removeQuestion(index)"
+										:icon="Delete"
+										class="delete-question-btn"
 									/>
 								</div>
-								<el-button
-									type="danger"
-									link
-									@click="removeQuestion(index)"
-									:icon="Delete"
-									class="delete-question-btn"
-								/>
 							</div>
-						</div>
-						<div v-if="item.description" class="question-description mt-2">
-							{{ item.description }}
-						</div>
-						<div
-							v-if="item.options && item.options.length > 0"
-							class="question-options"
-						>
-							<div class="options-label">Options:</div>
-							<div class="options-list gap-y-2">
-								<div
-									v-for="(option, optionIndex) in item.options"
-									:key="option.id"
-									class="option-item"
-								>
-									<span class="option-number">{{ optionIndex + 1 }}.</span>
-									<el-tag v-if="option.isOther" type="warning">Other</el-tag>
-									<span v-else class="option-badge">{{ option.label }}</span>
-									<span
-										v-if="item.type === 'multiple_choice'"
-										class="jump-badge"
-										:class="getJumpTargetClass(item, option.id)"
+							<div v-if="item.description" class="question-description mt-2">
+								{{ item.description }}
+							</div>
+							<div
+								v-if="item.options && item.options.length > 0"
+								class="question-options"
+							>
+								<div class="options-label">Options:</div>
+								<div class="options-list gap-y-2">
+									<div
+										v-for="(option, optionIndex) in item.options"
+										:key="option.id"
+										class="option-item"
 									>
-										→ {{ getJumpTargetName(item, option.id) }}
-									</span>
+										<span class="option-number">{{ optionIndex + 1 }}.</span>
+										<el-tag v-if="option.isOther" type="warning">Other</el-tag>
+										<span v-else class="option-badge">{{ option.label }}</span>
+										<span
+											v-if="item.type === 'multiple_choice'"
+											class="jump-badge"
+											:class="getJumpTargetClass(item, option.id)"
+										>
+											→ {{ getJumpTargetName(item, option.id) }}
+										</span>
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
+					</template>
 				</div>
 			</template>
 		</draggable>
@@ -130,6 +146,7 @@ import { Delete, Document, Edit, More } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
+import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
 
 interface Question {
@@ -161,9 +178,12 @@ const props = defineProps<Props>();
 const emits = defineEmits<{
 	'remove-question': [index: number];
 	'drag-end': [questions: Question[]];
-	'edit-question': [index: number];
 	'update-jump-rules': [questionIndex: number, rules: JumpRule[]];
 }>();
+
+// 编辑状态管理 - 使用ID而不是索引
+const editingQuestionId = ref<string | null>(null);
+const editingQuestion = ref<Question | null>(null);
 
 // 跳转规则编辑器状态
 const jumpRuleEditorVisible = ref(false);
@@ -186,7 +206,26 @@ const removeQuestion = (index: number) => {
 };
 
 const editQuestion = (index: number) => {
-	emits('edit-question', index);
+	const question = questionsData.value[index];
+	editingQuestionId.value = question.id;
+	editingQuestion.value = { ...question };
+};
+
+// 处理问题更新
+const handleUpdateQuestion = (updatedQuestion: Question) => {
+	const index = questionsData.value.findIndex((q) => q.id === editingQuestionId.value);
+	if (index !== -1) {
+		questionsData.value[index] = updatedQuestion;
+		editingQuestionId.value = null;
+		editingQuestion.value = null;
+		handleQuestionDragEnd();
+	}
+};
+
+// 取消编辑
+const cancelEditQuestion = () => {
+	editingQuestionId.value = null;
+	editingQuestion.value = null;
 };
 
 const handleQuestionDragEnd = () => {

@@ -459,22 +459,7 @@
 											</el-checkbox-group>
 
 											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
-											<div
-												v-if="
-													column.isOther &&
-													previewData[
-														getGridKey(
-															sectionIndex,
-															itemIndex,
-															rowIndex
-														)
-													]?.includes(
-														column.value ||
-															column.label ||
-															`col_${colIndex}`
-													)
-												"
-											>
+											<div v-if="column.isOther">
 												<el-input
 													v-model="
 														previewData[
@@ -484,6 +469,15 @@
 																rowIndex
 															)
 														]
+													"
+													:disabled="
+														!previewData[
+															getGridKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]?.includes(column.value || column.label)
 													"
 													placeholder="Please specify..."
 													size="small"
@@ -606,25 +600,20 @@
 											/>
 
 											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
-											<div
-												v-if="
-													column.isOther &&
-													previewData[
-														getGridKey(
-															sectionIndex,
-															itemIndex,
-															rowIndex
-														)
-													] ===
-														(column.value ||
-															column.label ||
-															`${rowIndex}_${colIndex}`)
-												"
-											>
+											<div v-if="column.isOther">
 												<el-input
 													v-model="
 														previewData[
 															getOtherTextKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]
+													"
+													:disabled="
+														!previewData[
+															getGridKey(
 																sectionIndex,
 																itemIndex,
 																rowIndex

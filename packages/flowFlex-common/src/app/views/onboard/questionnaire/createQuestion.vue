@@ -207,13 +207,6 @@ const { scrollbarRef: configScrollbarRef, updateScrollbarHeight: updateConfigScr
 const { scrollbarRef: editorScrollbarRef, updateScrollbarHeight: updateEditorScrollbar } =
 	useAdaptiveScrollbar();
 
-const debouncedUpdateScrollbars = () => {
-	nextTick(() => {
-		updateConfigScrollbar();
-		updateEditorScrollbar();
-	});
-};
-
 // 编辑模式相关状态
 const isEditMode = computed(() => !!route.query.questionnaireId);
 const questionnaireId = computed(() => route.query.questionnaireId as string);
@@ -345,7 +338,6 @@ const questionTypes = [
 		id: 'multiple_choice',
 		name: 'Multiple choice',
 		icon: 'CircleCheck',
-		isNew: true,
 	},
 	{
 		id: 'checkboxes',
@@ -371,7 +363,6 @@ const questionTypes = [
 		id: 'rating',
 		name: 'Rating',
 		icon: 'Star',
-		isNew: true,
 	},
 	{
 		id: 'multiple_choice_grid',
@@ -745,11 +736,10 @@ const fetchAllStages = async () => {
 onMounted(async () => {
 	// 初始化数据 - 先加载问卷数据和工作流
 	await Promise.all([loadQuestionnaireData(), fetchWorkflows(), fetchAllStages()]);
-
-	// 获取stages的逻辑已经移动到WorkflowAssignments.vue中
-	// 当WorkflowAssignments组件挂载后会自动加载stages数据
-
-	debouncedUpdateScrollbars();
+	nextTick(() => {
+		updateConfigScrollbar();
+		updateEditorScrollbar();
+	});
 });
 </script>
 
