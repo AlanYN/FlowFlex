@@ -8,7 +8,6 @@ export interface Questionnaire {
 	estimatedMinutes: number;
 	id: string;
 	isActive: boolean;
-	isTemplate: boolean;
 	modifyBy: string;
 	modifyDate: string;
 	name: string;
@@ -21,9 +20,7 @@ export interface Questionnaire {
 	status: string;
 	structureJson: string;
 	tagsJson: string | null;
-	templateId: string | null;
 	totalQuestions: number;
-	type: string;
 	version: number;
 }
 

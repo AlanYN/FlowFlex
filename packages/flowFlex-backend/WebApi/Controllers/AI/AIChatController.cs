@@ -5,6 +5,10 @@ using FlowFlex.Application.Contracts.IServices;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using static FlowFlex.Application.Contracts.IServices.IAIService;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace FlowFlex.WebApi.Controllers.AI
 {
@@ -20,11 +24,13 @@ namespace FlowFlex.WebApi.Controllers.AI
     public class AIChatController : Controllers.ControllerBase
     {
         private readonly IAIService _aiService;
+        private readonly IAIModelConfigService _configService;
         private readonly ILogger<AIChatController> _logger;
 
-        public AIChatController(IAIService aiService, ILogger<AIChatController> logger)
+        public AIChatController(IAIService aiService, IAIModelConfigService configService, ILogger<AIChatController> logger)
         {
             _aiService = aiService;
+            _configService = configService;
             _logger = logger;
         }
 
@@ -45,7 +51,8 @@ namespace FlowFlex.WebApi.Controllers.AI
                     return BadRequest("Chat messages are required");
                 }
 
-                _logger.LogInformation("Processing chat message for session: {SessionId}", input.SessionId);
+                _logger.LogInformation("Processing chat message for session: {SessionId}, ModelId: {ModelId}, Provider: {Provider}, Model: {Model}", 
+                    input.SessionId, input.ModelId, input.ModelProvider, input.ModelName);
 
                 var result = await _aiService.SendChatMessageAsync(input);
                 
@@ -100,7 +107,39 @@ namespace FlowFlex.WebApi.Controllers.AI
         [ProducesResponseType<SuccessResponse<AIChatServiceStatus>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetChatStatus()
         {
+            try
+            {
+                // 获取当前用户的默认AI配置
+                var userId = GetCurrentUserId();
+                var userConfig = await _configService.GetUserDefaultConfigAsync(userId);
+
             var status = new AIChatServiceStatus
+                {
+                    IsAvailable = userConfig?.IsAvailable ?? true,
+                    Provider = userConfig?.Provider ?? "ZhipuAI",
+                    Model = userConfig?.ModelName ?? "glm-4",
+                    Features = new List<string>
+                    {
+                        "Real-time Conversation",
+                        "Workflow Planning Mode",
+                        "Context Awareness",
+                        "Session Management",
+                        "Streaming Support",
+                        "Custom AI Model Configuration"
+                    },
+                    Version = "1.1.0",
+                    LastHealthCheck = userConfig?.LastCheckTime ?? DateTime.UtcNow,
+                    SupportedModes = new List<string> { "workflow_planning", "general" }
+                };
+
+                return Success(status);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting chat service status");
+                
+                // 返回默认状态
+                var defaultStatus = new AIChatServiceStatus
             {
                 IsAvailable = true,
                 Provider = "ZhipuAI",
@@ -118,7 +157,8 @@ namespace FlowFlex.WebApi.Controllers.AI
                 SupportedModes = new List<string> { "workflow_planning", "general" }
             };
 
-            return Success(status);
+                return Success(defaultStatus);
+            }
         }
     }
 

@@ -271,15 +271,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete published questionnaire");
             }
 
-            // Check if there are instances
-            if (entity.IsTemplate)
-            {
-                var instances = await _questionnaireRepository.GetByTemplateIdAsync(id);
-                if (instances.Any())
-                {
-                    throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete template with existing instances");
-                }
-            }
+            // Template validation removed - direct deletion allowed
 
             // Delete related Sections
             await _sectionRepository.DeleteByQuestionnaireIdAsync(id);
@@ -434,7 +426,7 @@ namespace FlowFlex.Application.Service.OW
                 query.Name,
                 query.WorkflowId,
                 query.StageId,
-                query.IsTemplate,
+                null, // isTemplate parameter removed
                 query.IsActive,
                 query.SortField,
                 query.SortDirection);
@@ -503,10 +495,7 @@ namespace FlowFlex.Application.Service.OW
                 Name = input.Name,
                 Description = input.Description ?? sourceQuestionnaire.Description,
                 Category = input.Category ?? sourceQuestionnaire.Category,
-                Type = input.SetAsTemplate ? "Template" : "Instance",
-                Status = "Draft",
-                IsTemplate = input.SetAsTemplate,
-                TemplateId = input.SetAsTemplate ? null : sourceQuestionnaire.Id,
+                            Status = "Draft",
                 StructureJson = newStructureJson,
                 TagsJson = sourceQuestionnaire.TagsJson,
                 EstimatedMinutes = sourceQuestionnaire.EstimatedMinutes,
@@ -742,53 +731,9 @@ namespace FlowFlex.Application.Service.OW
             return await _questionnaireRepository.UpdateAsync(entity);
         }
 
-        public async Task<List<QuestionnaireOutputDto>> GetTemplatesAsync()
-        {
-            var templates = await _questionnaireRepository.GetTemplatesAsync();
-            var result = _mapper.Map<List<QuestionnaireOutputDto>>(templates);
+        // GetTemplatesAsync method removed - no longer needed
 
-            // Fill assignments for the templates
-            await FillAssignmentsAsync(result);
-
-            return result;
-        }
-
-        public async Task<long> CreateFromTemplateAsync(long templateId, QuestionnaireInputDto input)
-        {
-            var template = await _questionnaireRepository.GetByIdAsync(templateId);
-            if (template == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Template with ID {templateId} not found");
-            }
-
-            if (!template.IsTemplate)
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Source questionnaire is not a template");
-            }
-
-            // Validate name uniqueness
-            if (await _questionnaireRepository.IsNameExistsAsync(input.Name))
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
-            }
-
-            var entity = _mapper.Map<Questionnaire>(input);
-            entity.Type = "Instance";
-            entity.IsTemplate = false;
-            entity.TemplateId = templateId;
-            entity.StructureJson = template.StructureJson; // Inherit template structure
-            entity.Version = 1;
-            // 不再从模板复制tenant和app信息，而是使用UserContext中的值
-            // Initialize create information with proper ID and timestamps
-            entity.InitCreateInfo(_userContext);
-
-            // Calculate question statistics
-            await CalculateQuestionStatistics(entity);
-
-            await _questionnaireRepository.InsertAsync(entity);
-
-            return entity.Id;
-        }
+        // CreateFromTemplateAsync method removed - template functionality discontinued
 
         public async Task<bool> ValidateStructureAsync(long id)
         {

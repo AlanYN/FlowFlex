@@ -29,11 +29,6 @@ public class QuestionnaireOutputDto
     public string Description { get; set; }
 
     /// <summary>
-    /// 问卷类型
-    /// </summary>
-    public string Type { get; set; }
-
-    /// <summary>
     /// 问卷状态
     /// </summary>
     public string Status { get; set; }
@@ -48,16 +43,7 @@ public class QuestionnaireOutputDto
     /// </summary>
     public int Version { get; set; }
 
-    /// <summary>
-    /// 是否为模板
-    /// </summary>
-    public bool IsTemplate { get; set; }
 
-    /// <summary>
-    /// 模板来源ID
-    /// </summary>
-    [JsonConverter(typeof(ValueToStringConverter))]
-    public long? TemplateId { get; set; }
 
     /// <summary>
     /// 预览图URL

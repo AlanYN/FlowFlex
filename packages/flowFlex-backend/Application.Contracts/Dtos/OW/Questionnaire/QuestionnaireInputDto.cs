@@ -24,12 +24,6 @@ public class QuestionnaireInputDto
     public string Description { get; set; }
 
     /// <summary>
-    /// 问卷类型（Template/Instance）
-    /// </summary>
-    [StringLength(20)]
-    public string Type { get; set; } = "Template";
-
-    /// <summary>
     /// 问卷状态（Draft/Published/Archived）
     /// </summary>
     [StringLength(20)]
@@ -45,16 +39,7 @@ public class QuestionnaireInputDto
     /// </summary>
     public int Version { get; set; } = 1;
 
-    /// <summary>
-    /// 是否为模板
-    /// </summary>
-    public bool IsTemplate { get; set; } = true;
 
-    /// <summary>
-    /// 模板来源ID
-    /// </summary>
-    [JsonConverter(typeof(NullableLongConverter))]
-    public long? TemplateId { get; set; }
 
     /// <summary>
     /// 预览图URL
