@@ -426,21 +426,22 @@
 											v-else-if="isCheckboxGridType(row.questionType)"
 											class="grid-answer"
 										>
-											<el-tag
-												v-if="row.answer"
-												type="warning"
-												size="small"
-												effect="light"
-												class="grid-tag"
-											>
-												<el-icon class="mr-1" size="12">
-													<Check />
-												</el-icon>
-												{{ row.answer }}
-											</el-tag>
-											<div class="mt-1 text-xs text-gray-500">
-												Grid selection
-											</div>
+											<template v-if="row.answer">
+												<el-tag
+													type="warning"
+													size="small"
+													effect="light"
+													class="grid-tag"
+												>
+													<el-icon class="mr-1" size="12">
+														<Check />
+													</el-icon>
+													{{ row.answer }}
+												</el-tag>
+												<div class="mt-1 text-xs text-gray-500">
+													Grid selection
+												</div>
+											</template>
 										</div>
 
 										<!-- 多选网格 (Multiple choice grid) -->
@@ -636,7 +637,7 @@ import IconHeart from '~icons/mdi/heart';
 import IconHeartOutline from '~icons/mdi/heart-outline';
 import IconThumbUp from '~icons/mdi/thumb-up';
 import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getOnboardingDetail } from '@/apis/ow/onboarding';
@@ -1304,7 +1305,6 @@ const allQuestionsForExport = computed(() => {
 			// Include ALL questions, regardless of whether they have answers
 			responses.push({
 				questionnaire: questionnaire.name,
-				questionnaireId: questionnaire.id,
 				section: response.section,
 				question: response.question,
 				answer: displayAnswer,
@@ -1312,7 +1312,6 @@ const allQuestionsForExport = computed(() => {
 				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
 				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
 				updatedBy: response.updatedBy || '',
-				questionType: response.questionType, // 添加问题类型用于调试
 			});
 		});
 	});
@@ -1353,7 +1352,6 @@ const filteredQuestionsForExport = computed(() => {
 			// Include ALL filtered questions, regardless of whether they have answers
 			responses.push({
 				questionnaire: questionnaire.name,
-				questionnaireId: questionnaire.id,
 				section: response.section,
 				question: response.question,
 				answer: displayAnswer,
@@ -1361,7 +1359,6 @@ const filteredQuestionsForExport = computed(() => {
 				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
 				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
 				updatedBy: response.updatedBy || '',
-				questionType: response.questionType,
 			});
 		});
 	});
@@ -1452,7 +1449,51 @@ const handleExportExcel = () => {
 			return;
 		}
 
-		const worksheet = XLSX.utils.json_to_sheet(exportData);
+		// Define headers explicitly
+		const headers = [
+			'Questionnaire',
+			'Section', 
+			'Question',
+			'Answer',
+			'Answered By',
+			'Answered Date',
+			'Last Updated',
+			'Updated By'
+		];
+
+		// Create worksheet with headers first
+		const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+		
+		// Add data starting from row 2
+		XLSX.utils.sheet_add_json(worksheet, exportData, { 
+			origin: 'A2', 
+			skipHeader: true 
+		});
+
+		// Apply bold formatting to header row only
+		const headerCells = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'];
+		headerCells.forEach(cellAddress => {
+			if (worksheet[cellAddress]) {
+				worksheet[cellAddress].s = {
+					font: { 
+						bold: true
+					}
+				};
+			}
+		});
+
+		// Set column widths for better readability
+		worksheet['!cols'] = [
+			{ wch: 20 }, // Questionnaire
+			{ wch: 15 }, // Section
+			{ wch: 50 }, // Question
+			{ wch: 30 }, // Answer
+			{ wch: 15 }, // Answered By
+			{ wch: 18 }, // Answered Date
+			{ wch: 18 }, // Last Updated
+			{ wch: 15 }  // Updated By
+		];
+		
 		const workbook = XLSX.utils.book_new();
 		XLSX.utils.book_append_sheet(workbook, worksheet, 'Customer Overview');
 		
@@ -1463,7 +1504,12 @@ const handleExportExcel = () => {
 		}
 		filename += '.xlsx';
 		
-		XLSX.writeFile(workbook, filename);
+		// Write file with styling options
+		XLSX.writeFile(workbook, filename, { 
+			bookType: 'xlsx',
+			cellStyles: true,
+			sheetStubs: false
+		});
 		
 		const filterInfo = hasActiveFilters.value ? ' (filtered data)' : '';
 		ElMessage.success(`Excel file exported successfully with ${exportData.length} questions${filterInfo}`);

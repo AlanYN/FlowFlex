@@ -2512,22 +2512,37 @@ Remember: Your goal is to collect enough detailed information to create a compre
             
             string fallbackContent = userMessageCount switch
             {
-                1 => "That sounds like an interesting workflow! Could you tell me more about the teams or people who will be involved in this process?",
-                2 => "Great! Now, how many main stages or steps do you think this workflow should have? And what's your expected timeline?",
-                3 => "Perfect! Are there any specific requirements, documents, or approvals that need to be included in this workflow?",
-                _ => "Thank you for all the information! I believe I have enough details to help you create a comprehensive workflow. Would you like to proceed with generating it?"
+                1 => "I'm currently experiencing some technical issues with the AI service. However, I'd be happy to help you with your workflow! Could you tell me more about the teams or people who will be involved in this process?",
+                2 => "Thanks for the details! While I'm working through some technical issues, I can still assist you. How many main stages or steps do you think this workflow should have? And what's your expected timeline?",
+                3 => "Great information! Despite some temporary service issues, I'm here to help. Are there any specific requirements, documents, or approvals that need to be included in this workflow?",
+                _ => "Thank you for all the information! Even with current technical challenges, I believe we have enough details to help you create a comprehensive workflow. Would you like to proceed?"
+            };
+
+            var suggestions = new List<string>
+            {
+                "Continue describing your workflow requirements",
+                "Try again in a few moments",
+                "Check if your AI model configuration is correct"
+            };
+
+            var nextQuestions = userMessageCount switch
+            {
+                1 => new List<string> { "Who are the key stakeholders?", "What is the main goal of this workflow?" },
+                2 => new List<string> { "What are the key milestones?", "Are there any critical dependencies?" },
+                3 => new List<string> { "What documents need approval?", "Who has decision-making authority?" },
+                _ => new List<string> { "Ready to generate the workflow?", "Any final requirements to add?" }
             };
 
             return new AIChatResponse
             {
                 Success = true,
-                Message = "Fallback response generated",
+                Message = "AI service temporarily unavailable, using intelligent fallback response",
                 Response = new AIChatResponseData
                 {
                     Content = fallbackContent,
                     IsComplete = userMessageCount >= 4,
-                    Suggestions = new List<string>(),
-                    NextQuestions = new List<string>()
+                    Suggestions = suggestions,
+                    NextQuestions = nextQuestions
                 },
                 SessionId = input.SessionId
             };
@@ -2535,16 +2550,58 @@ Remember: Your goal is to collect enough detailed information to create a compre
 
         private AIChatResponse GenerateErrorChatResponse(AIChatInput input, string errorMessage)
         {
+            var isModelNotFoundError = errorMessage.Contains("model_not_found") || errorMessage.Contains("does not exist");
+            var isAuthError = errorMessage.Contains("Unauthorized") || errorMessage.Contains("authentication");
+            
+            string errorContent;
+            List<string> errorSuggestions;
+            
+            if (isModelNotFoundError)
+            {
+                errorContent = "I'm having trouble accessing the specified AI model. This might be because the model doesn't exist or your API key doesn't have access to it. I'll try to help you with an alternative approach.";
+                errorSuggestions = new List<string> 
+                { 
+                    "Check your AI model configuration", 
+                    "Verify your API key permissions",
+                    "Try using a different model (e.g., gpt-3.5-turbo)",
+                    "Continue with manual workflow creation"
+                };
+            }
+            else if (isAuthError)
+            {
+                errorContent = "There seems to be an authentication issue with the AI service. Please check your API configuration.";
+                errorSuggestions = new List<string> 
+                { 
+                    "Verify your API key is correct", 
+                    "Check if your API key has expired",
+                    "Ensure your account has sufficient credits"
+                };
+            }
+            else
+            {
+                errorContent = "I'm experiencing technical difficulties right now. Let me try to assist you manually while we resolve this issue.";
+                errorSuggestions = new List<string> 
+                { 
+                    "Try again in a few moments", 
+                    "Continue describing your workflow manually",
+                    "Check system status and try again"
+                };
+            }
+
             return new AIChatResponse
             {
                 Success = false,
-                Message = $"Chat processing failed: {errorMessage}",
+                Message = $"AI service error: {errorMessage}",
                 Response = new AIChatResponseData
                 {
-                    Content = "I apologize, but I'm having trouble processing your message right now. Could you please try again?",
+                    Content = errorContent,
                     IsComplete = false,
-                    Suggestions = new List<string> { "Try rephrasing your message", "Check your connection and try again" },
-                    NextQuestions = new List<string>()
+                    Suggestions = errorSuggestions,
+                    NextQuestions = new List<string> 
+                    { 
+                        "Would you like to continue manually?", 
+                        "Should I help you configure a different AI model?" 
+                    }
                 },
                 SessionId = input.SessionId
             };
