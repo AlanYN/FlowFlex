@@ -221,7 +221,7 @@
 		<!-- Right Side: Selected Items -->
 		<div class="space-y-4 w-full overflow-hidden">
 			<el-scrollbar ref="scrollbarRefRight" class="stage-components-selector">
-				<div class="space-y-2 mb-6">
+				<div class="space-y-2">
 					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
 						Selected Items
 					</label>
@@ -229,7 +229,7 @@
 						Items that will be included in this stage (drag to reorder)
 					</p>
 					<div
-						class="border rounded-md p-3 min-h-[200px] border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 w-full overflow-hidden"
+						class="border rounded-md p-3 min-h-[300px] border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 w-full overflow-hidden"
 					>
 						<draggable
 							v-model="selectedItems"
@@ -312,18 +312,6 @@
 						</div>
 					</div>
 				</div>
-
-				<!-- Lower Section: Code Editor -->
-				<div class="space-y-2">
-					<CodeEditor
-						v-model="pythonCode"
-						language="python"
-						title="Python Code"
-						description="Write custom Python logic for this stage"
-						height="250px"
-						@change="handleCodeChange"
-					/>
-				</div>
 			</el-scrollbar>
 		</div>
 	</div>
@@ -343,7 +331,6 @@ import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import draggable from 'vuedraggable';
 import staticFieldsData from '../static-field.json';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-import CodeEditor from '@/components/codeEditor/index.vue';
 import {
 	ComponentData,
 	ComponentsData,
@@ -369,43 +356,12 @@ const emit = defineEmits<{
 
 // 使用自适应滚动条 hook
 const { scrollbarRef: scrollbarRefLeft } = useAdaptiveScrollbar(200); // 预留 120px 给底部按钮
-const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(200); // 增加高度以适应代码编辑器
+const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(200); // 预留 120px 给底部按钮
 
 // Data
 const searchQuery = ref('');
 const staticFields = ref<StaticField[]>(staticFieldsData.formFields);
 const selectedItems = ref<SelectedItem[]>([]);
-const pythonCode = ref(`# 在这里编写Python代码
-# 示例：处理表单数据
-def process_form_data(data):
-    """
-    处理表单数据的示例函数
-    """
-    result = {}
-    
-    # 验证必填字段
-    required_fields = ['lead_id', 'company_name', 'contact_name']
-    for field in required_fields:
-        if field not in data or not data[field]:
-            raise ValueError(f"必填字段 {field} 不能为空")
-    
-    # 处理数据
-    result['processed'] = True
-    result['timestamp'] = datetime.now().isoformat()
-    
-    return result
-
-# 使用示例
-# data = {
-#     'lead_id': 'LEAD001',
-#     'company_name': '示例公司',
-#     'contact_name': '张三',
-#     'contact_email': 'zhangsan@example.com'
-# }
-# 
-# result = process_form_data(data)
-# print(result)
-`);
 
 // Computed
 const filteredStaticFields = computed(() => {
@@ -856,12 +812,6 @@ const getQuestionnaireComponent = (): { questionnaireIds: string[] } => {
 	const questionnaireComponents = getQuestionnaireComponents();
 	const allQuestionnaireIds = questionnaireComponents.flatMap((c) => c.questionnaireIds);
 	return { questionnaireIds: allQuestionnaireIds };
-};
-
-// 处理代码编辑器变化
-const handleCodeChange = (value: string) => {
-	// console.log('Python代码已更新:', value);
-	// 这里可以添加代码验证、保存等逻辑
 };
 </script>
 
