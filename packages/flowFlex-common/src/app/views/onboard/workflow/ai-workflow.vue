@@ -454,7 +454,7 @@ interface EnhanceResult {
 }
 
 // Reactive Data
-const showWorkflowList = ref(true);
+const showWorkflowList = ref(false);
 const workflowList = ref<Workflow[]>([]);
 const showGeneratedDialog = ref(false);
 const generatedWorkflow = ref<Workflow | null>(null);

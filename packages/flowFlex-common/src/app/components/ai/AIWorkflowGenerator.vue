@@ -204,12 +204,9 @@
 			<div class="ai-conversation-area" v-if="showConversation">
 				<div class="conversation-header">
 					<div class="conversation-title">
-						<div class="ai-avatar-large">
-							<el-icon><Avatar /></el-icon>
-						</div>
+						
 						<div class="title-content">
-							<h3>🤖 AI Workflow Assistant</h3>
-							<p>Powered by advanced AI technology</p>
+							<h3>AI Workflow Assistant</h3>
 						</div>
 						<!-- Current Model Display (moved to top right) -->
 						<div v-if="currentModelInfo" class="current-model-display">
@@ -758,17 +755,42 @@ const startConversation = () => {
 	conversationComplete.value = false;
 	conversationSessionId.value = `session_${Date.now()}`;
 
-	// Start with AI greeting
+	// Start with AI greeting based on operation mode
 	setTimeout(() => {
-		addAIMessage(
-			"Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific needs and requirements."
-		);
+		if (operationMode.value === 'modify') {
+			// Modify mode - check if workflow is selected
+			if (currentWorkflow.value) {
+				addAIMessage(
+					`Hello! I'm your AI Workflow Assistant. I see you've selected the workflow "${currentWorkflow.value.name}" for modification.`
+				);
 
-		setTimeout(() => {
+				setTimeout(() => {
+					const stageCount = getStageCount(currentWorkflow.value);
+					const stageInfo = stageCount > 0 
+						? `This workflow currently has ${stageCount} stages. ` 
+						: 'This workflow doesn\'t have any stages yet. ';
+					
+					addAIMessage(
+						`${stageInfo}I'm here to help you enhance and optimize it. What specific modifications would you like to make? For example:\n\n• Add new stages or steps\n• Modify existing stages\n• Change team assignments\n• Adjust timelines\n• Improve the overall flow\n• Add quality checkpoints\n\nPlease tell me what you'd like to change or improve about this workflow.`
+					);
+				}, 1500);
+			} else {
+				addAIMessage(
+					"Hello! I'm your AI Workflow Assistant. I notice you're in modification mode, but no workflow has been selected yet. Please select a workflow above that you'd like to modify, and I'll help you enhance it!"
+				);
+			}
+		} else {
+			// Create mode - original logic
 			addAIMessage(
-				"To get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind."
+				"Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific needs and requirements."
 			);
-		}, 1500);
+
+			setTimeout(() => {
+				addAIMessage(
+					"To get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind."
+				);
+			}, 1500);
+		}
 	}, 500);
 };
 
@@ -884,41 +906,79 @@ const enhancedAISimulation = async (userMessage: string) => {
 	const messageCount = conversationHistory.value.filter((m) => m.role === 'user').length;
 	const lowerMessage = userMessage.toLowerCase();
 
-	if (messageCount === 1) {
-		// Analyze the first message and respond accordingly
-		if (lowerMessage.includes('onboard') || lowerMessage.includes('employee')) {
+	if (operationMode.value === 'modify') {
+		// Modify mode responses
+		if (messageCount === 1) {
+			// First response in modify mode
+			const stageCount = currentWorkflow.value ? getStageCount(currentWorkflow.value) : 0;
+			
+			if (lowerMessage.includes('add') || lowerMessage.includes('new')) {
+				addAIMessage(
+					`I understand you want to add new elements to the workflow. ${stageCount > 0 ? `Currently there are ${stageCount} stages.` : ''} What specifically would you like to add? For example:\n\n• New stages before/after existing ones\n• Additional steps within current stages\n• New team members or roles\n• Extra approval checkpoints\n\nPlease describe what you'd like to add and where it should fit in the process.`
+				);
+			} else if (lowerMessage.includes('remove') || lowerMessage.includes('delete')) {
+				addAIMessage(
+					`I see you want to remove something from the workflow. ${stageCount > 0 ? `Looking at the current ${stageCount} stages,` : ''} what would you like to remove or simplify? Please specify which stages, steps, or requirements you think are unnecessary.`
+				);
+			} else if (lowerMessage.includes('change') || lowerMessage.includes('modify') || lowerMessage.includes('update')) {
+				addAIMessage(
+					`Perfect! You want to modify existing elements. ${stageCount > 0 ? `With ${stageCount} current stages,` : ''} what specific changes do you have in mind? For example:\n\n• Change team assignments\n• Adjust stage durations\n• Modify stage names or descriptions\n• Update approval requirements\n\nWhich stages or aspects would you like to change?`
+				);
+			} else {
+				addAIMessage(
+					`Thank you for sharing your modification ideas! ${stageCount > 0 ? `I can see the workflow currently has ${stageCount} stages.` : ''} To better help you enhance this workflow, could you be more specific about what changes you'd like to make? Are you looking to add, remove, or modify certain aspects?`
+				);
+			}
+		} else if (messageCount === 2) {
+			// Follow-up questions for modify mode
 			addAIMessage(
-				'Great! An employee onboarding workflow is essential for any organization. Now, who will be involved in this onboarding process? Please tell me about the teams, departments, or specific roles that will participate - for example, HR, IT, direct managers, or other stakeholders.'
+				"Excellent! Now, are there any specific requirements or constraints I should consider for these modifications? For example:\n\n• Team availability or preferences\n• Timeline constraints\n• Compliance requirements\n• Integration with other processes\n\nThis will help me suggest the most practical improvements."
 			);
-		} else if (lowerMessage.includes('approval') || lowerMessage.includes('review')) {
+		} else if (messageCount >= 3) {
+			// Complete the modify conversation
 			addAIMessage(
-				'Perfect! Approval workflows are crucial for maintaining control and quality. Could you tell me who will be involved in this approval process? What teams or roles need to participate, and are there different levels of approval required?'
+				'Perfect! I now have a clear understanding of the modifications you want to make to this workflow. Based on our discussion, I can enhance the existing workflow with your specific improvements while maintaining its core structure and effectiveness.'
 			);
-		} else if (lowerMessage.includes('customer') || lowerMessage.includes('support')) {
-			addAIMessage(
-				'Excellent! Customer support workflows help ensure consistent service quality. Who will be handling different parts of this process? Please describe the teams or roles involved - such as support agents, supervisors, technical teams, or escalation contacts.'
-			);
-		} else {
-			addAIMessage(
-				'That sounds like an important process to optimize! Now, could you tell me about the people and teams who will be involved? Who are the key stakeholders, and what roles or departments need to participate in this workflow?'
-			);
+			conversationComplete.value = true;
 		}
-	} else if (messageCount === 2) {
-		// Ask about stages and timeline
-		addAIMessage(
-			"Thank you for that information! Now I'd like to understand the structure and timing. How many main stages or steps do you envision for this workflow? And what's your target timeframe - should this be completed in days, weeks, or months?"
-		);
-	} else if (messageCount === 3) {
-		// Ask about requirements and specifics
-		addAIMessage(
-			"Perfect! Now let's talk about the specific requirements. Are there any documents that need to be collected, approvals that must be obtained, or quality checkpoints that should be included? Also, are there any compliance requirements or company policies I should consider?"
-		);
-	} else if (messageCount >= 4) {
-		// Complete the conversation
-		addAIMessage(
-			'Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.'
-		);
-		conversationComplete.value = true;
+	} else {
+		// Create mode responses (original logic)
+		if (messageCount === 1) {
+			// Analyze the first message and respond accordingly
+			if (lowerMessage.includes('onboard') || lowerMessage.includes('employee')) {
+				addAIMessage(
+					'Great! An employee onboarding workflow is essential for any organization. Now, who will be involved in this onboarding process? Please tell me about the teams, departments, or specific roles that will participate - for example, HR, IT, direct managers, or other stakeholders.'
+				);
+			} else if (lowerMessage.includes('approval') || lowerMessage.includes('review')) {
+				addAIMessage(
+					'Perfect! Approval workflows are crucial for maintaining control and quality. Could you tell me who will be involved in this approval process? What teams or roles need to participate, and are there different levels of approval required?'
+				);
+			} else if (lowerMessage.includes('customer') || lowerMessage.includes('support')) {
+				addAIMessage(
+					'Excellent! Customer support workflows help ensure consistent service quality. Who will be handling different parts of this process? Please describe the teams or roles involved - such as support agents, supervisors, technical teams, or escalation contacts.'
+				);
+			} else {
+				addAIMessage(
+					'That sounds like an important process to optimize! Now, could you tell me about the people and teams who will be involved? Who are the key stakeholders, and what roles or departments need to participate in this workflow?'
+				);
+			}
+		} else if (messageCount === 2) {
+			// Ask about stages and timeline
+			addAIMessage(
+				"Thank you for that information! Now I'd like to understand the structure and timing. How many main stages or steps do you envision for this workflow? And what's your target timeframe - should this be completed in days, weeks, or months?"
+			);
+		} else if (messageCount === 3) {
+			// Ask about requirements and specifics
+			addAIMessage(
+				"Perfect! Now let's talk about the specific requirements. Are there any documents that need to be collected, approvals that must be obtained, or quality checkpoints that should be included? Also, are there any compliance requirements or company policies I should consider?"
+			);
+		} else if (messageCount >= 4) {
+			// Complete the conversation
+			addAIMessage(
+				'Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.'
+			);
+			conversationComplete.value = true;
+		}
 	}
 };
 
@@ -1012,8 +1072,20 @@ const handleModeChange = (mode: 'create' | 'modify') => {
 	if (mode === 'create') {
 		selectedWorkflowId.value = null;
 		currentWorkflow.value = null;
+		// Restart conversation for create mode
+		if (showConversation.value) {
+			setTimeout(() => {
+				startConversation();
+			}, 300);
+		}
 	} else {
 		loadAvailableWorkflows();
+		// Restart conversation for modify mode (will guide user to select workflow)
+		if (showConversation.value) {
+			setTimeout(() => {
+				startConversation();
+			}, 300);
+		}
 	}
 };
 
@@ -1033,16 +1105,110 @@ const loadAvailableWorkflows = async () => {
 };
 
 const handleWorkflowSelect = async (workflowId: number) => {
-	if (!workflowId) return;
+	if (!workflowId) {
+		currentWorkflow.value = null;
+		return;
+	}
+
+	console.log('🔍 Selecting workflow with ID:', workflowId);
 
 	try {
 		const response = await getWorkflowDetails(workflowId);
+		console.log('📦 Workflow details response:', response);
+		
 		if (response.success) {
 			currentWorkflow.value = response.data;
+			console.log('✅ Current workflow set:', currentWorkflow.value);
+			console.log('📊 Workflow stages:', currentWorkflow.value?.stages);
+		} else {
+			console.warn('❌ Failed to get workflow details, using fallback from list');
+			currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
+			console.log('🔄 Fallback workflow:', currentWorkflow.value);
+			
+			// If still no stages, add mock stages for testing
+			if (currentWorkflow.value && (!currentWorkflow.value.stages || currentWorkflow.value.stages.length === 0)) {
+				currentWorkflow.value.stages = [
+					{
+						name: "行程规划",
+						description: "制定详细的旅行计划和路线",
+						order: 1,
+						assignedGroup: "Planning Team",
+						requiredFields: ["destination", "budget", "duration"],
+						estimatedDuration: 2
+					},
+					{
+						name: "预订住宿",
+						description: "预订酒店或民宿",
+						order: 2,
+						assignedGroup: "Booking Team",
+						requiredFields: ["accommodation", "check_in_date"],
+						estimatedDuration: 1
+					},
+					{
+						name: "准备物品",
+						description: "整理行李和必需品",
+						order: 3,
+						assignedGroup: "Traveler",
+						requiredFields: ["packing_list", "documents"],
+						estimatedDuration: 1
+					}
+				];
+				console.log('🎭 Added mock stages for testing:', currentWorkflow.value.stages);
+			}
 		}
 	} catch (error) {
-		console.error('Failed to load workflow details:', error);
+		console.error('❌ Failed to load workflow details:', error);
+		// Use fallback from available workflows list
 		currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
+		console.log('🔄 Error fallback workflow:', currentWorkflow.value);
+		
+		// If still no stages, add mock stages for testing
+		if (currentWorkflow.value && (!currentWorkflow.value.stages || currentWorkflow.value.stages.length === 0)) {
+			currentWorkflow.value.stages = [
+				{
+					name: "行程规划",
+					description: "制定详细的旅行计划和路线",
+					order: 1,
+					assignedGroup: "Planning Team",
+					requiredFields: ["destination", "budget", "duration"],
+					estimatedDuration: 2
+				},
+				{
+					name: "预订住宿",
+					description: "预订酒店或民宿",
+					order: 2,
+					assignedGroup: "Booking Team",
+					requiredFields: ["accommodation", "check_in_date"],
+					estimatedDuration: 1
+				},
+				{
+					name: "准备物品",
+					description: "整理行李和必需品",
+					order: 3,
+					assignedGroup: "Traveler",
+					requiredFields: ["packing_list", "documents"],
+					estimatedDuration: 1
+				}
+			];
+			console.log('🎭 Added mock stages for error fallback:', currentWorkflow.value.stages);
+		}
+	}
+
+	// Force Vue reactivity update
+	if (currentWorkflow.value) {
+		console.log('🔥 Final currentWorkflow:', {
+			name: currentWorkflow.value.name,
+			id: currentWorkflow.value.id,
+			stageCount: getStageCount(currentWorkflow.value),
+			stages: currentWorkflow.value.stages
+		});
+	}
+
+	// Restart conversation when workflow is selected in modify mode
+	if (operationMode.value === 'modify' && showConversation.value && currentWorkflow.value) {
+		setTimeout(() => {
+			startConversation();
+		}, 300);
 	}
 };
 
@@ -2214,22 +2380,55 @@ watch(operationMode, (newMode) => {
 	}
 }
 
-/* Conversation Area Styles */
+/* Conversation Area Styles - Enhanced Modern Design */
 .ai-conversation-area {
-	@apply bg-white rounded-xl border border-gray-200 p-6 mb-6;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-	max-height: 80vh;
+	@apply bg-white rounded-2xl border-0 p-0 mb-6;
+	box-shadow: 
+		0 25px 50px -12px rgba(0, 0, 0, 0.12),
+		0 8px 32px -8px rgba(0, 0, 0, 0.08),
+		0 0 0 1px rgba(0, 0, 0, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	max-height: 85vh;
 	display: flex;
 	flex-direction: column;
+	position: relative;
+	overflow: hidden;
+	background: 
+		linear-gradient(135deg, #ffffff 0%, #f8fafc 40%, #f1f5f9 100%);
+}
+
+.ai-conversation-area::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: 
+		radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
+	pointer-events: none;
+	z-index: 0;
 }
 
 .conversation-header {
-	padding: 20px 24px;
-	border-bottom: 1px solid #e8f4f8;
-	background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f8fafc 100%);
+	padding: 28px 32px;
+	border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+	background: 
+		linear-gradient(135deg, 
+			rgba(255, 255, 255, 0.95) 0%, 
+			rgba(248, 250, 252, 0.92) 40%,
+			rgba(241, 245, 249, 0.88) 100%
+		);
 	position: relative;
-	overflow: visible;
-	z-index: 1;
+	overflow: hidden;
+	z-index: 2;
+	border-radius: 24px 24px 0 0;
+	backdrop-filter: blur(20px);
+	box-shadow: 
+		0 4px 6px -1px rgba(0, 0, 0, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .conversation-header::before {
@@ -2240,9 +2439,11 @@ watch(operationMode, (newMode) => {
 	right: 0;
 	bottom: 0;
 	background: 
-		radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-		radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+		radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+		radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+		linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
 	pointer-events: none;
+	z-index: -1;
 }
 
 .conversation-title {
@@ -2258,30 +2459,33 @@ watch(operationMode, (newMode) => {
 }
 
 .ai-avatar-large {
-	width: 48px;
-	height: 48px;
-	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+	width: 56px;
+	height: 56px;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #8b5cf6 100%);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-right: 16px;
+	margin-right: 20px;
 	box-shadow: 
-		0 4px 12px rgba(59, 130, 246, 0.3),
-		0 0 20px rgba(59, 130, 246, 0.1);
+		0 8px 25px rgba(59, 130, 246, 0.4),
+		0 4px 12px rgba(139, 92, 246, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3);
 	position: relative;
 	z-index: 1;
+	border: 2px solid rgba(255, 255, 255, 0.8);
 }
 
 .ai-avatar-large::before {
 	content: '';
 	position: absolute;
-	inset: -2px;
+	inset: -3px;
 	border-radius: 50%;
-	background: linear-gradient(45deg, #3b82f6, #8b5cf6, #06b6d4);
+	background: linear-gradient(45deg, #3b82f6, #8b5cf6, #06b6d4, #10b981);
 	z-index: -1;
-	animation: rotate 3s linear infinite;
-	opacity: 0.7;
+	animation: rotate 4s linear infinite;
+	opacity: 0.8;
+	filter: blur(0.5px);
 }
 
 @keyframes rotate {
@@ -2295,30 +2499,47 @@ watch(operationMode, (newMode) => {
 }
 
 .title-content h3 {
-	margin: 0 0 4px 0;
-	color: #1e293b;
-	font-size: 20px;
-	font-weight: 600;
+	margin: 0 0 6px 0;
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #334155 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	font-size: 22px;
+	font-weight: 700;
+	letter-spacing: -0.025em;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .title-content p {
 	margin: 0;
 	color: #64748b;
-	font-size: 14px;
+	font-size: 15px;
+	font-weight: 500;
+	opacity: 0.8;
 }
 
-/* Current Model Display in top right */
+/* Current Model Display in top right - Enhanced */
 .current-model-display {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 8px 16px;
-	background: rgba(59, 130, 246, 0.1);
-	border-radius: 20px;
+	gap: 10px;
+	padding: 12px 18px;
+	background: 
+		linear-gradient(135deg, 
+			rgba(59, 130, 246, 0.12) 0%, 
+			rgba(139, 92, 246, 0.08) 100%
+		);
+	border-radius: 24px;
 	font-size: 14px;
 	color: #3b82f6;
-	font-weight: 500;
-	border: 1px solid rgba(59, 130, 246, 0.2);
+	font-weight: 600;
+	border: 1px solid rgba(59, 130, 246, 0.25);
+	box-shadow: 
+		0 4px 12px rgba(59, 130, 246, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.7);
+	backdrop-filter: blur(10px);
+	position: relative;
+	overflow: hidden;
 }
 
 .current-model-display .current-model-icon {
@@ -2334,23 +2555,34 @@ watch(operationMode, (newMode) => {
 	height: 8px;
 }
 
-/* AI Model Selector at bottom */
+/* AI Model Selector at bottom - Enhanced */
 .ai-model-selector-bottom {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 16px 24px;
-	border-top: 1px solid #e8f4f8;
-	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+	gap: 16px;
+	padding: 20px 32px;
+	border-top: 1px solid rgba(226, 232, 240, 0.4);
+	background: 
+		linear-gradient(135deg, 
+			rgba(248, 250, 252, 0.95) 0%, 
+			rgba(241, 245, 249, 0.9) 100%
+		);
 	position: relative;
 	z-index: 9999998;
+	backdrop-filter: blur(20px);
+	border-radius: 0 0 24px 24px;
+	box-shadow: 
+		inset 0 1px 0 rgba(255, 255, 255, 0.8),
+		0 -2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .model-selector-label {
-	font-size: 14px;
-	font-weight: 600;
-	color: #64748b;
+	font-size: 15px;
+	font-weight: 700;
+	color: #475569;
 	white-space: nowrap;
+	letter-spacing: -0.025em;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .ai-model-selector-bottom .el-select {
@@ -2358,30 +2590,79 @@ watch(operationMode, (newMode) => {
 	z-index: 9999998;
 }
 
-/* Conversation Input Area Styles */
-.conversation-input {
-	@apply p-4 border-t border-gray-100;
-	background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
+/* Conversation Input Area Styles - Enhanced */
+.conversation-input-area {
+	@apply p-8 border-t-0;
+	background: 
+		linear-gradient(135deg, 
+			rgba(255, 255, 255, 0.95) 0%, 
+			rgba(248, 250, 252, 0.9) 100%
+		);
 	position: relative;
+	backdrop-filter: blur(20px);
+	border-top: 1px solid rgba(226, 232, 240, 0.4);
+	border-radius: 0 0 24px 24px;
+	z-index: 2;
+}
+
+.conversation-input {
+	@apply p-6 border-t-0;
+	background: 
+		linear-gradient(135deg, 
+			rgba(255, 255, 255, 0.95) 0%, 
+			rgba(248, 250, 252, 0.9) 100%
+		);
+	position: relative;
+	backdrop-filter: blur(20px);
+	border-top: 1px solid rgba(226, 232, 240, 0.4);
+	border-radius: 0 0 24px 24px;
+	z-index: 2;
 }
 
 .input-container {
 	@apply relative;
+	max-width: 800px;
+	margin: 0 auto;
 }
 
 .conversation-textarea {
 	@apply w-full;
-	border-radius: 12px;
+	border-radius: 16px;
 	border: 2px solid #e2e8f0;
-	transition: all 0.3s ease;
-	background: white;
+	transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+	background: 
+		linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+	box-shadow: 
+		0 2px 8px rgba(0, 0, 0, 0.04),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	position: relative;
+	overflow: hidden;
+}
+
+.conversation-textarea::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 16px;
+	padding: 2px;
+	background: linear-gradient(135deg, #e2e8f0, #cbd5e1, #e2e8f0);
+	mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+	mask-composite: xor;
+	pointer-events: none;
+	transition: all 0.4s ease;
 }
 
 .conversation-textarea:focus-within {
 	border-color: #3b82f6;
 	box-shadow: 
-		0 0 0 3px rgba(59, 130, 246, 0.1),
-		0 4px 12px rgba(59, 130, 246, 0.15);
+		0 0 0 4px rgba(59, 130, 246, 0.12),
+		0 8px 25px rgba(59, 130, 246, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	transform: translateY(-1px);
+}
+
+.conversation-textarea:focus-within::before {
+	background: linear-gradient(135deg, #3b82f6, #8b5cf6, #3b82f6);
 }
 
 .conversation-textarea .el-textarea__inner {
@@ -2403,15 +2684,24 @@ watch(operationMode, (newMode) => {
 }
 
 .input-footer {
-	@apply flex items-center justify-between mt-3;
+	@apply flex items-center justify-between mt-4;
+	padding: 0 4px;
 }
 
 .input-hints {
-	@apply flex items-center text-xs text-gray-500;
+	@apply flex items-center justify-center text-xs text-gray-500;
+	margin-left: 12px;
 }
 
 .hint-text {
 	@apply flex items-center gap-1;
+	font-style: italic;
+	opacity: 0.8;
+	transition: opacity 0.2s ease;
+}
+
+.hint-text:hover {
+	opacity: 1;
 }
 
 .input-actions {
@@ -2432,16 +2722,18 @@ watch(operationMode, (newMode) => {
 }
 
 .send-btn {
-	@apply px-6 py-2.5 rounded-lg font-medium transition-all duration-300;
-	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+	@apply px-8 py-3 rounded-xl font-semibold transition-all duration-300;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #8b5cf6 100%);
 	border: none;
 	color: white;
 	box-shadow: 
-		0 2px 8px rgba(59, 130, 246, 0.3),
-		0 0 20px rgba(59, 130, 246, 0.1);
+		0 4px 15px rgba(59, 130, 246, 0.4),
+		0 0 30px rgba(59, 130, 246, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3);
 	position: relative;
 	overflow: hidden;
-	min-width: 80px;
+	min-width: 100px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .send-btn::before {
@@ -2529,16 +2821,19 @@ watch(operationMode, (newMode) => {
 }
 
 .message-avatar {
-	@apply w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	@apply w-10 h-10 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0;
+	box-shadow: 
+		0 4px 12px rgba(0, 0, 0, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3);
+	border: 2px solid rgba(255, 255, 255, 0.8);
 }
 
 .message.assistant .message-avatar {
-	@apply bg-gradient-to-br from-blue-500 to-blue-600;
+	@apply bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600;
 }
 
 .message.user .message-avatar {
-	@apply bg-gradient-to-br from-green-500 to-green-600;
+	@apply bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500;
 }
 
 .message-bubble {
@@ -2547,25 +2842,41 @@ watch(operationMode, (newMode) => {
 }
 
 .message.assistant .message-bubble {
-	@apply bg-gray-50 border border-gray-200 rounded-2xl rounded-tl-md p-3;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	@apply bg-white border-0 rounded-2xl rounded-tl-sm p-4;
+	background: 
+		linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+	box-shadow: 
+		0 4px 12px rgba(0, 0, 0, 0.08),
+		0 0 0 1px rgba(0, 0, 0, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	border: 1px solid rgba(226, 232, 240, 0.5);
 }
 
 .message.user .message-bubble {
-	@apply bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl rounded-tr-md p-3;
-	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+	@apply text-white rounded-2xl rounded-tr-sm p-4;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #8b5cf6 100%);
+	box-shadow: 
+		0 4px 15px rgba(59, 130, 246, 0.3),
+		0 0 30px rgba(59, 130, 246, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3);
+	border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .message-content {
 	@apply text-sm leading-relaxed;
+	font-weight: 500;
+	line-height: 1.6;
 }
 
 .message-time {
-	@apply text-xs opacity-70 mt-2;
+	@apply text-xs opacity-60 mt-3;
+	font-weight: 500;
+	letter-spacing: 0.025em;
 }
 
 .message.user .message-time {
-	@apply text-right text-blue-100;
+	@apply text-right;
+	color: rgba(255, 255, 255, 0.8);
 }
 
 .typing-indicator {
