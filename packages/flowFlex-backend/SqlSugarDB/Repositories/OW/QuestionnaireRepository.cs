@@ -114,27 +114,9 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .ToListAsync();
         }
 
-        /// <summary>
-        /// Get template questionnaires
-        /// </summary>
-        public async Task<List<Questionnaire>> GetTemplatesAsync()
-        {
-            return await db.Queryable<Questionnaire>()
-                .Where(x => x.IsTemplate == true && x.IsValid == true && x.IsActive == true)
-                .OrderByDescending(x => x.CreateDate)
-                .ToListAsync();
-        }
+        // GetTemplatesAsync method removed - template functionality discontinued
 
-        /// <summary>
-        /// Get questionnaire instances by template
-        /// </summary>
-        public async Task<List<Questionnaire>> GetByTemplateIdAsync(long templateId)
-        {
-            return await db.Queryable<Questionnaire>()
-                .Where(x => x.TemplateId == templateId && x.IsValid == true)
-                .OrderByDescending(x => x.CreateDate)
-                .ToListAsync();
-        }
+        // GetByTemplateIdAsync method removed - template functionality discontinued
 
         /// <summary>
         /// Check if name exists
@@ -217,10 +199,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 }
             }
 
-            if (isTemplate.HasValue)
-            {
-                whereExpressions.Add(x => x.IsTemplate == isTemplate.Value);
-            }
+            // isTemplate filter removed - template functionality discontinued
 
             if (isActive.HasValue)
             {
@@ -299,7 +278,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             var totalCount = await query.CountAsync();
             var activeCount = await query.Where(x => x.IsActive == true).CountAsync();
-            var templateCount = await query.Where(x => x.IsTemplate == true).CountAsync();
+            // Template count removed - template functionality discontinued
             var publishedCount = await query.Where(x => x.Status == "Published").CountAsync();
             var draftCount = await query.Where(x => x.Status == "Draft").CountAsync();
 
@@ -307,7 +286,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             {
                 { "TotalCount", totalCount },
                 { "ActiveCount", activeCount },
-                { "TemplateCount", templateCount },
+
                 { "PublishedCount", publishedCount },
                 { "DraftCount", draftCount }
             };

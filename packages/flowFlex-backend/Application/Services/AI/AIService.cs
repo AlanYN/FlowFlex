@@ -12,6 +12,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Entities.OW;
 
 namespace FlowFlex.Application.Services.AI
 {
@@ -25,40 +26,59 @@ namespace FlowFlex.Application.Services.AI
         private readonly HttpClient _httpClient;
         private readonly IMCPService _mcpService;
         private readonly IWorkflowService _workflowService;
+        private readonly IAIModelConfigService _configService;
 
         public AIService(
             IOptions<AIOptions> aiOptions,
             ILogger<AIService> logger,
             HttpClient httpClient,
             IMCPService mcpService,
-            IWorkflowService workflowService)
+            IWorkflowService workflowService,
+            IAIModelConfigService configService)
         {
             _aiOptions = aiOptions.Value;
             _logger = logger;
             _httpClient = httpClient;
             _mcpService = mcpService;
             _workflowService = workflowService;
+            _configService = configService;
         }
 
         public async Task<AIWorkflowGenerationResult> GenerateWorkflowAsync(AIWorkflowGenerationInput input)
         {
             try
             {
-                _logger.LogInformation("Generating workflow from natural language: {Description}", input.Description);
+                _logger.LogInformation("Generating workflow from natural language with enhanced context");
+                _logger.LogInformation("Description length: {DescriptionLength} characters", input.Description?.Length ?? 0);
+                _logger.LogInformation("AI Model: {Provider} {Model} (ID: {ModelId})", 
+                    input.ModelProvider, input.ModelName, input.ModelId);
+                _logger.LogInformation("Session ID: {SessionId}", input.SessionId);
+                _logger.LogInformation("Conversation History: {MessageCount} messages", 
+                    input.ConversationHistory?.Count ?? 0);
 
-                // Store context in MCP for future reference
-                await _mcpService.StoreContextAsync(
-                    $"workflow_generation_{DateTime.UtcNow:yyyyMMddHHmmss}",
-                    JsonSerializer.Serialize(input),
-                    new Dictionary<string, object>
-                    {
-                        { "type", "workflow_generation" },
-                        { "timestamp", DateTime.UtcNow },
-                        { "description", input.Description }
-                    });
+                // Store enhanced context in MCP for future reference
+                var contextId = $"workflow_generation_{input.SessionId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+                var contextMetadata = new Dictionary<string, object>
+                {
+                    { "type", "workflow_generation" },
+                    { "timestamp", DateTime.UtcNow },
+                    { "description", input.Description },
+                    { "sessionId", input.SessionId ?? "" },
+                    { "modelProvider", input.ModelProvider ?? "" },
+                    { "modelName", input.ModelName ?? "" },
+                    { "conversationMessageCount", input.ConversationHistory?.Count ?? 0 }
+                };
+                
+                if (input.ConversationMetadata != null)
+                {
+                    contextMetadata.Add("conversationMode", input.ConversationMetadata.ConversationMode ?? "");
+                    contextMetadata.Add("totalMessages", input.ConversationMetadata.TotalMessages);
+                }
+
+                await _mcpService.StoreContextAsync(contextId, JsonSerializer.Serialize(input), contextMetadata);
 
                 var prompt = BuildWorkflowGenerationPrompt(input);
-                var aiResponse = await CallAIProviderAsync(prompt);
+                var aiResponse = await CallAIProviderAsync(prompt, input.ModelId, input.ModelProvider, input.ModelName);
 
                 if (!aiResponse.Success)
                 {
@@ -625,25 +645,39 @@ namespace FlowFlex.Application.Services.AI
 
         private async Task<AIProviderResponse> CallAIProviderAsync(string prompt)
         {
+            return await CallAIProviderAsync(prompt, null, null, null);
+        }
+
+        private async Task<AIProviderResponse> CallAIProviderAsync(string prompt, string? modelId, string? modelProvider, string? modelName)
+        {
             try
             {
-                switch (_aiOptions.Provider.ToLower())
+                // Use specific model if provided, otherwise fall back to configuration
+                var provider = modelProvider?.ToLower() ?? _aiOptions.Provider.ToLower();
+                
+                _logger.LogInformation("Using AI provider: {Provider}, Model: {ModelName} (ID: {ModelId})", 
+                    provider, modelName, modelId);
+
+                switch (provider)
                 {
                     case "zhipuai":
-                        return await CallZhipuAIAsync(prompt);
+                        return await CallZhipuAIAsync(prompt, modelId, modelName);
                     case "openai":
-                        return await CallOpenAIAsync(prompt);
+                        return await CallOpenAIAsync(prompt, modelId, modelName);
+                    case "claude":
+                    case "anthropic":
+                        return await CallClaudeAsync(prompt, modelId, modelName);
+                    case "deepseek":
+                        return await CallDeepSeekAsync(prompt, modelId, modelName);
                     default:
-                        return new AIProviderResponse
-                        {
-                            Success = false,
-                            ErrorMessage = $"Unsupported AI provider: {_aiOptions.Provider}"
-                        };
+                        // Try to call using generic OpenAI-compatible API
+                        _logger.LogInformation("Unknown provider {Provider}, attempting to use OpenAI-compatible API", provider);
+                        return await CallGenericOpenAICompatibleAsync(prompt, modelId, modelName, provider);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error calling AI provider: {Provider}", _aiOptions.Provider);
+                _logger.LogError(ex, "Error calling AI provider: {Provider}", modelProvider ?? _aiOptions.Provider);
                 return new AIProviderResponse
                 {
                     Success = false,
@@ -654,28 +688,51 @@ namespace FlowFlex.Application.Services.AI
 
         private async Task<AIProviderResponse> CallZhipuAIAsync(string prompt)
         {
-            var config = _aiOptions.ZhipuAI;
-            var requestBody = new
+            return await CallZhipuAIAsync(prompt, null, null);
+        }
+
+        private async Task<AIProviderResponse> CallZhipuAIAsync(string prompt, string? modelId, string? modelName)
+        {
+            try
             {
-                model = config.Model,
-                messages = new[]
+                // Get user's AI model configuration if modelId is provided
+                AIModelConfig? userConfig = null;
+                if (!string.IsNullOrEmpty(modelId) && long.TryParse(modelId, out var configId))
                 {
-                    new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
-                    new { role = "user", content = prompt }
-                },
-                max_tokens = config.MaxTokens,
-                temperature = config.Temperature,
-                stream = false
-            };
+                    userConfig = await _configService.GetConfigByIdAsync(configId);
+                    _logger.LogInformation("Using user's AI model configuration: {ConfigId}", configId);
+                }
 
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+                // Use user config if available, otherwise fall back to default configuration
+                var apiKey = userConfig?.ApiKey ?? _aiOptions.ZhipuAI.ApiKey;
+                var baseUrl = userConfig?.BaseUrl ?? _aiOptions.ZhipuAI.BaseUrl;
+                var model = userConfig?.ModelName ?? modelName ?? _aiOptions.ZhipuAI.Model;
+                var temperature = userConfig?.Temperature ?? _aiOptions.ZhipuAI.Temperature;
+                var maxTokens = userConfig?.MaxTokens ?? _aiOptions.ZhipuAI.MaxTokens;
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+                _logger.LogInformation("ZhipuAI Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
 
-            var response = await _httpClient.PostAsync($"{config.BaseUrl}/chat/completions", content);
-            var responseContent = await response.Content.ReadAsStringAsync();
+                var requestBody = new
+                {
+                    model = model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "user", content = prompt }
+                    },
+                    max_tokens = maxTokens,
+                    temperature = temperature,
+                    stream = false
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/chat/completions", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
             {
@@ -690,22 +747,535 @@ namespace FlowFlex.Application.Services.AI
             var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
             var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
 
-            return new AIProviderResponse
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent ?? string.Empty
+                };
+            }
+            catch (Exception ex)
             {
-                Success = true,
-                Content = messageContent ?? string.Empty
-            };
+                _logger.LogError(ex, "Error calling ZhipuAI: {Error}", ex.Message);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"ZhipuAI call failed: {ex.Message}"
+                };
+            }
         }
 
         private async Task<AIProviderResponse> CallOpenAIAsync(string prompt)
         {
-            // OpenAI implementation placeholder
-            await Task.Delay(100);
-            return new AIProviderResponse
+            return await CallOpenAIAsync(prompt, null, null);
+        }
+
+        private async Task<AIProviderResponse> CallOpenAIAsync(string prompt, string? modelId, string? modelName)
+        {
+            try
             {
-                Success = false,
-                ErrorMessage = "OpenAI integration not implemented yet"
-            };
+                // Get user's AI model configuration if modelId is provided
+                AIModelConfig? userConfig = null;
+                if (!string.IsNullOrEmpty(modelId) && long.TryParse(modelId, out var configId))
+                {
+                    _logger.LogInformation("Attempting to get OpenAI configuration for ID: {ConfigId}", configId);
+                    userConfig = await _configService.GetConfigByIdAsync(configId);
+                    
+                    if (userConfig != null)
+                    {
+                        _logger.LogInformation("Successfully retrieved OpenAI configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                            configId, userConfig.Provider, userConfig.ModelName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to retrieve OpenAI configuration for ID: {ConfigId} - configuration not found or access denied", configId);
+                    }
+                }
+
+                // Use user config if available, otherwise fall back to default configuration
+                // Note: For OpenAI, we need to use user configuration since there's no default OpenAI config in _aiOptions
+                if (userConfig == null)
+                {
+                    _logger.LogWarning("No OpenAI configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
+                    
+                    // Try to fallback to ZhipuAI if OpenAI config is not available
+                    try
+                    {
+                        _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing OpenAI configuration");
+                        return await CallZhipuAIAsync(prompt, null, null);
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        _logger.LogError(fallbackEx, "Fallback to ZhipuAI also failed");
+                        return new AIProviderResponse
+                        {
+                            Success = false,
+                            ErrorMessage = $"OpenAI configuration not found (ID: {modelId}) and ZhipuAI fallback failed. Please configure your AI models properly."
+                        };
+                    }
+                }
+
+                var apiKey = userConfig.ApiKey;
+                var baseUrl = userConfig.BaseUrl;
+                var model = userConfig.ModelName ?? modelName ?? "gpt-4o-mini";
+                var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
+                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+
+                _logger.LogInformation("OpenAI Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+
+                var requestBody = new
+                {
+                    model = model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "user", content = prompt }
+                    },
+                    max_tokens = maxTokens,
+                    temperature = temperature,
+                    stream = false
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/v1/chat/completions", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("OpenAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"OpenAI API error: {response.StatusCode} - {responseContent}"
+                    };
+                }
+
+                var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                
+                // Parse OpenAI response format
+                if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                {
+                    var firstChoice = choices[0];
+                    if (firstChoice.TryGetProperty("message", out var message) && 
+                        message.TryGetProperty("content", out var messageContent))
+                    {
+                        var content_str = messageContent.GetString();
+                        return new AIProviderResponse
+                        {
+                            Success = true,
+                            Content = content_str ?? string.Empty
+                        };
+                    }
+                }
+
+                _logger.LogError("Invalid OpenAI response format: {Response}", responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = "Invalid response format from OpenAI API"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling OpenAI: {Error}", ex.Message);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"OpenAI call failed: {ex.Message}"
+                };
+            }
+        }
+
+        private async Task<AIProviderResponse> CallClaudeAsync(string prompt, string? modelId, string? modelName)
+        {
+            try
+            {
+                // Get user's AI model configuration if modelId is provided
+                AIModelConfig? userConfig = null;
+                if (!string.IsNullOrEmpty(modelId) && long.TryParse(modelId, out var configId))
+                {
+                    _logger.LogInformation("Attempting to get Claude configuration for ID: {ConfigId}", configId);
+                    userConfig = await _configService.GetConfigByIdAsync(configId);
+                    
+                    if (userConfig != null)
+                    {
+                        _logger.LogInformation("Successfully retrieved Claude configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                            configId, userConfig.Provider, userConfig.ModelName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to retrieve Claude configuration for ID: {ConfigId} - configuration not found", configId);
+                    }
+                }
+
+                // Use user config if available, otherwise fall back to default or fail
+                if (userConfig == null)
+                {
+                    _logger.LogWarning("No Claude configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
+                    
+                    // Try to fallback to ZhipuAI if Claude config is not available
+                    try
+                    {
+                        _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing Claude configuration");
+                        return await CallZhipuAIAsync(prompt, null, null);
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        _logger.LogError(fallbackEx, "Fallback to ZhipuAI also failed");
+                        return new AIProviderResponse
+                        {
+                            Success = false,
+                            ErrorMessage = $"Claude configuration not found (ID: {modelId}) and ZhipuAI fallback failed. Please configure your AI models properly."
+                        };
+                    }
+                }
+
+                var apiKey = userConfig.ApiKey;
+                var baseUrl = userConfig.BaseUrl;
+                var model = userConfig.ModelName ?? modelName ?? "claude-3-sonnet-20240229";
+                var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
+                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+
+                _logger.LogInformation("Claude Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+
+                var requestBody = new
+                {
+                    model = model,
+                    max_tokens = maxTokens,
+                    temperature = temperature,
+                    messages = new[]
+                    {
+                        new { role = "user", content = prompt }
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                _httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+
+                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/v1/messages", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Claude API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"Claude API error: {response.StatusCode} - {responseContent}"
+                    };
+                }
+
+                var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                
+                // Parse Claude response format
+                if (responseData.TryGetProperty("content", out var content_array) && content_array.GetArrayLength() > 0)
+                {
+                    var firstContent = content_array[0];
+                    if (firstContent.TryGetProperty("text", out var textContent))
+                    {
+                        var content_str = textContent.GetString();
+                        return new AIProviderResponse
+                        {
+                            Success = true,
+                            Content = content_str ?? string.Empty
+                        };
+                    }
+                }
+
+                _logger.LogError("Invalid Claude response format: {Response}", responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = "Invalid response format from Claude API"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling Claude: {Error}", ex.Message);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Claude call failed: {ex.Message}"
+                };
+            }
+        }
+
+        private async Task<AIProviderResponse> CallDeepSeekAsync(string prompt, string? modelId, string? modelName)
+        {
+            try
+            {
+                // Get user's AI model configuration if modelId is provided
+                AIModelConfig? userConfig = null;
+                if (!string.IsNullOrEmpty(modelId) && long.TryParse(modelId, out var configId))
+                {
+                    _logger.LogInformation("Attempting to get DeepSeek configuration for ID: {ConfigId}", configId);
+                    userConfig = await _configService.GetConfigByIdAsync(configId);
+                    
+                    if (userConfig != null)
+                    {
+                        _logger.LogInformation("Successfully retrieved DeepSeek configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                            configId, userConfig.Provider, userConfig.ModelName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to retrieve DeepSeek configuration for ID: {ConfigId} - configuration not found", configId);
+                    }
+                }
+
+                // Use user config if available, otherwise fall back to default or fail
+                if (userConfig == null)
+                {
+                    _logger.LogWarning("No DeepSeek configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
+                    
+                    // Try to fallback to ZhipuAI if DeepSeek config is not available
+                    try
+                    {
+                        _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing DeepSeek configuration");
+                        return await CallZhipuAIAsync(prompt, null, null);
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        _logger.LogError(fallbackEx, "Fallback to ZhipuAI also failed");
+                        return new AIProviderResponse
+                        {
+                            Success = false,
+                            ErrorMessage = $"DeepSeek configuration not found (ID: {modelId}) and ZhipuAI fallback failed. Please configure your AI models properly."
+                        };
+                    }
+                }
+
+                var apiKey = userConfig.ApiKey;
+                var baseUrl = userConfig.BaseUrl;
+                var model = userConfig.ModelName ?? modelName ?? "deepseek-chat";
+                var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
+                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+
+                _logger.LogInformation("DeepSeek Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+
+                // DeepSeek uses OpenAI-compatible API format
+                var requestBody = new
+                {
+                    model = model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "user", content = prompt }
+                    },
+                    max_tokens = maxTokens,
+                    temperature = temperature,
+                    stream = false
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/v1/chat/completions", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("DeepSeek API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"DeepSeek API error: {response.StatusCode} - {responseContent}"
+                    };
+                }
+
+                var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                
+                // Parse OpenAI-compatible response format
+                if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                {
+                    var firstChoice = choices[0];
+                    if (firstChoice.TryGetProperty("message", out var message) && 
+                        message.TryGetProperty("content", out var messageContent))
+                    {
+                        var content_str = messageContent.GetString();
+                        return new AIProviderResponse
+                        {
+                            Success = true,
+                            Content = content_str ?? string.Empty
+                        };
+                    }
+                }
+
+                _logger.LogError("Invalid DeepSeek response format: {Response}", responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = "Invalid response format from DeepSeek API"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling DeepSeek: {Error}", ex.Message);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"DeepSeek call failed: {ex.Message}"
+                };
+            }
+        }
+
+        private async Task<AIProviderResponse> CallGenericOpenAICompatibleAsync(string prompt, string? modelId, string? modelName, string providerName)
+        {
+            try
+            {
+                // Get user's AI model configuration if modelId is provided
+                AIModelConfig? userConfig = null;
+                if (!string.IsNullOrEmpty(modelId) && long.TryParse(modelId, out var configId))
+                {
+                    _logger.LogInformation("Attempting to get {Provider} configuration for ID: {ConfigId}", providerName, configId);
+                    userConfig = await _configService.GetConfigByIdAsync(configId);
+                    
+                    if (userConfig != null)
+                    {
+                        _logger.LogInformation("Successfully retrieved {Provider} configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                            providerName, configId, userConfig.Provider, userConfig.ModelName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to retrieve {Provider} configuration for ID: {ConfigId} - configuration not found", providerName, configId);
+                    }
+                }
+
+                // Use user config if available, otherwise fall back to default or fail
+                if (userConfig == null)
+                {
+                    _logger.LogWarning("No {Provider} configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", providerName, modelId);
+                    
+                    // Try to fallback to ZhipuAI if config is not available
+                    try
+                    {
+                        _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing {Provider} configuration", providerName);
+                        return await CallZhipuAIAsync(prompt, null, null);
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        _logger.LogError(fallbackEx, "Fallback to ZhipuAI also failed");
+                        return new AIProviderResponse
+                        {
+                            Success = false,
+                            ErrorMessage = $"{providerName} configuration not found (ID: {modelId}) and ZhipuAI fallback failed. Please configure your AI models properly."
+                        };
+                    }
+                }
+
+                var apiKey = userConfig.ApiKey;
+                var baseUrl = userConfig.BaseUrl;
+                var model = userConfig.ModelName ?? modelName ?? "default-model";
+                var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
+                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+
+                _logger.LogInformation("{Provider} Request - Model: {Model}, BaseUrl: {BaseUrl}", providerName, model, baseUrl);
+
+                // Use OpenAI-compatible API format (most providers support this)
+                var requestBody = new
+                {
+                    model = model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "user", content = prompt }
+                    },
+                    max_tokens = maxTokens,
+                    temperature = temperature,
+                    stream = false
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                // Try both common endpoints
+                var endpoints = new[] { "/v1/chat/completions", "/chat/completions" };
+                AIProviderResponse? lastResponse = null;
+
+                foreach (var endpoint in endpoints)
+                {
+                    try
+                    {
+                        var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}{endpoint}", content);
+                        var responseContent = await response.Content.ReadAsStringAsync();
+
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                            
+                            // Parse OpenAI-compatible response format
+                            if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                            {
+                                var firstChoice = choices[0];
+                                if (firstChoice.TryGetProperty("message", out var message) && 
+                                    message.TryGetProperty("content", out var messageContent))
+                                {
+                                    var content_str = messageContent.GetString();
+                                    return new AIProviderResponse
+                                    {
+                                        Success = true,
+                                        Content = content_str ?? string.Empty
+                                    };
+                                }
+                            }
+
+                            _logger.LogError("Invalid {Provider} response format: {Response}", providerName, responseContent);
+                            lastResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = $"Invalid response format from {providerName} API"
+                            };
+                        }
+                        else
+                        {
+                            _logger.LogWarning("{Provider} API call failed with endpoint {Endpoint}: {StatusCode} - {Content}", 
+                                providerName, endpoint, response.StatusCode, responseContent);
+                            lastResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = $"{providerName} API error: {response.StatusCode} - {responseContent}"
+                            };
+                        }
+                    }
+                    catch (Exception endpointEx)
+                    {
+                        _logger.LogWarning(endpointEx, "Failed to call {Provider} with endpoint {Endpoint}", providerName, endpoint);
+                        lastResponse = new AIProviderResponse
+                        {
+                            Success = false,
+                            ErrorMessage = $"{providerName} endpoint {endpoint} failed: {endpointEx.Message}"
+                        };
+                    }
+                }
+
+                return lastResponse ?? new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"All {providerName} endpoints failed"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling {Provider}: {Error}", providerName, ex.Message);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"{providerName} call failed: {ex.Message}"
+                };
+            }
         }
 
         private string BuildWorkflowGenerationPrompt(AIWorkflowGenerationInput input)
@@ -713,8 +1283,47 @@ namespace FlowFlex.Application.Services.AI
             var promptBuilder = new StringBuilder();
             promptBuilder.AppendLine($"{_aiOptions.Prompts.WorkflowSystem}");
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请根据以下需求生成一个完整的工作流定义：");
-            promptBuilder.AppendLine($"描述: {input.Description}");
+            
+            // Check if this is a conversation-based workflow generation
+            if (input.ConversationHistory != null && input.ConversationHistory.Any())
+            {
+                promptBuilder.AppendLine("=== 基于详细对话生成工作流 ===");
+                promptBuilder.AppendLine("以下是与用户的完整对话历史，请根据这些详细信息生成精确的工作流：");
+                promptBuilder.AppendLine();
+                
+                // Add conversation context
+                if (input.ConversationMetadata != null)
+                {
+                    promptBuilder.AppendLine($"会话信息：");
+                    promptBuilder.AppendLine($"- 会话ID: {input.SessionId}");
+                    promptBuilder.AppendLine($"- 总消息数: {input.ConversationMetadata.TotalMessages}");
+                    promptBuilder.AppendLine($"- 对话模式: {input.ConversationMetadata.ConversationMode}");
+                    promptBuilder.AppendLine();
+                }
+                
+                // Add full conversation history
+                promptBuilder.AppendLine("完整对话内容：");
+                foreach (var message in input.ConversationHistory)
+                {
+                    var role = message.Role == "user" ? "👤 用户" : "🤖 AI助手";
+                    promptBuilder.AppendLine($"{role}：");
+                    promptBuilder.AppendLine(message.Content);
+                    promptBuilder.AppendLine();
+                }
+                
+                promptBuilder.AppendLine("请特别注意：");
+                promptBuilder.AppendLine("1. 从对话中提取所有关键需求和细节");
+                promptBuilder.AppendLine("2. 使用AI助手在对话中提供的具体建议和详细信息");
+                promptBuilder.AppendLine("3. 确保工作流反映用户的具体需求和偏好");
+                promptBuilder.AppendLine("4. 如果AI助手提供了详细的行程、计划或步骤，请将其转化为工作流阶段");
+                promptBuilder.AppendLine();
+            }
+            else
+            {
+                // Fallback to traditional prompt building
+                promptBuilder.AppendLine("请根据以下需求生成一个完整的工作流定义：");
+                promptBuilder.AppendLine($"描述: {input.Description}");
+            }
             
             if (!string.IsNullOrEmpty(input.Context))
                 promptBuilder.AppendLine($"上下文: {input.Context}");
@@ -732,6 +1341,13 @@ namespace FlowFlex.Application.Services.AI
                 {
                     promptBuilder.AppendLine($"- {req}");
                 }
+            }
+
+            // Add AI model information if available
+            if (!string.IsNullOrEmpty(input.ModelProvider))
+            {
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine($"使用的AI模型: {input.ModelProvider} {input.ModelName}");
             }
 
             promptBuilder.AppendLine();
@@ -1395,65 +2011,356 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 {
                     messages.Add(new { role = message.Role, content = message.Content });
                 }
+
+                // 获取用户配置
+                AIModelConfig userConfig = null;
                 
-                var requestBody = new
+                // 如果指定了模型ID，使用该配置
+                if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
                 {
-                    model = _aiOptions.ZhipuAI.Model,
-                    messages = messages.ToArray(),
-                    temperature = 0.7,
-                    max_tokens = 1000
+                    // 使用租户隔离获取配置，不需要手动传递用户ID
+                    userConfig = await _configService.GetConfigByIdAsync(modelId);
+                    if (userConfig != null)
+                    {
+                        _logger.LogInformation("Using specified model config: {Provider} - {ModelName} for session: {SessionId}", 
+                            userConfig.Provider, userConfig.ModelName, input.SessionId);
+                    }
+                }
+                
+                // 如果没有指定模型或找不到配置，使用默认配置
+                if (userConfig == null)
+                {
+                    _logger.LogInformation("No specific model config found, using default ZhipuAI configuration");
+                    return await CallZhipuAIAsync(messages);
+                }
+
+                // 根据提供商调用相应的API
+                return userConfig.Provider?.ToLower() switch
+                {
+                    "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
+                    "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
+                    "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
+                    "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
+                    _ => await CallZhipuAIAsync(messages) // 默认使用ZhipuAI
                 };
-
-                var json = JsonSerializer.Serialize(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_aiOptions.ZhipuAI.ApiKey}");
-
-                // 使用正确的ZhipuAI chat completions endpoint
-                var apiUrl = $"{_aiOptions.ZhipuAI.BaseUrl}/chat/completions";
-                
-                _logger.LogInformation("Calling ZhipuAI API: {Url} with {MessageCount} messages", apiUrl, messages.Count);
-                
-                var response = await _httpClient.PostAsync(apiUrl, content);
-                var responseContent = await response.Content.ReadAsStringAsync();
-
-                _logger.LogInformation("ZhipuAI API Response: {StatusCode} - {Content}", response.StatusCode, responseContent);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    var messageContent = aiResponse
-                        .GetProperty("choices")[0]
-                        .GetProperty("message")
-                        .GetProperty("content")
-                        .GetString() ?? "";
-
-                    _logger.LogInformation("ZhipuAI generated response: {Response}", messageContent);
-
-                    return new AIProviderResponse
-                    {
-                        Success = true,
-                        Content = messageContent
-                    };
-                }
-                else
-                {
-                    _logger.LogWarning("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
-                    return new AIProviderResponse
-                    {
-                        Success = false,
-                        ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
-                    };
-                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error calling ZhipuAI API for chat");
+                _logger.LogError(ex, "Error calling AI provider for chat with session: {SessionId}", input.SessionId);
                 return new AIProviderResponse
                 {
                     Success = false,
-                    ErrorMessage = ex.Message
+                    ErrorMessage = $"AI provider call failed: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// 使用默认ZhipuAI配置调用API
+        /// </summary>
+        private async Task<AIProviderResponse> CallZhipuAIAsync(List<object> messages)
+        {
+            var requestBody = new
+            {
+                model = _aiOptions.ZhipuAI.Model,
+                messages = messages.ToArray(),
+                temperature = 0.7,
+                max_tokens = 1000
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_aiOptions.ZhipuAI.ApiKey}");
+
+            var apiUrl = $"{_aiOptions.ZhipuAI.BaseUrl}/chat/completions";
+            _logger.LogInformation("Calling ZhipuAI API: {Url} with {MessageCount} messages", apiUrl, messages.Count);
+            
+            var response = await _httpClient.PostAsync(apiUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("ZhipuAI API Response: {StatusCode} - {Content}", response.StatusCode, responseContent);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = aiResponse
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? "";
+
+                _logger.LogInformation("ZhipuAI generated response: {Response}", messageContent);
+
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent
+                };
+            }
+            else
+            {
+                _logger.LogWarning("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// 使用用户配置调用ZhipuAI API
+        /// </summary>
+        private async Task<AIProviderResponse> CallZhipuAIWithConfigAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+
+            // 智能处理API端点，避免路径重复
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+            
+            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+            if (baseUrl.Contains("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else
+            {
+                // 否则添加端点路径
+                apiUrl = $"{baseUrl}/chat/completions";
+            }
+            
+            _logger.LogInformation("Calling ZhipuAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
+            
+            var response = await _httpClient.PostAsync(apiUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = aiResponse
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? "";
+
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent
+                };
+            }
+            else
+            {
+                _logger.LogWarning("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// 使用用户配置调用OpenAI API
+        /// </summary>
+        private async Task<AIProviderResponse> CallOpenAIWithConfigAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+
+            // 确保OpenAI API端点包含正确的版本路径
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            var apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
+            _logger.LogInformation("Calling OpenAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
+            
+            var response = await _httpClient.PostAsync(apiUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = aiResponse
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? "";
+
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent
+                };
+            }
+            else
+            {
+                _logger.LogWarning("OpenAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// 使用用户配置调用Claude API
+        /// </summary>
+        private async Task<AIProviderResponse> CallClaudeWithConfigAsync(List<object> messages, AIModelConfig config)
+        {
+            // Claude API格式略有不同
+            var claudeMessages = messages.Skip(1).Select(m => new 
+            { 
+                role = ((dynamic)m).role == "assistant" ? "assistant" : "user", 
+                content = ((dynamic)m).content 
+            }).ToArray();
+
+            var requestBody = new
+            {
+                model = config.ModelName,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                messages = claudeMessages
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("x-api-key", config.ApiKey);
+            _httpClient.DefaultRequestHeaders.Add("anthropic-version", config.ApiVersion ?? "2023-06-01");
+
+            // 智能处理API端点，避免路径重复
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+            
+            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+            if (baseUrl.Contains("/messages"))
+            {
+                apiUrl = baseUrl;
+            }
+            else
+            {
+                // 否则添加端点路径，Claude使用/v1/messages
+                apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/messages" : $"{baseUrl}/v1/messages";
+            }
+            
+            _logger.LogInformation("Calling Claude API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
+            
+            var response = await _httpClient.PostAsync(apiUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = aiResponse
+                    .GetProperty("content")[0]
+                    .GetProperty("text")
+                    .GetString() ?? "";
+
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent
+                };
+            }
+            else
+            {
+                _logger.LogWarning("Claude API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// 使用用户配置调用DeepSeek API
+        /// </summary>
+        private async Task<AIProviderResponse> CallDeepSeekWithConfigAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+
+            // 智能处理API端点，避免路径重复
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+            
+            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+            if (baseUrl.Contains("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else
+            {
+                // 否则添加端点路径，DeepSeek通常需要v1版本
+                apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
+            }
+            
+            _logger.LogInformation("Calling DeepSeek API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
+            
+            var response = await _httpClient.PostAsync(apiUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = aiResponse
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? "";
+
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent
+                };
+            }
+            else
+            {
+                _logger.LogWarning("DeepSeek API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
                 };
             }
         }

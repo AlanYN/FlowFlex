@@ -40,6 +40,23 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return BadRequest("Workflow description is required");
             }
 
+            // Log the enhanced input information for debugging
+            Console.WriteLine($"[AI Workflow] Generating workflow with enhanced context:");
+            Console.WriteLine($"[AI Workflow] Description length: {input.Description?.Length ?? 0} characters");
+            Console.WriteLine($"[AI Workflow] Context: {input.Context}");
+            Console.WriteLine($"[AI Workflow] Selected AI Model: {input.ModelProvider} {input.ModelName} (ID: {input.ModelId})");
+            Console.WriteLine($"[AI Workflow] Session ID: {input.SessionId}");
+            Console.WriteLine($"[AI Workflow] Conversation History: {input.ConversationHistory?.Count ?? 0} messages");
+            
+            if (input.ConversationMetadata != null)
+            {
+                Console.WriteLine($"[AI Workflow] Conversation Metadata:");
+                Console.WriteLine($"  - Total Messages: {input.ConversationMetadata.TotalMessages}");
+                Console.WriteLine($"  - Mode: {input.ConversationMetadata.ConversationMode}");
+                Console.WriteLine($"  - Start Time: {input.ConversationMetadata.ConversationStartTime}");
+                Console.WriteLine($"  - End Time: {input.ConversationMetadata.ConversationEndTime}");
+            }
+
             var result = await _aiService.GenerateWorkflowAsync(input);
             return Success(result);
         }
@@ -63,6 +80,12 @@ namespace FlowFlex.WebApi.Controllers.AI
                 };
                 yield break;
             }
+
+            // Log the enhanced input information for streaming generation
+            Console.WriteLine($"[AI Workflow Stream] Starting stream generation with enhanced context:");
+            Console.WriteLine($"[AI Workflow Stream] Selected AI Model: {input.ModelProvider} {input.ModelName} (ID: {input.ModelId})");
+            Console.WriteLine($"[AI Workflow Stream] Session ID: {input.SessionId}");
+            Console.WriteLine($"[AI Workflow Stream] Conversation History: {input.ConversationHistory?.Count ?? 0} messages");
 
             await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
             {

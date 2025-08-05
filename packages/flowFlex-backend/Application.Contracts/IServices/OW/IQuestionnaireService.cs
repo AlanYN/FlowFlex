@@ -73,15 +73,7 @@ public interface IQuestionnaireService : IScopedService
     /// </summary>
     Task<bool> ArchiveAsync(long id);
 
-    /// <summary>
-    /// Get questionnaire templates
-    /// </summary>
-    Task<List<QuestionnaireOutputDto>> GetTemplatesAsync();
-
-    /// <summary>
-    /// Create questionnaire from template
-    /// </summary>
-    Task<long> CreateFromTemplateAsync(long templateId, QuestionnaireInputDto input);
+    // Template-related methods removed - template functionality discontinued
 
     /// <summary>
     /// Validate questionnaire structure

@@ -34,12 +34,6 @@ namespace FlowFlex.Domain.Entities.OW
         public string Description { get; set; }
 
         /// <summary>
-        /// Questionnaire Type (Template/Instance)
-        /// </summary>
-        [StringLength(20)]
-        public string Type { get; set; } = "Template";
-
-        /// <summary>
         /// Questionnaire Status (Draft/Published/Archived)
         /// </summary>
         [StringLength(20)]
@@ -56,16 +50,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         public int Version { get; set; } = 1;
 
-        /// <summary>
-        /// Is Template
-        /// </summary>
-        public bool IsTemplate { get; set; } = true;
 
-        /// <summary>
-        /// Template Source ID (if created from template instance)
-        /// </summary>
-        [SugarColumn(ColumnName = "template_id")]
-        public long? TemplateId { get; set; }
 
         /// <summary>
         /// Preview Image URL

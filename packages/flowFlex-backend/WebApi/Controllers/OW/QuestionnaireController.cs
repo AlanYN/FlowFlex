@@ -187,27 +187,9 @@ namespace FlowFlex.WebApi.Controllers.OW
             return Success(result);
         }
 
-        /// <summary>
-        /// Get questionnaire templates
-        /// </summary>
-        [HttpGet("templates")]
-        [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetTemplates()
-        {
-            var data = await _questionnaireService.GetTemplatesAsync();
-            return Success(data);
-        }
+        // GetTemplates API removed - template functionality discontinued
 
-        /// <summary>
-        /// Create questionnaire from template
-        /// </summary>
-        [HttpPost("templates/{templateId}/create")]
-        [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> CreateFromTemplate(long templateId, [FromBody] QuestionnaireInputDto input)
-        {
-            var id = await _questionnaireService.CreateFromTemplateAsync(templateId, input);
-            return Success(id);
-        }
+        // CreateFromTemplate API removed - template functionality discontinued
 
         /// <summary>
         /// Validate questionnaire structure

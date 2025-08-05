@@ -135,6 +135,10 @@ export interface AIChatInput {
 	context?: string;
 	sessionId?: string;
 	mode?: 'workflow_planning' | 'general';
+	// 添加模型相关字段
+	modelId?: string;
+	modelProvider?: string;
+	modelName?: string;
 }
 
 /**
@@ -307,6 +311,20 @@ export interface AIWorkflowGenerationInput {
 	includeApprovals?: boolean;
 	includeNotifications?: boolean;
 	estimatedDuration?: number;
+	// AI模型信息
+	modelId?: string;
+	modelProvider?: string;
+	modelName?: string;
+	// 对话历史信息
+	conversationHistory?: AIChatMessage[];
+	sessionId?: string;
+	// 额外的上下文信息
+	conversationMetadata?: {
+		totalMessages?: number;
+		conversationStartTime?: string;
+		conversationEndTime?: string;
+		conversationMode?: string;
+	};
 }
 
 export interface AIWorkflowGenerationResult {
