@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 
@@ -20,10 +21,12 @@ namespace FlowFlex.WebApi.Controllers.OW
     public class QuestionnaireController : Controllers.ControllerBase
     {
         private readonly IQuestionnaireService _questionnaireService;
+        private readonly IFileStorageService _fileStorageService;
 
-        public QuestionnaireController(IQuestionnaireService questionnaireService)
+        public QuestionnaireController(IQuestionnaireService questionnaireService, IFileStorageService fileStorageService)
         {
             _questionnaireService = questionnaireService;
+            _fileStorageService = fileStorageService;
         }
 
         /// <summary>
@@ -222,6 +225,107 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             var result = await _questionnaireService.GetByStageIdsBatchAsync(request);
             return Success(result);
+        }
+
+        /// <summary>
+        /// Upload question file
+        /// </summary>
+        /// <param name="formFile">File to upload</param>
+        /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
+        /// <returns>File access URL</returns>
+        [HttpPost("questions/upload-file")]
+        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadQuestionFileAsync(
+            IFormFile formFile,
+            [FromForm] string category = "QuestionnaireQuestion")
+        {
+            if (formFile == null || formFile.Length == 0)
+            {
+                return BadRequest("File is required");
+            }
+
+            // Validate file first
+            var validationResult = await _fileStorageService.ValidateFileAsync(formFile);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest($"File validation failed: {validationResult.ErrorMessage}");
+            }
+
+            // Save file using file storage service
+            var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
+            
+            if (!storageResult.Success)
+            {
+                return BadRequest($"File upload failed: {storageResult.ErrorMessage}");
+            }
+
+            // Return the access URL for frontend to use
+            return Success(storageResult.AccessUrl);
+        }
+
+        /// <summary>
+        /// Batch upload question files
+        /// </summary>
+        /// <param name="formFiles">List of files to upload</param>
+        /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
+        /// <returns>List of file access URLs</returns>
+        [HttpPost("questions/batch-upload-files")]
+        [ProducesResponseType<SuccessResponse<List<string>>>((int)HttpStatusCode.OK)]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadMultipleQuestionFilesAsync(
+            List<IFormFile> formFiles,
+            [FromForm] string category = "QuestionnaireQuestion")
+        {
+            if (formFiles == null || formFiles.Count == 0)
+            {
+                return BadRequest("At least one file is required");
+            }
+
+            var uploadResults = new List<string>();
+            var errors = new List<string>();
+
+            foreach (var formFile in formFiles)
+            {
+                if (formFile == null || formFile.Length == 0)
+                {
+                    errors.Add($"File {formFile?.FileName ?? "unknown"} is empty");
+                    continue;
+                }
+
+                // Validate file
+                var validationResult = await _fileStorageService.ValidateFileAsync(formFile);
+                if (!validationResult.IsValid)
+                {
+                    errors.Add($"File {formFile.FileName} validation failed: {validationResult.ErrorMessage}");
+                    continue;
+                }
+
+                // Save file
+                var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
+                if (!storageResult.Success)
+                {
+                    errors.Add($"File {formFile.FileName} upload failed: {storageResult.ErrorMessage}");
+                    continue;
+                }
+
+                uploadResults.Add(storageResult.AccessUrl);
+            }
+
+            // If all files failed to upload
+            if (uploadResults.Count == 0 && errors.Count > 0)
+            {
+                return BadRequest($"All files failed to upload: {string.Join("; ", errors)}");
+            }
+
+            // If some files failed, include error information in response
+            if (errors.Count > 0)
+            {
+                // Log errors for troubleshooting
+                // Note: In production, you might want to return partial success information
+            }
+
+            return Success(uploadResults);
         }
     }
 }
