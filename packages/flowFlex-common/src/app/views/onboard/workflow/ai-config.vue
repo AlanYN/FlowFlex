@@ -7,7 +7,6 @@
 				<p>Manage your AI model settings and test connections</p>
 			</div>
 			<div class="header-actions">
-				
 				<el-button type="primary" @click="addNewConfig">
 					<el-icon class="mr-1"><Plus /></el-icon>
 					Add New Model
@@ -25,11 +24,11 @@
 						</el-tag>
 					</template>
 				</el-table-column>
-				
+
 				<el-table-column prop="modelName" label="Model" width="150" />
-				
+
 				<el-table-column prop="baseUrl" label="API URL" width="200" show-overflow-tooltip />
-				
+
 				<el-table-column label="Status" width="100">
 					<template #default="{ row }">
 						<el-tag :type="row.isAvailable ? 'success' : 'danger'" size="small">
@@ -37,7 +36,7 @@
 						</el-tag>
 					</template>
 				</el-table-column>
-				
+
 				<el-table-column label="Default" width="80">
 					<template #default="{ row }">
 						<el-icon v-if="row.isDefault" class="text-green-500">
@@ -45,33 +44,35 @@
 						</el-icon>
 					</template>
 				</el-table-column>
-				
+
 				<el-table-column prop="lastCheckTime" label="Last Check" width="150">
 					<template #default="{ row }">
 						{{ formatDateTime(row.lastCheckTime) }}
 					</template>
 				</el-table-column>
-				
+
 				<el-table-column label="Actions" width="280">
 					<template #default="{ row }">
 						<div class="action-buttons">
-							<el-button size="small" @click="testConnection(row)" :loading="testingId === row.id">
+							<el-button
+								size="small"
+								@click="testConnection(row)"
+								:loading="testingId === row.id"
+							>
 								Test
 							</el-button>
-							<el-button size="small" @click="editConfig(row)">
-								Edit
-							</el-button>
-							<el-button 
-								size="small" 
-								type="success" 
-								@click="setDefault(row.id)" 
+							<el-button size="small" @click="editConfig(row)">Edit</el-button>
+							<el-button
+								size="small"
+								type="success"
+								@click="setDefault(row.id)"
 								:disabled="row.isDefault"
 							>
 								Set Default
 							</el-button>
-							<el-button 
-								size="small" 
-								type="danger" 
+							<el-button
+								size="small"
+								type="danger"
 								@click="deleteConfig(row.id)"
 								:disabled="row.isDefault"
 							>
@@ -89,38 +90,46 @@
 			:title="editingConfig ? 'Edit AI Model' : 'Add New AI Model'"
 			width="600px"
 		>
-			<el-form 
+			<el-form
 				ref="configFormRef"
-				:model="configForm" 
+				:model="configForm"
 				:rules="configRules"
 				label-width="120px"
 			>
 				<el-form-item label="Provider" prop="provider">
-					<el-select v-model="configForm.provider" placeholder="Select AI Provider" @change="onProviderChange">
-						<el-option 
-							v-for="provider in providers" 
+					<el-select
+						v-model="configForm.provider"
+						placeholder="Select AI Provider"
+						@change="onProviderChange"
+					>
+						<el-option
+							v-for="provider in providers"
 							:key="provider.name"
-							:label="provider.displayName" 
-							:value="provider.name" 
+							:label="provider.displayName"
+							:value="provider.name"
 						/>
 					</el-select>
 				</el-form-item>
 
 				<el-form-item label="Model Name" prop="modelName">
-					<el-select v-model="configForm.modelName" placeholder="Select model" :disabled="!configForm.provider">
-						<el-option 
-							v-for="model in supportedModels" 
+					<el-select
+						v-model="configForm.modelName"
+						placeholder="Select model"
+						:disabled="!configForm.provider"
+					>
+						<el-option
+							v-for="model in supportedModels"
 							:key="model"
-							:label="model" 
-							:value="model" 
+							:label="model"
+							:value="model"
 						/>
 					</el-select>
 				</el-form-item>
 
 				<el-form-item label="API Key" prop="apiKey">
-					<el-input 
-						v-model="configForm.apiKey" 
-						type="password" 
+					<el-input
+						v-model="configForm.apiKey"
+						type="password"
 						placeholder="Enter your API key"
 						show-password
 					/>
@@ -131,11 +140,22 @@
 				</el-form-item>
 
 				<el-form-item label="Temperature">
-					<el-slider v-model="configForm.temperature" :min="0" :max="2" :step="0.1" show-input />
+					<el-slider
+						v-model="configForm.temperature"
+						:min="0"
+						:max="2"
+						:step="0.1"
+						show-input
+					/>
 				</el-form-item>
 
 				<el-form-item label="Max Tokens">
-					<el-input-number v-model="configForm.maxTokens" :min="100" :max="32000" :step="100" />
+					<el-input-number
+						v-model="configForm.maxTokens"
+						:min="100"
+						:max="32000"
+						:step="100"
+					/>
 				</el-form-item>
 
 				<el-form-item label="Set as Default">
@@ -143,9 +163,9 @@
 				</el-form-item>
 
 				<el-form-item label="Remarks">
-					<el-input 
-						v-model="configForm.remarks" 
-						type="textarea" 
+					<el-input
+						v-model="configForm.remarks"
+						type="textarea"
 						:rows="3"
 						placeholder="Optional notes"
 					/>
@@ -219,25 +239,37 @@ const loadConfigs = async () => {
 		console.log('🔍 Loading AI model configurations...');
 		const response = await getUserAIModels();
 		console.log('📥 AI model configuration response:', response);
-		
+
 		if (response.success && (response.code === 200 || response.code === '200')) {
 			modelConfigs.value = response.data || [];
-			console.log('✅ AI model configurations loaded successfully:', modelConfigs.value.length, 'configurations');
+			console.log(
+				'✅ AI model configurations loaded successfully:',
+				modelConfigs.value.length,
+				'configurations'
+			);
 		} else {
 			console.error('❌ Failed to load AI model configurations:', response);
-			ElMessage.error(`Failed to load AI model configurations: ${response.message || 'Unknown error'}`);
+			ElMessage.error(
+				`Failed to load AI model configurations: ${response.message || 'Unknown error'}`
+			);
 		}
 	} catch (error) {
 		console.error('💥 AI model configuration loading error:', error);
-		
+
 		// More detailed error information
 		if (error?.response) {
 			const status = error.response.status;
 			const statusText = error.response.statusText;
 			const data = error.response.data;
-			ElMessage.error(`Request failed (${status} ${statusText}): ${data?.message || data || 'Server error'}`);
+			ElMessage.error(
+				`Request failed (${status} ${statusText}): ${
+					data?.message || data || 'Server error'
+				}`
+			);
 		} else if (error?.request) {
-			ElMessage.error('Network request failed, please check if the backend service is running');
+			ElMessage.error(
+				'Network request failed, please check if the backend service is running'
+			);
 		} else {
 			ElMessage.error(`Request configuration error: ${error.message}`);
 		}
@@ -251,25 +283,35 @@ const loadProviders = async () => {
 		console.log('🔍 Loading AI providers list...');
 		const response = await getAIProviders();
 		console.log('📥 AI providers response:', response);
-		
+
 		if (response.success && (response.code === 200 || response.code === '200')) {
 			providers.value = response.data || [];
-			console.log('✅ AI providers loaded successfully:', providers.value.length, 'providers');
+			console.log(
+				'✅ AI providers loaded successfully:',
+				providers.value.length,
+				'providers'
+			);
 		} else {
 			console.error('❌ Failed to load AI providers:', response);
 			ElMessage.error(`Failed to load AI providers: ${response.message || 'Unknown error'}`);
 		}
 	} catch (error) {
 		console.error('💥 AI providers loading error:', error);
-		
+
 		// More detailed error information
 		if (error?.response) {
 			const status = error.response.status;
 			const statusText = error.response.statusText;
 			const data = error.response.data;
-			ElMessage.error(`Request failed (${status} ${statusText}): ${data?.message || data || 'Server error'}`);
+			ElMessage.error(
+				`Request failed (${status} ${statusText}): ${
+					data?.message || data || 'Server error'
+				}`
+			);
 		} else if (error?.request) {
-			ElMessage.error('Network request failed, please check if the backend service is running');
+			ElMessage.error(
+				'Network request failed, please check if the backend service is running'
+			);
 		} else {
 			ElMessage.error(`Request configuration error: ${error.message}`);
 		}
@@ -368,7 +410,7 @@ const deleteConfig = async (configId: number) => {
 
 const saveConfig = async () => {
 	if (!configFormRef.value) return;
-	
+
 	try {
 		await configFormRef.value.validate();
 	} catch {
@@ -384,13 +426,15 @@ const saveConfig = async () => {
 			if (response.success && (response.code === 200 || response.code === '200')) {
 				// Update local state to reflect the changes including isDefault
 				Object.assign(editingConfig.value, configForm);
-				
+
 				// Update the configuration in the list
-				const configIndex = modelConfigs.value.findIndex((config) => config.id === editingConfig.value!.id);
+				const configIndex = modelConfigs.value.findIndex(
+					(config) => config.id === editingConfig.value!.id
+				);
 				if (configIndex !== -1) {
 					Object.assign(modelConfigs.value[configIndex], configForm);
 				}
-				
+
 				ElMessage.success('Configuration updated successfully!');
 			} else {
 				ElMessage.error(response.message || 'Failed to update configuration');
@@ -401,7 +445,7 @@ const saveConfig = async () => {
 			const response = await createAIModel(configForm);
 			if (response.success && (response.code === 200 || response.code === '200')) {
 				const newConfig: AIModelConfig = {
-					...configForm as AIModelConfig,
+					...(configForm as AIModelConfig),
 					id: response.data,
 					isAvailable: false,
 					lastCheckTime: undefined, // Set to undefined instead of empty string
@@ -411,11 +455,14 @@ const saveConfig = async () => {
 					updatedTime: new Date().toISOString(),
 				};
 				modelConfigs.value.push(newConfig);
-				
+
 				// If user wants to set this as default, call the separate API
 				if (configForm.isDefault) {
 					const defaultResponse = await setDefaultAIModel(response.data);
-					if (defaultResponse.success && (defaultResponse.code === 200 || defaultResponse.code === '200')) {
+					if (
+						defaultResponse.success &&
+						(defaultResponse.code === 200 || defaultResponse.code === '200')
+					) {
 						// Update local state - set all others to false, this one to true
 						modelConfigs.value.forEach((config) => {
 							config.isDefault = config.id === response.data;
@@ -424,14 +471,14 @@ const saveConfig = async () => {
 						ElMessage.warning('Configuration created but failed to set as default');
 					}
 				}
-				
+
 				ElMessage.success('Configuration added successfully!');
 			} else {
 				ElMessage.error(response.message || 'Failed to create configuration');
 				return;
 			}
 		}
-		
+
 		showAddDialog.value = false;
 		editingConfig.value = null;
 		resetConfigForm();
@@ -498,8 +545,6 @@ const formatDateTime = (dateTime: string | undefined) => {
 		hour12: true,
 	});
 };
-
-
 
 // Lifecycle
 onMounted(async () => {
@@ -585,12 +630,12 @@ onMounted(async () => {
 	.ai-config-page {
 		padding: 12px 16px;
 	}
-	
+
 	.page-header {
 		padding: 16px 24px;
 		margin-bottom: 16px;
 	}
-	
+
 	.models-table {
 		padding: 16px;
 	}
@@ -600,7 +645,7 @@ onMounted(async () => {
 	.action-buttons {
 		gap: 4px;
 	}
-	
+
 	.action-buttons .el-button {
 		font-size: 10px;
 		padding: 2px 6px;
@@ -612,28 +657,28 @@ onMounted(async () => {
 	.ai-config-page {
 		padding: 8px 12px;
 	}
-	
+
 	.page-header {
 		flex-direction: column;
 		gap: 16px;
 		text-align: center;
 		padding: 16px;
 	}
-	
+
 	.header-content h1 {
 		font-size: 24px;
 	}
-	
+
 	.models-table {
 		padding: 12px;
 		overflow-x: auto;
 	}
-	
+
 	.action-buttons {
 		flex-wrap: wrap;
 		gap: 2px;
 	}
-	
+
 	.action-buttons .el-button {
 		font-size: 9px;
 		padding: 1px 4px;
@@ -687,4 +732,4 @@ onMounted(async () => {
 :deep(.el-table tr:hover > td) {
 	background-color: #f9fafb;
 }
-</style> 
+</style>

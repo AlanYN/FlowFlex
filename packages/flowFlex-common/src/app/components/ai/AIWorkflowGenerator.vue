@@ -1,7 +1,6 @@
 <template>
 	<div class="ai-workflow-generator">
 		<!-- AI Header with Animated Background -->
-		
 
 		<!-- Main Content Area -->
 		<div class="ai-content">
@@ -204,13 +203,14 @@
 			<div class="ai-conversation-area" v-if="showConversation">
 				<div class="conversation-header">
 					<div class="conversation-title">
-						
 						<div class="title-content">
 							<h3>AI Workflow Assistant</h3>
 						</div>
 						<!-- Current Model Display (moved to top right) -->
 						<div v-if="currentModelInfo" class="current-model-display">
-							<span class="current-model-icon">{{ getProviderIcon(currentModelInfo.provider) }}</span>
+							<span class="current-model-icon">
+								{{ getProviderIcon(currentModelInfo.provider) }}
+							</span>
 							<span class="current-model-text">{{ currentModelInfo.provider }}</span>
 							<div class="ai-status-dot"></div>
 						</div>
@@ -265,44 +265,24 @@
 						</div>
 					</div>
 
-					<div class="conversation-input-area">
-						<div class="input-container">
+					<div class="p-4">
+						<div class="flex items-center gap-2">
 							<el-input
 								v-model="currentMessage"
 								type="textarea"
 								:rows="3"
 								placeholder="Type your response here..."
 								@keydown.enter="handleEnterKey"
-								class="conversation-textarea"
 								:disabled="aiTyping"
 								resize="none"
 							/>
-							<div class="input-footer">
-								<div class="input-hints">
-									<span class="hint-text">
-										Press Enter to send, Shift+Enter for new line
-									</span>
-								</div>
-								<div class="input-actions">
-									<el-button
-										@click="resetConversation"
-										class="reset-btn"
-										size="small"
-									>
-										<el-icon><Refresh /></el-icon>
-									</el-button>
-									<el-button
-										type="primary"
-										@click="sendMessage"
-										:loading="aiTyping"
-										:disabled="!currentMessage.trim()"
-										class="send-btn"
-									>
-										<el-icon v-if="!aiTyping"><Promotion /></el-icon>
-										Send
-									</el-button>
-								</div>
-							</div>
+							<el-button
+								type="primary"
+								@click="sendMessage"
+								:loading="aiTyping"
+								:disabled="!currentMessage.trim()"
+								:icon="Promotion"
+							/>
 						</div>
 					</div>
 
@@ -336,92 +316,58 @@
 						</div>
 					</div>
 				</div>
-				
+
 				<!-- AI Model Selector (moved to bottom) -->
 				<div class="ai-model-selector-bottom">
-					<div class="model-selector-label">AI Model:</div>
+					<div class="model-selector-label">Model:</div>
 					<el-select
 						v-model="selectedAIModel"
-						:placeholder="loadingModels ? 'Loading models...' : (availableModels.length === 0 ? 'No models available' : '🧠 AI Model')"
+						:placeholder="
+							loadingModels
+								? 'Loading models...'
+								: availableModels.length === 0
+								? 'No models available'
+								: '🧠 AI Model'
+						"
 						size="default"
 						style="width: 220px"
 						@change="onModelChange"
 						:loading="loadingModels"
 						:disabled="availableModels.length === 0"
-						popper-class="ai-model-popper-simple"
-						effect="dark"
-						:teleported="false"
 					>
-						<template #prefix>
-							<div class="model-prefix-simple">
-								<div class="ai-dot" :class="{ 'loading': loadingModels, 'error': availableModels.length === 0 && !loadingModels }"></div>
-							</div>
-						</template>
-						
-						<!-- Show loading state -->
-						<el-option
-							v-if="loadingModels"
-							value=""
-							label="Loading AI models..."
-							disabled
-						>
-							<div style="display: flex; align-items: center; padding: 10px;">
-								<el-icon class="is-loading" style="margin-right: 8px;"><Loading /></el-icon>
+						<template #loading>
+							<div style="display: flex; align-items: center; padding: 10px">
+								<el-icon class="is-loading" style="margin-right: 8px">
+									<Loading />
+								</el-icon>
 								Loading AI models...
 							</div>
-						</el-option>
-						
-						<!-- Show empty state -->
-						<el-option
-							v-else-if="availableModels.length === 0"
-							value=""
-							label="No AI models configured"
-							disabled
-						>
-							<div style="display: flex; align-items: center; padding: 10px; color: #909399;">
-								<el-icon style="margin-right: 8px;"><Warning /></el-icon>
-								No AI models configured. Please configure models in settings.
-							</div>
-						</el-option>
-						
+						</template>
+
 						<!-- Show available models -->
 						<el-option
-							v-else
 							v-for="model in availableModels"
 							:key="model.id"
 							:label="`${model.provider} ${model.modelName}`"
 							:value="String(model.id)"
 							:disabled="!model.isAvailable"
-							class="ai-model-option-simple"
 						>
-							<div class="model-option-simple">
-								<div 
-									class="model-icon-simple"
-									:class="`icon-${model.provider.toLowerCase()}`"
-								>
+							<div class="flex items-center justify-between gap-2">
+								<div class="flex items-center gap-2">
 									{{ getProviderIcon(model.provider) }}
+									<span>{{ model.provider }}</span>
+									<span>{{ model.modelName }}</span>
 								</div>
-								<div class="model-info-simple">
-									<span class="model-name-simple">{{ model.provider }}</span>
-									<span class="model-version-simple">{{ model.modelName }}</span>
-								</div>
-								<div class="model-status-simple">
-									<div class="status-dot-simple" :class="{ 'online': model.isAvailable }"></div>
-								</div>
+								<div
+									class="w-2 h-2 rounded-full"
+									:class="{
+										'bg-green-500': model.isAvailable,
+										'bg-red-500': !model.isAvailable,
+									}"
+								></div>
 							</div>
 						</el-option>
 					</el-select>
-					
-					<!-- Refresh button for reloading models -->
-					<el-button
-						v-if="!loadingModels"
-						@click="loadAvailableAIModels"
-						:icon="Refresh"
-						size="default"
-						circle
-						style="margin-left: 8px;"
-						title="Reload AI models"
-					/>
 				</div>
 			</div>
 
@@ -445,7 +391,6 @@
 								: 'Describe the modifications you want to make...\n\nExample: Add a trial period assessment stage with 30-day duration assigned to HR team.'
 						"
 						:rows="6"
-						class="ai-textarea"
 					/>
 					<div class="input-footer">
 						<div class="input-actions">
@@ -462,7 +407,7 @@
 							</div>
 
 							<!-- Direct Generation - Hidden -->
-							<div class="direct-generation" style="display: none;">
+							<div class="direct-generation" style="display: none">
 								<el-button
 									type="success"
 									:loading="realTimeGenerating"
@@ -659,9 +604,9 @@
 import { ref, reactive, onMounted, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 // API imports
-import { 
-	generateAIWorkflow, 
-	getAIWorkflowStatus, 
+import {
+	generateAIWorkflow,
+	getAIWorkflowStatus,
 	getAvailableWorkflows,
 	getWorkflowDetails,
 	modifyAIWorkflow,
@@ -670,11 +615,7 @@ import {
 	type AIChatMessage,
 	type AIChatInput,
 } from '@/apis/ai/workflow';
-import {
-	getUserAIModels,
-	getDefaultAIModel,
-	type AIModelConfig
-} from '@/apis/ai/config';
+import { getUserAIModels, getDefaultAIModel, type AIModelConfig } from '@/apis/ai/config';
 
 // Icon imports
 import {
@@ -688,7 +629,6 @@ import {
 	InfoFilled,
 	Setting,
 	List,
-	Warning,
 	Clock,
 	More,
 	DocumentAdd,
@@ -710,7 +650,7 @@ const loadingWorkflows = ref(false);
 const generating = ref(false);
 const realTimeGenerating = ref(false);
 
-// Conversation functionality  
+// Conversation functionality
 const showConversation = ref(true);
 const conversationHistory = ref<AIChatMessage[]>([]);
 const currentMessage = ref('');
@@ -728,8 +668,6 @@ const input = reactive({
 const result = ref<any>(null);
 const streamSteps = ref<any[]>([]);
 const currentWorkflow = ref<any>(null);
-
-
 
 // AI Model Management
 const availableModels = ref<AIModelConfig[]>([]);
@@ -766,10 +704,11 @@ const startConversation = () => {
 
 				setTimeout(() => {
 					const stageCount = getStageCount(currentWorkflow.value);
-					const stageInfo = stageCount > 0 
-						? `This workflow currently has ${stageCount} stages. ` 
-						: 'This workflow doesn\'t have any stages yet. ';
-					
+					const stageInfo =
+						stageCount > 0
+							? `This workflow currently has ${stageCount} stages. `
+							: "This workflow doesn't have any stages yet. ";
+
 					addAIMessage(
 						`${stageInfo}I'm here to help you enhance and optimize it. What specific modifications would you like to make? For example:\n\n• Add new stages or steps\n• Modify existing stages\n• Change team assignments\n• Adjust timelines\n• Improve the overall flow\n• Add quality checkpoints\n\nPlease tell me what you'd like to change or improve about this workflow.`
 					);
@@ -838,7 +777,6 @@ const sendMessage = async () => {
 		// Call real AI API
 		await callRealAI(userMessage);
 	} catch (error) {
-		console.error('AI conversation error:', error);
 		addAIMessage(
 			"I apologize, but I'm having trouble processing your message right now. Could you please try again?"
 		);
@@ -849,11 +787,6 @@ const sendMessage = async () => {
 
 const callRealAI = async (userMessage: string) => {
 	try {
-		console.log('🤖 Calling real AI with message:', userMessage);
-		console.log('🤖 Conversation history:', conversationHistory.value);
-		console.log('🤖 Session ID:', conversationSessionId.value);
-		console.log('🤖 Current Model:', currentModelInfo.value);
-		
 		const chatInput: AIChatInput = {
 			messages: conversationHistory.value,
 			context: 'workflow_planning',
@@ -862,20 +795,16 @@ const callRealAI = async (userMessage: string) => {
 			// 添加当前选中的模型信息
 			modelId: currentModelInfo.value?.id ? String(currentModelInfo.value.id) : undefined,
 			modelProvider: currentModelInfo.value?.provider,
-			modelName: currentModelInfo.value?.modelName
+			modelName: currentModelInfo.value?.modelName,
 		};
 
-		console.log('🤖 Sending chat input:', chatInput);
 		const response = await sendAIChatMessage(chatInput);
-		console.log('🤖 AI response received:', response);
 
 		// 处理后端返回的标准API响应格式
 		// response 应该直接是 AIChatResponse，但如果有data包装则解包
 		const aiResponse = (response as any).data || response;
-		console.log('🤖 Processed AI response:', aiResponse);
 
 		if (aiResponse.success && aiResponse.response) {
-			console.log('✅ AI response successful, adding message:', aiResponse.response.content);
 			addAIMessage(aiResponse.response.content);
 
 			// Check if conversation is complete
@@ -888,12 +817,9 @@ const callRealAI = async (userMessage: string) => {
 				conversationSessionId.value = aiResponse.sessionId;
 			}
 		} else {
-			console.error('❌ AI response failed:', aiResponse);
 			throw new Error(aiResponse.message || 'AI response failed');
 		}
 	} catch (error) {
-		console.error('❌ Real AI call failed:', error);
-		console.log('🔄 Falling back to enhanced simulation');
 		// Fallback to enhanced simulation
 		await enhancedAISimulation(userMessage);
 	}
@@ -911,28 +837,42 @@ const enhancedAISimulation = async (userMessage: string) => {
 		if (messageCount === 1) {
 			// First response in modify mode
 			const stageCount = currentWorkflow.value ? getStageCount(currentWorkflow.value) : 0;
-			
+
 			if (lowerMessage.includes('add') || lowerMessage.includes('new')) {
 				addAIMessage(
-					`I understand you want to add new elements to the workflow. ${stageCount > 0 ? `Currently there are ${stageCount} stages.` : ''} What specifically would you like to add? For example:\n\n• New stages before/after existing ones\n• Additional steps within current stages\n• New team members or roles\n• Extra approval checkpoints\n\nPlease describe what you'd like to add and where it should fit in the process.`
+					`I understand you want to add new elements to the workflow. ${
+						stageCount > 0 ? `Currently there are ${stageCount} stages.` : ''
+					} What specifically would you like to add? For example:\n\n• New stages before/after existing ones\n• Additional steps within current stages\n• New team members or roles\n• Extra approval checkpoints\n\nPlease describe what you'd like to add and where it should fit in the process.`
 				);
 			} else if (lowerMessage.includes('remove') || lowerMessage.includes('delete')) {
 				addAIMessage(
-					`I see you want to remove something from the workflow. ${stageCount > 0 ? `Looking at the current ${stageCount} stages,` : ''} what would you like to remove or simplify? Please specify which stages, steps, or requirements you think are unnecessary.`
+					`I see you want to remove something from the workflow. ${
+						stageCount > 0 ? `Looking at the current ${stageCount} stages,` : ''
+					} what would you like to remove or simplify? Please specify which stages, steps, or requirements you think are unnecessary.`
 				);
-			} else if (lowerMessage.includes('change') || lowerMessage.includes('modify') || lowerMessage.includes('update')) {
+			} else if (
+				lowerMessage.includes('change') ||
+				lowerMessage.includes('modify') ||
+				lowerMessage.includes('update')
+			) {
 				addAIMessage(
-					`Perfect! You want to modify existing elements. ${stageCount > 0 ? `With ${stageCount} current stages,` : ''} what specific changes do you have in mind? For example:\n\n• Change team assignments\n• Adjust stage durations\n• Modify stage names or descriptions\n• Update approval requirements\n\nWhich stages or aspects would you like to change?`
+					`Perfect! You want to modify existing elements. ${
+						stageCount > 0 ? `With ${stageCount} current stages,` : ''
+					} what specific changes do you have in mind? For example:\n\n• Change team assignments\n• Adjust stage durations\n• Modify stage names or descriptions\n• Update approval requirements\n\nWhich stages or aspects would you like to change?`
 				);
 			} else {
 				addAIMessage(
-					`Thank you for sharing your modification ideas! ${stageCount > 0 ? `I can see the workflow currently has ${stageCount} stages.` : ''} To better help you enhance this workflow, could you be more specific about what changes you'd like to make? Are you looking to add, remove, or modify certain aspects?`
+					`Thank you for sharing your modification ideas! ${
+						stageCount > 0
+							? `I can see the workflow currently has ${stageCount} stages.`
+							: ''
+					} To better help you enhance this workflow, could you be more specific about what changes you'd like to make? Are you looking to add, remove, or modify certain aspects?`
 				);
 			}
 		} else if (messageCount === 2) {
 			// Follow-up questions for modify mode
 			addAIMessage(
-				"Excellent! Now, are there any specific requirements or constraints I should consider for these modifications? For example:\n\n• Team availability or preferences\n• Timeline constraints\n• Compliance requirements\n• Integration with other processes\n\nThis will help me suggest the most practical improvements."
+				'Excellent! Now, are there any specific requirements or constraints I should consider for these modifications? For example:\n\n• Team availability or preferences\n• Timeline constraints\n• Compliance requirements\n• Integration with other processes\n\nThis will help me suggest the most practical improvements.'
 			);
 		} else if (messageCount >= 3) {
 			// Complete the modify conversation
@@ -1002,7 +942,7 @@ const resetConversation = () => {
 const proceedToGeneration = () => {
 	// Compile the COMPLETE conversation into a comprehensive description
 	let description = 'Based on our detailed conversation:\n\n';
-	
+
 	// Extract user messages for structured summary
 	const userMessages = conversationHistory.value
 		.filter((m) => m.role === 'user')
@@ -1024,14 +964,14 @@ const proceedToGeneration = () => {
 
 	// Add COMPLETE conversation history
 	description += '\n=== COMPLETE CONVERSATION HISTORY ===\n\n';
-	
+
 	conversationHistory.value.forEach((message, index) => {
 		const role = message.role === 'user' ? '👤 User' : '🤖 AI Assistant';
 		const timestamp = message.timestamp || '';
-		
+
 		description += `${role} [${timestamp}]:\n`;
 		description += `${message.content}\n\n`;
-		
+
 		// Add separator between messages
 		if (index < conversationHistory.value.length - 1) {
 			description += '---\n\n';
@@ -1042,14 +982,15 @@ const proceedToGeneration = () => {
 	description += '\n=== SESSION INFORMATION ===\n';
 	description += `Session ID: ${conversationSessionId.value}\n`;
 	description += `Total Messages: ${conversationHistory.value.length}\n`;
-	description += `AI Model Used: ${currentModelInfo.value?.provider || 'Unknown'} ${currentModelInfo.value?.modelName || ''}\n`;
-	description += 'This workflow was designed through an interactive AI conversation to ensure all requirements are captured.\n';
+	description += `AI Model Used: ${currentModelInfo.value?.provider || 'Unknown'} ${
+		currentModelInfo.value?.modelName || ''
+	}\n`;
+	description +=
+		'This workflow was designed through an interactive AI conversation to ensure all requirements are captured.\n';
 
 	// Also extract the latest AI response if it contains detailed recommendations
-	const latestAIMessage = conversationHistory.value
-		.filter(m => m.role === 'assistant')
-		.pop();
-	
+	const latestAIMessage = conversationHistory.value.filter((m) => m.role === 'assistant').pop();
+
 	if (latestAIMessage && latestAIMessage.content.length > 100) {
 		description += '\n=== AI DETAILED RECOMMENDATIONS ===\n';
 		description += latestAIMessage.content + '\n';
@@ -1058,8 +999,6 @@ const proceedToGeneration = () => {
 	input.description = description;
 	input.context = `AI Conversation Session: ${conversationSessionId.value} | Complete conversation with ${conversationHistory.value.length} messages`;
 
-	console.log('📋 Generated complete workflow description:', description);
-	
 	showConversation.value = false;
 
 	// Automatically start generation with enhanced context
@@ -1099,7 +1038,6 @@ const loadAvailableWorkflows = async () => {
 			availableWorkflows.value = response.data || [];
 		}
 	} catch (error) {
-		console.error('Failed to load workflows:', error);
 		ElMessage.warning('Failed to load available workflows');
 	} finally {
 		loadingWorkflows.value = false;
@@ -1112,98 +1050,17 @@ const handleWorkflowSelect = async (workflowId: number) => {
 		return;
 	}
 
-	console.log('🔍 Selecting workflow with ID:', workflowId);
-
 	try {
 		const response = await getWorkflowDetails(workflowId);
-		console.log('📦 Workflow details response:', response);
-		
+
 		if (response.success) {
 			currentWorkflow.value = response.data;
-			console.log('✅ Current workflow set:', currentWorkflow.value);
-			console.log('📊 Workflow stages:', currentWorkflow.value?.stages);
 		} else {
-			console.warn('❌ Failed to get workflow details, using fallback from list');
 			currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
-			console.log('🔄 Fallback workflow:', currentWorkflow.value);
-			
-			// If still no stages, add mock stages for testing
-			if (currentWorkflow.value && (!currentWorkflow.value.stages || currentWorkflow.value.stages.length === 0)) {
-				currentWorkflow.value.stages = [
-					{
-						name: "行程规划",
-						description: "制定详细的旅行计划和路线",
-						order: 1,
-						assignedGroup: "Planning Team",
-						requiredFields: ["destination", "budget", "duration"],
-						estimatedDuration: 2
-					},
-					{
-						name: "预订住宿",
-						description: "预订酒店或民宿",
-						order: 2,
-						assignedGroup: "Booking Team",
-						requiredFields: ["accommodation", "check_in_date"],
-						estimatedDuration: 1
-					},
-					{
-						name: "准备物品",
-						description: "整理行李和必需品",
-						order: 3,
-						assignedGroup: "Traveler",
-						requiredFields: ["packing_list", "documents"],
-						estimatedDuration: 1
-					}
-				];
-				console.log('🎭 Added mock stages for testing:', currentWorkflow.value.stages);
-			}
 		}
 	} catch (error) {
-		console.error('❌ Failed to load workflow details:', error);
 		// Use fallback from available workflows list
 		currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
-		console.log('🔄 Error fallback workflow:', currentWorkflow.value);
-		
-		// If still no stages, add mock stages for testing
-		if (currentWorkflow.value && (!currentWorkflow.value.stages || currentWorkflow.value.stages.length === 0)) {
-			currentWorkflow.value.stages = [
-				{
-					name: "行程规划",
-					description: "制定详细的旅行计划和路线",
-					order: 1,
-					assignedGroup: "Planning Team",
-					requiredFields: ["destination", "budget", "duration"],
-					estimatedDuration: 2
-				},
-				{
-					name: "预订住宿",
-					description: "预订酒店或民宿",
-					order: 2,
-					assignedGroup: "Booking Team",
-					requiredFields: ["accommodation", "check_in_date"],
-					estimatedDuration: 1
-				},
-				{
-					name: "准备物品",
-					description: "整理行李和必需品",
-					order: 3,
-					assignedGroup: "Traveler",
-					requiredFields: ["packing_list", "documents"],
-					estimatedDuration: 1
-				}
-			];
-			console.log('🎭 Added mock stages for error fallback:', currentWorkflow.value.stages);
-		}
-	}
-
-	// Force Vue reactivity update
-	if (currentWorkflow.value) {
-		console.log('🔥 Final currentWorkflow:', {
-			name: currentWorkflow.value.name,
-			id: currentWorkflow.value.id,
-			stageCount: getStageCount(currentWorkflow.value),
-			stages: currentWorkflow.value.stages
-		});
 	}
 
 	// Restart conversation when workflow is selected in modify mode
@@ -1215,9 +1072,6 @@ const handleWorkflowSelect = async (workflowId: number) => {
 };
 
 const generateWorkflow = async () => {
-	console.log('🔥 generateWorkflow function called!');
-	console.log('🔥 Button clicked - operationMode:', operationMode.value);
-
 	if (!input.description.trim()) {
 		ElMessage.warning(
 			operationMode.value === 'create'
@@ -1236,15 +1090,9 @@ const generateWorkflow = async () => {
 	result.value = null;
 
 	try {
-		console.log('=== DEBUG: generateWorkflow called ===');
-		console.log('Operation mode:', operationMode.value);
-		console.log('Selected workflow ID:', selectedWorkflowId.value);
-		console.log('Input description:', input.description);
-
 		let response;
 
 		if (operationMode.value === 'create') {
-			console.log('Taking CREATE path');
 			// 创建新工作流 - 包含完整的AI模型和对话信息
 			const workflowInput = {
 				...input,
@@ -1259,15 +1107,14 @@ const generateWorkflow = async () => {
 				conversationMetadata: {
 					totalMessages: conversationHistory.value.length,
 					conversationStartTime: conversationHistory.value[0]?.timestamp,
-					conversationEndTime: conversationHistory.value[conversationHistory.value.length - 1]?.timestamp,
-					conversationMode: 'interactive_planning'
-				}
+					conversationEndTime:
+						conversationHistory.value[conversationHistory.value.length - 1]?.timestamp,
+					conversationMode: 'interactive_planning',
+				},
 			};
-			
-			console.log('📤 Sending complete workflow generation request:', workflowInput);
+
 			response = await generateAIWorkflow(workflowInput);
 		} else {
-			console.log('Taking MODIFY path');
 			// 修改现有工作流
 			const modificationParams: AIWorkflowModificationInput = {
 				workflowId: selectedWorkflowId.value!,
@@ -1277,9 +1124,6 @@ const generateWorkflow = async () => {
 				preserveExisting: true,
 				modificationMode: 'modify',
 			};
-			console.log('Sending modification request:', modificationParams);
-			console.log('Selected workflow ID:', selectedWorkflowId.value);
-			console.log('Current workflow:', currentWorkflow.value);
 			response = await modifyAIWorkflow(modificationParams);
 		}
 
@@ -1297,7 +1141,6 @@ const generateWorkflow = async () => {
 			);
 		}
 	} catch (error) {
-		console.error('Generate workflow error:', error);
 		ElMessage.error('Error during workflow generation');
 	} finally {
 		generating.value = false;
@@ -1389,89 +1232,75 @@ const clearInput = () => {
 // AI Model Management Methods
 const loadAvailableAIModels = async () => {
 	loadingModels.value = true;
-	console.log('🔄 Loading AI models...');
-	
+
 	try {
 		const response = await getUserAIModels();
-		console.log('📦 AI models response:', response);
-		
-		if (response.success && (String(response.code) === '200')) {
+
+		if (response.success && String(response.code) === '200') {
 			const models = response.data || [];
-			console.log('✅ AI models loaded:', models);
 			availableModels.value = models;
-			
+
 			if (models.length === 0) {
-				console.warn('⚠️ No AI models available');
-				ElMessage.warning('No AI models configured. Please configure at least one AI model in settings.');
+				ElMessage.warning(
+					'No AI models configured. Please configure at least one AI model in settings.'
+				);
 				return;
 			}
-			
+
 			// Set default model if available
 			try {
 				const defaultResponse = await getDefaultAIModel();
-				console.log('📦 Default model response:', defaultResponse);
-				
-				if (defaultResponse.success && (String(defaultResponse.code) === '200')) {
+
+				if (defaultResponse.success && String(defaultResponse.code) === '200') {
 					const defaultModel = defaultResponse.data;
-					console.log('✅ Default model found:', defaultModel);
-					
+
 					if (defaultModel && defaultModel.id) {
 						selectedAIModel.value = String(defaultModel.id);
 						currentModelInfo.value = defaultModel;
-						console.log('🎯 Default model set:', currentModelInfo.value);
 					}
 				} else {
-					console.warn('⚠️ No default model found, selecting first available');
 					// If no default, select the first available model
-					const firstModel = models.find(m => m.isAvailable);
+					const firstModel = models.find((m) => m.isAvailable);
 					if (firstModel) {
 						selectedAIModel.value = String(firstModel.id);
 						currentModelInfo.value = firstModel;
-						console.log('🎯 First available model selected:', currentModelInfo.value);
 					}
 				}
 			} catch (defaultError) {
-				console.warn('⚠️ Failed to get default model, selecting first available:', defaultError);
 				// If default model fetch fails, select first available
-				const firstModel = models.find(m => m.isAvailable);
+				const firstModel = models.find((m) => m.isAvailable);
 				if (firstModel) {
 					selectedAIModel.value = String(firstModel.id);
 					currentModelInfo.value = firstModel;
-					console.log('🎯 First available model selected (fallback):', currentModelInfo.value);
 				}
 			}
 		} else {
-			console.error('❌ Failed to load AI models - API response:', response);
 			ElMessage.error('Failed to load AI models. Please check your configuration.');
 		}
 	} catch (error) {
-		console.error('❌ Failed to load AI models - Exception:', error);
 		ElMessage.error('Failed to load available AI models. Please try again later.');
 	} finally {
 		loadingModels.value = false;
-		console.log('🏁 AI models loading completed. Available models:', availableModels.value.length);
 	}
 };
 
 const onModelChange = async (modelId: string) => {
-	const selectedModel = availableModels.value.find(m => String(m.id) === modelId);
+	const selectedModel = availableModels.value.find((m) => String(m.id) === modelId);
 	if (selectedModel) {
 		selectedAIModel.value = modelId;
 		currentModelInfo.value = selectedModel;
-		console.log('Selected AI Model:', currentModelInfo.value);
 		ElMessage.success(`Switched to ${selectedModel.provider} ${selectedModel.modelName}`);
-		
+
 		// 通知后端切换模型
 		try {
 			// 重置会话ID，让后端使用新的模型
 			conversationSessionId.value = `session_${Date.now()}_${modelId}`;
-			
+
 			// 添加系统消息提示用户模型已切换
-			addAIMessage(`🔄 Switched to ${selectedModel.provider} ${selectedModel.modelName}. How can I help you today?`);
-			
-			console.log('🔄 Model switched, new session ID:', conversationSessionId.value);
+			addAIMessage(
+				`🔄 Switched to ${selectedModel.provider} ${selectedModel.modelName}. How can I help you today?`
+			);
 		} catch (error) {
-			console.error('Failed to switch model:', error);
 			ElMessage.error('Failed to switch AI model');
 		}
 	} else {
@@ -1499,22 +1328,22 @@ const getProviderIcon = (provider: string) => {
 	}
 };
 
-
-
 // Lifecycle
 onMounted(() => {
 	// Initialize AI status check
-	getAIWorkflowStatus().then(response => {
-		if (response.success) {
-			aiStatus.value = response.data;
-		}
-	}).catch(() => {
-		aiStatus.value.isAvailable = false;
-	});
+	getAIWorkflowStatus()
+		.then((response) => {
+			if (response.success) {
+				aiStatus.value = response.data;
+			}
+		})
+		.catch(() => {
+			aiStatus.value.isAvailable = false;
+		});
 
 	// Load available AI models
 	loadAvailableAIModels();
-	
+
 	// Auto-start conversation mode
 	setTimeout(() => {
 		startConversation();
@@ -1529,7 +1358,7 @@ watch(operationMode, (newMode) => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .ai-workflow-generator {
 	@apply max-w-6xl mx-auto p-6;
 }
@@ -1601,14 +1430,6 @@ watch(operationMode, (newMode) => {
 
 .pulse-dot {
 	@apply absolute inset-2 rounded-full bg-red-400;
-}
-
-.status-indicator.online .pulse-ring {
-	@apply border-green-400;
-}
-
-.status-indicator.online .pulse-dot {
-	@apply bg-green-400;
 }
 
 /* Mode Selector Styles */
@@ -1864,10 +1685,6 @@ watch(operationMode, (newMode) => {
 
 .input-container {
 	@apply relative;
-}
-
-.ai-textarea {
-	@apply transition-all duration-300;
 }
 
 .input-footer {
@@ -2193,7 +2010,7 @@ watch(operationMode, (newMode) => {
 	@apply mt-6 p-6 rounded-xl;
 	background: linear-gradient(135deg, #f0f9ff 0%, #e0f7fa 50%, #f3e5f5 100%);
 	border: 1px solid #e3f2fd;
-	box-shadow: 
+	box-shadow:
 		0 8px 32px rgba(59, 130, 246, 0.12),
 		0 4px 16px rgba(139, 92, 246, 0.08);
 	position: relative;
@@ -2208,8 +2025,7 @@ watch(operationMode, (newMode) => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: 
-		radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+	background: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
 		radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
 	pointer-events: none;
 }
@@ -2224,7 +2040,7 @@ watch(operationMode, (newMode) => {
 .completion-icon {
 	@apply w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0;
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-	box-shadow: 
+	box-shadow:
 		0 4px 12px rgba(16, 185, 129, 0.3),
 		0 0 20px rgba(16, 185, 129, 0.1);
 	animation: completion-pulse 2s ease-in-out infinite;
@@ -2274,7 +2090,7 @@ watch(operationMode, (newMode) => {
 	@apply px-8 py-3 rounded-lg font-semibold text-white transition-all duration-300;
 	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #7c3aed 100%);
 	border: none;
-	box-shadow: 
+	box-shadow:
 		0 4px 15px rgba(59, 130, 246, 0.4),
 		0 0 30px rgba(59, 130, 246, 0.2);
 	position: relative;
@@ -2295,7 +2111,7 @@ watch(operationMode, (newMode) => {
 .completion-actions .primary-btn:hover {
 	@apply transform -translate-y-1;
 	background: linear-gradient(135deg, #2563eb 0%, #1e40af 50%, #6d28d9 100%);
-	box-shadow: 
+	box-shadow:
 		0 8px 25px rgba(59, 130, 246, 0.5),
 		0 0 40px rgba(59, 130, 246, 0.3);
 }
@@ -2306,7 +2122,7 @@ watch(operationMode, (newMode) => {
 
 .completion-actions .primary-btn:active {
 	@apply transform -translate-y-0;
-	box-shadow: 
+	box-shadow:
 		0 4px 15px rgba(59, 130, 246, 0.4),
 		0 0 30px rgba(59, 130, 246, 0.2);
 }
@@ -2328,15 +2144,16 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes completion-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		transform: scale(1);
-		box-shadow: 
+		box-shadow:
 			0 4px 12px rgba(16, 185, 129, 0.3),
 			0 0 20px rgba(16, 185, 129, 0.1);
 	}
 	50% {
 		transform: scale(1.05);
-		box-shadow: 
+		box-shadow:
 			0 6px 20px rgba(16, 185, 129, 0.4),
 			0 0 30px rgba(16, 185, 129, 0.2);
 	}
@@ -2402,20 +2219,12 @@ watch(operationMode, (newMode) => {
 	.input-actions {
 		@apply w-full justify-between;
 	}
-
-	.send-btn {
-		@apply flex-1 ml-2;
-	}
-
-	.hint-text {
-		@apply text-center;
-	}
 }
 
 /* Conversation Area Styles - Enhanced Modern Design */
 .ai-conversation-area {
 	@apply bg-white rounded-2xl border-0 p-0 mb-6;
-	box-shadow: 
+	box-shadow:
 		0 25px 50px -12px rgba(0, 0, 0, 0.12),
 		0 8px 32px -8px rgba(0, 0, 0, 0.08),
 		0 0 0 1px rgba(0, 0, 0, 0.05),
@@ -2425,8 +2234,7 @@ watch(operationMode, (newMode) => {
 	flex-direction: column;
 	position: relative;
 	overflow: hidden;
-	background: 
-		linear-gradient(135deg, #ffffff 0%, #f8fafc 40%, #f1f5f9 100%);
+	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 40%, #f1f5f9 100%);
 }
 
 .ai-conversation-area::before {
@@ -2436,8 +2244,7 @@ watch(operationMode, (newMode) => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: 
-		radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+	background: radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
 		radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
 		radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
 	pointer-events: none;
@@ -2447,18 +2254,18 @@ watch(operationMode, (newMode) => {
 .conversation-header {
 	padding: 28px 32px;
 	border-bottom: 1px solid rgba(226, 232, 240, 0.4);
-	background: 
-		linear-gradient(135deg, 
-			rgba(255, 255, 255, 0.95) 0%, 
-			rgba(248, 250, 252, 0.92) 40%,
-			rgba(241, 245, 249, 0.88) 100%
-		);
+	background: linear-gradient(
+		135deg,
+		rgba(255, 255, 255, 0.95) 0%,
+		rgba(248, 250, 252, 0.92) 40%,
+		rgba(241, 245, 249, 0.88) 100%
+	);
 	position: relative;
 	overflow: hidden;
 	z-index: 2;
 	border-radius: 24px 24px 0 0;
 	backdrop-filter: blur(20px);
-	box-shadow: 
+	box-shadow:
 		0 4px 6px -1px rgba(0, 0, 0, 0.05),
 		inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
@@ -2470,8 +2277,7 @@ watch(operationMode, (newMode) => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: 
-		radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+	background: radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
 		radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
 		linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
 	pointer-events: none;
@@ -2499,7 +2305,7 @@ watch(operationMode, (newMode) => {
 	align-items: center;
 	justify-content: center;
 	margin-right: 20px;
-	box-shadow: 
+	box-shadow:
 		0 8px 25px rgba(59, 130, 246, 0.4),
 		0 4px 12px rgba(139, 92, 246, 0.2),
 		inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -2521,8 +2327,12 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes rotate {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .ai-avatar-large .el-icon {
@@ -2556,17 +2366,13 @@ watch(operationMode, (newMode) => {
 	align-items: center;
 	gap: 10px;
 	padding: 12px 18px;
-	background: 
-		linear-gradient(135deg, 
-			rgba(59, 130, 246, 0.12) 0%, 
-			rgba(139, 92, 246, 0.08) 100%
-		);
+	background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
 	border-radius: 24px;
 	font-size: 14px;
 	color: #3b82f6;
 	font-weight: 600;
 	border: 1px solid rgba(59, 130, 246, 0.25);
-	box-shadow: 
+	box-shadow:
 		0 4px 12px rgba(59, 130, 246, 0.15),
 		inset 0 1px 0 rgba(255, 255, 255, 0.7);
 	backdrop-filter: blur(10px);
@@ -2594,16 +2400,16 @@ watch(operationMode, (newMode) => {
 	gap: 16px;
 	padding: 20px 32px;
 	border-top: 1px solid rgba(226, 232, 240, 0.4);
-	background: 
-		linear-gradient(135deg, 
-			rgba(248, 250, 252, 0.95) 0%, 
-			rgba(241, 245, 249, 0.9) 100%
-		);
+	background: linear-gradient(
+		135deg,
+		rgba(248, 250, 252, 0.95) 0%,
+		rgba(241, 245, 249, 0.9) 100%
+	);
 	position: relative;
 	z-index: 1199;
 	backdrop-filter: blur(20px);
 	border-radius: 0 0 24px 24px;
-	box-shadow: 
+	box-shadow:
 		inset 0 1px 0 rgba(255, 255, 255, 0.8),
 		0 -2px 8px rgba(0, 0, 0, 0.02);
 }
@@ -2622,28 +2428,13 @@ watch(operationMode, (newMode) => {
 	z-index: 1199;
 }
 
-/* Conversation Input Area Styles - Enhanced */
-.conversation-input-area {
-	@apply p-8 border-t-0;
-	background: 
-		linear-gradient(135deg, 
-			rgba(255, 255, 255, 0.95) 0%, 
-			rgba(248, 250, 252, 0.9) 100%
-		);
-	position: relative;
-	backdrop-filter: blur(20px);
-	border-top: 1px solid rgba(226, 232, 240, 0.4);
-	border-radius: 0 0 24px 24px;
-	z-index: 2;
-}
-
 .conversation-input {
 	@apply p-6 border-t-0;
-	background: 
-		linear-gradient(135deg, 
-			rgba(255, 255, 255, 0.95) 0%, 
-			rgba(248, 250, 252, 0.9) 100%
-		);
+	background: linear-gradient(
+		135deg,
+		rgba(255, 255, 255, 0.95) 0%,
+		rgba(248, 250, 252, 0.9) 100%
+	);
 	position: relative;
 	backdrop-filter: blur(20px);
 	border-top: 1px solid rgba(226, 232, 240, 0.4);
@@ -2653,66 +2444,7 @@ watch(operationMode, (newMode) => {
 
 .input-container {
 	@apply relative;
-	max-width: 800px;
 	margin: 0 auto;
-}
-
-.conversation-textarea {
-	@apply w-full;
-	border-radius: 16px;
-	border: 2px solid #e2e8f0;
-	transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-	background: 
-		linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-	box-shadow: 
-		0 2px 8px rgba(0, 0, 0, 0.04),
-		inset 0 1px 0 rgba(255, 255, 255, 0.9);
-	position: relative;
-	overflow: hidden;
-}
-
-.conversation-textarea::before {
-	content: '';
-	position: absolute;
-	inset: 0;
-	border-radius: 16px;
-	padding: 2px;
-	background: linear-gradient(135deg, #e2e8f0, #cbd5e1, #e2e8f0);
-	mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-	mask-composite: xor;
-	pointer-events: none;
-	transition: all 0.4s ease;
-}
-
-.conversation-textarea:focus-within {
-	border-color: #3b82f6;
-	box-shadow: 
-		0 0 0 4px rgba(59, 130, 246, 0.12),
-		0 8px 25px rgba(59, 130, 246, 0.15),
-		inset 0 1px 0 rgba(255, 255, 255, 0.9);
-	transform: translateY(-1px);
-}
-
-.conversation-textarea:focus-within::before {
-	background: linear-gradient(135deg, #3b82f6, #8b5cf6, #3b82f6);
-}
-
-.conversation-textarea .el-textarea__inner {
-	@apply border-0 p-4 text-gray-700;
-	font-size: 15px;
-	line-height: 1.5;
-	resize: none;
-	background: transparent;
-}
-
-.conversation-textarea .el-textarea__inner:focus {
-	@apply outline-none;
-	box-shadow: none;
-}
-
-.conversation-textarea .el-textarea__inner::placeholder {
-	color: #9ca3af;
-	font-style: italic;
 }
 
 .input-footer {
@@ -2720,89 +2452,8 @@ watch(operationMode, (newMode) => {
 	padding: 0 4px;
 }
 
-.input-hints {
-	@apply flex items-center justify-center text-xs text-gray-500;
-	margin-left: 12px;
-}
-
-.hint-text {
-	@apply flex items-center gap-1;
-	font-style: italic;
-	opacity: 0.8;
-	transition: opacity 0.2s ease;
-}
-
-.hint-text:hover {
-	opacity: 1;
-}
-
 .input-actions {
 	@apply flex items-center gap-2;
-}
-
-.reset-btn {
-	@apply w-10 h-10 rounded-full border-gray-300 text-gray-500 hover:text-gray-700 hover:border-gray-400;
-	background: white;
-	border: 1px solid #d1d5db;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-	transition: all 0.2s ease;
-}
-
-.reset-btn:hover {
-	@apply transform -translate-y-0.5;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.send-btn {
-	@apply px-8 py-3 rounded-xl font-semibold transition-all duration-300;
-	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #8b5cf6 100%);
-	border: none;
-	color: white;
-	box-shadow: 
-		0 4px 15px rgba(59, 130, 246, 0.4),
-		0 0 30px rgba(59, 130, 246, 0.2),
-		inset 0 1px 0 rgba(255, 255, 255, 0.3);
-	position: relative;
-	overflow: hidden;
-	min-width: 100px;
-	border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.send-btn::before {
-	content: '';
-	position: absolute;
-	top: 0;
-	left: -100%;
-	width: 100%;
-	height: 100%;
-	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-	transition: left 0.5s;
-}
-
-.send-btn:hover {
-	@apply transform -translate-y-0.5;
-	background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-	box-shadow: 
-		0 4px 15px rgba(59, 130, 246, 0.4),
-		0 0 30px rgba(59, 130, 246, 0.2);
-}
-
-.send-btn:hover::before {
-	left: 100%;
-}
-
-.send-btn:disabled {
-	@apply opacity-50 cursor-not-allowed transform-none;
-	background: #9ca3af;
-	box-shadow: none;
-}
-
-.send-btn:disabled::before {
-	display: none;
-}
-
-.send-btn .el-icon {
-	@apply mr-1;
 }
 
 /* Message and conversation styles */
@@ -2854,7 +2505,7 @@ watch(operationMode, (newMode) => {
 
 .message-avatar {
 	@apply w-10 h-10 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0;
-	box-shadow: 
+	box-shadow:
 		0 4px 12px rgba(0, 0, 0, 0.15),
 		inset 0 1px 0 rgba(255, 255, 255, 0.3);
 	border: 2px solid rgba(255, 255, 255, 0.8);
@@ -2875,9 +2526,8 @@ watch(operationMode, (newMode) => {
 
 .message.assistant .message-bubble {
 	@apply bg-white border-0 rounded-2xl rounded-tl-sm p-4;
-	background: 
-		linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-	box-shadow: 
+	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+	box-shadow:
 		0 4px 12px rgba(0, 0, 0, 0.08),
 		0 0 0 1px rgba(0, 0, 0, 0.05),
 		inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -2887,7 +2537,7 @@ watch(operationMode, (newMode) => {
 .message.user .message-bubble {
 	@apply text-white rounded-2xl rounded-tr-sm p-4;
 	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #8b5cf6 100%);
-	box-shadow: 
+	box-shadow:
 		0 4px 15px rgba(59, 130, 246, 0.3),
 		0 0 30px rgba(59, 130, 246, 0.15),
 		inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -2975,12 +2625,6 @@ watch(operationMode, (newMode) => {
 	animation: fade-in 0.5s ease-out;
 }
 
-.model-prefix-simple {
-	display: flex;
-	align-items: center;
-	color: #6b7280;
-}
-
 .ai-dot {
 	width: 8px;
 	height: 8px;
@@ -3001,18 +2645,36 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes pulse-simple {
-	0%, 100% { opacity: 1; transform: scale(1); }
-	50% { opacity: 0.6; transform: scale(1.2); }
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.6;
+		transform: scale(1.2);
+	}
 }
 
 @keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 @keyframes pulse-error {
-	0%, 100% { opacity: 1; transform: scale(1); }
-	50% { opacity: 0.7; transform: scale(1.1); }
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.7;
+		transform: scale(1.1);
+	}
 }
 
 /* Fix selection functionality - ensure text is clickable */
@@ -3033,120 +2695,6 @@ watch(operationMode, (newMode) => {
 
 :deep(.ai-model-popper-simple .el-select-dropdown__item.selected) {
 	background: transparent !important;
-}
-
-:deep(.ai-model-popper-simple .el-select-dropdown__item.selected .model-option-simple) {
-	background: #e8f4f8 !important;
-	border-color: #0891b2 !important;
-}
-
-.model-option-simple {
-	display: flex;
-	align-items: center;
-	padding: 14px 18px;
-	border-radius: 6px;
-	cursor: pointer;
-	transition: background-color 0.2s ease, border-color 0.2s ease;
-	margin: 2px 4px;
-	background: white;
-	min-height: 50px;
-	width: calc(100% - 8px);
-	box-sizing: border-box;
-	pointer-events: auto;
-	border: 1px solid transparent;
-	position: relative;
-}
-
-.model-option-simple:hover {
-	background: #f8fafc !important;
-	border-color: #e2e8f0 !important;
-}
-
-/* Make sure all text content is non-interactive for events */
-.model-icon-simple,
-.model-info-simple,
-.model-name-simple,
-.model-version-simple,
-.model-status-simple,
-.status-dot-simple {
-	pointer-events: none !important;
-	user-select: none;
-}
-
-/* Basic component styles */
-.model-icon-simple {
-	font-size: 18px;
-	margin-right: 14px;
-	width: 30px;
-	height: 30px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 6px;
-	flex-shrink: 0;
-}
-
-.model-icon-simple.icon-zhipuai {
-	background: rgba(59, 130, 246, 0.1);
-	color: #3b82f6;
-}
-
-.model-icon-simple.icon-openai {
-	background: rgba(139, 92, 246, 0.1);
-	color: #8b5cf6;
-}
-
-.model-icon-simple.icon-anthropic,
-.model-icon-simple.icon-claude {
-	background: rgba(16, 185, 129, 0.1);
-	color: #10b981;
-}
-
-.model-icon-simple.icon-deepseek {
-	background: rgba(245, 158, 11, 0.1);
-	color: #f59e0b;
-}
-
-.model-info-simple {
-	flex: 1;
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	min-width: 0;
-	overflow: visible;
-}
-
-.model-name-simple {
-	font-weight: 600;
-	font-size: 14px;
-	color: #1e293b;
-	white-space: nowrap;
-	flex-shrink: 0;
-	min-width: 70px;
-}
-
-.model-version-simple {
-	font-size: 13px;
-	color: #64748b;
-	white-space: nowrap;
-	overflow: visible;
-	flex: 1;
-}
-
-.model-status-simple {
-	margin-left: 12px;
-	flex-shrink: 0;
-}
-
-.status-dot-simple {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: #ef4444;
-}
-
-.status-dot-simple.online {
-	background: #10b981;
 }
 
 .ai-status-dot {
@@ -3190,6 +2738,4 @@ watch(operationMode, (newMode) => {
 	z-index: 1200 !important;
 	position: relative !important;
 }
-
-
 </style>

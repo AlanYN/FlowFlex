@@ -16,7 +16,7 @@
 						</el-icon>
 						AI Model Config
 					</el-button>
-					<el-button @click="showWorkflowList = !showWorkflowList">
+					<el-button @click="openWorkflowList">
 						<el-icon class="mr-1">
 							<List />
 						</el-icon>
@@ -43,7 +43,7 @@
 				<el-card shadow="hover">
 					<template #header>
 						<div class="flex items-center justify-between">
-							<span class="font-semibold">Current Workflows</span>
+							<span class="font-semibold">Active Workflows</span>
 							<el-button size="small" @click="refreshWorkflowList">
 								<el-icon>
 									<Refresh />
@@ -52,41 +52,48 @@
 						</div>
 					</template>
 
-					<div class="space-y-3">
-						<div
-							v-for="workflow in workflowList"
-							:key="workflow.id"
-							class="workflow-item border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
-						>
-							<div class="flex items-center justify-between mb-2">
-								<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
-								<el-tag :type="workflow.isActive ? 'success' : 'info'" size="small">
-									{{ workflow.isActive ? 'Active' : 'Draft' }}
-								</el-tag>
+					<el-scrollbar ref="scrollbarRef">
+						<div class="space-y-3">
+							<div
+								v-for="workflow in workflowList"
+								:key="workflow.id"
+								class="workflow-item border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
+							>
+								<div class="flex items-center justify-between mb-2">
+									<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
+									<el-tag
+										:type="workflow.isActive ? 'success' : 'info'"
+										size="small"
+									>
+										{{ workflow.isActive ? 'Active' : 'Draft' }}
+									</el-tag>
+								</div>
+								<p class="text-xs text-gray-600 mb-2">
+									{{ workflow.description || 'No description available' }}
+								</p>
+								<div
+									class="flex items-center justify-between text-xs text-gray-500"
+								>
+									<span class="stages-count">
+										<el-icon class="mr-1"><List /></el-icon>
+										{{ getStageCount(workflow) }} stages
+									</span>
+									<span>{{ formatDate(workflow.createdAt) }}</span>
+								</div>
 							</div>
-							<p class="text-xs text-gray-600 mb-2">
-								{{ workflow.description || 'No description available' }}
-							</p>
-							<div class="flex items-center justify-between text-xs text-gray-500">
-								<span class="stages-count">
-									<el-icon class="mr-1"><List /></el-icon>
-									{{ getStageCount(workflow) }} stages
-								</span>
-								<span>{{ formatDate(workflow.createdAt) }}</span>
-							</div>
-						</div>
 
-						<div
-							v-if="workflowList.length === 0"
-							class="empty-state text-center py-8 text-gray-500"
-						>
-							<el-icon class="text-2xl mb-2">
-								<Document />
-							</el-icon>
-							<p class="text-sm">No workflows available</p>
-							<p class="text-xs mt-1">Create your first workflow with AI</p>
+							<div
+								v-if="workflowList.length === 0"
+								class="empty-state text-center py-8 text-gray-500"
+							>
+								<el-icon class="text-2xl mb-2">
+									<Document />
+								</el-icon>
+								<p class="text-sm">No workflows available</p>
+								<p class="text-xs mt-1">Create your first workflow with AI</p>
+							</div>
 						</div>
-					</div>
+					</el-scrollbar>
 				</el-card>
 			</div>
 		</div>
@@ -395,7 +402,6 @@
 				<AIModelConfig />
 			</div>
 		</el-dialog>
-
 	</div>
 </template>
 
@@ -417,6 +423,7 @@ import {
 
 // Components
 import AIWorkflowGenerator from '@/components/ai/AIWorkflowGenerator.vue';
+import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import AIModelConfig from './ai-config.vue';
 
 // APIs
@@ -425,35 +432,36 @@ import { validateAIWorkflow } from '@/apis/ai/workflow';
 
 // Router
 const router = useRouter();
+const { scrollbarRef, updateScrollbarHeight } = useAdaptiveScrollbar(50);
 
 // Types
 interface WorkflowStage {
-  name: string;
-  description: string;
-  order: number;
-  assignedGroup: string;
-  requiredFields: string[];
-  estimatedDuration: number;
+	name: string;
+	description: string;
+	order: number;
+	assignedGroup: string;
+	requiredFields: string[];
+	estimatedDuration: number;
 }
 
 interface Workflow {
-  id?: number;
-  name: string;
-  description: string;
-  isActive: boolean;
-  stages?: WorkflowStage[];
-  createdAt?: string;
+	id?: number;
+	name: string;
+	description: string;
+	isActive: boolean;
+	stages?: WorkflowStage[];
+	createdAt?: string;
 }
 
 interface AIWorkflowData {
-  generatedWorkflow: Workflow;
-  stages: WorkflowStage[];
-  operationMode: string;
-  selectedWorkflowId?: number;
+	generatedWorkflow: Workflow;
+	stages: WorkflowStage[];
+	operationMode: string;
+	selectedWorkflowId?: number;
 }
 
 interface EnhanceResult {
-  suggestions: string[];
+	suggestions: string[];
 }
 
 // Reactive Data
@@ -492,7 +500,7 @@ const handleWorkflowGenerated = (workflowData: AIWorkflowData) => {
 	// Set operation mode information
 	isModifyMode.value = workflowData.operationMode === 'modify';
 	selectedWorkflowId.value = workflowData.selectedWorkflowId || null;
-	
+
 	showGeneratedDialog.value = true;
 
 	console.log('Generated workflow data:', workflowData);
@@ -739,28 +747,6 @@ const formatDate = (dateString?: string) => {
 	}
 };
 
-const formatDateTime = (dateString?: string) => {
-	if (!dateString) return '';
-	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) {
-			return String(dateString);
-		}
-		// Format as MM/dd/yyyy, HH:mm:ss AM/PM (US format)
-		return date.toLocaleString('en-US', {
-			month: '2-digit',
-			day: '2-digit',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: true,
-		});
-	} catch {
-		return String(dateString);
-	}
-};
-
 const getStageCount = (workflow: Workflow) => {
 	if (!workflow || !workflow.stages || workflow.stages.length === 0) {
 		return 0;
@@ -770,6 +756,11 @@ const getStageCount = (workflow: Workflow) => {
 
 const getTotalDuration = () => {
 	return generatedStages.value.reduce((sum, stage) => sum + stage.estimatedDuration, 0);
+};
+
+const openWorkflowList = () => {
+	showWorkflowList.value = !showWorkflowList.value;
+	updateScrollbarHeight();
 };
 
 // Lifecycle
@@ -1415,4 +1406,4 @@ onMounted(() => {
 	height: auto;
 	min-height: fit-content;
 }
-</style> 
+</style>
