@@ -134,7 +134,7 @@
 					<div class="flex items-center justify-between">
 						<div>
 							<h3 class="text-lg font-medium section-title">
-								{{ section.title || `Section ${sectionIndex + 1}` }}
+								{{ section.name || `Section ${sectionIndex + 1}` }}
 							</h3>
 							<p v-if="section.description" class="section-description mt-1">
 								{{ section.description }}
