@@ -83,7 +83,7 @@
 							<TabPane value="questions" class="questions-pane">
 								<el-card class="editor-card rounded-md">
 									<!-- 当前分区信息 -->
-									<div class="mb-4">
+									<div class="flex items-center justify-between mb-4">
 										<div v-if="!isEditingTitle" class="title-display">
 											<div class="text-2xl font-bold">
 												{{ currentSection.name || 'Untitled Section' }}
@@ -113,6 +113,42 @@
 												ref="titleInputRef"
 											/>
 										</div>
+										<el-dropdown placement="bottom" @command="handleAddContent">
+											<el-button :icon="More" link />
+											<template #dropdown>
+												<el-dropdown-menu>
+													<el-dropdown-item command="page-break">
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="material-symbols-light:insert-page-break"
+																class="drag-icon"
+															/>
+															<span class="text-xs">
+																Add Page Break
+															</span>
+														</div>
+													</el-dropdown-item>
+													<el-dropdown-item command="video" divided>
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="mdi:video-outline"
+																class="drag-icon"
+															/>
+															<span class="text-xs">Add Video</span>
+														</div>
+													</el-dropdown-item>
+													<el-dropdown-item command="image">
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="mdi:image-area"
+																class="drag-icon"
+															/>
+															<span class="text-xs">Add Image</span>
+														</div>
+													</el-dropdown-item>
+												</el-dropdown-menu>
+											</template>
+										</el-dropdown>
 									</div>
 
 									<el-form :model="currentSection" label-position="top">
@@ -176,7 +212,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit } from '@element-plus/icons-vue';
+import { Edit, More } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
@@ -572,6 +608,25 @@ const handleAddQuestion = (questionData: any) => {
 	};
 
 	questionnaire.sections[currentSectionIndex.value].items.push(question);
+};
+
+const handleAddContent = (command: string) => {
+	console.log('command:', command);
+	switch (command) {
+		case 'page-break':
+			console.log('page-break');
+			questionnaire.sections[currentSectionIndex.value].items.push({
+				id: `page-break-${Date.now()}`,
+				type: 'page_break',
+				question: 'Page Break',
+			});
+			break;
+		case 'video':
+			console.log('video');
+			break;
+		case 'image':
+			console.log('image');
+	}
 };
 
 const handleRemoveQuestion = (index: number) => {

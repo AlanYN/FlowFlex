@@ -46,25 +46,24 @@ export interface SectionJumpValidation {
 }
 
 export interface QuestionnaireSection {
-	columns: { id: string; isOther: boolean; label: string }[];
-	description: string;
-	iconType: string;
 	id: string;
-	jumpRules: JumpRule[];
-	max: number;
-	maxLabel: string;
-	min: number;
-	minLabel: string;
-	options: {
+	columns?: { id: string; isOther: boolean; label: string }[];
+	description?: string;
+	iconType?: string;
+	jumpRules?: JumpRule[];
+	max?: number;
+	maxLabel?: string;
+	min?: number;
+	minLabel?: string;
+	options?: {
 		id: string;
 		isOther: boolean;
 		label: string;
 		value: string;
 	}[];
 	question: string;
-	requireOneResponsePerRow: boolean;
-	required: boolean;
-	rows: { id: string; label: string }[];
-	title: string;
+	requireOneResponsePerRow?: boolean;
+	required?: boolean;
+	rows?: { id: string; label: string }[];
 	type: string;
 }

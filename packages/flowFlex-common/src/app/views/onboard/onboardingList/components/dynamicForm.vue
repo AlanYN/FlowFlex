@@ -53,7 +53,7 @@
 						:key="question.id"
 						class="question-item"
 					>
-						<div class="mb-2">
+						<div class="mb-2" v-if="question.type !== 'page_break'">
 							<span class="text-sm font-medium text-gray-700">
 								{{ currentSectionIndex + 1 }}-{{ questionIndex + 1 }}.
 								{{ question.title }}
@@ -405,6 +405,17 @@
 								</div>
 							</div>
 						</div>
+
+						<div
+							v-else-if="question.type === 'page_break'"
+							class="text-gray-600 italic"
+						>
+							<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
+								<div class="text-center text-primary-500 text-sm">
+									— Page Break —
+								</div>
+							</div>
+						</div>
 					</div>
 					<div
 						v-if="!currentSection.questions || currentSection.questions.length <= 0"
@@ -705,7 +716,7 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 		formData.value[question.id] = value;
 	}
 	if (question.type == 'multiple_choice' || question.type == 'checkboxes') {
-		question.options.forEach((option) => {
+		question?.options?.forEach((option) => {
 			if (
 				option.isOther &&
 				((!Array.isArray(formData.value[question.id]) &&
@@ -717,9 +728,7 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 			}
 		});
 	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
-		console.log('question.columns:', question.columns);
-		console.log('formData.value:', formData.value);
-		question.columns.forEach((column) => {
+		question?.columns?.forEach((column) => {
 			if (
 				column.isOther &&
 				((!Array.isArray(formData.value[`${question.id}_${value}`]) &&
@@ -1011,12 +1020,6 @@ const getJumpTargetSection = () => {
 
 				// 如果找到匹配的跳转规则，立即返回
 				if (matchingRule) {
-					console.log(
-						'Found jump rule from question:',
-						question.id,
-						'target:',
-						matchingRule.targetSectionId
-					);
 					return matchingRule.targetSectionId;
 				}
 			}
@@ -1062,7 +1065,6 @@ const goToNextSection = async () => {
 		// 根据跳转规则跳转到指定section
 		const targetSectionIndex = findSectionIndexById(targetSectionId);
 		if (targetSectionIndex !== -1) {
-			console.log('Jumping to section:', targetSectionId, 'at index:', targetSectionIndex);
 			currentSectionIndex.value = targetSectionIndex;
 			return;
 		}

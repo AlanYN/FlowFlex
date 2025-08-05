@@ -148,16 +148,7 @@ import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
-
-interface Question {
-	id: string;
-	type: string;
-	question: string;
-	required: boolean;
-	description?: string;
-	options: Array<{ id: string; value: string; label: string }>;
-	jumpRules?: JumpRule[];
-}
+import { QuestionnaireSection } from '#/section';
 
 interface QuestionType {
 	id: string;
@@ -167,7 +158,7 @@ interface QuestionType {
 }
 
 interface Props {
-	questions: Question[];
+	questions: QuestionnaireSection[];
 	questionTypes: QuestionType[];
 	sections: Section[];
 	currentSectionIndex: number;
@@ -177,13 +168,13 @@ const props = defineProps<Props>();
 
 const emits = defineEmits<{
 	'remove-question': [index: number];
-	'drag-end': [questions: Question[]];
+	'drag-end': [questions: QuestionnaireSection[]];
 	'update-jump-rules': [questionIndex: number, rules: JumpRule[]];
 }>();
 
 // 编辑状态管理 - 使用ID而不是索引
 const editingQuestionId = ref<string | null>(null);
-const editingQuestion = ref<Question | null>(null);
+const editingQuestion = ref<QuestionnaireSection | null>(null);
 
 // 跳转规则编辑器状态
 const jumpRuleEditorVisible = ref(false);
@@ -212,7 +203,7 @@ const editQuestion = (index: number) => {
 };
 
 // 处理问题更新
-const handleUpdateQuestion = (updatedQuestion: Question) => {
+const handleUpdateQuestion = (updatedQuestion: QuestionnaireSection) => {
 	const index = questionsData.value.findIndex((q) => q.id === editingQuestionId.value);
 	if (index !== -1) {
 		questionsData.value[index] = updatedQuestion;
@@ -257,7 +248,7 @@ const handleJumpRulesSave = (rules: JumpRule[]) => {
 };
 
 // 获取选项的跳转目标名称
-const getJumpTargetName = (question: Question, optionId: string) => {
+const getJumpTargetName = (question: QuestionnaireSection, optionId: string) => {
 	if (!question.jumpRules || question.jumpRules.length === 0) {
 		return 'Next';
 	}
@@ -271,7 +262,7 @@ const getJumpTargetName = (question: Question, optionId: string) => {
 };
 
 // 获取跳转目标的样式类
-const getJumpTargetClass = (question: Question, optionId: string) => {
+const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) => {
 	if (!question.jumpRules || question.jumpRules.length === 0) {
 		return 'jump-default';
 	}

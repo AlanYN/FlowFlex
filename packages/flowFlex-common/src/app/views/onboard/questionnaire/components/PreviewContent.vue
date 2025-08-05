@@ -158,7 +158,10 @@
 						class="question-item space-y-3 pb-6 border-b border-gray-50 last:border-b-0 last:pb-0"
 					>
 						<!-- 问题标题 -->
-						<div class="flex items-start justify-between">
+						<div
+							class="flex items-start justify-between"
+							v-if="item.type !== 'page_break'"
+						>
 							<h4 class="text-base font-medium question-title flex-1">
 								<span class="text-gray-400 mr-2">{{ itemIndex + 1 }}.</span>
 								<a :href="`#${item.id}`">{{ item.question || item.title }}</a>
@@ -659,6 +662,17 @@
 								class="text-gray-600 italic"
 							>
 								{{ item.content || item.text }}
+							</div>
+
+							<div
+								v-else-if="item.type === 'page_break'"
+								class="text-gray-600 italic"
+							>
+								<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
+									<div class="text-center text-primary-500 text-sm">
+										— Page Break —
+									</div>
+								</div>
 							</div>
 
 							<!-- 未知类型 -->
