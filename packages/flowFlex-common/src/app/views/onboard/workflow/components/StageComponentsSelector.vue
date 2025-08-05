@@ -95,7 +95,7 @@
 								<div
 									v-for="checklist in checklists"
 									:key="checklist.id"
-									class="flex items-start space-x-2 py-1"
+									class="flex items-center space-x-2 py-1"
 								>
 									<el-checkbox
 										:model-value="isChecklistSelected(checklist.id)"
@@ -108,13 +108,10 @@
 									<div class="flex-1 min-w-0">
 										<label
 											:for="`checklist-${checklist.id}`"
-											class="text-sm leading-none font-medium cursor-pointer block truncate"
+											class="text-sm font-medium cursor-pointer block truncate"
 										>
 											{{ checklist.name }}
 										</label>
-										<p class="text-xs mt-1 truncate">
-											{{ checklist.description }}
-										</p>
 									</div>
 								</div>
 								<div v-if="checklists.length === 0">
@@ -145,7 +142,7 @@
 								<div
 									v-for="questionnaire in questionnaires"
 									:key="questionnaire.id"
-									class="flex items-start space-x-2 py-1"
+									class="flex items-center space-x-2 py-1"
 								>
 									<el-checkbox
 										:model-value="isQuestionnaireSelected(questionnaire.id)"
@@ -159,13 +156,10 @@
 									<div class="flex-1 min-w-0">
 										<label
 											:for="`questionnaire-${questionnaire.id}`"
-											class="text-sm leading-none font-medium cursor-pointer block truncate"
+											class="text-sm font-medium cursor-pointer block truncate"
 										>
 											{{ questionnaire.name }}
 										</label>
-										<p class="text-xs mt-1 truncate">
-											{{ questionnaire.description }}
-										</p>
 									</div>
 								</div>
 								<div v-if="questionnaires.length === 0">
@@ -356,7 +350,7 @@ import draggable from 'vuedraggable';
 import staticFieldsData from '../static-field.json';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import {
-	ComponentData,
+	StageComponentData,
 	ComponentsData,
 	StaticField,
 	SelectedItem,
@@ -398,7 +392,7 @@ const filteredStaticFields = computed(() => {
 });
 
 // Helper methods to get components
-const getFieldsComponent = (): ComponentData => {
+const getFieldsComponent = (): StageComponentData => {
 	const components = props.modelValue.components || [];
 	return (
 		components.find((c) => c.key === 'fields') || {
@@ -413,18 +407,18 @@ const getFieldsComponent = (): ComponentData => {
 };
 
 // 获取所有checklist组件
-const getChecklistComponents = (): ComponentData[] => {
+const getChecklistComponents = (): StageComponentData[] => {
 	const components = props.modelValue.components || [];
 	return components.filter((c) => c.key === 'checklist');
 };
 
 // 获取所有questionnaire组件
-const getQuestionnaireComponents = (): ComponentData[] => {
+const getQuestionnaireComponents = (): StageComponentData[] => {
 	const components = props.modelValue.components || [];
 	return components.filter((c) => c.key === 'questionnaires');
 };
 
-const getFileComponent = (): ComponentData => {
+const getFileComponent = (): StageComponentData => {
 	const components = props.modelValue.components || [];
 	return (
 		components.find((c) => c.key === 'files') || {
@@ -439,7 +433,7 @@ const getFileComponent = (): ComponentData => {
 };
 
 // Helper method to update component
-const updateComponent = (key: string, updates: Partial<ComponentData>) => {
+const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 	const components = props.modelValue.components || [];
 	const newComponents = [...components];
 	const index = newComponents.findIndex((c) => c.key === key);
@@ -447,7 +441,7 @@ const updateComponent = (key: string, updates: Partial<ComponentData>) => {
 	if (index >= 0) {
 		newComponents[index] = { ...newComponents[index], ...updates };
 	} else {
-		const defaultComponent: ComponentData = {
+		const defaultComponent: StageComponentData = {
 			key: key as any,
 			order:
 				key === 'fields' ? 1 : key === 'checklist' ? 2 : key === 'questionnaires' ? 3 : 4,
@@ -467,15 +461,15 @@ const updateComponent = (key: string, updates: Partial<ComponentData>) => {
 };
 
 // 添加新的组件项
-const addComponentItem = (componentData: ComponentData) => {
+const addComponentItem = (StageComponentData: StageComponentData) => {
 	const components = props.modelValue.components || [];
-	const newComponents = [...components, componentData];
+	const newComponents = [...components, StageComponentData];
 	const newModelValue = { ...props.modelValue, components: newComponents };
 	emit('update:modelValue', newModelValue);
 };
 
 // 删除组件项
-const removeComponentItem = (predicate: (component: ComponentData) => boolean) => {
+const removeComponentItem = (predicate: (component: StageComponentData) => boolean) => {
 	const components = props.modelValue.components || [];
 	const newComponents = components.filter((c) => !predicate(c));
 	const newModelValue = { ...props.modelValue, components: newComponents };
@@ -483,7 +477,7 @@ const removeComponentItem = (predicate: (component: ComponentData) => boolean) =
 };
 
 // 更新所有组件
-const updateAllComponents = (newComponents: ComponentData[]) => {
+const updateAllComponents = (newComponents: StageComponentData[]) => {
 	const newModelValue = { ...props.modelValue, components: newComponents };
 	emit('update:modelValue', newModelValue);
 };
@@ -534,7 +528,7 @@ const toggleChecklist = (checklistId: string, checked: boolean) => {
 
 			// 创建新的checklist组件
 			const newOrder = (props.modelValue.components || []).length + 1;
-			const newComponent: ComponentData = {
+			const newComponent: StageComponentData = {
 				key: 'checklist',
 				order: newOrder,
 				isEnabled: true,
@@ -562,7 +556,7 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 
 			// 创建新的questionnaire组件
 			const newOrder = (props.modelValue.components || []).length + 1;
-			const newComponent: ComponentData = {
+			const newComponent: StageComponentData = {
 				key: 'questionnaires',
 				order: newOrder,
 				isEnabled: true,
@@ -735,7 +729,7 @@ const removeItem = (item: SelectedItem) => {
 
 const updateItemOrder = () => {
 	// 重新构建components数组
-	const newComponents: ComponentData[] = [];
+	const newComponents: StageComponentData[] = [];
 
 	selectedItems.value.forEach((item, index) => {
 		const order = index + 1;
@@ -846,7 +840,7 @@ const getQuestionnaireComponent = (): { questionnaireIds: string[] } => {
 
 <style scoped lang="scss">
 .stage-components-selector {
-	@apply pr-4;
+	@apply pr-4 max-h-[75vh];
 }
 
 .search-input {

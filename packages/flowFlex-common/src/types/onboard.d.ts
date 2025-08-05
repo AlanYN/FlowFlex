@@ -221,6 +221,18 @@ export interface ComponentData {
 	hasError?: boolean;
 }
 
+export type StageComponentData = {
+	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	order: number;
+	isEnabled: boolean;
+	staticFields: string[];
+	checklistIds: string[];
+	checklistNames?: string[];
+	questionnaireIds: string[];
+	questionnaireNames?: string[];
+	files?: string[];
+};
+
 export interface StageInfo {
 	estimatedDays: number;
 	isCompleted: boolean;
@@ -234,7 +246,7 @@ export interface StageInfo {
 }
 
 export interface ComponentsData {
-	components: ComponentData[];
+	components: StageComponentData[];
 	visibleInPortal?: boolean;
 	attachmentManagementNeeded?: boolean;
 	[key: string]: any;

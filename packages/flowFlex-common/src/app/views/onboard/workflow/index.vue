@@ -348,12 +348,13 @@
 		<el-dialog
 			v-model="dialogVisible.stageForm"
 			:title="isEditingStage ? 'Edit Stage' : 'Add New Stage'"
-			:width="bigDialogWidth"
+			:width="1000"
 			destroy-on-close
 			custom-class="workflow-dialog"
 			:show-close="true"
 			:close-on-click-modal="false"
 			draggable
+			align-center
 		>
 			<template #header>
 				<div class="dialog-header">
@@ -507,7 +508,7 @@ import {
 
 import StarIcon from '@assets/svg/workflow/star.svg';
 import { timeZoneConvert, formatDateUSOnly } from '@/hooks/time';
-import { projectDate, dialogWidth, bigDialogWidth } from '@/settings/projectSetting';
+import { dialogWidth } from '@/settings/projectSetting';
 import { useI18n } from '@/hooks/useI18n';
 
 // 引入OW模块API接口

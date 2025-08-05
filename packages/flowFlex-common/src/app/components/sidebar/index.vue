@@ -9,7 +9,7 @@
 			<div class="block mr-[10px]" v-if="!isCollapse">
 				<div class="logo-top flex gap-1 text-lg font-medium ml-2 flex items-center">
 					<Logo />
-					<div class="text-3xl font-bold ml-2">WFE</div>
+					<div class="text-2xl font-bold ml-2">WFE</div>
 				</div>
 			</div>
 			<div v-else>
