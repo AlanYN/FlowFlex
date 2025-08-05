@@ -328,8 +328,8 @@ const loadChangeLogs = async () => {
 
 // 处理变更数据
 const processChangesData = async () => {
-	const processedData = [];
-	
+	const processedData: ProcessedChange[] = [];
+
 	for (const change of changes.value) {
 		// 如果API直接返回了处理过的数据，则使用它们
 		const typeInfo =
@@ -355,10 +355,10 @@ const processChangesData = async () => {
 			case 'QuestionnaireAnswerSubmit':
 				try {
 					answerChanges = await parseQuestionnaireAnswerChangesWithConfig(
-					change.beforeData,
+						change.beforeData,
 						change.afterData,
 						change // Pass the current change to identify the questionnaire
-				);
+					);
 				} catch (error) {
 					console.warn('Enhanced parsing failed, using basic parsing:', error);
 					// 回退到基本解析
@@ -417,46 +417,39 @@ const processChangesData = async () => {
 			fileInfo,
 		});
 	}
-	
+
 	processedChanges.value = processedData;
 };
 
 // 获取问卷配置（通过阶段ID）
 const getQuestionnaireConfigByStageId = async (stageId: string | number): Promise<any> => {
-	console.log('🔍 Getting questionnaire config by stageId:', stageId);
 	const cacheKey = `stage_${String(stageId)}`;
-	
+
 	// 检查缓存
 	if (questionnaireConfigCache.value.has(cacheKey)) {
-		console.log('📋 Using cached config for stage:', stageId);
 		return questionnaireConfigCache.value.get(cacheKey);
 	}
 
 	try {
-		console.log('🌐 Calling getStageQuestionnairesBatch API with stageId:', stageId);
 		// 使用批量API获取阶段对应的问卷
 		const response = await getStageQuestionnairesBatch([String(stageId)]);
-		console.log('📦 API Response:', response);
-		
+
 		if (response.success && response.data && response.data.stageQuestionnaires) {
 			const stageData = response.data.stageQuestionnaires[String(stageId)];
-			console.log('📄 Stage data:', stageData);
-			
+
 			if (stageData && Array.isArray(stageData) && stageData.length > 0) {
 				// 获取第一个问卷的配置（一个阶段可能有多个问卷，这里取第一个）
 				const questionnaire = stageData[0];
-				console.log('📝 First questionnaire:', questionnaire);
 				let questionnaireConfig = null;
-				
+
 				if (questionnaire.structureJson) {
 					try {
 						questionnaireConfig = JSON.parse(questionnaire.structureJson);
-						console.log('✅ Parsed questionnaire config successfully');
 					} catch (error) {
 						console.warn('Failed to parse questionnaire structure:', error);
 					}
 				}
-				
+
 				// 缓存配置
 				questionnaireConfigCache.value.set(cacheKey, questionnaireConfig);
 				return questionnaireConfig;
@@ -465,7 +458,7 @@ const getQuestionnaireConfigByStageId = async (stageId: string | number): Promis
 	} catch (error) {
 		console.warn('❌ Failed to fetch questionnaire config by stage ID:', error);
 	}
-	
+
 	return null;
 };
 
@@ -480,14 +473,19 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 	const questionId = response.questionId;
 
 	// 查找问题配置
-	let questionConfig = null;
-	if (questionnaireConfig && questionnaireConfig.sections && Array.isArray(questionnaireConfig.sections)) {
+	let questionConfig: any = null;
+	if (
+		questionnaireConfig &&
+		questionnaireConfig.sections &&
+		Array.isArray(questionnaireConfig.sections)
+	) {
 		for (const section of questionnaireConfig.sections) {
 			if (section.questions && Array.isArray(section.questions)) {
-				const question = section.questions.find((q: any) => 
-					q.id === questionId || 
-					`question-${q.id}` === questionId ||
-					q.questionId === questionId
+				const question = section.questions.find(
+					(q: any) =>
+						q.id === questionId ||
+						`question-${q.id}` === questionId ||
+						q.questionId === questionId
 				);
 				if (question) {
 					questionConfig = question;
@@ -517,7 +515,7 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 		case 'checkboxes':
 			// 处理多选题
 			let answerValues: string[] = [];
-			
+
 			if (Array.isArray(answer)) {
 				answerValues = answer.map((item) => String(item)).filter(Boolean);
 			} else {
@@ -527,10 +525,16 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 					if (Array.isArray(parsed)) {
 						answerValues = parsed.map((item) => String(item)).filter(Boolean);
 					} else {
-						answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+						answerValues = answerStr
+							.split(',')
+							.map((item) => item.trim())
+							.filter(Boolean);
 					}
 				} catch {
-					answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+					answerValues = answerStr
+						.split(',')
+						.map((item) => item.trim())
+						.filter(Boolean);
 				}
 			}
 
@@ -541,7 +545,7 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 						optionMap.set(option.value, option.label);
 					}
 				});
-				const labels = answerValues.map(value => optionMap.get(value) || value);
+				const labels = answerValues.map((value) => optionMap.get(value) || value);
 				return labels.join(', ');
 			}
 			return answerValues.join(', ');
@@ -569,7 +573,11 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 };
 
 // 增强的问卷答案变更解析
-const parseQuestionnaireAnswerChangesWithConfig = async (beforeData: any, afterData: any, currentChange?: any): Promise<string[]> => {
+const parseQuestionnaireAnswerChangesWithConfig = async (
+	beforeData: any,
+	afterData: any,
+	currentChange?: any
+): Promise<string[]> => {
 	if (!afterData) return [];
 
 	try {
@@ -577,30 +585,21 @@ const parseQuestionnaireAnswerChangesWithConfig = async (beforeData: any, afterD
 		const changesList: string[] = [];
 
 		// 从当前变更记录中获取 stageId
-		let stageId = null;
-		
+		let stageId = '';
+
 		// 首先尝试从 currentChange 获取
 		if (currentChange?.stageId) {
 			stageId = String(currentChange.stageId);
-			console.log('🎯 Found stageId in currentChange:', stageId);
-		} 
+		}
 		// 然后尝试从 props 获取
 		else if (props.stageId) {
 			stageId = String(props.stageId);
-			console.log('🎯 Using stageId from props:', stageId);
-		} 
-		else {
-			console.log('❌ No stageId found anywhere');
 		}
 
 		// 获取问卷配置（通过阶段ID）
 		let questionnaireConfig = null;
 		if (stageId) {
-			console.log('🚀 Calling getQuestionnaireConfigByStageId with:', stageId);
 			questionnaireConfig = await getQuestionnaireConfigByStageId(stageId);
-			console.log('📋 Got questionnaireConfig:', questionnaireConfig);
-		} else {
-			console.log('❌ No stageId available, skipping questionnaire config fetch');
 		}
 
 		// 处理问卷答案提交的情况（只有 afterData）
@@ -608,7 +607,9 @@ const parseQuestionnaireAnswerChangesWithConfig = async (beforeData: any, afterD
 			after.responses.forEach((response: any) => {
 				if (response.answer || response.responseText) {
 					const formattedAnswer = formatAnswerWithConfig(response, questionnaireConfig);
-					changesList.push(`${response.question || response.questionId}: ${formattedAnswer}`);
+					changesList.push(
+						`${response.question || response.questionId}: ${formattedAnswer}`
+					);
 				}
 			});
 			return changesList;
@@ -636,13 +637,19 @@ const parseQuestionnaireAnswerChangesWithConfig = async (beforeData: any, afterD
 
 					if (!beforeResp) {
 						// 新增的答案
-						const formattedAnswer = formatAnswerWithConfig(afterResp, questionnaireConfig);
+						const formattedAnswer = formatAnswerWithConfig(
+							afterResp,
+							questionnaireConfig
+						);
 						changesList.push(`${afterResp.question || questionId}: ${formattedAnswer}`);
 					} else if (
 						JSON.stringify(beforeResp.answer) !== JSON.stringify(afterResp.answer)
 					) {
 						// 修改的答案
-						const beforeAnswer = formatAnswerWithConfig(beforeResp, questionnaireConfig);
+						const beforeAnswer = formatAnswerWithConfig(
+							beforeResp,
+							questionnaireConfig
+						);
 						const afterAnswer = formatAnswerWithConfig(afterResp, questionnaireConfig);
 						changesList.push(
 							`${afterResp.question || questionId}: ${beforeAnswer} → ${afterAnswer}`
