@@ -114,26 +114,47 @@
 							<!-- 显示已上传的文件 -->
 							<div
 								v-if="item.questionProps && item.questionProps.fileUrl"
-								class="flex flex-col"
+								class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700"
 							>
-								<el-image
-									v-if="item.questionProps.type === 'image'"
-									:src="`${globSetting.domainUrl}${item.questionProps.fileUrl}`"
-									:alt="item.questionProps.fileName || 'Uploaded image'"
-								/>
-								<video
-									v-else-if="item.questionProps.type === 'video'"
-									:src="`${globSetting.domainUrl}${item.questionProps.fileUrl}`"
-									:alt="item.questionProps.fileName || 'Uploaded video'"
-									controls
-								></video>
-								<div class="flex items-center gap-2 justify-center mt-2">
-									<span class="font-bold">
-										{{ item.questionProps.fileName }}
-									</span>
+								<div class="flex items-center justify-between gap-3">
+									<div class="flex items-center gap-2 flex-1 min-w-0">
+										<Icon
+											:icon="
+												item.questionProps.type === 'image'
+													? 'mdi:image-area'
+													: 'mdi:video-outline'
+											"
+											class="w-5 h-5 flex-shrink-0"
+											:class="
+												item.questionProps.type === 'image'
+													? 'text-green-500'
+													: 'text-orange-500'
+											"
+										/>
+										<span
+											class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate"
+										>
+											{{ item.questionProps.fileName }}
+										</span>
+										<el-tag
+											size="small"
+											:type="
+												item.questionProps.type === 'image'
+													? 'success'
+													: 'warning'
+											"
+										>
+											{{
+												item.questionProps.type === 'image'
+													? 'Image'
+													: 'Video'
+											}}
+										</el-tag>
+									</div>
 									<el-button
 										type="danger"
 										link
+										size="small"
 										@click="removeFile(index)"
 										:icon="Delete"
 									/>
@@ -200,9 +221,6 @@ import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
-import { useGlobSetting } from '@/settings';
-
-const globSetting = useGlobSetting();
 
 interface QuestionType {
 	id: string;

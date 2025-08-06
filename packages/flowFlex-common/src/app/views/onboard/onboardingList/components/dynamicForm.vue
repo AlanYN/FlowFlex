@@ -64,17 +64,23 @@
 							</p>
 							<div
 								v-if="question.questionProps && question.questionProps.fileUrl"
-								class="flex flex-col mt-2"
+								class="flex justify-center items-center"
 							>
 								<el-image
 									v-if="question.questionProps.type === 'image'"
 									:src="`${globSetting.domainUrl}${question.questionProps.fileUrl}`"
+									class="responsive-image"
+									:preview-src-list="[
+										`${globSetting.domainUrl}${question.questionProps.fileUrl}`,
+									]"
+									fit="contain"
 								/>
 								<video
 									v-else-if="question.questionProps.type === 'video'"
 									:src="`${globSetting.domainUrl}${question.questionProps.fileUrl}`"
 									:alt="question.questionProps.fileName || 'Uploaded video'"
 									controls
+									class="max-h-[500px] w-auto object-contain"
 								></video>
 							</div>
 						</div>
@@ -432,14 +438,26 @@
 							</div>
 						</div>
 
-						<div v-else-if="question.type === 'image'">
-							<el-image :src="`${globSetting.domainUrl}${question.fileUrl}`" />
+						<div
+							v-else-if="question.type === 'image'"
+							class="flex justify-center items-center"
+						>
+							<el-image
+								:src="`${globSetting.domainUrl}${question.fileUrl}`"
+								class="responsive-image"
+								:preview-src-list="[`${globSetting.domainUrl}${question.fileUrl}`]"
+								fit="contain"
+							/>
 						</div>
 
-						<div v-else-if="question.type === 'video'">
+						<div
+							v-else-if="question.type === 'video'"
+							class="flex justify-center items-center"
+						>
 							<video
 								:src="`${globSetting.domainUrl}${question.fileUrl}`"
 								controls
+								class="max-h-[500px] w-auto object-contain"
 							></video>
 						</div>
 					</div>
@@ -1595,6 +1613,23 @@ html.dark {
 		.grid-checkbox-cell {
 			background-color: var(--el-bg-color-dark);
 		}
+	}
+}
+
+.responsive-image {
+	@apply block;
+	max-height: 500px;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+
+	:deep(.el-image__inner) {
+		max-height: 500px;
+		max-width: 100%;
+		width: auto;
+		height: auto;
+		object-fit: contain;
 	}
 }
 </style>
