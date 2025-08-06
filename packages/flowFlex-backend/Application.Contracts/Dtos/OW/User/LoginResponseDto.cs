@@ -24,5 +24,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// 用户信息
         /// </summary>
         public UserDto User { get; set; }
+
+        /// <summary>
+        /// Application code
+        /// </summary>
+        public string AppCode { get; set; }
+
+        /// <summary>
+        /// Tenant ID
+        /// </summary>
+        public string TenantId { get; set; }
     }
 }

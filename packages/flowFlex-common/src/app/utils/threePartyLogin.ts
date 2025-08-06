@@ -1,4 +1,4 @@
-import { addLoginActivity } from '@/apis/pass/notify';
+import { addLoginActivity, wujieCrmTokenApi } from '@/apis/pass/notify';
 import { useUserStoreWithOut } from '@/stores/modules/user';
 import { useGlobSetting } from '@/settings';
 import { getItem, isIframe, setItem } from './utils';
@@ -120,4 +120,39 @@ export function detailUrlQuery() {
 
 export function passLogout(type?: string) {
 	router.push(PageEnum.BASE_LOGIN as string);
+}
+
+export async function wujieCrmToken(
+	params: {
+		appCode: string;
+		tenantId: string;
+		authorizationToken: string;
+	},
+	currentRoute: string
+) {
+	const userStore = useUserStoreWithOut();
+	const res = (await wujieCrmTokenApi(params)) as any;
+	if (res.code == '200') {
+		const { accessToken, tokenType, expiresIn, user } = res.data;
+		const currentDate = dayjs(new Date()).unix();
+		await userStore.setTokenobj({
+			accessToken: {
+				token: accessToken,
+				expire: +currentDate + +expiresIn,
+				tokenType: tokenType,
+			},
+			refreshToken: accessToken,
+		});
+
+		await userStore.setUserInfo({
+			appCode: params.appCode,
+			tenantId: params.tenantId,
+			...user,
+		});
+		if (currentRoute) {
+			router.push(currentRoute);
+		}
+	} else {
+		throw 'Failed to obtain token'; //获取token失败
+	}
 }

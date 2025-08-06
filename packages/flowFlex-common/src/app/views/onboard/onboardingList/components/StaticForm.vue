@@ -376,12 +376,6 @@
 				/>
 			</el-form-item>
 		</el-form>
-		<div class="flex justify-end space-x-2 mt-4">
-			<el-button @click="handleSave" :loading="saving">
-				<el-icon class="mr-1"><Document /></el-icon>
-				Save
-			</el-button>
-		</div>
 	</div>
 </template>
 
@@ -720,13 +714,6 @@ const setFieldValues = (fieldValues: Record<string, any> | any[]) => {
 	});
 };
 
-// 暴露给父组件的方法
-defineExpose({
-	validateForm,
-	getFormData,
-	setFieldValues,
-});
-
 // 监听Requested Credit Limit变化，自动更新Approved Credit Limit
 watch(
 	() => formData.requestedCreditLimit,
@@ -738,15 +725,17 @@ watch(
 );
 
 const saving = ref(false);
-const handleSave = async () => {
+const handleSave = async (isValidate: boolean = true) => {
 	try {
 		saving.value = true;
 
-		// 验证静态表单
-		const staticFormValid = await validateForm();
-		if (!staticFormValid || !props?.onboardingId) {
-			ElMessage.error('Please complete all required fields');
-			return false;
+		if (isValidate) {
+			// 验证静态表单
+			const staticFormValid = await validateForm();
+			if (!staticFormValid || !props?.onboardingId) {
+				ElMessage.error('Please complete all required fields');
+				return false;
+			}
 		}
 
 		const staticFormData = getFormData();
@@ -756,10 +745,10 @@ const handleSave = async () => {
 			stageId: props.stageId,
 		});
 		if (res.code == '200') {
-			emit('save-success');
+			isValidate && emit('save-success');
 			return true;
 		} else {
-			ElMessage.error(res.msg || 'Failed to save stage data');
+			isValidate && ElMessage.error(res.msg || 'Failed to save stage data');
 			return false;
 		}
 	} catch (error) {
@@ -772,6 +761,14 @@ const handleSave = async () => {
 onMounted(() => {
 	getLifeCycleStage();
 	console.log('static form');
+});
+
+// 暴露给父组件的方法
+defineExpose({
+	validateForm,
+	getFormData,
+	setFieldValues,
+	handleSave,
 });
 </script>
 

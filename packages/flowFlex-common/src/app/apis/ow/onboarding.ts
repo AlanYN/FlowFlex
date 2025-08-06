@@ -36,11 +36,7 @@ const Api = (id?: string | number) => {
 		checklistTaskCompletionsByOnboardingAndChecklist: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}/checklist`,
 		checklistTaskCompletionsStats: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}/checklist`,
 
-		// 阶段完成日志相关API
-		stageCompletionLogs: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/list`,
-		stageCompletionLogsByOnboarding: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/onboarding/${id}`,
-		stageCompletionLogsStatistics: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/statistics`,
-		stageCompletionLogsBatch: `${globSetting.apiProName}/ow/logs/stage-completion/${globSetting.apiVersion}/batch`,
+
 
 		// 内部备注相关API
 		internalNotesPaged: `${globSetting.apiProName}/ow/internal-notes/${globSetting.apiVersion}/paged`,
@@ -160,10 +156,14 @@ export function deleteOnboarding(id: string | number, confirm: boolean = false) 
 /**
  * 根据Lead ID获取 [O09]
  * @param leadId Lead ID
+ * @param usePortalAuth 是否使用portal认证
  * @returns OnboardingOutputDto
  */
-export function getOnboardingByLead(leadId: string) {
-	return defHttp.get({ url: `${Api(leadId).onboarding}` });
+export function getOnboardingByLead(leadId: string, usePortalAuth: boolean = false) {
+	// 现在统一使用标准认证，usePortalAuth参数保留兼容性但不再使用特殊逻辑
+	return defHttp.get({ 
+		url: `${Api(leadId).onboarding}`
+	});
 }
 
 /**
@@ -409,45 +409,7 @@ export function getTaskCompletionStats(
 	});
 }
 
-// ========================= 阶段完成日志相关接口 =========================
 
-/**
- * 获取所有阶段完成日志 [SC01]
- * @returns List<StageCompletionLogDto>
- */
-export function getAllStageCompletionLogs() {
-	return defHttp.get({ url: `${Api().stageCompletionLogs}` });
-}
-
-/**
- * 按入职获取完成日志 [SC03]
- * @param onboardingId 入职ID
- * @returns List<StageCompletionLogDto>
- */
-export function getStageCompletionLogsByOnboarding(onboardingId: string | number) {
-	return defHttp.get({ url: `${Api(onboardingId).stageCompletionLogsByOnboarding}` });
-}
-
-/**
- * 获取阶段完成统计 [SC05]
- * @param params 查询参数
- * @returns object (统计信息)
- */
-export function getStageCompletionStatistics(params?: any) {
-	return defHttp.get({
-		url: `${Api().stageCompletionLogsStatistics}`,
-		params,
-	});
-}
-
-/**
- * 批量创建阶段完成日志
- * @param params List<StageCompletionLogInputDto>
- * @returns bool
- */
-export function batchCreateStageCompletionLogs(params: any) {
-	return defHttp.post({ url: `${Api().stageCompletionLogsBatch}`, params });
-}
 
 // ========================= 内部备注相关接口 =========================
 
@@ -684,9 +646,10 @@ export function getCheckListIsCompleted(onboardingId: string | number, stageId: 
 	});
 }
 
-export function exportOnboarding() {
+export function exportOnboarding(params?: any) {
 	return defHttp.get({
 		url: `${Api().exportOnboarding}`,
+		params,
 		responseType: 'blob',
 	});
 }

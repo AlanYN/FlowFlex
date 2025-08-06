@@ -1,12 +1,18 @@
 <template>
 	<div class="space-y-6">
 		<!-- Success Message -->
-		<el-alert v-if="successMessage" :title="successMessage" type="success" :closable="false" class="mb-4" />
+		<el-alert
+			v-if="successMessage"
+			:title="successMessage"
+			type="success"
+			:closable="false"
+			class="mb-4"
+		/>
 
 		<!-- Description -->
 		<div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
 			<p class="text-sm text-blue-700 dark:text-blue-300">
-				Create login credentials for customers to access the onboarding portal. They will
+				Create login credentials for customers to access the customer portal. They will
 				receive an email with instructions to set up their password and complete the
 				application form.
 			</p>
@@ -14,7 +20,7 @@
 
 		<!-- Action Buttons -->
 		<div class="flex justify-between items-center">
-			<el-button type="success" @click="handleViewCustomerPortal" :disabled="portalUsers.length === 0">
+			<el-button type="success" @click="handleViewCustomerPortal">
 				View Customer Portal
 			</el-button>
 			<el-button type="primary" @click="handleAddButtonClick">
@@ -31,7 +37,10 @@
 				<el-table-column label="Email" prop="email" />
 				<el-table-column label="Status" width="120">
 					<template #default="{ row }">
-						<el-tag :type="row.status === 'Active' ? 'success' : 'warning'">
+						<el-tag
+							:type="getStatusTagType(row.status)"
+							:effect="row.status === 'Inactive' ? 'light' : 'dark'"
+						>
 							{{ row.status }}
 						</el-tag>
 					</template>
@@ -41,22 +50,38 @@
 						{{ formatDate(row.sentDate) }}
 					</template>
 				</el-table-column>
-				<el-table-column label="Actions" width="200">
+				<el-table-column label="Actions" width="320">
 					<template #default="{ row }">
 						<div class="flex space-x-2">
-							<el-button size="small" @click="resendInvitation(row.email)"
-								:disabled="row.status === 'Active'">
+							<el-button
+								size="small"
+								@click="resendInvitation(row.email)"
+								:disabled="row.status === 'Inactive'"
+							>
 								<el-icon class="h-3 w-3 mr-1">
 									<Refresh />
 								</el-icon>
 								Resend
 							</el-button>
-							<el-button size="small" class="text-red-500 hover:text-red-700 hover:bg-red-50"
-								@click="handleRemoveUser(row)">
+							<el-button
+								size="small"
+								:type="getToggleButtonType(row.status)"
+								@click="handleToggleStatus(row)"
+							>
 								<el-icon class="h-3 w-3 mr-1">
-									<Delete />
+									<Switch />
 								</el-icon>
-								Remove
+								{{ getToggleButtonText(row.status) }}
+							</el-button>
+							<el-button
+								size="small"
+								type="info"
+								@click="handleViewInvitationLink(row)"
+							>
+								<el-icon class="h-3 w-3 mr-1">
+									<View />
+								</el-icon>
+								View
 							</el-button>
 						</div>
 					</template>
@@ -98,7 +123,11 @@
 			<template #footer>
 				<div class="flex justify-end space-x-2">
 					<el-button @click="showAddDialog = false">Cancel</el-button>
-					<el-button type="primary" @click="handleAddUser" :disabled="selectedEmails.length === 0">
+					<el-button
+						type="primary"
+						@click="handleAddUser"
+						:disabled="selectedEmails.length === 0"
+					>
 						<el-icon>
 							<Message />
 						</el-icon>
@@ -108,17 +137,61 @@
 			</template>
 		</el-dialog>
 
-		<!-- Remove User Confirmation Dialog -->
-		<el-dialog v-model="showRemoveDialog" title="Remove Portal Access" width="400px">
-			<p>
-				Are you sure you want to remove portal access for
-				<strong>{{ userToRemove?.email }}</strong>
-				?
-			</p>
+		<!-- Invitation Link Dialog -->
+		<el-dialog v-model="showInvitationLinkDialog" title="Invitation Link" width="600px">
+			<div class="space-y-4">
+				<div>
+					<h4 class="text-lg font-medium mb-2">Invitation Details</h4>
+					<div class="bg-gray-50 p-4 rounded-lg">
+						<div class="grid grid-cols-2 gap-4">
+							<div>
+								<span class="text-sm font-medium text-gray-600">Email:</span>
+								<p class="text-sm">{{ currentInvitationUser?.email }}</p>
+							</div>
+							<div>
+								<span class="text-sm font-medium text-gray-600">Status:</span>
+								<el-tag
+									:type="getStatusTagType(currentInvitationUser?.status || '')"
+									size="small"
+								>
+									{{ currentInvitationUser?.status }}
+								</el-tag>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div>
+					<label class="block text-sm font-medium mb-2">Invitation Link:</label>
+					<div class="flex items-center space-x-2">
+						<el-input v-model="currentInvitationUrl" readonly class="flex-1" />
+						<el-button @click="openInvitationLink">
+							<el-icon class="h-3 w-3 mr-1">
+								<View />
+							</el-icon>
+							View
+						</el-button>
+					</div>
+				</div>
+
+				<div class="bg-blue-50 p-4 rounded-lg">
+					<p class="text-sm text-blue-800">
+						<strong>Note:</strong>
+						Share this link with the customer to access their onboarding portal. The
+						link is encrypted and secure.
+					</p>
+				</div>
+			</div>
+
 			<template #footer>
 				<div class="flex justify-end space-x-2">
-					<el-button @click="showRemoveDialog = false">Cancel</el-button>
-					<el-button type="danger" @click="confirmRemoveUser">Remove Access</el-button>
+					<el-button @click="showInvitationLinkDialog = false">Close</el-button>
+					<el-button type="primary" @click="openInvitationLink">
+						<el-icon class="h-3 w-3 mr-1">
+							<View />
+						</el-icon>
+						View Link
+					</el-button>
 				</div>
 			</template>
 		</el-dialog>
@@ -128,10 +201,9 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Plus, Refresh, Delete, Message } from '@element-plus/icons-vue';
+import { Plus, Refresh, View, Message, Switch } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
-import { getCurrentBaseUrl } from '@/utils/url';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 
 // Props
@@ -144,9 +216,10 @@ const props = defineProps<Props>();
 
 // Reactive data
 const showAddDialog = ref(false);
-const showRemoveDialog = ref(false);
+const showInvitationLinkDialog = ref(false);
 const selectedEmails = ref<string[]>([]);
-const userToRemove = ref<PortalUser | null>(null);
+const currentInvitationUser = ref<PortalUser | null>(null);
+const currentInvitationUrl = ref('');
 const successMessage = ref('');
 const loading = ref(false);
 
@@ -156,17 +229,17 @@ const formatDate = (dateString: string) => {
 
 	try {
 		const date = new Date(dateString);
-		// 格式化为 YYYY-MM-DD HH:mm
-		return date
-			.toLocaleString('zh-CN', {
-				year: 'numeric',
-				month: '2-digit',
-				day: '2-digit',
-				hour: '2-digit',
-				minute: '2-digit',
-				hour12: false,
-			})
-			.replace(/\//g, '-');
+		if (isNaN(date.getTime())) {
+			return dateString;
+		}
+		// Format as MM/dd/yyyy HH:mm:ss (US format)
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
 	} catch (error) {
 		console.error('Error formatting date:', error);
 		return dateString;
@@ -265,36 +338,43 @@ const handleAddUser = async () => {
 	}
 };
 
-const handleRemoveUser = (user: PortalUser) => {
-	userToRemove.value = user;
-	showRemoveDialog.value = true;
+const handleViewInvitationLink = async (user: PortalUser) => {
+	try {
+		// 获取邀请链接
+		const response = await userInvitationApi.getInvitationLink(props.onboardingId, user.email);
+		const invitationUrl = response?.invitationUrl || (response as any)?.data?.invitationUrl;
+
+		if (invitationUrl) {
+			// 解析URL，仅保留路径部分
+			try {
+				const url = new URL(invitationUrl);
+				const localInvitationUrl = `${url.pathname}${url.search}`;
+				
+				// 显示邀请链接对话框
+				currentInvitationUser.value = user;
+				currentInvitationUrl.value = localInvitationUrl;
+				showInvitationLinkDialog.value = true;
+			} catch (error) {
+				// 如果URL解析失败，使用原始URL
+				currentInvitationUser.value = user;
+				currentInvitationUrl.value = invitationUrl;
+				showInvitationLinkDialog.value = true;
+			}
+		} else {
+			ElMessage.warning('Unable to retrieve invitation link');
+		}
+	} catch (error) {
+		console.error('Failed to get invitation link:', error);
+		ElMessage.error('Failed to retrieve invitation link');
+	}
 };
 
-const confirmRemoveUser = async () => {
-	if (userToRemove.value) {
-		try {
-			const removedEmail = userToRemove.value.email;
-			const response = await userInvitationApi.removePortalAccess(
-				props.onboardingId,
-				removedEmail
-			);
-			console.log('Remove portal access response:', response);
-
-			// Refresh portal users list
-			await loadPortalUsers();
-			showRemoveDialog.value = false;
-
-			// Show success message
-			successMessage.value = `Access removed for ${removedEmail} successfully.`;
-			setTimeout(() => {
-				successMessage.value = '';
-			}, 5000);
-
-			userToRemove.value = null;
-		} catch (error) {
-			ElMessage.error('Failed to remove portal access');
-			console.error('Error removing portal access:', error);
-		}
+// Open invitation link in new tab
+const openInvitationLink = () => {
+	if (currentInvitationUrl.value) {
+		window.open(currentInvitationUrl.value, '_blank');
+	} else {
+		ElMessage.error('Invitation link not available');
 	}
 };
 
@@ -322,11 +402,77 @@ const resendInvitation = async (email: string) => {
 
 const handleViewCustomerPortal = () => {
 	// Generate customer portal URL using current environment
-	const baseUrl = getCurrentBaseUrl();
-	const customerPortalUrl = `${baseUrl}/customer-portal?onboardingId=${props.onboardingId}`;
+	const customerPortalUrl = `/customer-portal?onboardingId=${props.onboardingId}`;
 
 	// Open in new window/tab
 	window.open(customerPortalUrl, '_blank');
+};
+
+// Get status tag type for different statuses
+const getStatusTagType = (status: string) => {
+	switch (status) {
+		case 'Active':
+			return 'success';
+		case 'Inactive':
+			return 'info';
+		default:
+			return 'info';
+	}
+};
+
+// Get toggle button type based on status
+const getToggleButtonType = (status: string) => {
+	switch (status) {
+		case 'Active':
+			return 'warning'; // Orange for deactivate
+		case 'Inactive':
+			return 'primary'; // Blue for activate
+		default:
+			return 'primary';
+	}
+};
+
+// Get toggle button text based on status
+const getToggleButtonText = (status: string) => {
+	switch (status) {
+		case 'Active':
+			return 'Deactivate';
+		case 'Inactive':
+			return 'Activate';
+		default:
+			return 'Activate';
+	}
+};
+
+// Handle status toggle (Active/Inactive)
+const handleToggleStatus = async (user: PortalUser) => {
+	try {
+		// Determine if we're activating or deactivating
+		// Active -> Inactive (deactivating)
+		// Pending/Inactive -> Active (activating)
+		// Used status cannot be changed back to Active
+		const isActivating = user.status !== 'Active';
+		const response = await userInvitationApi.togglePortalAccessStatus(
+			props.onboardingId,
+			user.email,
+			isActivating
+		);
+
+		console.log('Toggle status response:', response);
+
+		// Refresh portal users list
+		await loadPortalUsers();
+
+		// Show success message
+		const statusText = isActivating ? 'activated' : 'deactivated';
+		successMessage.value = `Portal access ${statusText} for ${user.email} successfully.`;
+		setTimeout(() => {
+			successMessage.value = '';
+		}, 5000);
+	} catch (error) {
+		ElMessage.error('Failed to toggle portal access status');
+		console.error('Error toggling portal access status:', error);
+	}
 };
 
 // Email tags change handler for InputTag component
@@ -344,19 +490,19 @@ watchEffect(async () => {
 </script>
 
 <style scoped lang="scss">
-.space-y-2>*+* {
+.space-y-2 > * + * {
 	margin-top: 0.5rem;
 }
 
-.space-y-4>*+* {
+.space-y-4 > * + * {
 	margin-top: 1rem;
 }
 
-.space-y-6>*+* {
+.space-y-6 > * + * {
 	margin-top: 1.5rem;
 }
 
-.space-x-2>*+* {
+.space-x-2 > * + * {
 	margin-left: 0.5rem;
 }
 
@@ -452,15 +598,15 @@ watchEffect(async () => {
 
 /* Portal Table 样式 */
 :deep(.portal-table .el-table__header-wrapper) {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 }
 
 :deep(.portal-table .el-table__header) {
-	background-color: #eff6ff;
+	background-color: var(--primary-10);
 }
 
 :deep(.portal-table .el-table__header th) {
-	background-color: #eff6ff !important;
+	background-color: var(--primary-10) !important;
 	border: none;
 	font-weight: 500;
 }

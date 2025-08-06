@@ -551,21 +551,7 @@ const getStageComponents = (stage: Stage) => {
 	});
 
 	// 按照order排序
-	return componentList.sort((a, b) => {
-		const componentA = stage.components?.find(
-			(c) =>
-				c.key === a.type ||
-				(a.type.includes('checklist') && c.key === 'checklist') ||
-				(a.type.includes('questionnaire') && c.key === 'questionnaires')
-		);
-		const componentB = stage.components?.find(
-			(c) =>
-				c.key === b.type ||
-				(b.type.includes('checklist') && c.key === 'checklist') ||
-				(b.type.includes('questionnaire') && c.key === 'questionnaires')
-		);
-		return (componentA?.order || 0) - (componentB?.order || 0);
-	});
+	return componentList;
 };
 
 // 获取组件图标

@@ -2,6 +2,8 @@ using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.OW;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.IO;
@@ -18,13 +20,16 @@ namespace FlowFlex.Application.Services.OW
     public class AttachmentService : IAttachmentService, IScopedService
     {
         private readonly IFileStorageService _fileStorageService;
+        private readonly IOnboardingFileRepository _onboardingFileRepository;
         private readonly ILogger<AttachmentService> _logger;
 
         public AttachmentService(
             IFileStorageService fileStorageService,
+            IOnboardingFileRepository onboardingFileRepository,
             ILogger<AttachmentService> logger)
         {
             _fileStorageService = fileStorageService;
+            _onboardingFileRepository = onboardingFileRepository;
             _logger = logger;
         }
 
@@ -73,16 +78,24 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // In actual implementation, this should query attachment information from database
-                // Currently returns mock data, but uses real file path format
+                // Find the OnboardingFile that references this attachment ID
+                var onboardingFile = await _onboardingFileRepository.GetByAttachmentIdAsync(Id);
+                
+                if (onboardingFile == null)
+                {
+                    throw new FileNotFoundException($"Attachment with ID {Id} not found");
+                }
+
                 return new AttachmentOutputDto
                 {
                     Id = Id,
-                    FileName = $"file_{Id}.txt",
-                    RealName = $"original_file_{Id}.txt",
-                    FileType = "text/plain",
-                    AccessUrl = $"/uploads/default/attachments/{DateTime.Now:yyyy/MM/dd}/file_{Id}.txt",
-                    CreateDate = DateTimeOffset.Now
+                    FileName = onboardingFile.StoredFileName,
+                    RealName = onboardingFile.OriginalFileName,
+                    FileType = onboardingFile.ContentType,
+                    AccessUrl = onboardingFile.AccessUrl,
+                    CreateDate = onboardingFile.CreateDate,
+                    FileSize = onboardingFile.FileSize,
+                    FilePath = onboardingFile.StoragePath
                 };
             }
             catch (Exception ex)
@@ -163,19 +176,34 @@ namespace FlowFlex.Application.Services.OW
                 // Try to get real file from file storage
                 try
                 {
-                    // Extract file path from AccessUrl
-                    var filePath = attachment.AccessUrl.Replace("/uploads/", "");
+                    // Extract file path from AccessUrl or FilePath
+                    string filePath;
+                    
+                    if (!string.IsNullOrEmpty(attachment.FilePath))
+                    {
+                        filePath = attachment.FilePath.Replace("/uploads/", "");
+                    }
+                    else if (!string.IsNullOrEmpty(attachment.AccessUrl))
+                    {
+                        filePath = attachment.AccessUrl.Replace("/uploads/", "");
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException($"No file path found for attachment {id}");
+                    }
+
                     var (stream, fileName, contentType) = await _fileStorageService.GetFileAsync(filePath);
 
+                    // Update attachment info with actual file data
                     attachment.FileType = contentType;
+                    attachment.RealName = fileName;
+                    
                     return (stream, attachment);
                 }
-                catch (FileNotFoundException)
+                catch (FileNotFoundException ex)
                 {
-                    // If file doesn't exist, return mock content
-                    _logger.LogWarning($"File not found for attachment {id}, returning mock content");
-                    var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("File content not found"));
-                    return (stream, attachment);
+                    _logger.LogWarning(ex, $"File not found for attachment {id}: {ex.Message}");
+                    throw new FileNotFoundException($"Physical file not found for attachment {id}", ex);
                 }
             }
             catch (Exception ex)

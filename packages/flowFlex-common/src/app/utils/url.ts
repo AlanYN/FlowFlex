@@ -4,7 +4,8 @@
  */
 export function getCurrentBaseUrl(): string {
 	if (typeof window !== 'undefined') {
-		return window.location.origin;
+		const origin = window.location.origin;
+		return getCorrectBaseUrl(origin);
 	}
 	return '';
 }
@@ -32,6 +33,24 @@ export function getCurrentPathname(): string {
 }
 
 /**
+ * 确保 baseUrl 使用正确的域名前缀
+ * 将 crm-staging.item.com 替换为 flowflex-staging.item.com
+ * @param url 原始 URL
+ * @returns 修正后的 URL
+ */
+export function getCorrectBaseUrl(url: string): string {
+	// 检查 URL 是否包含 crm-staging.item.com 并替换为 flowflex-staging.item.com
+	if (url.includes('crm-')) {
+		return url.replace('crm-', 'flowflex-');
+	}
+	// 检查 URL 是否包含 crm.item.com 并替换为 flowflex.item.com
+	if (url.includes('crm.item.com')) {
+		return url.replace('crm.item.com', 'flowflex.item.com');
+	}
+	return url;
+}
+
+/**
  * 构建门户访问 URL（指向onboardDetail页面）
  * @param token 邀请令牌
  * @param onboardingId onboarding ID
@@ -43,7 +62,7 @@ export function buildPortalAccessUrl(
 	onboardingId: string,
 	baseUrl?: string
 ): string {
-	const base = baseUrl || getCurrentBaseUrl();
+	const base = baseUrl ? getCorrectBaseUrl(baseUrl) : getCurrentBaseUrl();
 	return `${base}/onboard/onboardDetail?onboardingId=${encodeURIComponent(
 		onboardingId
 	)}&token=${encodeURIComponent(token)}`;

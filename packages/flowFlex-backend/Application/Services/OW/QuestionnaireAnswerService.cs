@@ -21,7 +21,7 @@ namespace FlowFlex.Application.Services.OW
     public class QuestionnaireAnswerService : IQuestionnaireAnswerService, IScopedService
     {
         private readonly IQuestionnaireAnswerRepository _repository;
-        private readonly IStageCompletionLogRepository _stageCompletionLogRepository;
+    
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IOperationChangeLogService _operationChangeLogService;
@@ -32,7 +32,7 @@ namespace FlowFlex.Application.Services.OW
 
         public QuestionnaireAnswerService(
             IQuestionnaireAnswerRepository repository,
-            IStageCompletionLogRepository stageCompletionLogRepository,
+    
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
             IOperationChangeLogService operationChangeLogService,
@@ -42,7 +42,7 @@ namespace FlowFlex.Application.Services.OW
             UserContext userContext)
         {
             _repository = repository;
-            _stageCompletionLogRepository = stageCompletionLogRepository;
+    
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
             _operationChangeLogService = operationChangeLogService;
@@ -87,22 +87,7 @@ namespace FlowFlex.Application.Services.OW
                     Source = "questionnaire_answer"
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding?.TenantId ?? _userContext?.TenantId ?? "default",
-                    OnboardingId = onboardingId,
-                    StageId = stageId,
-                    StageName = stage?.Name ?? "Unknown",
-                    LogType = "questionnaire_answer_change",
-                    Action = action,
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = GetCurrentUserName(),
-                    ModifyBy = GetCurrentUserName()
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)
@@ -152,6 +137,7 @@ namespace FlowFlex.Application.Services.OW
                     existingAnswer.AnswerJson = updatedAnswerJson;
                     existingAnswer.Status = input.Status ?? "Draft";
                     existingAnswer.CompletionRate = (int)Math.Round(input.CompletionRate ?? 0);
+                    existingAnswer.CurrentSectionIndex = input.CurrentSectionIndex ?? existingAnswer.CurrentSectionIndex;
                     existingAnswer.InitUpdateInfo(_userContext);
 
                     if (input.Status == "Submitted")
@@ -192,6 +178,7 @@ namespace FlowFlex.Application.Services.OW
                         AnswerJson = processedAnswerJson,
                         Status = input.Status ?? "Draft",
                         CompletionRate = (int)Math.Round(input.CompletionRate ?? 0),
+                        CurrentSectionIndex = input.CurrentSectionIndex ?? 0,
                         SubmitTime = input.Status == "Submitted" ? DateTimeOffset.Now : null,
                         Version = await GetNextVersionAsync(input.OnboardingId, input.StageId),
                         IsLatest = true,
@@ -202,7 +189,6 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with proper ID and timestamps
                     entity.InitCreateInfo(_userContext);
-                    // Debug logging handled by structured logging
                     // Debug logging handled by structured logging ?? "NULL"}");
 
                     // Use SqlSugar ORM insert
@@ -343,6 +329,7 @@ namespace FlowFlex.Application.Services.OW
                     newEntity.Id = 0; // Reset ID to create new record
                     newEntity.AnswerJson = newAnswerJson;
                     newEntity.Status = input.Status ?? existing.Status;
+                    newEntity.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
                     newEntity.InitCreateInfo(_userContext);
                     newEntity.Version = existing.Version + 1;
 
@@ -359,6 +346,7 @@ namespace FlowFlex.Application.Services.OW
                     existing.AnswerJson = newAnswerJson;
                     existing.Status = input.Status ?? existing.Status;
                     existing.CompletionRate = input.CompletionRate.HasValue ? (int)Math.Round(input.CompletionRate.Value) : existing.CompletionRate;
+                    existing.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
                     existing.InitUpdateInfo(_userContext);
 
                     await _repository.UpdateAsync(existing);
@@ -912,7 +900,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     action = action, // "created", "modified"
                     user = user,
-                    timestamp = time.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    timestamp = time.ToString("MM/dd/yyyy HH:mm:ss.fff"),
                     timestampUtc = time.UtcDateTime
                 };
 
@@ -940,7 +928,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // 添加最后修改信息（用于快速访问）
                 responseObj["lastModifiedBy"] = user;
-                responseObj["lastModifiedAt"] = time.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+                responseObj["lastModifiedAt"] = time.ToString("MM/dd/yyyy HH:mm:ss.fff");
             }
             catch (Exception ex)
             {

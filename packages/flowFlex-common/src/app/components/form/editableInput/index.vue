@@ -165,8 +165,8 @@
 				<el-option
 					v-for="item in !property?.remote
 						? options.map((item) => ({
-								label: item?.displayName || item.value,
-								value: item?.id || item.key,
+								label: item.value,
+								value: item.key,
 						  })) || []
 						: searchOptions"
 					:key="item.value"
@@ -283,7 +283,6 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import ConnectionInput from '@/components/form/connectionInput/index.vue';
 import TimeLine from '@/components/form/timeLine/index.vue';
 import MergedArea from '@/components/form/inputPhone/mergedArea.vue';
-import { DynamicOptions } from '#/leadAndDeal';
 import { Options } from '#/setting';
 import { InputProperty } from '#/config';
 import { useUserStore } from '@/stores/modules/user';
@@ -317,7 +316,7 @@ interface EditableInputProps {
 	fieldName?: string;
 	isCopyText?: boolean;
 	property?: InputProperty;
-	options?: DynamicOptions[] | Options[];
+	options?: Options[];
 	searchApi?: (text: string, type?: number) => Promise<any>;
 	disabled?: boolean;
 	inputMinWidth?: string;
@@ -553,11 +552,6 @@ const getOptionDisplayValue = (value: any) => {
 	const optionItem = props.options?.find((i: any) => i.key == value || i.id == value);
 	if (!optionItem) return null;
 
-	// 使用类型断言处理可能的类型
-	if ('displayName' in optionItem) {
-		// 是DynamicOptions类型
-		return (optionItem as unknown as DynamicOptions).displayName;
-	}
 	if ('value' in optionItem) {
 		// 是Options类型
 		return (optionItem as unknown as Options).value;

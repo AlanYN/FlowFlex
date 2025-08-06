@@ -15,6 +15,7 @@ const Api = (id?: string | number) => {
 		workflowSetDefault: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/set-default`,
 		workflowDuplicate: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/duplicate`,
 		workflowVersions: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/versions`,
+		workflowCreateVersion: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/create-version`,
 		workflowExportExcel: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/export-detailed-excel`,
 
 		// 阶段相关API
@@ -71,10 +72,6 @@ export function updateWorkflow(id: string | number, params: any) {
 	return defHttp.put({ url: `${Api(id).workflow}`, params });
 }
 
-export function createWorkflowFromVersion(id: string | number, params: any) {
-	return defHttp.post({ url: `${Api(id).historyWorkflow}`, params });
-}
-
 /**
  * 分页查询工作流 [W05]
  * @param params WorkflowQueryRequest
@@ -122,20 +119,7 @@ export function duplicateWorkflow(id: string | number, params: any) {
 }
 
 /**
- * 获取工作流版本历史 [W10]
- * @param id 工作流ID
- * @returns List<WorkflowVersionDto>
- */
-export function getWorkflowVersions(id: string | number) {
-	return defHttp.get({ url: `${Api(id).workflowVersions}` });
-}
-
-export function getWorkflowVersionStages(id: string | number, versionId: string | number) {
-	return defHttp.get({ url: `${Api(id).workflowVersions}/${versionId}/stages` });
-}
-
-/**
- * 导出工作流到Excel [W11]
+ * 导出工作流到Excel [W13]
  * @param params WorkflowExportSearch
  * @returns Excel文件流
  */

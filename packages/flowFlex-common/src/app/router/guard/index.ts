@@ -11,7 +11,7 @@ import { AxiosCanceler } from '@/apis/axios/axiosCancel';
 import { useGlobSetting } from '@/settings';
 import { ParametersToken } from '#/config';
 import { isIframe, parseUrlSearch, objectToQueryString } from '@/utils/utils';
-import { passSsoToken, setEnvironment } from '@/utils/threePartyLogin';
+import { passSsoToken, setEnvironment, wujieCrmToken } from '@/utils/threePartyLogin';
 
 import { getTokenobj } from '@/utils/auth';
 
@@ -61,6 +61,22 @@ function handleMessageGuard() {
 function handleTokenCheck(to, next) {
 	const accessToken = getTokenobj()?.accessToken.token;
 
+	// 对于customer-portal页面，优先检查标准认证，fallback到portal认证
+	if (to.path.startsWith('/customer-portal')) {
+		const portalAccessToken = localStorage.getItem('portal_access_token');
+		const urlToken = to.query.token;
+
+		if (accessToken || portalAccessToken || urlToken) {
+			// 有标准用户认证、portal访问token或URL中有token参数，允许访问
+			return false;
+		}
+	}
+
+	// 对于portal-access页面，允许直接访问（不需要标准认证）
+	if (to.path.startsWith('/portal-access')) {
+		return false;
+	}
+
 	if (!accessToken) {
 		redirectToLogin(to, next);
 		return true;
@@ -73,7 +89,7 @@ function handleTokenCheck(to, next) {
 }
 
 function redirectToLogin(to, next) {
-	if (to.path !== '/login') {
+	if (to.path !== '/login' && !window?.__POWERED_BY_WUJIE__) {
 		const redirectData = {
 			path: LOGIN_PATH,
 			replace: true,
@@ -138,8 +154,35 @@ async function createDynamicRoutes(router: Router) {
 
 async function handleTripartiteToken() {
 	const parameterObj = parseUrlSearch(window.location.href)?.query as ParametersToken;
-	if (parameterObj) {
-		const userStore = useUserStoreWithOut();
+
+	const userStore = useUserStoreWithOut();
+	// 直接检查无界环境，避免调用可能未初始化的 useWujie
+	if (window.__POWERED_BY_WUJIE__) {
+		userStore.setLayout({
+			hideMenu: true,
+			hideEditMenu: true,
+		});
+	}
+	if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
+		console.log('无界环境处理 token');
+		console.log('window.$wujie.props:', window.$wujie.props);
+		if (userStore.getUserInfo.appCode && getTokenobj()?.accessToken?.token) return;
+		const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
+		if (appCode && tenantId && authorizationToken) {
+			try {
+				await wujieCrmToken(
+					{
+						appCode,
+						tenantId,
+						authorizationToken,
+					},
+					currentRoute
+				);
+			} catch (error) {
+				console.error('无界环境 token 处理失败:', error);
+			}
+		}
+	} else if (!window.__POWERED_BY_WUJIE__ && parameterObj) {
 		const { loginType, code = '', state = '', hideEditMenu, hideMenu } = parameterObj;
 
 		userStore.setLayout({
@@ -170,7 +213,12 @@ async function handlePermissionGuard(to, from, next) {
 	const permissionStore = usePermissionStoreWithOut();
 	const rolePath = getMenuListPath(permissionStore.getFrontMenuList);
 
-	if (allPagePaths.includes(to.path) && !rolePath.includes(to.path)) {
+	// 跳过 portal-access 页面的权限检查（公开页面）
+	if (
+		!to.path.startsWith('/portal-access') &&
+		allPagePaths.includes(to.path) &&
+		!rolePath.includes(to.path)
+	) {
 		to.query.status = '403';
 	}
 

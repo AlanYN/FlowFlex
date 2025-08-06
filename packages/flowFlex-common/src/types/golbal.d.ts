@@ -343,3 +343,29 @@ export interface ErrorInfoItem {
 	contactInfo?: string;
 	userInfo: UserInfo;
 }
+
+declare global {
+	interface Window {
+		__POWERED_BY_WUJIE__: boolean;
+		__WUJIE_MOUNT: () => void;
+		__WUJIE_UNMOUNT: () => void;
+		__WUJIE__: {
+			mount: () => void;
+			unmount: () => void;
+			bus: {
+				$on: (event: string, handler: Function) => void;
+				$off: (event: string, handler?: Function) => void;
+				$emit: (event: string, ...args: any[]) => void;
+			};
+		};
+		$wujie: {
+			bus: {
+				$on: (event: string, handler: Function) => void;
+				$off: (event: string, handler?: Function) => void;
+				$emit: (event: string, ...args: any[]) => void;
+			};
+			props: Record<string, any>;
+		};
+		__WUJIE: { mount: () => void };
+	}
+}

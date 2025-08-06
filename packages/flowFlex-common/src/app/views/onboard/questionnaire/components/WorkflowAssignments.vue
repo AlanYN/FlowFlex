@@ -20,7 +20,7 @@
 					:key="`assignment-${index}`"
 					class="assignment-item"
 				>
-					<div class="assignment-item-header">
+					<div class="assignment-item-header mb-2">
 						<span class="assignment-label">Assignment {{ index + 1 }}</span>
 						<el-button
 							v-if="extendedAssignments.length > 1"
@@ -34,8 +34,11 @@
 						</el-button>
 					</div>
 
-					<el-form :model="assignment" label-position="top">
-						<el-form-item label="Workflow">
+					<el-form :model="assignment" label-position="left" label-width="80px">
+						<el-form-item>
+							<template #label>
+								<span class="font-bold">Workflow</span>
+							</template>
 							<el-select
 								v-model="assignment.workflowId"
 								placeholder="Select workflow"
@@ -62,10 +65,14 @@
 										</div>
 									</div>
 								</el-option>
+								<!-- 移除特殊选项 -->
 							</el-select>
 						</el-form-item>
 
-						<el-form-item label="Stage">
+						<el-form-item>
+							<template #label>
+								<span class="font-bold">Stage</span>
+							</template>
 							<el-select
 								v-model="assignment.stageId"
 								placeholder="Select stage"
@@ -103,23 +110,7 @@
 import { Plus, Delete, VideoPause } from '@element-plus/icons-vue';
 import { ref, watch, onMounted } from 'vue';
 import { getStagesByWorkflow } from '@/apis/ow';
-
-interface Assignment {
-	workflowId: string | null;
-	stageId: string | null;
-}
-
-interface ExtendedAssignment extends Assignment {
-	stages: Array<{ id: string; name: string }>;
-	stagesLoading: boolean;
-}
-
-interface Workflow {
-	id: string;
-	name: string;
-	isDefault?: boolean;
-	status?: string;
-}
+import { Assignment, ExtendedAssignment, Workflow } from '#/onboard';
 
 interface Props {
 	assignments: Assignment[];
@@ -136,11 +127,21 @@ const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({})
 
 // 初始化数据
 const initializeAssignments = async () => {
-	extendedAssignments.value = props.assignments.map((assignment) => ({
-		...assignment,
-		stages: stagesCache.value[assignment.workflowId] || [],
-		stagesLoading: false,
-	}));
+	extendedAssignments.value = props.assignments.map((assignment) => {
+		// 如果workflowId为"0"，将其设置为空字符串
+		const workflowId = assignment.workflowId === '0' ? '' : assignment.workflowId;
+		return {
+			...assignment,
+			workflowId,
+			stages: workflowId ? stagesCache.value[workflowId] || [] : [],
+			stagesLoading: false,
+		};
+	});
+
+	// 如果没有初始数据，添加一个空的 assignment
+	if (extendedAssignments.value.length === 0) {
+		addAssignment();
+	}
 
 	// 加载所有需要的 stages 数据
 	await loadAllStagesData();
@@ -149,9 +150,7 @@ const initializeAssignments = async () => {
 // 加载所有需要的 stages 数据
 const loadAllStagesData = async () => {
 	const workflowIds = [
-		...new Set(
-			extendedAssignments.value.map((a) => a.workflowId).filter((id) => id && id !== '0')
-		),
+		...new Set(extendedAssignments.value.map((a) => a.workflowId).filter((id) => id)),
 	];
 
 	for (const workflowId of workflowIds) {
@@ -162,11 +161,7 @@ const loadAllStagesData = async () => {
 
 	// 更新 extendedAssignments 中的 stages 数据
 	extendedAssignments.value.forEach((assignment) => {
-		if (
-			assignment.workflowId &&
-			assignment.workflowId !== '0' &&
-			stagesCache.value[assignment.workflowId]
-		) {
+		if (assignment.workflowId && stagesCache.value[assignment.workflowId]) {
 			assignment.stages = stagesCache.value[assignment.workflowId];
 		}
 	});
@@ -174,7 +169,7 @@ const loadAllStagesData = async () => {
 
 // 加载指定 workflow 的 stages 数据
 const loadStagesForWorkflow = async (workflowId: string) => {
-	if (!workflowId || workflowId === '0' || stagesCache.value[workflowId]) return;
+	if (!workflowId || stagesCache.value[workflowId]) return;
 
 	try {
 		const response = await getStagesByWorkflow(workflowId);
@@ -209,13 +204,21 @@ const handleWorkflowChange = async (index: number, workflowId: string) => {
 	const assignment = extendedAssignments.value[index];
 	if (!assignment) return;
 
+	// 如果ID为"0"，将其设置为空字符串
+	if (workflowId === '0') {
+		assignment.workflowId = '';
+		assignment.stageId = '';
+		assignment.stages = [];
+		return;
+	}
+
 	// 更新本地状态
 	assignment.workflowId = workflowId;
 	assignment.stageId = ''; // 清空 stage 选择
 	assignment.stages = [];
 
 	// 如果选择了 workflow，加载对应的 stages
-	if (workflowId && workflowId !== '0') {
+	if (workflowId) {
 		if (!stagesCache.value[workflowId]) {
 			assignment.stagesLoading = true;
 			await loadStagesForWorkflow(workflowId);
@@ -245,8 +248,9 @@ const isStageDisabled = (stageId: string, currentIndex: number) => {
 // 获取当前的 assignments 数据（暴露给父组件）
 const getAssignments = (): Assignment[] => {
 	return extendedAssignments.value.map(({ workflowId, stageId }) => ({
-		workflowId: workflowId && workflowId !== '0' ? workflowId : null,
-		stageId: stageId && stageId !== '0' ? stageId : null,
+		// 如果workflowId为空，将其设置为"0"
+		workflowId: workflowId || '0',
+		stageId: stageId || null,
 	}));
 };
 
@@ -314,7 +318,7 @@ defineExpose({
 	background: var(--primary-50);
 	border: 1px solid var(--primary-200);
 	border-radius: 0.5rem;
-	padding: 1rem;
+	padding: 1rem 1rem 0 1rem;
 	@apply dark:bg-primary-700 dark:border-primary-600;
 }
 
@@ -322,7 +326,6 @@ defineExpose({
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 0.75rem;
 }
 
 .assignment-label {

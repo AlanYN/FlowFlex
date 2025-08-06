@@ -261,6 +261,10 @@ const handleBeforeUpload = (file: File) => {
 		return false;
 	}
 
+	if (file.name.includes('.msg')) {
+		return true;
+	}
+
 	// 检查文件类型
 	const allowedTypes = [
 		'application/pdf',
@@ -377,7 +381,7 @@ const handleViewDocument = async (document: DocumentItem) => {
 			perviewFileShow.value = false;
 		} else {
 			// 支持预览的文件类型，使用正确的MIME类型
-			const mimeType = getMimeType(fileExt);
+			const mimeType = document?.contentType || getMimeType(fileExt);
 			const blob = new Blob([res], { type: mimeType });
 			fileUrl.value = URL.createObjectURL(blob);
 		}
@@ -398,7 +402,7 @@ const closeOffice = () => {
 const downloadFile = (res: any, file: DocumentItem) => {
 	// 获取文件扩展名并设置正确的MIME类型
 	const fileExt = file.originalFileName.split('.').pop()?.toLowerCase() || '';
-	const mimeType = getMimeType(fileExt);
+	const mimeType = file?.contentType || getMimeType(fileExt);
 	const blob = new Blob([res], { type: mimeType });
 	const link = document.createElement('a');
 	link.download = file.originalFileName;

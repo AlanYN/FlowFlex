@@ -29,6 +29,37 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get user by email and tenant ID (for multi-tenant support)
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <returns>User</returns>
+        public async Task<User> GetByEmailAndTenantAsync(string email, string tenantId)
+        {
+            // Disable global filters to query across tenants
+            return await _db.Queryable<User>()
+                .ClearFilter<User>() // Clear tenant filters
+                .Where(u => u.Email == email && u.TenantId == tenantId && u.IsValid)
+                .FirstAsync();
+        }
+
+        /// <summary>
+        /// Get user by email and app code (for cross-tenant user management)
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <param name="appCode">App Code</param>
+        /// <returns>User</returns>
+        public async Task<User> GetByEmailAndAppCodeAsync(string email, string appCode)
+        {
+            // Disable global filters to query across all tenants
+            return await _db.Queryable<User>()
+                .ClearFilter<User>() // Clear all filters
+                .Where(u => u.Email == email && u.AppCode == appCode && u.IsValid)
+                .OrderBy(u => u.CreateDate) // Get the first created user
+                .FirstAsync();
+        }
+
+        /// <summary>
         /// Check if email already exists
         /// </summary>
         /// <param name="email">Email address</param>
@@ -40,6 +71,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Check if email exists in specific tenant
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <returns>Whether exists</returns>
+        public async Task<bool> EmailExistsInTenantAsync(string email, string tenantId)
+        {
+            // Disable global filters to query across tenants
+            return await _db.Queryable<User>()
+                .ClearFilter<User>() // Clear tenant filters
+                .AnyAsync(u => u.Email == email && u.TenantId == tenantId && u.IsValid);
+        }
+
+        /// <summary>
         /// Update user last login information
         /// </summary>
         /// <param name="userId">User ID</param>
@@ -48,15 +93,17 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>Whether update successful</returns>
         public async Task<bool> UpdateLastLoginInfoAsync(long userId, DateTimeOffset loginTime, string loginIp)
         {
-            return await _db.Updateable<User>()
+            var result = await _db.Updateable<User>()
                 .SetColumns(u => new User
                 {
                     LastLoginDate = loginTime,
                     LastLoginIp = loginIp,
                     ModifyDate = DateTimeOffset.Now
                 })
-                .Where(u => u.Id == userId && u.IsValid)
-                .ExecuteCommandAsync() > 0;
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+
+            return result > 0;
         }
 
         /// <summary>
@@ -67,14 +114,16 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>Whether update successful</returns>
         public async Task<bool> UpdateEmailVerificationStatusAsync(long userId, bool verified)
         {
-            return await _db.Updateable<User>()
+            var result = await _db.Updateable<User>()
                 .SetColumns(u => new User
                 {
                     EmailVerified = verified,
                     ModifyDate = DateTimeOffset.Now
                 })
-                .Where(u => u.Id == userId && u.IsValid)
-                .ExecuteCommandAsync() > 0;
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+
+            return result > 0;
         }
     }
 }

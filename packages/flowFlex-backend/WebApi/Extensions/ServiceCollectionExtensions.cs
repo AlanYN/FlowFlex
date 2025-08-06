@@ -47,7 +47,7 @@ namespace FlowFlex.WebApi.Extensions
             var commandTimeout = configuration.GetValue<int>("Database:CommandTimeout", 30);
 
             // Register SqlSugar
-            services.AddSingleton<ISqlSugarClient>(sp =>
+            services.AddScoped<ISqlSugarClient>(sp =>
             {
                 var config = new ConnectionConfig()
                 {
@@ -126,12 +126,8 @@ namespace FlowFlex.WebApi.Extensions
                     // Set command timeout using the correct API
                     provider.Ado.CommandTimeOut = commandTimeout;
 
-                    // Configure application and tenant filters for data isolation
-                    var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
-                    if (httpContextAccessor != null)
-                    {
-                        FlowFlex.Infrastructure.Data.AppTenantFilter.ConfigureFilters(provider, httpContextAccessor);
-                    }
+                    // Note: Tenant and app filters are handled at repository level
+                    // to avoid IServiceProvider disposal issues in SqlSugar configuration
                 });
 
                 return sqlSugarClient;
@@ -143,10 +139,12 @@ namespace FlowFlex.WebApi.Extensions
             // Register UserContext - get from HTTP request headers, JWT claims, and AppContext
             services.AddScoped<UserContext>(provider =>
             {
-                var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
-                var httpContext = httpContextAccessor?.HttpContext;
+                try
+                {
+                    var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
+                    var httpContext = httpContextAccessor?.HttpContext;
 
-                if (httpContext != null)
+                    if (httpContext != null)
                 {
                     // Get AppContext from middleware if available
                     var appContext = httpContext.Items["AppContext"] as AppContext;
@@ -175,18 +173,15 @@ namespace FlowFlex.WebApi.Extensions
                         appCodeHeader = httpContext.Request.Headers["AppCode"].FirstOrDefault();
                     }
 
-                    // Determine final values with priority: JWT claims > headers > AppContext > defaults
-                    var userId = userIdClaim?.Value ?? userIdHeader ?? "1";
+                    // Determine final values with priority: headers > JWT claims > AppContext > defaults
+                    // 修改优先级顺序，使header优先级高于JWT token
+                    var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
                     var email = emailClaim?.Value ?? string.Empty;
-                    var userName = usernameClaim?.Value ?? userNameHeader ?? email ?? "System";
-                    var tenantId = tenantIdClaim?.Value ?? tenantIdHeader ?? appContext?.TenantId ?? "DEFAULT";
-                    var appCode = appCodeClaim?.Value ?? appCodeHeader ?? appContext?.AppCode ?? "DEFAULT";
+                    var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
+                    var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "DEFAULT";
+                    var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "DEFAULT";
 
-                    // If no tenant ID found and we have email, try to get tenant from email
-                    if (tenantId == "DEFAULT" && !string.IsNullOrEmpty(email))
-                    {
-                        tenantId = TenantHelper.GetTenantIdByEmail(email);
-                    }
+                    // Note: No inference from email domain - use explicit headers only
 
                     // User context logging handled by structured logging
 
@@ -200,15 +195,41 @@ namespace FlowFlex.WebApi.Extensions
                     };
                 }
 
-                // Default values for test environment or when no HTTP context
-                return new UserContext
+                    // Default values for test environment or when no HTTP context
+                    return new UserContext
+                    {
+                        UserId = "1",
+                        UserName = "TestUser",
+                        Email = string.Empty,
+                        TenantId = "DEFAULT",
+                        AppCode = "DEFAULT"
+                    };
+                }
+                catch (ObjectDisposedException)
                 {
-                    UserId = "1",
-                    UserName = "TestUser",
-                    Email = string.Empty,
-                    TenantId = "DEFAULT",
-                    AppCode = "DEFAULT"
-                };
+                    // Service provider was disposed during shutdown, return safe default
+                    return new UserContext
+                    {
+                        UserId = "1",
+                        UserName = "System",
+                        Email = string.Empty,
+                        TenantId = "DEFAULT",
+                        AppCode = "DEFAULT"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    // Any other error, log and return safe default
+                    Console.WriteLine($"Warning: Failed to create UserContext: {ex.Message}");
+                    return new UserContext
+                    {
+                        UserId = "1",
+                        UserName = "System",
+                        Email = string.Empty,
+                        TenantId = "DEFAULT",
+                        AppCode = "DEFAULT"
+                    };
+                }
             });
 
             // Register necessary ASP.NET Core services
@@ -253,9 +274,14 @@ namespace FlowFlex.WebApi.Extensions
                     return userContext.TenantId;
                 }
             }
+            catch (ObjectDisposedException)
+            {
+                // Service provider was disposed, use default
+                return "DEFAULT";
+            }
             catch
             {
-                // Ignore service resolution errors during startup
+                // Ignore other service resolution errors during startup
             }
 
             return "default";

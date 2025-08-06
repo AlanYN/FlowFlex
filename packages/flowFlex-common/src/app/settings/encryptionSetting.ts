@@ -9,7 +9,7 @@ export const cacheCipher = {
 	iv: '@11111000001111_',
 };
 
-export const getCommonStoragePrefix = 'CRM_';
+export const getCommonStoragePrefix = 'ITEMWFE_';
 
 // Whether the system cache is encrypted using aes
 export const SHOULD_ENABLE_STORAGE_ENCRYPTION = isDevMode();

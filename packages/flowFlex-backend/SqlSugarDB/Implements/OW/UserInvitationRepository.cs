@@ -103,5 +103,17 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             return result > 0;
         }
+
+        /// <summary>
+        /// Get invitation by short URL ID
+        /// </summary>
+        /// <param name="shortUrlId">Short URL identifier</param>
+        /// <returns>User invitation</returns>
+        public async Task<UserInvitation> GetByShortUrlIdAsync(string shortUrlId)
+        {
+            return await _db.Queryable<UserInvitation>()
+                .Where(x => x.ShortUrlId == shortUrlId && x.IsValid)
+                .FirstAsync();
+        }
     }
 }

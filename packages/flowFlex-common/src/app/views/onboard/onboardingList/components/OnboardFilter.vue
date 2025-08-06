@@ -1,5 +1,5 @@
 <template>
-	<el-card class="mb-6 rounded-md">
+	<el-card class="mb-6 rounded-md filter_card">
 		<template #default>
 			<div class="pt-6">
 				<el-form
@@ -10,7 +10,7 @@
 				>
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-gray-700">Lead ID</label>
+							<label class="text-sm font-medium text-primary-500">Lead ID</label>
 							<InputTag
 								v-model="leadIdTags"
 								placeholder="Enter Lead ID and press enter"
@@ -22,7 +22,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-gray-700">
+							<label class="text-sm font-medium text-primary-500">
 								Company/Contact Name
 							</label>
 							<InputTag
@@ -36,7 +36,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-gray-700">
+							<label class="text-sm font-medium text-primary-500">
 								Life Cycle Stage
 							</label>
 							<el-select
@@ -56,14 +56,15 @@
 						</div>
 
 						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium text-gray-700">
-								Onboard Work Flow
+							<label class="text-sm font-medium text-primary-500">
+								Onboard Workflow
 							</label>
 							<el-select
 								v-model="searchParams.workFlowId"
 								placeholder="Select Work Flow"
 								clearable
 								class="w-full rounded-md"
+								@change="handleWorkflowChange"
 							>
 								<el-option label="All Work Flows" value="" />
 								<el-option
@@ -76,16 +77,20 @@
 						</div>
 
 						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium text-gray-700">Onboard Stage</label>
+							<label class="text-sm font-medium text-primary-500">
+								Onboard Stage
+							</label>
 							<el-select
 								v-model="searchParams.currentStageId"
 								placeholder="Select Stage"
 								clearable
 								class="w-full rounded-md"
+								:disabled="!searchParams.workFlowId || stagesLoading"
+								:loading="stagesLoading"
 							>
 								<el-option label="All Stages" value="" />
 								<el-option
-									v-for="stage in onboardingStages"
+									v-for="stage in dynamicOnboardingStages"
 									:key="stage.id"
 									:label="stage.name"
 									:value="stage.id"
@@ -94,7 +99,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-gray-700">Updated By</label>
+							<label class="text-sm font-medium text-primary-500">Updated By</label>
 							<InputTag
 								v-model="updatedByTags"
 								placeholder="Enter User Name and press enter"
@@ -106,7 +111,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-gray-700">Priority</label>
+							<label class="text-sm font-medium text-primary-500">Priority</label>
 							<el-select
 								v-model="searchParams.priority"
 								placeholder="Select Priority"
@@ -147,6 +152,7 @@ import { ref, reactive } from 'vue';
 import { Search, Close, Download } from '@element-plus/icons-vue';
 import { SearchParams } from '#/onboard';
 import InputTag from '@/components/global/u-input-tags/index.vue';
+import { getStagesByWorkflow } from '@/apis/ow';
 
 // Props
 interface Props {
@@ -158,7 +164,7 @@ interface Props {
 	filterType: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
 	lifeCycleStage: () => [],
 	allWorkflows: () => [],
 	onboardingStages: () => [],
@@ -193,6 +199,53 @@ const searchParams = reactive<SearchParams>({
 const leadIdTags = ref<string[]>([]);
 const leadNameTags = ref<string[]>([]);
 const updatedByTags = ref<string[]>([]);
+
+// 动态 stages 管理
+const dynamicOnboardingStages = ref<Array<{ id: string; name: string }>>([]);
+const stagesLoading = ref(false);
+
+// stages 数据缓存
+const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({});
+
+// 加载指定 workflow 的 stages 数据
+const loadStagesForWorkflow = async (workflowId: string) => {
+	if (!workflowId || workflowId === '0' || stagesCache.value[workflowId]) {
+		return stagesCache.value[workflowId] || [];
+	}
+
+	try {
+		stagesLoading.value = true;
+		const response = await getStagesByWorkflow(workflowId);
+		if (response.code === '200') {
+			const stages = response.data || [];
+			stagesCache.value[workflowId] = stages;
+			return stages;
+		} else {
+			stagesCache.value[workflowId] = [];
+			return [];
+		}
+	} catch (error) {
+		stagesCache.value[workflowId] = [];
+		return [];
+	} finally {
+		stagesLoading.value = false;
+	}
+};
+
+// 处理 workflow 变化
+const handleWorkflowChange = async (workflowId: string) => {
+	// 清空当前选择的 stage
+	searchParams.currentStageId = '';
+
+	if (workflowId && workflowId !== '0') {
+		// 加载对应的 stages
+		const stages = await loadStagesForWorkflow(workflowId);
+		dynamicOnboardingStages.value = stages;
+	} else {
+		// 如果没有选择 workflow，使用原始的 onboardingStages
+		dynamicOnboardingStages.value = props.onboardingStages;
+	}
+};
 
 // 标签变化处理函数
 const handleLeadIdTagsChange = (tags: string[]) => {
@@ -232,6 +285,8 @@ const handleReset = () => {
 	leadIdTags.value = [];
 	leadNameTags.value = [];
 	updatedByTags.value = [];
+	// 重置动态 stages 为原始数据
+	dynamicOnboardingStages.value = props.onboardingStages;
 
 	emit('reset');
 };
@@ -242,6 +297,10 @@ const handleExport = () => {
 </script>
 
 <style scoped lang="scss">
+.filter_card {
+	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
+}
+
 /* 搜索表单样式 */
 .onboardSearch-form :deep(.el-form-item) {
 	margin-bottom: 0;
@@ -315,10 +374,6 @@ const handleExport = () => {
 	transition: all 0.2s ease;
 }
 
-.onboardSearch-form :deep(.label-box:hover) {
-	/* 移除阴影加深效果 */
-}
-
 .onboardSearch-form :deep(.label-title) {
 	font-size: 12px;
 	padding: 0;
@@ -369,7 +424,7 @@ html.dark {
 
 	/* 搜索表单暗色主题 */
 	.onboardSearch-form :deep(.el-input__wrapper) {
-		background-color: var(--black-200) !important;
+		background-color: #2d3748 !important;
 		border: 1px solid var(--black-200) !important;
 	}
 
@@ -402,22 +457,9 @@ html.dark {
 		box-shadow: 0 0 0 1px var(--primary-500) inset !important;
 	}
 
-	.onboardSearch-form :deep(.input-tag) {
-		color: var(--white-100) !important;
-		background-color: transparent !important;
-	}
-
-	.onboardSearch-form :deep(.input-tag::placeholder) {
-		color: var(--gray-300) !important;
-	}
-
 	.onboardSearch-form :deep(.label-box) {
 		background-color: var(--black-300) !important;
 		border: 1px solid var(--black-100) !important;
-	}
-
-	.onboardSearch-form :deep(.label-box:hover) {
-		/* 移除暗色主题阴影加深效果 */
 	}
 
 	.onboardSearch-form :deep(.label-title) {
@@ -432,11 +474,6 @@ html.dark {
 	.onboardSearch-form :deep(.label-close:hover) {
 		background: var(--black-100) !important;
 		color: var(--white-100) !important;
-	}
-
-	/* 文本颜色调整 */
-	.text-gray-700 {
-		@apply text-white-100 !important;
 	}
 }
 </style>

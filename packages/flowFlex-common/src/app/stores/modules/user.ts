@@ -9,11 +9,11 @@ import { useI18n } from '@/hooks/useI18n';
 import { router } from '@/router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { TokenObj } from '@/apis/axios/axiosTransform';
-import { getFileUrl } from '@/apis/global';
 import { usePermissionStore } from '@/stores/modules/permission';
 // import { useGlobSetting } from '@/settings';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import { passLogout } from '@/utils/threePartyLogin';
+import { useWujie } from '@/hooks/wujie/micro-app.config';
 
 import { h } from 'vue';
 import dayjs from 'dayjs';
@@ -36,7 +36,7 @@ function deleteAllCookies() {
 }
 
 export const useUserStore = defineStore({
-	id: 'app-user',
+	id: 'item-wfe-app-user',
 	state: (): UserState => ({
 		// user info
 		userInfo: null,
@@ -155,6 +155,8 @@ export const useUserStore = defineStore({
 						userName: user.email || user.username,
 						userId: user.id,
 					});
+				} else {
+					ElMessage.warning(data.msg || t('sys.api.operationFailed'));
 				}
 			} catch (error) {
 				return Promise.reject(error);
@@ -178,16 +180,6 @@ export const useUserStore = defineStore({
 				desc: '',
 				roles: userDate?.data?.roleIds,
 			};
-			if (userInfo?.attachmentId) {
-				try {
-					const res = await getFileUrl(userInfo?.attachmentId);
-					if (res.code == '200' && res.data) {
-						userInfo.avatarUrl = res.data;
-					}
-				} catch {
-					userInfo.avatarUrl = '';
-				}
-			}
 			this.setUserInfo(userInfo);
 			const sessionTimeout = this.sessionTimeout;
 			if (sessionTimeout) {
@@ -235,6 +227,8 @@ export const useUserStore = defineStore({
 		 * @description: logout
 		 */
 		async logout(goLogin = false, type = 'logout') {
+			const { tokenExpiredLogOut, isMicroAppEnvironment } = useWujie();
+			type != 'mainLoagout' && tokenExpiredLogOut && tokenExpiredLogOut(true);
 			const permissionStore = usePermissionStore();
 			permissionStore.resetState();
 			this.setTokenobj(undefined);
@@ -242,6 +236,7 @@ export const useUserStore = defineStore({
 			this.setUserInfo(null);
 			// 添加删除所有cookie的操作
 			deleteAllCookies();
+			if (isMicroAppEnvironment()) return;
 			goLogin && passLogout(type);
 		},
 

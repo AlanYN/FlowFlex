@@ -46,6 +46,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer
         public decimal? CompletionRate { get; set; }
 
         /// <summary>
+        /// 当前章节索引
+        /// </summary>
+        [Range(0, int.MaxValue, ErrorMessage = "当前章节索引必须大于等于0")]
+        public int? CurrentSectionIndex { get; set; }
+
+        /// <summary>
         /// 用户代理
         /// </summary>
         [MaxLength(50, ErrorMessage = "用户代理长度不能超过50个字符")]
@@ -74,6 +80,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer
         /// </summary>
         [Range(0, 100, ErrorMessage = "完成率必须在0-100之间")]
         public decimal? CompletionRate { get; set; }
+
+        /// <summary>
+        /// 当前章节索引
+        /// </summary>
+        [Range(0, int.MaxValue, ErrorMessage = "当前章节索引必须大于等于0")]
+        public int? CurrentSectionIndex { get; set; }
 
         /// <summary>
         /// 备注

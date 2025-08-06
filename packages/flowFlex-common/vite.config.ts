@@ -116,6 +116,10 @@ export default defineConfig(async ({ command, mode }) => {
 		server: {
 			open: true,
 			host: true,
+			cors: {
+				origin: 'http://localhost:5174',
+				credentials: true,
+			},
 			proxy: {
 				'/api': {
 					target: VITE_PROXY_URL,

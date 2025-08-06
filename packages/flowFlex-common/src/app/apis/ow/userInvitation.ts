@@ -1,13 +1,12 @@
 import { defHttp } from '@/apis/axios';
-import { getCurrentBaseUrl } from '@/utils/url';
+import { getCurrentBaseUrl, getCorrectBaseUrl } from '@/utils/url';
 
 export interface PortalUser {
 	id: string;
 	email: string;
-	status: string;
+	status: string; // Only 'Active' or 'Inactive'
 	sentDate: string;
 	invitationToken: string;
-	tokenExpiry: string;
 	lastLoginDate?: string;
 }
 
@@ -37,6 +36,7 @@ export interface PortalAccessVerificationRequest {
 
 export interface PortalAccessVerificationResponse {
 	isValid: boolean;
+	isExpired: boolean;
 	onboardingId: string;
 	email: string;
 	accessToken: string;
@@ -54,14 +54,19 @@ export interface TokenValidationResponse {
 	errorMessage?: string;
 }
 
+export interface PortalAccessVerificationByShortUrlRequest {
+	email: string;
+}
+
 /**
  * Send user invitations
  */
 export const sendInvitations = (request: UserInvitationRequest) => {
-	// 自动获取当前浏览器的基础URL
+	// 自动获取当前浏览器的基础URL，并确保使用正确的域名
+	const baseUrl = request.baseUrl || getCurrentBaseUrl();
 	const finalRequest = {
 		...request,
-		baseUrl: request.baseUrl || getCurrentBaseUrl(),
+		baseUrl: getCorrectBaseUrl(baseUrl),
 	};
 
 	return defHttp.post({
@@ -83,10 +88,11 @@ export const getPortalUsers = (onboardingId: string) => {
  * Resend invitation
  */
 export const resendInvitation = (request: ResendInvitationRequest) => {
-	// 自动获取当前浏览器的基础URL
+	// 自动获取当前浏览器的基础URL，并确保使用正确的域名
+	const baseUrl = request.baseUrl || getCurrentBaseUrl();
 	const finalRequest = {
 		...request,
-		baseUrl: request.baseUrl || getCurrentBaseUrl(),
+		baseUrl: getCorrectBaseUrl(baseUrl),
 	};
 
 	return defHttp.post<{ success: boolean }>({
@@ -95,15 +101,13 @@ export const resendInvitation = (request: ResendInvitationRequest) => {
 	});
 };
 
-/**
- * Verify portal access
- */
-export const verifyPortalAccess = (request: PortalAccessVerificationRequest) => {
-	return defHttp.post<PortalAccessVerificationResponse>({
-		url: '/api/ow/user-invitations/v1/verify-access',
-		data: request,
-	});
-};
+// Legacy token verification - removed as we only use short URL now
+// export const verifyPortalAccess = (request: PortalAccessVerificationRequest) => {
+// 	return defHttp.post<PortalAccessVerificationResponse>({
+// 		url: '/api/ow/user-invitations/v1/verify-access',
+// 		data: request,
+// 	});
+// };
 
 /**
  * Validate invitation token
@@ -123,5 +127,44 @@ export const removePortalAccess = (onboardingId: string, email: string) => {
 		url: `/api/ow/user-invitations/v1/remove-access/${onboardingId}?email=${encodeURIComponent(
 			email
 		)}`,
+	});
+};
+
+/**
+ * Toggle portal access status (Active/Inactive)
+ */
+export const togglePortalAccessStatus = (
+	onboardingId: string,
+	email: string,
+	isActive: boolean
+) => {
+	return defHttp.put<{ success: boolean }>({
+		url: `/api/ow/user-invitations/v1/toggle-status/${onboardingId}?email=${encodeURIComponent(
+			email
+		)}&isActive=${isActive}`,
+	});
+};
+
+/**
+ * Get invitation link for a user
+ */
+export const getInvitationLink = (onboardingId: string, email: string) => {
+	return defHttp.get<{ invitationUrl: string }>({
+		url: `/api/ow/user-invitations/v1/invitation-link/${onboardingId}?email=${encodeURIComponent(
+			email
+		)}`,
+	});
+};
+
+/**
+ * Verify portal access with short URL ID
+ */
+export const verifyPortalAccessByShortUrl = (
+	shortUrlId: string,
+	request: PortalAccessVerificationByShortUrlRequest
+) => {
+	return defHttp.post<PortalAccessVerificationResponse>({
+		url: `/api/ow/user-invitations/v1/verify-access-short/${shortUrlId}`,
+		data: request,
 	});
 };

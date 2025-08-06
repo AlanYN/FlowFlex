@@ -21,6 +21,7 @@ namespace FlowFlex.Application.Maps
             CreateMap<OnboardingInputDto, Onboarding>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
+                .ForMember(dest => dest.AppCode, opt => opt.Ignore()) // 忽略AppCode，防止更新时被修改
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
@@ -36,10 +37,14 @@ namespace FlowFlex.Application.Maps
 
             // OnboardingStageProgress  OnboardingStageProgressDto ӳ
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
+                .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()
+                .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components));
 

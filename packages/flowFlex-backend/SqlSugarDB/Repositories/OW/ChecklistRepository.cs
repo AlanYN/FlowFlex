@@ -4,6 +4,9 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.SqlSugarDB.Context;
 using FlowFlex.Domain.Shared;
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using System;
 
 namespace FlowFlex.SqlSugarDB.Repositories.OW;
 
@@ -12,8 +15,50 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW;
 /// </summary>
 public class ChecklistRepository : BaseRepository<Checklist>, IChecklistRepository, IScopedService
 {
-    public ChecklistRepository(ISqlSugarClient sqlSugarClient) : base(sqlSugarClient)
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<ChecklistRepository> _logger;
+
+    public ChecklistRepository(
+        ISqlSugarClient sqlSugarClient, 
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<ChecklistRepository> logger) : base(sqlSugarClient)
     {
+        _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// 获取所有清单列表，确保应用租户和应用过滤器
+    /// </summary>
+    public override async Task<List<Checklist>> GetListAsync(CancellationToken cancellationToken = default, bool copyNew = false)
+    {
+        // 记录当前请求头
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext != null)
+        {
+            var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+            var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+            _logger.LogInformation($"[ChecklistRepository] GetListAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+        }
+
+        // 显式添加租户和应用过滤条件
+        var query = db.Queryable<Checklist>().Where(x => x.IsValid == true);
+        
+        // 获取当前租户ID和应用代码
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+        
+        _logger.LogInformation($"[ChecklistRepository] Applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+        
+        // 显式添加过滤条件
+        query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
+        
+        // 执行查询
+        var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync(cancellationToken);
+        
+        _logger.LogInformation($"[ChecklistRepository] Query returned {result.Count} checklists with TenantId={currentTenantId}, AppCode={currentAppCode}");
+        
+        return result;
     }
 
     /// <summary>
@@ -21,9 +66,16 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     /// </summary>
     public async Task<List<Checklist>> GetByTeamAsync(string team)
     {
+        // 获取当前租户ID和应用代码
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+        
+        _logger.LogInformation($"[ChecklistRepository] GetByTeamAsync with team={team}, TenantId={currentTenantId}, AppCode={currentAppCode}");
+        
         return await db.Queryable<Checklist>()
             .WhereIF(!string.IsNullOrEmpty(team), x => x.Team == team)
             .Where(x => x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode) // 显式添加过滤条件
             .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
             .ToListAsync();
     }
@@ -49,8 +101,15 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     /// </summary>
     public async Task<List<Checklist>> GetTemplatesAsync()
     {
+        // 获取当前租户ID和应用代码
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+        
+        _logger.LogInformation($"[ChecklistRepository] GetTemplatesAsync with TenantId={currentTenantId}, AppCode={currentAppCode}");
+        
         return await db.Queryable<Checklist>()
             .Where(x => x.IsTemplate == true && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode) // 显式添加过滤条件
             .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
             .ToListAsync();
     }
@@ -71,10 +130,17 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     /// </summary>
     public async Task<bool> IsNameExistsAsync(string name, string team, long? excludeId = null)
     {
+        // 获取当前租户ID和应用代码
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+        
+        _logger.LogInformation($"[ChecklistRepository] IsNameExistsAsync with name={name}, team={team}, TenantId={currentTenantId}, AppCode={currentAppCode}");
+        
         var whereExpression = Expressionable.Create<Checklist>()
             .And(x => x.Name == name)
             .And(x => x.Team == team)
             .And(x => x.IsValid == true)
+            .And(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode) // 添加租户和应用代码过滤
             .AndIF(excludeId.HasValue, x => x.Id != excludeId.Value)
             .ToExpression();
 
@@ -215,5 +281,88 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             .Where(x => x.Name == name && x.IsValid == true)
             .OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// 直接查询，使用显式过滤条件
+    /// </summary>
+    public async Task<List<Checklist>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
+    {
+        _logger.LogInformation($"[ChecklistRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
+        
+        // 临时禁用全局过滤器
+        db.QueryFilter.ClearAndBackup();
+        
+        try
+        {
+            // 使用显式过滤条件
+            var query = db.Queryable<Checklist>()
+                .Where(x => x.IsValid == true)
+                .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
+            
+            // 执行查询
+            var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync();
+            
+            _logger.LogInformation($"[ChecklistRepository] Query returned {result.Count} checklists with explicit filters");
+            
+            return result;
+        }
+        finally
+        {
+            // 恢复全局过滤器
+            db.QueryFilter.Restore();
+        }
+    }
+
+    /// <summary>
+    /// 获取当前租户ID
+    /// </summary>
+    private string GetCurrentTenantId()
+    {
+        var httpContext = _httpContextAccessor?.HttpContext;
+        if (httpContext == null)
+            return "DEFAULT";
+
+        // 从请求头获取
+        var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(tenantId))
+        {
+            return tenantId;
+        }
+
+        // 从 AppContext 获取
+        if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+            appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+        {
+            return appContext.TenantId;
+        }
+
+        return "DEFAULT";
+    }
+
+    /// <summary>
+    /// 获取当前应用代码
+    /// </summary>
+    private string GetCurrentAppCode()
+    {
+        var httpContext = _httpContextAccessor?.HttpContext;
+        if (httpContext == null)
+            return "DEFAULT";
+
+        // 从请求头获取
+        var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(appCode))
+        {
+            return appCode;
+        }
+
+        // 从 AppContext 获取
+        if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+            appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+        {
+            return appContext.AppCode;
+        }
+
+        return "DEFAULT";
     }
 }

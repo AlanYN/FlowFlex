@@ -66,4 +66,14 @@ public class ChecklistTaskCompletionOutputDto
     /// 创建人
     /// </summary>
     public string CreateBy { get; set; }
+
+    /// <summary>
+    /// 修改时间
+    /// </summary>
+    public DateTimeOffset? ModifyDate { get; set; }
+
+    /// <summary>
+    /// 修改人
+    /// </summary>
+    public string ModifyBy { get; set; }
 }

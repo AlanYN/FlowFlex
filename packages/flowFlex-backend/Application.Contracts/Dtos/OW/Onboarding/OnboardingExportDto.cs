@@ -10,13 +10,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// <summary>
         /// Lead ID
         /// </summary>
-        [ExcelColumn(Name = "ID")]
+        [ExcelColumn(Name = "Lead ID")]
         public string Id { get; set; }
 
         /// <summary>
-        /// Company Name
+        /// Company/Contact Name
         /// </summary>
-        [ExcelColumn(Name = "Company Name")]
+        [ExcelColumn(Name = "Company/Contact Name")]
         public string CompanyName { get; set; }
 
         /// <summary>
@@ -26,9 +26,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string LifeCycleStage { get; set; }
 
         /// <summary>
-        /// Work Flow
+        /// Onboard Workflow
         /// </summary>
-        [ExcelColumn(Name = "Work Flow")]
+        [ExcelColumn(Name = "Onboard Workflow")]
         public string WorkFlow { get; set; }
 
         /// <summary>
@@ -36,6 +36,18 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// </summary>
         [ExcelColumn(Name = "Onboard Stage")]
         public string OnboardStage { get; set; }
+
+        /// <summary>
+        /// Priority
+        /// </summary>
+        [ExcelColumn(Name = "Priority")]
+        public string Priority { get; set; }
+
+        /// <summary>
+        /// Timeline
+        /// </summary>
+        [ExcelColumn(Name = "Timeline")]
+        public string Timeline { get; set; }
 
         /// <summary>
         /// Updated By
@@ -48,29 +60,5 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// </summary>
         [ExcelColumn(Name = "Update Time")]
         public string UpdateTime { get; set; }
-
-        /// <summary>
-        /// Start Date
-        /// </summary>
-        [ExcelColumn(Name = "Start Date")]
-        public string StartDate { get; set; }
-
-        /// <summary>
-        /// ETA (Estimated Time of Arrival)
-        /// </summary>
-        [ExcelColumn(Name = "ETA")]
-        public string Eta { get; set; }
-
-        /// <summary>
-        /// Priority
-        /// </summary>
-        [ExcelColumn(Name = "Priority")]
-        public string Priority { get; set; }
-
-        /// <summary>
-        /// Progress (percentage)
-        /// </summary>
-        [ExcelColumn(Name = "Progress")]
-        public int Progress { get; set; }
     }
 }

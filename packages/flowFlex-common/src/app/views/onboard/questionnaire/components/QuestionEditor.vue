@@ -65,10 +65,13 @@
 				v-if="needsOptions(newQuestion.type)"
 				:options="newQuestion.options"
 				:new-option="newOptionForEditor"
+				:type="newQuestion.type"
 				@update-option-value="handleOptionValueUpdate"
 				@update-option-label="handleOptionLabelUpdate"
 				@add-option="handleAddOption"
 				@remove-option="handleRemoveOption"
+				@add-other-option="handleAddOtherOption"
+				@update-existing-option-label="updateExistingOptions"
 			/>
 
 			<!-- 网格编辑器 -->
@@ -84,11 +87,14 @@
 				@remove-row="handleRemoveRow"
 				@add-column="handleAddColumn"
 				@remove-column="handleRemoveColumn"
+				@add-other-column="handleAddOtherColumn"
 				@update-new-row-label="(label) => (newRow.label = label)"
 				@update-new-column-label="(label) => (newColumn.label = label)"
 				@update-require-one-response-per-row="
 					(value) => (newQuestion.requireOneResponsePerRow = value)
 				"
+				@update-row-label="updateRowLabel"
+				@update-column-label="updateColumnLabel"
 			/>
 
 			<!-- 线性量表编辑器 -->
@@ -102,6 +108,15 @@
 				@update-max="(value) => (newQuestion.max = value)"
 				@update-min-label="(label) => (newQuestion.minLabel = label)"
 				@update-max-label="(label) => (newQuestion.maxLabel = label)"
+			/>
+
+			<!-- 评分编辑器 -->
+			<RatingEditor
+				v-if="needsRating(newQuestion.type)"
+				:max="newQuestion.max"
+				:icon-type="newQuestion.iconType"
+				@update-max="(value) => (newQuestion.max = value)"
+				@update-icon-type="(type) => (newQuestion.iconType = type)"
 			/>
 
 			<div class="action-buttons">
@@ -135,12 +150,12 @@ import { Plus } from '@element-plus/icons-vue';
 import OptionsEditor from './OptionsEditor.vue';
 import GridEditor from './GridEditor.vue';
 import LinearScaleEditor from './LinearScaleEditor.vue';
+import RatingEditor from './RatingEditor.vue';
 
 interface QuestionType {
 	id: string;
 	name: string;
 	icon: string;
-	description: string;
 	isNew?: boolean;
 }
 
@@ -166,14 +181,15 @@ const getInitialFormData = () => ({
 	question: '',
 	description: '',
 	required: false,
-	options: [] as Array<{ id: string; value: string; label: string }>,
-	rows: [] as Array<{ id: string; label: string }>,
-	columns: [] as Array<{ id: string; label: string }>,
+	options: [] as Array<{ id: string; value: string; label: string; isOther?: boolean }>,
+	rows: [] as Array<{ id: string; label: string; isOther?: boolean }>,
+	columns: [] as Array<{ id: string; label: string; isOther?: boolean }>,
 	requireOneResponsePerRow: false,
 	min: 1,
 	max: 5,
 	minLabel: '',
 	maxLabel: '',
+	iconType: 'star',
 });
 
 // 新问题数据 - 使用计算属性来处理编辑状态
@@ -227,6 +243,7 @@ const loadEditingData = () => {
 			max: props.editingQuestion.max || 5,
 			minLabel: props.editingQuestion.minLabel || '',
 			maxLabel: props.editingQuestion.maxLabel || '',
+			iconType: props.editingQuestion.iconType || 'star',
 		});
 	} else if (!props.isEditing) {
 		// 非编辑模式时使用当前选中的问题类型
@@ -299,6 +316,8 @@ const handleQuestionTypeChange = (type: string) => {
 	newQuestion.max = 5;
 	newQuestion.minLabel = '';
 	newQuestion.maxLabel = '';
+	newQuestion.max = 5;
+	newQuestion.iconType = 'star';
 
 	// 清空输入框
 	newOption.label = '';
@@ -319,6 +338,23 @@ const handleAddOption = () => {
 	});
 
 	newOption.label = '';
+};
+
+const handleAddOtherOption = () => {
+	newQuestion.options.push({
+		id: `option-${Date.now()}`,
+		value: generateOptionValue(newOption.label, newQuestion.options),
+		label: newOption.label,
+		isOther: true,
+	});
+
+	newOption.label = '';
+};
+
+const updateExistingOptions = (id: string, label: string) => {
+	if (newQuestion.options.find((option) => option.id === id)) {
+		newQuestion.options.find((option) => option.id === id)!.label = label;
+	}
 };
 
 // 删除选项
@@ -355,9 +391,33 @@ const handleAddColumn = () => {
 	newColumn.label = '';
 };
 
+// 添加Other列
+const handleAddOtherColumn = () => {
+	// 检查是否已经有Other列
+	const hasOther = newQuestion.columns.some((column) => column.isOther);
+	if (hasOther) return;
+
+	newQuestion.columns.push({
+		id: `column-other-${Date.now()}`,
+		label: 'Other',
+		isOther: true,
+	});
+};
+
 // 删除列
 const handleRemoveColumn = (id: string) => {
 	newQuestion.columns = newQuestion.columns.filter((column) => column.id !== id);
+};
+
+const updateRowLabel = (id: string, label: string) => {
+	if (newQuestion.rows.find((row) => row.id === id)) {
+		newQuestion.rows.find((row) => row.id === id)!.label = label;
+	}
+};
+const updateColumnLabel = (id: string, label: string) => {
+	if (newQuestion.columns.find((column) => column.id === id)) {
+		newQuestion.columns.find((column) => column.id === id)!.label = label;
+	}
 };
 
 // 添加或更新问题
@@ -378,6 +438,7 @@ const handleAddQuestion = () => {
 		max: newQuestion.max,
 		minLabel: newQuestion.minLabel,
 		maxLabel: newQuestion.maxLabel,
+		iconType: newQuestion.iconType,
 	};
 
 	if (props.isEditing) {
@@ -406,6 +467,10 @@ const needsGrid = (type: string) => {
 
 const needsLinearScale = (type: string) => {
 	return type === 'linear_scale';
+};
+
+const needsRating = (type: string) => {
+	return type === 'rating';
 };
 
 const getQuestionTypeIcon = (type: string) => {

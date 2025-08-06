@@ -78,5 +78,13 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="name">Checklist name</param>
         /// <returns></returns>
         Task<List<Checklist>> GetByNameAsync(string name);
+
+        /// <summary>
+        /// 直接查询，使用显式过滤条件
+        /// </summary>
+        /// <param name="tenantId">租户ID</param>
+        /// <param name="appCode">应用代码</param>
+        /// <returns>清单列表</returns>
+        Task<List<Checklist>> GetListWithExplicitFiltersAsync(string tenantId, string appCode);
     }
 }

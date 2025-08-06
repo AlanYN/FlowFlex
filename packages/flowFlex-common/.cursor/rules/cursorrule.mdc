@@ -1,0 +1,67 @@
+---
+alwaysApply: true
+---
+
+# Code Standards 代码规范
+
+## css
+
+- Base typography on typography.scss
+- Use colors defined in tailwind.config.js
+- 尽量使用 tailwindcss 样式，不再自己定义样式。如果是一些比较常见的场景，或者使用频率比较高的，可在 styles/ 下根据需求增加相应的样式。
+- 如果需要某个组件自定义样式的，使用 `scoped` 限制作用范围
+- 样式类使用 `kebab-case` 命名规则
+
+```css
+.tab-content {
+}
+```
+
+- 尽量不使用内联样式
+
+## Code Style and Structure
+
+- Write concise, maintainable, and technically accurate TypeScript code with relevant examples.
+- Use functional and declarative programming patterns, avoid classes.
+- Favor composition and modularization to adhere to DRY principles and avoid code duplication.
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+- Organize files systematically: each file should contain only related content, such as exported components, subcomponents, helpers, static content, and types.
+
+## Naming Conventions
+
+- Use lowercase with dashes for directories (e.g., components/auth-wizard).
+- Use PascalCase for component names (e.g., AuthWizard.vue).
+- Use camelCase for function and variable names.
+- Favor named exports for functions and components.
+
+## js
+
+- 方法名：动词+名词
+
+```js
+function showDialog() {}
+```
+
+- 方法尽量遵守单一职责原则
+- 尽量声明变量、参数的类型，尽量不使用`any`
+- 定义变量、参数的interface时，以`I`开头
+- 如果是hook，使用`use`作为前缀
+- 使用 Promise 时，尽量使用 `await`.
+
+## 组件
+
+- 使用组合式api开发
+- 文件名使用 `kebab-case` 命名：`org-auto-complete.vue`
+- SFC中，引入时，使用 `PascalCase`，模板中，使用 `kebab-case` 调用组件
+
+```html
+<template>
+    <org-auto-complete />
+</template>
+<script setup>
+import OrgAutoComplete from '@components/org-auto-complete.vue';
+</script>
+```
+
+- 一个组件内的代码，尽量不超过500行。如果超过，考虑组件化，将一些内容抽成子组件，一些js方法抽成hook或者普通util函数
+- 一个业务功能一个文件夹，文件夹中可根据该功能有 list.vue, detail.vue 等组件。业务功能文件夹下，不命名为 index.vue 组件

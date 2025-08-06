@@ -49,6 +49,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer
         public decimal CompletionRate { get; set; }
 
         /// <summary>
+        /// 当前章节索引
+        /// </summary>
+        public int CurrentSectionIndex { get; set; }
+
+        /// <summary>
         /// 提交时间
         /// </summary>
         public DateTimeOffset? SubmitTime { get; set; }

@@ -30,7 +30,6 @@ interface QuestionType {
 	id: string;
 	name: string;
 	icon: string;
-	description: string;
 	isNew?: boolean;
 }
 

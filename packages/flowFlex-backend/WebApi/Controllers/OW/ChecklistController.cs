@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -23,13 +24,11 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// - Completion rate calculation and statistical analysis
     /// - PDF export functionality
     /// </remarks>
-
     [ApiController]
-
     [Route("ow/checklists/v{version:apiVersion}")]
     [Display(Name = "Checklist Management")]
     [Tags("OW-Checklist", "Onboard Workflow", "Task Management")]
-
+    [Authorize] // 添加授权特性，要求所有checklist API都需要认证
     public class ChecklistController : Controllers.ControllerBase
     {
         private readonly IChecklistService _checklistService;
@@ -165,7 +164,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportToPdf(long id)
         {
             var stream = await _checklistService.ExportToPdfAsync(id);
-            var fileName = $"checklist_{id}_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.pdf";
+            var fileName = $"checklist_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.pdf";
             return File(stream, "application/pdf", fileName);
         }
 

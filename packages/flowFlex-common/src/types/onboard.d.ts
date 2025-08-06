@@ -192,7 +192,46 @@ export interface ComponentData {
 	questionnaireIds: string[];
 	checklistNames?: string[];
 	questionnaireNames?: string[];
+	allowDraft: boolean;
+	allowMultipleSubmissions: false;
+	assignments: {
+		stageId: string;
+		workflowId: string;
+	}[];
+	category: string;
+	createBy: string;
+	createDate: string;
+	description: string;
+	estimatedMinutes: number;
+	id: string;
+	isActive: boolean;
+	isTemplate: boolean;
+	modifyBy: string;
+	modifyDate: string;
+	name: string;
+	previewImageUrl: string;
+	requiredQuestions: number;
+	sections: [];
+	status: string;
+	structureJson: string;
+	tagsJson: string;
+	totalQuestions: number;
+	type: string;
+	version: number;
+	hasError?: boolean;
 }
+
+export type StageComponentData = {
+	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	order: number;
+	isEnabled: boolean;
+	staticFields: string[];
+	checklistIds: string[];
+	checklistNames?: string[];
+	questionnaireIds: string[];
+	questionnaireNames?: string[];
+	files?: string[];
+};
 
 export interface StageInfo {
 	estimatedDays: number;
@@ -207,7 +246,9 @@ export interface StageInfo {
 }
 
 export interface ComponentsData {
-	components: ComponentData[];
+	components: StageComponentData[];
+	visibleInPortal?: boolean;
+	attachmentManagementNeeded?: boolean;
 	[key: string]: any;
 }
 
@@ -347,6 +388,7 @@ export interface TaskData {
 	actualHours: number;
 	dueDate: string | null;
 	completedDate: string | null;
+	completedBy?: string | null; // 新增完成者字段
 	completionNotes: string | null;
 	dependsOnTaskId: string | null;
 	attachmentsJson: string | null;
@@ -378,4 +420,65 @@ export interface ChecklistData {
 	workflowName: string | null;
 	stageName: string | null;
 	tasks: TaskData[];
+}
+
+// 类型定义
+export interface QuestionnaireAnswer {
+	lastModifiedAt?: string;
+	lastModifiedBy?: string;
+	question: string;
+	questionId: string;
+	responseText: string;
+	type: string;
+	answer: string;
+	changeHistory?: {
+		action: string;
+		timestamp: string;
+		timestampUtc: string;
+		user: string;
+	}[];
+}
+
+export interface QuestionnaireData {
+	questionnaireId: string;
+	stageId: string;
+	answerJson: QuestionnaireAnswer[];
+}
+
+export interface Assignment {
+	workflowId: string | null;
+	stageId: string | null;
+}
+
+export interface ExtendedAssignment extends Assignment {
+	stages: Array<{ id: string; name: string }>;
+	stagesLoading: boolean;
+}
+
+export interface Workflow {
+	id: string;
+	name: string;
+	isDefault?: boolean;
+	status?: string;
+}
+
+export interface SectionAnswer {
+	answer: QuestionnaireAnswer[];
+	completionRate: number;
+	createBy: string;
+	createDate: string;
+	id: string;
+	ipAddress: string;
+	isLatest: boolean;
+	modifyBy: string;
+	modifyDate: string;
+	onboardingId: string;
+	questionnaireId: string;
+	reviewNotes: string;
+	stageId: string;
+	status: string;
+	tenantId: string;
+	userAgent: string;
+	version: number;
+	currentSectionIndex: number;
 }

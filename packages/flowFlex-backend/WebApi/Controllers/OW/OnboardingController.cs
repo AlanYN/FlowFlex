@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
@@ -15,12 +16,10 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Onboarding management API
     /// </summary>
-
     [ApiController]
-
     [Route("ow/onboardings/v{version:apiVersion}")]
     [Display(Name = "onboarding")]
-
+    [Authorize] // 添加授权特性，要求所有onboarding API都需要认证
     public class OnboardingController : Controllers.ControllerBase
     {
         private readonly IOnboardingService _onboardingService;
@@ -530,7 +529,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportToExcelAsync([FromBody] OnboardingQueryRequest query)
         {
             var stream = await _onboardingService.ExportToExcelAsync(query);
-            var fileName = $"onboarding_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"onboarding_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
@@ -578,8 +577,20 @@ namespace FlowFlex.WebApi.Controllers.OW
             };
 
             var stream = await _onboardingService.ExportToExcelAsync(query);
-            var fileName = $"onboarding_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"onboarding_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+
+        /// <summary>
+        /// Sync stages progress from workflow stages configuration
+        /// Updates VisibleInPortal and AttachmentManagementNeeded fields from stage definitions
+        /// </summary>
+        [HttpPost("{id}/sync-stages-progress")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SyncStagesProgressAsync(long id)
+        {
+            bool result = await _onboardingService.SyncStagesProgressAsync(id);
+            return Success(result);
         }
     }
 

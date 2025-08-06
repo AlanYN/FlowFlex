@@ -157,3 +157,41 @@ export function timeExpiredornot(dayString) {
 	const dayStringInTimeZone = dayjs(dayString).tz(toTimeZone.timeZone);
 	return data.isAfter(dayStringInTimeZone);
 }
+
+/**
+ * Format date to US format (MM/dd/yyyy HH:mm:ss)
+ * @param dateString - The date string to format
+ * @returns Formatted date string in US format
+ */
+export function formatDateUS(dateString: string | Date): string {
+	if (!dateString) return '';
+	try {
+		const date = dayjs(dateString);
+		if (!date.isValid()) {
+			return String(dateString);
+		}
+		// Format as MM/dd/yyyy HH:mm:ss (US format)
+		return date.format(projectTenMinutesSsecondsDate);
+	} catch {
+		return String(dateString);
+	}
+}
+
+/**
+ * Format date to US format without time (MM/dd/yyyy)
+ * @param dateString - The date string to format
+ * @returns Formatted date string in US format (date only)
+ */
+export function formatDateUSOnly(dateString: string | Date): string {
+	if (!dateString) return '';
+	try {
+		const date = dayjs(dateString);
+		if (!date.isValid()) {
+			return String(dateString);
+		}
+		// Format as MM/dd/yyyy (US format, date only)
+		return date.format(projectDate);
+	} catch {
+		return String(dateString);
+	}
+}

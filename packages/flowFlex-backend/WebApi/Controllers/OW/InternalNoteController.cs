@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.Net;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.InternalNote;
@@ -15,12 +16,10 @@ namespace FlowFlex.WebApi.Controllers.OW;
 /// <summary>
 /// Internal Note Controller
 /// </summary>
-
 [ApiController]
-
 [Route("ow/internal-notes/v{version:apiVersion}")]
 [Display(Name = "internal-notes")]
-
+[Authorize] // 添加授权特性，要求所有internal notes API都需要认证
 public class InternalNoteController : Controllers.ControllerBase
 {
     private readonly IInternalNoteService _noteService;

@@ -96,16 +96,15 @@
 					>
 						<!-- 卡片头部 -->
 						<template #header>
-							<div class="card-header -m-5 p-4 pb-3">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center space-x-3">
-										<div class="card-icon p-2 rounded-full">
+							<div class="card-header -m-5 p-4">
+								<div class="flex items-center justify-between w-full">
+									<div class="flex items-center space-x-3 flex-1 min-w-0">
+										<div class="card-icon p-2 rounded-full flex-shrink-0">
 											<el-icon class="h-5 w-5"><Document /></el-icon>
 										</div>
 										<h3
-											class="card-title text-2xl font-semibold leading-tight tracking-tight line-clamp-2"
+											class="card-title text-xl font-semibold leading-tight tracking-tight truncate"
 											:title="questionnaire.name"
-											style="line-height: 60px"
 										>
 											{{ questionnaire.name }}
 										</h3>
@@ -113,6 +112,7 @@
 									<el-dropdown
 										trigger="click"
 										@command="(cmd) => handleCommand(cmd, questionnaire)"
+										class="flex-shrink-0"
 									>
 										<el-button text class="card-more-btn">
 											<el-icon class="h-4 w-4"><More /></el-icon>
@@ -241,30 +241,6 @@
 								</div>
 							</div>
 						</div>
-
-						<!-- 卡片底部 -->
-						<template #footer>
-							<div class="card-footer flex justify-between -m-6 mt-0 p-4">
-								<el-button
-									plain
-									size="small"
-									class="card-action-btn"
-									@click="handlePreviewQuestionnaire(questionnaire.id)"
-								>
-									<el-icon class="mr-2"><View /></el-icon>
-									Preview
-								</el-button>
-								<el-button
-									plain
-									size="small"
-									class="card-action-btn"
-									@click="handleNewQuestionnaire(questionnaire.id)"
-								>
-									<el-icon class="mr-2"><Edit /></el-icon>
-									Edit
-								</el-button>
-							</div>
-						</template>
 					</el-card>
 				</template>
 			</div>
@@ -348,6 +324,8 @@
 			v-model:visible="showPreview"
 			:questionnaire-id="selectedQuestionnaireId"
 			:questionnaire-data="selectedQuestionnaireData"
+			:workflows="workflows"
+			:all-stages="allStages"
 		/>
 	</div>
 </template>
@@ -681,7 +659,9 @@ const handlePreviewQuestionnaire = async (id: string) => {
 						placeholder: item.placeholder || '',
 						accept: item.accept || '',
 						step: typeof item.step === 'number' ? item.step : undefined,
+						...item,
 					})),
+					...section,
 				})) || [];
 
 			// 构建完整的预览数据
@@ -702,6 +682,8 @@ const handlePreviewQuestionnaire = async (id: string) => {
 	} catch (error) {
 		ElMessage.error('Failed to prepare preview data');
 	}
+
+	console.log('selectedQuestionnaireData.value:', selectedQuestionnaireData.value);
 };
 
 const handleDeleteQuestionnaire = (id: string) => {
@@ -850,6 +832,9 @@ const handleLimitUpdate = () => {
 	border: 1px solid var(--primary-100);
 	@apply dark:border-black-200 dark:bg-black-400;
 	transition: all 0.3s ease;
+	border-bottom: 6px solid var(--primary-500);
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 }
 
 .questionnaire-card:hover {
@@ -860,7 +845,6 @@ const handleLimitUpdate = () => {
 .card-header {
 	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
 	@apply dark:from-primary-600 dark:to-primary-500;
-	min-height: 100px; /* 减少头部最小高度 */
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
@@ -876,13 +860,6 @@ const handleLimitUpdate = () => {
 .card-title {
 	color: var(--primary-800);
 	@apply dark:text-white;
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	word-break: break-word;
-	height: 2.6em; /* 减少高度，更紧凑 */
 }
 
 .card-more-btn {
@@ -898,9 +875,10 @@ const handleLimitUpdate = () => {
 .card-link {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
-	width: 150px; /* 固定宽度 */
+	width: calc(100% / 3 - 10px); /* 固定宽度 */
 	flex-shrink: 0; /* 防止收缩 */
 	padding-right: 8px; /* 增加右边距 */
+	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
 }
 
 .card-link:hover {
@@ -916,6 +894,7 @@ const handleLimitUpdate = () => {
 	justify-content: center; /* 文本居中 */
 	flex-shrink: 0; /* 防止收缩 */
 	margin-right: 8px; /* 增加右边距 */
+	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
 }
 
 .card-link-more:hover {
@@ -957,12 +936,6 @@ const handleLimitUpdate = () => {
 .card-value {
 	color: var(--primary-700);
 	@apply dark:text-primary-300;
-}
-
-.card-footer {
-	background-color: var(--primary-50);
-	border-top: 1px solid var(--primary-100);
-	@apply dark:bg-primary-400 dark:border-primary-500;
 }
 
 /* 删除对话框样式 */
@@ -1181,51 +1154,51 @@ const handleLimitUpdate = () => {
 .questionnaire-grid {
 	display: grid;
 	gap: 24px;
-	/* 使用auto-fit让卡片自动填充可用空间，永远不会溢出 */
-	grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+	/* 使用auto-fill保持卡片合适宽度，避免过度拉伸 */
+	grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
 	width: 100%;
 
 	/* 响应式断点调整 - 主要调整gap和minmax，避免使用固定列数 */
 	@media (max-width: 480px) {
 		/* 超小屏幕：1列，全宽 */
-		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 		gap: 16px;
 		padding: 0 8px;
 	}
 
 	@media (min-width: 481px) and (max-width: 768px) {
 		/* 小屏幕：自适应，但偏向1列 */
-		grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
 		gap: 20px;
 	}
 
 	@media (min-width: 769px) and (max-width: 1024px) {
 		/* 中等屏幕：自适应，偏向2列 */
-		grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
 		gap: 20px;
 	}
 
 	@media (min-width: 1025px) and (max-width: 1400px) {
 		/* 大屏幕：自适应，2-3列之间 */
-		grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
 		gap: 24px;
 	}
 
 	@media (min-width: 1401px) and (max-width: 1920px) {
 		/* 更大屏幕：自适应，偏向3列 */
-		grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
 		gap: 28px;
 	}
 
 	@media (min-width: 1921px) and (max-width: 2560px) {
 		/* 超宽屏：自适应，3-4列之间 */
-		grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
 		gap: 32px;
 	}
 
 	@media (min-width: 2561px) {
 		/* 超大屏幕：自适应，4列以上 */
-		grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
 		gap: 32px;
 	}
 
@@ -1263,6 +1236,7 @@ const handleLimitUpdate = () => {
 	text-overflow: ellipsis;
 	justify-content: flex-start; /* 左对齐显示，优先显示workflow */
 	flex-shrink: 0; /* 防止收缩 */
+	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
 }
 
 .popover-tag:hover {
@@ -1272,7 +1246,6 @@ const handleLimitUpdate = () => {
 /* Assignments容器样式 */
 .assignments-container {
 	height: 60px !important; /* 固定高度 */
-	overflow: hidden;
 }
 
 /* 暗色主题样式 */

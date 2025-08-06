@@ -14,22 +14,20 @@ namespace FlowFlex.Application.Maps
             CreateMap<UserInvitation, PortalUserDto>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapStatus(src.Status, src.TokenExpiry)))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapStatus(src.Status)))
                 .ForMember(dest => dest.SentDate, opt => opt.MapFrom(src => src.SentDate.DateTime))
                 .ForMember(dest => dest.InvitationToken, opt => opt.MapFrom(src => src.InvitationToken))
-                .ForMember(dest => dest.TokenExpiry, opt => opt.MapFrom(src => src.TokenExpiry.DateTime))
                 .ForMember(dest => dest.LastLoginDate, opt => opt.MapFrom(src => src.LastAccessDate.HasValue ? src.LastAccessDate.Value.DateTime : (DateTime?)null));
         }
 
-        private string MapStatus(string status, DateTimeOffset tokenExpiry)
+        private string MapStatus(string status)
         {
-            if (status == "Used")
+            // Map all non-Inactive statuses to Active
+            // This includes: Pending, Used, Active
+            if (status == "Inactive")
+                return "Inactive";
+            
                 return "Active";
-
-            if (tokenExpiry < DateTimeOffset.UtcNow)
-                return "Expired";
-
-            return status; // Pending
         }
     }
 }

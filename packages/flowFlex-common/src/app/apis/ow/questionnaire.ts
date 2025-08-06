@@ -296,7 +296,7 @@ export function getQuestionnaireAnswersByStatus(status: string, days?: number) {
 export function getStageQuestionnairesBatch(stageIds: (string | number)[]) {
 	return defHttp.post({
 		url: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/batch/by-stages`,
-		params: { stageIds },
+		data: { stageIds },
 	});
 }
 

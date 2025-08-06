@@ -115,7 +115,6 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.ChecklistMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.QuestionnaireMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.StageMapProfile>();
-    config.AddProfile<FlowFlex.Application.Maps.WorkflowVersionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.InternalNoteMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.StaticFieldValueMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.OnboardingFileMapProfile>();
@@ -123,8 +122,7 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.OperationChangeLogMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskCompletionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskMapProfile>();
-    config.AddProfile<FlowFlex.Application.Maps.StageCompletionLogMapProfile>();
-    config.AddProfile<FlowFlex.Application.Maps.StageVersionMapProfile>();
+
     config.AddProfile<FlowFlex.Application.Maps.QuestionnaireSectionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ActionMapProfile>();
 }, assemblies);
@@ -344,14 +342,22 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseRouting();
+
+// 全局异常处理应该放在第一位，以捕获所有异常
+app.UseMiddleware<FlowFlex.Infrastructure.Exceptions.GlobalExceptionHandlingMiddleware>();
+
+// 应用隔离中间件和租户中间件
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.AppIsolationMiddleware>();
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.TenantMiddleware>();
-app.UseMiddleware<FlowFlex.Infrastructure.Exceptions.GlobalExceptionHandlingMiddleware>();
+// 添加过滤器验证中间件，确保过滤器正确应用
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.FilterValidationMiddleware>();
 app.UseMiddleware<FileAccessMiddleware>();
 app.UseCors("AllowAll");
 
 // Add authentication and authorization middleware
 app.UseAuthentication();
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.JwtAuthenticationMiddleware>(); // 重新启用自定义JWT认证中间件
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.TokenValidationMiddleware>(); // 重新启用Token验证中间件
 app.UseAuthorization();
 
 app.MapControllers();

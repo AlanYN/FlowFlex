@@ -62,6 +62,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         JwtTokenInfoDto ParseToken(string token);
 
         /// <summary>
+        /// Parse third-party JWT token without signature validation
+        /// </summary>
+        /// <param name="token">Third-party JWT token to parse</param>
+        /// <returns>JWT token information</returns>
+        JwtTokenInfoDto ParseThirdPartyToken(string token);
+
+        /// <summary>
         /// Refresh JWT Token
         /// </summary>
         /// <param name="token">Current JWT Token</param>
@@ -73,6 +80,24 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <returns>Expiry time in seconds</returns>
         int GetTokenExpiryInSeconds();
+
+        /// <summary>
+        /// Generate JWT token with detailed information for token management
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="email">User email</param>
+        /// <param name="username">Username</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="tokenType">Token type</param>
+        /// <returns>Token details</returns>
+        TokenDetailsDto GenerateTokenWithDetails(long userId, string email, string username, string tenantId = "DEFAULT", string tokenType = "login");
+
+        /// <summary>
+        /// Extract JTI from token
+        /// </summary>
+        /// <param name="token">JWT token</param>
+        /// <returns>JTI value</returns>
+        string GetJtiFromToken(string token);
     }
 }
 

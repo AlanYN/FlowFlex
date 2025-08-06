@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -12,12 +13,10 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Onboarding file management API
     /// </summary>
-
     [ApiController]
-
     [Route("ow/onboardings/{onboardingId}/files/v{version:apiVersion}")]
     [Display(Name = "onboarding-files")]
-
+    [Authorize] // 添加授权特性，要求所有onboarding file API都需要认证
     public class OnboardingFileController : Controllers.ControllerBase
     {
         private readonly IOnboardingFileService _onboardingFileService;

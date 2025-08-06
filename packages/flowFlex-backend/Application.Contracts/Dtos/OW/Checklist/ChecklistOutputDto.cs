@@ -142,6 +142,20 @@ public class ChecklistOutputDto
     public string CreateBy { get; set; }
 
     /// <summary>
+    /// 修改时间
+    /// </summary>
+    /// <example>2024-01-15T14:30:00+08:00</example>
+    [Description("清单的最后修改时间")]
+    public DateTimeOffset ModifyDate { get; set; }
+
+    /// <summary>
+    /// 修改人
+    /// </summary>
+    /// <example>admin</example>
+    [Description("最后修改此清单的用户")]
+    public string ModifyBy { get; set; }
+
+    /// <summary>
     /// 关联的 workflow-stage 组合列表
     /// </summary>
     /// <example>[{"workflowId": 1942226709378109440, "stageId": 1942226861090279424}]</example>

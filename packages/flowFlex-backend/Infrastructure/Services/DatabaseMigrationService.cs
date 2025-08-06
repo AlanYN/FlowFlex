@@ -283,15 +283,10 @@ $$ LANGUAGE plpgsql;
 DO $$
 DECLARE
     table_names text[] := ARRAY[
+        'ff_user_role',
         'ff_users',
         'ff_workflow',
-        'ff_workflow_version',
         'ff_stage',
-        'ff_stage_version',
-        'ff_onboarding',
-        'ff_questionnaire',
-        'ff_questionnaire_section',
-        'ff_questionnaire_answers',
         'ff_checklist',
         'ff_checklist_task',
         'ff_checklist_task_completion',

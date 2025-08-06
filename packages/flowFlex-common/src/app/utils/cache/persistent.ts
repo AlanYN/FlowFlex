@@ -152,7 +152,7 @@ window.addEventListener('beforeunload', function () {
 
 function storageChange(e: any) {
 	const { key, newValue, oldValue } = e;
-	console.log('更新缓存', key, newValue, oldValue);
+	// console.log('更新缓存', key, newValue, oldValue);
 	if (!key) {
 		Persistent.clearAll();
 		return;

@@ -1,8 +1,6 @@
 <template>
 	<div class="customer-block" v-if="hasQuestionnaireData">
 		<h2 class="text-lg font-semibold">Questionnaire-{{ questionnaireData.name }}</h2>
-		<el-divider />
-
 		<!-- 阶段描述 -->
 		<div class="flex flex-col gap-4">
 			<!-- 问卷表单 -->
@@ -18,12 +16,12 @@
 		</div>
 
 		<!-- 操作按钮 -->
-		<div class="flex justify-end space-x-2 pt-6 mt-6 border-t">
+		<!-- <div class="flex justify-end space-x-2 pt-6 mt-6 border-t">
 			<el-button @click="handleSave" :loading="saving">
 				<el-icon class="mr-1"><Document /></el-icon>
 				Save
 			</el-button>
-		</div>
+		</div> -->
 
 		<!-- 阶段历史 -->
 		<div v-if="stageHistory.length > 0">
@@ -48,9 +46,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Document } from '@element-plus/icons-vue';
-import { OnboardingItem } from '#/onboard';
+import { ElMessage, ElNotification } from 'element-plus';
+import { OnboardingItem, SectionAnswer } from '#/onboard';
 
 import { saveQuestionnaireAnswer } from '@/apis/ow/onboarding';
 import DynamicForm from './dynamicForm.vue';
@@ -62,16 +59,7 @@ interface Props {
 	leadData: OnboardingItem | null;
 	workflowStages: any[];
 	questionnaireData?: any;
-	questionnaireAnswers?: {
-		lastModifiedAt: string;
-		lastModifiedBy: string;
-		question: string;
-		questionId: string;
-		responseText: string;
-		type: string;
-		answer: string;
-		changeHistory: any[];
-	}[];
+	questionnaireAnswers?: SectionAnswer;
 }
 
 const props = defineProps<Props>();
@@ -84,11 +72,11 @@ const emit = defineEmits<{
 // 响应式数据
 const stageHistory = ref<any[]>([]);
 const saving = ref(false);
-const dynamicFormRef = ref();
+const dynamicFormRef = ref<InstanceType<typeof DynamicForm>>();
 
 // 计算属性 - 检查是否有问卷数据
 const hasQuestionnaireData = computed(() => {
-	return props.questionnaireData;
+	return !!props?.questionnaireData;
 });
 
 const isStageCompleted = computed(() => {
@@ -114,21 +102,30 @@ const handleStageUpdated = () => {
 	emit('stageUpdated');
 };
 
-const handleSave = async (isTip: boolean = true) => {
+const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => {
 	try {
 		saving.value = true;
-		// 验证动态表单
-		const dynamicFormValid = await dynamicFormRef.value?.validateForm();
-		if (!dynamicFormValid?.isValid || !props?.onboardingId) {
-			if (!dynamicFormValid?.isValid) {
-				ElMessage.error(
-					`Please complete all required fields:\n${dynamicFormValid?.errors?.join('\n')}`
-				);
+		if (isValidate) {
+			// 验证动态表单
+			const dynamicFormValid = await dynamicFormRef.value?.validateForm();
+			if (dynamicFormValid && (!dynamicFormValid?.isValid || !props?.onboardingId)) {
+				if (!dynamicFormValid?.isValid) {
+					console.log('dynamicFormValid?.errors:', dynamicFormValid?.errors);
+					const errorHtml = dynamicFormValid?.errors
+						?.map((error) => `<p>${error}</p>`)
+						.join('');
+					ElNotification({
+						title: 'Please complete all required fields',
+						dangerouslyUseHTMLString: true,
+						message: errorHtml,
+						type: 'warning',
+					});
+				}
+				return false;
 			}
-			return false;
 		}
 
-		const dynamicForm = await dynamicFormRef.value?.transformFormDataForAPI();
+		const dynamicForm = (await dynamicFormRef.value?.transformFormDataForAPI()) || [];
 		const res = await Promise.all([
 			...dynamicForm.map((item) =>
 				saveQuestionnaireAnswer(props?.onboardingId || '', props.stageId, {
@@ -137,16 +134,14 @@ const handleSave = async (isTip: boolean = true) => {
 				})
 			),
 		]);
-
 		if (res[0]?.code == '200') {
-			isTip && ElMessage.success('Questionnaire saved successfully');
+			isTip && isValidate && ElMessage.success('Questionnaire saved successfully');
 			return true;
 		} else {
-			ElMessage.error(res[0]?.msg || 'Failed to save questionnaire data');
+			isValidate && ElMessage.error(res[0]?.msg || 'Failed to save questionnaire data');
 			return false;
 		}
 	} catch (error) {
-		ElMessage.error('Failed to save questionnaire');
 		return false;
 	} finally {
 		saving.value = false;

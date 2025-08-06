@@ -21,6 +21,16 @@
 						/>
 					</el-form-item>
 
+					<!-- Visible in Customer Portal -->
+					<el-form-item label="Available in Customer Portal" prop="visibleInPortal">
+						<el-switch
+							v-model="formData.visibleInPortal"
+							inline-prompt
+							active-text="Yes"
+							inactive-text="No"
+						/>
+					</el-form-item>
+
 					<div class="flex items-center gap-2 w-full">
 						<el-form-item
 							label="Assigned User Group"
@@ -76,7 +86,12 @@
 				<StageComponentsSelector
 					:checklists="checklists"
 					:questionnaires="questionnaires"
-					v-model="formData"
+					:model-value="{
+						components: formData.components,
+						visibleInPortal: formData.visibleInPortal,
+						attachmentManagementNeeded: formData.attachmentManagementNeeded,
+					}"
+					@update:model-value="updateComponentsData"
 				/>
 			</TabPane>
 		</PrototypeTabs>
@@ -104,32 +119,8 @@ import { Options } from '#/setting';
 import StageComponentsSelector from './StageComponentsSelector.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { Checklist, Questionnaire } from '#/onboard';
+import { Checklist, Questionnaire, Stage, ComponentData } from '#/onboard';
 
-// 接口定义
-interface Stage {
-	id: string;
-	name: string;
-	description?: string;
-	defaultAssignedGroup: string;
-	defaultAssignee: string;
-	estimatedDuration: number;
-	requiredFieldsJson: string;
-	components: ComponentData[];
-	order: number;
-	color?: StageColorType;
-}
-
-interface ComponentData {
-	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
-	order: number;
-	isEnabled: boolean;
-	staticFields: string[];
-	checklistIds: string[];
-	questionnaireIds: string[];
-	checklistNames?: string[];
-	questionnaireNames?: string[];
-}
 // 颜色选项
 const colorOptions = stageColorOptions;
 
@@ -205,6 +196,7 @@ const tabsConfig = [
 const formData = ref({
 	name: '',
 	description: '',
+	visibleInPortal: false,
 	defaultAssignedGroup: '',
 	defaultAssignee: '',
 	estimatedDuration: null as number | null,
@@ -212,6 +204,7 @@ const formData = ref({
 	components: [] as ComponentData[],
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
+	attachmentManagementNeeded: false,
 });
 
 // 表单验证规则
@@ -282,6 +275,17 @@ const submitForm = async () => {
 
 // 定义事件
 const emit = defineEmits(['submit', 'cancel']);
+
+// 更新组件数据的方法
+const updateComponentsData = (newData: any) => {
+	formData.value.components = newData.components;
+	if (Object.prototype.hasOwnProperty.call(newData, 'visibleInPortal')) {
+		formData.value.visibleInPortal = newData.visibleInPortal;
+	}
+	if (Object.prototype.hasOwnProperty.call(newData, 'attachmentManagementNeeded')) {
+		formData.value.attachmentManagementNeeded = newData.attachmentManagementNeeded;
+	}
+};
 </script>
 
 <style scoped>
@@ -328,5 +332,12 @@ const emit = defineEmits(['submit', 'cancel']);
 .color-option.selected {
 	border-color: #333;
 	transform: scale(1.1);
+}
+
+.form-item-description {
+	font-size: 12px;
+	color: #666;
+	margin-top: 4px;
+	line-height: 1.4;
 }
 </style>

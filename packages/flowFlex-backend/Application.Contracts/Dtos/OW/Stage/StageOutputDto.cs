@@ -78,9 +78,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// </summary>
         public string Color { get; set; }
 
-
-
-
+        /// <summary>
+        /// Stage components configuration (JSON)
+        /// </summary>
+        public string ComponentsJson { get; set; }
 
         /// <summary>
         /// Stage components configuration list
@@ -89,14 +90,19 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; }
 
         /// <summary>
-        /// Workflow version
-        /// </summary>
-        public string WorkflowVersion { get; set; }
-
-        /// <summary>
         /// Whether it's active
         /// </summary>
         public bool IsActive { get; set; }
+
+        /// <summary>
+        /// Visible in Portal - Controls whether this stage is visible in the portal
+        /// </summary>
+        public bool VisibleInPortal { get; set; }
+
+        /// <summary>
+        /// Attachment Management Needed - Indicates whether file upload is required for this stage
+        /// </summary>
+        public bool AttachmentManagementNeeded { get; set; }
 
         /// <summary>
         /// Whether it's valid

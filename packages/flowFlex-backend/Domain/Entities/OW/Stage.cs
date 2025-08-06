@@ -88,19 +88,23 @@ namespace FlowFlex.Domain.Entities.OW
 
 
 
-
-        /// <summary>
-        /// Workflow Version
-        /// </summary>
-        [StringLength(32)]
-        [SugarColumn(ColumnName = "workflow_version")]
-        public string WorkflowVersion { get; set; }
-
         /// <summary>
         /// Is Active
         /// </summary>
         [SugarColumn(ColumnName = "is_active")]
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// Visible in Portal - Controls whether this stage is visible in the portal
+        /// </summary>
+        [SugarColumn(ColumnName = "visible_in_portal")]
+        public bool VisibleInPortal { get; set; } = true;
+
+        /// <summary>
+        /// Attachment Management Needed - Indicates whether file upload is required for this stage
+        /// </summary>
+        [SugarColumn(ColumnName = "attachment_management_needed")]
+        public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
         /// Stage Components Configuration (JSON)

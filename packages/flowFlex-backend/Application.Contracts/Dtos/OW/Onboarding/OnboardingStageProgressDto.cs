@@ -74,6 +74,16 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool IsCurrent { get; set; }
 
         /// <summary>
+        /// Visible in Portal - Controls whether this stage is visible in the portal
+        /// </summary>
+        public bool VisibleInPortal { get; set; } = true;
+
+        /// <summary>
+        /// Attachment Management Needed - Indicates whether file upload is required for this stage
+        /// </summary>
+        public bool AttachmentManagementNeeded { get; set; } = false;
+
+        /// <summary>
         /// Stage组件配置列表
         /// 定义Stage包含的组件及其顺序
         /// </summary>

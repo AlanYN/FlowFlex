@@ -38,7 +38,6 @@ export const downloadWithProgress = async (
 					format: (percentage) => `${percentage}%`,
 				}),
 			]),
-		duration: 0,
 		position: 'top-right',
 		customClass: 'notification-download',
 	});

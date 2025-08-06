@@ -31,7 +31,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IStageRepository _stageRepository;
-        private readonly IStageCompletionLogRepository _stageCompletionLogRepository;
+
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly IMediator _mediator;
@@ -44,7 +44,7 @@ namespace FlowFlex.Application.Services.OW
             IOnboardingRepository onboardingRepository,
             IWorkflowRepository workflowRepository,
             IStageRepository stageRepository,
-            IStageCompletionLogRepository stageCompletionLogRepository,
+
             IMapper mapper,
             UserContext userContext,
             IMediator mediator)
@@ -52,7 +52,7 @@ namespace FlowFlex.Application.Services.OW
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
-            _stageCompletionLogRepository = stageCompletionLogRepository ?? throw new ArgumentNullException(nameof(stageCompletionLogRepository));
+
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
@@ -107,8 +107,9 @@ namespace FlowFlex.Application.Services.OW
                 // Debug logging handled by structured logging
                 await _onboardingRepository.EnsureTableExistsAsync();
                 // Debug logging handled by structured logging
-                // Get tenant ID from UserContext (injected from HTTP headers via middleware)
+                // Get tenant ID and app code from UserContext (injected from HTTP headers via middleware)
                 string tenantId = _userContext?.TenantId ?? "default";
+                string appCode = _userContext?.AppCode ?? "default";
                 // Debug logging handled by structured logging
                 // Handle default workflow selection if WorkflowId is not provided
                 // Debug logging handled by structured logging ?? "null"} ===");
@@ -147,6 +148,7 @@ namespace FlowFlex.Application.Services.OW
                 var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
                 var existingActiveOnboarding = await sqlSugarClient.Queryable<Onboarding>()
                     .Where(x => x.TenantId == tenantId &&
+                               x.AppCode == appCode &&
                                x.LeadId == input.LeadId &&
                                x.IsValid == true &&
                                x.IsActive == true)
@@ -156,7 +158,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Debug logging handled by structured logging
                     throw new CRMException(ErrorCodeEnum.BusinessError,
-                        $"An active onboarding already exists for Lead ID '{input.LeadId}' in tenant '{tenantId}'. " +
+                        $"An active onboarding already exists for Lead ID '{input.LeadId}' in tenant '{tenantId}', app '{appCode}'. " +
                         $"Existing onboarding ID: {existingActiveOnboarding.Id}, Status: {existingActiveOnboarding.Status}");
                 }
                 // Debug logging handled by structured logging
@@ -221,8 +223,13 @@ namespace FlowFlex.Application.Services.OW
                 entity.Priority = string.IsNullOrEmpty(entity.Priority) ? "Medium" : entity.Priority;
                 entity.IsActive = true;
 
+                // Initialize stages progress as empty JSON array for JSONB compatibility
+                entity.StagesProgressJson = "[]";
+
                 // Initialize create information with proper ID and timestamps
                 entity.InitCreateInfo(_userContext);
+                
+               
                 // Debug logging handled by structured logging
                 // Generate unique ID if not set
                 if (entity.Id == 0)
@@ -269,9 +276,11 @@ namespace FlowFlex.Application.Services.OW
                         sqlSugarClient.CodeFirst.SetStringDefaultLength(200).InitTables<Onboarding>();
                     }
 
-                    // Use simple insert and then get the last inserted ID
+                    // Use simple insert with explicit JSONB handling
                     // Debug logging handled by structured logging
-                    var insertResult = await sqlSugarClient.Insertable(entity).ExecuteCommandAsync();
+                    var insertResult = await sqlSugarClient.Insertable(entity)
+                        .IgnoreColumns(it => new { it.StagesProgress }) // Ignore the non-mapped property
+                        .ExecuteCommandAsync();
 
                     if (insertResult > 0)
                     {
@@ -280,7 +289,8 @@ namespace FlowFlex.Application.Services.OW
                         var lastInserted = await sqlSugarClient.Queryable<Onboarding>()
                             .Where(x => x.LeadId == entity.LeadId &&
                                        x.WorkflowId == entity.WorkflowId &&
-                                       x.TenantId == entity.TenantId)
+                                       x.TenantId == entity.TenantId &&
+                                       x.AppCode == entity.AppCode)
                             .OrderByDescending(x => x.CreateDate)
                             .FirstAsync();
 
@@ -324,21 +334,28 @@ namespace FlowFlex.Application.Services.OW
                     try
                     {
                         var sql = @"
-                            INSERT INTO ff_onboarding (
-                                tenant_id, is_valid, create_date, modify_date, create_by, modify_by,
-                                create_user_id, modify_user_id, workflow_id, current_stage_order,
-                                lead_id, lead_name, lead_email, lead_phone, status, completion_rate,
-                                priority, is_priority_set, notes, is_active
-                            ) VALUES (
-                                @TenantId, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
-                                @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
-                                @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
-                                @Priority, @IsPrioritySet, @Notes, @IsActive
-                            ) RETURNING id";
+                INSERT INTO ff_onboarding (
+                    tenant_id, app_code, is_valid, create_date, modify_date, create_by, modify_by,
+                    create_user_id, modify_user_id, workflow_id, current_stage_order,
+                    lead_id, lead_name, lead_email, lead_phone, status, completion_rate,
+                    priority, is_priority_set, notes, is_active, stages_progress_json, id,
+                    current_stage_id, contact_person, contact_email, life_cycle_stage_id, 
+                    life_cycle_stage_name, start_date, current_stage_start_time
+                ) VALUES (
+                    @TenantId, @AppCode, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
+                    @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
+                    @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
+                    @Priority, @IsPrioritySet, @Notes, @IsActive, @StagesProgressJson::jsonb, @Id,
+                    CASE WHEN @CurrentStageId IS NULL OR @CurrentStageId = '' THEN NULL ELSE @CurrentStageId::bigint END,
+                    @ContactPerson, @ContactEmail,
+                    CASE WHEN @LifeCycleStageId IS NULL OR @LifeCycleStageId = '' THEN NULL ELSE @LifeCycleStageId::bigint END,
+                    @LifeCycleStageName, @StartDate, @CurrentStageStartTime
+                ) RETURNING id";
 
                         var parameters = new
                         {
                             TenantId = entity.TenantId,
+                            AppCode = entity.AppCode,
                             IsValid = true,
                             CreateDate = DateTimeOffset.UtcNow,
                             ModifyDate = DateTimeOffset.UtcNow,
@@ -357,7 +374,16 @@ namespace FlowFlex.Application.Services.OW
                             Priority = entity.Priority,
                             IsPrioritySet = entity.IsPrioritySet,
                             Notes = entity.Notes ?? "",
-                            IsActive = entity.IsActive
+                            IsActive = entity.IsActive,
+                            StagesProgressJson = entity.StagesProgressJson,
+                            Id = entity.Id,
+                            CurrentStageId = entity.CurrentStageId?.ToString(),
+                            ContactPerson = entity.ContactPerson,
+                            ContactEmail = entity.ContactEmail,
+                            LifeCycleStageId = entity.LifeCycleStageId?.ToString(),
+                            LifeCycleStageName = entity.LifeCycleStageName,
+                            StartDate = entity.StartDate,
+                            CurrentStageStartTime = entity.CurrentStageStartTime
                         };
                         // Debug logging handled by structured logging
                         insertedId = await sqlSugarClient.Ado.SqlQuerySingleAsync<long>(sql, parameters);
@@ -391,15 +417,38 @@ namespace FlowFlex.Application.Services.OW
                             // Initialize stage progress
                             await InitializeStagesProgressAsync(insertedEntity, stages);
 
-                            // Update entity to save stage progress
-                            await _onboardingRepository.UpdateAsync(insertedEntity);
+                            // Update entity to save stage progress using safe method
+                            var updateResult = await SafeUpdateOnboardingAsync(insertedEntity);
+                            if (!updateResult)
+                            {
+                                // Log warning but don't fail the creation
+                                // Debug logging handled by structured logging
+                            }
+                            else
+                            {
+                                // Debug logging handled by structured logging
+                            }
+                        }
+                        else
+                        {
                             // Debug logging handled by structured logging
                         }
                     }
                     catch (Exception ex)
                     {
                         // Debug logging handled by structured logging
-                        // Don't throw exception as the main creation operation has already succeeded
+                        // Important: Re-throw if this is a critical initialization failure
+                        // But first check if it's just a minor update issue
+                        if (ex.Message.Contains("JSONB") || ex.Message.Contains("stages_progress"))
+                        {
+                            // This might be the JSONB conversion issue, don't fail the entire creation
+                            // Debug logging handled by structured logging
+                        }
+                        else
+                        {
+                            // For other critical errors, we might want to throw
+                            // Debug logging handled by structured logging
+                        }
                     }
 
                     // Clear query cache (async execution, doesn't affect main flow)
@@ -482,7 +531,7 @@ namespace FlowFlex.Application.Services.OW
                 entity.ModifyBy = GetCurrentUserName();
                 entity.ModifyUserId = GetCurrentUserId() ?? 0; // User context integration
                                                                // Debug logging handled by structured logging
-                var result = await _onboardingRepository.UpdateAsync(entity);
+                var result = await SafeUpdateOnboardingAsync(entity);
 
                 // Log onboarding update and clear cache
                 if (result)
@@ -627,7 +676,36 @@ namespace FlowFlex.Application.Services.OW
             entity.ModifyBy = GetCurrentUserName();
             entity.ModifyUserId = GetCurrentUserId() ?? 0;
 
-            var result = await _onboardingRepository.UpdateAsync(entity);
+            // Update only specific columns to avoid JSONB type conversion issues
+            bool result;
+            try
+            {
+                result = await _onboardingRepository.UpdateAsync(entity,
+                    it => new { it.IsValid, it.ModifyDate, it.ModifyBy, it.ModifyUserId });
+            }
+            catch (Exception ex) when (IsJsonbTypeError(ex))
+            {
+                // Fallback to manual SQL for soft delete
+                var db = _onboardingRepository.GetSqlSugarClient();
+                var sql = @"
+                    UPDATE ff_onboarding 
+                    SET is_valid = false,
+                        modify_date = @ModifyDate,
+                        modify_by = @ModifyBy,
+                        modify_user_id = @ModifyUserId
+                    WHERE id = @Id";
+
+                var parameters = new
+                {
+                    ModifyDate = entity.ModifyDate,
+                    ModifyBy = entity.ModifyBy,
+                    ModifyUserId = entity.ModifyUserId,
+                    Id = entity.Id
+                };
+
+                var commandResult = await db.Ado.ExecuteCommandAsync(sql, parameters);
+                result = commandResult > 0;
+            }
 
             // Clear related cache after successful deletion
             if (result)
@@ -652,28 +730,8 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
 
-                // Load stages progress from JSON
-                LoadStagesProgressFromJson(entity);
-
-                // If stage progress is empty, try to initialize it
-                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
-                {
-                    // Debug logging handled by structured logging
-                    try
-                    {
-                        var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-                        if (stages != null && stages.Any())
-                        {
-                            await InitializeStagesProgressAsync(entity, stages);
-                            await _onboardingRepository.UpdateAsync(entity);
-                            // Debug logging handled by structured logging
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Debug logging handled by structured logging
-                    }
-                }
+                // Ensure stages progress is properly initialized and synced
+                await EnsureStagesProgressInitializedAsync(entity);
 
                 var result = _mapper.Map<OnboardingOutputDto>(entity);
 
@@ -703,10 +761,10 @@ namespace FlowFlex.Application.Services.OW
         {
             var entities = await _onboardingRepository.GetListAsync(x => x.IsValid);
 
-            // Load stages progress from JSON for each entity
+            // Ensure stages progress is properly initialized for each entity
             foreach (var entity in entities)
             {
-                LoadStagesProgressFromJson(entity);
+                await EnsureStagesProgressInitializedAsync(entity);
             }
 
             return _mapper.Map<List<OnboardingOutputDto>>(entities);
@@ -719,7 +777,7 @@ namespace FlowFlex.Application.Services.OW
         {
             var stopwatch = Stopwatch.StartNew();
             var tenantId = _userContext?.TenantId ?? "default";
-
+            var appCode = _userContext?.AppCode ?? "default";
             try
             {
                 // Debug logging handled by structured logging
@@ -728,9 +786,15 @@ namespace FlowFlex.Application.Services.OW
 
                 // Basic filter conditions
                 whereExpressions.Add(x => x.IsValid == true);
-                // TODO: Temporarily skip tenant ID check - need to fix tenant ID mapping
-                // whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
-
+                // Apply tenant isolation
+                if (!string.IsNullOrEmpty(tenantId))
+                {
+                    whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
+                }
+                  if (!string.IsNullOrEmpty(appCode))
+                {
+                    whereExpressions.Add(x => x.AppCode.ToLower() == appCode.ToLower());
+                }
                 // Apply filter conditions
                 if (request.WorkflowId.HasValue && request.WorkflowId.Value > 0)
                 {
@@ -1500,34 +1564,7 @@ namespace FlowFlex.Application.Services.OW
                 // Don't throw exception, just log the warning and continue
             }
 
-            // Check stage completion logs to see if this stage has already been completed
-            // Debug logging handled by structured logging
-            try
-            {
-                var stageCompletionLogs = await _stageCompletionLogRepository.GetByOnboardingAndStageAsync(id, currentStage.Id);
-                var completionLogs = stageCompletionLogs.Where(log =>
-                    log.LogType == "complete" &&
-                    log.Success &&
-                    log.Action.Contains("complete", StringComparison.OrdinalIgnoreCase)).ToList();
-                // Debug logging handled by structured logging
-                if (completionLogs.Any())
-                {
-                    var latestCompletionLog = completionLogs.OrderByDescending(log => log.CreateDate).First();
-                    // Debug logging handled by structured logging
-                    // Don't throw exception, allow re-completion but log the previous completion
-                }
-                // Debug logging handled by structured logging
-            }
-            catch (CRMException)
-            {
-                // Re-throw CRM exceptions (our business logic exceptions)
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail on stage completion log check errors
-                // Debug logging handled by structured logging
-            }
+
 
             // Check if this is the last stage
             var isLastStage = currentStageIndex >= totalStages - 1;
@@ -1543,7 +1580,7 @@ namespace FlowFlex.Application.Services.OW
                 // Update stage tracking info
                 await UpdateStageTrackingInfoAsync(entity);
 
-                var result = await _onboardingRepository.UpdateAsync(entity);
+                var result = await SafeUpdateOnboardingAsync(entity);
                 // Debug logging handled by structured logging
                 // Publish stage completion event for final stage completion
                 if (result)
@@ -1584,7 +1621,7 @@ namespace FlowFlex.Application.Services.OW
                 // Update stage tracking info
                 await UpdateStageTrackingInfoAsync(entity);
 
-                var result = await _onboardingRepository.UpdateAsync(entity);
+                var result = await SafeUpdateOnboardingAsync(entity);
                 // Debug logging handled by structured logging
                 // Publish stage completion event
                 if (result)
@@ -1607,6 +1644,12 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
+
+            // Ensure stages progress is properly initialized and synced
+            await EnsureStagesProgressInitializedAsync(entity);
+
+            // Save the initialized stages progress
+            await SafeUpdateOnboardingAsync(entity);
 
             // Debug logging handled by structured logging ===");
             // Debug logging handled by structured logging
@@ -1684,37 +1727,11 @@ namespace FlowFlex.Application.Services.OW
             // Debug logging handled by structured logging
             // Check stage completion logs to see if this stage has already been completed
             // Debug logging handled by structured logging
-            try
-            {
-                var stageCompletionLogs = await _stageCompletionLogRepository.GetByOnboardingAndStageAsync(id, stageToComplete.Id);
-                var completionLogs = stageCompletionLogs.Where(log =>
-                    log.LogType == "complete" &&
-                    log.Success &&
-                    log.Action.Contains("complete", StringComparison.OrdinalIgnoreCase)).ToList();
-                // Debug logging handled by structured logging
-                if (completionLogs.Any())
-                {
-                    var latestCompletionLog = completionLogs.OrderByDescending(log => log.CreateDate).First();
-                    // Debug logging handled by structured logging
-                    // Don't throw exception, allow re-completion but log the previous completion
-                }
-                // Debug logging handled by structured logging
-            }
-            catch (CRMException)
-            {
-                // Re-throw CRM exceptions (our business logic exceptions)
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail on stage completion log check errors
-                // Debug logging handled by structured logging
-            }
+            // Stage completion log checking functionality removed
 
             // Update stages progress for the completed stage (non-sequential completion)
             // Debug logging handled by structured logging
             await UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
-            LoadStagesProgressFromJson(entity);
 
             // Calculate new completion rate based on completed stages
             entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
@@ -1753,7 +1770,7 @@ namespace FlowFlex.Application.Services.OW
                 // Find the next incomplete stage to advance to
                 var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
                 var nextStageIndex = currentStageIndex + 1;
-                
+
                 // If current stage is the completed stage and there's a next stage, advance to it
                 if (entity.CurrentStageId == stageToComplete.Id && nextStageIndex < orderedStages.Count)
                 {
@@ -1771,7 +1788,7 @@ namespace FlowFlex.Application.Services.OW
                         .Where(stage => !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
                         .OrderBy(stage => stage.Order)
                         .FirstOrDefault();
-                    
+
                     if (nextIncompleteStage != null)
                     {
                         entity.CurrentStageId = nextIncompleteStage.Id;
@@ -1795,8 +1812,8 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            // Update the entity
-            var result = await _onboardingRepository.UpdateAsync(entity);
+            // Update the entity using safe method
+            var result = await SafeUpdateOnboardingAsync(entity);
             // Debug logging handled by structured logging
             // Publish stage completion event
             if (result)
@@ -1840,9 +1857,6 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
             // Debug logging handled by structured logging
-            // Log stage completion
-            await LogStageCompletionAsync(entity, currentStage, input);
-
             // Check if this is the last stage
             var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
             var orderedStages = stages.OrderBy(x => x.Order).ToList();
@@ -1907,7 +1921,7 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            var result = await _onboardingRepository.UpdateAsync(entity);
+            var result = await SafeUpdateOnboardingAsync(entity);
 
             // Publish Kafka event for stage completion
             if (result)
@@ -1995,7 +2009,7 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(reason))
             {
                 entity.Notes = $"Cancelled: {reason}. {entity.Notes}".Trim();
-                await _onboardingRepository.UpdateAsync(entity);
+                await SafeUpdateOnboardingAsync(entity);
             }
 
             // Log cancellation to Change Log
@@ -2057,7 +2071,6 @@ namespace FlowFlex.Application.Services.OW
                     if (stage.Status == "InProgress" || stage.Status == "Pending")
                     {
                         stage.Status = input.TerminateWorkflow ? "Terminated" : "Rejected";
-                        stage.IsTerminated = input.TerminateWorkflow;
                         stage.RejectionReason = input.RejectionReason;
                         stage.RejectionTime = currentTime;
                         stage.RejectedBy = input.RejectedBy;
@@ -2072,15 +2085,15 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Serialize updated stages progress back to JSON
-                entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
+                // Serialize updated stages progress back to JSON (only progress fields)
+                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
             }
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
             // Save changes
-            var result = await _onboardingRepository.UpdateAsync(entity);
+            var result = await SafeUpdateOnboardingAsync(entity);
 
             if (result)
             {
@@ -2128,7 +2141,7 @@ namespace FlowFlex.Application.Services.OW
             entity.CurrentAssigneeName = input.AssigneeName;
             entity.CurrentTeam = input.Team;
 
-            return await _onboardingRepository.UpdateAsync(entity);
+            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -2239,7 +2252,7 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            return await _onboardingRepository.UpdateAsync(entity);
+            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -2253,7 +2266,7 @@ namespace FlowFlex.Application.Services.OW
             entity.StageUpdatedBy = GetCurrentUserName();
             entity.StageUpdatedById = GetCurrentUserId() ?? 0;
             entity.StageUpdatedByEmail = GetCurrentUserEmail();
-            
+
             // Sync isCurrent flag in stagesProgress to match currentStageId
             LoadStagesProgressFromJson(entity);
             if (entity.StagesProgress != null && entity.StagesProgress.Any())
@@ -2262,7 +2275,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Update isCurrent flag based on currentStageId
                     stage.IsCurrent = stage.StageId == entity.CurrentStageId;
-                    
+
                     // Update stage status based on completion and current status
                     if (stage.IsCompleted)
                     {
@@ -2277,9 +2290,9 @@ namespace FlowFlex.Application.Services.OW
                         stage.Status = "Pending";
                     }
                 }
-                
-                // Serialize back to JSON
-                entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
+
+                // Serialize back to JSON (only progress fields)
+                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
             }
         }
 
@@ -2350,7 +2363,7 @@ namespace FlowFlex.Application.Services.OW
                 ? noteText
                 : $"{entity.Notes}\n{noteText}";
 
-            return await _onboardingRepository.UpdateAsync(entity);
+            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -2383,7 +2396,7 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            return await _onboardingRepository.UpdateAsync(entity);
+            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -2417,7 +2430,7 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            return await _onboardingRepository.UpdateAsync(entity);
+            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -2471,7 +2484,7 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            return await _onboardingRepository.UpdateAsync(entity);
+            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -2519,7 +2532,7 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            return await _onboardingRepository.UpdateAsync(entity);
+            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -2533,8 +2546,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            // Load stages progress from JSON
-            LoadStagesProgressFromJson(entity);
+            // Ensure stages progress is properly initialized and synced
+            await EnsureStagesProgressInitializedAsync(entity);
 
             var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
             var totalStages = stages.Count;
@@ -2572,66 +2585,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Log stage completion to change log
-        /// </summary>
-        private async Task LogStageCompletionAsync(Onboarding onboarding, Stage stage, CompleteStageInputDto input)
-        {
-            try
-            {
-                // Get real user information
-                var currentUserName = GetCurrentUserName();
-                var currentUserId = GetCurrentUserId();
-                var actualCompletedBy = !string.IsNullOrEmpty(input.CompletedBy) ? input.CompletedBy : currentUserName;
-                var actualCompletedById = input.CompletedById ?? currentUserId;
-
-                var logData = new
-                {
-                    OnboardingId = onboarding.Id,
-                    LeadId = onboarding.LeadId,
-                    StageId = stage.Id,
-                    StageName = stage.Name,
-                    CompletionNotes = input.CompletionNotes,
-                    Rating = input.Rating,
-                    Feedback = input.Feedback,
-                    AttachmentsJson = input.AttachmentsJson,
-                    AutoMoveToNext = input.AutoMoveToNext,
-                    CompletedTime = DateTimeOffset.UtcNow,
-                    CompletedBy = actualCompletedBy,
-                    CompletedById = actualCompletedById,
-                    CompletionMethod = "Manual",
-                    PreviousStatus = "InProgress",
-                    NewStatus = "Completed"
-                };
-
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding.TenantId,
-                    OnboardingId = onboarding.Id,
-                    StageId = stage.Id,
-                    StageName = stage.Name,
-                    LogType = "stage_complete",
-                    Action = "Complete Stage",
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = actualCompletedBy,
-                    ModifyBy = actualCompletedBy,
-                    CreateUserId = actualCompletedById ?? 0,
-                    ModifyUserId = actualCompletedById ?? 0
-                };
-
-                // Save to StageCompletionLog repository
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
-                // Debug logging handled by structured logging
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't fail the stage completion
-                // Debug logging handled by structured logging
-            }
-        }
-
-        /// <summary>
         /// Log general onboarding action to change log
         /// </summary>
         private async Task LogOnboardingActionAsync(Onboarding onboarding, string action, string logType, bool success, object additionalData = null)
@@ -2652,22 +2605,7 @@ namespace FlowFlex.Application.Services.OW
                     AdditionalData = additionalData
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding.TenantId,
-                    OnboardingId = onboarding.Id,
-                    StageId = onboarding.CurrentStageId ?? 0,
-                    StageName = "N/A",
-                    LogType = logType,
-                    Action = action,
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = success,
-                    NetworkStatus = "online",
-                    CreateBy = GetCurrentUserName(),
-                    ModifyBy = GetCurrentUserName()
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)
@@ -2697,22 +2635,7 @@ namespace FlowFlex.Application.Services.OW
                     Action = isCompleted ? "Task Completed" : "Task Marked Incomplete"
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = GetTenantIdFromOnboarding(onboardingId),
-                    OnboardingId = onboardingId,
-                    StageId = stageId,
-                    StageName = stageName,
-                    LogType = "task_completion",
-                    Action = isCompleted ? "Task Completed" : "Task Marked Incomplete",
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = completedBy ?? GetCurrentUserName(),
-                    ModifyBy = completedBy ?? GetCurrentUserName()
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging}");
             }
             catch (Exception ex)
@@ -2752,24 +2675,7 @@ namespace FlowFlex.Application.Services.OW
                     Priority = onboarding.Priority
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding.TenantId,
-                    OnboardingId = onboarding.Id,
-                    StageId = stage.Id,
-                    StageName = stage.Name,
-                    LogType = "stage_complete",
-                    Action = "Complete Stage",
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = actualCompletedBy,
-                    ModifyBy = actualCompletedBy,
-                    CreateUserId = actualCompletedById ?? 0,
-                    ModifyUserId = actualCompletedById ?? 0
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)
@@ -2908,34 +2814,32 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
-                Id = item.Id.ToString(),
+                Id = item.LeadId,
                 CompanyName = item.LeadName,
                 LifeCycleStage = item.LifeCycleStageName,
+                WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                StartDate = item.StartDate?.ToString("yyyy-MM-dd") ?? "",
-                Eta = item.EstimatedCompletionDate?.ToString("yyyy-MM-dd") ?? "",
                 Priority = item.Priority,
-                Progress = (int)item.CompletionRate
+                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                UpdatedBy = item.ModifyBy,
+                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
 
             // Generate CSV content
             var csvContent = new StringBuilder();
-            csvContent.AppendLine("id,companyName,lifeCycleStage,onboardStage,updatedBy,updateTime,startDate,eta,priority,progress");
+            csvContent.AppendLine("Lead ID,Company/Contact Name,Life Cycle Stage,Onboard Workflow,Onboard Stage,Priority,Timeline,Updated By,Update Time");
 
             foreach (var item in exportData)
             {
-                csvContent.AppendLine($"{item.Id}," +
+                csvContent.AppendLine($"\"{item.Id}\"," +
                     $"\"{item.CompanyName?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.LifeCycleStage?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.WorkFlow?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.OnboardStage?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.UpdatedBy?.Replace("\"", "\"\"")}\"," +
-                    $"{item.UpdateTime:yyyy-MM-dd HH:mm:ss}," +
-                    $"\"{item.StartDate}\"," +
-                    $"\"{item.Eta}\"," +
                     $"\"{item.Priority?.Replace("\"", "\"\"")}\"," +
-                    $"{item.Progress}");
+                    $"\"{item.Timeline?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.UpdatedBy?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.UpdateTime}\"");
             }
 
             // Convert to stream
@@ -2955,17 +2859,15 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
-                Id = item.Id.ToString(),
+                Id = item.LeadId,
                 CompanyName = item.LeadName,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                StartDate = item.StartDate?.ToString("yyyy-MM-dd") ?? "",
-                Eta = item.EstimatedCompletionDate?.ToString("yyyy-MM-dd") ?? "",
                 Priority = item.Priority,
-                Progress = (int)item.CompletionRate
+                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                UpdatedBy = item.ModifyBy,
+                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
 
             // Use EPPlus to generate Excel file (avoid NPOI version conflict)
@@ -2983,8 +2885,8 @@ namespace FlowFlex.Application.Services.OW
             // Set headers
             var headers = new[]
             {
-                "ID", "Company Name", "Life Cycle Stage", "Work Flow", "Onboard Stage",
-                "Updated By", "Update Time", "Start Date", "ETA", "Priority", "Progress"
+                "Lead ID", "Company/Contact Name", "Life Cycle Stage", "Onboard Workflow", "Onboard Stage",
+                "Priority", "Timeline", "Updated By", "Update Time"
             };
 
             for (int i = 0; i < headers.Length; i++)
@@ -3002,12 +2904,10 @@ namespace FlowFlex.Application.Services.OW
                 worksheet.Cells[row + 2, 3].Value = item.LifeCycleStage;
                 worksheet.Cells[row + 2, 4].Value = item.WorkFlow;
                 worksheet.Cells[row + 2, 5].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 6].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 7].Value = item.UpdateTime;
-                worksheet.Cells[row + 2, 8].Value = item.StartDate;
-                worksheet.Cells[row + 2, 9].Value = item.Eta;
-                worksheet.Cells[row + 2, 10].Value = item.Priority;
-                worksheet.Cells[row + 2, 11].Value = item.Progress;
+                worksheet.Cells[row + 2, 6].Value = item.Priority;
+                worksheet.Cells[row + 2, 7].Value = item.Timeline;
+                worksheet.Cells[row + 2, 8].Value = item.UpdatedBy;
+                worksheet.Cells[row + 2, 9].Value = item.UpdateTime;
             }
 
             // Auto-fit columns
@@ -3017,6 +2917,59 @@ namespace FlowFlex.Application.Services.OW
             package.SaveAs(stream);
             stream.Position = 0;
             return stream;
+        }
+
+        /// <summary>
+        /// Sync stages progress from workflow stages configuration
+        /// Updates existing stages and adds new stages from workflow
+        /// </summary>
+        public async Task<bool> SyncStagesProgressAsync(long id)
+        {
+            try
+            {
+                var entity = await _onboardingRepository.GetByIdAsync(id);
+                if (entity == null || !entity.IsValid)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Get current workflow stages
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                if (stages == null || !stages.Any())
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "No stages found for workflow");
+                }
+
+                // Load current stages progress
+                LoadStagesProgressFromJson(entity);
+
+                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
+                {
+                    // If no stages progress exists, initialize it
+                    await InitializeStagesProgressAsync(entity, stages);
+                }
+                else
+                {
+                    // Sync with workflow stages (handle new stages addition)
+                    await SyncStagesProgressWithWorkflowAsync(entity);
+
+                    // Note: Dynamic fields are now populated via EnrichStagesProgressWithStageDataAsync
+                    // This method focuses on essential progress data only
+                }
+
+                // Enrich with stage data
+                await EnrichStagesProgressWithStageDataAsync(entity);
+
+                // Update tracking info
+                await UpdateStageTrackingInfoAsync(entity);
+
+                // Save changes
+                return await SafeUpdateOnboardingAsync(entity);
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Error syncing stages progress for onboarding {id}: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -3046,20 +2999,25 @@ namespace FlowFlex.Application.Services.OW
 
                     var stageProgress = new OnboardingStageProgress
                     {
+                        // Core progress fields (will be serialized to JSON)
                         StageId = stage.Id,
-                        StageName = stage.Name,
-                        StageOrder = sequentialOrder, // Use sequential order instead of stage.Order
                         Status = sequentialOrder == 1 ? "InProgress" : "Pending", // First stage starts as InProgress
                         IsCompleted = false,
                         StartTime = sequentialOrder == 1 ? currentTime : null, // First stage starts immediately
                         CompletionTime = null,
                         CompletedById = null,
                         CompletedBy = null,
-                        EstimatedDays = stage.EstimatedDuration,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
-                        ComponentsJson = stage.ComponentsJson, // Copy components configuration from stage
-                        Components = stage.Components // Copy components list from stage
+
+                        // Stage configuration fields (not serialized, populated dynamically)
+                        StageName = stage.Name,
+                        StageOrder = sequentialOrder,
+                        EstimatedDays = stage.EstimatedDuration,
+                        VisibleInPortal = stage.VisibleInPortal,
+                        AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
+                        ComponentsJson = stage.ComponentsJson,
+                        Components = stage.Components
                     };
 
                     entity.StagesProgress.Add(stageProgress);
@@ -3067,8 +3025,8 @@ namespace FlowFlex.Application.Services.OW
                     // Debug logging handled by structured logging");
                 }
 
-                // Serialize to JSON for database storage
-                entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
+                // Serialize to JSON for database storage (only progress fields, not stage configuration)
+                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)
@@ -3086,10 +3044,18 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Deserialize current progress
-                if (!string.IsNullOrEmpty(entity.StagesProgressJson))
+                // Load current progress using the proper method that handles JSON formatting
+                LoadStagesProgressFromJson(entity);
+
+                // Debug: Check if stageIds are correctly loaded
+                Console.WriteLine($"[DEBUG] UpdateStagesProgressAsync - After LoadStagesProgressFromJson:");
+                Console.WriteLine($"[DEBUG] StagesProgress count: {entity.StagesProgress?.Count ?? 0}");
+                if (entity.StagesProgress != null)
                 {
-                    entity.StagesProgress = System.Text.Json.JsonSerializer.Deserialize<List<OnboardingStageProgress>>(entity.StagesProgressJson) ?? new List<OnboardingStageProgress>();
+                    foreach (var sp in entity.StagesProgress)
+                    {
+                        Console.WriteLine($"[DEBUG] StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                    }
                 }
 
                 var currentTime = DateTimeOffset.UtcNow;
@@ -3110,7 +3076,6 @@ namespace FlowFlex.Application.Services.OW
                     completedStage.CompletedBy = completedBy ?? GetCurrentUserName();
                     completedStage.CompletedById = completedById ?? GetCurrentUserId();
                     completedStage.IsCurrent = false;
-                    completedStage.CompletionMethod = "Manual";
                     completedStage.LastUpdatedTime = currentTime;
                     completedStage.LastUpdatedBy = completedBy ?? GetCurrentUserName();
 
@@ -3183,8 +3148,8 @@ namespace FlowFlex.Application.Services.OW
                     // Debug logging handled by structured logging");
                 }
 
-                // Serialize back to JSON
-                entity.StagesProgressJson = System.Text.Json.JsonSerializer.Serialize(entity.StagesProgress);
+                // Serialize back to JSON (only progress fields)
+                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
             }
             catch (Exception ex)
             {
@@ -3193,7 +3158,8 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Load stages progress from JSON - optimized version, reduce unnecessary processing
+        /// Load stages progress from JSONB - optimized version with JSONB support
+        /// Handles both legacy JSON format and new JSONB format with camelCase properties
         /// </summary>
         private void LoadStagesProgressFromJson(Onboarding entity)
         {
@@ -3201,21 +3167,47 @@ namespace FlowFlex.Application.Services.OW
             {
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
-                    entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(entity.StagesProgressJson) ?? new List<OnboardingStageProgress>();
+                    // Debug: Show input JSON
+                    Console.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Input JSON:");
+                    Console.WriteLine($"[DEBUG] {entity.StagesProgressJson}");
 
+                    // Configure JsonSerializer options to handle both formats
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        // Allow trailing commas and comments for JSONB compatibility
+                        ReadCommentHandling = JsonCommentHandling.Skip,
+                        AllowTrailingCommas = true
+                    };
 
+                    entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
+                        entity.StagesProgressJson, options) ?? new List<OnboardingStageProgress>();
+
+                    // Debug: Show loaded data
+                    Console.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Loaded {entity.StagesProgress.Count} items:");
+                    foreach (var sp in entity.StagesProgress)
+                    {
+                        Console.WriteLine($"[DEBUG] Loaded StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                    }
 
                     // Only fix stage order when needed, avoid unnecessary serialization
                     if (NeedsStageOrderFix(entity.StagesProgress))
                     {
                         FixStageOrderSequence(entity.StagesProgress);
-                        entity.StagesProgressJson = JsonSerializer.Serialize(entity.StagesProgress);
+                        entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
                     }
                 }
                 else
                 {
                     entity.StagesProgress = new List<OnboardingStageProgress>();
                 }
+            }
+            catch (JsonException jsonEx)
+            {
+                // Handle JSON parsing errors specifically
+                Console.WriteLine($"JSON parsing error in LoadStagesProgressFromJson: {jsonEx.Message}");
+                entity.StagesProgress = new List<OnboardingStageProgress>();
             }
             catch (Exception ex)
             {
@@ -3692,6 +3684,448 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Debug logging handled by structured logging
                 // Cache cleanup failure should not affect main flow
+            }
+        }
+
+        /// <summary>
+        /// Enrich stages progress with data from Stage entities
+        /// This method dynamically populates fields like stageName, stageOrder, estimatedDays etc.
+        /// from the Stage entities, ensuring consistency and reducing data duplication.
+        /// </summary>
+        private async Task EnrichStagesProgressWithStageDataAsync(Onboarding entity)
+        {
+            try
+            {
+                if (entity?.StagesProgress == null || !entity.StagesProgress.Any())
+                {
+                    return;
+                }
+
+                // Get all stages for this workflow
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                if (stages == null || !stages.Any())
+                {
+                    return;
+                }
+
+                // Create a dictionary for fast lookup
+                var stageDict = stages.ToDictionary(s => s.Id, s => s);
+
+                // Enrich each stage progress with stage data
+                foreach (var stageProgress in entity.StagesProgress)
+                {
+                    if (stageDict.TryGetValue(stageProgress.StageId, out var stage))
+                    {
+                        // Populate fields from Stage entity
+                        stageProgress.StageName = stage.Name;
+                        stageProgress.EstimatedDays = stage.EstimatedDuration;
+                        stageProgress.VisibleInPortal = stage.VisibleInPortal;
+                        stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
+                        stageProgress.ComponentsJson = stage.ComponentsJson;
+                        stageProgress.Components = stage.Components;
+                    }
+                }
+
+                // Set stage orders based on the order in workflow (sequential: 1, 2, 3, ...)
+                var orderedStages = stages.OrderBy(s => s.Order).ToList();
+                for (int i = 0; i < orderedStages.Count; i++)
+                {
+                    var stage = orderedStages[i];
+                    var stageProgress = entity.StagesProgress.FirstOrDefault(sp => sp.StageId == stage.Id);
+                    if (stageProgress != null)
+                    {
+                        stageProgress.StageOrder = i + 1; // Sequential order starting from 1
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Debug logging handled by structured logging
+                // Don't throw exception here to avoid breaking the main flow
+            }
+        }
+
+        /// <summary>
+        /// Sync stages progress with workflow stages - handle new stages addition
+        /// This method ensures that if workflow has new stages, they are added to stagesProgress.
+        /// </summary>
+        private async Task SyncStagesProgressWithWorkflowAsync(Onboarding entity)
+        {
+            try
+            {
+                // Get current workflow stages
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                if (stages == null || !stages.Any())
+                {
+                    return;
+                }
+
+                // Load current stages progress
+                LoadStagesProgressFromJson(entity);
+
+                if (entity.StagesProgress == null)
+                {
+                    entity.StagesProgress = new List<OnboardingStageProgress>();
+                }
+
+                // Get existing stage IDs
+                var existingStageIds = entity.StagesProgress.Select(sp => sp.StageId).ToHashSet();
+
+                // Find new stages that are not in stagesProgress
+                var newStages = stages.Where(s => !existingStageIds.Contains(s.Id)).ToList();
+
+                if (newStages.Any())
+                {
+                    // Order all stages properly
+                    var orderedStages = stages.OrderBy(s => s.Order).ToList();
+
+                    foreach (var newStage in newStages)
+                    {
+                        // Find the position to insert
+                        var stageIndex = orderedStages.FindIndex(s => s.Id == newStage.Id);
+                        var sequentialOrder = stageIndex + 1;
+
+                        var newStageProgress = new OnboardingStageProgress
+                        {
+                            StageId = newStage.Id,
+                            Status = "Pending",
+                            IsCompleted = false,
+                            StartTime = null,
+                            CompletionTime = null,
+                            CompletedById = null,
+                            CompletedBy = null,
+                            Notes = null,
+                            IsCurrent = false
+                        };
+
+                        // Insert at the correct position to maintain order
+                        if (stageIndex < entity.StagesProgress.Count)
+                        {
+                            entity.StagesProgress.Insert(stageIndex, newStageProgress);
+                        }
+                        else
+                        {
+                            entity.StagesProgress.Add(newStageProgress);
+                        }
+                    }
+
+                    // Serialize updated progress back to JSON (only progress fields)
+                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Debug logging handled by structured logging
+            }
+        }
+
+        /// <summary>
+        /// Check if exception is related to JSONB type conversion error
+        /// </summary>
+        private static bool IsJsonbTypeError(Exception ex)
+        {
+            var errorMessage = ex.ToString().ToLower();
+            return errorMessage.Contains("42804") ||
+                   errorMessage.Contains("jsonb") ||
+                   (errorMessage.Contains("column") && errorMessage.Contains("text") && errorMessage.Contains("expression")) ||
+                   ex.GetType().Name.Contains("Postgres");
+        }
+
+        /// <summary>
+        /// Safely update onboarding entity with JSONB compatibility
+        /// This method handles the JSONB type conversion issue for stages_progress_json
+        /// </summary>
+        private async Task<bool> SafeUpdateOnboardingAsync(Onboarding entity)
+        {
+            try
+            {
+                // Always use the JSONB-safe approach to avoid type conversion errors
+                var db = _onboardingRepository.GetSqlSugarClient();
+
+                // Update all fields except stages_progress_json first
+                var result = await _onboardingRepository.UpdateAsync(entity,
+                    it => new
+                    {
+                        it.WorkflowId,
+                        it.CurrentStageId,
+                        it.CurrentStageOrder,
+                        it.LeadId,
+                        it.LeadName,
+                        it.LeadEmail,
+                        it.LeadPhone,
+                        it.ContactPerson,
+                        it.ContactEmail,
+                        it.LifeCycleStageId,
+                        it.LifeCycleStageName,
+                        it.Status,
+                        it.CompletionRate,
+                        it.StartDate,
+                        it.EstimatedCompletionDate,
+                        it.ActualCompletionDate,
+                        it.CurrentAssigneeId,
+                        it.CurrentAssigneeName,
+                        it.CurrentTeam,
+                        it.StageUpdatedById,
+                        it.StageUpdatedBy,
+                        it.StageUpdatedByEmail,
+                        it.StageUpdatedTime,
+                        it.CurrentStageStartTime,
+                        it.Priority,
+                        it.IsPrioritySet,
+                        it.CustomFieldsJson,
+                        it.Notes,
+                        it.IsActive,
+                        it.ModifyDate,
+                        it.ModifyBy,
+                        it.ModifyUserId,
+                        it.IsValid
+                    });
+
+                // Update stages_progress_json separately with explicit JSONB casting
+                if (!string.IsNullOrEmpty(entity.StagesProgressJson))
+                {
+                    try
+                    {
+                        var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
+                        await db.Ado.ExecuteCommandAsync(progressSql, new
+                        {
+                            StagesProgressJson = entity.StagesProgressJson,
+                            Id = entity.Id
+                        });
+                    }
+                    catch (Exception progressEx)
+                    {
+                        // Log but don't fail the main update
+                        Console.WriteLine($"Warning: Failed to update stages_progress_json: {progressEx.Message}");
+                        // Try alternative approach with parameter substitution
+                        try
+                        {
+                            var escapedJson = entity.StagesProgressJson.Replace("'", "''");
+                            var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
+                            await db.Ado.ExecuteCommandAsync(directSql);
+                        }
+                        catch (Exception directEx)
+                        {
+                            Console.WriteLine($"Error: Both parameterized and direct JSONB update failed: {directEx.Message}");
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    $"Failed to safely update onboarding: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Ensure stages progress is properly initialized and synced with workflow
+        /// This method handles cases where stages progress might be empty or outdated
+        /// </summary>
+        private static readonly HashSet<long> _initializingEntities = new HashSet<long>();
+        private static readonly object _initializationLock = new object();
+
+        private async Task EnsureStagesProgressInitializedAsync(Onboarding entity)
+        {
+            // Prevent infinite recursion using thread-safe entity tracking
+            lock (_initializationLock)
+            {
+                if (_initializingEntities.Contains(entity.Id))
+                {
+                    return; // Already being initialized, avoid recursion
+                }
+                _initializingEntities.Add(entity.Id);
+            }
+
+            try
+            {
+                // Load current stages progress
+                LoadStagesProgressFromJson(entity);
+
+                // Get current workflow stages
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                if (stages == null || !stages.Any())
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "No stages found for workflow");
+                }
+
+                // If stages progress is empty, initialize it
+                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
+                {
+                    await InitializeStagesProgressAsync(entity, stages);
+                }
+                else
+                {
+                    // Sync with workflow stages (handle new stages addition)
+                    await SyncStagesProgressWithWorkflowAsync(entity);
+                }
+
+                // Always enrich with stage data to ensure consistency
+                await EnrichStagesProgressWithStageDataAsync(entity);
+
+                // NOTE: Do NOT call SafeUpdateOnboardingAsync here to avoid recursion
+                // The caller is responsible for saving changes
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't throw to avoid breaking the main flow
+                // The validation will catch if stages progress is still missing
+            }
+            finally
+            {
+                // Remove from initialization tracking
+                lock (_initializationLock)
+                {
+                    _initializingEntities.Remove(entity.Id);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Serialize stages progress to JSON - only stores progress state, not stage configuration
+        /// Stage configuration fields (stageName, stageOrder, etc.) are excluded via JsonIgnore attributes
+        /// and are populated dynamically from Stage entities when needed.
+        /// </summary>
+        private string SerializeStagesProgress(List<OnboardingStageProgress> stagesProgress)
+        {
+            try
+            {
+                if (stagesProgress == null || !stagesProgress.Any())
+                {
+                    return "[]";
+                }
+
+                // Debug: Check input data before serialization
+                Console.WriteLine($"[DEBUG] SerializeStagesProgress - Input data:");
+                foreach (var sp in stagesProgress)
+                {
+                    Console.WriteLine($"[DEBUG] Input StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                }
+
+                // Serialize OnboardingStageProgress objects with JsonIgnore attributes respected
+                // Only progress-related fields will be included, not stage configuration fields
+                var result = System.Text.Json.JsonSerializer.Serialize(stagesProgress, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    WriteIndented = false,
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+                });
+
+                // Debug: Check final result
+                Console.WriteLine($"[DEBUG] SerializeStagesProgress - Final JSON result:");
+                Console.WriteLine($"[DEBUG] {result}");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Debug logging handled by structured logging
+                return "[]";
+            }
+        }
+
+        /// <summary>
+        /// Query onboardings by stage status using JSONB operators
+        /// Utilizes PostgreSQL JSONB querying capabilities for efficient filtering
+        /// </summary>
+        public async Task<List<OnboardingOutputDto>> QueryByStageStatusAsync(string status)
+        {
+            try
+            {
+                // Use JSONB containment operator for efficient querying
+                var sql = @"
+                    SELECT * FROM ff_onboarding 
+                    WHERE is_valid = true 
+                    AND stages_progress_json @> '[{""status"": """ + status + @"""}]'
+                    ORDER BY create_date DESC
+                ";
+
+                var db = _onboardingRepository.GetSqlSugarClient();
+                var entities = await db.Ado.SqlQueryAsync<Onboarding>(sql);
+
+                // Load and enrich stages progress for each entity
+                foreach (var entity in entities)
+                {
+                    LoadStagesProgressFromJson(entity);
+                    await SyncStagesProgressWithWorkflowAsync(entity);
+                    await EnrichStagesProgressWithStageDataAsync(entity);
+                }
+
+                return _mapper.Map<List<OnboardingOutputDto>>(entities);
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Error querying onboardings by stage status {status}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Query onboardings by completion status using JSONB operators
+        /// </summary>
+        public async Task<List<OnboardingOutputDto>> QueryByCompletionStatusAsync(bool isCompleted)
+        {
+            try
+            {
+                // Use JSONB containment operator for efficient querying
+                var sql = @"
+                    SELECT * FROM ff_onboarding 
+                    WHERE is_valid = true 
+                    AND stages_progress_json @> '[{""isCompleted"": " + isCompleted.ToString().ToLower() + @"}]'
+                    ORDER BY create_date DESC
+                ";
+
+                var db = _onboardingRepository.GetSqlSugarClient();
+                var entities = await db.Ado.SqlQueryAsync<Onboarding>(sql);
+
+                // Load and enrich stages progress for each entity
+                foreach (var entity in entities)
+                {
+                    LoadStagesProgressFromJson(entity);
+                    await SyncStagesProgressWithWorkflowAsync(entity);
+                    await EnrichStagesProgressWithStageDataAsync(entity);
+                }
+
+                return _mapper.Map<List<OnboardingOutputDto>>(entities);
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Error querying onboardings by completion status {isCompleted}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Query onboardings by specific stage ID using JSONB operators
+        /// </summary>
+        public async Task<List<OnboardingOutputDto>> QueryByStageIdAsync(long stageId)
+        {
+            try
+            {
+                // Use JSONB containment operator for efficient querying
+                var sql = @"
+                    SELECT * FROM ff_onboarding 
+                    WHERE is_valid = true 
+                    AND stages_progress_json @> '[{""stageId"": " + stageId + @"}]'
+                    ORDER BY create_date DESC
+                ";
+
+                var db = _onboardingRepository.GetSqlSugarClient();
+                var entities = await db.Ado.SqlQueryAsync<Onboarding>(sql);
+
+                // Load and enrich stages progress for each entity
+                foreach (var entity in entities)
+                {
+                    LoadStagesProgressFromJson(entity);
+                    await SyncStagesProgressWithWorkflowAsync(entity);
+                    await EnrichStagesProgressWithStageDataAsync(entity);
+                }
+
+                return _mapper.Map<List<OnboardingOutputDto>>(entities);
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Error querying onboardings by stage ID {stageId}: {ex.Message}");
             }
         }
     }

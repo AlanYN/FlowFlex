@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
 {
@@ -56,5 +58,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         /// JSON for workflow configuration (stages, settings, etc.)
         /// </summary>
         public string? ConfigJson { get; set; }
+
+        /// <summary>
+        /// Stages to be created with this workflow
+        /// </summary>
+        public List<StageInputDto>? Stages { get; set; }
     }
 }

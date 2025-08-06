@@ -35,5 +35,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [Required(ErrorMessage = "验证码不能为空")]
         [StringLength(6, MinimumLength = 6, ErrorMessage = "验证码必须是6位数字")]
         public string VerificationCode { get; set; }
+
+        /// <summary>
+        /// 跳过邮箱验证（Portal用户专用）
+        /// </summary>
+        public bool SkipEmailVerification { get; set; } = false;
     }
 }

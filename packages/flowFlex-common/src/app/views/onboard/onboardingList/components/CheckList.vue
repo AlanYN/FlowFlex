@@ -65,7 +65,13 @@
 							<el-icon class="completion-icon"><Check /></el-icon>
 							<span class="completion-text">
 								Completed by
-								{{ task.assigneeName || task.createBy || defaultStr }} on
+								{{
+									task.completedBy ||
+									task.assigneeName ||
+									task.createBy ||
+									defaultStr
+								}}
+								on
 								{{ formatDate(task.completedDate) || defaultStr }}
 							</span>
 						</div>
@@ -144,17 +150,17 @@ const formatDate = (dateString: string | null): string => {
 	if (!dateString) return '';
 	try {
 		const date = new Date(dateString);
-		// 格式化为类似 "2023-06-05 10:30" 的格式
-		return date
-			.toLocaleString('en-CA', {
-				year: 'numeric',
-				month: '2-digit',
-				day: '2-digit',
-				hour: '2-digit',
-				minute: '2-digit',
-				hour12: false,
-			})
-			.replace(',', '');
+		if (isNaN(date.getTime())) {
+			return '';
+		}
+		// Format as MM/dd/yyyy HH:mm:ss (US format)
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
 	} catch {
 		return '';
 	}
@@ -263,7 +269,7 @@ const formatDate = (dateString: string | null): string => {
 
 	&:hover:not(.completed) {
 		border-color: #3b82f6;
-		background-color: #eff6ff;
+		background-color: var(--primary-10);
 		box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
 	}
 

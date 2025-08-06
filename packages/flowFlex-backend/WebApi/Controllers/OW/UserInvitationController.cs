@@ -56,20 +56,20 @@ namespace FlowFlex.WebApi.Controllers.OW
             return Success(result);
         }
 
-        /// <summary>
-        /// Verify portal access with invitation token
-        /// </summary>
-        /// <param name="request">Verification request</param>
-        /// <returns>Verification response</returns>
-        [HttpPost("verify-access")]
-        [AllowAnonymous]
-        [ProducesResponseType<SuccessResponse<PortalAccessVerificationResponseDto>>((int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ErrorResponse), 400)]
-        public async Task<IActionResult> VerifyPortalAccessAsync([FromBody] PortalAccessVerificationRequestDto request)
-        {
-            var result = await _userInvitationService.VerifyPortalAccessAsync(request);
-            return Success(result);
-        }
+        // Legacy endpoint - removed as we only use short URL now
+        // /// <summary>
+        // /// Verify portal access with invitation token
+        // /// </summary>
+        // /// <param name="request">Verification request</param>
+        // /// <returns>Verification response</returns>
+        // [HttpPost("verify-access")]
+        // [AllowAnonymous]
+        // [ProducesResponseType<SuccessResponse<PortalAccessVerificationResponseDto>>((int)HttpStatusCode.OK)]
+        // [ProducesResponseType(typeof(ErrorResponse), 400)]
+        // public async Task<IActionResult> VerifyPortalAccessAsync([FromBody] PortalAccessVerificationRequestDto request)
+        // {
+        //     throw new NotImplementedException("Legacy token verification is no longer supported. Use short URL verification instead.");
+        // }
 
         /// <summary>
         /// Resend invitation
@@ -101,6 +101,38 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Toggle portal access status (Active/Inactive)
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <param name="isActive">Whether to activate or deactivate</param>
+        /// <returns>Whether status change was successful</returns>
+        [HttpPut("toggle-status/{onboardingId}")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> TogglePortalAccessStatusAsync(long onboardingId, [FromQuery] string email, [FromQuery] bool isActive)
+        {
+            var result = await _userInvitationService.TogglePortalAccessStatusAsync(onboardingId, email, isActive);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get invitation link for a user
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="email">Email address</param>
+        /// <returns>Invitation link information</returns>
+        [HttpGet("invitation-link/{onboardingId}")]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> GetInvitationLinkAsync(long onboardingId, [FromQuery] string email)
+        {
+            // Don't pass backend URL, let service use configured frontend URL
+            var result = await _userInvitationService.GetInvitationLinkAsync(onboardingId, email);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Validate invitation token
         /// </summary>
         /// <param name="request">Token validation request</param>
@@ -123,6 +155,22 @@ namespace FlowFlex.WebApi.Controllers.OW
                     Error = ex.Message
                 });
             }
+        }
+
+        /// <summary>
+        /// Verify portal access with short URL ID
+        /// </summary>
+        /// <param name="shortUrlId">Short URL identifier</param>
+        /// <param name="request">Verification request with email</param>
+        /// <returns>Verification response</returns>
+        [HttpPost("verify-access-short/{shortUrlId}")]
+        [AllowAnonymous]
+        [ProducesResponseType<SuccessResponse<PortalAccessVerificationResponseDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> VerifyPortalAccessByShortUrlAsync(string shortUrlId, [FromBody] PortalAccessVerificationByShortUrlRequestDto request)
+        {
+            var result = await _userInvitationService.VerifyPortalAccessByShortUrlAsync(shortUrlId, request.Email);
+            return Success(result);
         }
     }
 }

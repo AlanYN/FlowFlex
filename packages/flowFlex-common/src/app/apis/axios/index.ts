@@ -17,6 +17,8 @@ import { getProcessErrorResponseMessage } from '@/utils/utils';
 import { ElMessage } from 'element-plus';
 import { AxiosCanceler } from './axiosCancel';
 import { getTimeZoneInfo } from '@/hooks/time';
+import { useUserStoreWithOut } from '@/stores/modules/user';
+import { useWujie } from '@/hooks/wujie/micro-app.config';
 import axios from 'axios';
 import qs from 'qs';
 
@@ -129,20 +131,33 @@ const transform: AxiosTransform = {
 		const tokenObj = getTokenobj() as TokenObj;
 		const token = tokenObj?.accessToken?.token;
 		const authenticat = tokenObj?.accessToken?.tokenType;
+
+		// Portal页面优先使用标准用户认证，fallback到portal_access_token
+		const portalAccessToken = localStorage.getItem('portal_access_token');
+		const isPortalRequest =
+			window.location.pathname.startsWith('/customer-portal') ||
+			window.location.pathname.startsWith('/onboard/sub-portal/portal');
+
 		if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
+			// 优先使用标准用户认证（包括portal页面）
 			(config as Recordable).headers.Authorization = authenticat
 				? `${authenticat} ${token}`
 				: `${options.authenticationScheme} ${token}`;
+		} else if (isPortalRequest && portalAccessToken) {
+			// 当没有标准认证时，portal页面才使用portal访问token
+			(config as Recordable).headers.Authorization = `Bearer ${portalAccessToken}`;
 		} else {
 			if (Object.keys((config as Recordable)?.requestOptions).includes('Authorization')) {
 				(config as Recordable).headers.Authorization = (config as Recordable)
 					?.requestOptions.Authorization;
 			}
 		}
+		const userStore = useUserStoreWithOut();
+		console.log('userStore.getUserInfo', userStore.getUserInfo);
 		(config as Recordable).headers['Time-Zone'] = `${getTimeZoneInfo().timeZone}`;
 		(config as Recordable).headers['Application-code'] = `${globSetting.ssoCode}`;
-		(config as Recordable).headers['X-App-Code'] = 'DEFAULT';
-		(config as Recordable).headers['X-Tenant-Id'] = 'DEFAULT';
+		(config as Recordable).headers['X-App-Code'] = userStore.getUserInfo?.appCode;
+		(config as Recordable).headers['X-Tenant-Id'] = userStore.getUserInfo?.tenantId;
 		// TODO: 在拦截器配置paramsSerializer
 		// const METHOD = config.method?.toUpperCase();
 		// if (METHOD === RequestEnum.GET || METHOD === RequestEnum.PUT) {
@@ -180,10 +195,18 @@ const transform: AxiosTransform = {
 		if (Object.keys(error?.response?.headers).includes('token-expired')) {
 			console.log('token过期了'); // 只是token过期��� 不包含其他地方登录了
 			axiosCanceler.removeAllPending();
+			const { tokenExpiredLogOut } = useWujie();
+			if (tokenExpiredLogOut) {
+				tokenExpiredLogOut(true);
+			}
 			window.parent.postMessage({ exceedToken: true }, '*');
 		} else if (error.response?.status === 401) {
-			window.parent.postMessage({ exceedToken: true }, '*');
 			axiosCanceler.removeAllPending();
+			const { tokenExpiredLogOut } = useWujie();
+			if (tokenExpiredLogOut) {
+				tokenExpiredLogOut(true);
+			}
+			window.parent.postMessage({ exceedToken: true }, '*');
 		}
 		if (axios.isCancel(error)) {
 			return Promise.reject(error);

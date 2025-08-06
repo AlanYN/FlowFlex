@@ -1,10 +1,13 @@
 <template>
-	<router-view :key="routeKey" />
+	<ElConfigProvider :popup-container="(triggerNode) => triggerNode?.parentNode">
+		<router-view :key="routeKey" />
+	</ElConfigProvider>
 </template>
 
 <script lang="ts" setup>
 import { ref, nextTick, provide } from 'vue';
 import { useTitle } from '@/hooks/web/useTitle';
+import { ElConfigProvider } from 'element-plus';
 // import ChatDialog from '@/components/ChatWindow/ChatDialog.vue';
 
 useTitle();

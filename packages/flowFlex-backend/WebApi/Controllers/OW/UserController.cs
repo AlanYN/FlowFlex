@@ -195,6 +195,48 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Logout user and revoke current token
+        /// </summary>
+        /// <returns>Logout result</returns>
+        [HttpPost("logout")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> Logout()
+        {
+            // Extract token from Authorization header
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer "))
+            {
+                return BadRequest("Authorization header with Bearer token is required");
+            }
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var result = await _userService.LogoutAsync(token);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Logout from all devices (revoke all user tokens)
+        /// </summary>
+        /// <returns>Number of tokens revoked</returns>
+        [HttpPost("logout-all-devices")]
+        [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> LogoutFromAllDevices()
+        {
+            var userId = _userContextService.GetCurrentUserId();
+            if (userId <= 0)
+            {
+                return BadRequest("Unable to determine current user");
+            }
+
+            var revokedCount = await _userService.LogoutFromAllDevicesAsync(userId);
+            return Success(revokedCount);
+        }
+
+        /// <summary>
         /// Parse JWT token and return detailed information
         /// </summary>
         /// <param name="request">Parse token request</param>
@@ -241,6 +283,22 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             var tokenInfo = _jwtService.ParseToken(token);
             return Success(tokenInfo);
+        }
+
+        /// <summary>
+        /// Third-party login with automatic registration
+        /// </summary>
+        /// <param name="request">Third-party login request</param>
+        /// <returns>Login response with system token</returns>
+        [HttpPost("third-party-login")]
+        [AllowAnonymous]
+        [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> ThirdPartyLogin([FromBody] ThirdPartyLoginRequestDto request)
+        {
+            var response = await _userService.ThirdPartyLoginAsync(request);
+            return Success(response);
         }
     }
 }

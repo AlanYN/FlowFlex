@@ -1,7 +1,10 @@
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
+import AutoImport from 'unplugin-auto-import/vite';
+import IconsResolver from 'unplugin-icons/resolver';
+import Icons from 'unplugin-icons/vite';
+import Components from 'unplugin-vue-components/vite';
 import { type PluginOption } from 'vite';
-import purgeIcons from 'vite-plugin-purge-icons';
 import { VueMcp } from 'vite-plugin-vue-mcp';
 import svgLoader from 'vite-svg-loader';
 
@@ -21,7 +24,7 @@ interface Options {
 }
 
 async function createPlugins({ isBuild, root, enableMock, compress, enableAnalyze }: Options) {
-	const vitePlugins: (PluginOption | PluginOption[])[] = [vue(), vueJsx(), VueMcp()];
+	const vitePlugins: (PluginOption | PluginOption[] | any)[] = [vue(), vueJsx(), VueMcp()];
 
 	const appConfigPlugin = await createAppConfigPlugin({ root, isBuild });
 	vitePlugins.push(appConfigPlugin);
@@ -31,9 +34,6 @@ async function createPlugins({ isBuild, root, enableMock, compress, enableAnalyz
 
 	// vite-plugin-svg-icons
 	vitePlugins.push(configSvgIconsPlugin({ isBuild }));
-
-	// vite-plugin-purge-icons
-	vitePlugins.push(purgeIcons());
 
 	// The following plugins only work in the production environment
 	if (isBuild) {
@@ -56,6 +56,25 @@ async function createPlugins({ isBuild, root, enableMock, compress, enableAnalyz
 	}
 
 	vitePlugins.push(svgLoader());
+
+	vitePlugins.push(
+		AutoImport({
+			resolvers: [IconsResolver()],
+		})
+	);
+
+	vitePlugins.push(
+		Components({
+			resolvers: [IconsResolver({ prefix: 'Icon' })],
+		})
+	);
+
+	vitePlugins.push(
+		Icons({
+			compiler: 'vue3',
+			autoInstall: true, // 自动安装图标包
+		})
+	);
 
 	return vitePlugins;
 }

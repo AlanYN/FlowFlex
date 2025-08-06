@@ -41,10 +41,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useUserStore } from '@/stores/modules/user';
 import { useI18n } from '@/hooks/useI18n';
-import { getFileUrl } from '@/apis/global';
 
 import LogoutIcon from '@assets/svg/global/logout.svg';
 
@@ -61,20 +60,6 @@ const userName = computed(() => {
 });
 
 const avatar = ref('');
-watch(
-	() => userStore.getUserInfo,
-	async (newVal) => {
-		if (userStore.getUserInfo?.attachmentId) {
-			const res = await getFileUrl(userStore.getUserInfo.attachmentId);
-			if (res.code == '200') {
-				avatar.value = res.data;
-			}
-		} else {
-			avatar.value = '';
-		}
-	},
-	{ immediate: true, deep: true }
-);
 
 const logout = () => {
 	userStore.confirmLoginOut();

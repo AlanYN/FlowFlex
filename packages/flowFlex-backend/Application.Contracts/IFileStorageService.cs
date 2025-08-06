@@ -15,7 +15,7 @@ namespace FlowFlex.Application.Contracts
         /// <param name="category">File category</param>
         /// <param name="tenantId">Tenant ID</param>
         /// <returns>File information</returns>
-        Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "default", string tenantId = "default");
+        Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "DEFAULT", string tenantId = "DEFAULT");
 
         /// <summary>
         /// Get file

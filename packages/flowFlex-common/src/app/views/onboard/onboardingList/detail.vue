@@ -19,6 +19,14 @@
 				</h1>
 			</div>
 			<div class="flex items-center space-x-2">
+				<el-button
+					type="primary"
+					@click="saveQuestionnaireAndField"
+					:loading="saveAllLoading"
+					:icon="Document"
+				>
+					Save
+				</el-button>
 				<el-button type="primary" @click="handleCompleteStage" :loading="completing">
 					<el-icon class="mr-1">
 						<Check />
@@ -32,12 +40,12 @@
 					</el-icon>
 					&nbsp;&nbsp;Portal Access Management
 				</el-button>
-				<el-button type="primary" @click="messageDialogVisible = true">
+				<!-- <el-button type="primary" @click="messageDialogVisible = true">
 					<el-icon>
 						<ChatDotSquare />
 					</el-icon>
 					&nbsp;&nbsp;Send Message
-				</el-button>
+				</el-button> -->
 			</div>
 		</div>
 
@@ -126,6 +134,7 @@
 								<!-- 文件组件 -->
 								<Documents
 									v-else-if="component.key === 'files'"
+									ref="documentsRef"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									@document-uploaded="handleDocumentUploaded"
@@ -229,7 +238,7 @@
 		<el-dialog
 			v-model="portalAccessDialogVisible"
 			title="Portal Access Management"
-			width="800px"
+			width="1000px"
 			:before-close="() => (portalAccessDialogVisible = false)"
 		>
 			<PortalAccessContent :onboarding-id="onboardingId" :onboarding-data="onboardingData" />
@@ -241,7 +250,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, ChatDotSquare, Loading, User } from '@element-plus/icons-vue';
+import { ArrowLeft, Loading, User, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
@@ -252,10 +261,11 @@ import {
 	getQuestionnaireAnswer,
 	completeCurrentStage,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, StageInfo, ComponentData } from '#/onboard';
+import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
+import { useUserStore } from '@/stores/modules/user';
 // 导入组件
 import OnboardingProgress from './components/OnboardingProgress.vue';
 import QuestionnaireDetails from './components/QuestionnaireDetails.vue';
@@ -268,6 +278,7 @@ import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
 
 const { t } = useI18n();
+const userStore = useUserStore();
 
 // 常量定义
 const router = useRouter();
@@ -286,7 +297,7 @@ const saving = ref(false);
 const checklistsData = ref<any[]>([]);
 const questionnairesData = ref<any[]>([]);
 // 问卷答案映射：questionnaireId -> responses[]
-const questionnaireAnswersMap = ref<Record<string, any[]>>({});
+const questionnaireAnswersMap = ref<SectionAnswer[]>([]);
 
 // Loading状态管理
 const stageDataLoading = ref(false); // 初始加载和阶段完成后的数据加载状态
@@ -317,6 +328,7 @@ const onboardingId = computed(() => {
 const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
 const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+const documentsRef = ref<any[]>([]);
 
 // 函数式ref，用于收集StaticForm组件实例
 const setStaticFormRef = (el: any) => {
@@ -384,12 +396,6 @@ const sortedComponents = computed(() => {
 	}
 
 	return [...onboardingActiveStageInfo.value.components].sort((a, b) => {
-		if (a.key === 'fields' && b.key !== 'fields') {
-			return -1; // 静态字段表单优先
-		}
-		if (a.key !== 'fields' && b.key === 'fields') {
-			return 1; // 静态字段表单优先
-		}
 		return a.order - b.order; // 根据order排序
 	});
 });
@@ -471,16 +477,21 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 		]);
 
 		if (checklistResponse.code === '200') {
-			// 获取已完成的任务信息
-			const completedTasksMap = new Map<string, boolean>();
+			// 获取已完成的任务信息，包含完成者和完成时间
+			const completedTasksMap = new Map<string, any>();
 			if (completionResponse.code === '200' && completionResponse.data) {
-				// 假设 completionResponse.data 包含已完成的任务列表
+				// completionResponse.data 包含已完成的任务列表，包含 modifyBy 和 completedTime
 				if (Array.isArray(completionResponse.data)) {
 					completionResponse.data.forEach((completedTask: any) => {
 						// 根据实际API返回的数据结构调整
 						const taskId = completedTask.taskId || completedTask.id;
 						if (taskId) {
-							completedTasksMap.set(taskId, true);
+							completedTasksMap.set(taskId, {
+								isCompleted: completedTask.isCompleted,
+								completedBy: completedTask.modifyBy || completedTask.createBy,
+								completedTime:
+									completedTask.completedTime || completedTask.modifyDate,
+							});
 						}
 					});
 				}
@@ -493,11 +504,17 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 					checklist.tasks = [];
 				}
 
-				// 更新每个任务的完成状态
-				checklist.tasks = checklist.tasks.map((task: any) => ({
-					...task,
-					isCompleted: completedTasksMap.has(task.id) || task.isCompleted || false,
-				}));
+				// 更新每个任务的完成状态和完成者信息
+				checklist.tasks = checklist.tasks.map((task: any) => {
+					const completionInfo = completedTasksMap.get(task.id);
+					return {
+						...task,
+						isCompleted: completionInfo?.isCompleted || task.isCompleted || false,
+						completedBy:
+							completionInfo?.completedBy || task.assigneeName || task.createBy,
+						completedDate: completionInfo?.completedTime || task.completedDate,
+					};
+				});
 
 				// 重新计算完成任务数和总任务数
 				const completedTasks = checklist.tasks.filter(
@@ -556,7 +573,7 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 		await nextTick();
 		// 处理答案
 		if (answerRes.code === '200' && answerRes.data && Array.isArray(answerRes.data)) {
-			const map: Record<string, any[]> = {};
+			const map: SectionAnswer[] = [];
 			answerRes.data.forEach((item: any) => {
 				if (item.questionnaireId && item.answerJson) {
 					let parsed;
@@ -569,7 +586,10 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 						parsed = null;
 					}
 					if (parsed && Array.isArray(parsed.responses)) {
-						map[item.questionnaireId] = parsed.responses;
+						map[item.questionnaireId] = {
+							answer: parsed.responses,
+							...item,
+						};
 					}
 				}
 			});
@@ -708,6 +728,13 @@ const handleTaskToggled = async (task: any) => {
 						taskToUpdate.completedDate = task.isCompleted
 							? new Date().toISOString()
 							: null;
+						// 更新完成者信息 - 从当前用户信息获取
+						if (task.isCompleted) {
+							taskToUpdate.completedBy =
+								userStore.getUserInfo?.email || 'unknown@email.com';
+						} else {
+							taskToUpdate.completedBy = null;
+						}
 
 						// 更新 checklist 的完成统计
 						const completedTasks =
@@ -746,17 +773,16 @@ const handleSaveEdit = async () => {
 	}
 };
 
-const saveAllForm = async () => {
+const saveAllLoading = ref(false);
+const saveAllForm = async (isValidate: boolean = true) => {
 	try {
+		saveAllLoading.value = true;
 		// 串行执行保存操作 - 先保存StaticForm组件
 		if (staticFormRefs.value.length > 0) {
 			for (let i = 0; i < staticFormRefs.value.length; i++) {
 				const formRef = staticFormRefs.value[i];
 				if (formRef && typeof formRef.handleSave === 'function') {
-					const result = await formRef.handleSave();
-					if (result !== true) {
-						return false;
-					}
+					return await formRef.handleSave(isValidate);
 				}
 			}
 		}
@@ -766,10 +792,7 @@ const saveAllForm = async () => {
 			for (let i = 0; i < questionnaireDetailsRefs.value.length; i++) {
 				const questRef = questionnaireDetailsRefs.value[i];
 				if (questRef && typeof questRef.handleSave === 'function') {
-					const result = await questRef.handleSave(false);
-					if (result !== true) {
-						return false;
-					}
+					return await questRef.handleSave(false, isValidate);
 				}
 			}
 		}
@@ -777,6 +800,8 @@ const saveAllForm = async () => {
 		return true;
 	} catch (error) {
 		return false;
+	} finally {
+		saveAllLoading.value = false;
 	}
 };
 
@@ -824,6 +849,16 @@ const handleCompleteStage = async () => {
 			},
 		}
 	);
+};
+
+const saveQuestionnaireAndField = async () => {
+	const res = await saveAllForm(false);
+	if (res) {
+		ElMessage.success(t('sys.api.operationSuccess'));
+		loadOnboardingDetail();
+	} else {
+		ElMessage.error(t('sys.api.operationFailed'));
+	}
 };
 
 const changeLogRef = ref<InstanceType<typeof ChangeLog>>();

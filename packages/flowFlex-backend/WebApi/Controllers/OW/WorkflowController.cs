@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -17,12 +18,10 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// Workflow management API
     /// </summary>
-
     [ApiController]
-
     [Route("ow/workflows/v{version:apiVersion}")]
     [Display(Name = "workflow")]
-
+    [Authorize] // 添加授权特性，要求所有workflows API都需要认证
     public class WorkflowController : Controllers.ControllerBase
     {
         private readonly IWorkflowService _workflowService;
@@ -169,13 +168,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Get workflow version history
         /// </summary>
-        [HttpGet("{id}/versions")]
-        [ProducesResponseType<SuccessResponse<List<WorkflowVersionDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetVersionHistory(long id)
-        {
-            var versions = await _workflowService.GetVersionHistoryAsync(id);
-            return Success(versions);
-        }
+        // 移除GetVersionHistory、GetStagesByVersionId、GetVersionDetail、CreateFromVersion、CreateNewVersion等与版本历史相关的接口实现
 
         /// <summary>
         /// Get stages by workflow id
@@ -196,7 +189,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportDetailedToExcel(long id)
         {
             var stream = await _workflowService.ExportDetailedToExcelAsync(id);
-            var fileName = $"workflow_detailed_{id}_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"workflow_detailed_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
@@ -208,41 +201,19 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportMultipleDetailedToExcel([FromBody] WorkflowExportSearch search)
         {
             var stream = await _workflowService.ExportMultipleDetailedToExcelAsync(search);
-            var fileName = $"workflows_detailed_export_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"workflows_detailed_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
+    }
 
+    /// <summary>
+    /// Request model for creating a new version
+    /// </summary>
+    public class CreateVersionRequest
+    {
         /// <summary>
-        /// Get stages by workflow version id
+        /// Optional reason for creating the version
         /// </summary>
-        [HttpGet("{workflowId}/versions/{versionId}/stages")]
-        [ProducesResponseType<SuccessResponse<List<StageOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetStagesByVersionId(long workflowId, long versionId)
-        {
-            var data = await _workflowService.GetStagesByVersionIdAsync(workflowId, versionId);
-            return Success(data);
-        }
-
-        /// <summary>
-        /// Get workflow version detail with stages
-        /// </summary>
-        [HttpGet("{workflowId}/versions/{versionId}")]
-        [ProducesResponseType<SuccessResponse<WorkflowVersionDetailDto>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetVersionDetail(long workflowId, long versionId)
-        {
-            var data = await _workflowService.GetVersionDetailAsync(workflowId, versionId);
-            return Success(data);
-        }
-
-        /// <summary>
-        /// Create workflow from version with stages
-        /// </summary>
-        [HttpPost("create-from-version")]
-        [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> CreateFromVersion([FromBody] CreateWorkflowFromVersionInputDto input)
-        {
-            var id = await _workflowService.CreateFromVersionAsync(input);
-            return Success(id);
-        }
+        public string ChangeReason { get; set; }
     }
 }

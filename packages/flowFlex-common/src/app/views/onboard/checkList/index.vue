@@ -468,6 +468,65 @@
 							</div>
 						</div>
 					</div>
+
+					<!-- 空状态 - 没有检查清单时显示 -->
+					<div
+						v-if="!loading && filteredChecklists.length === 0"
+						class="empty-state-container rounded-lg bg-white shadow-sm border border-gray-200"
+					>
+						<div class="empty-state-content">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="64"
+								height="64"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="empty-state-icon"
+							>
+								<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+								<path
+									d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
+								/>
+								<path d="M12 11h4" />
+								<path d="M12 16h4" />
+								<path d="M8 11h.01" />
+								<path d="M8 16h.01" />
+							</svg>
+							<h2 class="empty-state-title">No Checklists Found</h2>
+							<p class="empty-state-desc">
+								Create your first checklist to help manage tasks during the
+								onboarding process.
+							</p>
+							<el-button
+								type="primary"
+								size="large"
+								@click="openCreateDialog"
+								:loading="createLoading"
+								class="create-checklist-btn"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="mr-2"
+								>
+									<path d="M12 5v14" />
+									<path d="M5 12h14" />
+								</svg>
+								<span>Create Checklist</span>
+							</el-button>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -516,6 +575,7 @@
 					ref="workflowAssignmentsRef"
 					:assignments="initialAssignments"
 					:workflows="workflows"
+					:stages="stages"
 				/>
 			</el-form>
 
@@ -572,14 +632,12 @@ const processTaskData = (task) => ({
 	...task,
 	completed: task.isCompleted || task.completed || false,
 	estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-	order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0),
+	order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0,
 });
 
 // 处理任务列表，确保排序正确
 const processTaskList = (tasks) => {
-	return (tasks || [])
-		.map(processTaskData)
-		.sort((a, b) => (a.order || 0) - (b.order || 0));
+	return (tasks || []).map(processTaskData).sort((a, b) => (a.order || 0) - (b.order || 0));
 };
 
 // 任务编辑相关
@@ -708,8 +766,11 @@ const filteredChecklists = computed(() => {
 			if (!searchTerm) return matchesTeam;
 
 			// 将搜索词按逗号分割，支持多标签搜索
-			const searchTerms = searchTerm.split(',').map((term) => term.trim()).filter((term) => term.length > 0);
-			
+			const searchTerms = searchTerm
+				.split(',')
+				.map((term) => term.trim())
+				.filter((term) => term.length > 0);
+
 			if (searchTerms.length === 0) return matchesTeam;
 
 			// 使用 OR 逻辑：任何一个搜索词匹配即可
@@ -722,12 +783,18 @@ const filteredChecklists = computed(() => {
 			return matchesTeam && hasMatch;
 		})
 		.sort((a, b) => {
-			// 缓存日期对象避免重复创建
+			// 按修改时间倒序排序（最新修改的在前面）
 			const dateA =
-				a._sortDate || (a._sortDate = new Date(a.createDate || a.createdAt || 0).getTime());
+				a._sortDate ||
+				(a._sortDate = new Date(
+					a.modifyDate || a.createDate || a.createdAt || 0
+				).getTime());
 			const dateB =
-				b._sortDate || (b._sortDate = new Date(b.createDate || b.createdAt || 0).getTime());
-			return dateA - dateB;
+				b._sortDate ||
+				(b._sortDate = new Date(
+					b.modifyDate || b.createDate || b.createdAt || 0
+				).getTime());
+			return dateB - dateA;
 		});
 
 	// 分页优化：只返回当前页的数据
@@ -819,13 +886,18 @@ const loadChecklists = async () => {
 			.map((checklist) => {
 				// 检查是否已经有加载的任务数据
 				const existingChecklist = checklists.value.find((c) => c.id === checklist.id);
-				if (existingChecklist && existingChecklist.tasksLoaded && existingChecklist.tasks?.length > 0) {
+				if (
+					existingChecklist &&
+					existingChecklist.tasksLoaded &&
+					existingChecklist.tasks?.length > 0
+				) {
 					// 保留已加载的任务数据，确保正确处理order字段
 					return {
 						...checklist,
-						tasks: existingChecklist.tasks.map(task => ({
+						tasks: existingChecklist.tasks.map((task) => ({
 							...task,
-							order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：确保order字段正确
+							order:
+								task.orderIndex !== undefined ? task.orderIndex : task.order || 0,
 						})),
 						tasksLoaded: true,
 					};
@@ -833,16 +905,16 @@ const loadChecklists = async () => {
 					// 初始化为空数组
 					return {
 						...checklist,
-						tasks: [], 
+						tasks: [],
 						tasksLoaded: false,
 					};
 				}
 			})
 			.sort((a, b) => {
-				// 按创建时间升序排序（最早的在前面）
-				const dateA = new Date(a.createDate || a.createdAt || 0);
-				const dateB = new Date(b.createDate || b.createdAt || 0);
-				return dateA.getTime() - dateB.getTime();
+				// 按修改时间倒序排序（最新修改的在前面）
+				const dateA = new Date(a.modifyDate || a.createDate || a.createdAt || 0);
+				const dateB = new Date(b.modifyDate || b.createDate || b.createdAt || 0);
+				return dateB.getTime() - dateA.getTime();
 			});
 
 		// 使用新的数组引用确保响应式更新
@@ -869,7 +941,6 @@ const taskLoadingCache = new Map();
 const loadChecklistTasks = async (checklistId, forceReload = false) => {
 	const checklist = checklists.value.find((c) => c.id === checklistId);
 	if (!checklist) {
-		console.warn(`Checklist not found: ${checklistId}`);
 		return;
 	}
 	if (checklist.tasksLoaded && !forceReload) {
@@ -892,22 +963,20 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 
 	const loadPromise = (async () => {
 		try {
-			console.log(`Loading tasks for checklist: ${checklistId}`);
-			
 			// 添加超时机制
 			const timeoutPromise = new Promise((_, reject) => {
 				setTimeout(() => reject(new Error('API request timeout')), 10000);
 			});
 
 			const tasks = await Promise.race([getChecklistTasks(checklistId), timeoutPromise]);
-			console.log(`Tasks loaded for checklist ${checklistId}:`, tasks);
+			const tasksData = tasks.data || tasks || [];
 
-			const processedTasks = (tasks.data || tasks || [])
+			const processedTasks = tasksData
 				.map((task) => ({
 					...task,
 					completed: task.isCompleted || task.completed || false,
 					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+					order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0, // 修改：正确处理orderIndex字段
 				}))
 				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
@@ -919,7 +988,6 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 
 			// 强制触发响应式更新
 			checklists.value = [...checklists.value];
-			console.log(`Tasks loaded successfully for checklist ${checklistId}, count: ${processedTasks.length}`);
 			return processedTasks;
 		} catch (taskError) {
 			console.error(`Failed to load tasks for checklist ${checklistId}:`, taskError);
@@ -939,10 +1007,9 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 		} finally {
 			// 清理缓存
 			taskLoadingCache.delete(checklistId);
-			
+
 			// 确保在任何情况下都设置 tasksLoaded 为 true
 			if (!checklist.tasksLoaded) {
-				console.warn(`Force setting tasksLoaded=true for checklist ${checklistId}`);
 				checklist.tasksLoaded = true;
 				checklists.value = [...checklists.value];
 			}
@@ -956,38 +1023,26 @@ const loadChecklistTasks = async (checklistId, forceReload = false) => {
 // 优化的workflow和stage加载逻辑 - 使用统一的getAllStages接口
 const loadWorkflowsAndStages = async () => {
 	try {
-		console.log('开始加载 workflows 和 stages...');
-
 		// 并行加载workflows和stages，提高性能
 		const [workflowResponse, stagesResponse] = await Promise.all([
 			getWorkflows(),
-			getAllStages()
+			getAllStages(),
 		]);
 
 		// 处理workflows响应
 		if (workflowResponse.code === '200') {
 			workflows.value = workflowResponse.data || [];
-			console.log('Workflows 加载成功:', workflows.value.length, '个');
 		} else {
 			workflows.value = [];
-			console.warn('Workflows 加载失败:', workflowResponse);
 		}
 
 		// 处理stages响应
 		if (stagesResponse.code === '200') {
 			// 所有stages都已经包含workflowId，直接使用
 			stages.value = stagesResponse.data || [];
-			console.log('Stages 加载成功，总计:', stages.value.length, '个');
-			console.log(
-				'所有 stages:',
-				stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
-			);
 		} else {
 			stages.value = [];
-			console.warn('Stages 加载失败:', stagesResponse);
 		}
-
-		console.log('Workflows 和 Stages 加载完成');
 	} catch (err) {
 		console.error('Failed to load workflows and stages:', err);
 		workflows.value = [];
@@ -1062,7 +1117,7 @@ const addTask = async (checklistId) => {
 					...task,
 					completed: task.isCompleted || task.completed || false,
 					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+					order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0, // 修改：正确处理orderIndex字段
 				}))
 				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
@@ -1089,6 +1144,8 @@ const addTask = async (checklistId) => {
 				completed: false,
 				estimatedMinutes: 0,
 			});
+			// 确保设置为已加载状态
+			checklist.tasksLoaded = true;
 			// 强制触发响应式更新
 			checklists.value = [...checklists.value];
 		}
@@ -1126,7 +1183,7 @@ const deleteTask = async (checklistId, taskId) => {
 					...task,
 					completed: task.isCompleted || task.completed || false,
 					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+					order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0, // 修改：正确处理orderIndex字段
 				}))
 				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
@@ -1198,7 +1255,6 @@ const loadStagesByWorkflow = async (workflowName) => {
 					stage.workflowId.toString() !== selectedWorkflow.id.toString()
 			);
 			stages.value = [...otherWorkflowStages, ...stagesWithWorkflowId];
-			console.log(`Loaded ${workflowStages.length} stages for workflow: ${workflowName}`);
 		} else {
 			console.warn('Failed to load stages, API response code:', response.code);
 		}
@@ -1222,33 +1278,7 @@ const editChecklist = async (checklist) => {
 		workflowName = workflow ? workflow.name : '';
 	}
 
-	// 加载所有assignments需要的stages
-	const uniqueWorkflowIds = new Set();
-
-	// 添加单个workflow（如果存在）
-	if (workflowName) {
-		const workflow = workflows.value.find((w) => w.name === workflowName);
-		if (workflow) {
-			uniqueWorkflowIds.add(workflow.id.toString());
-		}
-	}
-
-	// 添加assignments中的workflows
-	(checklist.assignments || []).forEach((assignment) => {
-		if (assignment.workflowId) {
-			uniqueWorkflowIds.add(assignment.workflowId.toString());
-		}
-	});
-
-	// 为每个唯一的workflow加载stages
-	for (const workflowId of uniqueWorkflowIds) {
-		const workflow = workflows.value.find((w) => w.id.toString() === workflowId);
-		if (workflow) {
-			await loadStagesByWorkflow(workflow.name);
-		}
-	}
-
-	// 现在查找stage名称（stages已经加载）
+	// 现在查找stage名称（stages已经在全局加载）
 	let stageName = '';
 	if (checklist.stageId) {
 		const stage = stages.value.find((s) => s.id.toString() === checklist.stageId.toString());
@@ -1264,7 +1294,10 @@ const editChecklist = async (checklist) => {
 			workflowId: assignment.workflowId,
 			stageId: assignment.stageId,
 		}))
-		.filter((assignment) => assignment.workflowId && assignment.stageId);
+		.filter(
+			(assignment) => assignment.workflowId && assignment.workflowId !== '0'
+			// 保留stageId为0的assignment，让WorkflowAssignments组件处理
+		);
 
 	console.log(
 		`Processed ${assignments.length} valid assignments out of ${
@@ -1844,8 +1877,6 @@ const getAssignmentsForPdf = (checklist) => {
 // 创建PDF内容的函数
 const createPdfContent = (checklist) => {
 	const tasks = checklist.tasks || [];
-	console.log('PDF Export - Checklist:', checklist);
-	console.log('PDF Export - Tasks:', tasks);
 
 	const tasksHtml =
 		tasks.length > 0
@@ -2045,7 +2076,7 @@ const openCreateDialog = async () => {
 
 	// 等待下一个 tick，确保 WorkflowAssignments 组件已经渲染
 	await nextTick();
-	
+
 	// 清空 WorkflowAssignments 组件的数据
 	if (workflowAssignmentsRef.value?.clearAssignments) {
 		workflowAssignmentsRef.value.clearAssignments();
@@ -2065,12 +2096,12 @@ const closeDialog = () => {
 	showDialog.value = false;
 	editingChecklist.value = null;
 	initialAssignments.value = [];
-	
+
 	// 清空 WorkflowAssignments 组件的数据
 	if (workflowAssignmentsRef.value?.clearAssignments) {
 		workflowAssignmentsRef.value.clearAssignments();
 	}
-	
+
 	formData.value = {
 		name: '',
 		description: '',
@@ -2133,19 +2164,19 @@ const submitDialog = async () => {
 		console.log(`Refreshing checklist data after ${isEdit ? 'update' : 'creation'}...`);
 		const currentExpandedIds = [...expandedChecklists.value];
 		const taskLoadedChecklists = new Map();
-		
-		// 保存已加载任务的清单
+
+		// 保存已加载任务的清单状态（包括没有任务的checklist）
 		checklists.value.forEach((checklist) => {
-			if (checklist.tasksLoaded && checklist.tasks?.length > 0) {
+			if (checklist.tasksLoaded) {
 				taskLoadedChecklists.set(checklist.id, {
-					tasks: checklist.tasks,
-					tasksLoaded: true
+					tasks: checklist.tasks || [],
+					tasksLoaded: true,
 				});
 			}
 		});
-		
+
 		await loadChecklists();
-		
+
 		// 恢复展开状态和任务数据
 		expandedChecklists.value = currentExpandedIds;
 		checklists.value.forEach((checklist) => {
@@ -2232,8 +2263,6 @@ const cancelTaskEdit = () => {
 	};
 };
 
-
-
 const saveTaskEdit = async () => {
 	if (!editingTask.value || !editingTaskChecklistId.value) return;
 
@@ -2259,7 +2288,7 @@ const saveTaskEdit = async () => {
 					...task,
 					completed: task.isCompleted || task.completed || false,
 					estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-					order: task.orderIndex !== undefined ? task.orderIndex : (task.order || 0), // 修改：正确处理orderIndex字段
+					order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0, // 修改：正确处理orderIndex字段
 				}))
 				.sort((a, b) => (a.order || 0) - (b.order || 0)); // 修改：按order字段排序
 
@@ -2317,17 +2346,12 @@ onUnmounted(() => {
 	taskLoadingCache.clear();
 });
 
-
-
 // 辅助函数：根据 ID 获取工作流名称
 const getWorkflowNameById = (workflowId) => {
 	if (!workflowId) return '';
 	const workflow = workflows.value.find((w) => w.id.toString() === workflowId.toString());
 	if (!workflow) {
-		console.log(
-			`Workflow not found for ID: ${workflowId}. Available workflows:`,
-			workflows.value.map((w) => ({ id: w.id, name: w.name }))
-		);
+		// Workflow not found, return default value
 	}
 	return workflow ? workflow.name : '--';
 };
@@ -2337,10 +2361,7 @@ const getStageNameById = (stageId) => {
 	if (!stageId) return '';
 	const stage = stages.value.find((s) => s.id.toString() === stageId.toString());
 	if (!stage) {
-		console.log(
-			`Stage not found for ID: ${stageId}. Available stages:`,
-			stages.value.map((s) => ({ id: s.id, name: s.name, workflowId: s.workflowId }))
-		);
+		// Stage not found, return default value
 	}
 	return stage ? stage.name : '--';
 };
@@ -2575,5 +2596,47 @@ const getStageNameById = (stageId) => {
 	font-size: 12px;
 	line-height: 1;
 	font-weight: bold;
+}
+
+/* 空状态样式 */
+.empty-state-container {
+	padding: 60px 20px;
+	text-align: center;
+	margin-bottom: 16px;
+}
+
+.empty-state-content {
+	max-width: 500px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.empty-state-icon {
+	color: var(--primary-300, #93c5fd);
+	margin-bottom: 24px;
+}
+
+.empty-state-title {
+	font-size: 24px;
+	font-weight: 600;
+	color: #303133;
+	margin: 0 0 16px 0;
+}
+
+.empty-state-desc {
+	font-size: 16px;
+	color: #606266;
+	margin: 0 0 32px 0;
+	line-height: 1.6;
+}
+
+.create-checklist-btn {
+	padding: 12px 24px;
+	font-size: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 </style>

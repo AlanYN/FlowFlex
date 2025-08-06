@@ -140,5 +140,12 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [SugarColumn(ColumnName = "max_retry_count")]
         public int MaxRetryCount { get; set; } = 3;
+
+        /// <summary>
+        /// 应用代码 (用于多应用隔离)
+        /// </summary>
+        [StringLength(50)]
+        [SugarColumn(ColumnName = "app_code")]
+        public string AppCode { get; set; } = "DEFAULT";
     }
 }

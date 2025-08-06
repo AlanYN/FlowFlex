@@ -112,6 +112,28 @@ namespace FlowFlex.Application.Service.OW
                 await CreateSectionsAsync(entity.Id, input.Sections);
             }
 
+            // 获取有效的stage assignments用于同步
+            var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
+                .Select(a => (a.WorkflowId, a.StageId))
+                .ToList() ?? new List<(long, long)>();
+            
+            // 同步stage components
+            if (newAssignments.Any())
+            {
+                try
+                {
+                    await _syncService.SyncStageComponentsFromQuestionnaireAssignmentsAsync(
+                        entity.Id,
+                        new List<(long, long)>(), // 创建时没有旧assignments
+                        newAssignments);
+                }
+                catch (Exception ex)
+                {
+                    // 记录错误但不影响创建操作
+                    Console.WriteLine($"Failed to sync stage components for new questionnaire {entity.Id}: {ex.Message}");
+                }
+            }
+
             // Cache removed, no need to clean up
 
             return entity.Id;
@@ -286,8 +308,19 @@ namespace FlowFlex.Application.Service.OW
             var sections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(id);
             result.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
 
-            // Fill assignments for the questionnaire
-            await FillAssignmentsAsync(new List<QuestionnaireOutputDto> { result });
+            // 直接从实体获取assignments
+            if (entity.Assignments?.Any() == true)
+            {
+                result.Assignments = entity.Assignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                {
+                    WorkflowId = a.WorkflowId,
+                    StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
+                }).ToList();
+            }
+            else
+            {
+                result.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+            }
 
             return result;
         }
@@ -482,7 +515,10 @@ namespace FlowFlex.Application.Service.OW
                 IsActive = true,
                 Version = 1,
                 // Copy assignments from source questionnaire
-                Assignments = sourceQuestionnaire.Assignments
+                Assignments = sourceQuestionnaire.Assignments,
+                // Copy tenant and app information from source questionnaire
+                TenantId = sourceQuestionnaire.TenantId,
+                AppCode = sourceQuestionnaire.AppCode
             };
 
             // Initialize create information with proper ID and timestamps
@@ -742,6 +778,9 @@ namespace FlowFlex.Application.Service.OW
             entity.TemplateId = templateId;
             entity.StructureJson = template.StructureJson; // Inherit template structure
             entity.Version = 1;
+            // 不再从模板复制tenant和app信息，而是使用UserContext中的值
+            // Initialize create information with proper ID and timestamps
+            entity.InitCreateInfo(_userContext);
 
             // Calculate question statistics
             await CalculateQuestionStatistics(entity);
@@ -861,6 +900,20 @@ namespace FlowFlex.Application.Service.OW
             foreach (var questionnaire in allQuestionnaires)
             {
                 var mappedQuestionnaire = _mapper.Map<QuestionnaireOutputDto>(questionnaire);
+                
+                // 直接将实体的assignments映射到DTO，避免后续的FillAssignmentsAsync方法
+                if (questionnaire.Assignments?.Any() == true)
+                {
+                    mappedQuestionnaire.Assignments = questionnaire.Assignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                    {
+                        WorkflowId = a.WorkflowId,
+                        StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
+                    }).ToList();
+                }
+                else
+                {
+                    mappedQuestionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                }
 
                 // Check assignments for stage IDs
                 if (questionnaire.Assignments?.Any() == true)
@@ -899,39 +952,29 @@ namespace FlowFlex.Application.Service.OW
             if (questionnaires == null || !questionnaires.Any())
                 return;
 
-            // Group questionnaires by name to find all assignments for each questionnaire
-            var questionnaireNames = questionnaires.Select(q => q.Name).Distinct().ToList();
-
-            // Get all questionnaires with the same names to build assignments
-            var allQuestionnaires = await _questionnaireRepository.GetByNamesAsync(questionnaireNames);
-
-            // Group by name to build assignments from JSON field
-            var assignmentsByName = allQuestionnaires
-                .Where(q => q.Assignments?.Any() == true)
-                .GroupBy(q => q.Name)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.SelectMany(q => q.Assignments ?? new List<QuestionnaireAssignmentDto>())
-                         .Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
-                         {
-                             WorkflowId = a.WorkflowId,
-                             StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
-                         })
-                         .GroupBy(a => new { a.WorkflowId, a.StageId })
-                         .Select(ag => ag.First())
-                         .ToList()
-                );
-
-            // Fill assignments for each questionnaire
+            // 获取所有问卷的ID
+            var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
+            
+            // 直接通过ID获取问卷，避免通过名称查询导致的assignments合并问题
+            var allQuestionnaires = await _questionnaireRepository.GetByIdsAsync(questionnaireIds);
+            
+            // 按ID索引问卷，确保每个问卷只获取自己的assignments
+            var questionnaireById = allQuestionnaires.ToDictionary(q => q.Id);
+            
+            // 为每个问卷填充其自身的assignments
             foreach (var questionnaire in questionnaires)
             {
-                if (assignmentsByName.TryGetValue(questionnaire.Name, out var assignments))
+                if (questionnaireById.TryGetValue(questionnaire.Id, out var entity) && entity.Assignments?.Any() == true)
                 {
-                    questionnaire.Assignments = assignments;
+                    questionnaire.Assignments = entity.Assignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                    {
+                        WorkflowId = a.WorkflowId,
+                        StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
+                    }).ToList();
                 }
                 else
                 {
-                    // If no assignments found, set empty list
+                    // 如果没有找到对应的问卷或assignments为空，则设置为空列表
                     questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
                 }
             }

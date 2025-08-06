@@ -83,5 +83,26 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="request">Refresh Token Request</param>
         /// <returns>Login Response with new token</returns>
         Task<LoginResponseDto> RefreshAccessTokenAsync(RefreshTokenRequestDto request);
+
+        /// <summary>
+        /// Logout user and revoke token
+        /// </summary>
+        /// <param name="token">Access token to revoke</param>
+        /// <returns>True if logout successful</returns>
+        Task<bool> LogoutAsync(string token);
+
+        /// <summary>
+        /// Logout from all devices (revoke all user tokens)
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>Number of tokens revoked</returns>
+        Task<int> LogoutFromAllDevicesAsync(long userId);
+
+        /// <summary>
+        /// Third-party login with automatic registration
+        /// </summary>
+        /// <param name="request">Third-party login request</param>
+        /// <returns>Login response with system token</returns>
+        Task<LoginResponseDto> ThirdPartyLoginAsync(ThirdPartyLoginRequestDto request);
     }
 }

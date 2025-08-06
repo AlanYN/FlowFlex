@@ -25,7 +25,7 @@ namespace FlowFlex.Application.Services.OW
     public class OnboardingFileService : IOnboardingFileService, IScopedService
     {
         private readonly IOnboardingFileRepository _onboardingFileRepository;
-        private readonly IStageCompletionLogRepository _stageCompletionLogRepository;
+    
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IAttachmentService _attachmentService;
@@ -36,7 +36,7 @@ namespace FlowFlex.Application.Services.OW
 
         public OnboardingFileService(
             IOnboardingFileRepository onboardingFileRepository,
-            IStageCompletionLogRepository stageCompletionLogRepository,
+    
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
             IAttachmentService attachmentService,
@@ -46,7 +46,7 @@ namespace FlowFlex.Application.Services.OW
             UserContext userContext)
         {
             _onboardingFileRepository = onboardingFileRepository;
-            _stageCompletionLogRepository = stageCompletionLogRepository;
+    
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
             _attachmentService = attachmentService;
@@ -86,22 +86,7 @@ namespace FlowFlex.Application.Services.OW
                     Source = "onboarding_file"
                 };
 
-                var stageCompletionLog = new StageCompletionLog
-                {
-                    TenantId = onboarding?.TenantId ?? _userContext?.TenantId ?? "default",
-                    OnboardingId = onboardingId,
-                    StageId = stageId ?? 0,
-                    StageName = stage?.Name ?? "General",
-                    LogType = "onboarding_file_change",
-                    Action = action,
-                    LogData = System.Text.Json.JsonSerializer.Serialize(logData),
-                    Success = true,
-                    NetworkStatus = "online",
-                    CreateBy = _userContext?.UserName ?? "System",
-                    ModifyBy = _userContext?.UserName ?? "System"
-                };
-
-                await _stageCompletionLogRepository.InsertAsync(stageCompletionLog);
+                // Stage completion log functionality removed
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)

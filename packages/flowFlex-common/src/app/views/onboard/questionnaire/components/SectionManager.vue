@@ -16,7 +16,7 @@
 					@click="setCurrentSection(index)"
 				>
 					<div class="section-info">
-						<div class="section-name">{{ section.title }}</div>
+						<div class="section-name">{{ index + 1 }}. {{ section.name }}</div>
 						<div class="section-count">{{ section.items.length }} items</div>
 					</div>
 					<el-button
@@ -37,13 +37,7 @@
 <script setup lang="ts">
 import { Plus, Delete } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-
-interface Section {
-	id: string;
-	title: string;
-	description: string;
-	items: any[];
-}
+import { Section } from '#/section';
 
 interface Props {
 	sections: Section[];
