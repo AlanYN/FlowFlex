@@ -52,10 +52,13 @@
 						v-for="(question, questionIndex) in currentSection.questions"
 						:key="question.id"
 						class="question-item"
+						:class="{ '!bg-white !border-none': question.type == 'page_break' }"
 					>
 						<div class="mb-2" v-if="question.type !== 'page_break'">
 							<span class="text-sm font-medium text-gray-700">
-								{{ currentSectionIndex + 1 }}-{{ questionIndex + 1 }}.
+								{{ currentSectionIndex + 1 }}-{{
+									getQuestionNumber(questionIndex)
+								}}.
 								{{ question.title }}
 								<span v-if="question.required" class="text-red-500">*</span>
 							</span>
@@ -1222,6 +1225,23 @@ const getSelectedFilledIcon = (iconType: string) => {
 
 const getSelectedVoidIcon = (iconType: string) => {
 	return iconOptions[iconType]?.voidIcon;
+};
+
+// 计算问题的实际序号（跳过page_break类型）
+const getQuestionNumber = (questionIndex: number) => {
+	if (!currentSection.value?.questions) return questionIndex + 1;
+
+	let actualQuestionNumber = 1;
+	for (let i = 0; i <= questionIndex; i++) {
+		const question = currentSection.value.questions[i];
+		if (question.type !== 'page_break') {
+			if (i === questionIndex) {
+				return actualQuestionNumber;
+			}
+			actualQuestionNumber++;
+		}
+	}
+	return actualQuestionNumber;
 };
 
 defineExpose({

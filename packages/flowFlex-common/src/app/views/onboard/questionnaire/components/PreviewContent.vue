@@ -163,7 +163,9 @@
 							v-if="item.type !== 'page_break'"
 						>
 							<h4 class="text-base font-medium question-title flex-1">
-								<span class="text-gray-400 mr-2">{{ itemIndex + 1 }}.</span>
+								<span class="text-gray-400 mr-2">
+									{{ getQuestionNumber(sectionIndex, itemIndex) }}.
+								</span>
 								<a :href="`#${item.id}`">{{ item.question || item.title }}</a>
 								<span v-if="item.required" class="text-red-500 ml-1">*</span>
 							</h4>
@@ -1254,6 +1256,26 @@ const getSelectedFilledIcon = (iconType: string) => {
 
 const getSelectedVoidIcon = (iconType: string) => {
 	return iconOptions[iconType]?.voidIcon;
+};
+
+// 计算问题的实际序号（跳过page_break类型）
+const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
+	if (!props.questionnaire?.sections) return itemIndex + 1;
+
+	const section = props.questionnaire.sections[sectionIndex];
+	if (!section?.items) return itemIndex + 1;
+
+	let actualQuestionNumber = 1;
+	for (let i = 0; i <= itemIndex; i++) {
+		const item = section.items[i];
+		if (item.type !== 'page_break') {
+			if (i === itemIndex) {
+				return actualQuestionNumber;
+			}
+			actualQuestionNumber++;
+		}
+	}
+	return actualQuestionNumber;
 };
 </script>
 
