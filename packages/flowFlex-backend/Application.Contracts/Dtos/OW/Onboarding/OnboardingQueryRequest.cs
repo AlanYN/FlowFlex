@@ -50,6 +50,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public List<string>? LeadIds { get; set; }
 
         /// <summary>
+        /// Filter by multiple onboarding IDs (for export selected records)
+        /// </summary>
+        public List<long>? OnboardingIds { get; set; }
+
+        /// <summary>
         /// Filter by lead name (supports comma-separated values)
         /// </summary>
         public string? LeadName { get; set; }

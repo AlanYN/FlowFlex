@@ -880,10 +880,10 @@ const handleExport = async () => {
 
 		// 如果有选中的数据，优先导出选中的数据
 		if (selectedItems.value.length > 0) {
-			// 导出选中的数据 - 使用选中项的 leadId
-			const selectedLeadIds = selectedItems.value.map((item) => item.leadId).join(',');
+			// 导出选中的数据 - 使用选中项的 onboardingId，转换为逗号分隔的字符串
+			const selectedOnboardingIds = selectedItems.value.map((item) => item.id).join(',');
 			exportParams = {
-				leadId: selectedLeadIds,
+				onboardingIds: selectedOnboardingIds,
 				pageSize: 10000, // 大页面以确保获取所有匹配的数据
 			};
 			exportMessage = `Selected ${selectedItems.value.length} items exported successfully`;

@@ -812,8 +812,8 @@ namespace FlowFlex.Application.Services.OW
                     var leadIds = request.GetLeadIdsList();
                     if (leadIds.Any())
                     {
-                        // Use OR condition to match any of the lead IDs with fuzzy search (case-insensitive)
-                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower().Contains(id.ToLower())));
+                        // Use OR condition to match any of the lead IDs with exact match (case-insensitive)
+                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower() == id.ToLower()));
                     }
                 }
 
@@ -821,6 +821,12 @@ namespace FlowFlex.Application.Services.OW
                 if (request.LeadIds?.Any() == true)
                 {
                     whereExpressions.Add(x => request.LeadIds.Contains(x.LeadId));
+                }
+
+                // Support batch OnboardingIds query for exporting selected records
+                if (request.OnboardingIds?.Any() == true)
+                {
+                    whereExpressions.Add(x => request.OnboardingIds.Contains(x.Id));
                 }
 
                 // Support comma-separated Lead Names

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos;
@@ -555,7 +556,8 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromQuery] string priority = null,
             [FromQuery] string status = null,
             [FromQuery] long? workflowId = null,
-            [FromQuery] bool? isActive = null)
+            [FromQuery] bool? isActive = null,
+            [FromQuery] string onboardingIds = null)
         {
             var query = new OnboardingQueryRequest
             {
@@ -573,7 +575,13 @@ namespace FlowFlex.WebApi.Controllers.OW
                 Priority = priority,
                 Status = status,
                 WorkflowId = workflowId,
-                IsActive = isActive
+                IsActive = isActive,
+                OnboardingIds = !string.IsNullOrEmpty(onboardingIds) 
+                    ? onboardingIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(id => long.TryParse(id.Trim(), out var parsedId) ? parsedId : 0)
+                        .Where(id => id > 0)
+                        .ToList()
+                    : null
             };
 
             var stream = await _onboardingService.ExportToExcelAsync(query);

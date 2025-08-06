@@ -232,9 +232,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         /// <param name="formFile">File to upload</param>
         /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
-        /// <returns>File access URL</returns>
+        /// <returns>Complete file upload information</returns>
         [HttpPost("questions/upload-file")]
-        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<QuestionnaireFileUploadResponseDto>>((int)HttpStatusCode.OK)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadQuestionFileAsync(
             IFormFile formFile,
@@ -260,8 +260,32 @@ namespace FlowFlex.WebApi.Controllers.OW
                 return BadRequest($"File upload failed: {storageResult.ErrorMessage}");
             }
 
-            // Return the access URL for frontend to use
-            return Success(storageResult.AccessUrl);
+            // Get current gateway/host information
+            var request = HttpContext.Request;
+            var gateway = $"{request.Scheme}://{request.Host}";
+            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
+                ? storageResult.AccessUrl 
+                : $"{gateway}{storageResult.AccessUrl}";
+
+            // Create comprehensive response
+            var response = new QuestionnaireFileUploadResponseDto
+            {
+                Success = storageResult.Success,
+                AccessUrl = storageResult.AccessUrl,
+                OriginalFileName = storageResult.OriginalFileName,
+                FileName = storageResult.FileName,
+                FilePath = storageResult.FilePath,
+                FileSize = storageResult.FileSize,
+                ContentType = storageResult.ContentType,
+                Category = category,
+                FileHash = storageResult.FileHash,
+                UploadTime = DateTime.UtcNow,
+                ErrorMessage = storageResult.ErrorMessage,
+                Gateway = gateway,
+                FullAccessUrl = fullAccessUrl
+            };
+
+            return Success(response);
         }
 
         /// <summary>
@@ -269,9 +293,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         /// <param name="formFiles">List of files to upload</param>
         /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
-        /// <returns>List of file access URLs</returns>
+        /// <returns>List of complete file upload information</returns>
         [HttpPost("questions/batch-upload-files")]
-        [ProducesResponseType<SuccessResponse<List<string>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<List<QuestionnaireFileUploadResponseDto>>>((int)HttpStatusCode.OK)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadMultipleQuestionFilesAsync(
             List<IFormFile> formFiles,
@@ -282,13 +306,28 @@ namespace FlowFlex.WebApi.Controllers.OW
                 return BadRequest("At least one file is required");
             }
 
-            var uploadResults = new List<string>();
+            var uploadResults = new List<QuestionnaireFileUploadResponseDto>();
             var errors = new List<string>();
+
+            // Get current gateway/host information
+            var request = HttpContext.Request;
+            var gateway = $"{request.Scheme}://{request.Host}";
 
             foreach (var formFile in formFiles)
             {
+                var response = new QuestionnaireFileUploadResponseDto
+                {
+                    OriginalFileName = formFile?.FileName ?? "unknown",
+                    Category = category,
+                    UploadTime = DateTime.UtcNow,
+                    Gateway = gateway
+                };
+
                 if (formFile == null || formFile.Length == 0)
                 {
+                    response.Success = false;
+                    response.ErrorMessage = "File is empty";
+                    uploadResults.Add(response);
                     errors.Add($"File {formFile?.FileName ?? "unknown"} is empty");
                     continue;
                 }
@@ -297,6 +336,9 @@ namespace FlowFlex.WebApi.Controllers.OW
                 var validationResult = await _fileStorageService.ValidateFileAsync(formFile);
                 if (!validationResult.IsValid)
                 {
+                    response.Success = false;
+                    response.ErrorMessage = $"Validation failed: {validationResult.ErrorMessage}";
+                    uploadResults.Add(response);
                     errors.Add($"File {formFile.FileName} validation failed: {validationResult.ErrorMessage}");
                     continue;
                 }
@@ -305,26 +347,30 @@ namespace FlowFlex.WebApi.Controllers.OW
                 var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
                 if (!storageResult.Success)
                 {
+                    response.Success = false;
+                    response.ErrorMessage = $"Upload failed: {storageResult.ErrorMessage}";
+                    uploadResults.Add(response);
                     errors.Add($"File {formFile.FileName} upload failed: {storageResult.ErrorMessage}");
                     continue;
                 }
 
-                uploadResults.Add(storageResult.AccessUrl);
+                // Success case
+                var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
+                    ? storageResult.AccessUrl 
+                    : $"{gateway}{storageResult.AccessUrl}";
+
+                response.Success = storageResult.Success;
+                response.AccessUrl = storageResult.AccessUrl;
+                response.FileName = storageResult.FileName;
+                response.FilePath = storageResult.FilePath;
+                response.FileSize = storageResult.FileSize;
+                response.ContentType = storageResult.ContentType;
+                response.FileHash = storageResult.FileHash;
+                response.FullAccessUrl = fullAccessUrl;
+                uploadResults.Add(response);
             }
 
-            // If all files failed to upload
-            if (uploadResults.Count == 0 && errors.Count > 0)
-            {
-                return BadRequest($"All files failed to upload: {string.Join("; ", errors)}");
-            }
-
-            // If some files failed, include error information in response
-            if (errors.Count > 0)
-            {
-                // Log errors for troubleshooting
-                // Note: In production, you might want to return partial success information
-            }
-
+            // Return all results, both successful and failed
             return Success(uploadResults);
         }
     }

@@ -29,13 +29,13 @@ namespace FlowFlex.Domain.Entities.OW
         /// API密钥
         /// </summary>
         [Required]
-        [StringLength(500)]
+        [StringLength(2000)]
         public string ApiKey { get; set; } = string.Empty;
 
         /// <summary>
         /// 基础URL
         /// </summary>
-        [StringLength(500)]
+        [StringLength(1000)]
         public string BaseUrl { get; set; } = string.Empty;
 
         /// <summary>
