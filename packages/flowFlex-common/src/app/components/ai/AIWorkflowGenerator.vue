@@ -1981,7 +1981,6 @@ watch(operationMode, (newMode) => {
 		0 8px 32px rgba(59, 130, 246, 0.12),
 		0 4px 16px rgba(139, 92, 246, 0.08);
 	position: relative;
-	overflow: hidden;
 	animation: completion-appear 0.6s ease-out;
 }
 

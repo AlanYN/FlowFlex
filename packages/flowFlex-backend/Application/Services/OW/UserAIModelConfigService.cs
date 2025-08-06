@@ -910,8 +910,17 @@ namespace FlowFlex.Application.Services.OW
             }
             else
             {
-                // 读取后解密 API Key  
-                config.ApiKey = DecryptApiKey(config.ApiKey);
+                // 读取后解密 API Key，如果解密失败则保持原始值
+                try
+                {
+                    config.ApiKey = DecryptApiKey(config.ApiKey);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to decrypt API key for config ID: {ConfigId}, keeping original value", config.Id);
+                    // 保持原始的加密值，或者如果是明文则保持明文
+                    // 这样可以避免因为解密失败而丢失整个配置列表
+                }
             }
         }
 
@@ -926,7 +935,15 @@ namespace FlowFlex.Application.Services.OW
 
             foreach (var config in configs)
             {
-                ProcessApiKeyEncryption(config, isForStorage);
+                try
+                {
+                    ProcessApiKeyEncryption(config, isForStorage);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to process API key encryption for config ID: {ConfigId}, skipping this config", config.Id);
+                    // 继续处理其他配置，不让单个配置的错误影响整个列表
+                }
             }
         }
 

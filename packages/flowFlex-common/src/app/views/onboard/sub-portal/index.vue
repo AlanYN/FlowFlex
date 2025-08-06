@@ -739,8 +739,9 @@ export default {
 					return {
 						id: stage.stageId,
 						name: stage.stageName,
-						description: `Stage ${stage.stageOrder}: ${stage.stageName}`,
-						order: stage.stageOrder,
+						description: `Stage ${index + 1}: ${stage.stageName}`, // 使用重新编号的索引
+						order: index + 1, // 从1开始重新编号，而不是使用原始的 stageOrder
+						originalOrder: stage.stageOrder, // 保留原始顺序用于后端交互
 						status: status,
 						editable: status !== 'completed', // 简化条件：只要未完成就可编辑
 						color: colors[index % colors.length],
