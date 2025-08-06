@@ -646,6 +646,7 @@ const handleFileUpload = async (type: 'video' | 'image') => {
 				type: type,
 				question: result.fileName!,
 				fileUrl: result.fileUrl!,
+				required: false,
 			};
 
 			questionnaire.sections[currentSectionIndexForUpload.value].items.push(mediaItem);
