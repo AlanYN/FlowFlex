@@ -19,6 +19,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string StageName { get; set; }
 
         /// <summary>
+        /// Stage描述
+        /// </summary>
+        public string StageDescription { get; set; }
+
+        /// <summary>
         /// Stage顺序
         /// </summary>
         public int StageOrder { get; set; }

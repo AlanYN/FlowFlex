@@ -3018,6 +3018,7 @@ namespace FlowFlex.Application.Services.OW
 
                         // Stage configuration fields (not serialized, populated dynamically)
                         StageName = stage.Name,
+                        StageDescription = stage.Description,
                         StageOrder = sequentialOrder,
                         EstimatedDays = stage.EstimatedDuration,
                         VisibleInPortal = stage.VisibleInPortal,
@@ -3724,6 +3725,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Populate fields from Stage entity
                         stageProgress.StageName = stage.Name;
+                        stageProgress.StageDescription = stage.Description;
                         stageProgress.EstimatedDays = stage.EstimatedDuration;
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;

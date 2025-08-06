@@ -2458,7 +2458,7 @@ const getStageNameById = (stageId) => {
 .task-sorting {
 	transition: all 0.3s ease;
 	transform: scale(0.98);
-	filter: blur(0.5px);
+	/* 移除模糊效果：filter: blur(0.5px); */
 	/* 移除 pointer-events: none 以避免阻止拖拽 */
 }
 
