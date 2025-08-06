@@ -507,7 +507,7 @@ import {
 } from '@element-plus/icons-vue';
 
 import StarIcon from '@assets/svg/workflow/star.svg';
-import { timeZoneConvert, formatDateUSOnly } from '@/hooks/time';
+import { formatDateUSOnly } from '@/hooks/time';
 import { dialogWidth } from '@/settings/projectSetting';
 import { useI18n } from '@/hooks/useI18n';
 
@@ -791,12 +791,11 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 			description: newWorkflow.description || '',
 			isDefault: shouldSetAsDefault,
 			status: newWorkflow.status || 'Active',
-			startDate: timeZoneConvert(newWorkflow.startDate || ''),
-			endDate: timeZoneConvert(newWorkflow.endDate || ''),
+			startDate: newWorkflow.startDate || '',
+			endDate: newWorkflow.endDate || '',
 			isActive: newWorkflow.status === 'active',
 			version: 1,
 		};
-
 		// 调用创建工作流API
 		const res = await createWorkflowApi(params);
 

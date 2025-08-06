@@ -640,8 +640,8 @@ const loadOnboardingList = async (event?: any, trigger: boolean = true) => {
 const getTableViewOnboarding = async (event) => {
 	try {
 		const queryParams: OnboardingQueryRequest = {
-			page: currentPage.value,
-			size: pageSize.value,
+			pageIndex: currentPage.value,
+			pageSize: pageSize.value,
 			sort: event?.prop ? event.prop : '',
 			sortType: event?.isAsc ? 'asc' : 'desc',
 			...omitBy(
@@ -881,7 +881,7 @@ const handleExport = async () => {
 		// 如果有选中的数据，优先导出选中的数据
 		if (selectedItems.value.length > 0) {
 			// 导出选中的数据 - 使用选中项的 leadId
-			const selectedLeadIds = selectedItems.value.map(item => item.leadId).join(',');
+			const selectedLeadIds = selectedItems.value.map((item) => item.leadId).join(',');
 			exportParams = {
 				leadId: selectedLeadIds,
 				pageSize: 10000, // 大页面以确保获取所有匹配的数据
@@ -893,7 +893,7 @@ const handleExport = async () => {
 				...omitBy(
 					pick(searchParams, [
 						'leadId',
-						'leadName', 
+						'leadName',
 						'lifeCycleStageName',
 						'currentStageId',
 						'updatedBy',

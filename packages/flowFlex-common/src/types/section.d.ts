@@ -65,5 +65,25 @@ export interface QuestionnaireSection {
 	requireOneResponsePerRow?: boolean;
 	required?: boolean;
 	rows?: { id: string; label: string }[];
-	type: string;
+	fileUrl?: string;
+	type:
+		| 'short_answer'
+		| 'paragraph'
+		| 'multiple_choice'
+		| 'checkboxes'
+		| 'dropdown'
+		| 'number'
+		| 'date'
+		| 'time'
+		| 'rating'
+		| 'file'
+		| 'linear_scale'
+		| 'multiple_choice_grid'
+		| 'checkbox_grid'
+		| 'divider'
+		| 'description'
+		| 'page_break'
+		| 'video'
+		| 'image'
+		| null;
 }

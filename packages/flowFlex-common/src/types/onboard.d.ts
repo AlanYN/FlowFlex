@@ -78,8 +78,8 @@ export interface OnboardingQueryRequest {
 	updatedBy?: string;
 	priority?: string;
 	workFlowId?: string;
-	page?: number;
-	size?: number;
+	pageIndex?: number;
+	pageSize?: number;
 	sort?: string;
 	sortType?: string;
 	allData?: boolean;

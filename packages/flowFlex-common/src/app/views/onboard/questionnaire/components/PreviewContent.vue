@@ -675,6 +675,17 @@
 								</div>
 							</div>
 
+							<div v-else-if="item.type === 'image'">
+								<el-image :src="`${globSetting.domainUrl}${item.fileUrl}`" />
+							</div>
+
+							<div v-else-if="item.type === 'video'">
+								<video
+									:src="`${globSetting.domainUrl}${item.fileUrl}`"
+									controls
+								></video>
+							</div>
+
 							<!-- 未知类型 -->
 							<div
 								v-else
@@ -709,6 +720,7 @@ import { ref, watch } from 'vue';
 import { Document, Upload, Loading, Star, Warning } from '@element-plus/icons-vue';
 import { projectDate } from '@/settings/projectSetting';
 import { Workflow } from '#/onboard';
+import { useGlobSetting } from '@/settings';
 
 import IconStar from '~icons/mdi/star';
 import IconStarOutline from '~icons/mdi/star-outline';
@@ -716,6 +728,8 @@ import IconHeart from '~icons/mdi/heart';
 import IconHeartOutline from '~icons/mdi/heart-outline';
 import IconThumbUp from '~icons/mdi/thumb-up';
 import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
+
+const globSetting = useGlobSetting();
 
 // 定义组件属性
 interface Props {

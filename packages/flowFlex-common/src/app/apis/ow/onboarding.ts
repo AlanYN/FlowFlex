@@ -36,8 +36,6 @@ const Api = (id?: string | number) => {
 		checklistTaskCompletionsByOnboardingAndChecklist: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}/checklist`,
 		checklistTaskCompletionsStats: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/onboarding/${id}/checklist`,
 
-
-
 		// 内部备注相关API
 		internalNotesPaged: `${globSetting.apiProName}/ow/internal-notes/${globSetting.apiVersion}/paged`,
 		internalNotes: `${globSetting.apiProName}/ow/internal-notes/${globSetting.apiVersion}`,
@@ -161,8 +159,8 @@ export function deleteOnboarding(id: string | number, confirm: boolean = false) 
  */
 export function getOnboardingByLead(leadId: string, usePortalAuth: boolean = false) {
 	// 现在统一使用标准认证，usePortalAuth参数保留兼容性但不再使用特殊逻辑
-	return defHttp.get({ 
-		url: `${Api(leadId).onboarding}`
+	return defHttp.get({
+		url: `${Api(leadId).onboarding}`,
 	});
 }
 
@@ -408,8 +406,6 @@ export function getTaskCompletionStats(
 		url: `${Api(onboardingId).checklistTaskCompletionsStats}/${checklistId}/stats`,
 	});
 }
-
-
 
 // ========================= 内部备注相关接口 =========================
 

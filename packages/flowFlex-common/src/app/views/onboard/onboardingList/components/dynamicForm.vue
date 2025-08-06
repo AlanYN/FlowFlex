@@ -416,6 +416,17 @@
 								</div>
 							</div>
 						</div>
+
+						<div v-else-if="question.type === 'image'">
+							<el-image :src="`${globSetting.domainUrl}${question.fileUrl}`" />
+						</div>
+
+						<div v-else-if="question.type === 'video'">
+							<video
+								:src="`${globSetting.domainUrl}${question.fileUrl}`"
+								controls
+							></video>
+						</div>
 					</div>
 					<div
 						v-if="!currentSection.questions || currentSection.questions.length <= 0"
@@ -500,6 +511,7 @@ import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } 
 import { QuestionnaireSection } from '#/section';
 import { ElNotification } from 'element-plus';
 import { projectDate } from '@/settings/projectSetting';
+import { useGlobSetting } from '@/settings';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -508,6 +520,8 @@ import IconHeart from '~icons/mdi/heart';
 import IconHeartOutline from '~icons/mdi/heart-outline';
 import IconThumbUp from '~icons/mdi/thumb-up';
 import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
+
+const globSetting = useGlobSetting();
 
 // 组件属性
 interface Props {
