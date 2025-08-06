@@ -236,13 +236,15 @@
 						<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
 							<el-slider
 								v-model="formData[question.id]"
-								:min="question.min || 1"
-								:max="question.max || 5"
+								:min="question.min"
+								:max="question.max"
 								:step="1"
-								:show-stops="true"
+								:marks="getSliderMarks(question)"
 								:show-input="false"
 								@change="handleInputChange(question.id, $event)"
 								class="preview-linear-scale"
+								show-stops
+								size="small"
 							/>
 							<div class="flex justify-between text-xs text-gray-500">
 								<span>{{ question.minLabel || question.min || 1 }}</span>
@@ -1225,6 +1227,19 @@ const getSelectedFilledIcon = (iconType: string) => {
 
 const getSelectedVoidIcon = (iconType: string) => {
 	return iconOptions[iconType]?.voidIcon;
+};
+
+// 生成slider的刻度标记
+const getSliderMarks = (question: any) => {
+	const marks: Record<number, string> = {};
+	const min = question.min || 1;
+	const max = question.max || 5;
+
+	for (let i = min; i <= max; i++) {
+		marks[i] = '';
+	}
+
+	return marks;
 };
 
 // 计算问题的实际序号（跳过page_break类型）

@@ -406,10 +406,10 @@
 							<div v-else-if="item.type === 'linear_scale'" class="space-y-2">
 								<el-slider
 									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-									:min="item.min || 1"
-									:max="item.max || 5"
+									:min="item.min"
+									:max="item.max"
 									:step="1"
-									:show-stops="true"
+									:marks="getSliderMarks(item)"
 									:show-input="false"
 									class="preview-linear-scale"
 								/>
@@ -1256,6 +1256,19 @@ const getSelectedFilledIcon = (iconType: string) => {
 
 const getSelectedVoidIcon = (iconType: string) => {
 	return iconOptions[iconType]?.voidIcon;
+};
+
+// 生成slider的刻度标记
+const getSliderMarks = (item: any) => {
+	const marks: Record<number, string> = {};
+	const min = item.min || 1;
+	const max = item.max || 5;
+
+	for (let i = min; i <= max; i++) {
+		marks[i] = '';
+	}
+
+	return marks;
 };
 
 // 计算问题的实际序号（跳过page_break类型）
