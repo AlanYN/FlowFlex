@@ -1,5 +1,6 @@
 ﻿using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Domain.Repository.Action
 {
@@ -39,12 +40,22 @@ namespace FlowFlex.Domain.Repository.Action
         /// <summary>
         /// Get action definitions with pagination
         /// </summary>
-        /// <param name="pageIndex">Page index</param>
-        /// <param name="pageSize">Page size</param>
-        /// <param name="actionType">Action type filter (optional)</param>
-        /// <param name="keyword">Keyword search (optional)</param>
-        /// <returns>Paginated action definitions</returns>
-        Task<(List<ActionDefinition> Data, int TotalCount)> GetPagedAsync(int pageIndex, int pageSize, string? actionType = null, string? keyword = null);
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="actionType"></param>
+        /// <param name="keyword"></param>
+        /// <param name="isAssignmentStage"></param>
+        /// <param name="isAssignmentChecklist"></param>
+        /// <param name="isAssignmentQuestionnaire"></param>
+        /// <returns></returns>
+        Task<(List<ActionDefinition> Data, int TotalCount)> GetPagedAsync(int pageIndex,
+            int pageSize,
+            string? actionType = null,
+            string? keyword = null,
+            bool? isAssignmentStage = null,
+            bool? isAssignmentChecklist = null,
+            bool? isAssignmentQuestionnaire = null,
+            bool? isAssignmentWorkflow = null);
 
         /// <summary>
         /// Batch enable or disable actions
@@ -53,5 +64,12 @@ namespace FlowFlex.Domain.Repository.Action
         /// <param name="isEnabled">Enable or disable</param>
         /// <returns>Whether successful</returns>
         Task<bool> BatchUpdateEnabledStatusAsync(List<long> actionIds, bool isEnabled);
+
+        /// <summary>
+        /// Get trigger mappings with related entity names by action definition IDs
+        /// </summary>
+        /// <param name="actionDefinitionIds">Action definition ID list</param>
+        /// <returns>Trigger mappings with entity details</returns>
+        Task<List<ActionTriggerMappingWithDetails>> GetTriggerMappingsWithDetailsByActionIdsAsync(List<long> actionDefinitionIds);
     }
 }

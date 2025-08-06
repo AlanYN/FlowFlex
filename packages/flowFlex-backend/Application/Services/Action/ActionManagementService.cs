@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using System.Text.Json;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Entities.Action;
@@ -8,6 +7,8 @@ using FlowFlex.Domain.Shared.Enums.Action;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
+using FlowFlex.Domain.Shared.Models;
+using Application.Contracts.IServices.Action;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -18,21 +19,22 @@ namespace FlowFlex.Application.Services.Action
     {
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
+        private readonly IActionCodeGeneratorService _actionCodeGeneratorService;
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
-        private readonly JsonSerializerOptions _jsonOptions;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
             IActionTriggerMappingRepository actionTriggerMappingRepository,
+            IActionCodeGeneratorService actionCodeGeneratorService,
             IMapper mapper,
             ILogger<ActionManagementService> logger)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
+            _actionCodeGeneratorService = actionCodeGeneratorService;
             _mapper = mapper;
             _logger = logger;
-            _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         }
 
         #region Action Definition Management
@@ -40,13 +42,61 @@ namespace FlowFlex.Application.Services.Action
         public async Task<ActionDefinitionDto> GetActionDefinitionAsync(long id)
         {
             var entity = await _actionDefinitionRepository.GetByIdAsync(id);
-            return entity != null ? _mapper.Map<ActionDefinitionDto>(entity) : null;
+            if (entity == null) return null;
+
+            var actionDto = _mapper.Map<ActionDefinitionDto>(entity);
+
+            // Get trigger mapping information
+            var triggerMappings = await _actionDefinitionRepository.GetTriggerMappingsWithDetailsByActionIdsAsync(new List<long> { id });
+
+            // Add trigger mapping information to DTO
+            actionDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(triggerMappings);
+
+            return actionDto;
         }
 
-        public async Task<List<ActionDefinitionDto>> GetAllActionDefinitionsAsync()
+        public async Task<PageModelDto<ActionDefinitionDto>> GetPagedActionDefinitionsAsync(string? search,
+            ActionTypeEnum? actionType,
+            int pageIndex,
+            int pageSize,
+            bool? isAssignmentStage = null,
+            bool? isAssignmentChecklist = null,
+            bool? isAssignmentQuestionnaire = null,
+            bool? isAssignmentWorkflow = null)
         {
-            var entities = await _actionDefinitionRepository.GetAllEnabledAsync();
-            return _mapper.Map<List<ActionDefinitionDto>>(entities);
+            var (data, total) = await _actionDefinitionRepository.GetPagedAsync(pageIndex,
+                pageSize,
+                actionType.ToString(),
+                search,
+                isAssignmentStage,
+                isAssignmentChecklist,
+                isAssignmentQuestionnaire,
+                isAssignmentWorkflow);
+
+            // Get ActionDefinition DTO list
+            var actionDtos = _mapper.Map<List<ActionDefinitionDto>>(data);
+
+            // If there is data, get trigger mapping information
+            if (actionDtos.Any())
+            {
+                var actionIds = actionDtos.Select(dto => dto.Id).ToList();
+                var triggerMappings = await _actionDefinitionRepository.GetTriggerMappingsWithDetailsByActionIdsAsync(actionIds);
+
+                // Group trigger mappings by ActionDefinitionId
+                var mappingsByActionId = triggerMappings.GroupBy(m => m.ActionDefinitionId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Add trigger mapping information to each ActionDefinitionDto
+                foreach (var actionDto in actionDtos)
+                {
+                    if (mappingsByActionId.TryGetValue(actionDto.Id, out var mappings))
+                    {
+                        actionDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(mappings);
+                    }
+                }
+            }
+
+            return new PageModelDto<ActionDefinitionDto>(pageIndex, pageSize, actionDtos, total);
         }
 
         public async Task<List<ActionDefinitionDto>> GetEnabledActionDefinitionsAsync()
@@ -60,6 +110,7 @@ namespace FlowFlex.Application.Services.Action
             ValidateActionConfig(dto.ActionType, dto.ActionConfig);
 
             var entity = _mapper.Map<ActionDefinition>(dto);
+            entity.ActionCode = await _actionCodeGeneratorService.GeneratorActionCodeAsync();
 
             await _actionDefinitionRepository.InsertAsync(entity);
             _logger.LogInformation("Created action definition: {ActionId}", entity.Id);
@@ -228,7 +279,7 @@ namespace FlowFlex.Application.Services.Action
         {
             // Check if mapping already exists
             var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
-                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.TriggerEvent);
+                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId);
 
             if (exists)
             {
@@ -239,31 +290,6 @@ namespace FlowFlex.Application.Services.Action
 
             await _actionTriggerMappingRepository.InsertAsync(entity);
             _logger.LogInformation("Created action trigger mapping: {MappingId}", entity.Id);
-
-            return _mapper.Map<ActionTriggerMappingDto>(entity);
-        }
-
-        public async Task<ActionTriggerMappingDto> UpdateActionTriggerMappingAsync(long id, CreateActionTriggerMappingDto dto)
-        {
-            var entity = await _actionTriggerMappingRepository.GetByIdAsync(id);
-            if (entity == null)
-            {
-                throw new ArgumentException($"Action trigger mapping with ID {id} not found");
-            }
-
-            // Check if mapping already exists (excluding current one)
-            var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
-                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.TriggerEvent, id);
-
-            if (exists)
-            {
-                throw new InvalidOperationException("Mapping already exists for this action and trigger");
-            }
-
-            _mapper.Map(dto, entity);
-
-            await _actionTriggerMappingRepository.UpdateAsync(entity);
-            _logger.LogInformation("Updated action trigger mapping: {MappingId}", id);
 
             return _mapper.Map<ActionTriggerMappingDto>(entity);
         }

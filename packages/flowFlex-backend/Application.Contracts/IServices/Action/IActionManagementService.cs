@@ -1,5 +1,7 @@
 ﻿using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Enums.Action;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Contracts.IServices.Action
 {
@@ -18,10 +20,25 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         Task<ActionDefinitionDto> GetActionDefinitionAsync(long id);
 
         /// <summary>
-        /// Get all action definitions
+        /// Get action definitions
         /// </summary>
-        /// <returns>List of action definition DTOs</returns>
-        Task<List<ActionDefinitionDto>> GetAllActionDefinitionsAsync();
+        /// <param name="search"></param>
+        /// <param name="actionType"></param>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="isAssignmentStage"></param>
+        /// <param name="isAssignmentChecklist"></param>
+        /// <param name="isAssignmentQuestionnaire"></param>
+        /// <param name="isAssignmentWorkflow"></param>
+        /// <returns></returns>
+        Task<PageModelDto<ActionDefinitionDto>> GetPagedActionDefinitionsAsync(string? search,
+            ActionTypeEnum? actionType,
+            int pageIndex,
+            int pageSize,
+            bool? isAssignmentStage = null,
+            bool? isAssignmentChecklist = null,
+            bool? isAssignmentQuestionnaire = null,
+            bool? isAssignmentWorkflow = null);
 
         /// <summary>
         /// Get enabled action definitions
@@ -98,14 +115,6 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto);
 
         /// <summary>
-        /// Update action trigger mapping
-        /// </summary>
-        /// <param name="id">Mapping ID</param>
-        /// <param name="dto">Update action trigger mapping DTO</param>
-        /// <returns>Updated action trigger mapping DTO</returns>
-        Task<ActionTriggerMappingDto> UpdateActionTriggerMappingAsync(long id, CreateActionTriggerMappingDto dto);
-
-        /// <summary>
         /// Delete action trigger mapping
         /// </summary>
         /// <param name="id">Mapping ID</param>
@@ -130,4 +139,4 @@ namespace FlowFlex.Application.Contracts.IServices.Action
 
         #endregion
     }
-} 
+}

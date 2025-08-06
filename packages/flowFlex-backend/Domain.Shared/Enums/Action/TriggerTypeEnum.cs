@@ -23,6 +23,12 @@ namespace FlowFlex.Domain.Shared.Enums.Action
         /// Questionnaire question answer trigger
         /// </summary>
         [Description("Question")]
-        Question = 3
+        Question = 3,
+
+        /// <summary>
+        /// Workflow completion trigger
+        /// </summary>
+        [Description("Workflow")]
+        Workflow = 4
     }
-} 
+}

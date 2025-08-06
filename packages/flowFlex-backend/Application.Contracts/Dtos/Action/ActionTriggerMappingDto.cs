@@ -32,10 +32,14 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         public long TriggerSourceId { get; set; }
 
         /// <summary>
-        /// Trigger source name
+        /// Work flow ID
         /// </summary>
-        [StringLength(100)]
-        public string TriggerSourceName { get; set; }
+        public long WorkFlowId { get; set; }
+
+        /// <summary>
+        /// Stage ID
+        /// </summary>
+        public long StageId { get; set; }
 
         /// <summary>
         /// Trigger event (Completed, Created, Updated, etc.)

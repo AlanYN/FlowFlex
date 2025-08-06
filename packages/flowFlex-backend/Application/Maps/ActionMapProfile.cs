@@ -2,6 +2,7 @@
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
+using FlowFlex.Domain.Shared.Models;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 
@@ -48,6 +49,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => true))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => DateTimeOffset.UtcNow))
                 .ForMember(dest => dest.ModifyDate, opt => opt.MapFrom(src => DateTimeOffset.UtcNow));
+
+            // ActionTriggerMappingWithDetails to ActionTriggerMappingInfo mapping
+            CreateMap<ActionTriggerMappingWithDetails, ActionTriggerMappingInfo>();
         }
     }
-} 
+}

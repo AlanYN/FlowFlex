@@ -49,7 +49,6 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             return await db.Queryable<ActionTriggerMapping>()
                 .Where(x => x.ActionDefinitionId == actionDefinitionId && x.IsValid)
                 .OrderBy(x => x.TriggerType)
-                .OrderBy(x => x.TriggerSourceName)
                 .ToListAsync();
         }
 
@@ -68,19 +67,14 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         /// <summary>
         /// Check if mapping exists
         /// </summary>
-        public async Task<bool> IsMappingExistsAsync(long actionDefinitionId, string triggerType, long triggerSourceId, string triggerEvent, long? excludeId = null)
+        public async Task<bool> IsMappingExistsAsync(long actionDefinitionId, string triggerType, long triggerSourceId, long workFlowId)
         {
             var query = db.Queryable<ActionTriggerMapping>()
                 .Where(x => x.ActionDefinitionId == actionDefinitionId
                          && x.TriggerType == triggerType
                          && x.TriggerSourceId == triggerSourceId
-                         && x.TriggerEvent == triggerEvent
+                         && x.WorkFlowId == workFlowId
                          && x.IsValid);
-
-            if (excludeId.HasValue)
-            {
-                query = query.Where(x => x.Id != excludeId.Value);
-            }
 
             return await query.AnyAsync();
         }

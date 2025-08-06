@@ -15,6 +15,7 @@ using FlowFlex.Domain.Shared.JsonConverters;
 using System.Reflection;
 using System.Text;
 using FlowFlex.Application.Client;
+using Item.Redis.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -101,6 +102,8 @@ builder.Services.AddControllers(options =>
 
 // Register services (auto injection)
 builder.Services.AddService(builder.Configuration);
+
+builder.Services.AddRedis(builder.Configuration.GetSection("Redis"));
 
 // Register AutoMapper with explicit profile configuration
 builder.Services.AddAutoMapper(config =>

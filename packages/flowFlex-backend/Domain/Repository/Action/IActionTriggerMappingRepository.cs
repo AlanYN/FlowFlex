@@ -44,13 +44,12 @@ namespace FlowFlex.Domain.Repository.Action
         /// <summary>
         /// Check if mapping exists
         /// </summary>
-        /// <param name="actionDefinitionId">Action definition ID</param>
-        /// <param name="triggerType">Trigger type</param>
-        /// <param name="triggerSourceId">Trigger source ID</param>
-        /// <param name="triggerEvent">Trigger event</param>
-        /// <param name="excludeId">Exclude this ID (for update scenarios)</param>
-        /// <returns>Whether exists</returns>
-        Task<bool> IsMappingExistsAsync(long actionDefinitionId, string triggerType, long triggerSourceId, string triggerEvent, long? excludeId = null);
+        /// <param name="actionDefinitionId"></param>
+        /// <param name="triggerType"></param>
+        /// <param name="triggerSourceId"></param>
+        /// <param name="workFlowId"></param>
+        /// <returns></returns>
+        Task<bool> IsMappingExistsAsync(long actionDefinitionId, string triggerType, long triggerSourceId, long workFlowId);
 
         /// <summary>
         /// Get all enabled mappings

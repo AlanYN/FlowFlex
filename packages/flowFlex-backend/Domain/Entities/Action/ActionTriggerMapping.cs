@@ -38,11 +38,20 @@ namespace FlowFlex.Domain.Entities.Action
         public long TriggerSourceId { get; set; }
 
         /// <summary>
-        /// Trigger source entity name (for easier querying and debugging)
+        /// Work flow ID
         /// </summary>
-        [StringLength(200)]
-        [SugarColumn(ColumnName = "trigger_source_name")]
-        public string TriggerSourceName { get; set; } = string.Empty;
+        [Required]
+        [SugarColumn(ColumnName = "work_flow_id")]
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long WorkFlowId { get; set; }
+
+        /// <summary>
+        /// Stage ID
+        /// </summary>
+        [Required]
+        [SugarColumn(ColumnName = "stage_id")]
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long StageId { get; set; }
 
         /// <summary>
         /// Trigger event (Completed, Created, Updated, Answered)
@@ -83,4 +92,4 @@ namespace FlowFlex.Domain.Entities.Action
         [SugarColumn(ColumnName = "description")]
         public string Description { get; set; } = string.Empty;
     }
-} 
+}

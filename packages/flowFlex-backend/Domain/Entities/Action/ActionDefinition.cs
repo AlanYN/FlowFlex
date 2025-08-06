@@ -16,6 +16,14 @@ namespace FlowFlex.Domain.Entities.Action
         /// Action name
         /// </summary>
         [Required]
+        [StringLength(20)]
+        [SugarColumn(ColumnName = "action_code")]
+        public string ActionCode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Action name
+        /// </summary>
+        [Required]
         [StringLength(100)]
         [SugarColumn(ColumnName = "action_name")]
         public string ActionName { get; set; } = string.Empty;

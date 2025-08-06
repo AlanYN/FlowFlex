@@ -26,11 +26,6 @@
         public long TriggerSourceId { get; set; }
 
         /// <summary>
-        /// Trigger source name
-        /// </summary>
-        public string TriggerSourceName { get; set; } = string.Empty;
-
-        /// <summary>
         /// Trigger event (Started, Completed, Failed, etc.)
         /// </summary>
         public string TriggerEvent { get; set; } = string.Empty;

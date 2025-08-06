@@ -1,5 +1,7 @@
 ﻿using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Domain.Shared.Enums.Action;
+using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -48,14 +50,35 @@ namespace FlowFlex.WebApi.Controllers.Action
         }
 
         /// <summary>
-        /// Get all action definitions
+        /// Get action definitions
         /// </summary>
-        /// <returns>List of action definitions</returns>
+        /// <param name="actionName"></param>
+        /// <param name="actionType"></param>
+        /// <param name="pageIndex"></param>
+        /// <param name="pageSize"></param>
+        /// <param name="isAssignmentStage"></param>
+        /// <param name="isAssignmentChecklist"></param>
+        /// <param name="isAssignmentQuestionnaire"></param>
+        /// <returns></returns>
         [HttpGet("definitions")]
-        [ProducesResponseType<SuccessResponse<List<ActionDefinitionDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetAllActionDefinitions()
+        [ProducesResponseType<SuccessResponse<PageModelDto<ActionDefinitionDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetPagedActionDefinitions(string? search,
+            ActionTypeEnum? actionType,
+            int pageIndex = 1,
+            int pageSize = 10,
+            bool? isAssignmentStage = null,
+            bool? isAssignmentChecklist = null,
+            bool? isAssignmentQuestionnaire = null,
+            bool? isAssignmentWorkflow = null)
         {
-            var result = await _actionManagementService.GetAllActionDefinitionsAsync();
+            var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
+                actionType,
+                pageIndex,
+                pageSize,
+                isAssignmentStage,
+                isAssignmentChecklist,
+                isAssignmentQuestionnaire,
+                isAssignmentWorkflow);
             return Success(result);
         }
 
@@ -219,33 +242,6 @@ namespace FlowFlex.WebApi.Controllers.Action
             {
                 var result = await _actionManagementService.CreateActionTriggerMappingAsync(dto);
                 return Success(result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest();
-            }
-        }
-
-        /// <summary>
-        /// Update action trigger mapping
-        /// </summary>
-        /// <param name="id">Mapping ID</param>
-        /// <param name="dto">Update action trigger mapping DTO</param>
-        /// <returns>Updated action trigger mapping</returns>
-        [HttpPut("mappings/{id}")]
-        [ProducesResponseType<SuccessResponse<ActionTriggerMappingDto>>((int)HttpStatusCode.OK)]
-        [ProducesResponseType((int)HttpStatusCode.NotFound)]
-        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
-        public async Task<IActionResult> UpdateActionTriggerMapping(long id, CreateActionTriggerMappingDto dto)
-        {
-            try
-            {
-                var result = await _actionManagementService.UpdateActionTriggerMappingAsync(id, dto);
-                return Success(result);
-            }
-            catch (ArgumentException ex)
-            {
-                return NotFound();
             }
             catch (InvalidOperationException ex)
             {
