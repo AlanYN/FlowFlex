@@ -62,6 +62,21 @@
 							<p v-if="question.description" class="text-xs text-gray-500 mt-1">
 								{{ question.description }}
 							</p>
+							<div
+								v-if="question.questionProps && question.questionProps.fileUrl"
+								class="flex flex-col mt-2"
+							>
+								<el-image
+									v-if="question.questionProps.type === 'image'"
+									:src="`${globSetting.domainUrl}${question.questionProps.fileUrl}`"
+								/>
+								<video
+									v-else-if="question.questionProps.type === 'video'"
+									:src="`${globSetting.domainUrl}${question.questionProps.fileUrl}`"
+									:alt="question.questionProps.fileName || 'Uploaded video'"
+									controls
+								></video>
+							</div>
 						</div>
 
 						<!-- 短答题 -->

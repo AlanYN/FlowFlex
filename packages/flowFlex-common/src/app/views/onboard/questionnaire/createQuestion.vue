@@ -173,6 +173,7 @@
 										@edit-question="handleEditQuestion"
 										@drag-end="handleQuestionDragEnd"
 										@update-jump-rules="handleUpdateJumpRules"
+										@update-question="handleUpdateQuestionFromList"
 									/>
 
 									<el-divider />
@@ -211,7 +212,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElNotification } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { Edit, More } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
@@ -231,9 +232,9 @@ import {
 	createQuestionnaire,
 	getQuestionnaireDetail,
 	updateQuestionnaire,
-	uploadQuestionFile,
 } from '@/apis/ow/questionnaire';
 import { getWorkflows, getAllStages } from '@/apis/ow';
+import { triggerFileUpload } from '@/utils/fileUploadUtils';
 
 const router = useRouter();
 const route = useRoute();
@@ -285,6 +286,7 @@ const loadQuestionnaireData = async () => {
 					description: section.description || '',
 					// 处理questions字段（API返回的是questions，我们内部使用items）
 					items: (section.questions || section.items || []).map((item: any) => ({
+						...item,
 						id: item.id || `question-${Date.now()}-${Math.random()}`,
 						type: item?.type || 'short_answer',
 						question: item.title || item.question || '',
@@ -302,7 +304,8 @@ const loadQuestionnaireData = async () => {
 						maxLabel: item.maxLabel || '',
 						// 恢复跳转规则
 						jumpRules: item.jumpRules || [],
-						...item,
+						// 恢复问题附加属性（包含上传的文件）
+						questionProps: item.questionProps || {},
 					})),
 				}));
 			}
@@ -611,17 +614,10 @@ const handleAddQuestion = (questionData: any) => {
 	questionnaire.sections[currentSectionIndex.value].items.push(question);
 };
 
-// 文件上传相关状态
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const currentUploadType = ref<'video' | 'image' | null>(null);
-const uploadNotification = ref<any>(null); // 上传进度通知实例
-const uploadAbortController = ref<AbortController | null>(null); // 上传取消控制器
-const validVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv'];
-const validImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
-// 验证文件大小（例如：视频最大100MB，图片最大10MB）
-let maxSize = 10 * 1024 * 1024;
+// 当前分区索引（用于文件上传）
+const currentSectionIndexForUpload = ref<number>(0);
 
-const handleAddContent = (command: string) => {
+const handleAddContent = async (command: string) => {
 	switch (command) {
 		case 'page-break':
 			questionnaire.sections[currentSectionIndex.value].items.push({
@@ -631,174 +627,30 @@ const handleAddContent = (command: string) => {
 			});
 			break;
 		case 'video':
-			currentUploadType.value = 'video';
-			triggerFileUpload();
+			await handleFileUpload('video');
 			break;
 		case 'image':
-			currentUploadType.value = 'image';
-			triggerFileUpload();
+			await handleFileUpload('image');
 			break;
 	}
 };
 
-// 触发文件上传
-const triggerFileUpload = () => {
-	// 创建隐藏的文件输入元素
-	if (!fileInputRef.value) {
-		const input = document.createElement('input');
-		input.type = 'file';
-		input.style.display = 'none';
-		input.accept = currentUploadType.value === 'video' ? 'video/*' : 'image/*';
-		input.multiple = false; // 每次只能选择一个文件
+// 处理文件上传
+const handleFileUpload = async (type: 'video' | 'image') => {
+	currentSectionIndexForUpload.value = currentSectionIndex.value;
 
-		input.addEventListener('change', handleFileSelect);
-		document.body.appendChild(input);
-		fileInputRef.value = input;
-	} else {
-		// 更新accept属性
-		fileInputRef.value.accept = currentUploadType.value === 'video' ? 'video/*' : 'image/*';
-	}
+	await triggerFileUpload(type, (result) => {
+		if (result.success) {
+			const mediaItem = {
+				id: `${type}-${Date.now()}`,
+				type: type,
+				question: result.fileName!,
+				fileUrl: result.fileUrl!,
+			};
 
-	fileInputRef.value.click();
-};
-
-// 处理文件选择
-const handleFileSelect = async (event: Event) => {
-	const target = event.target as HTMLInputElement;
-	const files = target.files;
-	maxSize = currentUploadType.value === 'video' ? 500 * 1024 * 1024 : 10 * 1024 * 1024;
-	if (files && files.length > 0) {
-		const file = files[0];
-
-		// 控制台输出文件信息
-		console.log('Uploaded file name:', file.name);
-		console.log('Uploaded file size:', file.size, 'bytes');
-		console.log('Uploaded file type:', file.type);
-		console.log('Uploaded file stream:', file);
-		console.log('maxSize:', maxSize);
-
-		// 验证文件类型 - 检查实际文件类型，不依赖accept属性
-		const isValidType =
-			currentUploadType.value === 'video'
-				? file.type.startsWith('video/')
-				: file.type.startsWith('image/');
-
-		if (!isValidType) {
-			ElMessage.error(
-				`Please select a valid ${currentUploadType.value} file. Selected file type: ${file.type}`
-			);
-			return;
+			questionnaire.sections[currentSectionIndexForUpload.value].items.push(mediaItem);
 		}
-
-		// 额外验证文件扩展名
-		const fileName = file.name.toLowerCase();
-
-		const validExtensions =
-			currentUploadType.value === 'video' ? validVideoExtensions : validImageExtensions;
-
-		const hasValidExtension = validExtensions.some((ext) => fileName.endsWith(ext));
-
-		if (!hasValidExtension) {
-			ElMessage.error(
-				`Please select a valid ${
-					currentUploadType.value
-				} file with supported extension. Supported: ${validExtensions.join(', ')}`
-			);
-			return;
-		}
-		if (file.size > maxSize) {
-			fileInputRef.value && (fileInputRef.value.value = '');
-			ElMessage.error(`File size exceeds the maximum limit for ${currentUploadType.value}`);
-			return;
-		}
-
-		const uploadParams = {
-			name: 'formFile', // 表单字段名（与curl一致）
-			file: file, // 文件对象
-			filename: file.name, // 文件名
-			data: {
-				category: 'QuestionnaireQuestion',
-			},
-		};
-
-		// 创建AbortController用于取消上传
-		uploadAbortController.value = new AbortController();
-
-		// 创建上传进度通知
-		uploadNotification.value = ElNotification({
-			title: `Uploading ${currentUploadType.value || 'file'}: ${file.name}`,
-			message: `<div style="display: flex; align-items: center;">
-					<div style="flex: 1; background-color: #f0f2f5; border-radius: 4px; overflow: hidden; margin-right: 8px;">
-						<div id="upload-progress-bar" style="width: 0%; height: 8px; background: linear-gradient(90deg, #409eff 0%, #67c23a 100%); transition: width 0.3s ease;"></div>
-					</div>
-					<span id="upload-progress-text" style="font-weight: bold; font-size: 14px; color: #409eff;">0%</span>
-				</div>
-				<div style="color: #909399; font-size: 12px;">Click X to cancel upload</div>`,
-			dangerouslyUseHTMLString: true,
-			type: 'warning',
-			duration: 0, // 不自动关闭
-			showClose: true, // 允许用户关闭
-			onClose: () => {
-				// 用户手动关闭时取消上传，但只在上传还在进行中时执行
-				if (uploadAbortController.value) {
-					uploadAbortController.value.abort();
-					uploadAbortController.value = null;
-					ElMessage.warning('Upload cancelled');
-				}
-			},
-		});
-
-		try {
-			const res = await uploadQuestionFile(
-				uploadParams,
-				(progressEvent: any) => {
-					// 计算上传进度
-					const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-
-					// 更新通知中的进度文本
-					const progressTextElement = document.getElementById('upload-progress-text');
-					if (progressTextElement) {
-						progressTextElement.textContent = `${progress}%`;
-					}
-
-					// 更新进度条
-					const progressBarElement = document.getElementById('upload-progress-bar');
-					if (progressBarElement) {
-						progressBarElement.style.width = `${progress}%`;
-					}
-				},
-				uploadAbortController.value.signal // 传递取消信号
-			);
-
-			if (res.data.code == '200' && res.data.data) {
-				const mediaItem = {
-					id: `${currentUploadType.value}-${Date.now()}`,
-					type: currentUploadType.value,
-					question: file.name,
-					fileUrl: res.data.data,
-				};
-
-				questionnaire.sections[currentSectionIndex.value].items.push(mediaItem);
-				ElMessage.success(`${currentUploadType.value || 'file'} added successfully`);
-			}
-		} finally {
-			// 关闭上传进度通知
-			if (uploadNotification.value) {
-				uploadNotification.value.close();
-				uploadNotification.value = null;
-			}
-			// 清理AbortController
-			if (uploadAbortController.value) {
-				uploadAbortController.value = null;
-			}
-			if (fileInputRef.value) {
-				fileInputRef.value.value = '';
-			}
-		}
-	}
-
-	// 重置上传类型
-	currentUploadType.value = null;
+	});
 };
 
 const handleRemoveQuestion = (index: number) => {
@@ -857,6 +709,8 @@ const handleSaveQuestionnaire = async () => {
 					// 跳转规则
 					jumpRules: item.jumpRules || [],
 					iconType: item.iconType || 'star',
+					// 问题附加属性（包含上传的文件）
+					questionProps: item.questionProps || {},
 				})),
 			})),
 		});
@@ -947,6 +801,10 @@ const handleUpdateQuestion = (updatedQuestion: any) => {
 	}
 	isEditingQuestion.value = false;
 	editingQuestion.value = null;
+};
+
+const handleUpdateQuestionFromList = (index: number, updatedQuestion: any) => {
+	questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
 };
 
 // 获取所有stages

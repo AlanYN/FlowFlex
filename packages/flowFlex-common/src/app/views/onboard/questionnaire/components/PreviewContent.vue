@@ -176,6 +176,21 @@
 						<p v-if="item.description" class="text-sm question-description pl-6">
 							{{ item.description }}
 						</p>
+						<div
+							v-if="item.questionProps && item.questionProps.fileUrl"
+							class="flex flex-col"
+						>
+							<el-image
+								v-if="item.questionProps.type === 'image'"
+								:src="`${globSetting.domainUrl}${item.questionProps.fileUrl}`"
+							/>
+							<video
+								v-else-if="item.questionProps.type === 'video'"
+								:src="`${globSetting.domainUrl}${item.questionProps.fileUrl}`"
+								:alt="item.questionProps.fileName || 'Uploaded video'"
+								controls
+							></video>
+						</div>
 
 						<!-- 问题输入组件 -->
 						<div class="pl-6">

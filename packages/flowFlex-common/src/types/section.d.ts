@@ -66,6 +66,12 @@ export interface QuestionnaireSection {
 	required?: boolean;
 	rows?: { id: string; label: string }[];
 	fileUrl?: string;
+	questionProps?: {
+		type: 'video' | 'image';
+		fileName: string;
+		fileUrl: string;
+		uploadDate: string;
+	};
 	type:
 		| 'short_answer'
 		| 'paragraph'
