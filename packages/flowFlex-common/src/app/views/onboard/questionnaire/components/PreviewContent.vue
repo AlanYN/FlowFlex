@@ -185,14 +185,14 @@
 						>
 							<el-image
 								v-if="item.questionProps.type === 'image'"
-								:src="item.fileUrl"
+								:src="item.questionProps.fileUrl"
 								class="responsive-image"
 								:preview-src-list="[`${item.questionProps.fileUrl}`]"
 								fit="contain"
 							/>
 							<video
 								v-else-if="item.questionProps.type === 'video'"
-								:src="item.fileUrl"
+								:src="item.questionProps.fileUrl"
 								:alt="item.questionProps.fileName || 'Uploaded video'"
 								controls
 								class="max-h-[500px] w-auto object-contain"
