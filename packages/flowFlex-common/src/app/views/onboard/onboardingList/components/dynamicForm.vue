@@ -233,16 +233,15 @@
 						<!-- 线性量表 -->
 						<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
 							<el-slider
+								:key="`slider-${question.id}-${formData[question.id] || 0}`"
 								v-model="formData[question.id]"
 								:min="question.min"
 								:max="question.max"
-								:step="1"
 								:marks="getSliderMarks(question)"
-								:show-input="false"
-								@change="handleInputChange(question.id, $event)"
 								class="preview-linear-scale"
+								@change="handleInputChange"
+								:validate-event="false"
 								show-stops
-								size="small"
 							/>
 							<div class="flex justify-between text-xs text-gray-500">
 								<span>{{ question.minLabel || question.min || 1 }}</span>
