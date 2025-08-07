@@ -48,6 +48,7 @@
 									:key="workflow.id"
 									:label="workflow.name"
 									:value="workflow.id"
+									:disabled="workflow.status === 'inactive'"
 								>
 									<div class="flex items-center justify-between">
 										<span>{{ workflow.name }}</span>
