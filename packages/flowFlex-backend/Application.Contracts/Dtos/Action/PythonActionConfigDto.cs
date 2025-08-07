@@ -20,4 +20,4 @@
         /// </summary>
         public string? Stdin { get; set; }
     }
-} 
+}

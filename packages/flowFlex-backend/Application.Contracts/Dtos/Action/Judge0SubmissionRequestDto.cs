@@ -35,4 +35,4 @@
         /// </summary>
         public bool RedirectStderrToStdout { get; set; } = true;
     }
-} 
+}

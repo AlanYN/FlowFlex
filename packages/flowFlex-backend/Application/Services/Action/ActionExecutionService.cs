@@ -48,8 +48,8 @@ namespace FlowFlex.Application.Services.Action
 
                 // Create execution record
                 var execution = new Domain.Entities.Action.ActionExecution
-            {
-                ActionDefinitionId = actionDefinitionId,
+                {
+                    ActionDefinitionId = actionDefinitionId,
                     ExecutionStatus = ActionExecutionStatusEnum.Running.ToString(),
                     StartedAt = DateTime.UtcNow,
                     TriggerContext = contextData != null ? JToken.FromObject(contextData) : new JObject(),

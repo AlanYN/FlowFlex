@@ -65,4 +65,4 @@
         /// </summary>
         public string AppCode { get; set; } = string.Empty;
     }
-} 
+}

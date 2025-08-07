@@ -25,4 +25,4 @@ namespace FlowFlex.Domain.Shared.Enums.Action
         [Description("Email")]
         SendEmail = 3
     }
-} 
+}

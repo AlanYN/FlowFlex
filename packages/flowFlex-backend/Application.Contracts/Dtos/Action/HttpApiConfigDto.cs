@@ -35,4 +35,4 @@
         /// </summary>
         public bool FollowRedirects { get; set; } = true;
     }
-} 
+}

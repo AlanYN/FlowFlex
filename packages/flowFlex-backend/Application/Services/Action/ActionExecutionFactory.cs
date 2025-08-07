@@ -21,7 +21,7 @@ namespace FlowFlex.Application.Services.Action
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
-            
+
             // Register all executor types - add new executors here for future extension
             _executorTypes = new Dictionary<ActionTypeEnum, Type>
             {
@@ -46,4 +46,4 @@ namespace FlowFlex.Application.Services.Action
             throw new NotSupportedException($"Action type '{actionType}' is not supported. Supported types: {supportedTypes}");
         }
     }
-} 
+}

@@ -49,4 +49,4 @@ namespace FlowFlex.Domain.Shared.Enums.Action
         [Description("Retrying")]
         Retrying = 7
     }
-} 
+}

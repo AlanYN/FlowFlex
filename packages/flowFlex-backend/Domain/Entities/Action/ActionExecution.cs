@@ -115,4 +115,4 @@ namespace FlowFlex.Domain.Entities.Action
         [SugarColumn(ColumnName = "executor_info", ColumnDataType = "jsonb", IsJson = true)]
         public JToken ExecutorInfo { get; set; } = new JObject();
     }
-} 
+}

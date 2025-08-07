@@ -18,8 +18,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         {
             var startDate = DateTimeOffset.UtcNow.AddDays(-days);
             return await db.Queryable<ActionExecution>()
-                .Where(x => x.ActionDefinitionId == actionDefinitionId 
-                         && x.CreateDate >= startDate 
+                .Where(x => x.ActionDefinitionId == actionDefinitionId
+                         && x.CreateDate >= startDate
                          && x.IsValid)
                 .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
@@ -32,8 +32,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         {
             var startDate = DateTimeOffset.UtcNow.AddDays(-days);
             return await db.Queryable<ActionExecution>()
-                .Where(x => x.ExecutionStatus == status 
-                         && x.CreateDate >= startDate 
+                .Where(x => x.ExecutionStatus == status
+                         && x.CreateDate >= startDate
                          && x.IsValid)
                 .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
@@ -55,7 +55,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<List<ActionExecution>> GetFailedExecutionsAsync(int maxRetryCount = 3)
         {
             return await db.Queryable<ActionExecution>()
-                .Where(x => x.ExecutionStatus == "Failed" 
+                .Where(x => x.ExecutionStatus == "Failed"
                          && x.IsValid)
                 .OrderBy(x => x.CreateDate)
                 .ToListAsync();
@@ -65,11 +65,11 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         /// Get executions with pagination
         /// </summary>
         public async Task<(List<ActionExecution> Data, int TotalCount)> GetPagedAsync(
-            int pageIndex, 
-            int pageSize, 
-            long? actionDefinitionId = null, 
-            string? status = null, 
-            DateTimeOffset? startDate = null, 
+            int pageIndex,
+            int pageSize,
+            long? actionDefinitionId = null,
+            string? status = null,
+            DateTimeOffset? startDate = null,
             DateTimeOffset? endDate = null)
         {
             var query = db.Queryable<ActionExecution>()
@@ -114,10 +114,10 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<(int TotalCount, int SuccessCount, int FailedCount, double AvgDurationMs)> GetExecutionStatsAsync(long actionDefinitionId, int days = 30)
         {
             var startDate = DateTimeOffset.UtcNow.AddDays(-days);
-            
+
             var executions = await db.Queryable<ActionExecution>()
-                .Where(x => x.ActionDefinitionId == actionDefinitionId 
-                         && x.CreateDate >= startDate 
+                .Where(x => x.ActionDefinitionId == actionDefinitionId
+                         && x.CreateDate >= startDate
                          && x.IsValid)
                 .Select(x => new { x.ExecutionStatus, x.DurationMs })
                 .ToListAsync();
@@ -137,7 +137,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<Dictionary<string, int>> GetOverallStatsAsync(int days = 7)
         {
             var startDate = DateTimeOffset.UtcNow.AddDays(-days);
-            
+
             var executions = await db.Queryable<ActionExecution>()
                 .Where(x => x.CreateDate >= startDate && x.IsValid)
                 .Select(x => x.ExecutionStatus)
@@ -153,7 +153,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<int> CleanupOldExecutionsAsync(int keepDays = 90)
         {
             var cutoffDate = DateTimeOffset.UtcNow.AddDays(-keepDays);
-            
+
             var affectedRows = await db.Updateable<ActionExecution>()
                 .SetColumns(x => x.IsValid == false)
                 .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
@@ -163,4 +163,4 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             return affectedRows;
         }
     }
-} 
+}

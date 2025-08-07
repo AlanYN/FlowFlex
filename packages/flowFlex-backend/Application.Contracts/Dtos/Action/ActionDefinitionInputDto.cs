@@ -43,4 +43,4 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         [DisplayName("Is Enabled")]
         public bool IsEnabled { get; set; } = true;
     }
-} 
+}

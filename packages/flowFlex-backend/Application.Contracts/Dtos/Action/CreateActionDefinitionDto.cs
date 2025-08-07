@@ -38,4 +38,4 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// </summary>
         public bool IsEnabled { get; set; } = true;
     }
-} 
+}
