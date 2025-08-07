@@ -48,6 +48,9 @@
 		"workflow": "Workflows",
 		"checklist": "Checklists",
 		"questionnaireSetup": "Questionnaire Setup",
+		"actions": "Actions",
+		"actionDetail": "Action Detail",
+		"createAction": "Create Action",
 		"list" : "Lists",
 		"listDetail":"List Detail",
 		"listView":"List View"

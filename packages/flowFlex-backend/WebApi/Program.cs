@@ -1,27 +1,21 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Server.IIS;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Versioning;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
-using FlowFlex.Application.Services.OW;
 using FlowFlex.WebApi.Extensions;
 using FlowFlex.WebApi.Middlewares;
 using FlowFlex.SqlSugarDB.Extensions;
 using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.Domain.Shared.JsonConverters;
-using System;
-using System.Linq;
 using System.Reflection;
 using System.Text;
+using FlowFlex.Application.Client;
+using Item.Redis.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -109,6 +103,8 @@ builder.Services.AddControllers(options =>
 // Register services (auto injection)
 builder.Services.AddService(builder.Configuration);
 
+builder.Services.AddRedis(builder.Configuration.GetSection("Redis"));
+
 // Register AutoMapper with explicit profile configuration
 builder.Services.AddAutoMapper(config =>
 {
@@ -128,6 +124,7 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskMapProfile>();
 
     config.AddProfile<FlowFlex.Application.Maps.QuestionnaireSectionMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.ActionMapProfile>();
 }, assemblies);
 
 // Configure options
@@ -286,6 +283,8 @@ builder.Services.AddSwaggerGen(options =>
 // Register infrastructure services
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddGlobalExceptionHandling();
+
+builder.Services.AddClient(builder.Configuration);
 
 // Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces
 // Only register services that are not auto-registered or need special configuration
