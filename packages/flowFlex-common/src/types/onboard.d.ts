@@ -457,6 +457,8 @@ export interface Workflow {
 	name: string;
 	isDefault?: boolean;
 	status?: string;
+	modifyBy: string;
+	modifyDate: string;
 }
 
 export interface SectionAnswer {

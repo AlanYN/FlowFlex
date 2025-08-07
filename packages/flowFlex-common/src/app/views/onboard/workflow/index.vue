@@ -223,13 +223,41 @@
 					<div class="workflow-card-body">
 						<div class="workflow-header-actions">
 							<div class="dates-container">
+								<el-tooltip class="flex-1" content="last mdify by">
+									<div class="flex flex-1 items-center gap-2">
+										<Icon
+											icon="ic:baseline-person-3"
+											class="text-primary-500 w-5 h-5"
+										/>
+										<span class="card-value font-medium">
+											{{ workflow.modifyBy }}
+										</span>
+									</div>
+								</el-tooltip>
+								<el-tooltip class="flex-1" content="last modify date">
+									<div class="flex flex-1 items-center gap-2">
+										<Icon
+											icon="ic:baseline-calendar-month"
+											class="text-primary-500 w-5 h-5"
+										/>
+										<span class="card-value font-medium">
+											{{
+												timeZoneConvert(
+													workflow.modifyDate,
+													false,
+													projectTenMinuteDate
+												)
+											}}
+										</span>
+									</div>
+								</el-tooltip>
 								<div class="date-item">
 									<el-icon class="calendar-icon">
 										<Calendar />
 									</el-icon>
 									<span class="date-label">Start:</span>
 									<span class="date-value">
-										{{ formatDate(workflow.startDate || '') }}
+										{{ timeZoneConvert(workflow.startDate || '') }}
 									</span>
 								</div>
 								<div v-if="workflow.endDate" class="date-item">
@@ -241,7 +269,7 @@
 									</el-icon>
 									<span class="date-label">End:</span>
 									<span class="date-value">
-										{{ formatDate(workflow.endDate || '') }}
+										{{ timeZoneConvert(workflow.endDate || '') }}
 									</span>
 								</div>
 							</div>
@@ -507,8 +535,8 @@ import {
 } from '@element-plus/icons-vue';
 
 import StarIcon from '@assets/svg/workflow/star.svg';
-import { formatDateUSOnly } from '@/hooks/time';
-import { dialogWidth } from '@/settings/projectSetting';
+import { formatDateUSOnly, timeZoneConvert } from '@/hooks/time';
+import { dialogWidth, projectTenMinuteDate } from '@/settings/projectSetting';
 import { useI18n } from '@/hooks/useI18n';
 
 // 引入OW模块API接口
