@@ -183,7 +183,6 @@
 							v-if="item.questionProps && item.questionProps.fileUrl"
 							class="flex flex-col max-h-[500px] justify-center items-center"
 						>
-							{{ item }}
 							<el-image
 								v-if="item.questionProps.type === 'image'"
 								:src="item.fileUrl"
