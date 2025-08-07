@@ -87,11 +87,13 @@
 									:value="workflowItem.id"
 								>
 									<div class="flex items-center justify-between">
-										<div>
+										<div class="flex items-center">
 											<el-icon v-if="workflowItem.id === workflow?.id">
 												<Check />
 											</el-icon>
-											<span>{{ workflowItem.name }}</span>
+											<div class="max-w-[250px] truncate">
+												{{ workflowItem.name }}
+											</div>
 										</div>
 										<div class="flex items-center gap-1">
 											<div v-if="workflowItem.isDefault">⭐</div>
