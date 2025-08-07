@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using FlowFlex.Domain.Shared.Enums.Action;
+using Item.Common.Lib.JsonConverts;
+using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.Action
 {
@@ -128,5 +130,8 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Description
         /// </summary>
         public string Description { get; set; } = string.Empty;
+
+        [JsonConverter(typeof(DateTimeJsonConverter))]
+        public DateTimeOffset? LastApplied { get; set; }
     }
 }

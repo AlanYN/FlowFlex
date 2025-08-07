@@ -47,6 +47,7 @@ export interface TriggerMapping {
 	isEnabled: boolean;
 	executionOrder: number;
 	description: string;
+	lastApplied: string;
 }
 
 export interface ActionQueryRequest {

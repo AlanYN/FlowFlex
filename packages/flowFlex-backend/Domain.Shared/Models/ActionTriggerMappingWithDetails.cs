@@ -69,5 +69,7 @@
         /// Description
         /// </summary>
         public string Description { get; set; } = string.Empty;
+
+        public DateTimeOffset? LastApplied { get; set; }
     }
 }

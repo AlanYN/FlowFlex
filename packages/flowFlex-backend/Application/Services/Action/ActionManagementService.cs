@@ -77,7 +77,7 @@ namespace FlowFlex.Application.Services.Action
             var actionDtos = _mapper.Map<List<ActionDefinitionDto>>(data);
 
             // If there is data, get trigger mapping information
-            if (actionDtos.Any())
+            if (actionDtos.Count != 0)
             {
                 var actionIds = actionDtos.Select(dto => dto.Id).ToList();
                 var triggerMappings = await _actionDefinitionRepository.GetTriggerMappingsWithDetailsByActionIdsAsync(actionIds);

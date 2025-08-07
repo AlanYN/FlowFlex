@@ -156,7 +156,7 @@
 								<span class="assignment-name">
 									{{ getAssignmentDisplayName(mapping) }}
 								</span>
-								<span class="assignment-date">Last applied: {{ mapping.updatedAt || row.updatedAt }}</span>
+								<span class="assignment-date">Last applied: {{ mapping.lastApplied }}</span>
 							</div>
 						</div>
 					</template>
