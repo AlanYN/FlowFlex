@@ -183,18 +183,17 @@
 							v-if="item.questionProps && item.questionProps.fileUrl"
 							class="flex flex-col max-h-[500px] justify-center items-center"
 						>
+							{{ item }}
 							<el-image
 								v-if="item.questionProps.type === 'image'"
-								:src="`${globSetting.domainUrl}${item.questionProps.fileUrl}`"
+								:src="item.fileUrl"
 								class="responsive-image"
-								:preview-src-list="[
-									`${globSetting.domainUrl}${item.questionProps.fileUrl}`,
-								]"
+								:preview-src-list="[`${item.questionProps.fileUrl}`]"
 								fit="contain"
 							/>
 							<video
 								v-else-if="item.questionProps.type === 'video'"
-								:src="`${globSetting.domainUrl}${item.questionProps.fileUrl}`"
+								:src="item.fileUrl"
 								:alt="item.questionProps.fileName || 'Uploaded video'"
 								controls
 								class="max-h-[500px] w-auto object-contain"
@@ -704,9 +703,9 @@
 								class="flex justify-center items-center w-full"
 							>
 								<el-image
-									:src="`${globSetting.domainUrl}${item.fileUrl}`"
+									:src="item.fileUrl"
 									class="responsive-image"
-									:preview-src-list="[`${globSetting.domainUrl}${item.fileUrl}`]"
+									:preview-src-list="[`${item.fileUrl}`]"
 									fit="contain"
 								/>
 							</div>
@@ -716,7 +715,7 @@
 								class="flex justify-center items-center"
 							>
 								<video
-									:src="`${globSetting.domainUrl}${item.fileUrl}`"
+									:src="item.fileUrl"
 									controls
 									class="max-h-[500px] w-auto object-contain"
 								></video>
@@ -756,7 +755,6 @@ import { ref, watch } from 'vue';
 import { Document, Upload, Loading, Star, Warning } from '@element-plus/icons-vue';
 import { projectDate } from '@/settings/projectSetting';
 import { Workflow } from '#/onboard';
-import { useGlobSetting } from '@/settings';
 
 import IconStar from '~icons/mdi/star';
 import IconStarOutline from '~icons/mdi/star-outline';
@@ -764,8 +762,6 @@ import IconHeart from '~icons/mdi/heart';
 import IconHeartOutline from '~icons/mdi/heart-outline';
 import IconThumbUp from '~icons/mdi/thumb-up';
 import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
-
-const globSetting = useGlobSetting();
 
 // 定义组件属性
 interface Props {

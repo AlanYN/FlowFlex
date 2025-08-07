@@ -71,16 +71,14 @@
 							>
 								<el-image
 									v-if="question.questionProps.type === 'image'"
-									:src="`${globSetting.domainUrl}${question.questionProps.fileUrl}`"
+									:src="question.questionProps.fileUrl"
 									class="responsive-image"
-									:preview-src-list="[
-										`${globSetting.domainUrl}${question.questionProps.fileUrl}`,
-									]"
+									:preview-src-list="[`${question.questionProps.fileUrl}`]"
 									fit="contain"
 								/>
 								<video
 									v-else-if="question.questionProps.type === 'video'"
-									:src="`${globSetting.domainUrl}${question.questionProps.fileUrl}`"
+									:src="question.questionProps.fileUrl"
 									:alt="question.questionProps.fileName || 'Uploaded video'"
 									controls
 									class="max-h-[500px] w-auto object-contain"
@@ -448,9 +446,9 @@
 							class="flex justify-center items-center"
 						>
 							<el-image
-								:src="`${globSetting.domainUrl}${question.fileUrl}`"
+								:src="question.fileUrl"
 								class="responsive-image"
-								:preview-src-list="[`${globSetting.domainUrl}${question.fileUrl}`]"
+								:preview-src-list="[`${question.fileUrl}`]"
 								fit="contain"
 							/>
 						</div>
@@ -460,7 +458,7 @@
 							class="flex justify-center items-center"
 						>
 							<video
-								:src="`${globSetting.domainUrl}${question.fileUrl}`"
+								:src="question.fileUrl"
 								controls
 								class="max-h-[500px] w-auto object-contain"
 							></video>
@@ -549,7 +547,6 @@ import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } 
 import { QuestionnaireSection } from '#/section';
 import { ElNotification } from 'element-plus';
 import { projectDate } from '@/settings/projectSetting';
-import { useGlobSetting } from '@/settings';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -558,8 +555,6 @@ import IconHeart from '~icons/mdi/heart';
 import IconHeartOutline from '~icons/mdi/heart-outline';
 import IconThumbUp from '~icons/mdi/thumb-up';
 import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
-
-const globSetting = useGlobSetting();
 
 // 组件属性
 interface Props {

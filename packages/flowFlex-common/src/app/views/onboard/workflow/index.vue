@@ -223,8 +223,8 @@
 					<div class="workflow-card-body">
 						<div class="workflow-header-actions">
 							<div class="dates-container">
-								<el-tooltip class="flex-1" content="last mdify by">
-									<div class="flex flex-1 items-center gap-2">
+								<el-tooltip content="last mdify by">
+									<div class="flex items-center gap-2">
 										<Icon
 											icon="ic:baseline-person-3"
 											class="text-primary-500 w-5 h-5"
@@ -234,8 +234,8 @@
 										</span>
 									</div>
 								</el-tooltip>
-								<el-tooltip class="flex-1" content="last modify date">
-									<div class="flex flex-1 items-center gap-2">
+								<el-tooltip content="last modify date">
+									<div class="flex items-center gap-2">
 										<Icon
 											icon="ic:baseline-calendar-month"
 											class="text-primary-500 w-5 h-5"
