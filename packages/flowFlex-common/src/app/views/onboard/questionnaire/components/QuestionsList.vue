@@ -48,7 +48,11 @@
 								<div class="question-actions">
 									<el-dropdown
 										placement="bottom"
-										v-if="item.type !== 'image' && item.type != 'video'"
+										v-if="
+											item.type !== 'image' &&
+											item.type != 'video' &&
+											item.type != 'page_break'
+										"
 									>
 										<el-button :icon="More" link />
 										<template #dropdown>
@@ -95,7 +99,11 @@
 									</el-dropdown>
 									<div class="flex">
 										<el-button
-											v-if="item.type !== 'image' && item.type != 'video'"
+											v-if="
+												item.type !== 'image' &&
+												item.type != 'video' &&
+												item.type != 'page_break'
+											"
 											type="primary"
 											link
 											@click="editQuestion(index)"

@@ -23,8 +23,8 @@ export interface UploadParams {
 
 // 文件配置常量
 export const FILE_CONFIG = {
-	validVideoExtensions: ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv'],
-	validImageExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'],
+	validVideoExtensions: ['.mp4', '.avi', '.mov', '.webm'],
+	validImageExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
 	maxVideoSize: 500 * 1024 * 1024, // 500MB
 	maxImageSize: 10 * 1024 * 1024, // 10MB
 } as const;

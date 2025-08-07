@@ -672,12 +672,6 @@
 								</div>
 							</div>
 
-							<!-- 分隔符 -->
-							<div
-								v-else-if="item.type === 'divider'"
-								class="border-t border-gray-200 my-4"
-							></div>
-
 							<!-- 说明文本 -->
 							<div
 								v-else-if="item.type === 'description'"
