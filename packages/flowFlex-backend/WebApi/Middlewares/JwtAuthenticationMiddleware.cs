@@ -151,7 +151,8 @@ namespace FlowFlex.WebApi.Middlewares
                 "/api/ow/user-invitations/v1/verify-access",
                 "/api/ow/user-invitations/v1/verify-access-short",
                 "/swagger",
-                "/health"
+                "/health",
+                "/uploads"
             };
 
             var isPublic = publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
