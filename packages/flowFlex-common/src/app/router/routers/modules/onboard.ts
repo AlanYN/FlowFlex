@@ -111,6 +111,39 @@ const leads: AppRouteModule = {
 				activeMenu: '/onboard/questionnaire',
 			},
 		},
+		{
+			path: 'actions',
+			name: 'Actions',
+			component: () => import('@/views/actions/index.vue'),
+			meta: {
+				title: t('sys.router.actions'),
+				ordinal: 6,
+				hidden: false,
+				status: true,
+			},
+		},
+		{
+			path: 'actionDetail/:actionId',
+			name: 'ActionDetail',
+			component: () => import('@/views/actions/detail.vue'),
+			hidden: true,
+			meta: {
+				title: t('sys.router.actionDetail'),
+				ordinal: 7,
+				activeMenu: '/onboard/actions',
+			},
+		},
+		{
+			path: 'createAction',
+			name: 'CreateAction',
+			component: () => import('@/views/actions/create.vue'),
+			hidden: true,
+			meta: {
+				title: t('sys.router.createAction'),
+				ordinal: 8,
+				activeMenu: '/onboard/actions',
+			},
+		},
 	],
 };
 

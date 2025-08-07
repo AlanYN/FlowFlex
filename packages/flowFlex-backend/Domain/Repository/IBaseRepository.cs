@@ -447,7 +447,7 @@ namespace FlowFlex.Domain.Repository
         /// </summary>
         /// <param name="action">All operations to execute</param>
         /// <returns>Whether execution was successful</returns>
-        bool UseTran(Action action);
+        bool UseTran(System.Action action);
 
         /// <summary>
         /// Execute transaction (async)

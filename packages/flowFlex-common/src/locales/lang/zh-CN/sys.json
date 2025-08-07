@@ -42,6 +42,9 @@
 		"workflow": "Workflows",
 		"checklist": "Checklists",
 		"questionnaireSetup": "Questionnaire Setup",
+		"actions": "Actions",
+		"actionDetail": "Action Detail",
+		"createAction": "Create Action",
 		"list" : "Lists",
 		"listDetail":"清单详情",
 		"listView":"清单详情"
