@@ -188,7 +188,7 @@
 				<div class="conversation-header">
 					<div class="conversation-title">
 						<div class="title-content">
-							<h3>AI Workflow Assistant</h3>
+							<h3>AI Workflow Assistant</h3>						
 						</div>
 						<!-- Current Model Display (moved to top right) -->
 						<div v-if="currentModelInfo" class="current-model-display">
@@ -270,32 +270,73 @@
 						</div>
 					</div>
 
-					<!-- Conversation Actions -->
-					<div class="conversation-completion" v-if="conversationComplete">
-						<div class="completion-card">
-							<div class="completion-icon">
-								<el-icon><Check /></el-icon>
+					<!-- Smart Generation Actions -->
+					<div class="smart-generation-actions" v-if="canGenerateWorkflow">
+						<div class="generation-card" :class="{ 'high-confidence': conversationProgress >= 60 }">
+							<div class="generation-icon">
+								<el-icon v-if="conversationProgress >= 80"><Check /></el-icon>
+								<el-icon v-else-if="conversationProgress >= 60"><Star /></el-icon>
+								<el-icon v-else><Setting /></el-icon>
 							</div>
-							<div class="completion-content">
-								<h4>Perfect! I have all the information I need</h4>
-								<p>
-									Based on our conversation, I can now create a customized
-									workflow for you.
+							<div class="generation-content">
+								<h4 v-if="conversationProgress >= 80">
+									🎉 Excellent! Perfect workflow data collected!
+								</h4>
+								<h4 v-else-if="conversationProgress >= 60">
+									✨ Great! Ready to generate your workflow!
+								</h4>
+								<h4 v-else>
+									🚀 Let's create your workflow!
+								</h4>
+								<p v-if="conversationProgress >= 80">
+									Based on our detailed conversation, I can create a comprehensive,
+									customized workflow that perfectly matches your needs.
 								</p>
+								<p v-else-if="conversationProgress >= 60">
+									I have solid information to create a good workflow for you.
+									You can generate now or continue chatting for even better results.
+								</p>
+								<p v-else>
+									I have the basics to start creating your workflow.
+									Generate now for a quick start, or chat more for better customization.
+								</p>
+								<div class="confidence-indicator">
+									<span class="confidence-label">Progress:</span>
+									<div class="confidence-bar-mini">
+										<div 
+											class="confidence-fill-mini" 
+											:style="{ width: conversationProgress + '%' }"
+											:class="{
+												'progress-excellent': conversationProgress >= 80,
+												'progress-good': conversationProgress >= 60 && conversationProgress < 80,
+												'progress-basic': conversationProgress < 60
+											}"
+										></div>
+									</div>
+									<span class="confidence-percentage">{{ conversationProgress }}%</span>
+								</div>
 							</div>
 						</div>
-						<div class="completion-actions">
+						<div class="generation-actions">
 							<el-button @click="resetConversation" class="secondary-btn">
 								<el-icon class="mr-1"><Refresh /></el-icon>
 								Start Over
-							</el-button>
+							</el-button>							
 							<el-button
 								type="primary"
 								@click="proceedToGeneration"
 								class="primary-btn"
+								:class="{ 
+									'pulse-animation': conversationProgress >= 80,
+									'ready-animation': conversationProgress >= 60 && conversationProgress < 80,
+									'basic-ready': conversationProgress < 60
+								}"
 							>
-								<el-icon class="mr-1"><Setting /></el-icon>
-								Generate My Workflow
+								<el-icon class="mr-1">
+									<Setting v-if="conversationProgress >= 80" />
+									<Star v-else />
+								</el-icon>
+								{{ conversationProgress >= 80 ? 'Generate Perfect Workflow' : 'Generate My Workflow' }}
 							</el-button>
 						</div>
 					</div>
@@ -639,6 +680,8 @@ const conversationHistory = ref<AIChatMessage[]>([]);
 const currentMessage = ref('');
 const aiTyping = ref(false);
 const conversationComplete = ref(false);
+const conversationProgress = ref(0); // 对话完成进度 0-100
+const canGenerateWorkflow = ref(false); // 是否满足生成条件
 const conversationMessages = ref(null);
 const conversationSessionId = ref('');
 
@@ -661,6 +704,168 @@ const currentModelInfo = ref<AIModelConfig | null>(null);
 // Helper function to get stage count safely
 const getStageCount = (workflow: any) => {
 	return workflow?.stages?.length || 0;
+};
+
+// 智能对话进度评估系统
+const evaluateConversationProgress = () => {
+	const userMessages = conversationHistory.value.filter(m => m.role === 'user');
+	const messageCount = userMessages.length;
+	
+	if (messageCount === 0) {
+		conversationProgress.value = 0;
+		canGenerateWorkflow.value = false;
+		return;
+	}
+	
+	let progress = 0;
+	let hasWorkflowType = false;
+	let hasTeamInfo = false;
+	let hasStructureInfo = false;
+	let hasRequirements = false;
+	let hasModificationDetails = false;
+	
+	// 分析所有用户消息内容
+	const allUserContent = userMessages.map(m => m.content.toLowerCase()).join(' ');
+	
+	// 检测无意义输入
+	const meaninglessPatterns = [
+		/^[\d\s]*$/, // 只包含数字和空格
+		/^[a-z\s]*$/, // 只包含单个字母和空格（长度小于3）
+		/^[\W\s]*$/, // 只包含特殊字符和空格
+		/^(test|testing|hello|hi|hey|ok|yes|no)\s*$/i, // 简单测试词
+	];
+	
+	const isMeaninglessInput = allUserContent.trim().length < 3 || 
+		meaninglessPatterns.some(pattern => pattern.test(allUserContent.trim()));
+	
+	if (operationMode.value === 'create') {
+		// 创建模式评估 - 智能渐进式评估
+		
+		// 基础分数：根据输入质量给分
+		if (messageCount > 0) {
+			if (isMeaninglessInput) {
+				progress += 10; // 无意义输入只给10%
+			} else {
+				progress += 20; // 有意义输入给20%
+			}
+		}
+		
+		// 1. 工作流类型识别 (25%) - 扩展关键词覆盖
+		const workflowKeywords = ['onboard', 'approval', 'customer', 'support', 'process', 'workflow', 'employee', 'project', 'review', 'training', 'document', 'verification', 'testing', 'software', 'development', 'design', 'create', 'build', 'manage', 'system', 'application'];
+		if (workflowKeywords.some(keyword => allUserContent.includes(keyword))) {
+			hasWorkflowType = true;
+			progress += 25;
+		}
+		
+		// 2. 团队信息 (15%) - 只有真正提到团队相关内容才加分
+		const teamKeywords = ['team', 'hr', 'it', 'sales', 'finance', 'operations', 'manager', 'supervisor', 'department', 'role', 'assign', 'responsible', 'developer', 'tester', 'designer', 'company', 'organization', 'group', 'member'];
+		if (teamKeywords.some(keyword => allUserContent.includes(keyword))) {
+			hasTeamInfo = true;
+			progress += 15;
+		}
+		
+		// 3. 结构和时间信息 (20%) - 需要明确的结构描述或多轮对话
+		const structureKeywords = ['stage', 'step', 'phase', 'day', 'week', 'month', 'duration', 'time', 'sequence', 'order', 'first', 'then', 'next', 'final', 'begin', 'start', 'end', 'complete', 'flow'];
+		if (structureKeywords.some(keyword => allUserContent.includes(keyword)) || messageCount >= 2) {
+			hasStructureInfo = true;
+			progress += 20;
+		}
+		
+		// 4. 需求和细节 (20%) - 需要明确的需求描述或详细对话
+		const requirementKeywords = ['require', 'need', 'must', 'should', 'document', 'approval', 'check', 'verify', 'complete', 'ensure', 'compliance', 'policy', 'quality', 'test', 'validate', 'want', 'like', 'expect'];
+		if (requirementKeywords.some(keyword => allUserContent.includes(keyword)) || (messageCount >= 2 && allUserContent.length > 50)) {
+			hasRequirements = true;
+			progress += 20;
+		}
+		
+	} else {
+		// 修改模式评估 - 优化为更容易达到可生成状态
+		
+		// 前提: 必须选择工作流
+		if (!selectedWorkflowId.value) {
+			progress = 0;
+		} else {
+			// 基础分数：选择了工作流且有输入就给50%
+			if (messageCount > 0) {
+				progress += 50;
+			}
+			
+			// 1. 修改意图识别 (25%) - 扩展关键词
+			const modifyKeywords = ['add', 'remove', 'change', 'modify', 'update', 'improve', 'enhance', 'optimize', 'adjust', 'replace', 'delete', 'fix', 'edit', 'revise', 'refine', 'better', 'new'];
+			if (modifyKeywords.some(keyword => allUserContent.includes(keyword))) {
+				hasModificationDetails = true;
+				progress += 25;
+			}
+			
+			// 2. 具体修改内容 (15%) - 更容易触发
+			const detailKeywords = ['stage', 'step', 'team', 'duration', 'time', 'assignment', 'approval', 'requirement', 'field', 'process', 'flow', 'sequence', 'order'];
+			if (detailKeywords.some(keyword => allUserContent.includes(keyword)) || messageCount >= 1) {
+				progress += 15;
+			}
+			
+			// 3. 约束和要求 (10%) - 降低权重
+			if (messageCount >= 1) {
+				progress += 10;
+			}
+		}
+	}
+	
+	// 智能额外加分项 - 基于内容质量和对话深度
+	
+	// 1. 内容长度和质量加分
+	if (allUserContent.length > 50 && messageCount >= 2) {
+		progress += 5; // 有一定深度的对话
+	}
+	
+	if (allUserContent.length > 150 && messageCount >= 3) {
+		progress += 5; // 详细描述加分
+	}
+	
+	if (allUserContent.length > 300) {
+		progress += 5; // 非常详细的描述
+	}
+	
+	// 2. 多轮对话质量加分
+	if (messageCount >= 4) {
+		progress += 5; // 深度交互加分
+	}
+	
+	// 3. 特殊关键词组合加分
+	const advancedKeywords = ['stakeholder', 'deliverable', 'milestone', 'criteria', 'metric', 'kpi', 'sla', 'automation', 'integration', 'escalation'];
+	const advancedMatches = advancedKeywords.filter(keyword => allUserContent.includes(keyword)).length;
+	if (advancedMatches >= 2) {
+		progress += 5; // 高级词汇使用加分
+	}
+	
+	// 确保进度不超过100%
+	progress = Math.min(progress, 100);
+	
+	// 更新进度
+	conversationProgress.value = progress;
+	
+	// 判断是否可以生成工作流 (只要有用户输入就可以生成)
+	canGenerateWorkflow.value = messageCount > 0;
+	
+	// 如果进度达到80%以上，设置对话完成
+	if (progress >= 80) {
+		conversationComplete.value = true;
+	}
+	
+	console.log('Conversation Progress Analysis:', {
+		operationMode: operationMode.value,
+		messageCount,
+		allUserContent,
+		contentLength: allUserContent.length,
+		isMeaninglessInput,
+		hasWorkflowType,
+		hasTeamInfo,
+		hasStructureInfo,
+		hasRequirements,
+		hasModificationDetails,
+		finalProgress: progress,
+		canGenerateWorkflow: canGenerateWorkflow.value,
+		conversationComplete: conversationComplete.value
+	});
 };
 
 // Computed
@@ -735,7 +940,10 @@ const addUserMessage = (content: string) => {
 		timestamp: new Date().toLocaleTimeString(),
 	};
 	conversationHistory.value.push(message);
+	
+	// 评估对话进度
 	nextTick(() => {
+		evaluateConversationProgress();
 		scrollToBottom();
 	});
 };
@@ -799,6 +1007,11 @@ const callRealAI = async (userMessage: string) => {
 			if (aiResponse.sessionId) {
 				conversationSessionId.value = aiResponse.sessionId;
 			}
+			
+			// 重新评估进度
+			nextTick(() => {
+				evaluateConversationProgress();
+			});
 		} else {
 			throw new Error(aiResponse.message || 'AI response failed');
 		}
@@ -862,7 +1075,7 @@ const enhancedAISimulation = async (userMessage: string) => {
 			addAIMessage(
 				'Perfect! I now have a clear understanding of the modifications you want to make to this workflow. Based on our discussion, I can enhance the existing workflow with your specific improvements while maintaining its core structure and effectiveness.'
 			);
-			conversationComplete.value = true;
+			// Note: conversationComplete will be set by evaluateConversationProgress()
 		}
 	} else {
 		// Create mode responses (original logic)
@@ -900,7 +1113,7 @@ const enhancedAISimulation = async (userMessage: string) => {
 			addAIMessage(
 				'Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.'
 			);
-			conversationComplete.value = true;
+			// Note: conversationComplete will be set by evaluateConversationProgress()
 		}
 	}
 };
@@ -918,8 +1131,35 @@ const handleEnterKey = (event) => {
 const resetConversation = () => {
 	conversationHistory.value = [];
 	conversationComplete.value = false;
+	conversationProgress.value = 0;
+	canGenerateWorkflow.value = false;
 	currentMessage.value = '';
 	startConversation();
+};
+
+const continueConversation = () => {
+	// 鼓励用户继续提供更多信息
+	const messageCount = conversationHistory.value.filter(m => m.role === 'user').length;
+	
+	let encouragementMessage = '';
+	
+	if (operationMode.value === 'create') {
+		if (messageCount <= 1) {
+			encouragementMessage = "Great start! To make your workflow even better, could you tell me more about the teams or people who will be involved in this process?";
+		} else if (messageCount <= 2) {
+			encouragementMessage = "Excellent! Now, could you describe the main stages or steps you envision? How long should the entire process take?";
+		} else {
+			encouragementMessage = "Perfect! Are there any specific requirements, documents, or approval processes that should be included?";
+		}
+	} else {
+		if (messageCount <= 1) {
+			encouragementMessage = "Good! Could you provide more specific details about what you want to change? Which stages or aspects need modification?";
+		} else {
+			encouragementMessage = "Great! Are there any constraints or requirements I should consider for these modifications?";
+		}
+	}
+	
+	addAIMessage(encouragementMessage);
 };
 
 const proceedToGeneration = () => {
@@ -1030,6 +1270,8 @@ const loadAvailableWorkflows = async () => {
 const handleWorkflowSelect = async (workflowId: number) => {
 	if (!workflowId) {
 		currentWorkflow.value = null;
+		conversationProgress.value = 0;
+		canGenerateWorkflow.value = false;
 		return;
 	}
 
@@ -1045,6 +1287,11 @@ const handleWorkflowSelect = async (workflowId: number) => {
 		// Use fallback from available workflows list
 		currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
 	}
+
+	// 重新评估进度
+	nextTick(() => {
+		evaluateConversationProgress();
+	});
 
 	// Restart conversation when workflow is selected in modify mode
 	if (operationMode.value === 'modify' && showConversation.value && currentWorkflow.value) {
@@ -1331,6 +1578,11 @@ onMounted(() => {
 	setTimeout(() => {
 		startConversation();
 	}, 500);
+	
+	// Initialize progress evaluation
+	nextTick(() => {
+		evaluateConversationProgress();
+	});
 });
 
 // Watch for operation mode changes
@@ -2125,6 +2377,421 @@ watch(operationMode, (newMode) => {
 	}
 }
 
+/* Progress Bar Styles */
+.conversation-progress-container {
+	margin-top: 16px;
+	padding: 16px;
+	background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+	border-radius: 12px;
+	border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.progress-info {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.progress-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: #475569;
+	letter-spacing: -0.025em;
+}
+
+.progress-value {
+	font-size: 14px;
+	font-weight: 700;
+	color: #3b82f6;
+	background: rgba(59, 130, 246, 0.1);
+	padding: 2px 8px;
+	border-radius: 8px;
+}
+
+.progress-bar {
+	height: 8px;
+	background: rgba(226, 232, 240, 0.6);
+	border-radius: 6px;
+	overflow: hidden;
+	margin-bottom: 8px;
+	position: relative;
+}
+
+.progress-fill {
+	height: 100%;
+	border-radius: 6px;
+	transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	overflow: hidden;
+}
+
+.progress-fill::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+	animation: progress-shimmer 2s infinite;
+}
+
+.progress-fill.progress-low {
+	background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
+}
+
+.progress-fill.progress-medium {
+	background: linear-gradient(90deg, #f59e0b 0%, #eab308 100%);
+}
+
+.progress-fill.progress-high {
+	background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+}
+
+.progress-status {
+	text-align: center;
+}
+
+.status-text {
+	font-size: 12px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 20px;
+	display: inline-block;
+}
+
+.status-insufficient {
+	background: rgba(239, 68, 68, 0.1);
+	color: #dc2626;
+	border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-progress {
+	background: rgba(245, 158, 11, 0.1);
+	color: #d97706;
+	border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-good {
+	background: rgba(34, 197, 94, 0.1);
+	color: #16a34a;
+	border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-ready {
+	background: rgba(59, 130, 246, 0.1);
+	color: #2563eb;
+	border: 1px solid rgba(59, 130, 246, 0.2);
+	animation: status-pulse 2s infinite;
+}
+
+@keyframes progress-shimmer {
+	0% {
+		left: -100%;
+	}
+	100% {
+		left: 100%;
+	}
+}
+
+@keyframes status-pulse {
+	0%, 100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	50% {
+		transform: scale(1.05);
+		opacity: 0.9;
+	}
+}
+
+/* Smart Generation Actions Styles */
+.smart-generation-actions {
+	margin-top: 24px;
+	padding: 24px;
+	border-radius: 16px;
+	background: linear-gradient(135deg, #f0f9ff 0%, #e0f7fa 50%, #f3e5f5 100%);
+	border: 1px solid #e3f2fd;
+	box-shadow:
+		0 8px 32px rgba(59, 130, 246, 0.12),
+		0 4px 16px rgba(139, 92, 246, 0.08);
+	position: relative;
+	animation: generation-appear 0.6s ease-out;
+}
+
+.smart-generation-actions::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+	pointer-events: none;
+}
+
+.generation-card {
+	position: relative;
+	z-index: 10;
+	margin-bottom: 20px;
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	transition: all 0.3s ease;
+}
+
+.generation-card.high-confidence {
+	transform: scale(1.02);
+}
+
+.generation-icon {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	box-shadow:
+		0 4px 12px rgba(16, 185, 129, 0.3),
+		0 0 20px rgba(16, 185, 129, 0.1);
+	transition: all 0.3s ease;
+}
+
+.generation-card.high-confidence .generation-icon {
+	animation: generation-pulse 2s ease-in-out infinite;
+}
+
+.generation-icon .el-icon {
+	color: white;
+	font-size: 20px;
+}
+
+.generation-content {
+	flex: 1;
+}
+
+.generation-content h4 {
+	font-size: 18px;
+	font-weight: 600;
+	color: #1e293b;
+	margin-bottom: 8px;
+	background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.generation-content p {
+	color: #64748b;
+	font-size: 14px;
+	line-height: 1.5;
+	margin-bottom: 12px;
+}
+
+.confidence-indicator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.confidence-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: #475569;
+}
+
+.confidence-bar-mini {
+	width: 80px;
+	height: 4px;
+	background: rgba(226, 232, 240, 0.6);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.confidence-fill-mini {
+	height: 100%;
+	border-radius: 2px;
+	transition: width 0.6s ease;
+}
+
+.confidence-fill-mini.progress-basic {
+	background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+}
+
+.confidence-fill-mini.progress-good {
+	background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.confidence-fill-mini.progress-excellent {
+	background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.confidence-percentage {
+	font-size: 12px;
+	font-weight: 700;
+	color: #3b82f6;
+}
+
+.generation-actions {
+	position: relative;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
+}
+
+.generation-actions .secondary-btn {
+	padding: 10px 20px;
+	border-radius: 8px;
+	font-weight: 500;
+	background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+	color: #64748b;
+	border: 1px solid #cbd5e1;
+	transition: all 0.3s ease;
+}
+
+.generation-actions .secondary-btn:hover {
+	transform: translateY(-1px);
+	background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+	color: #475569;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.generation-actions .continue-btn {
+	padding: 10px 20px;
+	border-radius: 8px;
+	font-weight: 500;
+	background: linear-gradient(135deg, #f0f9ff 0%, #dbeafe 100%);
+	color: #2563eb;
+	border: 1px solid #bfdbfe;
+	transition: all 0.3s ease;
+}
+
+.generation-actions .continue-btn:hover {
+	transform: translateY(-1px);
+	background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+	color: #1d4ed8;
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.generation-actions .primary-btn {
+	padding: 12px 24px;
+	border-radius: 8px;
+	font-weight: 600;
+	color: white;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #7c3aed 100%);
+	border: none;
+	box-shadow:
+		0 4px 15px rgba(59, 130, 246, 0.4),
+		0 0 30px rgba(59, 130, 246, 0.2);
+	transition: all 0.3s ease;
+	position: relative;
+	overflow: hidden;
+}
+
+.generation-actions .primary-btn::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	transition: left 0.5s;
+}
+
+.generation-actions .primary-btn:hover {
+	transform: translateY(-2px);
+	background: linear-gradient(135deg, #2563eb 0%, #1e40af 50%, #6d28d9 100%);
+	box-shadow:
+		0 8px 25px rgba(59, 130, 246, 0.5),
+		0 0 40px rgba(59, 130, 246, 0.3);
+}
+
+.generation-actions .primary-btn:hover::before {
+	left: 100%;
+}
+
+.generation-actions .primary-btn.pulse-animation {
+	animation: primary-pulse 2s ease-in-out infinite;
+}
+
+.generation-actions .primary-btn.ready-animation {
+	animation: ready-glow 3s ease-in-out infinite;
+}
+
+.generation-actions .primary-btn.basic-ready {
+	background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #92400e 100%);
+	box-shadow:
+		0 4px 15px rgba(245, 158, 11, 0.4),
+		0 0 30px rgba(245, 158, 11, 0.2);
+}
+
+.generation-actions .primary-btn.basic-ready:hover {
+	background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #78350f 100%);
+	box-shadow:
+		0 8px 25px rgba(245, 158, 11, 0.5),
+		0 0 40px rgba(245, 158, 11, 0.3);
+}
+
+@keyframes generation-appear {
+	0% {
+		opacity: 0;
+		transform: translateY(20px) scale(0.95);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes generation-pulse {
+	0%, 100% {
+		transform: scale(1);
+		box-shadow:
+			0 4px 12px rgba(16, 185, 129, 0.3),
+			0 0 20px rgba(16, 185, 129, 0.1);
+	}
+	50% {
+		transform: scale(1.05);
+		box-shadow:
+			0 6px 20px rgba(16, 185, 129, 0.4),
+			0 0 30px rgba(16, 185, 129, 0.2);
+	}
+}
+
+@keyframes primary-pulse {
+	0%, 100% {
+		box-shadow:
+			0 4px 15px rgba(59, 130, 246, 0.4),
+			0 0 30px rgba(59, 130, 246, 0.2);
+	}
+	50% {
+		box-shadow:
+			0 8px 25px rgba(59, 130, 246, 0.6),
+			0 0 40px rgba(59, 130, 246, 0.4);
+	}
+}
+
+@keyframes ready-glow {
+	0%, 100% {
+		box-shadow:
+			0 4px 15px rgba(59, 130, 246, 0.3),
+			0 0 25px rgba(59, 130, 246, 0.15);
+	}
+	50% {
+		box-shadow:
+			0 6px 20px rgba(59, 130, 246, 0.4),
+			0 0 35px rgba(59, 130, 246, 0.25);
+	}
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
 	.mode-options {
@@ -2155,26 +2822,40 @@ watch(operationMode, (newMode) => {
 		@apply grid-cols-1;
 	}
 
-	/* Completion responsive design */
-	.completion-card {
+	/* Generation responsive design */
+	.generation-card {
 		@apply flex-col items-center text-center gap-4;
 	}
 
-	.completion-actions {
+	.generation-actions {
 		@apply flex-col w-full gap-3;
 	}
 
-	.completion-actions .secondary-btn,
-	.completion-actions .primary-btn {
-		@apply w-full justify-center py-4;
+	.generation-actions .secondary-btn,
+	.generation-actions .continue-btn,
+	.generation-actions .primary-btn {
+		@apply w-full justify-center py-3;
 	}
 
-	.completion-content h4 {
-		@apply text-lg;
+	.generation-content h4 {
+		@apply text-base;
 	}
 
-	.completion-content p {
+	.generation-content p {
 		@apply text-sm;
+	}
+
+	/* Progress bar responsive design */
+	.conversation-progress-container {
+		padding: 12px;
+	}
+
+	.progress-info {
+		@apply flex-col items-start gap-2;
+	}
+
+	.confidence-indicator {
+		@apply flex-wrap gap-2;
 	}
 
 	/* Input area responsive design */
@@ -2705,3 +3386,4 @@ watch(operationMode, (newMode) => {
 	position: relative !important;
 }
 </style>
+

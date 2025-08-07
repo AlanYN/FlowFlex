@@ -19,10 +19,7 @@
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="flex justify-between items-center">
-			<el-button type="success" @click="handleViewCustomerPortal">
-				View Customer Portal
-			</el-button>
+		<div class="flex justify-between items-center">			
 			<el-button type="primary" @click="handleAddButtonClick">
 				<el-icon>
 					<Plus />

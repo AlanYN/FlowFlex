@@ -731,7 +731,14 @@ namespace FlowFlex.Application.Services.AI
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
 
-                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/chat/completions", content);
+                // Construct the API URL, avoiding duplication if baseUrl already contains the endpoint
+                var apiUrl = baseUrl.TrimEnd('/');
+                if (!apiUrl.EndsWith("/chat/completions"))
+                {
+                    apiUrl = $"{apiUrl}/chat/completions";
+                }
+                
+                var response = await _httpClient.PostAsync(apiUrl, content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -841,7 +848,14 @@ namespace FlowFlex.Application.Services.AI
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
 
-                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/v1/chat/completions", content);
+                // Construct the API URL for OpenAI, avoiding duplication if baseUrl already contains the endpoint
+                var apiUrl = baseUrl.TrimEnd('/');
+                if (!apiUrl.EndsWith("/v1/chat/completions") && !apiUrl.EndsWith("/chat/completions"))
+                {
+                    apiUrl = $"{apiUrl}/v1/chat/completions";
+                }
+
+                var response = await _httpClient.PostAsync(apiUrl, content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -1080,7 +1094,14 @@ namespace FlowFlex.Application.Services.AI
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
 
-                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/v1/chat/completions", content);
+                // Construct the API URL for DeepSeek, avoiding duplication if baseUrl already contains the endpoint
+                var apiUrl = baseUrl.TrimEnd('/');
+                if (!apiUrl.EndsWith("/v1/chat/completions") && !apiUrl.EndsWith("/chat/completions"))
+                {
+                    apiUrl = $"{apiUrl}/v1/chat/completions";
+                }
+
+                var response = await _httpClient.PostAsync(apiUrl, content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -2194,9 +2215,21 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
 
-            // 确保OpenAI API端点包含正确的版本路径
+            // 确保OpenAI API端点包含正确的版本路径，避免重复
             var baseUrl = config.BaseUrl.TrimEnd('/');
-            var apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
+            string apiUrl;
+            if (baseUrl.EndsWith("/v1/chat/completions") || baseUrl.EndsWith("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else if (baseUrl.Contains("/v1"))
+            {
+                apiUrl = $"{baseUrl}/chat/completions";
+            }
+            else
+            {
+                apiUrl = $"{baseUrl}/v1/chat/completions";
+            }
             _logger.LogInformation("Calling OpenAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
             
             var response = await _httpClient.PostAsync(apiUrl, content);
