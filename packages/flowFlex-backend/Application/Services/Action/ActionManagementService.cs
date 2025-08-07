@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using FlowFlex.Domain.Shared.Models;
 using Application.Contracts.IServices.Action;
+using Item.Excel.Lib;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -245,6 +246,27 @@ namespace FlowFlex.Application.Services.Action
             _logger.LogInformation("Updated action definition status: {ActionId}, IsEnabled: {IsEnabled}", id, isEnabled);
 
             return true;
+        }
+
+        public async Task<Stream> ExportAsync(string? search,
+            ActionTypeEnum? actionType,
+            bool? isAssignmentStage = null,
+            bool? isAssignmentChecklist = null,
+            bool? isAssignmentQuestionnaire = null,
+            bool? isAssignmentWorkflow = null)
+        {
+            var (data, total) = await _actionDefinitionRepository.GetPagedAsync(1,
+                10000,
+                actionType.ToString(),
+                search,
+                isAssignmentStage,
+                isAssignmentChecklist,
+                isAssignmentQuestionnaire,
+                isAssignmentWorkflow);
+
+            var map = _mapper.Map<List<ActionDefinitionDto>>(data);
+            Stream result = ExcelHelper<ActionDefinitionDto>.ExportExcel(map);
+            return result;
         }
 
         #endregion

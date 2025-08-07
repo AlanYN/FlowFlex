@@ -76,6 +76,23 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// <returns>Whether successful</returns>
         Task<bool> UpdateActionDefinitionStatusAsync(long id, bool isEnabled);
 
+        /// <summary>
+        /// Export action definition
+        /// </summary>
+        /// <param name="search"></param>
+        /// <param name="actionType"></param>
+        /// <param name="isAssignmentStage"></param>
+        /// <param name="isAssignmentChecklist"></param>
+        /// <param name="isAssignmentQuestionnaire"></param>
+        /// <param name="isAssignmentWorkflow"></param>
+        /// <returns></returns>
+        Task<Stream> ExportAsync(string? search,
+            ActionTypeEnum? actionType,
+            bool? isAssignmentStage = null,
+            bool? isAssignmentChecklist = null,
+            bool? isAssignmentQuestionnaire = null,
+            bool? isAssignmentWorkflow = null);
+
         #endregion
 
         #region Action Trigger Mapping Management

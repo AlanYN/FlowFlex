@@ -15,7 +15,6 @@
       <GeneratePathProperty>true</GeneratePathProperty>
     </PackageReference>
     <PackageReference Include="MediatR" Version="12.3.0" />
-    <PackageReference Include="NPOI" Version="2.7.4" />
   </ItemGroup>
 
   <ItemGroup>

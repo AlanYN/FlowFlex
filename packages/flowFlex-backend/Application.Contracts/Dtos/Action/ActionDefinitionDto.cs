@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using FlowFlex.Domain.Shared.Enums.Action;
 using Item.Common.Lib.JsonConverts;
+using Item.Excel.Lib;
 using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.Action
@@ -18,6 +19,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// <summary>
         /// Action code
         /// </summary>
+        [ExcelColumn(Name = "Action Code")]
         public string ActionCode { get; set; }
 
         /// <summary>
@@ -25,18 +27,21 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// </summary>
         [Required]
         [StringLength(100)]
+        [ExcelColumn(Name = "Action Name")]
         public string Name { get; set; }
 
         /// <summary>
         /// Action description
         /// </summary>
         [StringLength(500)]
+        [ExcelColumn(Name = "Description")]
         public string Description { get; set; }
 
         /// <summary>
         /// Action type
         /// </summary>
         [Required]
+        [ExcelColumn(Name = "Action Type", MapType = typeof(ActionTypeEnum))]
         public ActionTypeEnum ActionType { get; set; }
 
         /// <summary>
@@ -53,6 +58,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// <summary>
         /// Creation time
         /// </summary>
+        [ExcelColumn(Name = "Create Date", Format = "dd/MM/yyyy HH:mm:ss")]
         public DateTime CreatedAt { get; set; }
 
         /// <summary>
@@ -131,6 +137,9 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// </summary>
         public string Description { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Last applied
+        /// </summary>
         [JsonConverter(typeof(DateTimeJsonConverter))]
         public DateTimeOffset? LastApplied { get; set; }
     }

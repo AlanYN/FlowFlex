@@ -168,6 +168,29 @@ namespace FlowFlex.WebApi.Controllers.Action
             return Success(result);
         }
 
+        /// <summary>
+        /// Export factoring company
+        /// </summary>
+        /// <param name="request">Export request parameters</param>
+        /// <returns>Exported file</returns>
+        [HttpGet("definitions/export")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ExportAsync(string? search,
+            ActionTypeEnum? actionType,
+            bool? isAssignmentStage = null,
+            bool? isAssignmentChecklist = null,
+            bool? isAssignmentQuestionnaire = null,
+            bool? isAssignmentWorkflow = null)
+        {
+            return File(await _actionManagementService.ExportAsync(search,
+                actionType,
+                isAssignmentStage,
+                isAssignmentChecklist,
+                isAssignmentQuestionnaire,
+                isAssignmentWorkflow), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Action_{DateTimeOffset.Now.LocalDateTime:yyyyMMddHHmmss}.xlsx");
+        }
+
         #endregion
 
         #region Action Trigger Mapping Management

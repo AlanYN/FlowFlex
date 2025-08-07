@@ -12,9 +12,9 @@
 					<el-icon><Plus /></el-icon>
 					<span>New Action</span>
 				</el-button>
-				<el-button @click="handleExport">
+				<el-button @click="handleExport" :loading="exportLoading">
 					<el-icon><Download /></el-icon>
-					<span>Export ({{ selectedActions.length }})</span>
+					<span>Export</span>
 				</el-button>
 			</div>
 		</div>
@@ -207,13 +207,14 @@ import {
 	Delete,
 } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
-import { getActionDefinitions, deleteAction, type ActionDefinition, type ActionQueryRequest, type TriggerMapping, ActionType, ACTION_TYPE_MAPPING, FRONTEND_TO_BACKEND_TYPE_MAPPING } from '../../apis/action';
+import { getActionDefinitions, deleteAction, exportActions, type ActionDefinition, type ActionQueryRequest, type TriggerMapping, ActionType, ACTION_TYPE_MAPPING, FRONTEND_TO_BACKEND_TYPE_MAPPING } from '../../apis/action';
 
 // Router
 const router = useRouter();
 
 // Reactive data
 const loading = ref(false);
+const exportLoading = ref(false);
 const selectedActions = ref<any[]>([]);
 
 // Search form
@@ -284,12 +285,63 @@ const handleCreateAction = () => {
 	router.push('/onboard/createAction');
 };
 
-const handleExport = () => {
-	if (selectedActions.value.length === 0) {
-		ElMessage.warning('Please select actions to export');
-		return;
+const handleExport = async () => {
+	try {
+		// Show export loading
+		exportLoading.value = true;
+		
+		// Build query parameters (same as search)
+		const params: ActionQueryRequest = {
+			pageIndex: 1,
+			pageSize: 10000, // Export all data
+		};
+
+		// Add search conditions if any
+		if (searchForm.keyword) {
+			params.search = searchForm.keyword;
+		}
+
+		if (searchForm.type && searchForm.type !== 'all') {
+			params.actionType = searchForm.type;
+		}
+
+		if (searchForm.assignmentWorkflow && searchForm.assignmentWorkflow !== 'all') {
+			params.isAssignmentWorkflow = searchForm.assignmentWorkflow === 'yes';
+		}
+
+		if (searchForm.assignmentStage && searchForm.assignmentStage !== 'all') {
+			params.isAssignmentStage = searchForm.assignmentStage === 'yes';
+		}
+
+		if (searchForm.assignmentChecklist && searchForm.assignmentChecklist !== 'all') {
+			params.isAssignmentChecklist = searchForm.assignmentChecklist === 'yes';
+		}
+
+		if (searchForm.assignmentQuestionnaire && searchForm.assignmentQuestionnaire !== 'all') {
+			params.isAssignmentQuestionnaire = searchForm.assignmentQuestionnaire === 'yes';
+		}
+
+		// Call export API
+		const response = await exportActions(params);
+		
+		// Create download link
+		const blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+		const url = window.URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `actions_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		window.URL.revokeObjectURL(url);
+		
+		ElMessage.success('Export completed successfully');
+	} catch (error) {
+		console.error('Export failed:', error);
+		ElMessage.error('Export failed. Please try again.');
+	} finally {
+		exportLoading.value = false;
 	}
-	ElMessage.success(`Exporting ${selectedActions.value.length} actions`);
 };
 
 const handleSearch = async () => {
@@ -486,8 +538,4 @@ onMounted(() => {
 	font-size: 12px !important;
 	font-weight: 500 !important;
 }
-
-
-
-
 </style> 

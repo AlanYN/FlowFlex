@@ -95,4 +95,15 @@ export function deleteAction(id: string) {
 	return defHttp.delete({ 
 		url: `/api/action/v1/definitions/${id}`,
 	});
-} 
+}
+
+/**
+ * Export Actions
+ */
+export function exportActions(params: ActionQueryRequest) {
+	return defHttp.get({ 
+		url: '/api/action/v1/definitions/export',
+		params,
+		responseType: 'blob',
+	});
+}
