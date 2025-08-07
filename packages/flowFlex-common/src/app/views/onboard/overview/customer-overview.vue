@@ -197,6 +197,7 @@
 										class="font-medium text-gray-900"
 										style="white-space: normal"
 									>
+										<span class="question-number">{{ row.questionNumber }}.</span>
 										{{ row.question }}
 									</p>
 								</template>
@@ -227,7 +228,7 @@
 											class="single-choice-answer"
 										>
 											<el-tag
-												v-if="row.answer"
+												v-if="hasValidAnswer(row.answer)"
 												type="primary"
 												size="small"
 												effect="light"
@@ -254,7 +255,9 @@
 												v-if="
 													getCheckboxLabels(
 														row.answer,
-														row.questionConfig
+														row.questionConfig,
+														row.responseText,
+														row.id
 													).length > 0
 												"
 											>
@@ -262,7 +265,9 @@
 													<el-tag
 														v-for="(item, index) in getCheckboxLabels(
 															row.answer,
-															row.questionConfig
+															row.questionConfig,
+															row.responseText,
+															row.id
 														)"
 														:key="`${item}-${index}`"
 														type="success"
@@ -280,13 +285,17 @@
 													{{
 														getCheckboxLabels(
 															row.answer,
-															row.questionConfig
+															row.questionConfig,
+															row.responseText,
+															row.id
 														).length
 													}}
 													option{{
 														getCheckboxLabels(
 															row.answer,
-															row.questionConfig
+															row.questionConfig,
+															row.responseText,
+															row.id
 														).length > 1
 															? 's'
 															: ''
@@ -323,8 +332,10 @@
 											class="text-gray-700"
 										>
 											<template v-if="row.answer">
-												<el-icon class="mr-1"><Calendar /></el-icon>
-												{{ formatAnswerDate(row.answer) }}
+												<el-icon class="mr-1">
+													<component :is="row.questionType === 'time' ? 'Clock' : 'Calendar'" />
+												</el-icon>
+												{{ formatAnswerDate(row.answer, row.questionType) }}
 											</template>
 										</div>
 
@@ -426,21 +437,22 @@
 											v-else-if="isCheckboxGridType(row.questionType)"
 											class="grid-answer"
 										>
-											<el-tag
-												v-if="row.answer"
-												type="warning"
-												size="small"
-												effect="light"
-												class="grid-tag"
-											>
-												<el-icon class="mr-1" size="12">
-													<Check />
-												</el-icon>
-												{{ row.answer }}
-											</el-tag>
-											<div class="mt-1 text-xs text-gray-500">
-												Grid selection
-											</div>
+											<template v-if="row.answer">
+												<el-tag
+													type="warning"
+													size="small"
+													effect="light"
+													class="grid-tag"
+												>
+													<el-icon class="mr-1" size="12">
+														<Check />
+													</el-icon>
+													{{ row.answer }}
+												</el-tag>
+												<div class="mt-1 text-xs text-gray-500">
+													Grid selection
+												</div>
+											</template>
 										</div>
 
 										<!-- 多选网格 (Multiple choice grid) -->
@@ -452,7 +464,9 @@
 												v-if="
 													getGridAnswerLabels(
 														row.answer,
-														row.questionConfig
+														row.questionConfig,
+														row.responseText,
+														row.id
 													).length > 0
 												"
 											>
@@ -460,7 +474,9 @@
 													<el-tag
 														v-for="(item, index) in getGridAnswerLabels(
 															row.answer,
-															row.questionConfig
+															row.questionConfig,
+															row.responseText,
+															row.id
 														)"
 														:key="`${item}-${index}`"
 														type="warning"
@@ -478,13 +494,17 @@
 													{{
 														getGridAnswerLabels(
 															row.answer,
-															row.questionConfig
+															row.questionConfig,
+															row.responseText,
+															row.id
 														).length
 													}}
 													grid selection{{
 														getGridAnswerLabels(
 															row.answer,
-															row.questionConfig
+															row.questionConfig,
+															row.responseText,
+															row.id
 														).length > 1
 															? 's'
 															: ''
@@ -636,7 +656,7 @@ import IconHeart from '~icons/mdi/heart';
 import IconHeartOutline from '~icons/mdi/heart-outline';
 import IconThumbUp from '~icons/mdi/thumb-up';
 import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getOnboardingDetail } from '@/apis/ow/onboarding';
@@ -725,6 +745,8 @@ interface ProcessedQuestion {
 	section: string;
 	required: boolean;
 	questionConfig?: any; // 存储问题配置信息，如线性量表的范围
+	questionNumber: number; // 题目序号
+	responseText?: string; // 原始responseText，用于解析Other选项
 }
 
 interface ProcessedQuestionnaire {
@@ -872,7 +894,7 @@ const processQuestionnaireData = (
 
 		// Process each section and question
 		structure.sections?.forEach((section: any) => {
-			section.questions?.forEach((question: any) => {
+			section.questions?.forEach((question: any, questionIndex: number) => {
 				// 检查是否是网格类型的问题
 				const isGridType =
 					question.type === 'checkbox_grid' || question.type === 'multiple_choice_grid';
@@ -959,6 +981,8 @@ const processQuestionnaireData = (
 							section: section.name,
 							required: question.required || false,
 							questionConfig: question.config || question, // 存储完整的问题配置
+							questionNumber: questionIndex + 1, // 添加题目序号
+							responseText: gridAnswer.responseText || answer?.answerJson || '', // 保存原始responseText
 						});
 					});
 				} else {
@@ -1022,6 +1046,8 @@ const processQuestionnaireData = (
 						section: section.name,
 						required: question.required || false,
 						questionConfig: question.config || question, // 存储完整的问题配置
+						questionNumber: questionIndex + 1, // 添加题目序号
+						responseText: answerData?.responseText || answer?.answerJson || '', // 保存原始responseText
 					});
 				}
 			});
@@ -1255,6 +1281,7 @@ const allResponses = computed(() => {
 					questionnaire: questionnaire.name,
 					questionnaireId: questionnaire.id,
 					section: response.section,
+					questionNumber: response.questionNumber,
 					question: response.question,
 					answer: response.answer,
 					answeredBy: response.answeredBy,
@@ -1280,12 +1307,12 @@ const allQuestionsForExport = computed(() => {
 
 			// 如果是多选表格类型，转换为label显示
 			if (response.questionType === 'multiple_choice_grid' && response.questionConfig) {
-				const labels = getGridAnswerLabels(response.answer, response.questionConfig);
+				const labels = getGridAnswerLabels(response.answer, response.questionConfig, response.responseText, response.id);
 				displayAnswer = labels.join(', ');
 			}
 			// 如果是多选类型，转换为label显示
 			else if (response.questionType === 'checkboxes' && response.answer) {
-				const labels = getCheckboxLabels(response.answer, response.questionConfig);
+				const labels = getCheckboxLabels(response.answer, response.questionConfig, response.responseText, response.id);
 				displayAnswer = labels.join(', ');
 			}
 			// 如果是单选类型，转换为label显示
@@ -1304,15 +1331,14 @@ const allQuestionsForExport = computed(() => {
 			// Include ALL questions, regardless of whether they have answers
 			responses.push({
 				questionnaire: questionnaire.name,
-				questionnaireId: questionnaire.id,
 				section: response.section,
+				questionNumber: response.questionNumber,
 				question: response.question,
 				answer: displayAnswer,
 				answeredBy: response.answeredBy || '',
 				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
 				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
 				updatedBy: response.updatedBy || '',
-				questionType: response.questionType, // 添加问题类型用于调试
 			});
 		});
 	});
@@ -1329,12 +1355,12 @@ const filteredQuestionsForExport = computed(() => {
 			
 			// 如果是多选表格类型，转换为label显示
 			if (response.questionType === 'multiple_choice_grid' && response.questionConfig) {
-				const labels = getGridAnswerLabels(response.answer, response.questionConfig);
+				const labels = getGridAnswerLabels(response.answer, response.questionConfig, response.responseText, response.id);
 				displayAnswer = labels.join(', ');
 			}
 			// 如果是多选类型，转换为label显示
 			else if (response.questionType === 'checkboxes' && response.answer) {
-				const labels = getCheckboxLabels(response.answer, response.questionConfig);
+				const labels = getCheckboxLabels(response.answer, response.questionConfig, response.responseText, response.id);
 				displayAnswer = labels.join(', ');
 			}
 			// 如果是单选类型，转换为label显示
@@ -1353,15 +1379,14 @@ const filteredQuestionsForExport = computed(() => {
 			// Include ALL filtered questions, regardless of whether they have answers
 			responses.push({
 				questionnaire: questionnaire.name,
-				questionnaireId: questionnaire.id,
 				section: response.section,
+				questionNumber: response.questionNumber,
 				question: response.question,
 				answer: displayAnswer,
 				answeredBy: response.answeredBy || '',
 				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
 				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
 				updatedBy: response.updatedBy || '',
-				questionType: response.questionType,
 			});
 		});
 	});
@@ -1381,6 +1406,69 @@ const uniqueContributors = computed(() => {
 });
 
 // Removed pagination handlers
+
+// 解析responseText中的自定义输入值
+const parseResponseText = (responseText: string): { [key: string]: string } => {
+	if (!responseText || responseText.trim() === '{}') {
+		return {};
+	}
+	
+	try {
+		// 处理Unicode编码的字符串
+		let decodedText = responseText;
+		
+		// 替换Unicode编码的字符
+		decodedText = decodedText.replace(/u0022/g, '"');
+		decodedText = decodedText.replace(/u0020/g, ' ');
+		decodedText = decodedText.replace(/u003A/g, ':');
+		decodedText = decodedText.replace(/u002C/g, ',');
+		decodedText = decodedText.replace(/u007B/g, '{');
+		decodedText = decodedText.replace(/u007D/g, '}');
+		
+		// 尝试解析JSON
+		const parsed = JSON.parse(decodedText);
+		return parsed || {};
+	} catch (error) {
+		console.warn('Failed to parse responseText:', responseText, error);
+		return {};
+	}
+};
+
+// 从responseText中提取Other选项的自定义值
+const extractOtherValues = (responseText: string, questionId: string): { [key: string]: string } => {
+	const parsed = parseResponseText(responseText);
+	const otherValues: { [key: string]: string } = {};
+	
+
+	
+	// 查找包含questionId的键
+	Object.keys(parsed).forEach(key => {
+		if (key.includes(questionId)) {
+			// 对于网格类型：查找包含"other"的键
+			if (key.includes('other')) {
+				// 提取column ID，格式如：question-xxx_row-xxx_column-other-xxx
+				const parts = key.split('_');
+				const columnPart = parts.find(part => part.startsWith('column-other-'));
+				if (columnPart) {
+					otherValues[columnPart] = parsed[key];
+				}
+			}
+			// 对于多选题：查找option类型的键
+			else if (key.includes('option-') || key.includes('option_')) {
+				// 提取option ID，格式如：question-xxx_option-xxx
+				const parts = key.split('_');
+				let optionPart = parts.find(part => part.startsWith('option-'));
+				if (optionPart) {
+					// 同时支持 option- 和 option_ 格式
+					const alternativeKey = optionPart.replace('option-', 'option_');
+					otherValues[optionPart] = parsed[key];
+					otherValues[alternativeKey] = parsed[key];
+				}
+			}
+		}
+	});
+	return otherValues;
+};
 
 // Utility functions
 const formatDateUS = (dateString: string) => {
@@ -1415,6 +1503,10 @@ const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
 	if (typeof answer === 'string') {
 		const trimmed = answer.trim();
+		// 检查空的JSON对象字符串
+		if (trimmed === '{}' || trimmed === '[]') {
+			return false;
+		}
 		return (
 			trimmed !== '' &&
 			trimmed !== 'No answer provided' &&
@@ -1427,7 +1519,8 @@ const hasValidAnswer = (answer: string | any): boolean => {
 		return answer.length > 0;
 	}
 	if (typeof answer === 'object' && answer !== null) {
-		return true;
+		// 检查是否是空对象
+		return Object.keys(answer).length > 0;
 	}
 	return true;
 };
@@ -1452,7 +1545,53 @@ const handleExportExcel = () => {
 			return;
 		}
 
-		const worksheet = XLSX.utils.json_to_sheet(exportData);
+		// Define headers explicitly
+		const headers = [
+			'Questionnaire',
+			'Section',
+			'No.',
+			'Question',
+			'Answer',
+			'Answered By',
+			'Answered Date',
+			'Last Updated',
+			'Updated By'
+		];
+
+		// Create worksheet with headers first
+		const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+		
+		// Add data starting from row 2
+		XLSX.utils.sheet_add_json(worksheet, exportData, { 
+			origin: 'A2', 
+			skipHeader: true 
+		});
+
+		// Apply bold formatting to header row only
+		const headerCells = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1'];
+		headerCells.forEach(cellAddress => {
+			if (worksheet[cellAddress]) {
+				worksheet[cellAddress].s = {
+					font: { 
+						bold: true
+					}
+				};
+			}
+		});
+
+		// Set column widths for better readability
+		worksheet['!cols'] = [
+			{ wch: 20 }, // Questionnaire
+			{ wch: 15 }, // Section
+			{ wch: 5 },  // No.
+			{ wch: 50 }, // Question
+			{ wch: 30 }, // Answer
+			{ wch: 15 }, // Answered By
+			{ wch: 18 }, // Answered Date
+			{ wch: 18 }, // Last Updated
+			{ wch: 15 }  // Updated By
+		];
+		
 		const workbook = XLSX.utils.book_new();
 		XLSX.utils.book_append_sheet(workbook, worksheet, 'Customer Overview');
 		
@@ -1463,7 +1602,12 @@ const handleExportExcel = () => {
 		}
 		filename += '.xlsx';
 		
-		XLSX.writeFile(workbook, filename);
+		// Write file with styling options
+		XLSX.writeFile(workbook, filename, { 
+			bookType: 'xlsx',
+			cellStyles: true,
+			sheetStubs: false
+		});
 		
 		const filterInfo = hasActiveFilters.value ? ' (filtered data)' : '';
 		ElMessage.success(`Excel file exported successfully with ${exportData.length} questions${filterInfo}`);
@@ -2034,6 +2178,11 @@ const getCheckboxAnswers = (answer: any): string[] => {
 // Get label for multiple choice answer
 const getMultipleChoiceLabel = (answer: string, questionConfig: any): string => {
 	if (!answer || !questionConfig?.options) return answer;
+	
+	// 检查是否是空的JSON对象字符串
+	if (typeof answer === 'string' && (answer.trim() === '{}' || answer.trim() === '[]')) {
+		return '';
+	}
 
 	// Find the option with matching value
 	const option = questionConfig.options.find((opt: any) => opt.value === answer);
@@ -2050,7 +2199,7 @@ const getDropdownLabel = (answer: string, questionConfig: any): string => {
 };
 
 // Get labels for checkbox answers
-const getCheckboxLabels = (answer: any, questionConfig: any): string[] => {
+const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: string, questionId?: string): string[] => {
 	if (!answer || !questionConfig?.options) {
 		return getCheckboxAnswers(answer);
 	}
@@ -2059,29 +2208,161 @@ const getCheckboxLabels = (answer: any, questionConfig: any): string[] => {
 
 	// Create a map of value to label
 	const optionMap = new Map<string, string>();
+	const otherOptionIds = new Set<string>();
+	
 	questionConfig.options.forEach((option: any) => {
 		optionMap.set(option.value, option.label);
+		// 识别other类型的选项
+		if (option.isOther || 
+			option.type === 'other' || 
+			option.allowCustom || 
+			option.hasInput ||
+			(option.label && (
+				option.label.toLowerCase().includes('other') || 
+				option.label.toLowerCase().includes('enter other') ||
+				option.label.toLowerCase().includes('custom') ||
+				option.label.toLowerCase().includes('specify')
+			))) {
+			otherOptionIds.add(option.value);
+		}
 	});
 
+	// 从responseText中提取Other选项的自定义值
+	let otherValues: { [key: string]: string } = {};
+	if (responseText && questionId) {
+		otherValues = extractOtherValues(responseText, questionId);
+	}
+
 	// Convert values to labels
-	return answerValues.map((value) => optionMap.get(value) || value);
+	const labels: string[] = [];
+	answerValues.forEach((value) => {
+		const optionLabel = optionMap.get(value);
+		
+		if (optionLabel) {
+			// 如果这是一个other类型的选项，显示自定义值
+			if (otherOptionIds.has(value)) {
+				// 查找对应的自定义值
+				const customValue = otherValues[value] || otherValues[value.replace('option_', 'option-')];
+				if (customValue) {
+					labels.push(`Other: ${customValue}`);
+				} else {
+					labels.push(optionLabel);
+				}
+			} else {
+				labels.push(optionLabel);
+			}
+		} else {
+			// 对于没有找到对应label的值，检查是否有other自定义值
+			const isOtherValue = Object.keys(otherValues).some(otherKey => {
+				return otherKey.includes(value) || value.includes(otherKey.replace('option-', '').replace('option_', ''));
+			});
+			
+			if (isOtherValue) {
+				// 如果这个值对应一个other选项，查找自定义值
+				const customValue = Object.entries(otherValues).find(([key]) => 
+					key.includes(value) || value.includes(key.replace('option-', '').replace('option_', ''))
+				)?.[1];
+				if (customValue) {
+					labels.push(`Other: ${customValue}`);
+				} else {
+					// 如果没有自定义值，跳过不显示（避免显示原始值如"d"）
+				}
+			} else {
+				labels.push(value);
+			}
+		}
+	});
+
+	return labels.filter(Boolean);
 };
 
 // 解析网格答案，将column ID转换为对应的label
-const getGridAnswerLabels = (answer: any, questionConfig: any): string[] => {
+const getGridAnswerLabels = (answer: any, questionConfig: any, responseText?: string, questionId?: string): string[] => {
 	if (!answer || !questionConfig?.columns) return [];
 
 	// 获取原始答案数组
 	const answerIds = getCheckboxAnswers(answer);
+	
+
 
 	// 创建column ID到label的映射
 	const columnMap = new Map<string, string>();
+	const otherColumnIds = new Set<string>();
+	
 	questionConfig.columns.forEach((column: any) => {
 		columnMap.set(column.id, column.label);
+		// 识别other类型的列
+		if (column.isOther || 
+			column.type === 'other' || 
+			column.allowCustom || 
+			column.hasInput ||
+			(column.label && (
+				column.label.toLowerCase().includes('other') || 
+				column.label.toLowerCase().includes('enter other') ||
+				column.label.toLowerCase().includes('custom') ||
+				column.label.toLowerCase().includes('specify')
+			))) {
+			otherColumnIds.add(column.id);
+		}
 	});
 
+	// 从responseText中提取Other选项的自定义值
+	let otherValues: { [key: string]: string } = {};
+	if (responseText && questionId) {
+		otherValues = extractOtherValues(responseText, questionId);
+
+	}
+
 	// 将ID转换为对应的label
-	return answerIds.map((id) => columnMap.get(id) || id).filter(Boolean);
+	const labels: string[] = [];
+	answerIds.forEach((id) => {
+		const columnLabel = columnMap.get(id);
+		
+		if (columnLabel) {
+			// 如果这是一个other类型的列，显示自定义值
+			if (otherColumnIds.has(id) || id.includes('other') || columnLabel.toLowerCase().includes('other')) {
+				// 查找对应的自定义值，尝试多种格式
+				const customValue = otherValues[id] || 
+								   otherValues[id.replace('column-', 'column-other-')] ||
+								   Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
+
+				if (customValue) {
+					labels.push(`Other: ${customValue}`);
+				} else {
+					labels.push(columnLabel);
+				}
+			} else {
+				labels.push(columnLabel);
+			}
+		} else {
+			// 对于没有找到对应label的值，检查是否有other自定义值
+			const isOtherValue = Object.keys(otherValues).some(otherKey => {
+				return otherKey.includes(id) || id.includes('other');
+			});
+			
+			if (isOtherValue) {
+				// 如果这个值对应一个other选项，查找自定义值
+				const customValue = Object.entries(otherValues).find(([key]) => 
+					key.includes(id) || (id.includes('other') && key.includes('other'))
+				)?.[1];
+				if (customValue) {
+					labels.push(`Other: ${customValue}`);
+				} else if (id === 'Other' || id.toLowerCase() === 'other') {
+					// 如果答案就是"Other"，查找任何other相关的自定义值
+					const anyOtherValue = Object.values(otherValues)[0];
+					if (anyOtherValue) {
+						labels.push(`Other: ${anyOtherValue}`);
+					} else {
+						labels.push(id);
+					}
+				}
+			} else {
+				labels.push(id);
+			}
+		}
+	});
+
+	return labels.filter(Boolean);
 };
 
 // 图标选项配置
@@ -2161,7 +2442,7 @@ const getFileAnswers = (answer: any): Array<{ name: string; size?: number }> => 
 	}
 };
 
-const formatAnswerDate = (dateStr: any): string => {
+const formatAnswerDate = (dateStr: any, questionType?: string): string => {
 	if (!dateStr) return '';
 
 	// Convert to string if not already
@@ -2174,6 +2455,15 @@ const formatAnswerDate = (dateStr: any): string => {
 			return dateString;
 		}
 		
+		// For time type questions, show only time
+		if (questionType === 'time') {
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			const seconds = String(date.getSeconds()).padStart(2, '0');
+			return `${hours}:${minutes}:${seconds}`;
+		}
+		
+		// For date type questions or general date display, show date
 		// Use US date format for consistency
 		const month = String(date.getMonth() + 1).padStart(2, '0');
 		const day = String(date.getDate()).padStart(2, '0');
@@ -2469,5 +2759,18 @@ html.dark {
 .pdf-export-summary {
 	page-break-inside: avoid !important;
 	margin-top: 24px !important;
+}
+
+/* 题目序号样式 */
+.question-number {
+	color: #2563eb;
+	font-weight: 600;
+	margin-right: 0.5rem;
+	font-size: 0.9em;
+}
+
+/* 暗色主题下的题目序号样式 */
+html.dark .question-number {
+	color: #60a5fa;
 }
 </style>

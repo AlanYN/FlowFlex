@@ -158,9 +158,14 @@
 						class="question-item space-y-3 pb-6 border-b border-gray-50 last:border-b-0 last:pb-0"
 					>
 						<!-- 问题标题 -->
-						<div class="flex items-start justify-between">
+						<div
+							class="flex items-start justify-between"
+							v-if="item.type !== 'page_break'"
+						>
 							<h4 class="text-base font-medium question-title flex-1">
-								<span class="text-gray-400 mr-2">{{ itemIndex + 1 }}.</span>
+								<span class="text-gray-400 mr-2">
+									{{ getQuestionNumber(sectionIndex, itemIndex) }}.
+								</span>
 								<a :href="`#${item.id}`">{{ item.question || item.title }}</a>
 								<span v-if="item.required" class="text-red-500 ml-1">*</span>
 							</h4>
@@ -173,6 +178,26 @@
 						<p v-if="item.description" class="text-sm question-description pl-6">
 							{{ item.description }}
 						</p>
+
+						<div
+							v-if="item.questionProps && item.questionProps.fileUrl"
+							class="flex flex-col max-h-[500px] justify-center items-center"
+						>
+							<el-image
+								v-if="item.questionProps.type === 'image'"
+								:src="item.questionProps.fileUrl"
+								class="responsive-image"
+								:preview-src-list="[`${item.questionProps.fileUrl}`]"
+								fit="contain"
+							/>
+							<video
+								v-else-if="item.questionProps.type === 'video'"
+								:src="item.questionProps.fileUrl"
+								:alt="item.questionProps.fileName || 'Uploaded video'"
+								controls
+								class="max-h-[500px] w-auto object-contain"
+							></video>
+						</div>
 
 						<!-- 问题输入组件 -->
 						<div class="pl-6">
@@ -379,10 +404,10 @@
 							<div v-else-if="item.type === 'linear_scale'" class="space-y-2">
 								<el-slider
 									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-									:min="item.min || 1"
-									:max="item.max || 5"
+									:min="item.min"
+									:max="item.max"
 									:step="1"
-									:show-stops="true"
+									:marks="getSliderMarks(item)"
 									:show-input="false"
 									class="preview-linear-scale"
 								/>
@@ -647,18 +672,46 @@
 								</div>
 							</div>
 
-							<!-- 分隔符 -->
-							<div
-								v-else-if="item.type === 'divider'"
-								class="border-t border-gray-200 my-4"
-							></div>
-
 							<!-- 说明文本 -->
 							<div
 								v-else-if="item.type === 'description'"
 								class="text-gray-600 italic"
 							>
 								{{ item.content || item.text }}
+							</div>
+
+							<div
+								v-else-if="item.type === 'page_break'"
+								class="text-gray-600 italic"
+							>
+								<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
+									<div class="text-center text-primary-500 text-sm">
+										— Page Break —
+									</div>
+								</div>
+							</div>
+
+							<div
+								v-else-if="item.type === 'image'"
+								class="flex justify-center items-center w-full"
+							>
+								<el-image
+									:src="item.fileUrl"
+									class="responsive-image"
+									:preview-src-list="[`${item.fileUrl}`]"
+									fit="contain"
+								/>
+							</div>
+
+							<div
+								v-else-if="item.type === 'video'"
+								class="flex justify-center items-center"
+							>
+								<video
+									:src="item.fileUrl"
+									controls
+									class="max-h-[500px] w-auto object-contain"
+								></video>
 							</div>
 
 							<!-- 未知类型 -->
@@ -1193,6 +1246,39 @@ const getSelectedFilledIcon = (iconType: string) => {
 const getSelectedVoidIcon = (iconType: string) => {
 	return iconOptions[iconType]?.voidIcon;
 };
+
+// 生成slider的刻度标记
+const getSliderMarks = (item: any) => {
+	const marks: Record<number, string> = {};
+	const min = item.min || 1;
+	const max = item.max || 5;
+
+	for (let i = min; i <= max; i++) {
+		marks[i] = '';
+	}
+
+	return marks;
+};
+
+// 计算问题的实际序号（跳过page_break类型）
+const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
+	if (!props.questionnaire?.sections) return itemIndex + 1;
+
+	const section = props.questionnaire.sections[sectionIndex];
+	if (!section?.items) return itemIndex + 1;
+
+	let actualQuestionNumber = 1;
+	for (let i = 0; i <= itemIndex; i++) {
+		const item = section.items[i];
+		if (item.type !== 'page_break') {
+			if (i === itemIndex) {
+				return actualQuestionNumber;
+			}
+			actualQuestionNumber++;
+		}
+	}
+	return actualQuestionNumber;
+};
 </script>
 
 <style scoped lang="scss">
@@ -1548,6 +1634,23 @@ const getSelectedVoidIcon = (iconType: string) => {
 
 	:deep(.el-slider__button) {
 		border-color: var(--primary-500);
+	}
+}
+
+.responsive-image {
+	@apply block;
+	max-height: 500px;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+
+	:deep(.el-image__inner) {
+		max-height: 500px;
+		max-width: 100%;
+		width: auto;
+		height: auto;
+		object-fit: contain;
 	}
 }
 </style>

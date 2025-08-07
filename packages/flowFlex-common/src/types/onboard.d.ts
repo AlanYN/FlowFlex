@@ -8,7 +8,6 @@ export interface Questionnaire {
 	estimatedMinutes: number;
 	id: string;
 	isActive: boolean;
-	isTemplate: boolean;
 	modifyBy: string;
 	modifyDate: string;
 	name: string;
@@ -21,9 +20,7 @@ export interface Questionnaire {
 	status: string;
 	structureJson: string;
 	tagsJson: string | null;
-	templateId: string | null;
 	totalQuestions: number;
-	type: string;
 	version: number;
 }
 
@@ -81,8 +78,8 @@ export interface OnboardingQueryRequest {
 	updatedBy?: string;
 	priority?: string;
 	workFlowId?: string;
-	page?: number;
-	size?: number;
+	pageIndex?: number;
+	pageSize?: number;
 	sort?: string;
 	sortType?: string;
 	allData?: boolean;
@@ -460,6 +457,8 @@ export interface Workflow {
 	name: string;
 	isDefault?: boolean;
 	status?: string;
+	modifyBy: string;
+	modifyDate: string;
 }
 
 export interface SectionAnswer {

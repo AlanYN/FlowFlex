@@ -49,6 +49,11 @@ namespace FlowFlex.Application.Contracts.Options
         /// System prompts
         /// </summary>
         public AIPrompts Prompts { get; set; } = new();
+
+        /// <summary>
+        /// Connection test settings
+        /// </summary>
+        public AIConnectionTest ConnectionTest { get; set; } = new();
     }
 
     public class OpenAIConfig
@@ -108,6 +113,29 @@ namespace FlowFlex.Application.Contracts.Options
         public string WorkflowSystem { get; set; } = "You are an expert workflow designer. Generate structured workflow definitions based on user requirements.";
         public string QuestionnaireSystem { get; set; } = "You are a questionnaire design expert. Create comprehensive questionnaires based on user needs.";
         public string ChecklistSystem { get; set; } = "You are a task management expert. Generate detailed checklists for various processes.";
+    }
+
+    public class AIConnectionTest
+    {
+        /// <summary>
+        /// Connection test timeout in seconds (default: 30)
+        /// </summary>
+        public int TimeoutSeconds { get; set; } = 30;
+
+        /// <summary>
+        /// Maximum retry attempts for connection test (default: 1)
+        /// </summary>
+        public int MaxRetryAttempts { get; set; } = 1;
+
+        /// <summary>
+        /// Delay between retry attempts in milliseconds (default: 1000)
+        /// </summary>
+        public int RetryDelayMs { get; set; } = 1000;
+
+        /// <summary>
+        /// Enable detailed logging for connection tests (default: true)
+        /// </summary>
+        public bool EnableDetailedLogging { get; set; } = true;
     }
 
     /// <summary>

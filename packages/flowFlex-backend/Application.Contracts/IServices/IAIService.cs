@@ -156,6 +156,29 @@ namespace FlowFlex.Application.Contracts.IServices
         public bool IncludeApprovals { get; set; } = true;
         public bool IncludeNotifications { get; set; } = true;
         public int EstimatedDuration { get; set; } = 0;
+        
+        // AI Model Information
+        public string? ModelId { get; set; }
+        public string? ModelProvider { get; set; }
+        public string? ModelName { get; set; }
+        
+        // Conversation History Information
+        public List<AIChatMessage>? ConversationHistory { get; set; }
+        public string? SessionId { get; set; }
+        
+        // Additional Context Information
+        public ConversationMetadata? ConversationMetadata { get; set; }
+    }
+
+    /// <summary>
+    /// Conversation metadata for workflow generation
+    /// </summary>
+    public class ConversationMetadata
+    {
+        public int TotalMessages { get; set; }
+        public string? ConversationStartTime { get; set; }
+        public string? ConversationEndTime { get; set; }
+        public string? ConversationMode { get; set; }
     }
 
     public class AIWorkflowGenerationResult
@@ -368,6 +391,11 @@ namespace FlowFlex.Application.Contracts.IServices
         public string Context { get; set; } = string.Empty;
         public string SessionId { get; set; } = string.Empty;
         public string Mode { get; set; } = "general"; // 'workflow_planning', 'general'
+        
+        // 添加模型相关字段
+        public string? ModelId { get; set; }
+        public string? ModelProvider { get; set; }
+        public string? ModelName { get; set; }
     }
 
     /// <summary>

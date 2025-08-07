@@ -54,7 +54,9 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250102000018_FixEventsNextRetryAtColumn", (Action)(() => FixEventsNextRetryAtColumn_20250102000017.Up(_db))),
                     ("20250103000001_SimplifyStagesProgressStructure", (Action)(() => SimplifyStagesProgressStructure_20250103000001.Up(_db))),
                     ("20250103000002_ConvertStagesProgressToJsonb", (Action)(() => ConvertStagesProgressToJsonb_20250103000002.Up(_db))),
-                    ("20250103000003_AddCurrentSectionIndexToQuestionnaireAnswers", (Action)(() => AddCurrentSectionIndexToQuestionnaireAnswers_20250103000003.Up(_db)))
+                    ("20250103000003_AddCurrentSectionIndexToQuestionnaireAnswers", (Action)(() => AddCurrentSectionIndexToQuestionnaireAnswers_20250103000003.Up(_db))),
+                    ("20250801000001_AddUserAIModelConfig", (Action)(() => AddUserAIModelConfig_20250801000001.Up(_db))),
+                    ("20250102000001_IncreaseAIModelConfigFieldLengths", (Action)(() => IncreaseAIModelConfigFieldLengths_20250102000001.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
@@ -221,6 +223,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             try
             {
+                // 首先回滚最新的迁移
+                IncreaseAIModelConfigFieldLengths_20250102000001.Down(_db);
+                AddUserAIModelConfig_20250801000001.Down(_db);
+                
+                // 回滚其他迁移
                 // SeedDemoData_20250101000002.Down(_db);
                 InitialCreate_20250101000000.Down(_db);
 

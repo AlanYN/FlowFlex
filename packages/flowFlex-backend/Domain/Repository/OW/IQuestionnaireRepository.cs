@@ -17,15 +17,7 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         Task<List<Questionnaire>> GetByIdsAsync(List<long> ids);
 
-        /// <summary>
-        /// Get template questionnaires
-        /// </summary>
-        Task<List<Questionnaire>> GetTemplatesAsync();
-
-        /// <summary>
-        /// Get questionnaire instances by template
-        /// </summary>
-        Task<List<Questionnaire>> GetByTemplateIdAsync(long templateId);
+        // Template-related methods removed - template functionality discontinued
 
         /// <summary>
         /// Check if name exists

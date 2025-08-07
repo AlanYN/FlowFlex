@@ -31,8 +31,5 @@ public class DuplicateQuestionnaireInputDto
     /// </summary>
     public bool CopyStructure { get; set; } = true;
 
-    /// <summary>
-    /// 是否设为模板
-    /// </summary>
-    public bool SetAsTemplate { get; set; } = true;
+
 }

@@ -85,6 +85,7 @@
 						v-for="checklist in filteredChecklists"
 						:key="checklist.id"
 						:class="['shadow-sm border-gray-200 rounded-lg bg-white']"
+						class="checklist-card"
 					>
 						<div class="p-0">
 							<!-- 检查清单头部 - 整个区域可点击 -->
@@ -154,6 +155,38 @@
 													→ {{ getStageNameById(assignment.stageId) }}
 												</div>
 											</div>
+										</div>
+										<div
+											class="w-full flex items-center justify-between text-sm mt-2"
+										>
+											<el-tooltip class="" content="last mdify by">
+												<div class="flex items-center gap-2">
+													<Icon
+														icon="ic:baseline-person-3"
+														class="text-primary-500 w-5 h-5"
+													/>
+													<span class="card-value font-medium">
+														{{ checklist.modifyBy }}
+													</span>
+												</div>
+											</el-tooltip>
+											<el-tooltip class="" content="last modify date">
+												<div class="flex items-center gap-2">
+													<Icon
+														icon="ic:baseline-calendar-month"
+														class="text-primary-500 w-5 h-5"
+													/>
+													<span class="card-value font-medium">
+														{{
+															timeZoneConvert(
+																checklist.modifyDate,
+																false,
+																projectTenMinuteDate
+															)
+														}}
+													</span>
+												</div>
+											</el-tooltip>
 										</div>
 									</div>
 								</div>
@@ -619,6 +652,7 @@ import WorkflowAssignments from './components/WorkflowAssignments.vue';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 import draggable from 'vuedraggable';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
+import { timeZoneConvert } from '@/hooks/time';
 
 // 响应式数据 - 使用shallowRef优化大数组性能
 const checklists = shallowRef([]);
@@ -626,19 +660,6 @@ const workflows = shallowRef([]);
 const stages = shallowRef([]);
 const loading = ref(false);
 const error = ref(null);
-
-// 任务数据处理辅助函数 - 统一处理order字段映射
-const processTaskData = (task) => ({
-	...task,
-	completed: task.isCompleted || task.completed || false,
-	estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-	order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0,
-});
-
-// 处理任务列表，确保排序正确
-const processTaskList = (tasks) => {
-	return (tasks || []).map(processTaskData).sort((a, b) => (a.order || 0) - (b.order || 0));
-};
 
 // 任务编辑相关
 const editingTask = ref(null);
@@ -2367,7 +2388,7 @@ const getStageNameById = (stageId) => {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 /* 自定义样式 */
 .bg-gradient-to-r {
 	background: linear-gradient(to right, #e9d5ff, #bfdbfe);
@@ -2437,7 +2458,7 @@ const getStageNameById = (stageId) => {
 .task-sorting {
 	transition: all 0.3s ease;
 	transform: scale(0.98);
-	filter: blur(0.5px);
+	/* 移除模糊效果：filter: blur(0.5px); */
 	/* 移除 pointer-events: none 以避免阻止拖拽 */
 }
 
@@ -2638,5 +2659,11 @@ const getStageNameById = (stageId) => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.checklist-card {
+	@apply dark:border-black-200 dark:bg-black-400;
+	transition: all 0.3s ease;
+	border-left: 4px solid var(--primary-200);
 }
 </style>

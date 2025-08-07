@@ -1,35 +1,6 @@
 <template>
 	<div class="ai-workflow-generator">
 		<!-- AI Header with Animated Background -->
-		<div class="ai-header">
-			<div class="ai-background-animation"></div>
-			<div class="ai-header-content">
-				<div class="ai-avatar">
-					<div class="ai-brain">
-						<div
-							class="brain-wave"
-							:class="{ active: generating || realTimeGenerating }"
-						></div>
-						<el-icon class="brain-icon">
-							<Star />
-						</el-icon>
-					</div>
-				</div>
-				<div class="ai-title">
-					<h2>AI Workflow Generator</h2>
-					<p class="ai-subtitle">
-						Powered by {{ aiStatus.provider }} •
-						{{ aiStatus.isAvailable ? 'Online' : 'Offline' }}
-					</p>
-				</div>
-				<div class="ai-status">
-					<div class="status-indicator" :class="{ online: aiStatus.isAvailable }">
-						<div class="pulse-ring"></div>
-						<div class="pulse-dot"></div>
-					</div>
-				</div>
-			</div>
-		</div>
 
 		<!-- Main Content Area -->
 		<div class="ai-content">
@@ -160,10 +131,7 @@
 									</div>
 									<div class="stages-grid">
 										<div
-											v-for="(stage, index) in currentWorkflow.stages.slice(
-												0,
-												6
-											)"
+											v-for="(stage, index) in currentWorkflow.stages"
 											:key="index"
 											class="stage-card"
 											:style="{ animationDelay: index * 0.1 + 's' }"
@@ -187,19 +155,6 @@
 														{{ stage.estimatedDuration || 1 }}d
 													</span>
 												</div>
-											</div>
-										</div>
-									</div>
-									<div
-										v-if="currentWorkflow.stages.length > 6"
-										class="more-stages-indicator"
-									>
-										<div class="more-stages-card">
-											<div class="more-icon">
-												<el-icon><More /></el-icon>
-											</div>
-											<div class="more-text">
-												+{{ currentWorkflow.stages.length - 6 }} more stages
 											</div>
 										</div>
 									</div>
@@ -232,16 +187,17 @@
 			<div class="ai-conversation-area" v-if="showConversation">
 				<div class="conversation-header">
 					<div class="conversation-title">
-						<div class="ai-avatar-large">
-							<el-icon><Avatar /></el-icon>
-						</div>
 						<div class="title-content">
-							<h3>AI Workflow Assistant</h3>
-							<p>Let's discuss your workflow requirements</p>
+							<h3>AI Workflow Assistant</h3>						
 						</div>
-					</div>
-					<div class="conversation-subtitle">
-						I'll ask you a few questions to better understand your needs
+						<!-- Current Model Display (moved to top right) -->
+						<div v-if="currentModelInfo" class="current-model-display">
+							<span class="current-model-icon">
+								{{ getProviderIcon(currentModelInfo.provider) }}
+							</span>
+							<span class="current-model-text">{{ currentModelInfo.provider }}</span>
+							<div class="ai-status-dot"></div>
+						</div>
 					</div>
 				</div>
 
@@ -293,76 +249,150 @@
 						</div>
 					</div>
 
-					<div class="conversation-input-area">
-						<div class="input-container">
+					<div class="p-4">
+						<div class="flex items-center gap-2">
 							<el-input
 								v-model="currentMessage"
 								type="textarea"
 								:rows="3"
 								placeholder="Type your response here..."
-								@keydown.enter.prevent="handleEnterKey"
-								class="conversation-textarea"
+								@keydown.enter="handleEnterKey"
 								:disabled="aiTyping"
 								resize="none"
 							/>
-							<div class="input-footer">
-								<div class="input-hints">
-									<span class="hint-text">
-										Press Enter to send, Shift+Enter for new line
-									</span>
-								</div>
-								<div class="input-actions">
-									<el-button
-										@click="resetConversation"
-										class="reset-btn"
-										size="small"
-									>
-										<el-icon><Refresh /></el-icon>
-									</el-button>
-									<el-button
-										type="primary"
-										@click="sendMessage"
-										:loading="aiTyping"
-										:disabled="!currentMessage.trim()"
-										class="send-btn"
-									>
-										<el-icon v-if="!aiTyping"><Promotion /></el-icon>
-										Send
-									</el-button>
-								</div>
-							</div>
+							<el-button
+								type="primary"
+								@click="sendMessage"
+								:loading="aiTyping"
+								:disabled="!currentMessage.trim()"
+								:icon="Promotion"
+							/>
 						</div>
 					</div>
 
-					<!-- Conversation Actions -->
-					<div class="conversation-completion" v-if="conversationComplete">
-						<div class="completion-card">
-							<div class="completion-icon">
-								<el-icon><Check /></el-icon>
+					<!-- Smart Generation Actions -->
+					<div class="smart-generation-actions" v-if="canGenerateWorkflow">
+						<div class="generation-card" :class="{ 'high-confidence': conversationProgress >= 60 }">
+							<div class="generation-icon">
+								<el-icon v-if="conversationProgress >= 80"><Check /></el-icon>
+								<el-icon v-else-if="conversationProgress >= 60"><Star /></el-icon>
+								<el-icon v-else><Setting /></el-icon>
 							</div>
-							<div class="completion-content">
-								<h4>Perfect! I have all the information I need</h4>
-								<p>
-									Based on our conversation, I can now create a customized
-									workflow for you.
+							<div class="generation-content">
+								<h4 v-if="conversationProgress >= 80">
+									🎉 Excellent! Perfect workflow data collected!
+								</h4>
+								<h4 v-else-if="conversationProgress >= 60">
+									✨ Great! Ready to generate your workflow!
+								</h4>
+								<h4 v-else>
+									🚀 Let's create your workflow!
+								</h4>
+								<p v-if="conversationProgress >= 80">
+									Based on our detailed conversation, I can create a comprehensive,
+									customized workflow that perfectly matches your needs.
 								</p>
+								<p v-else-if="conversationProgress >= 60">
+									I have solid information to create a good workflow for you.
+									You can generate now or continue chatting for even better results.
+								</p>
+								<p v-else>
+									I have the basics to start creating your workflow.
+									Generate now for a quick start, or chat more for better customization.
+								</p>
+								<div class="confidence-indicator">
+									<span class="confidence-label">Progress:</span>
+									<div class="confidence-bar-mini">
+										<div 
+											class="confidence-fill-mini" 
+											:style="{ width: conversationProgress + '%' }"
+											:class="{
+												'progress-excellent': conversationProgress >= 80,
+												'progress-good': conversationProgress >= 60 && conversationProgress < 80,
+												'progress-basic': conversationProgress < 60
+											}"
+										></div>
+									</div>
+									<span class="confidence-percentage">{{ conversationProgress }}%</span>
+								</div>
 							</div>
 						</div>
-						<div class="completion-actions">
+						<div class="generation-actions">
 							<el-button @click="resetConversation" class="secondary-btn">
 								<el-icon class="mr-1"><Refresh /></el-icon>
 								Start Over
-							</el-button>
+							</el-button>							
 							<el-button
 								type="primary"
 								@click="proceedToGeneration"
 								class="primary-btn"
+								:class="{ 
+									'pulse-animation': conversationProgress >= 80,
+									'ready-animation': conversationProgress >= 60 && conversationProgress < 80,
+									'basic-ready': conversationProgress < 60
+								}"
 							>
-								<el-icon class="mr-1"><Setting /></el-icon>
-								Generate My Workflow
+								<el-icon class="mr-1">
+									<Setting v-if="conversationProgress >= 80" />
+									<Star v-else />
+								</el-icon>
+								{{ conversationProgress >= 80 ? 'Generate Perfect Workflow' : 'Generate My Workflow' }}
 							</el-button>
 						</div>
 					</div>
+				</div>
+
+				<!-- AI Model Selector (moved to bottom) -->
+				<div class="ai-model-selector-bottom">
+					<div class="model-selector-label">Model:</div>
+					<el-select
+						v-model="selectedAIModel"
+						:placeholder="
+							loadingModels
+								? 'Loading models...'
+								: availableModels.length === 0
+								? 'No models available'
+								: '🧠 AI Model'
+						"
+						size="default"
+						style="width: 220px"
+						@change="onModelChange"
+						:loading="loadingModels"
+						:disabled="availableModels.length === 0"
+					>
+						<template #loading>
+							<div style="display: flex; align-items: center; padding: 10px">
+								<el-icon class="is-loading" style="margin-right: 8px">
+									<Loading />
+								</el-icon>
+								Loading AI models...
+							</div>
+						</template>
+
+						<!-- Show available models -->
+						<el-option
+							v-for="model in availableModels"
+							:key="model.id"
+							:label="`${model.provider} ${model.modelName}`"
+							:value="String(model.id)"
+							:disabled="!model.isAvailable"
+						>
+							<div class="flex items-center justify-between gap-2">
+								<div class="flex items-center gap-2">
+									{{ getProviderIcon(model.provider) }}
+									<span>{{ model.provider }}</span>
+									<span>{{ model.modelName }}</span>
+								</div>
+								<div
+									class="w-2 h-2 rounded-full"
+									:class="{
+										'bg-green-500': model.isAvailable,
+										'bg-red-500': !model.isAvailable,
+									}"
+								></div>
+							</div>
+						</el-option>
+					</el-select>
 				</div>
 			</div>
 
@@ -386,7 +416,6 @@
 								: 'Describe the modifications you want to make...\n\nExample: Add a trial period assessment stage with 30-day duration assigned to HR team.'
 						"
 						:rows="6"
-						class="ai-textarea"
 					/>
 					<div class="input-footer">
 						<div class="input-actions">
@@ -402,8 +431,8 @@
 								</el-button>
 							</div>
 
-							<!-- Direct Generation -->
-							<div class="direct-generation">
+							<!-- Direct Generation - Hidden -->
+							<div class="direct-generation" style="display: none">
 								<el-button
 									type="success"
 									:loading="realTimeGenerating"
@@ -597,10 +626,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
+import { ref, reactive, onMounted, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { useRouter } from 'vue-router';
-import { getTokenobj } from '@/utils/auth';
+// API imports
 import {
 	generateAIWorkflow,
 	getAIWorkflowStatus,
@@ -612,6 +640,9 @@ import {
 	type AIChatMessage,
 	type AIChatInput,
 } from '@/apis/ai/workflow';
+import { getUserAIModels, getDefaultAIModel, type AIModelConfig } from '@/apis/ai/config';
+
+// Icon imports
 import {
 	User,
 	Star,
@@ -623,9 +654,7 @@ import {
 	InfoFilled,
 	Setting,
 	List,
-	Warning,
 	Clock,
-	More,
 	DocumentAdd,
 	Menu,
 	ChatDotRound,
@@ -635,7 +664,6 @@ import {
 
 // Props & Emits
 const emit = defineEmits(['workflowGenerated']);
-const router = useRouter();
 
 // Reactive Data
 const operationMode = ref<'create' | 'modify'>('create');
@@ -647,11 +675,13 @@ const generating = ref(false);
 const realTimeGenerating = ref(false);
 
 // Conversation functionality
-const showConversation = ref(false);
+const showConversation = ref(true);
 const conversationHistory = ref<AIChatMessage[]>([]);
 const currentMessage = ref('');
 const aiTyping = ref(false);
 const conversationComplete = ref(false);
+const conversationProgress = ref(0); // 对话完成进度 0-100
+const canGenerateWorkflow = ref(false); // 是否满足生成条件
 const conversationMessages = ref(null);
 const conversationSessionId = ref('');
 
@@ -661,23 +691,188 @@ const input = reactive({
 	requirements: [] as string[],
 });
 
-const result = ref(null);
-const streamSteps = ref([]);
-const currentWorkflow = ref(null);
+const result = ref<any>(null);
+const streamSteps = ref<any[]>([]);
+const currentWorkflow = ref<any>(null);
 
-// Workflow list for modification mode
-const workflowList = ref([]);
+// AI Model Management
+const availableModels = ref<AIModelConfig[]>([]);
+const loadingModels = ref(false);
+const selectedAIModel = ref<string>('');
+const currentModelInfo = ref<AIModelConfig | null>(null);
 
 // Helper function to get stage count safely
-const getStageCount = (workflow) => {
-	return workflow.stages?.length || 0;
+const getStageCount = (workflow: any) => {
+	return workflow?.stages?.length || 0;
+};
+
+// 智能对话进度评估系统
+const evaluateConversationProgress = () => {
+	const userMessages = conversationHistory.value.filter(m => m.role === 'user');
+	const messageCount = userMessages.length;
+	
+	if (messageCount === 0) {
+		conversationProgress.value = 0;
+		canGenerateWorkflow.value = false;
+		return;
+	}
+	
+	let progress = 0;
+	let hasWorkflowType = false;
+	let hasTeamInfo = false;
+	let hasStructureInfo = false;
+	let hasRequirements = false;
+	let hasModificationDetails = false;
+	
+	// 分析所有用户消息内容
+	const allUserContent = userMessages.map(m => m.content.toLowerCase()).join(' ');
+	
+	// 检测无意义输入
+	const meaninglessPatterns = [
+		/^[\d\s]*$/, // 只包含数字和空格
+		/^[a-z\s]*$/, // 只包含单个字母和空格（长度小于3）
+		/^[\W\s]*$/, // 只包含特殊字符和空格
+		/^(test|testing|hello|hi|hey|ok|yes|no)\s*$/i, // 简单测试词
+	];
+	
+	const isMeaninglessInput = allUserContent.trim().length < 3 || 
+		meaninglessPatterns.some(pattern => pattern.test(allUserContent.trim()));
+	
+	if (operationMode.value === 'create') {
+		// 创建模式评估 - 智能渐进式评估
+		
+		// 基础分数：根据输入质量给分
+		if (messageCount > 0) {
+			if (isMeaninglessInput) {
+				progress += 10; // 无意义输入只给10%
+			} else {
+				progress += 20; // 有意义输入给20%
+			}
+		}
+		
+		// 1. 工作流类型识别 (25%) - 扩展关键词覆盖
+		const workflowKeywords = ['onboard', 'approval', 'customer', 'support', 'process', 'workflow', 'employee', 'project', 'review', 'training', 'document', 'verification', 'testing', 'software', 'development', 'design', 'create', 'build', 'manage', 'system', 'application'];
+		if (workflowKeywords.some(keyword => allUserContent.includes(keyword))) {
+			hasWorkflowType = true;
+			progress += 25;
+		}
+		
+		// 2. 团队信息 (15%) - 只有真正提到团队相关内容才加分
+		const teamKeywords = ['team', 'hr', 'it', 'sales', 'finance', 'operations', 'manager', 'supervisor', 'department', 'role', 'assign', 'responsible', 'developer', 'tester', 'designer', 'company', 'organization', 'group', 'member'];
+		if (teamKeywords.some(keyword => allUserContent.includes(keyword))) {
+			hasTeamInfo = true;
+			progress += 15;
+		}
+		
+		// 3. 结构和时间信息 (20%) - 需要明确的结构描述或多轮对话
+		const structureKeywords = ['stage', 'step', 'phase', 'day', 'week', 'month', 'duration', 'time', 'sequence', 'order', 'first', 'then', 'next', 'final', 'begin', 'start', 'end', 'complete', 'flow'];
+		if (structureKeywords.some(keyword => allUserContent.includes(keyword)) || messageCount >= 2) {
+			hasStructureInfo = true;
+			progress += 20;
+		}
+		
+		// 4. 需求和细节 (20%) - 需要明确的需求描述或详细对话
+		const requirementKeywords = ['require', 'need', 'must', 'should', 'document', 'approval', 'check', 'verify', 'complete', 'ensure', 'compliance', 'policy', 'quality', 'test', 'validate', 'want', 'like', 'expect'];
+		if (requirementKeywords.some(keyword => allUserContent.includes(keyword)) || (messageCount >= 2 && allUserContent.length > 50)) {
+			hasRequirements = true;
+			progress += 20;
+		}
+		
+	} else {
+		// 修改模式评估 - 优化为更容易达到可生成状态
+		
+		// 前提: 必须选择工作流
+		if (!selectedWorkflowId.value) {
+			progress = 0;
+		} else {
+			// 基础分数：选择了工作流且有输入就给50%
+			if (messageCount > 0) {
+				progress += 50;
+			}
+			
+			// 1. 修改意图识别 (25%) - 扩展关键词
+			const modifyKeywords = ['add', 'remove', 'change', 'modify', 'update', 'improve', 'enhance', 'optimize', 'adjust', 'replace', 'delete', 'fix', 'edit', 'revise', 'refine', 'better', 'new'];
+			if (modifyKeywords.some(keyword => allUserContent.includes(keyword))) {
+				hasModificationDetails = true;
+				progress += 25;
+			}
+			
+			// 2. 具体修改内容 (15%) - 更容易触发
+			const detailKeywords = ['stage', 'step', 'team', 'duration', 'time', 'assignment', 'approval', 'requirement', 'field', 'process', 'flow', 'sequence', 'order'];
+			if (detailKeywords.some(keyword => allUserContent.includes(keyword)) || messageCount >= 1) {
+				progress += 15;
+			}
+			
+			// 3. 约束和要求 (10%) - 降低权重
+			if (messageCount >= 1) {
+				progress += 10;
+			}
+		}
+	}
+	
+	// 智能额外加分项 - 基于内容质量和对话深度
+	
+	// 1. 内容长度和质量加分
+	if (allUserContent.length > 50 && messageCount >= 2) {
+		progress += 5; // 有一定深度的对话
+	}
+	
+	if (allUserContent.length > 150 && messageCount >= 3) {
+		progress += 5; // 详细描述加分
+	}
+	
+	if (allUserContent.length > 300) {
+		progress += 5; // 非常详细的描述
+	}
+	
+	// 2. 多轮对话质量加分
+	if (messageCount >= 4) {
+		progress += 5; // 深度交互加分
+	}
+	
+	// 3. 特殊关键词组合加分
+	const advancedKeywords = ['stakeholder', 'deliverable', 'milestone', 'criteria', 'metric', 'kpi', 'sla', 'automation', 'integration', 'escalation'];
+	const advancedMatches = advancedKeywords.filter(keyword => allUserContent.includes(keyword)).length;
+	if (advancedMatches >= 2) {
+		progress += 5; // 高级词汇使用加分
+	}
+	
+	// 确保进度不超过100%
+	progress = Math.min(progress, 100);
+	
+	// 更新进度
+	conversationProgress.value = progress;
+	
+	// 判断是否可以生成工作流 (只要有用户输入就可以生成)
+	canGenerateWorkflow.value = messageCount > 0;
+	
+	// 如果进度达到80%以上，设置对话完成
+	if (progress >= 80) {
+		conversationComplete.value = true;
+	}
+	
+	console.log('Conversation Progress Analysis:', {
+		operationMode: operationMode.value,
+		messageCount,
+		allUserContent,
+		contentLength: allUserContent.length,
+		isMeaninglessInput,
+		hasWorkflowType,
+		hasTeamInfo,
+		hasStructureInfo,
+		hasRequirements,
+		hasModificationDetails,
+		finalProgress: progress,
+		canGenerateWorkflow: canGenerateWorkflow.value,
+		conversationComplete: conversationComplete.value
+	});
 };
 
 // Computed
-const aiStatus = computed(() => ({
+const aiStatus = ref({
 	provider: 'ZhipuAI',
 	isAvailable: true,
-}));
+});
 
 // Conversation Methods
 const startConversation = () => {
@@ -686,17 +881,43 @@ const startConversation = () => {
 	conversationComplete.value = false;
 	conversationSessionId.value = `session_${Date.now()}`;
 
-	// Start with AI greeting
+	// Start with AI greeting based on operation mode
 	setTimeout(() => {
-		addAIMessage(
-			"Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific needs and requirements."
-		);
+		if (operationMode.value === 'modify') {
+			// Modify mode - check if workflow is selected
+			if (currentWorkflow.value) {
+				addAIMessage(
+					`Hello! I'm your AI Workflow Assistant. I see you've selected the workflow "${currentWorkflow.value.name}" for modification.`
+				);
 
-		setTimeout(() => {
+				setTimeout(() => {
+					const stageCount = getStageCount(currentWorkflow.value);
+					const stageInfo =
+						stageCount > 0
+							? `This workflow currently has ${stageCount} stages. `
+							: "This workflow doesn't have any stages yet. ";
+
+					addAIMessage(
+						`${stageInfo}I'm here to help you enhance and optimize it. What specific modifications would you like to make? For example:\n\n• Add new stages or steps\n• Modify existing stages\n• Change team assignments\n• Adjust timelines\n• Improve the overall flow\n• Add quality checkpoints\n\nPlease tell me what you'd like to change or improve about this workflow.`
+					);
+				}, 1500);
+			} else {
+				addAIMessage(
+					"Hello! I'm your AI Workflow Assistant. I notice you're in modification mode, but no workflow has been selected yet. Please select a workflow above that you'd like to modify, and I'll help you enhance it!"
+				);
+			}
+		} else {
+			// Create mode - original logic
 			addAIMessage(
-				"To get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind."
+				"Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific needs and requirements."
 			);
-		}, 1500);
+
+			setTimeout(() => {
+				addAIMessage(
+					"To get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind."
+				);
+			}, 1500);
+		}
 	}, 500);
 };
 
@@ -719,7 +940,10 @@ const addUserMessage = (content: string) => {
 		timestamp: new Date().toLocaleTimeString(),
 	};
 	conversationHistory.value.push(message);
+	
+	// 评估对话进度
 	nextTick(() => {
+		evaluateConversationProgress();
 		scrollToBottom();
 	});
 };
@@ -744,7 +968,6 @@ const sendMessage = async () => {
 		// Call real AI API
 		await callRealAI(userMessage);
 	} catch (error) {
-		console.error('AI conversation error:', error);
 		addAIMessage(
 			"I apologize, but I'm having trouble processing your message right now. Could you please try again?"
 		);
@@ -755,28 +978,24 @@ const sendMessage = async () => {
 
 const callRealAI = async (userMessage: string) => {
 	try {
-		console.log('🤖 Calling real AI with message:', userMessage);
-		console.log('🤖 Conversation history:', conversationHistory.value);
-		console.log('🤖 Session ID:', conversationSessionId.value);
-
 		const chatInput: AIChatInput = {
 			messages: conversationHistory.value,
 			context: 'workflow_planning',
 			sessionId: conversationSessionId.value,
 			mode: 'workflow_planning',
+			// 添加当前选中的模型信息
+			modelId: currentModelInfo.value?.id ? String(currentModelInfo.value.id) : undefined,
+			modelProvider: currentModelInfo.value?.provider,
+			modelName: currentModelInfo.value?.modelName,
 		};
 
-		console.log('🤖 Sending chat input:', chatInput);
 		const response = await sendAIChatMessage(chatInput);
-		console.log('🤖 AI response received:', response);
 
 		// 处理后端返回的标准API响应格式
 		// response 应该直接是 AIChatResponse，但如果有data包装则解包
 		const aiResponse = (response as any).data || response;
-		console.log('🤖 Processed AI response:', aiResponse);
 
 		if (aiResponse.success && aiResponse.response) {
-			console.log('✅ AI response successful, adding message:', aiResponse.response.content);
 			addAIMessage(aiResponse.response.content);
 
 			// Check if conversation is complete
@@ -788,13 +1007,15 @@ const callRealAI = async (userMessage: string) => {
 			if (aiResponse.sessionId) {
 				conversationSessionId.value = aiResponse.sessionId;
 			}
+			
+			// 重新评估进度
+			nextTick(() => {
+				evaluateConversationProgress();
+			});
 		} else {
-			console.error('❌ AI response failed:', aiResponse);
 			throw new Error(aiResponse.message || 'AI response failed');
 		}
 	} catch (error) {
-		console.error('❌ Real AI call failed:', error);
-		console.log('🔄 Falling back to enhanced simulation');
 		// Fallback to enhanced simulation
 		await enhancedAISimulation(userMessage);
 	}
@@ -807,72 +1028,150 @@ const enhancedAISimulation = async (userMessage: string) => {
 	const messageCount = conversationHistory.value.filter((m) => m.role === 'user').length;
 	const lowerMessage = userMessage.toLowerCase();
 
-	if (messageCount === 1) {
-		// Analyze the first message and respond accordingly
-		if (lowerMessage.includes('onboard') || lowerMessage.includes('employee')) {
+	if (operationMode.value === 'modify') {
+		// Modify mode responses
+		if (messageCount === 1) {
+			// First response in modify mode
+			const stageCount = currentWorkflow.value ? getStageCount(currentWorkflow.value) : 0;
+
+			if (lowerMessage.includes('add') || lowerMessage.includes('new')) {
+				addAIMessage(
+					`I understand you want to add new elements to the workflow. ${
+						stageCount > 0 ? `Currently there are ${stageCount} stages.` : ''
+					} What specifically would you like to add? For example:\n\n• New stages before/after existing ones\n• Additional steps within current stages\n• New team members or roles\n• Extra approval checkpoints\n\nPlease describe what you'd like to add and where it should fit in the process.`
+				);
+			} else if (lowerMessage.includes('remove') || lowerMessage.includes('delete')) {
+				addAIMessage(
+					`I see you want to remove something from the workflow. ${
+						stageCount > 0 ? `Looking at the current ${stageCount} stages,` : ''
+					} what would you like to remove or simplify? Please specify which stages, steps, or requirements you think are unnecessary.`
+				);
+			} else if (
+				lowerMessage.includes('change') ||
+				lowerMessage.includes('modify') ||
+				lowerMessage.includes('update')
+			) {
+				addAIMessage(
+					`Perfect! You want to modify existing elements. ${
+						stageCount > 0 ? `With ${stageCount} current stages,` : ''
+					} what specific changes do you have in mind? For example:\n\n• Change team assignments\n• Adjust stage durations\n• Modify stage names or descriptions\n• Update approval requirements\n\nWhich stages or aspects would you like to change?`
+				);
+			} else {
+				addAIMessage(
+					`Thank you for sharing your modification ideas! ${
+						stageCount > 0
+							? `I can see the workflow currently has ${stageCount} stages.`
+							: ''
+					} To better help you enhance this workflow, could you be more specific about what changes you'd like to make? Are you looking to add, remove, or modify certain aspects?`
+				);
+			}
+		} else if (messageCount === 2) {
+			// Follow-up questions for modify mode
 			addAIMessage(
-				'Great! An employee onboarding workflow is essential for any organization. Now, who will be involved in this onboarding process? Please tell me about the teams, departments, or specific roles that will participate - for example, HR, IT, direct managers, or other stakeholders.'
+				'Excellent! Now, are there any specific requirements or constraints I should consider for these modifications? For example:\n\n• Team availability or preferences\n• Timeline constraints\n• Compliance requirements\n• Integration with other processes\n\nThis will help me suggest the most practical improvements.'
 			);
-		} else if (lowerMessage.includes('approval') || lowerMessage.includes('review')) {
+		} else if (messageCount >= 3) {
+			// Complete the modify conversation
 			addAIMessage(
-				'Perfect! Approval workflows are crucial for maintaining control and quality. Could you tell me who will be involved in this approval process? What teams or roles need to participate, and are there different levels of approval required?'
+				'Perfect! I now have a clear understanding of the modifications you want to make to this workflow. Based on our discussion, I can enhance the existing workflow with your specific improvements while maintaining its core structure and effectiveness.'
 			);
-		} else if (lowerMessage.includes('customer') || lowerMessage.includes('support')) {
-			addAIMessage(
-				'Excellent! Customer support workflows help ensure consistent service quality. Who will be handling different parts of this process? Please describe the teams or roles involved - such as support agents, supervisors, technical teams, or escalation contacts.'
-			);
-		} else {
-			addAIMessage(
-				'That sounds like an important process to optimize! Now, could you tell me about the people and teams who will be involved? Who are the key stakeholders, and what roles or departments need to participate in this workflow?'
-			);
+			// Note: conversationComplete will be set by evaluateConversationProgress()
 		}
-	} else if (messageCount === 2) {
-		// Ask about stages and timeline
-		addAIMessage(
-			"Thank you for that information! Now I'd like to understand the structure and timing. How many main stages or steps do you envision for this workflow? And what's your target timeframe - should this be completed in days, weeks, or months?"
-		);
-	} else if (messageCount === 3) {
-		// Ask about requirements and specifics
-		addAIMessage(
-			"Perfect! Now let's talk about the specific requirements. Are there any documents that need to be collected, approvals that must be obtained, or quality checkpoints that should be included? Also, are there any compliance requirements or company policies I should consider?"
-		);
-	} else if (messageCount >= 4) {
-		// Complete the conversation
-		addAIMessage(
-			'Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.'
-		);
-		conversationComplete.value = true;
+	} else {
+		// Create mode responses (original logic)
+		if (messageCount === 1) {
+			// Analyze the first message and respond accordingly
+			if (lowerMessage.includes('onboard') || lowerMessage.includes('employee')) {
+				addAIMessage(
+					'Great! An employee onboarding workflow is essential for any organization. Now, who will be involved in this onboarding process? Please tell me about the teams, departments, or specific roles that will participate - for example, HR, IT, direct managers, or other stakeholders.'
+				);
+			} else if (lowerMessage.includes('approval') || lowerMessage.includes('review')) {
+				addAIMessage(
+					'Perfect! Approval workflows are crucial for maintaining control and quality. Could you tell me who will be involved in this approval process? What teams or roles need to participate, and are there different levels of approval required?'
+				);
+			} else if (lowerMessage.includes('customer') || lowerMessage.includes('support')) {
+				addAIMessage(
+					'Excellent! Customer support workflows help ensure consistent service quality. Who will be handling different parts of this process? Please describe the teams or roles involved - such as support agents, supervisors, technical teams, or escalation contacts.'
+				);
+			} else {
+				addAIMessage(
+					'That sounds like an important process to optimize! Now, could you tell me about the people and teams who will be involved? Who are the key stakeholders, and what roles or departments need to participate in this workflow?'
+				);
+			}
+		} else if (messageCount === 2) {
+			// Ask about stages and timeline
+			addAIMessage(
+				"Thank you for that information! Now I'd like to understand the structure and timing. How many main stages or steps do you envision for this workflow? And what's your target timeframe - should this be completed in days, weeks, or months?"
+			);
+		} else if (messageCount === 3) {
+			// Ask about requirements and specifics
+			addAIMessage(
+				"Perfect! Now let's talk about the specific requirements. Are there any documents that need to be collected, approvals that must be obtained, or quality checkpoints that should be included? Also, are there any compliance requirements or company policies I should consider?"
+			);
+		} else if (messageCount >= 4) {
+			// Complete the conversation
+			addAIMessage(
+				'Excellent! I now have a comprehensive understanding of your workflow requirements. Based on our conversation, I can create a detailed, customized workflow that addresses all your specific needs and includes the right people, processes, and timelines.'
+			);
+			// Note: conversationComplete will be set by evaluateConversationProgress()
+		}
 	}
 };
 
 const handleEnterKey = (event) => {
 	if (event.shiftKey) {
-		// Allow shift+enter for new lines
+		// Allow shift+enter for new lines - don't prevent default
 		return;
 	}
+	// Prevent default for regular Enter (send message)
+	event.preventDefault();
 	sendMessage();
 };
 
 const resetConversation = () => {
 	conversationHistory.value = [];
 	conversationComplete.value = false;
+	conversationProgress.value = 0;
+	canGenerateWorkflow.value = false;
 	currentMessage.value = '';
 	startConversation();
 };
 
+const continueConversation = () => {
+	// 鼓励用户继续提供更多信息
+	const messageCount = conversationHistory.value.filter(m => m.role === 'user').length;
+	
+	let encouragementMessage = '';
+	
+	if (operationMode.value === 'create') {
+		if (messageCount <= 1) {
+			encouragementMessage = "Great start! To make your workflow even better, could you tell me more about the teams or people who will be involved in this process?";
+		} else if (messageCount <= 2) {
+			encouragementMessage = "Excellent! Now, could you describe the main stages or steps you envision? How long should the entire process take?";
+		} else {
+			encouragementMessage = "Perfect! Are there any specific requirements, documents, or approval processes that should be included?";
+		}
+	} else {
+		if (messageCount <= 1) {
+			encouragementMessage = "Good! Could you provide more specific details about what you want to change? Which stages or aspects need modification?";
+		} else {
+			encouragementMessage = "Great! Are there any constraints or requirements I should consider for these modifications?";
+		}
+	}
+	
+	addAIMessage(encouragementMessage);
+};
+
 const proceedToGeneration = () => {
-	// Compile conversation into a comprehensive description
+	// Compile the COMPLETE conversation into a comprehensive description
+	let description = 'Based on our detailed conversation:\n\n';
+
+	// Extract user messages for structured summary
 	const userMessages = conversationHistory.value
 		.filter((m) => m.role === 'user')
 		.map((m) => m.content);
 
-	const aiMessages = conversationHistory.value
-		.filter((m) => m.role === 'assistant')
-		.map((m) => m.content);
-
-	// Create a structured description based on the conversation
-	let description = 'Based on our detailed conversation:\n\n';
-
+	// Create structured summary from user input
 	if (userMessages.length > 0) {
 		description += `Workflow Type: ${userMessages[0]}\n`;
 	}
@@ -886,15 +1185,42 @@ const proceedToGeneration = () => {
 		description += `Requirements & Specifics: ${userMessages[3]}\n`;
 	}
 
-	// Add any additional context
-	description += '\nAdditional Context:\n';
+	// Add COMPLETE conversation history
+	description += '\n=== COMPLETE CONVERSATION HISTORY ===\n\n';
+
+	conversationHistory.value.forEach((message, index) => {
+		const role = message.role === 'user' ? '👤 User' : '🤖 AI Assistant';
+		const timestamp = message.timestamp || '';
+
+		description += `${role} [${timestamp}]:\n`;
+		description += `${message.content}\n\n`;
+
+		// Add separator between messages
+		if (index < conversationHistory.value.length - 1) {
+			description += '---\n\n';
+		}
+	});
+
+	// Add session context
+	description += '\n=== SESSION INFORMATION ===\n';
 	description += `Session ID: ${conversationSessionId.value}\n`;
 	description += `Total Messages: ${conversationHistory.value.length}\n`;
+	description += `AI Model Used: ${currentModelInfo.value?.provider || 'Unknown'} ${
+		currentModelInfo.value?.modelName || ''
+	}\n`;
 	description +=
-		'This workflow was designed through an interactive AI conversation to ensure all requirements are captured.';
+		'This workflow was designed through an interactive AI conversation to ensure all requirements are captured.\n';
+
+	// Also extract the latest AI response if it contains detailed recommendations
+	const latestAIMessage = conversationHistory.value.filter((m) => m.role === 'assistant').pop();
+
+	if (latestAIMessage && latestAIMessage.content.length > 100) {
+		description += '\n=== AI DETAILED RECOMMENDATIONS ===\n';
+		description += latestAIMessage.content + '\n';
+	}
 
 	input.description = description;
-	input.context = `AI Conversation Session: ${conversationSessionId.value}`;
+	input.context = `AI Conversation Session: ${conversationSessionId.value} | Complete conversation with ${conversationHistory.value.length} messages`;
 
 	showConversation.value = false;
 
@@ -910,8 +1236,20 @@ const handleModeChange = (mode: 'create' | 'modify') => {
 	if (mode === 'create') {
 		selectedWorkflowId.value = null;
 		currentWorkflow.value = null;
+		// Restart conversation for create mode
+		if (showConversation.value) {
+			setTimeout(() => {
+				startConversation();
+			}, 300);
+		}
 	} else {
 		loadAvailableWorkflows();
+		// Restart conversation for modify mode (will guide user to select workflow)
+		if (showConversation.value) {
+			setTimeout(() => {
+				startConversation();
+			}, 300);
+		}
 	}
 };
 
@@ -923,7 +1261,6 @@ const loadAvailableWorkflows = async () => {
 			availableWorkflows.value = response.data || [];
 		}
 	} catch (error) {
-		console.error('Failed to load workflows:', error);
 		ElMessage.warning('Failed to load available workflows');
 	} finally {
 		loadingWorkflows.value = false;
@@ -931,23 +1268,40 @@ const loadAvailableWorkflows = async () => {
 };
 
 const handleWorkflowSelect = async (workflowId: number) => {
-	if (!workflowId) return;
+	if (!workflowId) {
+		currentWorkflow.value = null;
+		conversationProgress.value = 0;
+		canGenerateWorkflow.value = false;
+		return;
+	}
 
 	try {
 		const response = await getWorkflowDetails(workflowId);
+
 		if (response.success) {
 			currentWorkflow.value = response.data;
+		} else {
+			currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
 		}
 	} catch (error) {
-		console.error('Failed to load workflow details:', error);
+		// Use fallback from available workflows list
 		currentWorkflow.value = availableWorkflows.value.find((w) => w.id === workflowId);
+	}
+
+	// 重新评估进度
+	nextTick(() => {
+		evaluateConversationProgress();
+	});
+
+	// Restart conversation when workflow is selected in modify mode
+	if (operationMode.value === 'modify' && showConversation.value && currentWorkflow.value) {
+		setTimeout(() => {
+			startConversation();
+		}, 300);
 	}
 };
 
 const generateWorkflow = async () => {
-	console.log('🔥 generateWorkflow function called!');
-	console.log('🔥 Button clicked - operationMode:', operationMode.value);
-
 	if (!input.description.trim()) {
 		ElMessage.warning(
 			operationMode.value === 'create'
@@ -966,19 +1320,31 @@ const generateWorkflow = async () => {
 	result.value = null;
 
 	try {
-		console.log('=== DEBUG: generateWorkflow called ===');
-		console.log('Operation mode:', operationMode.value);
-		console.log('Selected workflow ID:', selectedWorkflowId.value);
-		console.log('Input description:', input.description);
-
 		let response;
 
 		if (operationMode.value === 'create') {
-			console.log('Taking CREATE path');
-			// 创建新工作流
-			response = await generateAIWorkflow(input);
+			// 创建新工作流 - 包含完整的AI模型和对话信息
+			const workflowInput = {
+				...input,
+				// AI模型信息
+				modelId: currentModelInfo.value?.id ? String(currentModelInfo.value.id) : undefined,
+				modelProvider: currentModelInfo.value?.provider,
+				modelName: currentModelInfo.value?.modelName,
+				// 对话历史信息
+				conversationHistory: conversationHistory.value,
+				sessionId: conversationSessionId.value,
+				// 元数据
+				conversationMetadata: {
+					totalMessages: conversationHistory.value.length,
+					conversationStartTime: conversationHistory.value[0]?.timestamp,
+					conversationEndTime:
+						conversationHistory.value[conversationHistory.value.length - 1]?.timestamp,
+					conversationMode: 'interactive_planning',
+				},
+			};
+
+			response = await generateAIWorkflow(workflowInput);
 		} else {
-			console.log('Taking MODIFY path');
 			// 修改现有工作流
 			const modificationParams: AIWorkflowModificationInput = {
 				workflowId: selectedWorkflowId.value!,
@@ -988,9 +1354,6 @@ const generateWorkflow = async () => {
 				preserveExisting: true,
 				modificationMode: 'modify',
 			};
-			console.log('Sending modification request:', modificationParams);
-			console.log('Selected workflow ID:', selectedWorkflowId.value);
-			console.log('Current workflow:', currentWorkflow.value);
 			response = await modifyAIWorkflow(modificationParams);
 		}
 
@@ -1008,7 +1371,6 @@ const generateWorkflow = async () => {
 			);
 		}
 	} catch (error) {
-		console.error('Generate workflow error:', error);
 		ElMessage.error('Error during workflow generation');
 	} finally {
 		generating.value = false;
@@ -1097,6 +1459,105 @@ const clearInput = () => {
 	streamSteps.value = [];
 };
 
+// AI Model Management Methods
+const loadAvailableAIModels = async () => {
+	loadingModels.value = true;
+
+	try {
+		const response = await getUserAIModels();
+
+		if (response.success && String(response.code) === '200') {
+			const models = response.data || [];
+			availableModels.value = models;
+
+			if (models.length === 0) {
+				ElMessage.warning(
+					'No AI models configured. Please configure at least one AI model in settings.'
+				);
+				return;
+			}
+
+			// Set default model if available
+			try {
+				const defaultResponse = await getDefaultAIModel();
+
+				if (defaultResponse.success && String(defaultResponse.code) === '200') {
+					const defaultModel = defaultResponse.data;
+
+					if (defaultModel && defaultModel.id) {
+						selectedAIModel.value = String(defaultModel.id);
+						currentModelInfo.value = defaultModel;
+					}
+				} else {
+					// If no default, select the first available model
+					const firstModel = models.find((m) => m.isAvailable);
+					if (firstModel) {
+						selectedAIModel.value = String(firstModel.id);
+						currentModelInfo.value = firstModel;
+					}
+				}
+			} catch (defaultError) {
+				// If default model fetch fails, select first available
+				const firstModel = models.find((m) => m.isAvailable);
+				if (firstModel) {
+					selectedAIModel.value = String(firstModel.id);
+					currentModelInfo.value = firstModel;
+				}
+			}
+		} else {
+			ElMessage.error('Failed to load AI models. Please check your configuration.');
+		}
+	} catch (error) {
+		ElMessage.error('Failed to load available AI models. Please try again later.');
+	} finally {
+		loadingModels.value = false;
+	}
+};
+
+const onModelChange = async (modelId: string) => {
+	const selectedModel = availableModels.value.find((m) => String(m.id) === modelId);
+	if (selectedModel) {
+		selectedAIModel.value = modelId;
+		currentModelInfo.value = selectedModel;
+		ElMessage.success(`Switched to ${selectedModel.provider} ${selectedModel.modelName}`);
+
+		// 通知后端切换模型
+		try {
+			// 重置会话ID，让后端使用新的模型
+			conversationSessionId.value = `session_${Date.now()}_${modelId}`;
+
+			// 添加系统消息提示用户模型已切换
+			addAIMessage(
+				`🔄 Switched to ${selectedModel.provider} ${selectedModel.modelName}. How can I help you today?`
+			);
+		} catch (error) {
+			ElMessage.error('Failed to switch AI model');
+		}
+	} else {
+		selectedAIModel.value = '';
+		currentModelInfo.value = null;
+		ElMessage.warning('Selected AI model not found.');
+	}
+};
+
+// Helper function to get provider icon
+const getProviderIcon = (provider: string) => {
+	switch (provider.toLowerCase()) {
+		case 'zhipuai':
+			return '🧠';
+		case 'openai':
+			return '🤖';
+		case 'anthropic':
+			return '🔮';
+		case 'claude':
+			return '💎';
+		case 'deepseek':
+			return '🚀';
+		default:
+			return '⚡';
+	}
+};
+
 // Lifecycle
 onMounted(() => {
 	// Initialize AI status check
@@ -1109,6 +1570,19 @@ onMounted(() => {
 		.catch(() => {
 			aiStatus.value.isAvailable = false;
 		});
+
+	// Load available AI models
+	loadAvailableAIModels();
+
+	// Auto-start conversation mode
+	setTimeout(() => {
+		startConversation();
+	}, 500);
+	
+	// Initialize progress evaluation
+	nextTick(() => {
+		evaluateConversationProgress();
+	});
 });
 
 // Watch for operation mode changes
@@ -1119,7 +1593,7 @@ watch(operationMode, (newMode) => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .ai-workflow-generator {
 	@apply max-w-6xl mx-auto p-6;
 }
@@ -1193,14 +1667,6 @@ watch(operationMode, (newMode) => {
 	@apply absolute inset-2 rounded-full bg-red-400;
 }
 
-.status-indicator.online .pulse-ring {
-	@apply border-green-400;
-}
-
-.status-indicator.online .pulse-dot {
-	@apply bg-green-400;
-}
-
 /* Mode Selector Styles */
 .mode-selector {
 	@apply mb-8;
@@ -1261,16 +1727,46 @@ watch(operationMode, (newMode) => {
 	@apply w-full mb-4;
 }
 
+.workflow-select :deep(.el-input__inner) {
+	font-size: 13px !important;
+	padding: 8px 12px !important;
+	line-height: 1.4 !important;
+}
+
+.workflow-select :deep(.el-select__placeholder) {
+	font-size: 13px !important;
+}
+
 .workflow-option-content {
 	@apply py-2;
 }
 
 .workflow-name {
 	@apply font-medium text-gray-800;
+	font-size: 13px !important;
 }
 
 .workflow-meta {
-	@apply flex items-center gap-3 text-sm text-gray-600 mt-1;
+	@apply flex items-center gap-3 text-gray-600 mt-1;
+	font-size: 11px !important;
+}
+
+/* Dropdown option styling */
+:deep(.el-select-dropdown .el-select-dropdown__item) {
+	padding: 8px 12px !important;
+	line-height: 1.3 !important;
+	min-height: auto !important;
+}
+
+:deep(.workflow-option .workflow-name) {
+	font-size: 13px !important;
+	font-weight: 500 !important;
+	line-height: 1.4 !important;
+}
+
+:deep(.workflow-option .workflow-meta) {
+	font-size: 11px !important;
+	margin-top: 3px !important;
 }
 
 /* Enhanced Current Workflow Preview */
@@ -1372,22 +1868,6 @@ watch(operationMode, (newMode) => {
 	@apply flex items-center text-gray-500;
 }
 
-.more-stages-indicator {
-	@apply mt-4;
-}
-
-.more-stages-card {
-	@apply flex items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-gray-500;
-}
-
-.more-icon {
-	@apply mr-2 text-xl;
-}
-
-.more-text {
-	@apply font-medium;
-}
-
 /* Enhanced No Stages Display */
 .no-stages-display {
 	@apply flex flex-col items-center justify-center p-8 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-dashed border-blue-200;
@@ -1424,10 +1904,6 @@ watch(operationMode, (newMode) => {
 
 .input-container {
 	@apply relative;
-}
-
-.ai-textarea {
-	@apply transition-all duration-300;
 }
 
 .input-footer {
@@ -1748,6 +2224,574 @@ watch(operationMode, (newMode) => {
 	opacity: 0;
 }
 
+/* Conversation Completion Styles */
+.conversation-completion {
+	@apply mt-6 p-6 rounded-xl;
+	background: linear-gradient(135deg, #f0f9ff 0%, #e0f7fa 50%, #f3e5f5 100%);
+	border: 1px solid #e3f2fd;
+	box-shadow:
+		0 8px 32px rgba(59, 130, 246, 0.12),
+		0 4px 16px rgba(139, 92, 246, 0.08);
+	position: relative;
+	animation: completion-appear 0.6s ease-out;
+}
+
+.conversation-completion::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+	pointer-events: none;
+}
+
+.completion-card {
+	@apply relative z-10 mb-6;
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+}
+
+.completion-icon {
+	@apply w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0;
+	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	box-shadow:
+		0 4px 12px rgba(16, 185, 129, 0.3),
+		0 0 20px rgba(16, 185, 129, 0.1);
+	animation: completion-pulse 2s ease-in-out infinite;
+}
+
+.completion-icon .el-icon {
+	@apply text-white text-xl;
+}
+
+.completion-content {
+	@apply flex-1;
+}
+
+.completion-content h4 {
+	@apply text-xl font-semibold text-gray-800 mb-2;
+	background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.completion-content p {
+	@apply text-gray-600 leading-relaxed;
+	font-size: 15px;
+}
+
+.completion-actions {
+	@apply relative z-10 flex items-center justify-end gap-3;
+}
+
+.completion-actions .secondary-btn {
+	@apply px-6 py-3 rounded-lg font-medium transition-all duration-300;
+	background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+	color: #64748b;
+	border: 1px solid #cbd5e1;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.completion-actions .secondary-btn:hover {
+	@apply transform -translate-y-0.5;
+	background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+	color: #475569;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.completion-actions .primary-btn {
+	@apply px-8 py-3 rounded-lg font-semibold text-white transition-all duration-300;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #7c3aed 100%);
+	border: none;
+	box-shadow:
+		0 4px 15px rgba(59, 130, 246, 0.4),
+		0 0 30px rgba(59, 130, 246, 0.2);
+	position: relative;
+	overflow: hidden;
+}
+
+.completion-actions .primary-btn::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	transition: left 0.5s;
+}
+
+.completion-actions .primary-btn:hover {
+	@apply transform -translate-y-1;
+	background: linear-gradient(135deg, #2563eb 0%, #1e40af 50%, #6d28d9 100%);
+	box-shadow:
+		0 8px 25px rgba(59, 130, 246, 0.5),
+		0 0 40px rgba(59, 130, 246, 0.3);
+}
+
+.completion-actions .primary-btn:hover::before {
+	left: 100%;
+}
+
+.completion-actions .primary-btn:active {
+	@apply transform -translate-y-0;
+	box-shadow:
+		0 4px 15px rgba(59, 130, 246, 0.4),
+		0 0 30px rgba(59, 130, 246, 0.2);
+}
+
+.completion-actions .el-icon {
+	@apply mr-2;
+}
+
+/* Animations */
+@keyframes completion-appear {
+	0% {
+		opacity: 0;
+		transform: translateY(20px) scale(0.95);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes completion-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+		box-shadow:
+			0 4px 12px rgba(16, 185, 129, 0.3),
+			0 0 20px rgba(16, 185, 129, 0.1);
+	}
+	50% {
+		transform: scale(1.05);
+		box-shadow:
+			0 6px 20px rgba(16, 185, 129, 0.4),
+			0 0 30px rgba(16, 185, 129, 0.2);
+	}
+}
+
+/* Progress Bar Styles */
+.conversation-progress-container {
+	margin-top: 16px;
+	padding: 16px;
+	background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+	border-radius: 12px;
+	border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.progress-info {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.progress-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: #475569;
+	letter-spacing: -0.025em;
+}
+
+.progress-value {
+	font-size: 14px;
+	font-weight: 700;
+	color: #3b82f6;
+	background: rgba(59, 130, 246, 0.1);
+	padding: 2px 8px;
+	border-radius: 8px;
+}
+
+.progress-bar {
+	height: 8px;
+	background: rgba(226, 232, 240, 0.6);
+	border-radius: 6px;
+	overflow: hidden;
+	margin-bottom: 8px;
+	position: relative;
+}
+
+.progress-fill {
+	height: 100%;
+	border-radius: 6px;
+	transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	overflow: hidden;
+}
+
+.progress-fill::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+	animation: progress-shimmer 2s infinite;
+}
+
+.progress-fill.progress-low {
+	background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
+}
+
+.progress-fill.progress-medium {
+	background: linear-gradient(90deg, #f59e0b 0%, #eab308 100%);
+}
+
+.progress-fill.progress-high {
+	background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+}
+
+.progress-status {
+	text-align: center;
+}
+
+.status-text {
+	font-size: 12px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 20px;
+	display: inline-block;
+}
+
+.status-insufficient {
+	background: rgba(239, 68, 68, 0.1);
+	color: #dc2626;
+	border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-progress {
+	background: rgba(245, 158, 11, 0.1);
+	color: #d97706;
+	border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-good {
+	background: rgba(34, 197, 94, 0.1);
+	color: #16a34a;
+	border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-ready {
+	background: rgba(59, 130, 246, 0.1);
+	color: #2563eb;
+	border: 1px solid rgba(59, 130, 246, 0.2);
+	animation: status-pulse 2s infinite;
+}
+
+@keyframes progress-shimmer {
+	0% {
+		left: -100%;
+	}
+	100% {
+		left: 100%;
+	}
+}
+
+@keyframes status-pulse {
+	0%, 100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	50% {
+		transform: scale(1.05);
+		opacity: 0.9;
+	}
+}
+
+/* Smart Generation Actions Styles */
+.smart-generation-actions {
+	margin-top: 24px;
+	padding: 24px;
+	border-radius: 16px;
+	background: linear-gradient(135deg, #f0f9ff 0%, #e0f7fa 50%, #f3e5f5 100%);
+	border: 1px solid #e3f2fd;
+	box-shadow:
+		0 8px 32px rgba(59, 130, 246, 0.12),
+		0 4px 16px rgba(139, 92, 246, 0.08);
+	position: relative;
+	animation: generation-appear 0.6s ease-out;
+}
+
+.smart-generation-actions::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+	pointer-events: none;
+}
+
+.generation-card {
+	position: relative;
+	z-index: 10;
+	margin-bottom: 20px;
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	transition: all 0.3s ease;
+}
+
+.generation-card.high-confidence {
+	transform: scale(1.02);
+}
+
+.generation-icon {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	box-shadow:
+		0 4px 12px rgba(16, 185, 129, 0.3),
+		0 0 20px rgba(16, 185, 129, 0.1);
+	transition: all 0.3s ease;
+}
+
+.generation-card.high-confidence .generation-icon {
+	animation: generation-pulse 2s ease-in-out infinite;
+}
+
+.generation-icon .el-icon {
+	color: white;
+	font-size: 20px;
+}
+
+.generation-content {
+	flex: 1;
+}
+
+.generation-content h4 {
+	font-size: 18px;
+	font-weight: 600;
+	color: #1e293b;
+	margin-bottom: 8px;
+	background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.generation-content p {
+	color: #64748b;
+	font-size: 14px;
+	line-height: 1.5;
+	margin-bottom: 12px;
+}
+
+.confidence-indicator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.confidence-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: #475569;
+}
+
+.confidence-bar-mini {
+	width: 80px;
+	height: 4px;
+	background: rgba(226, 232, 240, 0.6);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.confidence-fill-mini {
+	height: 100%;
+	border-radius: 2px;
+	transition: width 0.6s ease;
+}
+
+.confidence-fill-mini.progress-basic {
+	background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+}
+
+.confidence-fill-mini.progress-good {
+	background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.confidence-fill-mini.progress-excellent {
+	background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.confidence-percentage {
+	font-size: 12px;
+	font-weight: 700;
+	color: #3b82f6;
+}
+
+.generation-actions {
+	position: relative;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
+}
+
+.generation-actions .secondary-btn {
+	padding: 10px 20px;
+	border-radius: 8px;
+	font-weight: 500;
+	background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+	color: #64748b;
+	border: 1px solid #cbd5e1;
+	transition: all 0.3s ease;
+}
+
+.generation-actions .secondary-btn:hover {
+	transform: translateY(-1px);
+	background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+	color: #475569;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.generation-actions .continue-btn {
+	padding: 10px 20px;
+	border-radius: 8px;
+	font-weight: 500;
+	background: linear-gradient(135deg, #f0f9ff 0%, #dbeafe 100%);
+	color: #2563eb;
+	border: 1px solid #bfdbfe;
+	transition: all 0.3s ease;
+}
+
+.generation-actions .continue-btn:hover {
+	transform: translateY(-1px);
+	background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+	color: #1d4ed8;
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.generation-actions .primary-btn {
+	padding: 12px 24px;
+	border-radius: 8px;
+	font-weight: 600;
+	color: white;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #7c3aed 100%);
+	border: none;
+	box-shadow:
+		0 4px 15px rgba(59, 130, 246, 0.4),
+		0 0 30px rgba(59, 130, 246, 0.2);
+	transition: all 0.3s ease;
+	position: relative;
+	overflow: hidden;
+}
+
+.generation-actions .primary-btn::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	transition: left 0.5s;
+}
+
+.generation-actions .primary-btn:hover {
+	transform: translateY(-2px);
+	background: linear-gradient(135deg, #2563eb 0%, #1e40af 50%, #6d28d9 100%);
+	box-shadow:
+		0 8px 25px rgba(59, 130, 246, 0.5),
+		0 0 40px rgba(59, 130, 246, 0.3);
+}
+
+.generation-actions .primary-btn:hover::before {
+	left: 100%;
+}
+
+.generation-actions .primary-btn.pulse-animation {
+	animation: primary-pulse 2s ease-in-out infinite;
+}
+
+.generation-actions .primary-btn.ready-animation {
+	animation: ready-glow 3s ease-in-out infinite;
+}
+
+.generation-actions .primary-btn.basic-ready {
+	background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #92400e 100%);
+	box-shadow:
+		0 4px 15px rgba(245, 158, 11, 0.4),
+		0 0 30px rgba(245, 158, 11, 0.2);
+}
+
+.generation-actions .primary-btn.basic-ready:hover {
+	background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #78350f 100%);
+	box-shadow:
+		0 8px 25px rgba(245, 158, 11, 0.5),
+		0 0 40px rgba(245, 158, 11, 0.3);
+}
+
+@keyframes generation-appear {
+	0% {
+		opacity: 0;
+		transform: translateY(20px) scale(0.95);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes generation-pulse {
+	0%, 100% {
+		transform: scale(1);
+		box-shadow:
+			0 4px 12px rgba(16, 185, 129, 0.3),
+			0 0 20px rgba(16, 185, 129, 0.1);
+	}
+	50% {
+		transform: scale(1.05);
+		box-shadow:
+			0 6px 20px rgba(16, 185, 129, 0.4),
+			0 0 30px rgba(16, 185, 129, 0.2);
+	}
+}
+
+@keyframes primary-pulse {
+	0%, 100% {
+		box-shadow:
+			0 4px 15px rgba(59, 130, 246, 0.4),
+			0 0 30px rgba(59, 130, 246, 0.2);
+	}
+	50% {
+		box-shadow:
+			0 8px 25px rgba(59, 130, 246, 0.6),
+			0 0 40px rgba(59, 130, 246, 0.4);
+	}
+}
+
+@keyframes ready-glow {
+	0%, 100% {
+		box-shadow:
+			0 4px 15px rgba(59, 130, 246, 0.3),
+			0 0 25px rgba(59, 130, 246, 0.15);
+	}
+	50% {
+		box-shadow:
+			0 6px 20px rgba(59, 130, 246, 0.4),
+			0 0 35px rgba(59, 130, 246, 0.25);
+	}
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
 	.mode-options {
@@ -1777,45 +2821,295 @@ watch(operationMode, (newMode) => {
 	.stages-grid {
 		@apply grid-cols-1;
 	}
+
+	/* Generation responsive design */
+	.generation-card {
+		@apply flex-col items-center text-center gap-4;
+	}
+
+	.generation-actions {
+		@apply flex-col w-full gap-3;
+	}
+
+	.generation-actions .secondary-btn,
+	.generation-actions .continue-btn,
+	.generation-actions .primary-btn {
+		@apply w-full justify-center py-3;
+	}
+
+	.generation-content h4 {
+		@apply text-base;
+	}
+
+	.generation-content p {
+		@apply text-sm;
+	}
+
+	/* Progress bar responsive design */
+	.conversation-progress-container {
+		padding: 12px;
+	}
+
+	.progress-info {
+		@apply flex-col items-start gap-2;
+	}
+
+	.confidence-indicator {
+		@apply flex-wrap gap-2;
+	}
+
+	/* Input area responsive design */
+	.input-footer {
+		@apply flex-col items-stretch gap-3;
+	}
+
+	.input-actions {
+		@apply w-full justify-between;
+	}
 }
 
-/* Conversation Area Styles */
+/* Conversation Area Styles - Enhanced Modern Design */
 .ai-conversation-area {
-	@apply bg-white rounded-xl border border-gray-200 p-6 mb-6;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-	max-height: 80vh;
+	@apply bg-white rounded-2xl border-0 p-0 mb-6;
+	box-shadow:
+		0 25px 50px -12px rgba(0, 0, 0, 0.12),
+		0 8px 32px -8px rgba(0, 0, 0, 0.08),
+		0 0 0 1px rgba(0, 0, 0, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	max-height: 85vh;
 	display: flex;
 	flex-direction: column;
+	position: relative;
+	overflow: hidden;
+	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 40%, #f1f5f9 100%);
+}
+
+.ai-conversation-area::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
+	pointer-events: none;
+	z-index: 0;
 }
 
 .conversation-header {
-	@apply text-center mb-6 pb-4 border-b border-gray-100;
+	padding: 28px 32px;
+	border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+	background: linear-gradient(
+		135deg,
+		rgba(255, 255, 255, 0.95) 0%,
+		rgba(248, 250, 252, 0.92) 40%,
+		rgba(241, 245, 249, 0.88) 100%
+	);
+	position: relative;
+	overflow: hidden;
+	z-index: 2;
+	border-radius: 24px 24px 0 0;
+	backdrop-filter: blur(20px);
+	box-shadow:
+		0 4px 6px -1px rgba(0, 0, 0, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.conversation-header::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+		radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+		linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
+	pointer-events: none;
+	z-index: -1;
 }
 
 .conversation-title {
-	@apply flex items-center justify-center mb-3;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.conversation-title > div:first-child {
+	display: flex;
+	align-items: center;
 }
 
 .ai-avatar-large {
-	@apply w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg mr-4;
-	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+	width: 56px;
+	height: 56px;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #8b5cf6 100%);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 20px;
+	box-shadow:
+		0 8px 25px rgba(59, 130, 246, 0.4),
+		0 4px 12px rgba(139, 92, 246, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3);
+	position: relative;
+	z-index: 1;
+	border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.ai-avatar-large::before {
+	content: '';
+	position: absolute;
+	inset: -3px;
+	border-radius: 50%;
+	background: linear-gradient(45deg, #3b82f6, #8b5cf6, #06b6d4, #10b981);
+	z-index: -1;
+	animation: rotate 4s linear infinite;
+	opacity: 0.8;
+	filter: blur(0.5px);
+}
+
+@keyframes rotate {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.ai-avatar-large .el-icon {
+	color: white;
+	font-size: 24px;
 }
 
 .title-content h3 {
-	@apply text-xl font-bold text-gray-900 mb-1;
+	margin: 0 0 6px 0;
+	background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #334155 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	font-size: 22px;
+	font-weight: 700;
+	letter-spacing: -0.025em;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .title-content p {
-	@apply text-gray-600 text-sm;
+	margin: 0;
+	color: #64748b;
+	font-size: 15px;
+	font-weight: 500;
+	opacity: 0.8;
 }
 
-.conversation-subtitle {
-	@apply text-sm text-gray-500 italic;
+/* Current Model Display in top right - Enhanced */
+.current-model-display {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 18px;
+	background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+	border-radius: 24px;
+	font-size: 14px;
+	color: #3b82f6;
+	font-weight: 600;
+	border: 1px solid rgba(59, 130, 246, 0.25);
+	box-shadow:
+		0 4px 12px rgba(59, 130, 246, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.7);
+	backdrop-filter: blur(10px);
+	position: relative;
+	overflow: hidden;
 }
 
+.current-model-display .current-model-icon {
+	font-size: 16px;
+}
+
+.current-model-display .current-model-text {
+	line-height: 1;
+}
+
+.current-model-display .ai-status-dot {
+	width: 8px;
+	height: 8px;
+}
+
+/* AI Model Selector at bottom - Enhanced */
+.ai-model-selector-bottom {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 20px 32px;
+	border-top: 1px solid rgba(226, 232, 240, 0.4);
+	background: linear-gradient(
+		135deg,
+		rgba(248, 250, 252, 0.95) 0%,
+		rgba(241, 245, 249, 0.9) 100%
+	);
+	position: relative;
+	z-index: 1199;
+	backdrop-filter: blur(20px);
+	border-radius: 0 0 24px 24px;
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.8),
+		0 -2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.model-selector-label {
+	font-size: 15px;
+	font-weight: 700;
+	color: #475569;
+	white-space: nowrap;
+	letter-spacing: -0.025em;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ai-model-selector-bottom .el-select {
+	position: relative;
+	z-index: 1199;
+}
+
+.conversation-input {
+	@apply p-6 border-t-0;
+	background: linear-gradient(
+		135deg,
+		rgba(255, 255, 255, 0.95) 0%,
+		rgba(248, 250, 252, 0.9) 100%
+	);
+	position: relative;
+	backdrop-filter: blur(20px);
+	border-top: 1px solid rgba(226, 232, 240, 0.4);
+	border-radius: 0 0 24px 24px;
+	z-index: 2;
+}
+
+.input-container {
+	@apply relative;
+	margin: 0 auto;
+}
+
+.input-footer {
+	@apply flex items-center justify-between mt-4;
+	padding: 0 4px;
+}
+
+.input-actions {
+	@apply flex items-center gap-2;
+}
+
+/* Message and conversation styles */
 .conversation-container {
 	@apply flex flex-col flex-1;
 	min-height: 0;
+	position: relative;
+	z-index: 1;
+	height: 100%;
 }
 
 .conversation-messages {
@@ -1857,16 +3151,19 @@ watch(operationMode, (newMode) => {
 }
 
 .message-avatar {
-	@apply w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	@apply w-10 h-10 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0;
+	box-shadow:
+		0 4px 12px rgba(0, 0, 0, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3);
+	border: 2px solid rgba(255, 255, 255, 0.8);
 }
 
 .message.assistant .message-avatar {
-	@apply bg-gradient-to-br from-blue-500 to-blue-600;
+	@apply bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600;
 }
 
 .message.user .message-avatar {
-	@apply bg-gradient-to-br from-green-500 to-green-600;
+	@apply bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500;
 }
 
 .message-bubble {
@@ -1875,25 +3172,40 @@ watch(operationMode, (newMode) => {
 }
 
 .message.assistant .message-bubble {
-	@apply bg-gray-50 border border-gray-200 rounded-2xl rounded-tl-md p-3;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	@apply bg-white border-0 rounded-2xl rounded-tl-sm p-4;
+	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+	box-shadow:
+		0 4px 12px rgba(0, 0, 0, 0.08),
+		0 0 0 1px rgba(0, 0, 0, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	border: 1px solid rgba(226, 232, 240, 0.5);
 }
 
 .message.user .message-bubble {
-	@apply bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl rounded-tr-md p-3;
-	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+	@apply text-white rounded-2xl rounded-tr-sm p-4;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #8b5cf6 100%);
+	box-shadow:
+		0 4px 15px rgba(59, 130, 246, 0.3),
+		0 0 30px rgba(59, 130, 246, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3);
+	border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .message-content {
 	@apply text-sm leading-relaxed;
+	font-weight: 500;
+	line-height: 1.6;
 }
 
 .message-time {
-	@apply text-xs opacity-70 mt-2;
+	@apply text-xs opacity-60 mt-3;
+	font-weight: 500;
+	letter-spacing: 0.025em;
 }
 
 .message.user .message-time {
-	@apply text-right text-blue-100;
+	@apply text-right;
+	color: rgba(255, 255, 255, 0.8);
 }
 
 .typing-indicator {
@@ -1960,117 +3272,118 @@ watch(operationMode, (newMode) => {
 	animation: fade-in 0.5s ease-out;
 }
 
-.conversation-input-area {
-	@apply border-t border-gray-200 pt-4 mt-auto;
+.ai-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: linear-gradient(45deg, #10b981, #059669);
+	margin-right: 6px;
+	animation: pulse-simple 2s infinite;
 }
 
-.input-container {
-	@apply relative;
+.ai-dot.loading {
+	background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+	animation: spin 1s linear infinite;
 }
 
-.conversation-textarea {
-	@apply w-full;
+.ai-dot.error {
+	background: linear-gradient(45deg, #ef4444, #dc2626);
+	animation: pulse-error 2s infinite;
 }
 
-.conversation-textarea .el-textarea__inner {
-	@apply border-gray-300 rounded-xl resize-none transition-all duration-200;
-	min-height: 80px;
+@keyframes pulse-simple {
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.6;
+		transform: scale(1.2);
+	}
 }
 
-.conversation-textarea .el-textarea__inner:focus {
-	@apply border-blue-500;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
-.input-footer {
-	@apply flex justify-between items-center mt-3;
+@keyframes pulse-error {
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.7;
+		transform: scale(1.1);
+	}
 }
 
-.input-hints {
-	@apply flex-1;
+/* Fix selection functionality - ensure text is clickable */
+:deep(.ai-model-popper-simple .el-select-dropdown__item) {
+	padding: 0 !important;
+	margin: 0 !important;
+	background: transparent !important;
+	line-height: normal !important;
+	height: auto !important;
+	cursor: pointer !important;
+	pointer-events: auto !important;
+	position: relative !important;
 }
 
-.hint-text {
-	@apply text-xs text-gray-400;
+:deep(.ai-model-popper-simple .el-select-dropdown__item:hover) {
+	background: transparent !important;
 }
 
-.input-actions {
-	@apply flex items-center space-x-2;
+:deep(.ai-model-popper-simple .el-select-dropdown__item.selected) {
+	background: transparent !important;
 }
 
-.reset-btn {
-	@apply w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors;
+.ai-status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: #10b981;
+	animation: pulse-simple 2s infinite;
 }
 
-.send-btn {
-	@apply px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium transition-all duration-200;
-	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+/* Global z-index and container styles */
+:deep(.ai-model-popper-simple) {
+	background: white !important;
+	border: 1px solid #e2e8f0 !important;
+	border-radius: 8px !important;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+	padding: 6px !important;
+	overflow: visible !important;
+	min-width: 320px !important;
+	width: auto !important;
+	max-width: none !important;
+	z-index: 1200 !important;
+	position: fixed !important;
 }
 
-.send-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+:deep(.el-popper__arrow) {
+	display: none !important;
 }
 
-.send-btn:disabled {
-	@apply opacity-50 cursor-not-allowed;
-	transform: none;
+:deep(.el-popper) {
+	z-index: 1200 !important;
+	position: relative !important;
 }
 
-.conversation-completion {
-	@apply mt-6 animate-fade-in;
+:deep(.el-select-dropdown) {
+	z-index: 1200 !important;
+	position: relative !important;
 }
 
-.completion-card {
-	@apply flex items-start p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 mb-4;
-}
-
-.completion-icon {
-	@apply mr-4 mt-1 text-2xl text-green-600;
-}
-
-.completion-content h4 {
-	@apply text-lg font-semibold mb-2 text-green-800;
-}
-
-.completion-content p {
-	@apply text-sm text-green-700;
-}
-
-.completion-actions {
-	@apply flex justify-center space-x-4;
-}
-
-.secondary-btn {
-	@apply px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors;
-}
-
-.primary-btn {
-	@apply px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200;
-	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-}
-
-.primary-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-}
-
-/* Input Area Mode Toggle */
-.generation-mode-toggle {
-	@apply mr-4;
-}
-
-.conversation-mode-btn {
-	@apply bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 transition-all duration-200;
-	box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
-}
-
-.conversation-mode-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
-}
-
-.direct-generation {
-	@apply flex items-center space-x-3;
+:deep(.el-select__popper) {
+	z-index: 1200 !important;
+	position: relative !important;
 }
 </style>
+

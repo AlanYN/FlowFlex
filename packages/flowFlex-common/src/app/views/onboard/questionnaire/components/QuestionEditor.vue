@@ -343,12 +343,10 @@ const handleAddOption = () => {
 const handleAddOtherOption = () => {
 	newQuestion.options.push({
 		id: `option-${Date.now()}`,
-		value: generateOptionValue(newOption.label, newQuestion.options),
-		label: newOption.label,
+		value: generateOptionValue('Other', newQuestion.options),
+		label: '',
 		isOther: true,
 	});
-
-	newOption.label = '';
 };
 
 const updateExistingOptions = (id: string, label: string) => {

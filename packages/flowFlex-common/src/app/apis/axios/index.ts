@@ -153,7 +153,6 @@ const transform: AxiosTransform = {
 			}
 		}
 		const userStore = useUserStoreWithOut();
-		console.log('userStore.getUserInfo', userStore.getUserInfo);
 		(config as Recordable).headers['Time-Zone'] = `${getTimeZoneInfo().timeZone}`;
 		(config as Recordable).headers['Application-code'] = `${globSetting.ssoCode}`;
 		(config as Recordable).headers['X-App-Code'] = userStore.getUserInfo?.appCode;

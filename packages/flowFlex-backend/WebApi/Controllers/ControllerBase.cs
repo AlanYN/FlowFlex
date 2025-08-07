@@ -1,6 +1,9 @@
 using Item.Internal.StandardApi.Response;
 using Microsoft.AspNetCore.Mvc;
 using FlowFlex.Application.Filter;
+using System;
+using System.Linq;
+using System.Security.Claims;
 
 namespace FlowFlex.WebApi.Controllers;
 
@@ -57,5 +60,31 @@ public abstract class ControllerBase : Microsoft.AspNetCore.Mvc.ControllerBase
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 获取当前用户ID
+    /// </summary>
+    /// <returns>当前用户ID</returns>
+    protected long GetCurrentUserId()
+    {
+        // 从请求头中获取用户ID
+        var userIdHeader = HttpContext.Request.Headers["X-User-Id"].FirstOrDefault();
+        
+        // 如果请求头中没有用户ID，则从JWT令牌中获取
+        if (string.IsNullOrEmpty(userIdHeader))
+        {
+            var userIdClaim = HttpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                            ?? HttpContext.User?.FindFirst("sub");
+            userIdHeader = userIdClaim?.Value;
+        }
+
+        // 如果仍然没有用户ID，则使用默认值1
+        if (string.IsNullOrEmpty(userIdHeader) || !long.TryParse(userIdHeader, out long userId))
+        {
+            userId = 1; // 默认管理员用户ID
+        }
+
+        return userId;
     }
 }

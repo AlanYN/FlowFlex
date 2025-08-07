@@ -126,6 +126,9 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 		}
 
 		const dynamicForm = (await dynamicFormRef.value?.transformFormDataForAPI()) || [];
+		if (!Array.isArray(dynamicForm) || dynamicForm.length === 0) {
+			return true;
+		}
 		const res = await Promise.all([
 			...dynamicForm.map((item) =>
 				saveQuestionnaireAnswer(props?.onboardingId || '', props.stageId, {

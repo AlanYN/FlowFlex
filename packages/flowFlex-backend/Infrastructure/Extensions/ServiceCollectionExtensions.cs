@@ -6,6 +6,8 @@ using FlowFlex.Infrastructure.Services.Logging;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Infrastructure.Exceptions;
 using FlowFlex.Infrastructure.Data;
+using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Infrastructure.Services.Security;
 
 namespace FlowFlex.Infrastructure.Extensions
 {
@@ -42,6 +44,9 @@ namespace FlowFlex.Infrastructure.Extensions
 
             // Register logging services
             services.AddScoped<IApplicationLogger, ApplicationLogger>();
+
+            // Register encryption services
+            services.AddScoped<IEncryptionService, EncryptionService>();
 
             // Register repository services
             services.AddScoped(typeof(IOptimizedRepository<>), typeof(OptimizedRepository<>));

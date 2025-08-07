@@ -226,18 +226,61 @@
 									</div>
 								</div>
 								<div class="flex items-center justify-between text-sm">
-									<span class="card-label">Sections:</span>
-									<span class="card-value font-medium">
-										{{
-											JSON.parse(questionnaire.structureJson).sections.length
-										}}
-									</span>
+									<el-tooltip class="flex-1" content="total number of sections">
+										<div class="flex flex-1 items-center gap-2">
+											<Icon
+												icon="material-symbols-light:insert-page-break"
+												class="text-primary-500 w-5 h-5"
+											/>
+											<span class="card-value font-medium">
+												{{
+													JSON.parse(questionnaire.structureJson).sections
+														.length
+												}}
+											</span>
+										</div>
+									</el-tooltip>
+									<el-tooltip class="flex-1" content="total number of questions">
+										<div class="flex flex-1 items-center gap-2">
+											<Icon
+												icon="material-symbols:format-list-bulleted"
+												class="text-primary-500 w-5 h-5"
+											/>
+											<span class="card-value font-medium">
+												{{ questionnaire.totalQuestions }}
+											</span>
+										</div>
+									</el-tooltip>
 								</div>
 								<div class="flex items-center justify-between text-sm">
-									<span class="card-label">Questions:</span>
-									<span class="card-value font-medium">
-										{{ questionnaire.totalQuestions }}
-									</span>
+									<el-tooltip class="flex-1" content="last mdify by">
+										<div class="flex flex-1 items-center gap-2">
+											<Icon
+												icon="ic:baseline-person-3"
+												class="text-primary-500 w-5 h-5"
+											/>
+											<span class="card-value font-medium">
+												{{ questionnaire.modifyBy }}
+											</span>
+										</div>
+									</el-tooltip>
+									<el-tooltip class="flex-1" content="last modify date">
+										<div class="flex flex-1 items-center gap-2">
+											<Icon
+												icon="ic:baseline-calendar-month"
+												class="text-primary-500 w-5 h-5"
+											/>
+											<span class="card-value font-medium">
+												{{
+													timeZoneConvert(
+														questionnaire.modifyDate,
+														false,
+														projectTenMinuteDate
+													)
+												}}
+											</span>
+										</div>
+									</el-tooltip>
 								</div>
 							</div>
 						</div>
@@ -347,6 +390,7 @@ import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import QuestionnairePreview from './components/QuestionnairePreview.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import InputTag from '@/components/global/u-input-tags/index.vue';
+import { timeZoneConvert } from '@/hooks/time';
 
 // 引入问卷相关API接口
 import {
@@ -358,7 +402,7 @@ import {
 import { getWorkflows, getStagesByWorkflow, getAllStages } from '@/apis/ow';
 import { Questionnaire } from '#/onboard';
 import { useRouter } from 'vue-router';
-import { smallDialogWidth, defaultStr } from '@/settings/projectSetting';
+import { smallDialogWidth, defaultStr, projectTenMinuteDate } from '@/settings/projectSetting';
 
 const router = useRouter();
 

@@ -14,7 +14,7 @@ const Api = (id?: string | number) => {
 		aiWorkflowValidate: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/validate`,
 		aiWorkflowParseRequirements: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/parse-requirements`,
 		aiWorkflowStatus: `${globSetting.apiProName}/ai/workflows/${globSetting.apiVersion}/status`,
-		
+
 		// AI对话API
 		aiChat: `${globSetting.apiProName}/ai/chat/${globSetting.apiVersion}/conversation`,
 		aiChatStream: `${globSetting.apiProName}/ai/chat/${globSetting.apiVersion}/conversation/stream`,
@@ -30,6 +30,8 @@ const Api = (id?: string | number) => {
 		mcpGenerateQuestionnaire: `${globSetting.apiProName}/mcp/${globSetting.apiVersion}/tools/generate-questionnaire`,
 		mcpGenerateChecklist: `${globSetting.apiProName}/mcp/${globSetting.apiVersion}/tools/generate-checklist`,
 		mcpStatus: `${globSetting.apiProName}/mcp/${globSetting.apiVersion}/status`,
+
+		getWorkflows: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}`,
 	};
 };
 
@@ -50,10 +52,10 @@ export function generateAIWorkflow(params: AIWorkflowGenerationInput) {
  * @returns 流式生成结果
  */
 export function streamGenerateAIWorkflow(params: AIWorkflowGenerationInput) {
-	return defHttp.post({ 
-		url: Api().aiWorkflowGenerateStream, 
+	return defHttp.post({
+		url: Api().aiWorkflowGenerateStream,
 		params,
-		responseType: 'stream'
+		responseType: 'stream',
 	});
 }
 
@@ -64,9 +66,9 @@ export function streamGenerateAIWorkflow(params: AIWorkflowGenerationInput) {
  * @returns 增强建议
  */
 export function enhanceAIWorkflow(workflowId: string | number, enhancement: string) {
-	return defHttp.post({ 
-		url: Api(workflowId).aiWorkflowEnhance, 
-		params: { enhancement } 
+	return defHttp.post({
+		url: Api(workflowId).aiWorkflowEnhance,
+		params: { enhancement },
 	});
 }
 
@@ -85,9 +87,9 @@ export function validateAIWorkflow(workflow: any) {
  * @returns 结构化需求
  */
 export function parseAIRequirements(naturalLanguage: string) {
-	return defHttp.post({ 
-		url: Api().aiWorkflowParseRequirements, 
-		params: { naturalLanguage } 
+	return defHttp.post({
+		url: Api().aiWorkflowParseRequirements,
+		params: { naturalLanguage },
 	});
 }
 
@@ -135,6 +137,10 @@ export interface AIChatInput {
 	context?: string;
 	sessionId?: string;
 	mode?: 'workflow_planning' | 'general';
+	// 添加模型相关字段
+	modelId?: string;
+	modelProvider?: string;
+	modelName?: string;
 }
 
 /**
@@ -160,15 +166,16 @@ export interface AIChatResponse {
 export function sendAIChatMessage(params: AIChatInput) {
 	console.log('📡 API: Sending AI chat message to:', Api().aiChat);
 	console.log('📡 API: Chat params:', params);
-	
-	return defHttp.post<AIChatResponse>({ url: Api().aiChat, params })
-		.then(response => {
+
+	return defHttp
+		.post<AIChatResponse>({ url: Api().aiChat, params })
+		.then((response) => {
 			console.log('📡 API: AI chat response received:', response);
 			// 后端返回的是标准API响应格式 { data: AIChatResponse, success: boolean, ... }
 			// 但defHttp已经解包了data字段，所以response就是AIChatResponse
 			return response;
 		})
-		.catch(error => {
+		.catch((error) => {
 			console.error('📡 API: AI chat request failed:', error);
 			throw error;
 		});
@@ -180,10 +187,10 @@ export function sendAIChatMessage(params: AIChatInput) {
  * @returns 流式对话响应
  */
 export function streamAIChatMessage(params: AIChatInput) {
-	return defHttp.post({ 
-		url: Api().aiChatStream, 
+	return defHttp.post({
+		url: Api().aiChatStream,
 		params,
-		responseType: 'stream'
+		responseType: 'stream',
 	});
 }
 
@@ -205,10 +212,14 @@ export function modifyAIWorkflow(params: AIWorkflowModificationInput) {
  * @param metadata 元数据
  * @returns 成功状态
  */
-export function storeMCPContext(contextId: string, content: string, metadata?: Record<string, any>) {
-	return defHttp.post({ 
-		url: Api().mcpStoreContext, 
-		params: { contextId, content, metadata } 
+export function storeMCPContext(
+	contextId: string,
+	content: string,
+	metadata?: Record<string, any>
+) {
+	return defHttp.post({
+		url: Api().mcpStoreContext,
+		params: { contextId, content, metadata },
 	});
 }
 
@@ -228,9 +239,9 @@ export function getMCPContext(contextId: string) {
  * @returns 搜索结果
  */
 export function searchMCPContexts(query: string, limit: number = 10) {
-	return defHttp.get({ 
-		url: Api().mcpSearchContexts, 
-		params: { query, limit } 
+	return defHttp.get({
+		url: Api().mcpSearchContexts,
+		params: { query, limit },
 	});
 }
 
@@ -307,6 +318,20 @@ export interface AIWorkflowGenerationInput {
 	includeApprovals?: boolean;
 	includeNotifications?: boolean;
 	estimatedDuration?: number;
+	// AI模型信息
+	modelId?: string;
+	modelProvider?: string;
+	modelName?: string;
+	// 对话历史信息
+	conversationHistory?: AIChatMessage[];
+	sessionId?: string;
+	// 额外的上下文信息
+	conversationMetadata?: {
+		totalMessages?: number;
+		conversationStartTime?: string;
+		conversationEndTime?: string;
+		conversationMode?: string;
+	};
 }
 
 export interface AIWorkflowGenerationResult {
@@ -384,4 +409,4 @@ export interface AIWorkflowModificationInput {
 	requirements?: string[];
 	preserveExisting?: boolean;
 	modificationMode?: 'add' | 'modify' | 'remove' | 'replace';
-} 
+}

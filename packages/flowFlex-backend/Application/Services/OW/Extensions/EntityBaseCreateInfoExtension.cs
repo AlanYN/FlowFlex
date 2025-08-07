@@ -372,5 +372,39 @@ namespace FlowFlex.Application.Services.OW.Extensions
             log.ModifyBy = userContext?.UserName ?? "SYSTEM";
             log.ModifyUserId = ParseToLong(userContext?.UserId);
         }
+
+        /// <summary>
+        /// Initialize create information for AIModelConfig
+        /// </summary>
+        /// <param name="config">Config to initialize</param>
+        /// <param name="userContext">User context</param>
+        public static void InitCreateInfo(this AIModelConfig config, UserContext userContext)
+        {
+            // Set tenant and app information from UserContext
+            config.TenantId = userContext?.TenantId ?? "DEFAULT";
+            config.AppCode = userContext?.AppCode ?? "DEFAULT";
+            
+            // Set IsValid to true for new records
+            config.IsValid = true;
+        }
+
+        /// <summary>
+        /// Initialize update information for AIModelConfig  
+        /// </summary>
+        /// <param name="config">Config to update</param>
+        /// <param name="userContext">User context</param>
+        public static void InitUpdateInfo(this AIModelConfig config, UserContext userContext)
+        {
+            // Update tenant and app information if needed
+            // Usually these don't change, but we can update them if the context has changed
+            if (!string.IsNullOrEmpty(userContext?.TenantId))
+            {
+                config.TenantId = userContext.TenantId;
+            }
+            if (!string.IsNullOrEmpty(userContext?.AppCode))
+            {
+                config.AppCode = userContext.AppCode;
+            }
+        }
     }
 }

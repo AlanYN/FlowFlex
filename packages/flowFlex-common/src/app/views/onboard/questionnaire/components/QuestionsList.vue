@@ -47,14 +47,42 @@
 								</div>
 								<div class="question-actions">
 									<el-dropdown
-										v-if="item.type === 'multiple_choice'"
 										placement="bottom"
+										v-if="
+											item.type !== 'image' &&
+											item.type != 'video' &&
+											item.type != 'page_break'
+										"
 									>
 										<el-button :icon="More" link />
 										<template #dropdown>
 											<el-dropdown-menu>
 												<el-dropdown-item
+													@click="handleAddContent('video', index)"
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="mdi:video-outline"
+															class="drag-icon"
+														/>
+														<span class="text-xs">Add Video</span>
+													</div>
+												</el-dropdown-item>
+												<el-dropdown-item
+													@click="handleAddContent('image', index)"
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="mdi:image-area"
+															class="drag-icon"
+														/>
+														<span class="text-xs">Add Image</span>
+													</div>
+												</el-dropdown-item>
+												<el-dropdown-item
+													v-if="item.type === 'multiple_choice'"
 													@click="openJumpRuleEditor(index)"
+													divided
 												>
 													<div class="flex items-center gap-2">
 														<Icon
@@ -71,6 +99,11 @@
 									</el-dropdown>
 									<div class="flex">
 										<el-button
+											v-if="
+												item.type !== 'image' &&
+												item.type != 'video' &&
+												item.type != 'page_break'
+											"
 											type="primary"
 											link
 											@click="editQuestion(index)"
@@ -89,6 +122,55 @@
 							</div>
 							<div v-if="item.description" class="question-description mt-2">
 								{{ item.description }}
+							</div>
+							<!-- 显示已上传的文件 -->
+							<div
+								v-if="item.questionProps && item.questionProps.fileUrl"
+								class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+							>
+								<div class="flex items-center justify-between gap-3">
+									<div class="flex items-center gap-2 flex-1 min-w-0">
+										<Icon
+											:icon="
+												item.questionProps.type === 'image'
+													? 'mdi:image-area'
+													: 'mdi:video-outline'
+											"
+											class="w-5 h-5 flex-shrink-0"
+											:class="
+												item.questionProps.type === 'image'
+													? 'text-green-500'
+													: 'text-orange-500'
+											"
+										/>
+										<span
+											class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate"
+										>
+											{{ item.questionProps.fileName }}
+										</span>
+										<el-tag
+											size="small"
+											:type="
+												item.questionProps.type === 'image'
+													? 'success'
+													: 'warning'
+											"
+										>
+											{{
+												item.questionProps.type === 'image'
+													? 'Image'
+													: 'Video'
+											}}
+										</el-tag>
+									</div>
+									<el-button
+										type="danger"
+										link
+										size="small"
+										@click="removeFile(index)"
+										:icon="Delete"
+									/>
+								</div>
 							</div>
 							<div
 								v-if="item.options && item.options.length > 0"
@@ -143,21 +225,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Delete, Document, Edit, More } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import draggable from 'vuedraggable';
 import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
-
-interface Question {
-	id: string;
-	type: string;
-	question: string;
-	required: boolean;
-	description?: string;
-	options: Array<{ id: string; value: string; label: string }>;
-	jumpRules?: JumpRule[];
-}
+import { QuestionnaireSection } from '#/section';
+import { triggerFileUpload } from '@/utils/fileUploadUtils';
 
 interface QuestionType {
 	id: string;
@@ -167,7 +242,7 @@ interface QuestionType {
 }
 
 interface Props {
-	questions: Question[];
+	questions: QuestionnaireSection[];
 	questionTypes: QuestionType[];
 	sections: Section[];
 	currentSectionIndex: number;
@@ -177,18 +252,22 @@ const props = defineProps<Props>();
 
 const emits = defineEmits<{
 	'remove-question': [index: number];
-	'drag-end': [questions: Question[]];
+	'drag-end': [questions: QuestionnaireSection[]];
 	'update-jump-rules': [questionIndex: number, rules: JumpRule[]];
+	'update-question': [index: number, question: QuestionnaireSection];
 }>();
 
 // 编辑状态管理 - 使用ID而不是索引
 const editingQuestionId = ref<string | null>(null);
-const editingQuestion = ref<Question | null>(null);
+const editingQuestion = ref<QuestionnaireSection | null>(null);
 
 // 跳转规则编辑器状态
 const jumpRuleEditorVisible = ref(false);
 const currentEditingQuestion = ref<QuestionWithJumpRules | null>(null);
 const currentEditingIndex = ref(-1);
+
+// 当前问题索引（用于文件上传）
+const currentQuestionIndex = ref<number>(-1);
 
 const questionsData = ref([...props.questions]);
 
@@ -212,10 +291,13 @@ const editQuestion = (index: number) => {
 };
 
 // 处理问题更新
-const handleUpdateQuestion = (updatedQuestion: Question) => {
+const handleUpdateQuestion = (updatedQuestion: QuestionnaireSection) => {
 	const index = questionsData.value.findIndex((q) => q.id === editingQuestionId.value);
 	if (index !== -1) {
-		questionsData.value[index] = updatedQuestion;
+		questionsData.value[index] = {
+			...questionsData.value[index],
+			...updatedQuestion,
+		};
 		editingQuestionId.value = null;
 		editingQuestion.value = null;
 		handleQuestionDragEnd();
@@ -235,6 +317,41 @@ const handleQuestionDragEnd = () => {
 const getQuestionTypeName = (type: string) => {
 	const questionType = props.questionTypes.find((t) => t.id === type);
 	return questionType ? questionType.name : type;
+};
+
+// 处理添加内容（视频或图片）
+const handleAddContent = async (type: 'video' | 'image', questionIndex: number) => {
+	currentQuestionIndex.value = questionIndex;
+
+	await triggerFileUpload(type, (result) => {
+		// 获取当前问题
+		const question = questionsData.value[currentQuestionIndex.value];
+		if (question && result.success) {
+			// 直接设置 questionProps 为单个文件对象
+			question.questionProps = {
+				type: type,
+				fileName: result.fileName!,
+				fileUrl: result.fileUrl!,
+				uploadDate: new Date().toISOString(),
+			};
+
+			// 触发更新
+			emits('update-question', currentQuestionIndex.value, question);
+		}
+	});
+
+	// 重置状态
+	currentQuestionIndex.value = -1;
+};
+
+// 移除文件
+const removeFile = (questionIndex: number) => {
+	const question = questionsData.value[questionIndex];
+	if (question && question.questionProps && 'type' in question.questionProps) {
+		question.questionProps = undefined; // 移除文件对象
+		emits('update-question', questionIndex, question);
+		ElMessage.success('File removed successfully');
+	}
 };
 
 // 打开跳转规则编辑器
@@ -257,7 +374,7 @@ const handleJumpRulesSave = (rules: JumpRule[]) => {
 };
 
 // 获取选项的跳转目标名称
-const getJumpTargetName = (question: Question, optionId: string) => {
+const getJumpTargetName = (question: QuestionnaireSection, optionId: string) => {
 	if (!question.jumpRules || question.jumpRules.length === 0) {
 		return 'Next';
 	}
@@ -271,7 +388,7 @@ const getJumpTargetName = (question: Question, optionId: string) => {
 };
 
 // 获取跳转目标的样式类
-const getJumpTargetClass = (question: Question, optionId: string) => {
+const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) => {
 	if (!question.jumpRules || question.jumpRules.length === 0) {
 		return 'jump-default';
 	}

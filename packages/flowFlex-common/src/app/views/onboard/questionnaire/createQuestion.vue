@@ -83,7 +83,7 @@
 							<TabPane value="questions" class="questions-pane">
 								<el-card class="editor-card rounded-md">
 									<!-- 当前分区信息 -->
-									<div class="mb-4">
+									<div class="flex items-center justify-between mb-4">
 										<div v-if="!isEditingTitle" class="title-display">
 											<div class="text-2xl font-bold">
 												{{ currentSection.name || 'Untitled Section' }}
@@ -113,6 +113,42 @@
 												ref="titleInputRef"
 											/>
 										</div>
+										<el-dropdown placement="bottom" @command="handleAddContent">
+											<el-button :icon="More" link />
+											<template #dropdown>
+												<el-dropdown-menu>
+													<el-dropdown-item command="page-break">
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="material-symbols-light:insert-page-break"
+																class="drag-icon"
+															/>
+															<span class="text-xs">
+																Add Page Break
+															</span>
+														</div>
+													</el-dropdown-item>
+													<el-dropdown-item command="video" divided>
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="mdi:video-outline"
+																class="drag-icon"
+															/>
+															<span class="text-xs">Add Video</span>
+														</div>
+													</el-dropdown-item>
+													<el-dropdown-item command="image">
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="mdi:image-area"
+																class="drag-icon"
+															/>
+															<span class="text-xs">Add Image</span>
+														</div>
+													</el-dropdown-item>
+												</el-dropdown-menu>
+											</template>
+										</el-dropdown>
 									</div>
 
 									<el-form :model="currentSection" label-position="top">
@@ -137,6 +173,7 @@
 										@edit-question="handleEditQuestion"
 										@drag-end="handleQuestionDragEnd"
 										@update-jump-rules="handleUpdateJumpRules"
+										@update-question="handleUpdateQuestionFromList"
 									/>
 
 									<el-divider />
@@ -176,7 +213,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit } from '@element-plus/icons-vue';
+import { Edit, More } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
@@ -197,6 +234,7 @@ import {
 	updateQuestionnaire,
 } from '@/apis/ow/questionnaire';
 import { getWorkflows, getAllStages } from '@/apis/ow';
+import { triggerFileUpload } from '@/utils/fileUploadUtils';
 
 const router = useRouter();
 const route = useRoute();
@@ -248,6 +286,7 @@ const loadQuestionnaireData = async () => {
 					description: section.description || '',
 					// 处理questions字段（API返回的是questions，我们内部使用items）
 					items: (section.questions || section.items || []).map((item: any) => ({
+						...item,
 						id: item.id || `question-${Date.now()}-${Math.random()}`,
 						type: item?.type || 'short_answer',
 						question: item.title || item.question || '',
@@ -265,7 +304,8 @@ const loadQuestionnaireData = async () => {
 						maxLabel: item.maxLabel || '',
 						// 恢复跳转规则
 						jumpRules: item.jumpRules || [],
-						...item,
+						// 恢复问题附加属性（包含上传的文件）
+						questionProps: item.questionProps || {},
 					})),
 				}));
 			}
@@ -574,6 +614,46 @@ const handleAddQuestion = (questionData: any) => {
 	questionnaire.sections[currentSectionIndex.value].items.push(question);
 };
 
+// 当前分区索引（用于文件上传）
+const currentSectionIndexForUpload = ref<number>(0);
+
+const handleAddContent = async (command: string) => {
+	switch (command) {
+		case 'page-break':
+			questionnaire.sections[currentSectionIndex.value].items.push({
+				id: `page-break-${Date.now()}`,
+				type: 'page_break',
+				question: 'Page Break',
+			});
+			break;
+		case 'video':
+			await handleFileUpload('video');
+			break;
+		case 'image':
+			await handleFileUpload('image');
+			break;
+	}
+};
+
+// 处理文件上传
+const handleFileUpload = async (type: 'video' | 'image') => {
+	currentSectionIndexForUpload.value = currentSectionIndex.value;
+
+	await triggerFileUpload(type, (result) => {
+		if (result.success) {
+			const mediaItem = {
+				id: `${type}-${Date.now()}`,
+				type: type,
+				question: result.fileName!,
+				fileUrl: result.fileUrl!,
+				required: false,
+			};
+
+			questionnaire.sections[currentSectionIndexForUpload.value].items.push(mediaItem);
+		}
+	});
+};
+
 const handleRemoveQuestion = (index: number) => {
 	questionnaire.sections[currentSectionIndex.value].items.splice(index, 1);
 };
@@ -611,6 +691,7 @@ const handleSaveQuestionnaire = async () => {
 				description: section.description,
 				// API期望的是questions字段，不是items
 				questions: section.items.map((item) => ({
+					...item,
 					id: item.id,
 					title: item.question, // API期望的是title字段，不是question
 					type: item?.type,
@@ -629,6 +710,8 @@ const handleSaveQuestionnaire = async () => {
 					// 跳转规则
 					jumpRules: item.jumpRules || [],
 					iconType: item.iconType || 'star',
+					// 问题附加属性（包含上传的文件）
+					questionProps: item.questionProps || {},
 				})),
 			})),
 		});
@@ -688,7 +771,7 @@ const handleEditQuestion = (index: number) => {
 	if (question) {
 		isEditingQuestion.value = true;
 		editingQuestion.value = { ...question };
-		pressentQuestionType.value = question.type;
+		pressentQuestionType.value = question.type || 'short_answer';
 
 		// 调用子组件的方法加载编辑数据
 		nextTick(() => {
@@ -719,6 +802,10 @@ const handleUpdateQuestion = (updatedQuestion: any) => {
 	}
 	isEditingQuestion.value = false;
 	editingQuestion.value = null;
+};
+
+const handleUpdateQuestionFromList = (index: number, updatedQuestion: any) => {
+	questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
 };
 
 // 获取所有stages

@@ -17,6 +17,8 @@ const Api = (id?: string | number) => {
 		questionnaireDuplicate: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/duplicate`,
 		questionnaireCreateFromTemplate: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/templates/${id}/create`,
 		questionnaireArchive: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/archive`,
+
+		questionFileUpload: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/questions/upload-file`,
 	};
 };
 
@@ -314,4 +316,19 @@ export function getQuestionnaireAnswersBatch(
 		url: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/batch/by-stages`,
 		params: { onboardingId, stageIds },
 	});
+}
+
+export function uploadQuestionFile(
+	params: any,
+	onUploadProgress?: (progressEvent: any) => void,
+	signal?: AbortSignal
+) {
+	return defHttp.uploadFile(
+		{
+			url: `${Api().questionFileUpload}`,
+			onUploadProgress,
+			signal,
+		},
+		params
+	);
 }

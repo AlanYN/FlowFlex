@@ -186,13 +186,14 @@ import {
 	previewOnboardingFile,
 } from '@/apis/ow/onboarding';
 import { timeZoneConvert } from '@/hooks/time';
-import { DocumentItem } from '#/onboard';
+import { DocumentItem, ComponentData } from '#/onboard';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 
 // Props
 interface Props {
 	onboardingId: string;
 	stageId?: string;
+	component: ComponentData;
 }
 
 const props = defineProps<Props>();
@@ -480,6 +481,18 @@ const getMimeType = (fileExtension: string) => {
 	);
 };
 
+const vailComponent = () => {
+	try {
+		if (props?.component?.isEnabled && documents?.value?.length <= 0) {
+			ElMessage.warning('Please upload at least one document');
+			return false;
+		}
+		return true;
+	} catch {
+		return true;
+	}
+};
+
 // 生命周期
 onMounted(() => {
 	fetchDocuments();
@@ -492,6 +505,10 @@ watch(
 		fetchDocuments();
 	}
 );
+
+defineExpose({
+	vailComponent,
+});
 </script>
 
 <style scoped>

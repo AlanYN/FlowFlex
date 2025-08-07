@@ -52,16 +52,38 @@
 						v-for="(question, questionIndex) in currentSection.questions"
 						:key="question.id"
 						class="question-item"
+						:class="{ '!bg-white !border-none': question.type == 'page_break' }"
 					>
-						<div class="mb-2">
+						<div class="mb-2" v-if="question.type !== 'page_break'">
 							<span class="text-sm font-medium text-gray-700">
-								{{ currentSectionIndex + 1 }}-{{ questionIndex + 1 }}.
+								{{ currentSectionIndex + 1 }}-{{
+									getQuestionNumber(questionIndex)
+								}}.
 								{{ question.title }}
 								<span v-if="question.required" class="text-red-500">*</span>
 							</span>
 							<p v-if="question.description" class="text-xs text-gray-500 mt-1">
 								{{ question.description }}
 							</p>
+							<div
+								v-if="question.questionProps && question.questionProps.fileUrl"
+								class="flex justify-center items-center"
+							>
+								<el-image
+									v-if="question.questionProps.type === 'image'"
+									:src="question.questionProps.fileUrl"
+									class="responsive-image"
+									:preview-src-list="[`${question.questionProps.fileUrl}`]"
+									fit="contain"
+								/>
+								<video
+									v-else-if="question.questionProps.type === 'video'"
+									:src="question.questionProps.fileUrl"
+									:alt="question.questionProps.fileName || 'Uploaded video'"
+									controls
+									class="max-h-[500px] w-auto object-contain"
+								></video>
+							</div>
 						</div>
 
 						<!-- 短答题 -->
@@ -212,13 +234,15 @@
 						<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
 							<el-slider
 								v-model="formData[question.id]"
-								:min="question.min || 1"
-								:max="question.max || 5"
+								:min="question.min"
+								:max="question.max"
 								:step="1"
-								:show-stops="true"
+								:marks="getSliderMarks(question)"
 								:show-input="false"
 								@change="handleInputChange(question.id, $event)"
 								class="preview-linear-scale"
+								show-stops
+								size="small"
 							/>
 							<div class="flex justify-between text-xs text-gray-500">
 								<span>{{ question.minLabel || question.min || 1 }}</span>
@@ -404,6 +428,40 @@
 									{{ question.columns?.length || 0 }}
 								</div>
 							</div>
+						</div>
+
+						<div
+							v-else-if="question.type === 'page_break'"
+							class="text-gray-600 italic"
+						>
+							<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
+								<div class="text-center text-primary-500 text-sm">
+									— Page Break —
+								</div>
+							</div>
+						</div>
+
+						<div
+							v-else-if="question.type === 'image'"
+							class="flex justify-center items-center"
+						>
+							<el-image
+								:src="question.fileUrl"
+								class="responsive-image"
+								:preview-src-list="[`${question.fileUrl}`]"
+								fit="contain"
+							/>
+						</div>
+
+						<div
+							v-else-if="question.type === 'video'"
+							class="flex justify-center items-center"
+						>
+							<video
+								:src="question.fileUrl"
+								controls
+								class="max-h-[500px] w-auto object-contain"
+							></video>
 						</div>
 					</div>
 					<div
@@ -705,7 +763,7 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 		formData.value[question.id] = value;
 	}
 	if (question.type == 'multiple_choice' || question.type == 'checkboxes') {
-		question.options.forEach((option) => {
+		question?.options?.forEach((option) => {
 			if (
 				option.isOther &&
 				((!Array.isArray(formData.value[question.id]) &&
@@ -717,9 +775,7 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 			}
 		});
 	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
-		console.log('question.columns:', question.columns);
-		console.log('formData.value:', formData.value);
-		question.columns.forEach((column) => {
+		question?.columns?.forEach((column) => {
 			if (
 				column.isOther &&
 				((!Array.isArray(formData.value[`${question.id}_${value}`]) &&
@@ -1011,12 +1067,6 @@ const getJumpTargetSection = () => {
 
 				// 如果找到匹配的跳转规则，立即返回
 				if (matchingRule) {
-					console.log(
-						'Found jump rule from question:',
-						question.id,
-						'target:',
-						matchingRule.targetSectionId
-					);
 					return matchingRule.targetSectionId;
 				}
 			}
@@ -1062,7 +1112,6 @@ const goToNextSection = async () => {
 		// 根据跳转规则跳转到指定section
 		const targetSectionIndex = findSectionIndexById(targetSectionId);
 		if (targetSectionIndex !== -1) {
-			console.log('Jumping to section:', targetSectionId, 'at index:', targetSectionIndex);
 			currentSectionIndex.value = targetSectionIndex;
 			return;
 		}
@@ -1173,6 +1222,36 @@ const getSelectedFilledIcon = (iconType: string) => {
 
 const getSelectedVoidIcon = (iconType: string) => {
 	return iconOptions[iconType]?.voidIcon;
+};
+
+// 生成slider的刻度标记
+const getSliderMarks = (question: any) => {
+	const marks: Record<number, string> = {};
+	const min = question.min || 1;
+	const max = question.max || 5;
+
+	for (let i = min; i <= max; i++) {
+		marks[i] = '';
+	}
+
+	return marks;
+};
+
+// 计算问题的实际序号（跳过page_break类型）
+const getQuestionNumber = (questionIndex: number) => {
+	if (!currentSection.value?.questions) return questionIndex + 1;
+
+	let actualQuestionNumber = 1;
+	for (let i = 0; i <= questionIndex; i++) {
+		const question = currentSection.value.questions[i];
+		if (question.type !== 'page_break') {
+			if (i === questionIndex) {
+				return actualQuestionNumber;
+			}
+			actualQuestionNumber++;
+		}
+	}
+	return actualQuestionNumber;
 };
 
 defineExpose({
@@ -1564,6 +1643,23 @@ html.dark {
 		.grid-checkbox-cell {
 			background-color: var(--el-bg-color-dark);
 		}
+	}
+}
+
+.responsive-image {
+	@apply block;
+	max-height: 500px;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+
+	:deep(.el-image__inner) {
+		max-height: 500px;
+		max-width: 100%;
+		width: auto;
+		height: auto;
+		object-fit: contain;
 	}
 }
 </style>

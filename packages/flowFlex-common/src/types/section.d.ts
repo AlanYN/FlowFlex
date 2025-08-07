@@ -46,25 +46,50 @@ export interface SectionJumpValidation {
 }
 
 export interface QuestionnaireSection {
-	columns: { id: string; isOther: boolean; label: string }[];
-	description: string;
-	iconType: string;
 	id: string;
-	jumpRules: JumpRule[];
-	max: number;
-	maxLabel: string;
-	min: number;
-	minLabel: string;
-	options: {
+	columns?: { id: string; isOther: boolean; label: string }[];
+	description?: string;
+	iconType?: string;
+	jumpRules?: JumpRule[];
+	max?: number;
+	maxLabel?: string;
+	min?: number;
+	minLabel?: string;
+	options?: {
 		id: string;
 		isOther: boolean;
 		label: string;
 		value: string;
 	}[];
 	question: string;
-	requireOneResponsePerRow: boolean;
-	required: boolean;
-	rows: { id: string; label: string }[];
-	title: string;
-	type: string;
+	requireOneResponsePerRow?: boolean;
+	required?: boolean;
+	rows?: { id: string; label: string }[];
+	fileUrl?: string;
+	questionProps?: {
+		type: 'video' | 'image';
+		fileName: string;
+		fileUrl: string;
+		uploadDate: string;
+	};
+	type:
+		| 'short_answer'
+		| 'paragraph'
+		| 'multiple_choice'
+		| 'checkboxes'
+		| 'dropdown'
+		| 'number'
+		| 'date'
+		| 'time'
+		| 'rating'
+		| 'file'
+		| 'linear_scale'
+		| 'multiple_choice_grid'
+		| 'checkbox_grid'
+		| 'divider'
+		| 'description'
+		| 'page_break'
+		| 'video'
+		| 'image'
+		| null;
 }

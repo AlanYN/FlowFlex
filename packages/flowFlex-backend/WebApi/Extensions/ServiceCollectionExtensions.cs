@@ -28,6 +28,7 @@ using FlowFlex.Domain.Entities;
 using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.WebApi.Extensions
@@ -237,6 +238,10 @@ namespace FlowFlex.WebApi.Extensions
 
             // Register MediatR
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(WorkflowService).Assembly));
+
+            // Register AI services
+            services.AddScoped<IAIModelConfigRepository, AIModelConfigRepository>();
+            services.AddScoped<IAIModelConfigService, AIModelConfigService>();
 
             // Auto-register services based on lifetime marker interfaces
             RegisterServicesByLifetime(services);

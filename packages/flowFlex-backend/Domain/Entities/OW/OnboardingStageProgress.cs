@@ -66,6 +66,12 @@ namespace FlowFlex.Domain.Entities.OW
         public string StageName { get; set; }
 
         /// <summary>
+        /// Stage Description (from Stage entity) - Not stored in JSON
+        /// </summary>
+        [JsonIgnore]
+        public string StageDescription { get; set; }
+
+        /// <summary>
         /// Stage Order (from Stage entity) - Not stored in JSON
         /// </summary>
         [JsonIgnore]

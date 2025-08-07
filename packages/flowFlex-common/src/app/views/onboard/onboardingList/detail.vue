@@ -137,6 +137,7 @@
 									ref="documentsRef"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
+									:component="component"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -190,48 +191,6 @@
 			/>
 		</div>
 
-		<!-- 编辑对话框 -->
-		<el-dialog
-			v-model="editDialogVisible"
-			title="Edit Onboarding"
-			width="500px"
-			:before-close="handleEditDialogClose"
-		>
-			<el-form :model="editForm" label-width="100px">
-				<el-form-item label="Priority">
-					<el-select
-						v-model="editForm.priority"
-						placeholder="Select Priority"
-						class="w-full"
-					>
-						<el-option label="High" value="High" />
-						<el-option label="Medium" value="Medium" />
-						<el-option label="Low" value="Low" />
-					</el-select>
-				</el-form-item>
-				<el-form-item label="Assignee">
-					<el-input v-model="editForm.assignee" placeholder="Enter assignee name" />
-				</el-form-item>
-				<el-form-item label="Notes">
-					<el-input
-						v-model="editForm.notes"
-						type="textarea"
-						:rows="3"
-						placeholder="Enter notes"
-					/>
-				</el-form-item>
-			</el-form>
-
-			<template #footer>
-				<div class="flex justify-end space-x-2">
-					<el-button @click="editDialogVisible = false">Cancel</el-button>
-					<el-button type="primary" @click="handleSaveEdit" :loading="saving">
-						Save
-					</el-button>
-				</div>
-			</template>
-		</el-dialog>
-
 		<!-- 消息对话框 -->
 		<MessageDialog v-model="messageDialogVisible" :onboarding-data="onboardingData" />
 		<!-- Portal Access Management 对话框 -->
@@ -247,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, Loading, User, Document } from '@element-plus/icons-vue';
@@ -288,10 +247,8 @@ const route = useRoute();
 const onboardingData = ref<OnboardingItem | null>(null);
 const activeStage = ref<string>(''); // 初始为空，等待从服务器获取当前阶段
 const workflowStages = ref<any[]>([]);
-const editDialogVisible = ref(false);
 const messageDialogVisible = ref(false);
 const portalAccessDialogVisible = ref(false);
-const saving = ref(false);
 
 // 存储批量查询到的数据
 const checklistsData = ref<any[]>([]);
@@ -307,18 +264,10 @@ const initialLoading = ref(true); // 初始页面加载状态
 const { scrollbarRef: leftScrollbarRef } = useAdaptiveScrollbar(100);
 const { scrollbarRef: rightScrollbarRef } = useAdaptiveScrollbar(100);
 
-// 编辑表单
-const editForm = reactive({
-	priority: '',
-	assignee: '',
-	notes: '',
-});
-
 // 计算属性
 const onboardingId = computed(() => {
 	const id = route.query.onboardingId;
 	if (!id || typeof id !== 'string') {
-		console.error('Invalid onboarding ID from route:', id);
 		return '';
 	}
 	return id;
@@ -405,7 +354,6 @@ const processOnboardingData = (responseData: any) => {
 	onboardingData.value = responseData;
 
 	workflowStages.value = responseData.stagesProgress;
-	console.log('workflowStages:', workflowStages.value);
 
 	// 根据 workflowStages 返回第一个未完成的 stageId
 	// 首先按 order 排序，然后找到第一个未完成的阶段
@@ -536,11 +484,8 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 			});
 
 			checklistsData.value = processedChecklists;
-			console.log('Loaded and processed checklists data:', checklistsData.value);
-			console.log('Completed tasks map:', completedTasksMap);
 		}
 	} catch (error) {
-		console.error('Failed to load checklists:', error);
 		ElMessage.error('Failed to load checklists');
 	}
 };
@@ -667,7 +612,6 @@ const loadStaticFieldValues = async () => {
 			});
 		}
 	} catch (error) {
-		console.error('Failed to load static field values:', error);
 		ElMessage.error('Failed to load static field values');
 	}
 };
@@ -755,44 +699,68 @@ const handleTaskToggled = async (task: any) => {
 	}
 };
 
-const handleEditDialogClose = () => {
-	editDialogVisible.value = false;
-};
-
-const handleSaveEdit = async () => {
-	try {
-		saving.value = true;
-		// 这里应该调用API保存编辑的数据
-		ElMessage.success('Saved successfully');
-		editDialogVisible.value = false;
-	} catch (error) {
-		console.error('Failed to save edit:', error);
-		ElMessage.error('Failed to save');
-	} finally {
-		saving.value = false;
-	}
-};
-
 const saveAllLoading = ref(false);
 const saveAllForm = async (isValidate: boolean = true) => {
 	try {
 		saveAllLoading.value = true;
-		// 串行执行保存操作 - 先保存StaticForm组件
+		const validationResults: Array<{ component: string; result: any }> = [];
+
+		// 校验StaticForm组件
 		if (staticFormRefs.value.length > 0) {
 			for (let i = 0; i < staticFormRefs.value.length; i++) {
 				const formRef = staticFormRefs.value[i];
 				if (formRef && typeof formRef.handleSave === 'function') {
-					return await formRef.handleSave(isValidate);
+					try {
+						const result = await formRef.handleSave(isValidate);
+						validationResults.push({ component: `StaticForm-${i}`, result });
+						if (!result) {
+							return false;
+						}
+					} catch (error) {
+						validationResults.push({ component: `StaticForm-${i}`, result: false });
+						return false;
+					}
 				}
 			}
 		}
 
-		// 串行执行保存操作 - 再保存QuestionnaireDetails组件
+		// 校验QuestionnaireDetails组件
 		if (questionnaireDetailsRefs.value.length > 0) {
 			for (let i = 0; i < questionnaireDetailsRefs.value.length; i++) {
 				const questRef = questionnaireDetailsRefs.value[i];
 				if (questRef && typeof questRef.handleSave === 'function') {
-					return await questRef.handleSave(false, isValidate);
+					try {
+						const result = await questRef.handleSave(false, isValidate);
+						validationResults.push({ component: `QuestionnaireDetails-${i}`, result });
+						if (!result) {
+							return false;
+						}
+					} catch (error) {
+						validationResults.push({
+							component: `QuestionnaireDetails-${i}`,
+							result: false,
+						});
+						return false;
+					}
+				}
+			}
+		}
+
+		// 校验Documents组件
+		if (documentsRef.value.length > 0 && isValidate) {
+			for (let i = 0; i < documentsRef.value.length; i++) {
+				const docRef = documentsRef.value[i];
+				if (docRef && typeof docRef.vailComponent === 'function') {
+					try {
+						const result = docRef.vailComponent();
+						validationResults.push({ component: `Documents-${i}`, result });
+						if (!result) {
+							return false;
+						}
+					} catch (error) {
+						validationResults.push({ component: `Documents-${i}`, result: false });
+						return false;
+					}
 				}
 			}
 		}

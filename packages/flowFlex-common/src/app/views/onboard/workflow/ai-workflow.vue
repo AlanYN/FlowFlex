@@ -10,7 +10,13 @@
 					</p>
 				</div>
 				<div class="flex space-x-2">
-					<el-button @click="showWorkflowList = !showWorkflowList">
+					<el-button @click="showAIConfig" type="success">
+						<el-icon class="mr-1">
+							<Setting />
+						</el-icon>
+						AI Model Config
+					</el-button>
+					<el-button @click="openWorkflowList">
 						<el-icon class="mr-1">
 							<List />
 						</el-icon>
@@ -37,7 +43,7 @@
 				<el-card shadow="hover">
 					<template #header>
 						<div class="flex items-center justify-between">
-							<span class="font-semibold">Current Workflows</span>
+							<span class="font-semibold">Active Workflows</span>
 							<el-button size="small" @click="refreshWorkflowList">
 								<el-icon>
 									<Refresh />
@@ -46,41 +52,48 @@
 						</div>
 					</template>
 
-					<div class="space-y-3">
-						<div
-							v-for="workflow in workflowList"
-							:key="workflow.id"
-							class="workflow-item border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
-						>
-							<div class="flex items-center justify-between mb-2">
-								<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
-								<el-tag :type="workflow.isActive ? 'success' : 'info'" size="small">
-									{{ workflow.isActive ? 'Active' : 'Draft' }}
-								</el-tag>
+					<el-scrollbar ref="scrollbarRef">
+						<div class="space-y-3">
+							<div
+								v-for="workflow in workflowList"
+								:key="workflow.id"
+								class="workflow-item border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
+							>
+								<div class="flex items-center justify-between mb-2">
+									<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
+									<el-tag
+										:type="workflow.isActive ? 'success' : 'info'"
+										size="small"
+									>
+										{{ workflow.isActive ? 'Active' : 'Draft' }}
+									</el-tag>
+								</div>
+								<p class="text-xs text-gray-600 mb-2">
+									{{ workflow.description || 'No description available' }}
+								</p>
+								<div
+									class="flex items-center justify-between text-xs text-gray-500"
+								>
+									<span class="stages-count">
+										<el-icon class="mr-1"><List /></el-icon>
+										{{ getStageCount(workflow) }} stages
+									</span>
+									<span>{{ formatDate(workflow.createdAt) }}</span>
+								</div>
 							</div>
-							<p class="text-xs text-gray-600 mb-2">
-								{{ workflow.description || 'No description available' }}
-							</p>
-							<div class="flex items-center justify-between text-xs text-gray-500">
-								<span class="stages-count">
-									<el-icon class="mr-1"><List /></el-icon>
-									{{ getStageCount(workflow) }} stages
-								</span>
-								<span>{{ formatDate(workflow.createdAt) }}</span>
-							</div>
-						</div>
 
-						<div
-							v-if="workflowList.length === 0"
-							class="empty-state text-center py-8 text-gray-500"
-						>
-							<el-icon class="text-2xl mb-2">
-								<Document />
-							</el-icon>
-							<p class="text-sm">No workflows available</p>
-							<p class="text-xs mt-1">Create your first workflow with AI</p>
+							<div
+								v-if="workflowList.length === 0"
+								class="empty-state text-center py-8 text-gray-500"
+							>
+								<el-icon class="text-2xl mb-2">
+									<Document />
+								</el-icon>
+								<p class="text-sm">No workflows available</p>
+								<p class="text-xs mt-1">Create your first workflow with AI</p>
+							</div>
 						</div>
-					</div>
+					</el-scrollbar>
 				</el-card>
 			</div>
 		</div>
@@ -375,13 +388,27 @@
 				</div>
 			</template>
 		</el-dialog>
+
+		<!-- AI Model Config Dialog -->
+		<el-dialog
+			v-model="showAIConfigDialog"
+			title="AI Model Configuration"
+			width="60%"
+			:close-on-click-modal="false"
+			top="5vh"
+			class="ai-config-dialog"
+		>
+			<div class="ai-config-container">
+				<AIModelConfig />
+			</div>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import {
 	List,
 	Plus,
@@ -390,27 +417,59 @@ import {
 	Remove,
 	Star,
 	Check,
-	InfoFilled,
-	ArrowDown,
 	ArrowRight,
+	Setting,
 } from '@element-plus/icons-vue';
 
 // Components
 import AIWorkflowGenerator from '@/components/ai/AIWorkflowGenerator.vue';
+import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import AIModelConfig from './ai-config.vue';
 
 // APIs
 import { getWorkflowList, createWorkflow, updateWorkflow } from '@/apis/ow';
-import { enhanceAIWorkflow, validateAIWorkflow } from '@/apis/ai/workflow';
+import { validateAIWorkflow } from '@/apis/ai/workflow';
 
 // Router
 const router = useRouter();
+const { scrollbarRef, updateScrollbarHeight } = useAdaptiveScrollbar(50);
+
+// Types
+interface WorkflowStage {
+	name: string;
+	description: string;
+	order: number;
+	assignedGroup: string;
+	requiredFields: string[];
+	estimatedDuration: number;
+}
+
+interface Workflow {
+	id?: number;
+	name: string;
+	description: string;
+	isActive: boolean;
+	stages?: WorkflowStage[];
+	createdAt?: string;
+}
+
+interface AIWorkflowData {
+	generatedWorkflow: Workflow;
+	stages: WorkflowStage[];
+	operationMode: string;
+	selectedWorkflowId?: number;
+}
+
+interface EnhanceResult {
+	suggestions: string[];
+}
 
 // Reactive Data
-const showWorkflowList = ref(true);
-const workflowList = ref([]);
+const showWorkflowList = ref(false);
+const workflowList = ref<Workflow[]>([]);
 const showGeneratedDialog = ref(false);
-const generatedWorkflow = ref(null);
-const generatedStages = ref([]);
+const generatedWorkflow = ref<Workflow | null>(null);
+const generatedStages = ref<WorkflowStage[]>([]);
 const saving = ref(false);
 const enhancing = ref(false);
 const validating = ref(false);
@@ -423,21 +482,24 @@ const currentStageIndex = ref(-1);
 // Enhancement Dialog
 const showEnhanceDialog = ref(false);
 const enhanceRequest = ref('');
-const enhanceResult = ref(null);
+const enhanceResult = ref<EnhanceResult | null>(null);
+
+// AI Config Dialog
+const showAIConfigDialog = ref(false);
 
 // Modification mode tracking
 const isModifyMode = ref(false);
-const selectedWorkflowId = ref(null);
+const selectedWorkflowId = ref<number | null>(null);
 
 // Methods
-const handleWorkflowGenerated = (workflowData) => {
-	// workflowData 现在是完整的AI响应数据
+const handleWorkflowGenerated = (workflowData: AIWorkflowData) => {
+	// workflowData is now complete AI response data
 	generatedWorkflow.value = workflowData.generatedWorkflow;
 	generatedStages.value = workflowData.stages || [];
 
-	// 设置操作模式信息
+	// Set operation mode information
 	isModifyMode.value = workflowData.operationMode === 'modify';
-	selectedWorkflowId.value = workflowData.selectedWorkflowId;
+	selectedWorkflowId.value = workflowData.selectedWorkflowId || null;
 
 	showGeneratedDialog.value = true;
 
@@ -467,6 +529,10 @@ const goToTraditionalCreate = () => {
 	router.push('/onboard/onboardWorkflow');
 };
 
+const showAIConfig = () => {
+	showAIConfigDialog.value = true;
+};
+
 const addStage = () => {
 	const newOrder = Math.max(...generatedStages.value.map((s) => s.order), 0) + 1;
 	generatedStages.value.push({
@@ -479,20 +545,20 @@ const addStage = () => {
 	});
 };
 
-const removeStage = (index) => {
+const removeStage = (index: number) => {
 	generatedStages.value.splice(index, 1);
-	// 重新排序
+	// Reorder stages
 	generatedStages.value.forEach((stage, idx) => {
 		stage.order = idx + 1;
 	});
 };
 
-const updateStage = (index) => {
-	// 阶段更新逻辑，可以添加自动保存
+const updateStage = (index: number) => {
+	// Stage update logic, can add auto-save
 	console.log('Stage updated:', generatedStages.value[index]);
 };
 
-const addRequiredField = (stageIndex) => {
+const addRequiredField = (stageIndex: number) => {
 	currentStageIndex.value = stageIndex;
 	showFieldDialog.value = true;
 };
@@ -515,7 +581,7 @@ const confirmAddField = () => {
 	}
 };
 
-const removeRequiredField = (stageIndex, fieldIndex) => {
+const removeRequiredField = (stageIndex: number, fieldIndex: number) => {
 	generatedStages.value[stageIndex].requiredFields.splice(fieldIndex, 1);
 };
 
@@ -523,29 +589,6 @@ const enhanceWorkflow = () => {
 	showEnhanceDialog.value = true;
 	enhanceRequest.value = '';
 	enhanceResult.value = null;
-};
-
-const requestEnhancement = async () => {
-	if (!enhanceRequest.value.trim()) {
-		ElMessage.warning('请描述增强需求');
-		return;
-	}
-
-	enhancing.value = true;
-	try {
-		// 假设有工作流ID，实际应用中需要先保存工作流获取ID
-		const response = await enhanceAIWorkflow(1, enhanceRequest.value);
-		if (response.success) {
-			enhanceResult.value = response.data;
-		} else {
-			ElMessage.error('获取增强建议失败');
-		}
-	} catch (error) {
-		console.error('Enhancement error:', error);
-		ElMessage.error('增强过程中出现错误');
-	} finally {
-		enhancing.value = false;
-	}
 };
 
 const applyEnhancement = async () => {
@@ -632,12 +675,12 @@ const saveWorkflow = async () => {
 			isActive: generatedWorkflow.value.isActive,
 			status: 'active',
 			startDate: new Date().toISOString(),
-			// 注意：后端期望的是大写的Stages
+			// Note: Backend expects uppercase Stages
 			stages: generatedStages.value.map((stage, index) => ({
 				name: stage.name,
 				description: stage.description,
 				order: stage.order || index + 1,
-				defaultAssignedGroup: stage.assignedGroup || '执行团队',
+				defaultAssignedGroup: stage.assignedGroup || 'Execution Team',
 				estimatedDuration: stage.estimatedDuration || 1,
 				isActive: true,
 				workflowVersion: '1',
@@ -646,14 +689,14 @@ const saveWorkflow = async () => {
 
 		let response;
 		if (isModifyMode.value && selectedWorkflowId.value) {
-			// 修改模式：更新现有workflow
+			// Modify mode: update existing workflow
 			response = await updateWorkflow(selectedWorkflowId.value, workflowData);
 			if (response.success) {
 				ElMessage.success('Workflow updated successfully!');
 				showGeneratedDialog.value = false;
 				await refreshWorkflowList();
 
-				// 跳转到工作流详情页
+				// Navigate to workflow details page
 				router.push({
 					path: '/onboard/onboardWorkflow',
 					query: { id: selectedWorkflowId.value },
@@ -662,14 +705,14 @@ const saveWorkflow = async () => {
 				ElMessage.error(response.message || 'Update failed');
 			}
 		} else {
-			// 创建模式：创建新workflow
+			// Create mode: create new workflow
 			response = await createWorkflow(workflowData);
 			if (response.success) {
 				ElMessage.success('Workflow saved successfully!');
 				showGeneratedDialog.value = false;
 				await refreshWorkflowList();
 
-				// 跳转到工作流详情页
+				// Navigate to workflow details page
 				router.push({
 					path: '/onboard/onboardWorkflow',
 					query: { id: response.data },
@@ -686,7 +729,7 @@ const saveWorkflow = async () => {
 	}
 };
 
-const formatDate = (dateString) => {
+const formatDate = (dateString?: string) => {
 	if (!dateString) return '';
 	try {
 		const date = new Date(dateString);
@@ -694,22 +737,17 @@ const formatDate = (dateString) => {
 			return String(dateString);
 		}
 		// Format as MM/dd/yyyy (US format)
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const year = date.getFullYear();
-		return `${month}/${day}/${year}`;
+		return date.toLocaleDateString('en-US', {
+			month: '2-digit',
+			day: '2-digit',
+			year: 'numeric',
+		});
 	} catch {
 		return String(dateString);
 	}
 };
 
-const getPriorityType = (priority) => {
-	if (priority >= 0.8) return 'danger';
-	if (priority >= 0.6) return 'warning';
-	return 'info';
-};
-
-const getStageCount = (workflow) => {
+const getStageCount = (workflow: Workflow) => {
 	if (!workflow || !workflow.stages || workflow.stages.length === 0) {
 		return 0;
 	}
@@ -718,6 +756,11 @@ const getStageCount = (workflow) => {
 
 const getTotalDuration = () => {
 	return generatedStages.value.reduce((sum, stage) => sum + stage.estimatedDuration, 0);
+};
+
+const openWorkflowList = () => {
+	showWorkflowList.value = !showWorkflowList.value;
+	updateScrollbarHeight();
 };
 
 // Lifecycle
@@ -1332,5 +1375,35 @@ onMounted(() => {
 		transform: scale(0.9);
 		opacity: 0;
 	}
+}
+
+/* AI Model Config Dialog Styles */
+.ai-config-dialog {
+	max-height: 85vh;
+}
+
+.ai-config-dialog .el-dialog__header {
+	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	color: white;
+	padding: 1.5rem;
+	border-radius: 12px 12px 0 0;
+}
+
+.ai-config-dialog .el-dialog__header .el-dialog__title {
+	font-size: 1.5rem;
+	font-weight: 700;
+	color: white;
+}
+
+.ai-config-dialog .el-dialog__body {
+	padding: 0;
+	background: #f8fafc;
+	max-height: 70vh;
+	overflow-y: auto;
+}
+
+.ai-config-container {
+	height: auto;
+	min-height: fit-content;
 }
 </style>

@@ -34,10 +34,7 @@ public class QuestionnaireQueryRequest
     /// </summary>
     public long? StageId { get; set; }
 
-    /// <summary>
-    /// Filter by template flag
-    /// </summary>
-    public bool? IsTemplate { get; set; }
+
 
     /// <summary>
     /// Filter by active status

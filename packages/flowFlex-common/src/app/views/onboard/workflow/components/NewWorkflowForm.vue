@@ -25,6 +25,7 @@
 					<el-date-picker
 						v-model="formData.startDate"
 						:default-value="getTimeZoneOffsetForTimezone()"
+						:format="projectDate"
 						:value-format="projectDate"
 						type="date"
 						placeholder="Select start date"
@@ -37,6 +38,7 @@
 					<el-date-picker
 						v-model="formData.endDate"
 						:default-value="getTimeZoneOffsetForTimezone()"
+						:format="projectDate"
 						:value-format="projectDate"
 						type="date"
 						placeholder="Select end date"

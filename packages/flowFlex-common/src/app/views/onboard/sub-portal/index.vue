@@ -8,30 +8,21 @@
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
 					<button @click="sidebarOpen = false" class="p-1 rounded-md hover:bg-gray-100">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+								d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
-					<div
-						v-for="item in navigation"
-						:key="item.name"
-						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
-							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-						]"
-						@click="
+					<div v-for="item in navigation" :key="item.name" :class="[
+						'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+						currentView === item.view
+							? 'bg-blue-100 text-blue-900'
+							: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+					]" @click="
 							handleNavigation(item.view);
-							sidebarOpen = false;
-						"
-					>
+						sidebarOpen = false;
+						">
 						<component :is="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
@@ -42,18 +33,10 @@
 					<div class="rounded-lg border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
 							<div class="bg-blue-100 p-2 rounded-full">
-								<svg
-									class="h-5 w-5 text-blue-600"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-									/>
+								<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor"
+									viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -77,17 +60,12 @@
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
-					<div
-						v-for="item in navigation"
-						:key="item.name"
-						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
-							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-						]"
-						@click="handleNavigation(item.view)"
-					>
+					<div v-for="item in navigation" :key="item.name" :class="[
+						'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+						currentView === item.view
+							? 'bg-blue-100 text-blue-900'
+							: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+					]" @click="handleNavigation(item.view)">
 						<component :is="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
@@ -98,18 +76,10 @@
 					<div class="rounded-lg border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
 							<div class="bg-blue-100 p-2 rounded-full">
-								<svg
-									class="h-5 w-5 text-blue-600"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-									/>
+								<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor"
+									viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -123,18 +93,9 @@
 						</div>
 						<div class="space-y-1">
 							<div class="flex items-center text-xs text-gray-500">
-								<svg
-									class="h-3 w-3 mr-1"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-									/>
+								<svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 								</svg>
 								Account Manager: {{ customerData.accountManager }}
 							</div>
@@ -150,12 +111,8 @@
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
 				<button @click="sidebarOpen = true" class="p-1 rounded-md hover:bg-gray-100">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 6h16M4 12h16M4 18h16"
-						/>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+							d="M4 6h16M4 12h16M4 18h16" />
 					</svg>
 				</button>
 				<h1 class="text-lg font-semibold">Customer Portal</h1>
@@ -169,9 +126,8 @@
 					<!-- Loading State -->
 					<div v-if="loading" class="flex items-center justify-center py-12">
 						<div class="text-center">
-							<div
-								class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
-							></div>
+							<div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600">
+							</div>
 							<p class="mt-2 text-gray-600">Loading onboarding data...</p>
 						</div>
 					</div>
@@ -186,18 +142,10 @@
 					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
 						<div class="mb-6">
 							<div class="flex items-center mb-2">
-								<svg
-									class="mr-2 h-5 w-5 text-gray-700"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-									/>
+								<svg class="mr-2 h-5 w-5 text-gray-700" fill="none" stroke="currentColor"
+									viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
 								</svg>
 								<h3 class="text-lg font-semibold text-gray-900">
 									Overall Progress
@@ -213,61 +161,25 @@
 								</span>
 							</div>
 							<div class="w-full bg-gray-200 rounded-full h-3">
-								<div
-									class="bg-blue-600 h-3 rounded-full transition-all duration-300"
-									:style="{ width: progressPercentage + '%' }"
-								></div>
+								<div class="bg-blue-600 h-3 rounded-full transition-all duration-300"
+									:style="{ width: progressPercentage + '%' }"></div>
 							</div>
-							<div
-								class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600"
-							>
+							<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
 								<div class="flex items-center space-x-2">
-									<svg
-										class="h-4 w-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-										/>
+									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 									</svg>
 									<span>Started: {{ customerData.startDate }}</span>
 								</div>
 								<div class="flex items-center space-x-2">
-									<svg
-										class="h-4 w-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-										/>
-									</svg>
-									<span>
-										Est. Completion: {{ customerData.estimatedCompletion }}
-									</span>
+
+
 								</div>
 								<div class="flex items-center space-x-2">
-									<svg
-										class="h-4 w-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-										/>
+									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 									</svg>
 									<span>
 										{{ completedStages }} of {{ totalStages }} stages completed
@@ -286,20 +198,12 @@
 					</div>
 
 					<!-- Next Steps - Action Required -->
-					<div
-						v-if="!loading"
-						class="rounded-lg border-2 border-orange-200 bg-orange-50 p-6 shadow-sm"
-					>
+					<div v-if="!loading" class="rounded-lg border-2 border-orange-200 bg-orange-50 p-6 shadow-sm">
 						<div class="mb-6">
 							<div class="flex items-center mb-2 text-orange-800">
-								<svg
-									class="mr-2 h-5 w-5 text-orange-600"
-									fill="currentColor"
-									viewBox="0 0 24 24"
-								>
+								<svg class="mr-2 h-5 w-5 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
 									<path
-										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-									/>
+										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
 								</svg>
 								<h3 class="text-lg font-semibold">Next Steps - Action Required</h3>
 							</div>
@@ -309,7 +213,7 @@
 						</div>
 						<div class="space-y-3">
 							<div
-								v-for="(stage, index) in nextSteps"
+								v-for="stage in nextSteps"
 								:key="stage.id"
 								class="flex items-center justify-between p-4 bg-white rounded-lg border border-orange-200 shadow-sm"
 							>
@@ -319,14 +223,20 @@
 											class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
 											:style="{ backgroundColor: stage.color }"
 										>
-											{{ index + 1 }}
+											<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+												/>
+											</svg>
 										</div>
 									</div>
 									<div>
 										<p class="font-medium text-gray-900">{{ stage.name }}</p>
 										<p class="text-sm text-gray-600">{{ stage.description }}</p>
 										<span
-											v-if="stage.status === 'in_progress'"
 											class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1"
 										>
 											In Progress
@@ -335,17 +245,11 @@
 								</div>
 								<div class="flex items-center space-x-2">
 									<button
-										v-if="stage.editable"
 										@click="handleStageAction(stage)"
 										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
 									>
-										{{ stage.status === 'in_progress' ? 'Continue' : 'Start' }}
-										<svg
-											class="ml-2 h-4 w-4"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
+										Continue
+										<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path
 												stroke-linecap="round"
 												stroke-linejoin="round"
@@ -357,18 +261,10 @@
 								</div>
 							</div>
 							<div v-if="nextSteps.length === 0" class="text-center py-6">
-								<svg
-									class="h-12 w-12 text-green-500 mx-auto mb-3"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
+								<svg class="h-12 w-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor"
+									viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
 								<p class="text-gray-600">
 									No immediate action required. We're working on the next steps!
@@ -386,49 +282,24 @@
 							</p>
 						</div>
 						<div class="space-y-4">
-							<div
-								v-for="stage in customerStages"
-								:key="stage.id"
-								:class="[
-									'flex items-start space-x-4 p-4 rounded-lg border transition-colors',
-									stage.status === 'completed' && 'bg-green-50 border-green-200',
-									stage.status === 'in_progress' && 'bg-blue-50 border-blue-200',
-									stage.status === 'pending' && 'bg-gray-50 border-gray-200',
-								]"
-							>
+							<div v-for="stage in customerStages" :key="stage.id" :class="[
+								'flex items-start space-x-4 p-4 rounded-lg border transition-colors',
+								stage.status === 'completed' && 'bg-green-50 border-green-200',
+								stage.status === 'in_progress' && 'bg-blue-50 border-blue-200',
+								stage.status === 'pending' && 'bg-gray-50 border-gray-200',
+							]">
 								<div class="flex-shrink-0 mt-1">
-									<svg
-										v-if="stage.status === 'completed'"
-										class="h-5 w-5 text-green-500"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-										/>
+									<svg v-if="stage.status === 'completed'" class="h-5 w-5 text-green-500" fill="none"
+										stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+											d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 									</svg>
-									<svg
-										v-else-if="stage.status === 'in_progress'"
-										class="h-5 w-5 text-blue-500"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-										/>
+									<svg v-else-if="stage.status === 'in_progress'" class="h-5 w-5 text-blue-500"
+										fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+											d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 									</svg>
-									<div
-										v-else
-										class="h-5 w-5 rounded-full border-2 border-gray-300"
-									></div>
+									<div v-else class="h-5 w-5 rounded-full border-2 border-gray-300"></div>
 								</div>
 								<div class="flex-1 min-w-0">
 									<div class="flex items-center justify-between">
@@ -436,57 +307,33 @@
 											{{ stage.order }}. {{ stage.name }}
 										</h3>
 										<div class="flex items-center space-x-2">
-											<span
-												:class="[
-													'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-													stage.status === 'completed' &&
-														'bg-green-100 text-green-700 border-green-300',
-													stage.status === 'in_progress' &&
-														'bg-blue-100 text-blue-700 border-blue-300',
-													stage.status === 'pending' &&
-														'bg-gray-100 text-gray-700 border-gray-300',
-												]"
-											>
+											<span :class="[
+												'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
+												stage.status === 'completed' &&
+												'bg-green-100 text-green-700 border-green-300',
+												stage.status === 'in_progress' &&
+												'bg-blue-100 text-blue-700 border-blue-300',
+												stage.status === 'pending' &&
+												'bg-gray-100 text-gray-700 border-gray-300',
+											]">
 												{{ getStageStatusText(stage.status) }}
 											</span>
-											<button
-												v-if="stage.editable && stage.status !== 'pending'"
+											<button v-if="stage.editable && (stage.status === 'completed' || stage.status === 'in_progress')"
 												@click="handleStageAction(stage)"
-												class="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-											>
-												<svg
-													v-if="stage.status === 'completed'"
-													class="mr-1 h-3 w-3"
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
+												class="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+												<svg v-if="stage.status === 'completed'" class="mr-1 h-3 w-3"
+													fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round"
+														stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+													<path stroke-linecap="round" stroke-linejoin="round"
 														stroke-width="2"
-														d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-													/>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-													/>
+														d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
 												</svg>
-												<svg
-													v-else
-													class="mr-1 h-3 w-3"
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
+												<svg v-else class="mr-1 h-3 w-3" fill="none" stroke="currentColor"
+													viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round"
 														stroke-width="2"
-														d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-													/>
+														d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
 												</svg>
 												{{ stage.status === 'completed' ? 'View' : 'Edit' }}
 											</button>
@@ -495,28 +342,14 @@
 									<p class="text-sm text-gray-600 mt-1">
 										{{ stage.description }}
 									</p>
-									<p
-										v-if="stage.completedDate"
-										class="text-xs text-green-600 mt-1"
-									>
+									<p v-if="stage.completedDate" class="text-xs text-green-600 mt-1">
 										Completed on {{ stage.completedDate }}
 									</p>
-									<div
-										v-if="stage.status === 'in_progress'"
-										class="mt-2 p-2 bg-blue-100 rounded text-sm text-blue-700 flex items-center"
-									>
-										<svg
-											class="h-4 w-4 mr-1"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-											/>
+									<div v-if="stage.status === 'in_progress'"
+										class="mt-2 p-2 bg-blue-100 rounded text-sm text-blue-700 flex items-center">
+										<svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+												d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
 										</svg>
 										Action required: Please complete this stage to continue
 									</div>
@@ -691,8 +524,8 @@ export default {
 				estimatedCompletion: data.estimatedCompletionDate
 					? formatDateUS(data.estimatedCompletionDate)
 					: data.targetCompletionDate
-					? formatDateUS(data.targetCompletionDate)
-					: '',
+						? formatDateUS(data.targetCompletionDate)
+						: '',
 				accountManager: data.stageUpdatedBy || '',
 				onboardingId: data.id,
 			};
@@ -705,16 +538,25 @@ export default {
 			}
 
 			// 只显示在Portal中可见的阶段
-			return onboardingData.value.stagesProgress
-				.filter((stage) => stage.visibleInPortal !== false) // 默认显示，除非明确设置为false
-				.map((stage, index) => {
-					// 根据 stage.status 和 isCompleted 确定状态
-					let status = 'pending';
-					if (stage.isCompleted) {
-						status = 'completed';
-					} else if (stage.isCurrent) {
-						status = 'in_progress';
-					}
+			const visibleStages = onboardingData.value.stagesProgress
+				.filter((stage) => stage.visibleInPortal !== false); // 默认显示，除非明确设置为false
+
+			// 找到第一个未完成的阶段作为当前阶段
+			let currentStageFound = false;
+			
+			return visibleStages.map((stage, index) => {
+				// 根据 stage.status 和 isCompleted 确定状态
+				let status = 'pending';
+				if (stage.isCompleted) {
+					status = 'completed';
+				} else if (stage.isCurrent) {
+					status = 'in_progress';
+					currentStageFound = true;
+				} else if (!currentStageFound && !stage.isCompleted) {
+					// 如果还没找到当前阶段，且这个阶段未完成，则设为当前阶段
+					status = 'in_progress';
+					currentStageFound = true;
+				}
 
 					// 为每个阶段分配颜色
 					const colors = [
@@ -739,8 +581,9 @@ export default {
 					return {
 						id: stage.stageId,
 						name: stage.stageName,
-						description: `Stage ${stage.stageOrder}: ${stage.stageName}`,
-						order: stage.stageOrder,
+						description: stage.stageDescription || stage.stageName, // 优先使用阶段描述，如果没有则使用阶段名称
+						order: index + 1, // 从1开始重新编号，而不是使用原始的 stageOrder
+						originalOrder: stage.stageOrder, // 保留原始顺序用于后端交互
 						status: status,
 						editable: status !== 'completed', // 简化条件：只要未完成就可编辑
 						color: colors[index % colors.length],
@@ -783,13 +626,15 @@ export default {
 		});
 
 		const nextSteps = computed(() => {
-			return customerStages.value
-				.filter(
-					(stage) =>
-						stage.status === 'in_progress' ||
-						(stage.status === 'pending' && stage.editable)
-				)
-				.slice(0, 3);
+			// 优先返回当前进行中的阶段，如果没有则返回第一个待处理的阶段
+			const inProgressStage = customerStages.value.find((stage) => stage.status === 'in_progress');
+			if (inProgressStage) {
+				return [inProgressStage];
+			}
+			
+			// 如果没有进行中的阶段，找到第一个待处理且可编辑的阶段
+			const nextPendingStage = customerStages.value.find((stage) => stage.status === 'pending' && stage.editable);
+			return nextPendingStage ? [nextPendingStage] : [];
 		});
 
 		// 方法
