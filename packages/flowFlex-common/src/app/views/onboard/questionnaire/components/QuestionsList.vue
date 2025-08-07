@@ -46,7 +46,10 @@
 									</div>
 								</div>
 								<div class="question-actions">
-									<el-dropdown placement="bottom">
+									<el-dropdown
+										placement="bottom"
+										v-if="item.type !== 'image' && item.type != 'video'"
+									>
 										<el-button :icon="More" link />
 										<template #dropdown>
 											<el-dropdown-menu>
@@ -92,6 +95,7 @@
 									</el-dropdown>
 									<div class="flex">
 										<el-button
+											v-if="item.type !== 'image' && item.type != 'video'"
 											type="primary"
 											link
 											@click="editQuestion(index)"
@@ -282,7 +286,10 @@ const editQuestion = (index: number) => {
 const handleUpdateQuestion = (updatedQuestion: QuestionnaireSection) => {
 	const index = questionsData.value.findIndex((q) => q.id === editingQuestionId.value);
 	if (index !== -1) {
-		questionsData.value[index] = updatedQuestion;
+		questionsData.value[index] = {
+			...questionsData.value[index],
+			...updatedQuestion,
+		};
 		editingQuestionId.value = null;
 		editingQuestion.value = null;
 		handleQuestionDragEnd();
