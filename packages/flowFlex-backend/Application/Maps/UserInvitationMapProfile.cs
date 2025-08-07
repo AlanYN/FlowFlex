@@ -15,9 +15,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapStatus(src.Status)))
-                .ForMember(dest => dest.SentDate, opt => opt.MapFrom(src => src.SentDate.DateTime))
+                .ForMember(dest => dest.SentDate, opt => opt.MapFrom(src => src.SentDate))
                 .ForMember(dest => dest.InvitationToken, opt => opt.MapFrom(src => src.InvitationToken))
-                .ForMember(dest => dest.LastLoginDate, opt => opt.MapFrom(src => src.LastAccessDate.HasValue ? src.LastAccessDate.Value.DateTime : (DateTime?)null));
+                .ForMember(dest => dest.LastLoginDate, opt => opt.MapFrom(src => src.LastAccessDate));
         }
 
         private string MapStatus(string status)
