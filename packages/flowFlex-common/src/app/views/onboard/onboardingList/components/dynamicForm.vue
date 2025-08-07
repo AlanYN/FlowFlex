@@ -817,79 +817,89 @@ const validateForm = (presentQuestionIndex?: number) => {
 		if (!section.questions || section.questions.length === 0) {
 			return true;
 		}
-		section.questions.forEach((question: any, qIdx: number) => {
-			if (question.required) {
-				if (question.type === 'multiple_choice_grid') {
-					// 多选网格：检查每一行是否都有选择
-					if (question.rows && question.rows.length > 0) {
-						let allRowsCompleted = true;
-						question.rows.forEach((row: any, rowIndex: number) => {
-							const gridKey = `${question.id}_${row.id || rowIndex}`;
-							const gridValue = formData.value[gridKey];
-							if (!Array.isArray(gridValue) || gridValue.length === 0) {
-								allRowsCompleted = false;
+		section.questions
+			?.filter((item) => {
+				return item.type !== 'image' && item.type != 'video' && item.type != 'page_break';
+			})
+			?.forEach((question: any, qIdx: number) => {
+				if (question.required) {
+					if (question.type === 'multiple_choice_grid') {
+						// 多选网格：检查每一行是否都有选择
+						if (question.rows && question.rows.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								const gridKey = `${question.id}_${row.id || rowIndex}`;
+								const gridValue = formData.value[gridKey];
+								if (!Array.isArray(gridValue) || gridValue.length === 0) {
+									allRowsCompleted = false;
+								}
+							});
+							if (!allRowsCompleted) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
 							}
-						});
-						if (!allRowsCompleted) {
+						}
+					} else if (question.type === 'checkbox_grid') {
+						// 单选网格：检查每一行是否都有选择
+						if (question.rows && question.rows.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								const gridKey = `${question.id}_${row.id || rowIndex}`;
+								const gridValue = formData.value[gridKey];
+								if (!gridValue || gridValue === '') {
+									allRowsCompleted = false;
+								}
+							});
+							if (!allRowsCompleted) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
+							}
+						}
+					} else if (question.type == 'rating') {
+						const value = formData.value[question.id];
+						if ((typeof value === 'number' && value < 1) || !value) {
 							isValid = false;
 							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
 								qIdx + 1
 							}`;
 							errors.push(errorMsg);
 						}
-					}
-				} else if (question.type === 'checkbox_grid') {
-					// 单选网格：检查每一行是否都有选择
-					if (question.rows && question.rows.length > 0) {
-						let allRowsCompleted = true;
-						question.rows.forEach((row: any, rowIndex: number) => {
-							const gridKey = `${question.id}_${row.id || rowIndex}`;
-							const gridValue = formData.value[gridKey];
-							if (!gridValue || gridValue === '') {
-								allRowsCompleted = false;
-							}
-						});
-						if (!allRowsCompleted) {
+					} else if (question.type == 'linear_scale') {
+						const value = formData.value[question.id];
+						if ((typeof value === 'number' && value <= question.min) || !value) {
 							isValid = false;
 							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
 								qIdx + 1
 							}`;
 							errors.push(errorMsg);
 						}
-					}
-				} else if (question.type == 'rating') {
-					const value = formData.value[question.id];
-					if ((typeof value === 'number' && value < 1) || !value) {
-						isValid = false;
-						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
-						errors.push(errorMsg);
-					}
-				} else if (question.type == 'linear_scale') {
-					const value = formData.value[question.id];
-					if ((typeof value === 'number' && value <= question.min) || !value) {
-						isValid = false;
-						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
-						errors.push(errorMsg);
-					}
-				} else {
-					// 其他类型的验证  其他类型的验证也需要单独处理
-					const value = formData.value[question.id];
-					// 更严格的空值检查
-					const isEmpty =
-						value === null ||
-						value === undefined ||
-						value === '' ||
-						(typeof value === 'string' && value.trim() === '') ||
-						(Array.isArray(value) && value.length === 0);
+					} else {
+						// 其他类型的验证  其他类型的验证也需要单独处理
+						const value = formData.value[question.id];
+						// 更严格的空值检查
+						const isEmpty =
+							value === null ||
+							value === undefined ||
+							value === '' ||
+							(typeof value === 'string' && value.trim() === '') ||
+							(Array.isArray(value) && value.length === 0);
 
-					if (isEmpty) {
-						isValid = false;
-						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
-						errors.push(errorMsg);
+						if (isEmpty) {
+							isValid = false;
+							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+								qIdx + 1
+							}`;
+							errors.push(errorMsg);
+						}
 					}
 				}
-			}
-		});
+			});
 	});
 	return { isValid, errors };
 };
@@ -1137,62 +1147,68 @@ onMounted(async () => {
 	// 初始化表单数据
 	if (hasQuestionnaireData.value && formattedQuestionnaires.value.length > 0) {
 		formattedQuestionnaires.value.forEach((questionnaire) => {
-			questionnaire.sections.forEach((section: any) => {
-				section.questions.forEach((question: any) => {
-					// 根据问题类型初始化表单数据
-					if (
-						question.type === 'multiple_choice_grid' ||
-						question.type === 'checkbox_grid'
-					) {
-						// 多选网格：为每一行初始化多选值（数组）
-						if (question.rows && question.rows.length > 0) {
-							question.rows.forEach((row: any) => {
-								const key = `${question.id}_${row.id}`;
-								if (!(key in formData.value)) {
-									formData.value[key] =
-										question.type === 'multiple_choice_grid' ? [] : '';
-								}
-								question.columns.forEach((column: any) => {
-									if (column.isOther) {
-										const otherTextKey = `${question.id}_${row.id}_${column.id}`;
-										if (!(otherTextKey in formData.value)) {
-											formData.value[otherTextKey] = '';
-										}
+			questionnaire.sections
+				?.filter((item) => {
+					return (
+						item.type !== 'image' && item.type != 'video' && item.type != 'page_break'
+					);
+				})
+				.forEach((section: any) => {
+					section.questions.forEach((question: any) => {
+						// 根据问题类型初始化表单数据
+						if (
+							question.type === 'multiple_choice_grid' ||
+							question.type === 'checkbox_grid'
+						) {
+							// 多选网格：为每一行初始化多选值（数组）
+							if (question.rows && question.rows.length > 0) {
+								question.rows.forEach((row: any) => {
+									const key = `${question.id}_${row.id}`;
+									if (!(key in formData.value)) {
+										formData.value[key] =
+											question.type === 'multiple_choice_grid' ? [] : '';
 									}
+									question.columns.forEach((column: any) => {
+										if (column.isOther) {
+											const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+											if (!(otherTextKey in formData.value)) {
+												formData.value[otherTextKey] = '';
+											}
+										}
+									});
 								});
-							});
+							}
+						} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
+							// 多选题：初始化为数组
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = [];
+							}
+						} else {
+							// 其他类型：初始化为空字符串
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = '';
+							}
 						}
-					} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
-						// 多选题：初始化为数组
-						if (!(question.id in formData.value)) {
-							formData.value[question.id] = [];
-						}
-					} else {
-						// 其他类型：初始化为空字符串
-						if (!(question.id in formData.value)) {
-							formData.value[question.id] = '';
-						}
-					}
-				});
+					});
 
-				section?.columns?.forEach((column: any) => {
-					if (column.isOther) {
-						const otherTextKey = `${section.id}_${column.id}`;
-						if (!(otherTextKey in formData.value)) {
-							formData.value[otherTextKey] = '';
+					section?.columns?.forEach((column: any) => {
+						if (column.isOther) {
+							const otherTextKey = `${section.id}_${column.id}`;
+							if (!(otherTextKey in formData.value)) {
+								formData.value[otherTextKey] = '';
+							}
 						}
-					}
-				});
+					});
 
-				section?.options?.forEach((option: any) => {
-					if (option.isOther) {
-						const otherTextKey = `${section.id}_${option.id}`;
-						if (!(otherTextKey in formData.value)) {
-							formData.value[otherTextKey] = '';
+					section?.options?.forEach((option: any) => {
+						if (option.isOther) {
+							const otherTextKey = `${section.id}_${option.id}`;
+							if (!(otherTextKey in formData.value)) {
+								formData.value[otherTextKey] = '';
+							}
 						}
-					}
+					});
 				});
-			});
 		});
 		// 初始化完毕后再应用答案，防止被覆盖
 		applyAnswers(props.questionnaireAnswers?.answer);
