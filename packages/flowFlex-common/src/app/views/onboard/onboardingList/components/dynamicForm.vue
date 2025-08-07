@@ -819,7 +819,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 		}
 		section.questions
 			?.filter((item) => {
-				return item.type !== 'image' && item.type != 'video' && item.type != 'page_break';
+				return item.type != 'page_break';
 			})
 			?.forEach((question: any, qIdx: number) => {
 				if (question.required) {
@@ -881,21 +881,23 @@ const validateForm = (presentQuestionIndex?: number) => {
 						}
 					} else {
 						// 其他类型的验证  其他类型的验证也需要单独处理
-						const value = formData.value[question.id];
-						// 更严格的空值检查
-						const isEmpty =
-							value === null ||
-							value === undefined ||
-							value === '' ||
-							(typeof value === 'string' && value.trim() === '') ||
-							(Array.isArray(value) && value.length === 0);
+						if (question.type !== 'image' && question.type != 'video') {
+							const value = formData.value[question.id];
+							// 更严格的空值检查
+							const isEmpty =
+								value === null ||
+								value === undefined ||
+								value === '' ||
+								(typeof value === 'string' && value.trim() === '') ||
+								(Array.isArray(value) && value.length === 0);
 
-						if (isEmpty) {
-							isValid = false;
-							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-								qIdx + 1
-							}`;
-							errors.push(errorMsg);
+							if (isEmpty) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
+							}
 						}
 					}
 				}
