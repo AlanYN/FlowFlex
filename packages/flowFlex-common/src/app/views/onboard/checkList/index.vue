@@ -253,7 +253,7 @@
 														>
 															Edit Checklist
 														</el-dropdown-item>
-														<el-dropdown-item
+														<!-- <el-dropdown-item
 															@click="
 																deleteChecklistItem(checklist.id)
 															"
@@ -264,7 +264,7 @@
 																Deleting...
 															</span>
 															<span v-else>Delete Checklist</span>
-														</el-dropdown-item>
+														</el-dropdown-item> -->
 														<el-dropdown-item
 															@click="exportChecklistItem(checklist)"
 															:disabled="exportLoading"
@@ -636,7 +636,7 @@ import {
 	getChecklistTasks,
 	createChecklist,
 	updateChecklist,
-	deleteChecklist,
+	// deleteChecklist,
 	createChecklistTask,
 	updateChecklistTask,
 	deleteChecklistTask,
@@ -758,7 +758,7 @@ const initialAssignments = ref([]);
 // Loading 状态管理
 const createLoading = ref(false);
 const editLoading = ref(false);
-const deleteLoading = ref(false);
+// const deleteLoading = ref(false);
 const duplicateLoading = ref(false);
 const exportLoading = ref(false);
 const stagesLoading = ref(false);
@@ -1343,62 +1343,62 @@ const editChecklist = async (checklist) => {
 	activeDropdown.value = null;
 };
 
-const deleteChecklistItem = async (checklistId) => {
-	try {
-		await ElMessageBox.confirm(
-			'Are you sure you want to delete this checklist? This action cannot be undone.',
-			'Confirm Deletion',
-			{
-				confirmButtonText: 'Delete Checklist',
-				cancelButtonText: 'Cancel',
-				type: 'warning',
-				customClass: 'custom-confirm-dialog',
-				confirmButtonClass: 'el-button--danger',
-			}
-		);
-	} catch {
-		return; // 用户取消删除
-	}
+// const deleteChecklistItem = async (checklistId) => {
+// 	try {
+// 		await ElMessageBox.confirm(
+// 			'Are you sure you want to delete this checklist? This action cannot be undone.',
+// 			'Confirm Deletion',
+// 			{
+// 				confirmButtonText: 'Delete Checklist',
+// 				cancelButtonText: 'Cancel',
+// 				type: 'warning',
+// 				customClass: 'custom-confirm-dialog',
+// 				confirmButtonClass: 'el-button--danger',
+// 			}
+// 		);
+// 	} catch {
+// 		return; // 用户取消删除
+// 	}
 
-	deleteLoading.value = true;
-	try {
-		await deleteChecklist(checklistId, true);
-		console.log('Checklist deleted successfully');
-		ElMessage.success('Checklist deleted successfully');
-		activeDropdown.value = null;
+// 	deleteLoading.value = true;
+// 	try {
+// 		await deleteChecklist(checklistId, true);
+// 		console.log('Checklist deleted successfully');
+// 		ElMessage.success('Checklist deleted successfully');
+// 		activeDropdown.value = null;
 
-		// 删除成功后立即刷新页面数据
-		console.log('Refreshing checklist data after deletion...');
-		await loadChecklists();
+// 		// 删除成功后立即刷新页面数据
+// 		console.log('Refreshing checklist data after deletion...');
+// 		await loadChecklists();
 
-		// 清空展开状态，避免引用已删除的checklist
-		expandedChecklists.value = expandedChecklists.value.filter((id) => id !== checklistId);
-	} catch (err) {
-		console.error('Failed to delete checklist:', err);
+// 		// 清空展开状态，避免引用已删除的checklist
+// 		expandedChecklists.value = expandedChecklists.value.filter((id) => id !== checklistId);
+// 	} catch (err) {
+// 		console.error('Failed to delete checklist:', err);
 
-		// 提供更详细的错误信息
-		let errorMessage = 'Failed to delete checklist';
-		if (err.response?.status === 404) {
-			errorMessage = 'Checklist not found or already deleted';
-		} else if (err.response?.status === 403) {
-			errorMessage = 'You do not have permission to delete this checklist';
-		} else if (err.message) {
-			errorMessage = `Deletion failed: ${err.message}`;
-		}
+// 		// 提供更详细的错误信息
+// 		let errorMessage = 'Failed to delete checklist';
+// 		if (err.response?.status === 404) {
+// 			errorMessage = 'Checklist not found or already deleted';
+// 		} else if (err.response?.status === 403) {
+// 			errorMessage = 'You do not have permission to delete this checklist';
+// 		} else if (err.message) {
+// 			errorMessage = `Deletion failed: ${err.message}`;
+// 		}
 
-		ElMessage.error(errorMessage);
-		activeDropdown.value = null;
+// 		ElMessage.error(errorMessage);
+// 		activeDropdown.value = null;
 
-		// 即使删除失败，也刷新一下数据，可能后端已经删除成功了
-		console.log('Refreshing checklist data after deletion error...');
-		await loadChecklists();
+// 		// 即使删除失败，也刷新一下数据，可能后端已经删除成功了
+// 		console.log('Refreshing checklist data after deletion error...');
+// 		await loadChecklists();
 
-		// 清空展开状态
-		expandedChecklists.value = expandedChecklists.value.filter((id) => id !== checklistId);
-	} finally {
-		deleteLoading.value = false;
-	}
-};
+// 		// 清空展开状态
+// 		expandedChecklists.value = expandedChecklists.value.filter((id) => id !== checklistId);
+// 	} finally {
+// 		deleteLoading.value = false;
+// 	}
+// };
 
 // 手动复制任务的辅助函数
 const copyTasksManually = async (originalChecklist, newChecklistId) => {
