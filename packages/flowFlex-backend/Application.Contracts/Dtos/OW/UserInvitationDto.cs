@@ -75,7 +75,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW
         /// <summary>
         /// Invitation sent date
         /// </summary>
-        public DateTime SentDate { get; set; }
+        public DateTimeOffset SentDate { get; set; }
 
         /// <summary>
         /// Invitation token
@@ -85,7 +85,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW
         /// <summary>
         /// Last login date
         /// </summary>
-        public DateTime? LastLoginDate { get; set; }
+        public DateTimeOffset? LastLoginDate { get; set; }
     }
 
     /// <summary>
