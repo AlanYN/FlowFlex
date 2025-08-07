@@ -185,7 +185,7 @@
 						>
 							<template #default="{ row }">
 								<div class="table-cell-content" :title="row.stageUpdatedBy">
-									{{ row.stageUpdatedBy }}
+									{{ row?.stageUpdatedBy || row?.modifyBy }}
 								</div>
 							</template>
 						</el-table-column>
@@ -198,9 +198,9 @@
 							<template #default="{ row }">
 								<div
 									class="table-cell-content"
-									:title="formatDateTime(row.stageUpdatedTime)"
+									:title="formatDateTime(row?.stageUpdatedTime || row.modifyDate)"
 								>
-									{{ formatDateTime(row.stageUpdatedTime) }}
+									{{ formatDateTime(row?.stageUpdatedTime || row?.modifyDate) }}
 								</div>
 							</template>
 						</el-table-column>
