@@ -16,9 +16,9 @@ export const ACTION_TYPE_MAPPING = {
 
 // Frontend to Backend Type Mapping
 export const FRONTEND_TO_BACKEND_TYPE_MAPPING = {
-	'python': 'PythonScript',
-	'http': 'HttpApi',
-	'email': 'SendEmail',
+	python: 'PythonScript',
+	http: 'HttpApi',
+	email: 'SendEmail',
 } as const;
 
 export interface ActionDefinition {
@@ -82,7 +82,7 @@ export interface ApiResponse<T> {
  * Get Actions list
  */
 export function getActionDefinitions(params: ActionQueryRequest) {
-	return defHttp.get({ 
+	return defHttp.get({
 		url: '/api/action/v1/definitions',
 		params,
 	});
@@ -92,7 +92,7 @@ export function getActionDefinitions(params: ActionQueryRequest) {
  * Delete Action
  */
 export function deleteAction(id: string) {
-	return defHttp.delete({ 
+	return defHttp.delete({
 		url: `/api/action/v1/definitions/${id}`,
 	});
 }
@@ -101,9 +101,59 @@ export function deleteAction(id: string) {
  * Export Actions
  */
 export function exportActions(params: ActionQueryRequest) {
-	return defHttp.get({ 
+	return defHttp.get({
 		url: '/api/action/v1/definitions/export',
 		params,
 		responseType: 'blob',
 	});
+}
+
+/**
+ * Get Action Detail
+ */
+export function getActionDetail(id: string) {
+	return defHttp.get({
+		url: `/api/action/v1/definitions/${id}`,
+	});
+}
+
+/**
+ * Update Action
+ */
+export function updateAction(id: string, data: Partial<ActionDefinition>) {
+	return defHttp.put({
+		url: `/api/action/v1/definitions/${id}`,
+		data,
+	});
+}
+
+/**
+ * Test Action
+ */
+export function testAction(id: string) {
+	return defHttp.post({
+		url: `/api/action/v1/definitions/${id}/test`,
+	});
+}
+
+// Test result interface for different action types
+export interface TestResult {
+	success: boolean;
+	message?: string;
+	stdout?: string;
+	stderr?: string;
+	executionTime?: string;
+	memoryUsage?: number;
+	status?: string;
+	token?: string;
+	timestamp?: string;
+	// For HTTP API responses
+	statusCode?: number;
+	responseBody?: string;
+	responseHeaders?: Record<string, string>;
+	// For Email actions
+	emailSent?: boolean;
+	recipients?: string[];
+	// Generic data for other action types
+	data?: any;
 }
