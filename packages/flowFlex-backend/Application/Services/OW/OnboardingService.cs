@@ -232,8 +232,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Initialize create information with proper ID and timestamps
                 entity.InitCreateInfo(_userContext);
-                
-               
+
+
                 // Debug logging handled by structured logging
                 // Generate unique ID if not set
                 if (entity.Id == 0)
@@ -798,7 +798,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
                 }
-                  if (!string.IsNullOrEmpty(appCode))
+                if (!string.IsNullOrEmpty(appCode))
                 {
                     whereExpressions.Add(x => x.AppCode.ToLower() == appCode.ToLower());
                 }
@@ -878,8 +878,10 @@ namespace FlowFlex.Application.Services.OW
                     var updatedByUsers = request.GetUpdatedByList();
                     if (updatedByUsers.Any())
                     {
-                        // Use OR condition to match any of the users (case-insensitive)
-                        whereExpressions.Add(x => updatedByUsers.Any(user => x.ModifyBy.ToLower().Contains(user.ToLower())));
+                        // Match by StageUpdatedBy first; fallback to ModifyBy (case-insensitive)
+                        whereExpressions.Add(x => updatedByUsers.Any(user =>
+                            (!string.IsNullOrEmpty(x.StageUpdatedBy) && x.StageUpdatedBy.ToLower().Contains(user.ToLower()))
+                            || x.ModifyBy.ToLower().Contains(user.ToLower())));
                     }
                 }
 
@@ -2834,8 +2836,12 @@ namespace FlowFlex.Application.Services.OW
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
                 Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
+                // Keep consistency with frontend index.vue display logic:
+                // Updated By => stageUpdatedBy || modifyBy
+                // Update Time => stageUpdatedTime || modifyDate
+                UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
+                UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
+                    .ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
 
             // Generate CSV content
@@ -2879,10 +2885,10 @@ namespace FlowFlex.Application.Services.OW
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
                 Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
+                UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
+                UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
+                  .ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
-
             // Use EPPlus to generate Excel file (avoid NPOI version conflict)
             return GenerateExcelWithEPPlus(exportData);
         }
@@ -4153,8 +4159,8 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 // Determine which email to use (prefer ContactEmail, fallback to LeadEmail)
-                var emailToUse = !string.IsNullOrWhiteSpace(onboarding.ContactEmail) 
-                    ? onboarding.ContactEmail 
+                var emailToUse = !string.IsNullOrWhiteSpace(onboarding.ContactEmail)
+                    ? onboarding.ContactEmail
                     : onboarding.LeadEmail;
 
                 // Skip if no email is available
@@ -4187,14 +4193,14 @@ namespace FlowFlex.Application.Services.OW
 
                 // Generate short URL ID and invitation URL
                 invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
-                    onboarding.Id, 
-                    emailToUse, 
+                    onboarding.Id,
+                    emailToUse,
                     invitation.InvitationToken);
-                
+
                 // Generate invitation URL (using default base URL)
                 invitation.InvitationUrl = GenerateShortInvitationUrl(
-                    invitation.ShortUrlId, 
-                    onboarding.TenantId ?? "DEFAULT", 
+                    invitation.ShortUrlId,
+                    onboarding.TenantId ?? "DEFAULT",
                     onboarding.AppCode ?? "DEFAULT");
 
                 // Initialize create info
@@ -4221,7 +4227,7 @@ namespace FlowFlex.Application.Services.OW
             var chinaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
             var utcNow = DateTime.UtcNow;
             var chinaTime = TimeZoneInfo.ConvertTimeFromUtc(utcNow, chinaTimeZone);
-            
+
             // Create DateTimeOffset with +08:00 offset
             return new DateTimeOffset(chinaTime, TimeSpan.FromHours(8));
         }
@@ -4238,7 +4244,7 @@ namespace FlowFlex.Application.Services.OW
         {
             // Use provided base URL or fall back to a default one
             var effectiveBaseUrl = baseUrl ?? "https://portal.flowflex.com"; // Default base URL
-            
+
             // Generate the short URL format: {baseUrl}/portal/{tenantId}/{appCode}/invite/{shortUrlId}
             return $"{effectiveBaseUrl.TrimEnd('/')}/portal/{tenantId}/{appCode}/invite/{shortUrlId}";
         }
