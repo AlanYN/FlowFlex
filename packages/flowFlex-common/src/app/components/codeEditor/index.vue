@@ -56,7 +56,7 @@ const initEditor = async () => {
 			}
 		});
 		monaco = await loader.init();
-		
+
 		// Configure Monaco editor
 		monaco.editor.defineTheme('custom-theme', {
 			base: 'vs',
@@ -183,6 +183,7 @@ defineExpose({
 <style scoped lang="scss">
 .code-editor-container {
 	@apply space-y-2;
+	width: 100%;
 }
 
 .code-editor-header {
@@ -230,4 +231,4 @@ defineExpose({
 		@apply text-gray-400;
 	}
 }
-</style> 
+</style>

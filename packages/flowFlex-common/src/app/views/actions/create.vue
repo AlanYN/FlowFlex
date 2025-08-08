@@ -4,19 +4,13 @@
 		<div class="page-header rounded-md">
 			<div class="header-content">
 				<div class="header-left">
-					<el-button
-						type="primary"
-						link
-						class="back-button"
-						@click="goBack"
-						size="small"
-					>
-						<el-icon class="back-icon"><ArrowLeft /></el-icon>
+					<el-button type="primary" link class="back-button" @click="goBack" size="small">
+						<el-icon class="back-icon">
+							<ArrowLeft />
+						</el-icon>
 					</el-button>
 					<div class="header-info">
-						<h1 class="page-title">
-							Create New Action
-						</h1>
+						<h1 class="page-title">Create New Action</h1>
 						<p class="page-description">
 							Design and configure automated actions for your onboarding workflows
 						</p>
@@ -56,27 +50,39 @@
 								<span>Basic Information</span>
 							</div>
 						</template>
-						
-						<el-form :model="actionForm" :rules="rules" ref="formRef" label-width="120px">
+
+						<el-form
+							:model="actionForm"
+							:rules="rules"
+							ref="formRef"
+							label-width="120px"
+						>
 							<el-row :gutter="20">
 								<el-col :span="12">
 									<el-form-item label="Action Name" prop="actionName">
-										<el-input v-model="actionForm.actionName" placeholder="Enter action name" />
+										<el-input
+											v-model="actionForm.actionName"
+											placeholder="Enter action name"
+										/>
 									</el-form-item>
 								</el-col>
 								<el-col :span="12">
 									<el-form-item label="Type" prop="type">
-										<el-select v-model="actionForm.type" placeholder="Select action type">
-											<el-option label="Send Email" value="email" />
-											<el-option label="System Action" value="system" />
-											<el-option label="Webhook" value="webhook" />
+										<el-select
+											v-model="actionForm.type"
+											placeholder="Select action type"
+										>
+											<el-option label="Send Email" value="Send Email" />
+											<el-option label="HTTP API" value="HTTP API" />
+											<el-option
+												label="Python Script"
+												value="Python Script"
+											/>
 										</el-select>
 									</el-form-item>
 								</el-col>
 							</el-row>
-							
 
-							
 							<el-form-item label="Description" prop="description">
 								<el-input
 									v-model="actionForm.description"
@@ -95,96 +101,46 @@
 								<span>Configuration</span>
 							</div>
 						</template>
-						
-						<div v-if="actionForm.type === 'email'" class="email-config">
-							<el-form :model="emailConfig" :rules="emailRules" ref="emailFormRef" label-width="120px">
-								<el-form-item label="Subject" prop="subject">
-									<el-input v-model="emailConfig.subject" placeholder="Email subject" />
-								</el-form-item>
-								<el-form-item label="Template" prop="template">
-									<el-input
-										v-model="emailConfig.template"
-										type="textarea"
-										:rows="8"
-										placeholder="Email template content"
-									/>
-									<div class="template-variables">
-										<span class="variable-label">Available variables:</span>
-										<el-tag v-for="variable in emailVariables" :key="variable" size="small" class="variable-tag">
-											{{ variable }}
-										</el-tag>
-									</div>
-								</el-form-item>
-								<el-form-item label="Recipients" prop="recipients">
-									<el-select v-model="emailConfig.recipients" multiple placeholder="Select recipients">
-										<el-option label="Customer" value="customer" />
-										<el-option label="Sales Team" value="sales" />
-										<el-option label="Support Team" value="support" />
-										<el-option label="Admin" value="admin" />
-									</el-select>
-								</el-form-item>
-								<el-form-item label="CC">
-									<el-input v-model="emailConfig.cc" placeholder="CC recipients (comma separated)" />
-								</el-form-item>
-								<el-form-item label="BCC">
-									<el-input v-model="emailConfig.bcc" placeholder="BCC recipients (comma separated)" />
-								</el-form-item>
-							</el-form>
+
+						<div v-if="actionForm.type === 'Send Email'" class="email-config">
+							<SendEmailConfig
+								v-model="emailConfig"
+								:show-test-button="true"
+								:action-id="''"
+								@test="handleTestRun"
+							/>
+							<div class="template-variables">
+								<span class="variable-label">Available variables:</span>
+								<el-tag
+									v-for="variable in emailVariables"
+									:key="variable"
+									size="small"
+									class="variable-tag"
+								>
+									{{ variable }}
+								</el-tag>
+							</div>
 						</div>
-						
-						<div v-else-if="actionForm.type === 'webhook'" class="webhook-config">
-							<el-form :model="webhookConfig" :rules="webhookRules" ref="webhookFormRef" label-width="120px">
-								<el-form-item label="URL" prop="url">
-									<el-input v-model="webhookConfig.url" placeholder="Webhook URL" />
-								</el-form-item>
-								<el-form-item label="Method" prop="method">
-									<el-select v-model="webhookConfig.method">
-										<el-option label="POST" value="POST" />
-										<el-option label="GET" value="GET" />
-										<el-option label="PUT" value="PUT" />
-										<el-option label="PATCH" value="PATCH" />
-									</el-select>
-								</el-form-item>
-								<el-form-item label="Headers">
-									<el-input
-										v-model="webhookConfig.headers"
-										type="textarea"
-										:rows="4"
-										placeholder="JSON format headers"
-									/>
-								</el-form-item>
-								<el-form-item label="Timeout (seconds)">
-									<el-input-number v-model="webhookConfig.timeout" :min="1" :max="300" />
-								</el-form-item>
-								<el-form-item label="Retry Count">
-									<el-input-number v-model="webhookConfig.retryCount" :min="0" :max="5" />
-								</el-form-item>
-							</el-form>
+
+						<div v-else-if="actionForm.type === 'HTTP API'" class="http-api-config">
+							<HttpApiConfig
+								v-model="httpApiConfig"
+								:show-test-button="true"
+								:action-id="''"
+								@test="handleTestRun"
+							/>
 						</div>
-						
-						<div v-else-if="actionForm.type === 'system'" class="system-config">
-							<el-form :model="systemConfig" :rules="systemRules" ref="systemFormRef" label-width="120px">
-								<el-form-item label="System Action" prop="action">
-									<el-select v-model="systemConfig.action">
-										<el-option label="Create Task" value="create_task" />
-										<el-option label="Update Status" value="update_status" />
-										<el-option label="Send Notification" value="send_notification" />
-										<el-option label="Create Record" value="create_record" />
-										<el-option label="Update Record" value="update_record" />
-									</el-select>
-								</el-form-item>
-								<el-form-item label="Parameters" prop="parameters">
-									<el-input
-										v-model="systemConfig.parameters"
-										type="textarea"
-										:rows="6"
-										placeholder="Action parameters in JSON format"
-									/>
-								</el-form-item>
-								<el-form-item label="Delay (seconds)">
-									<el-input-number v-model="systemConfig.delay" :min="0" :max="3600" />
-								</el-form-item>
-							</el-form>
+
+						<div
+							v-else-if="actionForm.type === 'Python Script'"
+							class="python-script-config"
+						>
+							<PythonScriptConfig
+								v-model="pythonScriptConfig"
+								:show-test-button="true"
+								:action-id="''"
+								@test="handleTestRun"
+							/>
 						</div>
 					</el-card>
 				</el-col>
@@ -197,12 +153,14 @@
 							<div class="card-header">
 								<span>Assignments</span>
 								<el-button type="primary" link @click="showAssignmentDialog = true">
-									<el-icon><Plus /></el-icon>
+									<el-icon>
+										<Plus />
+									</el-icon>
 									<span>Add Assignment</span>
 								</el-button>
 							</div>
 						</template>
-						
+
 						<div class="assignments-list">
 							<div
 								v-for="assignment in actionForm.assignments"
@@ -211,15 +169,21 @@
 							>
 								<div class="assignment-header">
 									<span class="assignment-name">{{ assignment.name }}</span>
-									<el-button type="danger" link @click="removeAssignment(assignment.id)">
-										<el-icon><Delete /></el-icon>
+									<el-button
+										type="danger"
+										link
+										@click="removeAssignment(assignment.id)"
+									>
+										<el-icon>
+											<Delete />
+										</el-icon>
 									</el-button>
 								</div>
 								<div class="assignment-details">
 									<span class="assignment-stage">{{ assignment.stage }}</span>
 								</div>
 							</div>
-							
+
 							<div v-if="actionForm.assignments.length === 0" class="empty-state">
 								<el-empty description="No assignments yet" />
 							</div>
@@ -367,33 +331,29 @@ import { ElMessage } from 'element-plus';
 import {
 	ArrowLeft,
 	Check,
-	Document,
+	// Document,
 	Plus,
 	Delete,
 } from '@element-plus/icons-vue';
+import { PythonScriptConfig, HttpApiConfig, SendEmailConfig } from '@/components/action-config';
 
-// 路由
+// Router
 const router = useRouter();
 
-// 响应式数据
+// Reactive data
 const saving = ref(false);
 const showAssignmentDialog = ref(false);
-// const showConditionDialog = ref(false); // 下一期实现
 const formRef = ref();
-const emailFormRef = ref();
-const webhookFormRef = ref();
-const systemFormRef = ref();
 
-// 表单数据
+// Form data
 const actionForm = reactive({
 	actionName: '',
 	type: '',
 	description: '',
 	assignments: [] as any[],
-	// conditions: [] as any[], // 下一期实现
 });
 
-// 配置数据
+// Config data
 const emailConfig = reactive({
 	subject: '',
 	template: '',
@@ -402,43 +362,24 @@ const emailConfig = reactive({
 	bcc: '',
 });
 
-const webhookConfig = reactive({
+const httpApiConfig = reactive({
 	url: '',
 	method: 'POST',
-	headers: '',
+	headers: '{"Content-Type": "application/json"}',
 	timeout: 30,
-	retryCount: 3,
 });
 
-const systemConfig = reactive({
-	action: '',
-	parameters: '',
-	delay: 0,
+const pythonScriptConfig = reactive({
+	sourceCode: '',
 });
 
-// 高级设置 - 下一期实现
-// const advancedSettings = reactive({
-// 	execution: 'immediate',
-// 	schedule: '',
-// 	delay: 5,
-// 	maxRetries: 3,
-// 	timeout: 60,
-// });
-
-// 新分配
+// New assignment
 const newAssignment = reactive({
 	workflow: '',
 	stage: '',
 });
 
-// 新条件 - 下一期实现
-// const newCondition = reactive({
-// 	field: '',
-// 	operator: '',
-// 	value: '',
-// });
-
-// 邮件变量
+// Email variables
 const emailVariables = [
 	'{{customer_name}}',
 	'{{company_name}}',
@@ -447,153 +388,98 @@ const emailVariables = [
 	'{{created_date}}',
 ];
 
-// 表单验证规则
+// Form validation rules
 const rules = {
-	actionName: [
-		{ required: true, message: 'Please enter action name', trigger: 'blur' },
-	],
-	type: [
-		{ required: true, message: 'Please select action type', trigger: 'change' },
-	],
+	actionName: [{ required: true, message: 'Please enter action name', trigger: 'blur' }],
+	type: [{ required: true, message: 'Please select action type', trigger: 'change' }],
 };
 
-const emailRules = {
-	subject: [
-		{ required: true, message: 'Please enter email subject', trigger: 'blur' },
-	],
-	template: [
-		{ required: true, message: 'Please enter email template', trigger: 'blur' },
-	],
-	recipients: [
-		{ required: true, message: 'Please select recipients', trigger: 'change' },
-	],
-};
-
-const webhookRules = {
-	url: [
-		{ required: true, message: 'Please enter webhook URL', trigger: 'blur' },
-	],
-	method: [
-		{ required: true, message: 'Please select HTTP method', trigger: 'change' },
-	],
-};
-
-const systemRules = {
-	action: [
-		{ required: true, message: 'Please select system action', trigger: 'change' },
-	],
-	parameters: [
-		{ required: true, message: 'Please enter action parameters', trigger: 'blur' },
-	],
-};
-
-// 方法
+// Methods
 const goBack = () => {
 	router.push('/onboard/actions');
 };
 
-const handleSave = async () => {
+const handleSave = async (silent = false) => {
 	try {
 		await formRef.value.validate();
-		
-		// 根据类型验证对应的配置表单
-		if (actionForm.type === 'email') {
-			await emailFormRef.value.validate();
-		} else if (actionForm.type === 'webhook') {
-			await webhookFormRef.value.validate();
-		} else if (actionForm.type === 'system') {
-			await systemFormRef.value.validate();
+
+		// Validate config based on type
+		if (actionForm.type === 'Send Email') {
+			if (
+				!emailConfig.subject ||
+				!emailConfig.template ||
+				emailConfig.recipients.length === 0
+			) {
+				ElMessage.error('Please fill all required email fields');
+				return;
+			}
+		} else if (actionForm.type === 'HTTP API') {
+			if (!httpApiConfig.url || !httpApiConfig.method) {
+				ElMessage.error('Please fill all required HTTP API fields');
+				return;
+			}
+		} else if (actionForm.type === 'Python Script') {
+			if (!pythonScriptConfig.sourceCode) {
+				ElMessage.error('Please enter Python script code');
+				return;
+			}
 		}
-		
+
 		saving.value = true;
-		
-		// 模拟保存
-		await new Promise(resolve => setTimeout(resolve, 1000));
-		
-		ElMessage.success('Action saved successfully');
+
+		// Mock save
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+
+		if (!silent) {
+			ElMessage.success('Action saved successfully');
+		}
 		router.push('/onboard/actions');
 	} catch (error) {
 		ElMessage.error('Please check the form');
+	} finally {
+		saving.value = false;
 	}
 };
-
-// Save as Draft - 下一期实现
-// const handleSaveAsDraft = async () => {
-// 	saving.value = true;
-// 	
-// 	// 模拟保存草稿
-// 	await new Promise(resolve => setTimeout(resolve, 500));
-// 	
-// 	ElMessage.success('Action saved as draft');
-// 	saving.value = false;
-// };
 
 const addAssignment = () => {
 	if (!newAssignment.workflow || !newAssignment.stage) {
 		ElMessage.warning('Please select both workflow and stage');
 		return;
 	}
-	
+
 	const assignment = {
 		id: Date.now(),
 		name: `${newAssignment.workflow} Onboarding`,
 		stage: newAssignment.stage,
 	};
-	
+
 	actionForm.assignments.push(assignment);
 	showAssignmentDialog.value = false;
-	
-	// 重置表单
+
+	// Reset form
 	newAssignment.workflow = '';
 	newAssignment.stage = '';
-	
+
 	ElMessage.success('Assignment added successfully');
 };
 
 const removeAssignment = (id: number) => {
-	const index = actionForm.assignments.findIndex(item => item.id === id);
+	const index = actionForm.assignments.findIndex((item) => item.id === id);
 	if (index > -1) {
 		actionForm.assignments.splice(index, 1);
 		ElMessage.success('Assignment removed');
 	}
 };
 
-// 条件相关方法 - 下一期实现
-// const addCondition = () => {
-// 	if (!newCondition.field || !newCondition.operator || !newCondition.value) {
-// 		ElMessage.warning('Please fill all condition fields');
-// 		return;
-// 	}
-// 	
-// 	const condition = {
-// 		id: Date.now(),
-// 		field: newCondition.field,
-// 		operator: newCondition.operator,
-// 		value: newCondition.value,
-// 	};
-// 	
-// 	actionForm.conditions.push(condition);
-// 	showConditionDialog.value = false;
-// 	
-// 	// 重置表单
-// 	newCondition.field = '';
-// 	newCondition.operator = '';
-// 	newCondition.value = '';
-// 	
-// 	ElMessage.success('Condition added successfully');
-// };
+// Handle test run
+const handleTestRun = async (result: any) => {
+	// Create page has no Action ID, so just show warning
+	ElMessage.warning('Please save the action first before testing');
+};
 
-// const removeCondition = (id: number) => {
-// 	const index = actionForm.conditions.findIndex(item => item.id === id);
-// 	if (index > -1) {
-// 		actionForm.conditions.splice(index, 1);
-// 		ElMessage.success('Condition removed');
-// 	}
-// };
-
-// 生命周期
+// Lifecycle
 onMounted(() => {
-	// 初始化表单
+	// Initialize form
 });
 </script>
 
@@ -854,4 +740,4 @@ onMounted(() => {
 	// 	color: #6b7280;
 	// }
 }
-</style> 
+</style>
