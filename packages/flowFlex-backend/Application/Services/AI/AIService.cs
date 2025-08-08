@@ -93,7 +93,7 @@ namespace FlowFlex.Application.Services.AI
                 var result = ParseWorkflowGenerationResponse(aiResponse.Content);
                 result.ConfidenceScore = CalculateConfidenceScore(result.GeneratedWorkflow);
 
-                // 确保至少有一些stages
+                // Ensure at least some stages exist
                 if (result.Stages == null || !result.Stages.Any())
                 {
                     _logger.LogWarning("AI response did not contain valid stages, using fallback stages");
@@ -194,7 +194,7 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIWorkflowStreamResult
             {
                 Type = "start",
-                Message = "开始生成工作流...",
+                Message = "Starting workflow generation...",
                 IsComplete = false
             };
 
@@ -222,7 +222,7 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIWorkflowStreamResult
             {
                 Type = "progress",
-                Message = "正在分析需求...",
+                Message = "Analyzing requirements...",
                 IsComplete = false
             };
 
@@ -231,7 +231,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = $"生成过程中出现错误: {caughtException.Message}",
+                    Message = $"Error during generation: {caughtException.Message}",
                     IsComplete = true
                 };
                 yield break;
@@ -242,7 +242,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = aiResponse?.ErrorMessage ?? "AI服务调用失败",
+                    Message = aiResponse?.ErrorMessage ?? "AI service call failed",
                     IsComplete = true
                 };
                 yield break;
@@ -251,7 +251,7 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIWorkflowStreamResult
             {
                 Type = "progress",
-                Message = "正在解析工作流结构...",
+                Message = "Parsing workflow structure...",
                 IsComplete = false
             };
 
@@ -261,7 +261,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "workflow",
                     Data = result.GeneratedWorkflow,
-                    Message = "工作流基本信息已生成",
+                    Message = "Workflow basic information generated",
                     IsComplete = false
                 };
 
@@ -271,7 +271,7 @@ namespace FlowFlex.Application.Services.AI
                     {
                         Type = "stage",
                         Data = stage,
-                        Message = $"阶段 '{stage.Name}' 已生成",
+                        Message = $"Stage '{stage.Name}' generated",
                         IsComplete = false
                     };
                 }
@@ -280,7 +280,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "complete",
                     Data = result,
-                    Message = "工作流生成完成",
+                    Message = "Workflow generation completed",
                     IsComplete = true
                 };
             }
@@ -289,7 +289,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = "无法解析AI生成的工作流结构",
+                    Message = "Unable to parse AI-generated workflow structure",
                     IsComplete = true
                 };
             }
@@ -302,7 +302,7 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIQuestionnaireStreamResult
             {
                 Type = "start",
-                Message = "开始生成问卷...",
+                Message = "Starting questionnaire generation...",
                 IsComplete = false
             };
 
@@ -332,7 +332,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIQuestionnaireStreamResult
                 {
                     Type = "error",
-                    Message = $"生成过程中出现错误: {caughtException.Message}",
+                    Message = $"Error during generation: {caughtException.Message}",
                     IsComplete = true
                 };
                 yield break;
@@ -343,7 +343,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIQuestionnaireStreamResult
                 {
                     Type = "error",
-                    Message = aiResponse?.ErrorMessage ?? "AI服务调用失败",
+                    Message = aiResponse?.ErrorMessage ?? "AI service call failed",
                     IsComplete = true
                 };
                 yield break;
@@ -355,7 +355,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "questionnaire",
                     Data = result.GeneratedQuestionnaire,
-                    Message = "问卷基本信息已生成",
+                    Message = "Questionnaire basic information generated",
                     IsComplete = false
                 };
 
@@ -363,7 +363,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "complete",
                     Data = result,
-                    Message = "问卷生成完成",
+                    Message = "Questionnaire generation completed",
                     IsComplete = true
                 };
             }
@@ -372,7 +372,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIQuestionnaireStreamResult
                 {
                     Type = "error",
-                    Message = "无法解析AI生成的问卷结构",
+                    Message = "Unable to parse AI-generated questionnaire structure",
                     IsComplete = true
                 };
             }
@@ -385,7 +385,7 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIChecklistStreamResult
             {
                 Type = "start",
-                Message = "开始生成检查清单...",
+                Message = "Starting checklist generation...",
                 IsComplete = false
             };
 
@@ -415,7 +415,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIChecklistStreamResult
                 {
                     Type = "error",
-                    Message = $"生成过程中出现错误: {caughtException.Message}",
+                    Message = $"Error during generation: {caughtException.Message}",
                     IsComplete = true
                 };
                 yield break;
@@ -426,7 +426,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIChecklistStreamResult
                 {
                     Type = "error",
-                    Message = aiResponse?.ErrorMessage ?? "AI服务调用失败",
+                    Message = aiResponse?.ErrorMessage ?? "AI service call failed",
                     IsComplete = true
                 };
                 yield break;
@@ -438,7 +438,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "checklist",
                     Data = result.GeneratedChecklist,
-                    Message = "检查清单基本信息已生成",
+                    Message = "Checklist basic information generated",
                     IsComplete = false
                 };
 
@@ -446,7 +446,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "complete",
                     Data = result,
-                    Message = "检查清单生成完成",
+                    Message = "Checklist generation completed",
                     IsComplete = true
                 };
             }
@@ -455,7 +455,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIChecklistStreamResult
                 {
                     Type = "error",
-                    Message = "无法解析AI生成的检查清单结构",
+                    Message = "Unable to parse AI-generated checklist structure",
                     IsComplete = true
                 };
             }
@@ -468,17 +468,17 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("Enhancing workflow {WorkflowId} with: {Enhancement}", workflowId, enhancement);
 
                 var prompt = $"""
-                请分析以下工作流增强需求，并提供具体的改进建议：
+                Please analyze the following workflow enhancement requirements and provide specific improvement suggestions:
 
-                工作流ID: {workflowId}
-                增强需求: {enhancement}
+                Workflow ID: {workflowId}
+                Enhancement Requirements: {enhancement}
 
-                请提供：
-                1. 具体的改进建议
-                2. 建议的优先级
-                3. 实施方案
+                Please provide:
+                1. Specific improvement suggestions
+                2. Suggested priority levels
+                3. Implementation plans
 
-                请以JSON格式返回结果。
+                Please return the results in JSON format.
                 """;
 
                 var aiResponse = await CallAIProviderAsync(prompt);
@@ -588,18 +588,18 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("Parsing requirements from natural language");
 
                 var prompt = $"""
-                请分析以下自然语言描述，提取出结构化的需求信息：
+                Please analyze the following natural language description and extract structured requirement information:
 
-                描述: {naturalLanguage}
+                Description: {naturalLanguage}
 
-                请提取：
-                1. 流程类型
-                2. 相关人员
-                3. 关键步骤
-                4. 审批环节
-                5. 通知要求
+                Please extract:
+                1. Process type
+                2. Involved personnel
+                3. Key steps
+                4. Approval processes
+                5. Notification requirements
 
-                请以JSON格式返回结果。
+                Please return the results in JSON format.
                 """;
 
                 var aiResponse = await CallAIProviderAsync(prompt);
@@ -717,7 +717,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -834,7 +834,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -1080,7 +1080,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -1208,7 +1208,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -1303,61 +1303,62 @@ namespace FlowFlex.Application.Services.AI
         {
             var promptBuilder = new StringBuilder();
             promptBuilder.AppendLine($"{_aiOptions.Prompts.WorkflowSystem}");
+            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
             
             // Check if this is a conversation-based workflow generation
             if (input.ConversationHistory != null && input.ConversationHistory.Any())
             {
-                promptBuilder.AppendLine("=== 基于详细对话生成工作流 ===");
-                promptBuilder.AppendLine("以下是与用户的完整对话历史，请根据这些详细信息生成精确的工作流：");
+                promptBuilder.AppendLine("=== Generate Workflow Based on Detailed Conversation ===");
+                promptBuilder.AppendLine("Below is the complete conversation history with the user. Please generate an accurate workflow based on these detailed information:");
                 promptBuilder.AppendLine();
                 
                 // Add conversation context
                 if (input.ConversationMetadata != null)
                 {
-                    promptBuilder.AppendLine($"会话信息：");
-                    promptBuilder.AppendLine($"- 会话ID: {input.SessionId}");
-                    promptBuilder.AppendLine($"- 总消息数: {input.ConversationMetadata.TotalMessages}");
-                    promptBuilder.AppendLine($"- 对话模式: {input.ConversationMetadata.ConversationMode}");
+                    promptBuilder.AppendLine($"Session Information:");
+                    promptBuilder.AppendLine($"- Session ID: {input.SessionId}");
+                    promptBuilder.AppendLine($"- Total Messages: {input.ConversationMetadata.TotalMessages}");
+                    promptBuilder.AppendLine($"- Conversation Mode: {input.ConversationMetadata.ConversationMode}");
                     promptBuilder.AppendLine();
                 }
                 
                 // Add full conversation history
-                promptBuilder.AppendLine("完整对话内容：");
+                promptBuilder.AppendLine("Complete Conversation Content:");
                 foreach (var message in input.ConversationHistory)
                 {
-                    var role = message.Role == "user" ? "👤 用户" : "🤖 AI助手";
-                    promptBuilder.AppendLine($"{role}：");
+                    var role = message.Role == "user" ? "👤 User" : "🤖 AI Assistant";
+                    promptBuilder.AppendLine($"{role}:");
                     promptBuilder.AppendLine(message.Content);
                     promptBuilder.AppendLine();
                 }
                 
-                promptBuilder.AppendLine("请特别注意：");
-                promptBuilder.AppendLine("1. 从对话中提取所有关键需求和细节");
-                promptBuilder.AppendLine("2. 使用AI助手在对话中提供的具体建议和详细信息");
-                promptBuilder.AppendLine("3. 确保工作流反映用户的具体需求和偏好");
-                promptBuilder.AppendLine("4. 如果AI助手提供了详细的行程、计划或步骤，请将其转化为工作流阶段");
+                promptBuilder.AppendLine("Please pay special attention to:");
+                promptBuilder.AppendLine("1. Extract all key requirements and details from the conversation");
+                promptBuilder.AppendLine("2. Use the specific suggestions and detailed information provided by the AI assistant in the conversation");
+                promptBuilder.AppendLine("3. Ensure the workflow reflects the user's specific needs and preferences");
+                promptBuilder.AppendLine("4. If the AI assistant provided detailed itineraries, plans, or steps, convert them into workflow stages");
                 promptBuilder.AppendLine();
             }
             else
             {
                 // Fallback to traditional prompt building
-                promptBuilder.AppendLine("请根据以下需求生成一个完整的工作流定义：");
-                promptBuilder.AppendLine($"描述: {input.Description}");
+                promptBuilder.AppendLine("Please generate a complete workflow definition based on the following requirements:");
+                promptBuilder.AppendLine($"Description: {input.Description}");
             }
             
             if (!string.IsNullOrEmpty(input.Context))
-                promptBuilder.AppendLine($"上下文: {input.Context}");
+                promptBuilder.AppendLine($"Context: {input.Context}");
             
             if (!string.IsNullOrEmpty(input.Industry))
-                promptBuilder.AppendLine($"行业: {input.Industry}");
+                promptBuilder.AppendLine($"Industry: {input.Industry}");
             
             if (!string.IsNullOrEmpty(input.ProcessType))
-                promptBuilder.AppendLine($"流程类型: {input.ProcessType}");
+                promptBuilder.AppendLine($"Process Type: {input.ProcessType}");
 
             if (input.Requirements.Any())
             {
-                promptBuilder.AppendLine("具体要求:");
+                promptBuilder.AppendLine("Specific Requirements:");
                 foreach (var req in input.Requirements)
                 {
                     promptBuilder.AppendLine($"- {req}");
@@ -1368,19 +1369,19 @@ namespace FlowFlex.Application.Services.AI
             if (!string.IsNullOrEmpty(input.ModelProvider))
             {
                 promptBuilder.AppendLine();
-                promptBuilder.AppendLine($"使用的AI模型: {input.ModelProvider} {input.ModelName}");
+                promptBuilder.AppendLine($"AI Model Used: {input.ModelProvider} {input.ModelName}");
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请严格按照以下JSON格式返回响应，不要包含任何其他文本：");
+            promptBuilder.AppendLine("Please return the response strictly in the following JSON format, without any other text:");
             promptBuilder.AppendLine(@"{
-  ""name"": ""工作流名称"",
-  ""description"": ""工作流描述"",
+  ""name"": ""Workflow Name"",
+  ""description"": ""Workflow Description"",
   ""stages"": [
     {
-      ""name"": ""阶段名称"",
-      ""description"": ""阶段描述"",
-      ""assignedGroup"": ""负责团队"",
+      ""name"": ""Stage Name"",
+      ""description"": ""Stage Description"",
+      ""assignedGroup"": ""Responsible Team"",
       ""estimatedDuration"": 1
     }
   ]
@@ -1393,16 +1394,17 @@ namespace FlowFlex.Application.Services.AI
         {
             var promptBuilder = new StringBuilder();
             promptBuilder.AppendLine($"{_aiOptions.Prompts.QuestionnaireSystem}");
+            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请根据以下需求生成一个完整的问卷：");
-            promptBuilder.AppendLine($"目的: {input.Purpose}");
-            promptBuilder.AppendLine($"目标受众: {input.TargetAudience}");
-            promptBuilder.AppendLine($"复杂度: {input.Complexity}");
-            promptBuilder.AppendLine($"预计问题数量: {input.EstimatedQuestions}");
+            promptBuilder.AppendLine("Please generate a complete questionnaire based on the following requirements:");
+            promptBuilder.AppendLine($"Purpose: {input.Purpose}");
+            promptBuilder.AppendLine($"Target Audience: {input.TargetAudience}");
+            promptBuilder.AppendLine($"Complexity: {input.Complexity}");
+            promptBuilder.AppendLine($"Estimated Number of Questions: {input.EstimatedQuestions}");
 
             if (input.Topics.Any())
             {
-                promptBuilder.AppendLine("涉及主题:");
+                promptBuilder.AppendLine("Topics Covered:");
                 foreach (var topic in input.Topics)
                 {
                     promptBuilder.AppendLine($"- {topic}");
@@ -1410,10 +1412,10 @@ namespace FlowFlex.Application.Services.AI
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请生成包含以下信息的JSON格式响应:");
-            promptBuilder.AppendLine("1. 问卷基本信息 (name, description)");
-            promptBuilder.AppendLine("2. 问题分组 (sections)");
-            promptBuilder.AppendLine("3. 具体问题列表，包括问题类型、选项等");
+            promptBuilder.AppendLine("Please generate a JSON format response containing the following information:");
+            promptBuilder.AppendLine("1. Basic questionnaire information (name, description)");
+            promptBuilder.AppendLine("2. Question sections (sections)");
+            promptBuilder.AppendLine("3. Specific question list, including question types, options, etc.");
 
             return promptBuilder.ToString();
         }
@@ -1422,15 +1424,16 @@ namespace FlowFlex.Application.Services.AI
         {
             var promptBuilder = new StringBuilder();
             promptBuilder.AppendLine($"{_aiOptions.Prompts.ChecklistSystem}");
+            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请根据以下需求生成一个完整的检查清单：");
-            promptBuilder.AppendLine($"流程名称: {input.ProcessName}");
-            promptBuilder.AppendLine($"描述: {input.Description}");
-            promptBuilder.AppendLine($"负责团队: {input.Team}");
+            promptBuilder.AppendLine("Please generate a complete checklist based on the following requirements:");
+            promptBuilder.AppendLine($"Process Name: {input.ProcessName}");
+            promptBuilder.AppendLine($"Description: {input.Description}");
+            promptBuilder.AppendLine($"Responsible Team: {input.Team}");
 
             if (input.RequiredSteps.Any())
             {
-                promptBuilder.AppendLine("必需步骤:");
+                promptBuilder.AppendLine("Required Steps:");
                 foreach (var step in input.RequiredSteps)
                 {
                     promptBuilder.AppendLine($"- {step}");
@@ -1438,11 +1441,11 @@ namespace FlowFlex.Application.Services.AI
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请生成包含以下信息的JSON格式响应:");
-            promptBuilder.AppendLine("1. 检查清单基本信息 (name, description, team)");
-            promptBuilder.AppendLine("2. 任务列表，包括任务名称、描述、预估时间、是否必需");
+            promptBuilder.AppendLine("Please generate a JSON format response containing the following information:");
+            promptBuilder.AppendLine("1. Basic checklist information (name, description, team)");
+            promptBuilder.AppendLine("2. Task list, including task name, description, estimated time, whether required");
             if (input.IncludeDependencies)
-                promptBuilder.AppendLine("3. 任务依赖关系");
+                promptBuilder.AppendLine("3. Task dependencies");
 
             return promptBuilder.ToString();
         }
@@ -1512,44 +1515,44 @@ namespace FlowFlex.Application.Services.AI
                 IsActive = true
             };
 
-            // 从AI响应中智能提取阶段信息
+            // Intelligently extract stage information from AI response
             var stages = ExtractStagesFromText(aiResponse);
             
-            // 如果没有提取到阶段，创建默认阶段
+            // If no stages extracted, create default stages
             if (!stages.Any())
             {
                 stages = new List<AIStageGenerationResult>
                 {
                     new AIStageGenerationResult
                     {
-                        Name = "准备阶段",
-                        Description = "收集所需信息和资源",
+                        Name = "Preparation Stage",
+                        Description = "Gather required information and resources",
                         Order = 1,
-                        AssignedGroup = "执行团队",
+                        AssignedGroup = "Execution Team",
                         EstimatedDuration = 2
                     },
                     new AIStageGenerationResult
                     {
-                        Name = "执行阶段",
-                        Description = "执行主要工作任务",
+                        Name = "Execution Stage",
+                        Description = "Execute main work tasks",
                         Order = 2,
-                        AssignedGroup = "执行团队",
+                        AssignedGroup = "Execution Team",
                         EstimatedDuration = 5
                     },
                     new AIStageGenerationResult
                     {
-                        Name = "审核阶段",
-                        Description = "审核工作成果和质量",
+                        Name = "Review Stage",
+                        Description = "Review work results and quality",
                         Order = 3,
-                        AssignedGroup = "管理团队",
+                        AssignedGroup = "Management Team",
                         EstimatedDuration = 2
                     },
                     new AIStageGenerationResult
                     {
-                        Name = "完成阶段",
-                        Description = "确认完成并交付成果",
+                        Name = "Completion Stage",
+                        Description = "Confirm completion and deliver results",
                         Order = 4,
-                        AssignedGroup = "管理团队",
+                        AssignedGroup = "Management Team",
                         EstimatedDuration = 1
                     }
                 };
@@ -1575,7 +1578,7 @@ namespace FlowFlex.Application.Services.AI
             {
                 var trimmedLine = line.Trim();
                 
-                // 查找可能的阶段标识符
+                // Find possible stage identifiers
                 if (trimmedLine.Contains("阶段") || trimmedLine.Contains("步骤") || 
                     trimmedLine.Contains("Stage") || trimmedLine.Contains("Step") ||
                     trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*") ||
@@ -1587,9 +1590,9 @@ namespace FlowFlex.Application.Services.AI
                         stages.Add(new AIStageGenerationResult
                         {
                             Name = stageName,
-                            Description = $"AI生成的{stageName}",
-                            Order = order++,
-                            AssignedGroup = "执行团队",
+                                                            Description = $"AI-generated {stageName}",
+                                Order = order++,
+                                AssignedGroup = "Execution Team",
                             EstimatedDuration = 2
                         });
                     }
@@ -1601,16 +1604,16 @@ namespace FlowFlex.Application.Services.AI
 
         private string ExtractStageName(string line)
         {
-            // 移除常见的前缀和标识符
+            // Remove common prefixes and identifiers
             var cleaned = line.Trim()
                 .Replace("-", "")
                 .Replace("*", "")
                 .Replace("•", "");
             
-            // 移除数字前缀 (如 "1. ", "2. ")
+            // Remove numeric prefixes (e.g., "1. ", "2. ")
             cleaned = Regex.Replace(cleaned, @"^\d+\.\s*", "");
             
-            // 移除括号内容
+            // Remove parentheses content
             cleaned = Regex.Replace(cleaned, @"\([^)]*\)", "");
             
             return cleaned.Trim();
@@ -1708,13 +1711,13 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("Modifying workflow {WorkflowId}: {Description}", 
                     input.WorkflowId, input.Description);
 
-                // 获取现有workflow的详细信息
+                // Get detailed information of existing workflow
                 _logger.LogInformation("Fetching existing workflow with ID: {WorkflowId}", input.WorkflowId);
                 var existingWorkflowInfo = await GetExistingWorkflowAsync(input.WorkflowId);
                 _logger.LogInformation("Retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}", 
                     existingWorkflowInfo.Name, existingWorkflowInfo.Description, existingWorkflowInfo.Stages.Count);
                 
-                // 详细记录现有阶段信息
+                // Record detailed information of existing stages
                 for (int i = 0; i < existingWorkflowInfo.Stages.Count; i++)
                 {
                     var stage = existingWorkflowInfo.Stages[i];
@@ -1722,16 +1725,16 @@ namespace FlowFlex.Application.Services.AI
                         i + 1, stage.Name, stage.Description, stage.EstimatedDuration, stage.AssignedGroup);
                 }
                 
-                // 构建修改提示词
+                // Build modification prompt
                 var prompt = await BuildWorkflowModificationPromptAsync(input, existingWorkflowInfo);
                 
-                // 调试日志：输出完整的提示词
+                // Debug log: output complete prompt
                 _logger.LogInformation("AI Modification Prompt: {Prompt}", prompt);
                 
-                // 调用AI进行workflow修改
+                // Call AI for workflow modification
                 var aiResponse = await CallAIProviderAsync(prompt);
                 
-                // 调试日志：输出AI响应
+                // Debug log: output AI response
                 _logger.LogInformation("AI Modification Response: Success={Success}, Content={Content}", 
                     aiResponse.Success, aiResponse.Content);
                 
@@ -1742,7 +1745,7 @@ namespace FlowFlex.Application.Services.AI
                     return GenerateFallbackWorkflow($"Error modifying workflow {input.WorkflowId}");
                 }
                 
-                // 解析AI响应
+                // Parse AI response
                 var modificationResult = ParseWorkflowGenerationResponse(aiResponse.Content);
                 
                 if (modificationResult.Stages == null || !modificationResult.Stages.Any())
@@ -1750,7 +1753,7 @@ namespace FlowFlex.Application.Services.AI
                     modificationResult = GenerateFallbackWorkflow($"Modified workflow for ID: {input.WorkflowId}");
                 }
 
-                // 强制确保workflow名称正确（防止AI不遵循指令）
+                // Force ensure workflow name is correct (prevent AI from not following instructions)
                 _logger.LogInformation("Checking workflow name correction: AI returned '{AIName}', expected '{ExpectedName}'", 
                     modificationResult.GeneratedWorkflow?.Name ?? "NULL", existingWorkflowInfo.Name);
                 
@@ -1792,10 +1795,11 @@ namespace FlowFlex.Application.Services.AI
         {
             var systemPrompt = _aiOptions.Prompts.WorkflowSystem;
             var modificationContext = input.PreserveExisting ? 
-                "请在保持现有工作流核心结构和现有阶段的基础上进行修改。只根据具体要求添加、修改或删除阶段。" :
-                "如果需要，您可以完全重新设计工作流。";
+                "Please modify based on maintaining the core structure and existing stages of the current workflow. Only add, modify, or delete stages according to specific requirements." :
+                "If needed, you can completely redesign the workflow.";
 
             var prompt = $@"CRITICAL: This is a MODIFICATION task, NOT a creation task.
+Output the result according to the language input by the user.
 
 MANDATORY RULES - DO NOT VIOLATE:
 1. Workflow name MUST remain EXACTLY: ""{existingWorkflowInfo.Name}""
@@ -1880,7 +1884,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 _logger.LogError(ex, "Error fetching workflow {WorkflowId}", workflowId);
             }
 
-            // 如果获取失败，返回默认数据
+            // If retrieval fails, return default data
             _logger.LogWarning("Returning default workflow data for ID {WorkflowId}", workflowId);
             return new MockWorkflowInfo
             {
@@ -2021,25 +2025,25 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         {
             try
             {
-                // 构建消息数组，直接使用对话历史
+                // Build message array, directly use conversation history
                 var messages = new List<object>();
                 
-                // 添加系统提示
+                // Add system prompt
                 messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode) });
                 
-                // 添加对话历史（最近10条消息）
+                // Add conversation history (last 10 messages)
                 foreach (var message in input.Messages.TakeLast(10))
                 {
                     messages.Add(new { role = message.Role, content = message.Content });
                 }
 
-                // 获取用户配置
+                // Get user configuration
                 AIModelConfig userConfig = null;
                 
-                // 如果指定了模型ID，使用该配置
+                // If model ID is specified, use that configuration
                 if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
                 {
-                    // 使用租户隔离获取配置，不需要手动传递用户ID
+                    // Use tenant isolation to get configuration, no need to manually pass user ID
                     userConfig = await _configService.GetConfigByIdAsync(modelId);
                     if (userConfig != null)
                     {
@@ -2048,21 +2052,21 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     }
                 }
                 
-                // 如果没有指定模型或找不到配置，使用默认配置
+                // If no model is specified or configuration not found, use default configuration
                 if (userConfig == null)
                 {
                     _logger.LogInformation("No specific model config found, using default ZhipuAI configuration");
                     return await CallZhipuAIAsync(messages);
                 }
 
-                // 根据提供商调用相应的API
+                // Call corresponding API based on provider
                 return userConfig.Provider?.ToLower() switch
                 {
                     "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
                     "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
                     "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
                     "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
-                    _ => await CallZhipuAIAsync(messages) // 默认使用ZhipuAI
+                    _ => await CallZhipuAIAsync(messages) // Default to ZhipuAI
                 };
             }
             catch (Exception ex)
@@ -2077,7 +2081,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用默认ZhipuAI配置调用API
+        /// Call API using default ZhipuAI configuration
         /// </summary>
         private async Task<AIProviderResponse> CallZhipuAIAsync(List<object> messages)
         {
@@ -2132,7 +2136,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用ZhipuAI API
+        /// Call ZhipuAI API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallZhipuAIWithConfigAsync(List<object> messages, AIModelConfig config)
         {
@@ -2150,18 +2154,18 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
 
-            // 智能处理API端点，避免路径重复
+            // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
             
-            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+            // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/chat/completions"))
             {
                 apiUrl = baseUrl;
             }
             else
             {
-                // 否则添加端点路径
+                // Otherwise add endpoint path
                 apiUrl = $"{baseUrl}/chat/completions";
             }
             
@@ -2197,7 +2201,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用OpenAI API
+        /// Call OpenAI API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallOpenAIWithConfigAsync(List<object> messages, AIModelConfig config)
         {
@@ -2215,7 +2219,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
 
-            // 确保OpenAI API端点包含正确的版本路径，避免重复
+            // Ensure OpenAI API endpoint contains correct version path, avoid duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
             if (baseUrl.EndsWith("/v1/chat/completions") || baseUrl.EndsWith("/chat/completions"))
@@ -2262,11 +2266,11 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用Claude API
+        /// Call Claude API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallClaudeWithConfigAsync(List<object> messages, AIModelConfig config)
         {
-            // Claude API格式略有不同
+            // Claude API format is slightly different
             var claudeMessages = messages.Skip(1).Select(m => new 
             { 
                 role = ((dynamic)m).role == "assistant" ? "assistant" : "user", 
@@ -2288,18 +2292,18 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Add("x-api-key", config.ApiKey);
             _httpClient.DefaultRequestHeaders.Add("anthropic-version", config.ApiVersion ?? "2023-06-01");
 
-            // 智能处理API端点，避免路径重复
+            // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
             
-            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+            // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/messages"))
             {
                 apiUrl = baseUrl;
             }
             else
             {
-                // 否则添加端点路径，Claude使用/v1/messages
+                // Otherwise add endpoint path，Claude使用/v1/messages
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/messages" : $"{baseUrl}/v1/messages";
             }
             
@@ -2334,7 +2338,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用DeepSeek API
+        /// Call DeepSeek API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallDeepSeekWithConfigAsync(List<object> messages, AIModelConfig config)
         {
@@ -2352,18 +2356,18 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
 
-            // 智能处理API端点，避免路径重复
+            // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
             
-            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+            // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/chat/completions"))
             {
                 apiUrl = baseUrl;
             }
             else
             {
-                // 否则添加端点路径，DeepSeek通常需要v1版本
+                // Otherwise add endpoint path，DeepSeek通常需要v1版本
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
             }
             
@@ -2451,7 +2455,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         {
             return mode switch
             {
-                "workflow_planning" => @"You are an expert AI Workflow Assistant specialized in business process design. Your role is to:
+                "workflow_planning" => @"You are an expert AI Workflow Assistant specialized in business process design. Output the result according to the language input by the user. Your role is to:
 
 1. **Understand User Needs**: Engage in natural conversation to deeply understand the user's workflow requirements
 2. **Ask Smart Questions**: Ask relevant, specific questions to gather essential information about:
@@ -2475,7 +2479,7 @@ Guidelines:
 
 Remember: Your goal is to collect enough detailed information to create a comprehensive, practical workflow that meets the user's specific needs.",
 
-                _ => @"You are a helpful, knowledgeable AI assistant. Provide clear, accurate, and helpful responses to user questions. Be conversational, friendly, and thorough in your explanations."
+                _ => @"You are a helpful, knowledgeable AI assistant. Output the result according to the language input by the user. Provide clear, accurate, and helpful responses to user questions. Be conversational, friendly, and thorough in your explanations."
             };
         }
 

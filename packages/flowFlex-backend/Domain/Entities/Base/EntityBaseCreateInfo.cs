@@ -3,16 +3,17 @@ using Item.Internal.ChangeLog;
 using System.ComponentModel;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Attr;
+using FlowFlex.Domain.Abstracts;
 using SqlSugar;
 using Newtonsoft.Json;
 using FlowFlex.Domain.Shared.JsonConverters;
 
 namespace FlowFlex.Domain.Entities.Base
 {
-    public abstract class EntityBaseCreateInfo : EntityBase, IEntityBasicInfo
+    public abstract class EntityBaseCreateInfo : EntityBase, IEntityBasicInfo, ISoftDeletable
     {
         /// <summary>
-        /// ´´½¨Ê±¼ä
+        /// åˆ›å»ºæ—¶é—´
         /// </summary>
         [ChangeLogColumn(IsIgnore = true)]
         [IgnoreDisplay]
@@ -20,7 +21,7 @@ namespace FlowFlex.Domain.Entities.Base
         public virtual DateTimeOffset CreateDate { get; set; }
 
         /// <summary>
-        /// ÐÞ¸ÄÊ±¼ä
+        /// ä¿®æ”¹æ—¶é—´
         /// </summary>
         [ChangeLogColumn(IsIgnore = true)]
         [IgnoreDisplay]
@@ -28,7 +29,7 @@ namespace FlowFlex.Domain.Entities.Base
         public virtual DateTimeOffset ModifyDate { get; set; }
 
         /// <summary>
-        /// ´´½¨ÈË
+        /// åˆ›å»ºè€…
         /// </summary>
         [ChangeLogColumn(IsIgnore = true)]
         [IgnoreDisplay]
@@ -36,7 +37,7 @@ namespace FlowFlex.Domain.Entities.Base
         public virtual string CreateBy { get; set; }
 
         /// <summary>
-        /// ÐÞ¸ÄÈË
+        /// ä¿®æ”¹è€…
         /// </summary>
         [ChangeLogColumn(IsIgnore = true)]
         [IgnoreDisplay]
@@ -44,7 +45,7 @@ namespace FlowFlex.Domain.Entities.Base
         public virtual string ModifyBy { get; set; }
 
         /// <summary>
-        /// ´´½¨ÈËId
+        /// åˆ›å»ºè€…Id
         /// </summary>
         [ChangeLogColumn(IsIgnore = true)]
         [IgnoreDisplay]
@@ -53,7 +54,7 @@ namespace FlowFlex.Domain.Entities.Base
         public virtual long CreateUserId { get; set; }
 
         /// <summary>
-        /// ÐÞ¸ÄÈËId
+        /// ä¿®æ”¹è€…Id
         /// </summary>
         [ChangeLogColumn(IsIgnore = true)]
         [IgnoreDisplay]
