@@ -296,9 +296,8 @@ namespace FlowFlex.Application.Service.OW
 
             var result = _mapper.Map<QuestionnaireOutputDto>(entity);
 
-            // Get Sections
-            var sections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(id);
-            result.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
+            // Sections removed with ff_questionnaire_section table; keep empty for compatibility
+            result.Sections = new List<QuestionnaireSectionDto>();
 
             // 直接从实体获取assignments
             if (entity.Assignments?.Any() == true)
@@ -322,28 +321,10 @@ namespace FlowFlex.Application.Service.OW
             var list = await _questionnaireRepository.GetByCategoryAsync(category);
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
-            // Batch get all questionnaires' Sections to avoid N+1 query problem
-            if (result.Any())
+            // Sections removed; keep empty lists
+            foreach (var questionnaire in result)
             {
-                var questionnaireIds = result.Select(q => q.Id).ToList();
-                var allSections = await _sectionRepository.GetByQuestionnaireIdsAsync(questionnaireIds);
-
-                // Group by questionnaire ID
-                var sectionsByQuestionnaireId = allSections.GroupBy(s => s.QuestionnaireId)
-                    .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Order).ThenBy(s => s.Id).ToList());
-
-                // Assign corresponding Sections to each questionnaire
-                foreach (var questionnaire in result)
-                {
-                    if (sectionsByQuestionnaireId.TryGetValue(questionnaire.Id, out var sections))
-                    {
-                        questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
-                    }
-                    else
-                    {
-                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
-                    }
-                }
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires
@@ -365,11 +346,10 @@ namespace FlowFlex.Application.Service.OW
             // Debug logging handled by structured logging
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
-            // Get Sections for each questionnaire
+            // Sections removed; keep empty lists
             foreach (var questionnaire in result)
             {
-                var sections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(questionnaire.Id);
-                questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires
@@ -388,28 +368,10 @@ namespace FlowFlex.Application.Service.OW
             var list = await _questionnaireRepository.GetByIdsAsync(ids);
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
-            // Batch get all questionnaires' Sections to avoid N+1 query problem
-            if (result.Any())
+            // Sections removed; keep empty lists
+            foreach (var questionnaire in result)
             {
-                var questionnaireIds = result.Select(q => q.Id).ToList();
-                var allSections = await _sectionRepository.GetByQuestionnaireIdsAsync(questionnaireIds);
-
-                // Group by questionnaire ID
-                var sectionsByQuestionnaireId = allSections.GroupBy(s => s.QuestionnaireId)
-                    .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Order).ThenBy(s => s.Id).ToList());
-
-                // Assign corresponding Sections to each questionnaire
-                foreach (var questionnaire in result)
-                {
-                    if (sectionsByQuestionnaireId.TryGetValue(questionnaire.Id, out var sections))
-                    {
-                        questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
-                    }
-                    else
-                    {
-                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
-                    }
-                }
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires
@@ -433,28 +395,10 @@ namespace FlowFlex.Application.Service.OW
 
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(items);
 
-            // Batch get all questionnaires' Sections to avoid N+1 query problem
-            if (result.Any())
+            // Sections removed; keep empty lists
+            foreach (var questionnaire in result)
             {
-                var questionnaireIds = result.Select(q => q.Id).ToList();
-                var allSections = await _sectionRepository.GetByQuestionnaireIdsAsync(questionnaireIds);
-
-                // Group by questionnaire ID
-                var sectionsByQuestionnaireId = allSections.GroupBy(s => s.QuestionnaireId)
-                    .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Order).ThenBy(s => s.Id).ToList());
-
-                // Assign corresponding Sections to each questionnaire
-                foreach (var questionnaire in result)
-                {
-                    if (sectionsByQuestionnaireId.TryGetValue(questionnaire.Id, out var sections))
-                    {
-                        questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
-                    }
-                    else
-                    {
-                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
-                    }
-                }
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires

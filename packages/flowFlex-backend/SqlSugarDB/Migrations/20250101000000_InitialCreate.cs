@@ -43,8 +43,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             // 7. Create questionnaire table
             CreateQuestionnaireTable(db);
 
-            // 8. Create questionnaire section table
-            CreateQuestionnaireSectionTable(db);
+            // 8. (removed) questionnaire section table was deprecated and removed in later migration
 
             // 9. Create questionnaire answers table
             CreateQuestionnaireAnswersTable(db);
@@ -61,7 +60,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             // Drop tables (in reverse dependency order)
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_onboarding CASCADE");
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_questionnaire_answers CASCADE");
-            db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_questionnaire_section CASCADE");
+            // ff_questionnaire_section was removed by migration 20250801000002
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_questionnaire CASCADE");
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_checklist_task_completion CASCADE");
             db.Ado.ExecuteCommand("DROP TABLE IF EXISTS ff_checklist_task CASCADE");
@@ -355,45 +354,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             db.Ado.ExecuteCommand(sql);
         }
 
-        private static void CreateQuestionnaireSectionTable(ISqlSugarClient db)
-        {
-            var sql = @"
-                CREATE TABLE IF NOT EXISTS ff_questionnaire_section (
-                    id BIGINT NOT NULL PRIMARY KEY,
-                    tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
-                    questionnaire_id BIGINT NOT NULL,
-                    title VARCHAR(100) NOT NULL,
-                    description VARCHAR(500),
-                    order_index INTEGER DEFAULT 0,
-                    is_active BOOLEAN DEFAULT TRUE,
-                    icon VARCHAR(50),
-                    color VARCHAR(20),
-                    is_collapsible BOOLEAN DEFAULT TRUE,
-                    is_expanded BOOLEAN DEFAULT TRUE,
-                    is_valid BOOLEAN DEFAULT TRUE,
-                    create_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                    modify_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                    create_by VARCHAR(50) DEFAULT 'SYSTEM',
-                    modify_by VARCHAR(50) DEFAULT 'SYSTEM',
-                    create_user_id BIGINT DEFAULT 0,
-                    modify_user_id BIGINT DEFAULT 0
-                );
-                
-                CREATE INDEX IF NOT EXISTS idx_questionnaire_section_questionnaire_id ON ff_questionnaire_section(questionnaire_id);
-                CREATE INDEX IF NOT EXISTS idx_questionnaire_section_tenant_id ON ff_questionnaire_section(tenant_id);
-                
-                DO $$ 
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_questionnaire_section_questionnaire') THEN
-                        ALTER TABLE ff_questionnaire_section 
-                        ADD CONSTRAINT fk_questionnaire_section_questionnaire 
-                        FOREIGN KEY (questionnaire_id) REFERENCES ff_questionnaire(id) ON DELETE CASCADE;
-                    END IF;
-                END $$;
-            ";
-
-            db.Ado.ExecuteCommand(sql);
-        }
+        // Removed CreateQuestionnaireSectionTable
 
         private static void CreateQuestionnaireAnswersTable(ISqlSugarClient db)
         {
