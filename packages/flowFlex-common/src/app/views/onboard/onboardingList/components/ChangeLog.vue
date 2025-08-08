@@ -711,122 +711,114 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 };
 
 // 获取网格答案标签
-const getGridAnswerLabels = (answer: any, questionConfig: any, responseText?: string, questionId?: string): string[] => {
-	if (!answer) return [];
-	
-	// 如果没有questionConfig，仍然尝试解析Other选项
-	if (!questionConfig?.columns) {
-		const answerIds = getCheckboxAnswers(answer);
-		
-		// 尝试提取Other选项的自定义值
-		let otherValues: { [key: string]: string } = {};
-		if (responseText && questionId) {
-			otherValues = extractOtherValues(responseText, questionId);
-		}
-		
-		// 处理答案ID，替换Other选项和提供基本的列映射
-		const processedLabels: string[] = [];
-		answerIds.forEach(id => {
-			if (id.includes('other') || id.startsWith('column-other-')) {
-				const customValue = otherValues[id] || 
-								   Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
-				if (customValue) {
-					processedLabels.push(`Other: ${customValue}`);
-				} else {
-					processedLabels.push(id);
-				}
-			} else {
-				// 为column ID创建简化的标签
-				let displayLabel = id;
-				if (id.startsWith('column-')) {
-					// 为每个唯一的column ID分配字母标签
-					displayLabel = getColumnLabel(id, questionId);
-				}
-				processedLabels.push(displayLabel);
-			}
-		});
-		
-		return processedLabels;
-	}
-	
-	const answerIds = getCheckboxAnswers(answer);
-	const columnMap = new Map<string, string>();
-	const otherColumnIds = new Set<string>();
-	
-	// 建立列映射并识别Other列
-	questionConfig.columns.forEach((column: any) => {
-		columnMap.set(column.id, column.label);
-		if (column.isOther || column.type === 'other' || column.allowCustom || column.hasInput || 
-			(column.label && (
-				column.label.toLowerCase().includes('other') ||
-				column.label.toLowerCase().includes('enter other') ||
-				column.label.toLowerCase().includes('custom') ||
-				column.label.toLowerCase().includes('specify')
-			))) {
-			otherColumnIds.add(column.id);
-		}
-	});
-	
-	// 从responseText中提取Other选项的自定义值
-	let otherValues: { [key: string]: string } = {};
-	if (responseText && questionId) {
-		otherValues = extractOtherValues(responseText, questionId);
-	}
-	
-	// 将ID转换为对应的label
-	const labels: string[] = [];
-	answerIds.forEach((id) => {
-		const columnLabel = columnMap.get(id);
-		
-		if (columnLabel) {
-			// 如果这是一个other类型的列，显示自定义值
-			if (otherColumnIds.has(id) || id.includes('other') || columnLabel.toLowerCase().includes('other')) {
-				// 查找对应的自定义值，尝试多种格式
-				const customValue = otherValues[id] || 
-								   otherValues[id.replace('column-', 'column-other-')] ||
-								   Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
-				
-				if (customValue) {
-					labels.push(`Other: ${customValue}`);
-				} else {
-					labels.push(columnLabel);
-				}
-			} else {
-				labels.push(columnLabel);
-			}
-		} else {
-			// 没有找到对应的列配置，检查是否是Other相关的值
-			const isOtherValue = Object.keys(otherValues).some(otherKey => {
-				return otherKey.includes(id) || (id.includes('other') && otherKey.includes('other'));
-			});
-			
-			if (isOtherValue) {
-				const customValue = Object.entries(otherValues).find(([key]) => 
-					key.includes(id) || (id.includes('other') && key.includes('other'))
-				)?.[1];
-				if (customValue) {
-					labels.push(`Other: ${customValue}`);
-				} else if (id === 'Other' || id.toLowerCase() === 'other') {
-					// 如果答案就是"Other"，查找任何other相关的自定义值
-					const anyOtherValue = Object.values(otherValues)[0];
-					if (anyOtherValue) {
-						labels.push(`Other: ${anyOtherValue}`);
-					} else {
-						labels.push(id);
-					}
-				}
-			} else {
-				// 为column ID创建简化的标签
-				let displayLabel = id;
-				if (id.startsWith('column-')) {
-					displayLabel = getColumnLabel(id, questionId);
-				}
-				labels.push(displayLabel);
-			}
-		}
-	});
-	
-	return labels.filter(Boolean);
+const getGridAnswerLabels = (
+    answer: any,
+    questionConfig: any,
+    responseText?: string,
+    questionId?: string
+): string[] => {
+    if (!answer) return [];
+
+    // 如果没有 questionConfig，仍然尝试解析 Other 选项
+    if (!questionConfig?.columns) {
+        const answerIds = getCheckboxAnswers(answer);
+
+        // 提取 Other 自定义值
+        let otherValues: { [key: string]: string } = {};
+        if (responseText && questionId) {
+            otherValues = extractOtherValues(responseText, questionId);
+        }
+
+        const processedLabels: string[] = [];
+        answerIds.forEach((rawId) => {
+            const id = String(rawId);
+            const idLower = id.toLowerCase();
+            if (idLower.includes('other') || idLower === 'other' || idLower.startsWith('column-other-')) {
+                const customValue =
+                    otherValues[id] ||
+                    Object.entries(otherValues).find(([key]) => key.toLowerCase().includes(idLower))?.[1] ||
+                    Object.values(otherValues)[0];
+                processedLabels.push(customValue ? `Other: ${customValue}` : 'Other');
+            } else {
+                // 为 column ID 创建简化的标签
+                let displayLabel = id;
+                if (id.startsWith('column-')) {
+                    displayLabel = getColumnLabel(id, questionId);
+                }
+                processedLabels.push(displayLabel);
+            }
+        });
+
+        return processedLabels;
+    }
+
+    const answerIds = getCheckboxAnswers(answer);
+    const columnMap = new Map<string, string>();
+    const otherColumnIds = new Set<string>();
+
+    // 建立列映射并识别 Other 列
+    questionConfig.columns.forEach((column: any) => {
+        columnMap.set(column.id, column.label);
+        if (
+            column.isOther ||
+            column.type === 'other' ||
+            column.allowCustom ||
+            column.hasInput ||
+            (column.label &&
+                (column.label.toLowerCase().includes('other') ||
+                    column.label.toLowerCase().includes('enter other') ||
+                    column.label.toLowerCase().includes('custom') ||
+                    column.label.toLowerCase().includes('specify')))
+        ) {
+            otherColumnIds.add(column.id);
+        }
+    });
+
+    // 从 responseText 中提取 Other 自定义值
+    let otherValues: { [key: string]: string } = {};
+    if (responseText && questionId) {
+        otherValues = extractOtherValues(responseText, questionId);
+    }
+
+    // 将 ID 转换为对应的 label
+    const labels: string[] = [];
+    answerIds.forEach((rawId) => {
+        const id = String(rawId);
+        const idLower = id.toLowerCase();
+        const columnLabel = columnMap.get(id);
+
+        if (columnLabel) {
+            // Other 列显示自定义值
+            if (otherColumnIds.has(id) || idLower.includes('other') || columnLabel.toLowerCase().includes('other')) {
+                const customValue =
+                    otherValues[id] ||
+                    otherValues[id.replace('column-', 'column-other-')] ||
+                    Object.entries(otherValues).find(([key]) => key.toLowerCase().includes(idLower))?.[1] ||
+                    Object.values(otherValues)[0];
+
+                labels.push(customValue ? `Other: ${customValue}` : columnLabel);
+            } else {
+                labels.push(columnLabel);
+            }
+        } else {
+            // 未配置映射，尝试与 otherValues 关联
+            const hasRelatedOther = Object.keys(otherValues).some((key) => key.toLowerCase().includes(idLower));
+            if (hasRelatedOther || idLower.includes('other')) {
+                const customValue =
+                    Object.entries(otherValues).find(([key]) => key.toLowerCase().includes(idLower))?.[1] ||
+                    Object.values(otherValues)[0];
+                labels.push(customValue ? `Other: ${customValue}` : 'Other');
+            } else {
+                let displayLabel = id;
+                if (id.startsWith('column-')) {
+                    displayLabel = getColumnLabel(id, questionId);
+                }
+                labels.push(displayLabel);
+            }
+        }
+    });
+
+    return labels.filter(Boolean);
 };
 
 // 检查是否有有效答案
@@ -942,6 +934,11 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 				response.questionId
 			);
 			return gridLabels.join(', ');
+
+	case 'date':
+		return formatAnswerDate(answer, 'date');
+	case 'time':
+		return formatAnswerDate(answer, 'time');
 
 		default:
 			// 对于其他类型，使用原有逻辑
@@ -1117,6 +1114,45 @@ const formatFileSize = (bytes: number): string => {
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// --- US date/time formatting helpers for answer values ---
+const formatDateUS = (dateString: string): string => {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
+    } catch {
+        return dateString;
+    }
+};
+
+const formatAnswerDate = (dateStr: any, questionType?: string): string => {
+    if (!dateStr) return '';
+    const dateString = String(dateStr);
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        if (questionType === 'time') {
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+    } catch {
+        return dateString;
+    }
 };
 
 const handleCurrentChange = (newPage: number) => {
