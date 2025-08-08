@@ -4,16 +4,16 @@
 		<div class="actions-header">
 			<h1 class="title">Actions</h1>
 			<div class="actions">
-				<el-button
-					class="new-action-btn"
-					type="primary"
-					@click="handleCreateAction"
-				>
-					<el-icon><Plus /></el-icon>
+				<el-button class="new-action-btn" type="primary" @click="handleCreateAction">
+					<el-icon>
+						<Plus />
+					</el-icon>
 					<span>New Action</span>
 				</el-button>
 				<el-button @click="handleExport" :loading="exportLoading">
-					<el-icon><Download /></el-icon>
+					<el-icon>
+						<Download />
+					</el-icon>
 					<span>Export</span>
 				</el-button>
 			</div>
@@ -31,7 +31,9 @@
 					>
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Action ID or Action Name</label>
+								<label class="text-sm font-medium text-gray-700">
+									Action ID or Action Name
+								</label>
 								<el-input
 									v-model="searchForm.keyword"
 									placeholder="Enter Action ID or Action Name"
@@ -39,7 +41,9 @@
 									class="w-full rounded-md"
 								>
 									<template #prefix>
-										<el-icon><Search /></el-icon>
+										<el-icon>
+											<Search />
+										</el-icon>
 									</template>
 								</el-input>
 							</div>
@@ -52,17 +56,19 @@
 									clearable
 									class="w-full rounded-md"
 								>
-									<el-option 
-										v-for="option in getActionTypeOptions()" 
-										:key="option.value" 
-										:label="option.label" 
-										:value="option.value" 
+									<el-option
+										v-for="option in getActionTypeOptions()"
+										:key="option.value"
+										:label="option.label"
+										:value="option.value"
 									/>
 								</el-select>
 							</div>
 
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Assignment - Workflow</label>
+								<label class="text-sm font-medium text-gray-700">
+									Assignment - Workflow
+								</label>
 								<el-select
 									v-model="searchForm.assignmentWorkflow"
 									placeholder="Select Assignment"
@@ -78,7 +84,9 @@
 
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Assignment - Stage</label>
+								<label class="text-sm font-medium text-gray-700">
+									Assignment - Stage
+								</label>
 								<el-select
 									v-model="searchForm.assignmentStage"
 									placeholder="Select Assignment"
@@ -92,7 +100,9 @@
 							</div>
 
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Assignment - Checklist</label>
+								<label class="text-sm font-medium text-gray-700">
+									Assignment - Checklist
+								</label>
 								<el-select
 									v-model="searchForm.assignmentChecklist"
 									placeholder="Select Assignment"
@@ -106,7 +116,9 @@
 							</div>
 
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Assignment - Questionnaire</label>
+								<label class="text-sm font-medium text-gray-700">
+									Assignment - Questionnaire
+								</label>
 								<el-select
 									v-model="searchForm.assignmentQuestionnaire"
 									placeholder="Select Assignment"
@@ -122,10 +134,12 @@
 
 						<div class="flex justify-end space-x-2">
 							<el-button type="primary" @click="handleSearch">
-								<el-icon><Search /></el-icon>
+								<el-icon>
+									<Search />
+								</el-icon>
 								<span>Search</span>
 							</el-button>
-					</div>
+						</div>
 					</el-form>
 				</div>
 			</template>
@@ -152,11 +166,17 @@
 				<el-table-column prop="triggerMappings" label="Assignments" min-width="300">
 					<template #default="{ row }">
 						<div class="assignments-list">
-							<div v-for="mapping in row.triggerMappings" :key="mapping.id" class="assignment-item">
+							<div
+								v-for="mapping in row.triggerMappings"
+								:key="mapping.id"
+								class="assignment-item"
+							>
 								<span class="assignment-name">
 									{{ getAssignmentDisplayName(mapping) }}
 								</span>
-								<span class="assignment-date">Last applied: {{ mapping.lastApplied }}</span>
+								<span class="assignment-date">
+									Last applied: {{ mapping.lastApplied }}
+								</span>
 							</div>
 						</div>
 					</template>
@@ -166,12 +186,16 @@
 						<div class="action-buttons">
 							<el-tooltip content="Edit" placement="top">
 								<el-button type="primary" link @click="handleEdit(row)">
-									<el-icon><Edit /></el-icon>
+									<el-icon>
+										<Edit />
+									</el-icon>
 								</el-button>
 							</el-tooltip>
 							<el-tooltip content="Delete" placement="top">
 								<el-button type="danger" link @click="handleDelete(row)">
-									<el-icon><Delete /></el-icon>
+									<el-icon>
+										<Delete />
+									</el-icon>
 								</el-button>
 							</el-tooltip>
 						</div>
@@ -199,15 +223,18 @@
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import {
-	Plus,
-	Download,
-	Search,
-	Edit,
-	Delete,
-} from '@element-plus/icons-vue';
+import { Plus, Download, Search, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
-import { getActionDefinitions, deleteAction, exportActions, type ActionDefinition, type ActionQueryRequest, type TriggerMapping, ActionType, ACTION_TYPE_MAPPING, FRONTEND_TO_BACKEND_TYPE_MAPPING } from '../../apis/action';
+import {
+	getActionDefinitions,
+	deleteAction,
+	exportActions,
+	type ActionDefinition,
+	type ActionQueryRequest,
+	type TriggerMapping,
+	ActionType,
+	ACTION_TYPE_MAPPING,
+} from '../../apis/action';
 
 // Router
 const router = useRouter();
@@ -248,35 +275,34 @@ const getActionTypeOptions = () => {
 		{ label: 'All Types', value: 'all' },
 		...Object.entries(ACTION_TYPE_MAPPING).map(([key, value]) => ({
 			label: value,
-			value: key
-		}))
+			value: key,
+		})),
 	];
 };
 
-
 const getAssignmentDisplayName = (mapping: TriggerMapping) => {
 	const parts: string[] = [];
-	
+
 	// Add WorkflowName
 	if (mapping.workFlowName && mapping.workFlowName.trim()) {
 		parts.push(mapping.workFlowName);
 	}
-	
+
 	// Add StageName
 	if (mapping.stageName && mapping.stageName.trim()) {
 		parts.push(mapping.stageName);
 	}
-	
+
 	// Add triggerSourceName
 	if (mapping.triggerSourceName && mapping.triggerSourceName.trim()) {
 		parts.push(mapping.triggerSourceName);
 	}
-	
+
 	// If all fields are empty, return default value
 	if (parts.length === 0) {
 		return 'Unknown Assignment';
 	}
-	
+
 	// Join all non-empty parts with arrows
 	return parts.join(' → ');
 };
@@ -289,7 +315,7 @@ const handleExport = async () => {
 	try {
 		// Show export loading
 		exportLoading.value = true;
-		
+
 		// Build query parameters (same as search)
 		const params: ActionQueryRequest = {
 			pageIndex: 1,
@@ -323,9 +349,11 @@ const handleExport = async () => {
 
 		// Call export API
 		const response = await exportActions(params);
-		
+
 		// Create download link
-		const blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+		const blob = new Blob([response], {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		});
 		const url = window.URL.createObjectURL(blob);
 		const link = document.createElement('a');
 		link.href = url;
@@ -334,7 +362,7 @@ const handleExport = async () => {
 		link.click();
 		document.body.removeChild(link);
 		window.URL.revokeObjectURL(url);
-		
+
 		ElMessage.success('Export completed successfully');
 	} catch (error) {
 		console.error('Export failed:', error);
@@ -350,8 +378,6 @@ const handleSearch = async () => {
 	// Reload data with search conditions
 	await loadActionsList();
 };
-
-
 
 const handleSelectionChange = (selection: any[]) => {
 	selectedActions.value = selection;
@@ -375,7 +401,7 @@ const handleDelete = async (row: ActionDefinition) => {
 
 		loading.value = true;
 		const response = await deleteAction(row.id);
-		
+
 		if (response.code === '200' && response.success) {
 			ElMessage.success('Action deleted successfully');
 			// Reload data
@@ -414,7 +440,7 @@ const handleLimitUpdate = async () => {
 const loadActionsList = async () => {
 	try {
 		loading.value = true;
-		
+
 		// Build query parameters
 		const params: ActionQueryRequest = {
 			pageIndex: pagination.currentPage,
@@ -449,7 +475,7 @@ const loadActionsList = async () => {
 
 		// Call API
 		const response = await getActionDefinitions(params);
-		
+
 		if (response.code === '200' && response.success) {
 			actionsList.value = response.data.data || [];
 			pagination.total = response.data.total || 0;
@@ -538,4 +564,4 @@ onMounted(() => {
 	font-size: 12px !important;
 	font-weight: 500 !important;
 }
-</style> 
+</style>
