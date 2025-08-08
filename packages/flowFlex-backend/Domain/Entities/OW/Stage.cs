@@ -107,9 +107,9 @@ namespace FlowFlex.Domain.Entities.OW
         public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
-        /// Stage Components Configuration (JSON)
+        /// Stage Components Configuration (JSONB)
         /// </summary>
-        [SugarColumn(ColumnName = "components_json")]
+        [SugarColumn(ColumnName = "components_json", ColumnDataType = "jsonb", IsJson = true)]
         public string ComponentsJson { get; set; }
 
 

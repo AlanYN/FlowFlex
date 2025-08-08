@@ -19,93 +19,50 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
         public async Task<List<QuestionnaireSection>> GetByQuestionnaireIdAsync(long questionnaireId)
         {
-            return await db.Queryable<QuestionnaireSection>()
-                .Where(x => x.QuestionnaireId == questionnaireId && x.IsValid)
-                .ToListAsync();
+            // Table ff_questionnaire_section has been removed; return empty list to keep backward compatibility
+            return await Task.FromResult(new List<QuestionnaireSection>());
         }
 
         public async Task<List<QuestionnaireSection>> GetOrderedByQuestionnaireIdAsync(long questionnaireId)
         {
-            return await db.Queryable<QuestionnaireSection>()
-                .Where(x => x.QuestionnaireId == questionnaireId && x.IsValid)
-                .OrderBy(x => x.Order)
-                .OrderBy(x => x.Id)
-                .ToListAsync();
+            // Table removed; no-op return
+            return await Task.FromResult(new List<QuestionnaireSection>());
         }
 
         public async Task<List<QuestionnaireSection>> GetByQuestionnaireIdsAsync(List<long> questionnaireIds)
         {
-            if (questionnaireIds == null || !questionnaireIds.Any())
-            {
-                return new List<QuestionnaireSection>();
-            }
-
-            return await db.Queryable<QuestionnaireSection>()
-                .Where(x => questionnaireIds.Contains(x.QuestionnaireId) && x.IsValid)
-                .OrderBy(x => x.QuestionnaireId)
-                .OrderBy(x => x.Order)
-                .OrderBy(x => x.Id)
-                .ToListAsync();
+            // Table removed; always return empty list
+            return await Task.FromResult(new List<QuestionnaireSection>());
         }
 
         public async Task<bool> DeleteByQuestionnaireIdAsync(long questionnaireId)
         {
-            var result = await db.Updateable<QuestionnaireSection>()
-                .SetColumns(x => new QuestionnaireSection { IsValid = false })
-                .Where(x => x.QuestionnaireId == questionnaireId && x.IsValid)
-                .ExecuteCommandAsync();
-
-            return result > 0;
+            // Table removed; consider delete as success
+            return await Task.FromResult(true);
         }
 
         public async Task<bool> UpdateOrderAsync(long sectionId, int newOrder)
         {
-            var result = await db.Updateable<QuestionnaireSection>()
-                .SetColumns(x => x.Order == newOrder)
-                .Where(x => x.Id == sectionId)
-                .ExecuteCommandAsync();
-
-            return result > 0;
+            // Table removed; treat as no-op success
+            return await Task.FromResult(true);
         }
 
         public async Task<bool> BatchUpdateOrderAsync(List<(long SectionId, int Order)> orderUpdates)
         {
-            if (!orderUpdates.Any())
-                return true;
-
-            var updateList = orderUpdates.Select(x => new QuestionnaireSection
-            {
-                Id = x.SectionId,
-                Order = x.Order
-            }).ToList();
-
-            var result = await db.Updateable(updateList)
-                .UpdateColumns(x => new { x.Order })
-                .ExecuteCommandAsync();
-
-            return result > 0;
+            // Table removed; treat as no-op success
+            return await Task.FromResult(true);
         }
 
         public async Task<bool> ExistsTitleInQuestionnaireAsync(long questionnaireId, string title, long? excludeId = null)
         {
-            var query = db.Queryable<QuestionnaireSection>()
-                .Where(x => x.QuestionnaireId == questionnaireId && x.Title == title && x.IsValid);
-
-            if (excludeId.HasValue)
-            {
-                query = query.Where(x => x.Id != excludeId.Value);
-            }
-
-            return await query.AnyAsync();
+            // Table removed; there is no title conflict
+            return await Task.FromResult(false);
         }
 
         public async Task<int> GetNextOrderAsync(long questionnaireId)
         {
-            var maxOrder = await db.Queryable<QuestionnaireSection>()
-                .Where(x => x.QuestionnaireId == questionnaireId && x.IsValid)
-                .MaxAsync(x => x.Order);
-
-            return maxOrder + 1;
+            // Table removed; start from 1
+            return await Task.FromResult(1);
         }
 
         /// <summary>
@@ -113,11 +70,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<QuestionnaireSection>> GetActiveByQuestionnaireIdAsync(long questionnaireId)
         {
-            return await db.Queryable<QuestionnaireSection>()
-                .Where(x => x.QuestionnaireId == questionnaireId && x.IsValid && x.IsActive == true)
-                .OrderBy(x => x.Order)
-                .OrderBy(x => x.Id)
-                .ToListAsync();
+            // Table removed; return empty
+            return await Task.FromResult(new List<QuestionnaireSection>());
         }
 
         /// <summary>
@@ -125,20 +79,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<bool> UpdateSectionOrdersAsync(List<(long SectionId, int OrderIndex)> sectionOrders)
         {
-            if (!sectionOrders.Any())
-                return true;
-
-            var updateList = sectionOrders.Select(x => new QuestionnaireSection
-            {
-                Id = x.SectionId,
-                Order = x.OrderIndex
-            }).ToList();
-
-            var result = await db.Updateable(updateList)
-                .UpdateColumns(x => new { x.Order })
-                .ExecuteCommandAsync();
-
-            return result > 0;
+            // Table removed; treat as no-op success
+            return await Task.FromResult(true);
         }
 
         /// <summary>
@@ -146,16 +88,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<bool> UpdateSectionStatusAsync(long sectionId, bool isActive)
         {
-            var result = await db.Updateable<QuestionnaireSection>()
-                .SetColumns(x => new QuestionnaireSection
-                {
-                    IsActive = isActive,
-                    ModifyDate = DateTimeOffset.Now
-                })
-                .Where(x => x.Id == sectionId && x.IsValid == true)
-                .ExecuteCommandAsync();
-
-            return result > 0;
+            // Table removed; treat as no-op success
+            return await Task.FromResult(true);
         }
     }
 }
