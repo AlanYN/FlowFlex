@@ -52,10 +52,58 @@ const buyingTimeframe: Options[] = [
 	{ key: '4-6 months', value: '4-6 months' },
 ];
 
+const defaultAssignedGroup: Options[] = [
+	{
+		value: 'Sales',
+		key: 'Sales',
+	},
+	{
+		value: 'Account Management',
+		key: 'Account Management',
+	},
+	{
+		value: 'IT',
+		key: 'IT',
+	},
+	{
+		value: 'Legal',
+		key: 'Legal',
+	},
+	{
+		value: 'Operations',
+		key: 'Operations',
+	},
+	{
+		value: 'Finance',
+		key: 'Finance',
+	},
+	{
+		value: 'Customer',
+		key: 'Customer',
+	},
+	{
+		value: 'CSR',
+		key: 'CSR',
+	},
+	{
+		value: 'Implementation',
+		key: 'Implementation',
+	},
+	{
+		value: 'WISE Support',
+		key: 'WISE Support',
+	},
+	{
+		value: 'Billing',
+		key: 'Billing',
+	},
+];
+
 export {
 	preferencesCommunication,
 	preferenceslanguage,
 	preferencesCurrency,
 	buyingReason,
 	buyingTimeframe,
+	defaultAssignedGroup,
 };

@@ -26,24 +26,30 @@
 				</h2>
 				<div class="p-4 space-y-2">
 					<el-button
-						v-for="team in teams"
-						:key="team.id"
-						@click="selectedTeam = team.id"
+						v-for="team in [
+							{
+								key: 'all',
+								value: 'All',
+							},
+							...defaultAssignedGroup,
+						]"
+						:key="team.key"
+						@click="selectedTeam = team.key"
 						:class="[
 							'team-button w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
-							selectedTeam === team.id
+							selectedTeam === team.key
 								? 'team-button-active text-blue-900 font-medium'
 								: 'text-gray-700 hover:bg-gray-100',
 						]"
 						:style="
-							selectedTeam === team.id
+							selectedTeam === team.key
 								? 'background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;'
 								: ''
 						"
 						plain
 						class="!justify-start !w-full !border-none !px-3 !py-2"
 					>
-						{{ team.name }}
+						{{ team.value }}
 					</el-button>
 				</div>
 			</div>
@@ -595,10 +601,10 @@
 				<el-form-item label="Team" required>
 					<el-select v-model="formData.team" placeholder="Select team" class="w-full">
 						<el-option
-							v-for="team in availableTeams"
-							:key="team"
-							:value="team"
-							:label="team"
+							v-for="team in defaultAssignedGroup"
+							:key="team.value"
+							:label="team.key"
+							:value="team.value"
 						/>
 					</el-select>
 				</el-form-item>
@@ -653,6 +659,7 @@ import InputTag from '@/components/global/u-input-tags/index.vue';
 import draggable from 'vuedraggable';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import { timeZoneConvert } from '@/hooks/time';
+import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 
 // 响应式数据 - 使用shallowRef优化大数组性能
 const checklists = shallowRef([]);
@@ -670,26 +677,6 @@ const taskFormData = ref({
 	estimatedMinutes: 0,
 	isRequired: false,
 });
-
-const availableTeams = [
-	'Sales',
-	'IT',
-	'Billing',
-	'Implementation Team',
-	'WISE Support',
-	'Accounting',
-];
-
-// 团队列表
-const teams = ref([
-	{ id: 'all', name: 'All' },
-	{ id: 'sales', name: 'Sales' },
-	{ id: 'implementation', name: 'Implementation Team' },
-	{ id: 'accounting', name: 'Accounting' },
-	{ id: 'it', name: 'IT' },
-	{ id: 'billing', name: 'Billing' },
-	{ id: 'wise-support', name: 'WISE Support' },
-]);
 
 // UI状态
 const searchTags = ref([]);
@@ -779,7 +766,9 @@ const filteredChecklists = computed(() => {
 				checklist.team.toLowerCase().replace(/\s+/g, '-') === selectedTeamValue ||
 				// 添加反向匹配：根据selectedTeamValue找到对应的team name进行匹配
 				(() => {
-					const selectedTeamObj = teams.value.find((t) => t.id === selectedTeamValue);
+					const selectedTeamObj = defaultAssignedGroup.find(
+						(t) => t.key == selectedTeamValue
+					);
 					return selectedTeamObj && checklist.team === selectedTeamObj.name;
 				})();
 
