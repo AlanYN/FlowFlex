@@ -43,9 +43,9 @@
 					class="stages-draggable"
 					:animation="300"
 				>
-					<template #item="{ element }">
+					<template #item="{ element, index }">
 						<div
-							class="stage-item"
+							class="stage-item drag-handle"
 							:class="{
 								'stage-disabled': isLoading,
 								'stage-sorting': isSorting,
@@ -69,7 +69,7 @@
 									<div
 										tabindex="0"
 										role="button"
-										class="drag-handle flex items-center justify-center h-8 w-8 rounded-full"
+										class="flex items-center justify-center h-8 w-8 rounded-full"
 										v-if="isEditing"
 										:class="{
 											'drag-disabled': isLoading,
@@ -80,7 +80,10 @@
 												element.color || getAvatarColor(element.name),
 										}"
 									>
-										<GripVertical style="color: white" />
+										<!-- <GripVertical style="color: white" /> -->
+										<span class="text-base font-bold text-white">
+											{{ index + 1 }}
+										</span>
 									</div>
 									<div
 										class="stage-avatar"
@@ -138,6 +141,7 @@
 										:disabled="isLoading || isSorting"
 										@command="(cmd) => handleCommand(cmd, element)"
 										@click.stop
+										:ref="(el) => (dropdownRefs[index] = el)"
 									>
 										<div
 											class="inline-flex items-center justify-center h-9 rounded-md px-3 hover:bg-accent hover:text-accent-foreground"
@@ -315,7 +319,7 @@ import draggable from 'vuedraggable';
 // 引入SVG图标作为组件
 import ChevronRight from '@assets/svg/workflow/chevron-right.svg';
 import ChevronDown from '@assets/svg/workflow/chevron-down.svg';
-import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
+// import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import Ellipsis from '@assets/svg/workflow/ellipsis.svg';
 import Users from '@assets/svg/workflow/users.svg';
 import Clock from '@assets/svg/workflow/clock.svg';
@@ -332,6 +336,7 @@ import { Stage } from '#/onboard';
 // 导入静态字段配置
 import staticFieldConfig from '../static-field.json';
 import { defaultStr } from '@/settings/projectSetting';
+import { ElDropdown } from 'element-plus';
 
 // Props
 const props = defineProps({
@@ -467,7 +472,13 @@ const handleCommand = (command: string, stage: Stage) => {
 	}
 };
 
+const dropdownRefs = ref<any[]>([]);
+const closeAllDropdowns = async () => {
+	dropdownRefs.value.forEach((d) => d?.handleClose?.());
+};
+
 const onDragStart = () => {
+	closeAllDropdowns();
 	// 触发拖动开始事件，让父组件保存原始顺序
 	emit('drag-start');
 };
