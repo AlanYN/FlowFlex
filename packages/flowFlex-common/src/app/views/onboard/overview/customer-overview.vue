@@ -415,21 +415,43 @@
 											v-else-if="isFileUploadType(row.questionType)"
 											class="space-y-1"
 										>
-											<template v-if="getFileAnswers(row.answer).length > 0">
-												<div
-													v-for="file in getFileAnswers(row.answer)"
-													:key="file.name"
-													class="flex items-center text-sm bg-gray-100 p-1 rounded"
-												>
-													<el-icon class="mr-1 text-blue-500">
-														<Document />
-													</el-icon>
-													<span class="truncate">{{ file.name }}</span>
-													<span class="ml-1 text-xs text-gray-500">
-														({{ formatFileSize(file.size) }})
-													</span>
-												</div>
-											</template>
+								<template v-if="getFileAnswers(row.answer).length > 0">
+									<div
+										v-for="file in getFileAnswers(row.answer)"
+										:key="file.name + (file.url || '')"
+										class="flex items-center text-sm bg-gray-100 p-1 rounded"
+									>
+										<el-icon class="mr-1 text-blue-500">
+											<Document />
+										</el-icon>
+										<span class="truncate">{{ file.name }}</span>
+										<span class="ml-1 text-xs text-gray-500" v-if="file.size">
+											({{ formatFileSize(file.size) }})
+										</span>
+										<!-- 操作区：预览与下载 -->
+										<div class="ml-auto flex items-center space-x-2">
+											<a
+												v-if="file.url"
+												:href="file.url"
+												target="_blank"
+												rel="noopener"
+												class="text-blue-600 hover:underline"
+												@click.stop
+											>
+												Preview
+											</a>
+											<a
+												v-if="file.url"
+												:href="file.url"
+												:download="file.name || 'download'"
+												class="text-blue-600 hover:underline"
+												@click.stop
+											>
+												Download
+											</a>
+										</div>
+									</div>
+								</template>
 										</div>
 
 										<!-- 单选网格 (Checkbox grid) -->
@@ -437,22 +459,29 @@
 											v-else-if="isCheckboxGridType(row.questionType)"
 											class="grid-answer"
 										>
-											<template v-if="row.answer">
-												<el-tag
-													type="warning"
-													size="small"
-													effect="light"
-													class="grid-tag"
-												>
-													<el-icon class="mr-1" size="12">
-														<Check />
-													</el-icon>
-													{{ row.answer }}
-												</el-tag>
-												<div class="mt-1 text-xs text-gray-500">
-													Grid selection
-												</div>
-											</template>
+								<template v-if="row.answer">
+									<el-tag
+										type="warning"
+										size="small"
+										effect="light"
+										class="grid-tag"
+									>
+										<el-icon class="mr-1" size="12">
+											<Check />
+										</el-icon>
+										{{
+											getGridAnswerLabels(
+												row.answer,
+												row.questionConfig,
+												row.responseText,
+												row.id
+											)[0] || row.answer
+										}}
+									</el-tag>
+									<div class="mt-1 text-xs text-gray-500">
+										Grid selection
+									</div>
+								</template>
 										</div>
 
 										<!-- 多选网格 (Multiple choice grid) -->
@@ -963,11 +992,18 @@ const processQuestionnaireData = (
 							}
 						}
 
-						responses.push({
-							id: gridAnswer.questionId, // 使用网格行的完整ID
-							question: gridAnswer.question || question.title, // 使用网格行的问题标题
-							description: question.description,
-							answer: gridAnswer.answer || gridAnswer.responseText || '',
+                        // 避免空选择时将 "{}" 作为有效答案展示
+                        const sanitizedGridAnswer =
+                            typeof gridAnswer.answer === 'string'
+                                ? gridAnswer.answer
+                                : String(gridAnswer.answer ?? '');
+
+                        responses.push({
+                            id: gridAnswer.questionId, // 使用网格行的完整ID
+                            question: gridAnswer.question || question.title, // 使用网格行的问题标题
+                            description: question.description,
+                            // 对于网格题，仅保留实际选择值；不再用 responseText 兜底，避免显示 "{}"
+                            answer: sanitizedGridAnswer,
 							answeredBy:
 								firstAnsweredBy ||
 								gridAnswer?.lastModifiedBy ||
@@ -1305,8 +1341,8 @@ const allQuestionsForExport = computed(() => {
 			// 处理答案显示，确保所有选择类型都显示正确的 label
 			let displayAnswer = response.answer || '';
 
-			// 如果是多选表格类型，转换为label显示
-			if (response.questionType === 'multiple_choice_grid' && response.questionConfig) {
+			// 如果是表格类型（单选/多选），转换为label显示
+			if ((response.questionType === 'multiple_choice_grid' || response.questionType === 'checkbox_grid') && response.questionConfig) {
 				const labels = getGridAnswerLabels(response.answer, response.questionConfig, response.responseText, response.id);
 				displayAnswer = labels.join(', ');
 			}
@@ -1322,6 +1358,13 @@ const allQuestionsForExport = computed(() => {
 			// 如果是下拉选择类型，转换为label显示
 			else if (response.questionType === 'dropdown' && response.answer) {
 				displayAnswer = getDropdownLabel(response.answer, response.questionConfig);
+			}
+			// 如果是日期/时间类型，格式化为美国格式
+			else if (
+				(response.questionType === 'date' || response.questionType === 'time') &&
+				response.answer
+			) {
+				displayAnswer = formatAnswerDate(response.answer, response.questionType);
 			}
 			// 其他类型保持原样
 			else {
@@ -1353,8 +1396,8 @@ const filteredQuestionsForExport = computed(() => {
 			// 处理答案显示，确保所有选择类型都显示正确的 label
 			let displayAnswer = response.answer || '';
 			
-			// 如果是多选表格类型，转换为label显示
-			if (response.questionType === 'multiple_choice_grid' && response.questionConfig) {
+			// 如果是表格类型（单选/多选），转换为label显示
+			if ((response.questionType === 'multiple_choice_grid' || response.questionType === 'checkbox_grid') && response.questionConfig) {
 				const labels = getGridAnswerLabels(response.answer, response.questionConfig, response.responseText, response.id);
 				displayAnswer = labels.join(', ');
 			}
@@ -1370,6 +1413,13 @@ const filteredQuestionsForExport = computed(() => {
 			// 如果是下拉选择类型，转换为label显示
 			else if (response.questionType === 'dropdown' && response.answer) {
 				displayAnswer = getDropdownLabel(response.answer, response.questionConfig);
+			}
+			// 如果是日期/时间类型，格式化为美国格式
+			else if (
+				(response.questionType === 'date' || response.questionType === 'time') &&
+				response.answer
+			) {
+				displayAnswer = formatAnswerDate(response.answer, response.questionType);
 			}
 			// 其他类型保持原样
 			else {
@@ -2277,92 +2327,99 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 };
 
 // 解析网格答案，将column ID转换为对应的label
-const getGridAnswerLabels = (answer: any, questionConfig: any, responseText?: string, questionId?: string): string[] => {
-	if (!answer || !questionConfig?.columns) return [];
+const getGridAnswerLabels = (
+    answer: any,
+    questionConfig: any,
+    responseText?: string,
+    questionId?: string
+): string[] => {
+    if (!answer || !questionConfig?.columns) return [];
 
-	// 获取原始答案数组
-	const answerIds = getCheckboxAnswers(answer);
-	
+    // 获取原始答案数组
+    const answerIds = getCheckboxAnswers(answer);
 
+    // 创建 column ID -> label 的映射
+    const columnMap = new Map<string, string>();
+    const otherColumnIds = new Set<string>();
 
-	// 创建column ID到label的映射
-	const columnMap = new Map<string, string>();
-	const otherColumnIds = new Set<string>();
-	
-	questionConfig.columns.forEach((column: any) => {
-		columnMap.set(column.id, column.label);
-		// 识别other类型的列
-		if (column.isOther || 
-			column.type === 'other' || 
-			column.allowCustom || 
-			column.hasInput ||
-			(column.label && (
-				column.label.toLowerCase().includes('other') || 
-				column.label.toLowerCase().includes('enter other') ||
-				column.label.toLowerCase().includes('custom') ||
-				column.label.toLowerCase().includes('specify')
-			))) {
-			otherColumnIds.add(column.id);
-		}
-	});
+    questionConfig.columns.forEach((column: any) => {
+        columnMap.set(column.id, column.label);
+        // 识别包含 Other/自定义输入 的列
+        if (
+            column.isOther ||
+            column.type === 'other' ||
+            column.allowCustom ||
+            column.hasInput ||
+            (column.label &&
+                (column.label.toLowerCase().includes('other') ||
+                    column.label.toLowerCase().includes('enter other') ||
+                    column.label.toLowerCase().includes('custom') ||
+                    column.label.toLowerCase().includes('specify')))
+        ) {
+            otherColumnIds.add(column.id);
+        }
+    });
 
-	// 从responseText中提取Other选项的自定义值
-	let otherValues: { [key: string]: string } = {};
-	if (responseText && questionId) {
-		otherValues = extractOtherValues(responseText, questionId);
+    // 从 responseText 中提取 Other 的自定义值
+    let otherValues: { [key: string]: string } = {};
+    if (responseText && questionId) {
+        otherValues = extractOtherValues(responseText, questionId);
+    }
 
-	}
+    // 将 ID 转换为对应的 label
+    const labels: string[] = [];
+    answerIds.forEach((id) => {
+        const idLower = String(id).toLowerCase();
+        const columnLabel = columnMap.get(id);
 
-	// 将ID转换为对应的label
-	const labels: string[] = [];
-	answerIds.forEach((id) => {
-		const columnLabel = columnMap.get(id);
-		
-		if (columnLabel) {
-			// 如果这是一个other类型的列，显示自定义值
-			if (otherColumnIds.has(id) || id.includes('other') || columnLabel.toLowerCase().includes('other')) {
-				// 查找对应的自定义值，尝试多种格式
-				const customValue = otherValues[id] || 
-								   otherValues[id.replace('column-', 'column-other-')] ||
-								   Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
+        if (columnLabel) {
+            // 如果是 Other 类型的列，则优先显示用户输入的值
+            if (
+                otherColumnIds.has(id) ||
+                idLower.includes('other') ||
+                columnLabel.toLowerCase().includes('other')
+            ) {
+                const customValue =
+                    otherValues[id] ||
+                    otherValues[id.replace('column-', 'column-other-')] ||
+                    Object.entries(otherValues).find(([key]) =>
+                        key.toLowerCase().includes(idLower)
+                    )?.[1];
 
-				if (customValue) {
-					labels.push(`Other: ${customValue}`);
-				} else {
-					labels.push(columnLabel);
-				}
-			} else {
-				labels.push(columnLabel);
-			}
-		} else {
-			// 对于没有找到对应label的值，检查是否有other自定义值
-			const isOtherValue = Object.keys(otherValues).some(otherKey => {
-				return otherKey.includes(id) || id.includes('other');
-			});
-			
-			if (isOtherValue) {
-				// 如果这个值对应一个other选项，查找自定义值
-				const customValue = Object.entries(otherValues).find(([key]) => 
-					key.includes(id) || (id.includes('other') && key.includes('other'))
-				)?.[1];
-				if (customValue) {
-					labels.push(`Other: ${customValue}`);
-				} else if (id === 'Other' || id.toLowerCase() === 'other') {
-					// 如果答案就是"Other"，查找任何other相关的自定义值
-					const anyOtherValue = Object.values(otherValues)[0];
-					if (anyOtherValue) {
-						labels.push(`Other: ${anyOtherValue}`);
-					} else {
-						labels.push(id);
-					}
-				}
-			} else {
-				labels.push(id);
-			}
-		}
-	});
+                if (customValue) {
+                    labels.push(`Other: ${customValue}`);
+                } else {
+                    labels.push(columnLabel);
+                }
+            } else {
+                labels.push(columnLabel);
+            }
+        } else {
+            // 未在 columnMap 中找到，可能是直接返回了 "Other"
+            if (idLower === 'other' || idLower.includes('other')) {
+                const customValue =
+                    otherValues[id] ||
+                    Object.values(otherValues)[0];
+                labels.push(customValue ? `Other: ${customValue}` : 'Other');
+                return;
+            }
 
-	return labels.filter(Boolean);
+            // 兜底：大小写不敏感地匹配 otherValues 的键
+            const hasRelatedOther = Object.keys(otherValues).some((k) =>
+                k.toLowerCase().includes(idLower)
+            );
+            if (hasRelatedOther) {
+                const customValue = Object.entries(otherValues).find(([key]) =>
+                    key.toLowerCase().includes(idLower)
+                )?.[1];
+                labels.push(customValue ? `Other: ${customValue}` : String(id));
+            } else {
+                labels.push(String(id));
+            }
+        }
+    });
+
+    return labels.filter(Boolean);
 };
 
 // 图标选项配置
@@ -2381,30 +2438,49 @@ const iconOptions = {
 	},
 };
 
-const getFileAnswers = (answer: any): Array<{ name: string; size?: number }> => {
+const getFileAnswers = (answer: any): Array<{ name: string; size?: number; url?: string }> => {
 	if (!answer) return [];
 
 	// If it's already an array, process each item
-	if (Array.isArray(answer)) {
-		return answer.map((file) => {
-			if (typeof file === 'object' && file !== null) {
-				return {
-					name: file.name || file.fileName || 'Unknown file',
-					size: file.size || file.fileSize,
-				};
-			}
-			return { name: String(file) };
-		});
-	}
+    if (Array.isArray(answer)) {
+        return answer.map((file) => {
+            if (typeof file === 'object' && file !== null) {
+                const url =
+                    file.url ||
+                    file.fileUrl ||
+                    file.downloadUrl ||
+                    file.href ||
+                    file.path ||
+                    undefined;
+                return {
+                    name: file.name || file.fileName || 'Unknown file',
+                    size: file.size || file.fileSize,
+                    url,
+                };
+            }
+            const str = String(file);
+            const isUrl = /^https?:\/\//i.test(str) || str.startsWith('data:');
+            return {
+                name: isUrl ? str.split('/').pop() || 'file' : str,
+                url: isUrl ? str : undefined,
+            };
+        });
+    }
 
 	// If it's an object (single file)
 	if (typeof answer === 'object' && answer !== null) {
-		return [
-			{
-				name: answer.name || answer.fileName || 'Unknown file',
-				size: answer.size || answer.fileSize,
-			},
-		];
+        return [
+            {
+                name: answer.name || answer.fileName || 'Unknown file',
+                size: answer.size || answer.fileSize,
+                url:
+                    answer.url ||
+                    answer.fileUrl ||
+                    answer.downloadUrl ||
+                    answer.href ||
+                    answer.path,
+            },
+        ];
 	}
 
 	// Convert to string if not already
@@ -2417,28 +2493,60 @@ const getFileAnswers = (answer: any): Array<{ name: string; size?: number }> => 
 
 	try {
 		const parsed = JSON.parse(answerStr);
-		if (Array.isArray(parsed)) {
-			return parsed.map((file) => {
-				if (typeof file === 'object' && file !== null) {
-					return {
-						name: file.name || file.fileName || 'Unknown file',
-						size: file.size || file.fileSize,
-					};
-				}
-				return { name: String(file) };
-			});
-		}
+        if (Array.isArray(parsed)) {
+            return parsed.map((file) => {
+                if (typeof file === 'object' && file !== null) {
+                    const url =
+                        (file as any).url ||
+                        (file as any).fileUrl ||
+                        (file as any).downloadUrl ||
+                        (file as any).href ||
+                        (file as any).path ||
+                        undefined;
+                    return {
+                        name: (file as any).name || (file as any).fileName || 'Unknown file',
+                        size: (file as any).size || (file as any).fileSize,
+                        url,
+                    };
+                }
+                const str = String(file);
+                const isUrl = /^https?:\/\//i.test(str) || str.startsWith('data:');
+                return {
+                    name: isUrl ? str.split('/').pop() || 'file' : str,
+                    url: isUrl ? str : undefined,
+                };
+            });
+        }
 		if (typeof parsed === 'object' && parsed !== null) {
-			return [
-				{
-					name: parsed.name || parsed.fileName || 'Unknown file',
-					size: parsed.size || parsed.fileSize,
-				},
-			];
+            return [
+                {
+                    name: (parsed as any).name || (parsed as any).fileName || 'Unknown file',
+                    size: (parsed as any).size || (parsed as any).fileSize,
+                    url:
+                        (parsed as any).url ||
+                        (parsed as any).fileUrl ||
+                        (parsed as any).downloadUrl ||
+                        (parsed as any).href ||
+                        (parsed as any).path,
+                },
+            ];
 		}
-		return [{ name: answerStr }];
+        // primitive string
+        const isUrl = /^https?:\/\//i.test(answerStr) || answerStr.startsWith('data:');
+        return [
+            {
+                name: isUrl ? answerStr.split('/').pop() || 'file' : answerStr,
+                url: isUrl ? answerStr : undefined,
+            },
+        ];
 	} catch {
-		return [{ name: answerStr }];
+        const isUrl = /^https?:\/\//i.test(answerStr) || answerStr.startsWith('data:');
+        return [
+            {
+                name: isUrl ? answerStr.split('/').pop() || 'file' : answerStr,
+                url: isUrl ? answerStr : undefined,
+            },
+        ];
 	}
 };
 
