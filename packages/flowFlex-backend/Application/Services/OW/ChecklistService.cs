@@ -393,7 +393,7 @@ public class ChecklistService : IChecklistService, IScopedService
         }
 
         // Create new checklist with assignments copied
-        var newChecklist = new Checklist
+            var newChecklist = new Checklist
         {
             Name = input.Name,
             Description = input.Description ?? sourceChecklist.Description,
@@ -404,8 +404,14 @@ public class ChecklistService : IChecklistService, IScopedService
             TemplateId = sourceChecklist.IsTemplate ? sourceChecklist.Id : sourceChecklist.TemplateId,
             EstimatedHours = sourceChecklist.EstimatedHours,
             IsActive = true,
-            // Copy assignments from source checklist
-            AssignmentsJson = sourceChecklist.AssignmentsJson,
+                // Copy assignments from source checklist (JSONB list)
+                Assignments = sourceChecklist.Assignments != null
+                    ? sourceChecklist.Assignments.Select(a => new FlowFlex.Domain.Entities.OW.AssignmentDto
+                    {
+                        WorkflowId = a.WorkflowId,
+                        StageId = a.StageId
+                    }).ToList()
+                    : new List<FlowFlex.Domain.Entities.OW.AssignmentDto>(),
             // Copy tenant and app information from source checklist
             TenantId = sourceChecklist.TenantId,
             AppCode = sourceChecklist.AppCode

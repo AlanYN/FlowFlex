@@ -44,6 +44,31 @@ namespace FlowFlex.Application.Service.OW
             _userContext = userContext;
         }
 
+        private static string NormalizeJson(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var current = raw.Trim();
+            // Unwrap up to 3 layers
+            for (int i = 0; i < 3; i++)
+            {
+                if (current.StartsWith("[") || current.StartsWith("{"))
+                {
+                    return current;
+                }
+                var startsWithQuote = (current.StartsWith("\"") && current.EndsWith("\"")) ||
+                                      (current.StartsWith("\'") && current.EndsWith("\'"));
+                if (!startsWithQuote) break;
+                try
+                {
+                    var inner = JsonSerializer.Deserialize<string>(current);
+                    if (string.IsNullOrWhiteSpace(inner)) break;
+                    current = inner.Trim();
+                }
+                catch { break; }
+            }
+            return current;
+        }
+
         public async Task<long> CreateAsync(QuestionnaireInputDto input)
         {
             if (input == null)
@@ -193,7 +218,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // If questionnaire is published, do not allow structure modification
-            if (entity.Status == "Published" && input.StructureJson != entity.StructureJson)
+            if (entity.Status == "Published" && input.StructureJson != (entity.Structure != null ? entity.Structure.ToString(Newtonsoft.Json.Formatting.None) : null))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot modify structure of published questionnaire");
             }
@@ -429,9 +454,9 @@ namespace FlowFlex.Application.Service.OW
 
             // Process StructureJson to generate new IDs
             string newStructureJson = null;
-            if (input.CopyStructure && !string.IsNullOrWhiteSpace(sourceQuestionnaire.StructureJson))
+            if (input.CopyStructure && sourceQuestionnaire.Structure != null)
             {
-                newStructureJson = GenerateNewIdsInStructureJson(sourceQuestionnaire.StructureJson);
+                newStructureJson = GenerateNewIdsInStructureJson(sourceQuestionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None));
             }
 
             var newQuestionnaire = new Questionnaire
@@ -440,8 +465,8 @@ namespace FlowFlex.Application.Service.OW
                 Description = input.Description ?? sourceQuestionnaire.Description,
                 Category = input.Category ?? sourceQuestionnaire.Category,
                             Status = "Draft",
-                StructureJson = newStructureJson,
-                TagsJson = sourceQuestionnaire.TagsJson,
+                Structure = string.IsNullOrWhiteSpace(newStructureJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(newStructureJson),
+                Tags = sourceQuestionnaire.Tags != null ? (Newtonsoft.Json.Linq.JToken)sourceQuestionnaire.Tags.DeepClone() : null,
                 EstimatedMinutes = sourceQuestionnaire.EstimatedMinutes,
                 AllowDraft = sourceQuestionnaire.AllowDraft,
                 AllowMultipleSubmissions = sourceQuestionnaire.AllowMultipleSubmissions,
@@ -650,7 +675,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Questionnaire is already published");
             }
 
-            if (string.IsNullOrWhiteSpace(entity.StructureJson))
+            if (entity.Structure == null || string.IsNullOrWhiteSpace(entity.Structure.ToString(Newtonsoft.Json.Formatting.None)))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot publish questionnaire without structure");
             }
@@ -687,7 +712,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Questionnaire with ID {id} not found");
             }
 
-            return await _questionnaireRepository.ValidateStructureAsync(entity.StructureJson);
+            var structureJson = entity.Structure != null ? entity.Structure.ToString(Newtonsoft.Json.Formatting.None) : null;
+            return await _questionnaireRepository.ValidateStructureAsync(structureJson);
         }
 
         public async Task<bool> UpdateStatisticsAsync(long id)
@@ -705,7 +731,7 @@ namespace FlowFlex.Application.Service.OW
 
         private async Task CalculateQuestionStatistics(Questionnaire questionnaire, List<QuestionnaireSectionInputDto> sections = null)
         {
-            if (string.IsNullOrWhiteSpace(questionnaire.StructureJson))
+            if (questionnaire.Structure == null || string.IsNullOrWhiteSpace(questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None)))
             {
                 questionnaire.TotalQuestions = 0;
                 questionnaire.RequiredQuestions = 0;
@@ -714,7 +740,7 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                var structure = JsonDocument.Parse(questionnaire.StructureJson);
+                var structure = JsonDocument.Parse(questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None));
 
                 // Question statistics logic - future enhancement
                 // This needs to be calculated based on the actual questionnaire structure JSON format

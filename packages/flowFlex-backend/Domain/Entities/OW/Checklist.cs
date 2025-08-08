@@ -72,56 +72,8 @@ public class Checklist : EntityBaseCreateInfo
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// Assignments stored as JSON
+    /// Assignments stored as JSONB (ORM-serialized)
     /// </summary>
-    [SugarColumn(ColumnName = "assignments_json", ColumnDataType = "TEXT", IsNullable = true)]
-    public string? AssignmentsJson { get; set; }
-
-    /// <summary>
-    /// Assignments property (not stored in database, computed from AssignmentsJson)
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public List<AssignmentDto> Assignments
-    {
-        get
-        {
-            if (string.IsNullOrEmpty(AssignmentsJson))
-                return new List<AssignmentDto>();
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    PropertyNameCaseInsensitive = true
-                };
-                return JsonSerializer.Deserialize<List<AssignmentDto>>(AssignmentsJson, options) ?? new List<AssignmentDto>();
-            }
-            catch
-            {
-                return new List<AssignmentDto>();
-            }
-        }
-        set
-        {
-            if (value == null || !value.Any())
-            {
-                AssignmentsJson = null;
-                return;
-            }
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-                AssignmentsJson = JsonSerializer.Serialize(value, options);
-            }
-            catch
-            {
-                AssignmentsJson = null;
-            }
-        }
-    }
+    [SugarColumn(ColumnName = "assignments_json", ColumnDataType = "jsonb", IsJson = true, IsNullable = true)]
+    public List<AssignmentDto> Assignments { get; set; } = new List<AssignmentDto>();
 }

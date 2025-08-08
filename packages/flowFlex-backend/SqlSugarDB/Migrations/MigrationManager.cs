@@ -55,6 +55,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250103000001_SimplifyStagesProgressStructure", (Action)(() => SimplifyStagesProgressStructure_20250103000001.Up(_db))),
                     ("20250103000002_ConvertStagesProgressToJsonb", (Action)(() => ConvertStagesProgressToJsonb_20250103000002.Up(_db))),
                     ("20250103000004_ConvertStageComponentsToJsonb", (Action)(() => ConvertStageComponentsToJsonb_20250103000004.Up(_db))),
+                    ("20250103000005_ConvertTextJsonColumnsToJsonb", (Action)(() => ConvertTextJsonColumnsToJsonb_20250103000005.Up(_db))),
                     ("20250103000003_AddCurrentSectionIndexToQuestionnaireAnswers", (Action)(() => AddCurrentSectionIndexToQuestionnaireAnswers_20250103000003.Up(_db))),
                     ("20250801000001_AddUserAIModelConfig", (Action)(() => AddUserAIModelConfig_20250801000001.Up(_db))),
                     ("20250801000002_DropQuestionnaireSectionTable", (Action)(() => DropQuestionnaireSectionTable_20250801000002.Up(_db))),
