@@ -1,5 +1,5 @@
 <template>
-	<ElConfigProvider :popup-container="(triggerNode) => triggerNode?.parentNode">
+	<ElConfigProvider :popup-container="getPopupContainer">
 		<router-view :key="routeKey" />
 	</ElConfigProvider>
 </template>
@@ -23,6 +23,7 @@ const refreshRoute = () => {
 		routeKey.value = Date.now();
 	});
 };
+const getPopupContainer = () => document.querySelector('#app-root') as HTMLElement | null;
 
 // const chatDialogRef = ref<InstanceType<typeof ChatDialog>>();
 
