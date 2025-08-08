@@ -36,11 +36,11 @@ namespace FlowFlex.Domain.Entities.OW
         public long? QuestionnaireId { get; set; }
 
         /// <summary>
-        /// Answer JSON Data
+        /// Answer JSONB Data
         /// </summary>
 
-        [Column("answer_json", TypeName = "text")]
-        [SugarColumn(ColumnName = "answer_json", ColumnDataType = "text")]
+        [Column("answer_json", TypeName = "jsonb")]
+        [SugarColumn(ColumnName = "answer_json", ColumnDataType = "jsonb", IsJson = true)]
         public string AnswerJson { get; set; } = string.Empty;
 
         /// <summary>

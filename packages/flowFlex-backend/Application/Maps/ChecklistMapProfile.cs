@@ -30,8 +30,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.Assignments, opt => opt.Ignore()) // Assignments handled separately
-                .ForMember(dest => dest.AssignmentsJson, opt => opt.Ignore()); // JSON field handled separately
+                .ForMember(dest => dest.Assignments, opt => opt.Ignore()); // Assignments handled separately
         }
     }
 }

@@ -57,10 +57,9 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// JSON for workflow configuration (stages, settings, etc.)
+        /// JSONB for workflow configuration (stages, settings, etc.)
         /// </summary>
-        [StringLength(2000)]
-        [SugarColumn(ColumnName = "config_json")]
+        [SugarColumn(ColumnName = "config_json", ColumnDataType = "jsonb", IsJson = true)]
         public string ConfigJson { get; set; }
 
         /// <summary>
