@@ -263,6 +263,7 @@
 										handleFileChange(question.id, file, fileList);
 									}
 								"
+								v-model:file-list="formData[question.id]"
 								:accept="question.accept"
 								class="w-full"
 							>
