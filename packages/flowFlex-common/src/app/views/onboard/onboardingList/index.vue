@@ -69,7 +69,7 @@
 										<el-dropdown-menu>
 											<el-dropdown-item @click="handleEdit(row.id)">
 												<el-icon><Edit /></el-icon>
-												Edit
+												Proceed
 											</el-dropdown-item>
 											<el-dropdown-item
 												@click="handleDelete(row.id)"
