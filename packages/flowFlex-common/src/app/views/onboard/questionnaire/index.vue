@@ -131,14 +131,14 @@
 													<el-icon class="mr-2"><CopyDocument /></el-icon>
 													Duplicate
 												</el-dropdown-item>
-												<!-- <el-dropdown-item
+												<el-dropdown-item
 													divided
 													command="delete"
 													class="text-red-500"
 												>
 													<el-icon class="mr-2"><Delete /></el-icon>
 													Delete
-												</el-dropdown-item> -->
+												</el-dropdown-item>
 											</el-dropdown-menu>
 										</template>
 									</el-dropdown>
@@ -376,7 +376,16 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Plus, Edit, CopyDocument, Document, More, View, Loading } from '@element-plus/icons-vue';
+import {
+	Plus,
+	Edit,
+	CopyDocument,
+	Delete,
+	Document,
+	More,
+	View,
+	Loading,
+} from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import QuestionnairePreview from './components/QuestionnairePreview.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
