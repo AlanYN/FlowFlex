@@ -69,13 +69,11 @@
 							<el-tag
 								v-for="fieldTag in getSelectedFieldTags()"
 								:key="fieldTag.key"
-								size="small"
 								type="primary"
 								closable
 								@close="removeFieldTag(fieldTag.key)"
-								class="max-w-[200px]"
 							>
-								<span class="truncate">{{ fieldTag.label }}</span>
+								{{ fieldTag.label }}
 							</el-tag>
 						</div>
 					</div>

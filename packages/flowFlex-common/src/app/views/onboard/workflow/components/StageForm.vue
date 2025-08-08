@@ -43,7 +43,7 @@
 								style="width: 100%"
 							>
 								<el-option
-									v-for="item in defaultAssignedGroupOptions"
+									v-for="item in defaultAssignedGroup"
 									:key="item.value"
 									:label="item.key"
 									:value="item.value"
@@ -115,7 +115,7 @@ import { ref, reactive, onMounted, PropType, computed } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
-import { Options } from '#/setting';
+import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 import StageComponentsSelector from './StageComponentsSelector.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
@@ -147,37 +147,6 @@ const props = defineProps({
 		default: () => [],
 	},
 });
-
-const defaultAssignedGroupOptions = ref<Options[]>([
-	{
-		value: 'Sales',
-		key: 'Sales',
-	},
-	{
-		value: 'Account Management',
-		key: 'Account Management',
-	},
-	{
-		value: 'IT',
-		key: 'IT',
-	},
-	{
-		value: 'Legal',
-		key: 'Legal',
-	},
-	{
-		value: 'Operations',
-		key: 'Operations',
-	},
-	{
-		value: 'Finance',
-		key: 'Finance',
-	},
-	{
-		value: 'Customer',
-		key: 'Customer',
-	},
-]);
 
 // Tab配置
 const currentTab = ref('basicInfo');
