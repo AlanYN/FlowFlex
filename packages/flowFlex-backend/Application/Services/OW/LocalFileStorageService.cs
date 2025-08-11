@@ -56,19 +56,23 @@ namespace FlowFlex.Application.Services.OW
                     Directory.CreateDirectory(directory);
                 }
 
-                // Save file and calculate hash
+                // Save file and calculate hash in one pass
                 string fileHash;
-                using (var stream = new FileStream(fullPath, FileMode.Create))
+                using (var target = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                using (var sha256 = SHA256.Create())
+                using (var source = file.OpenReadStream())
                 {
-                    await file.CopyToAsync(stream);
-                    await stream.FlushAsync();
+                    var buffer = new byte[81920];
+                    int read;
+                    while ((read = await source.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await target.WriteAsync(buffer, 0, read);
+                        sha256.TransformBlock(buffer, 0, read, null, 0);
+                    }
+                    sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                    fileHash = Convert.ToHexString(sha256.Hash!).ToLowerInvariant();
+                    await target.FlushAsync();
                 }
-
-                // Wait briefly to ensure file is fully written
-                await Task.Delay(10);
-
-                // Calculate file hash
-                fileHash = await ComputeFileHashAsync(fullPath);
 
                 var result = new FileStorageResult
                 {
@@ -157,7 +161,7 @@ namespace FlowFlex.Application.Services.OW
 
         public string GetFileUrl(string filePath)
         {
-            return $"{_options.FileUrlPrefix}/{filePath.Replace("\\", "/")}";
+                return $"{_options.FileUrlPrefix}/{filePath.Replace("\\", "/")}";
         }
 
         public async Task<FileValidationResult> ValidateFileAsync(IFormFile file)
@@ -218,7 +222,7 @@ namespace FlowFlex.Application.Services.OW
                     return 0;
                 }
 
-                var cutoffTime = DateTime.Now.AddHours(-_options.TempFileRetentionHours);
+                var cutoffTime = DateTime.UtcNow.AddHours(-_options.TempFileRetentionHours);
                 var files = Directory.GetFiles(tempPath, "*", SearchOption.AllDirectories);
                 var deletedCount = 0;
 
@@ -255,12 +259,12 @@ namespace FlowFlex.Application.Services.OW
         {
             if (!_options.EnableFileNameEncryption)
             {
-                return $"{DateTimeOffset.Now.Ticks}_{originalFileName}";
+                return $"{DateTimeOffset.UtcNow.Ticks}_{originalFileName}";
             }
 
             var extension = Path.GetExtension(originalFileName);
             var nameWithoutExtension = Path.GetFileNameWithoutExtension(originalFileName);
-            var timestamp = DateTimeOffset.Now.Ticks;
+            var timestamp = DateTimeOffset.UtcNow.Ticks;
             var hash = ComputeStringHash(nameWithoutExtension + timestamp);
 
             return $"{timestamp}_{hash}{extension}";
@@ -272,7 +276,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (_options.GroupByDate)
             {
-                var now = DateTime.Now;
+                var now = DateTime.UtcNow;
                 pathParts.Add(now.Year.ToString());
                 pathParts.Add(now.Month.ToString("D2"));
                 pathParts.Add(now.Day.ToString("D2"));

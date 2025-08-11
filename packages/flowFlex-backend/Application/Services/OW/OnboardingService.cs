@@ -3493,11 +3493,11 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Get TenantId from onboarding
         /// </summary>
-        private string GetTenantIdFromOnboarding(long onboardingId)
+        private async Task<string> GetTenantIdFromOnboardingAsync(long onboardingId)
         {
             try
             {
-                var onboarding = _onboardingRepository.GetByIdAsync(onboardingId).Result;
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
                 return onboarding?.TenantId ?? "default";
             }
             catch
