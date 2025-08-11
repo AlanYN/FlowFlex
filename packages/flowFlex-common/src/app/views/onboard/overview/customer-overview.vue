@@ -204,9 +204,9 @@
 									</p>
 								</template>
 							</el-table-column>
-							<el-table-column label="Answer" show-overflow-tooltip min-width="200">
+                            <el-table-column label="Answer" show-overflow-tooltip min-width="200">
 								<template #default="{ row }">
-									<div class="bg-blue-50 p-2 rounded text-sm">
+                                    <div class="answer-cell bg-blue-50 p-2 rounded text-sm">
 										<!-- 短答题 -->
 										<div
 											v-if="isShortAnswerType(row.questionType)"
@@ -441,11 +441,11 @@
 										</div>
 
 										<!-- 单选网格 (Checkbox grid) -->
-										<div
-											v-else-if="isCheckboxGridType(row.questionType)"
-											class="grid-answer"
-										>
-											<template v-if="row.answer">
+                                        <div
+                                            v-else-if="isCheckboxGridType(row.questionType)"
+                                            class="grid-answer"
+                                        >
+                                            <template v-if="hasValidAnswer(row.answer)">
 												<el-tag
 													type="warning"
 													size="small"
@@ -2789,6 +2789,12 @@ html.dark {
 	.flex {
 		max-width: 100%;
 	}
+}
+
+/* 统一 Answer 单元格最小高度，保证无值与有值展示高度一致 */
+.answer-cell {
+    min-height: 40px;
+    display: block;
 }
 
 /* 确保卡片内容占满宽度 */

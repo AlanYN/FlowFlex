@@ -13,6 +13,7 @@ using System.ComponentModel;
 using System.Reflection;
 using SqlSugar;
 using FlowFlex.Application.Services.OW.Extensions;
+using System.Security.Claims;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -49,7 +50,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 string operationTitle = $"Checklist Task Completed: {taskName}";
-                string operationDescription = $"Task '{taskName}' has been marked as completed by {_userContext.UserName}";
+                string operationDescription = $"Task '{taskName}' has been marked as completed by {GetOperatorDisplayName()}";
 
                 if (!string.IsNullOrEmpty(completionNotes))
                 {
@@ -96,7 +97,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 string operationTitle = $"Checklist Task Uncompleted: {taskName}";
-                string operationDescription = $"Task '{taskName}' has been marked as uncompleted by {_userContext.UserName}";
+                string operationDescription = $"Task '{taskName}' has been marked as uncompleted by {GetOperatorDisplayName()}";
 
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -146,7 +147,7 @@ namespace FlowFlex.Application.Services.OW
 
                 string operationType = isUpdate ? "Updated" : "Submitted";
                 string operationTitle = $"Questionnaire Answer {operationType}";
-                string operationDescription = $"Questionnaire answer has been {operationType.ToLower()} by {_userContext.UserName}";
+                string operationDescription = $"Questionnaire answer has been {operationType.ToLower()} by {GetOperatorDisplayName()}";
 
                 if (questionnaireId.HasValue)
                 {
@@ -282,7 +283,7 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogInformation($"📝 [Log Step 2] Preparing operation title and description...");
                 // Debug logging handled by structured logging
                 string operationTitle = $"File Uploaded: {fileName}";
-                string operationDescription = $"File '{fileName}' has been uploaded successfully by {_userContext.UserName}";
+                string operationDescription = $"File '{fileName}' has been uploaded successfully by {GetOperatorDisplayName()}";
 
                 _logger.LogInformation($"📝 [Log Step 3] Serializing extended data...");
                 // Debug logging handled by structured logging
@@ -333,7 +334,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 string operationTitle = $"File Deleted: {fileName}";
-                string operationDescription = $"File '{fileName}' has been deleted by {_userContext.UserName}";
+                string operationDescription = $"File '{fileName}' has been deleted by {GetOperatorDisplayName()}";
 
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -382,7 +383,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 string operationTitle = $"File Updated: {fileName}";
-                string operationDescription = $"File '{fileName}' has been updated by {_userContext.UserName}";
+                string operationDescription = $"File '{fileName}' has been updated by {GetOperatorDisplayName()}";
 
                 if (changedFields?.Any() == true)
                 {
@@ -461,8 +462,8 @@ namespace FlowFlex.Application.Services.OW
                     BeforeData = !string.IsNullOrEmpty(beforeData) ? beforeData : null,
                     AfterData = !string.IsNullOrEmpty(afterData) ? afterData : null,
                     ChangedFields = changedFields != null ? JsonSerializer.Serialize(changedFields) : null,
-                    OperatorId = long.TryParse(_userContext.UserId, out long operatorId) ? operatorId : 0,
-                    OperatorName = !string.IsNullOrEmpty(_userContext.Email) ? _userContext.Email : (_userContext.UserName ?? "System"),
+                    OperatorId = GetOperatorId(),
+                    OperatorName = GetOperatorDisplayName(),
                     OperationTime = DateTimeOffset.Now,
                     IpAddress = ipAddress,
                     UserAgent = userAgent,
@@ -816,6 +817,101 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return "WebApi";
+        }
+
+        /// <summary>
+        /// Resolve operator display name from context, headers, or claims
+        /// </summary>
+        private string GetOperatorDisplayName()
+        {
+            // Prefer explicit email then username from UserContext
+            if (!string.IsNullOrWhiteSpace(_userContext?.Email))
+            {
+                return _userContext.Email;
+            }
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
+            {
+                return _userContext.UserName;
+            }
+
+            var httpContext = _httpContextAccessor?.HttpContext;
+            // Custom headers from gateway/frontend
+            var headerEmail = httpContext?.Request?.Headers["X-User-Email"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerEmail))
+            {
+                return headerEmail;
+            }
+            var headerName = httpContext?.Request?.Headers["X-User-Name"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerName))
+            {
+                return headerName;
+            }
+
+            // Claims
+            var user = httpContext?.User;
+            if (user != null)
+            {
+                string[] emailFirstClaims = new[]
+                {
+                    ClaimTypes.Email,
+                    "email",
+                    "preferred_username",
+                    ClaimTypes.Name,
+                    "name",
+                    ClaimTypes.GivenName,
+                    "upn"
+                };
+                foreach (var ct in emailFirstClaims)
+                {
+                    var value = user.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+
+            return "System";
+        }
+
+        /// <summary>
+        /// Resolve operator id from context, headers, or claims
+        /// </summary>
+        private long GetOperatorId()
+        {
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserId) && long.TryParse(_userContext.UserId, out var idFromContext))
+            {
+                return idFromContext;
+            }
+
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var headerUserId = httpContext?.Request?.Headers["X-User-Id"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerUserId) && long.TryParse(headerUserId, out var idFromHeader))
+            {
+                return idFromHeader;
+            }
+
+            var user = httpContext?.User;
+            if (user != null)
+            {
+                string[] idClaims = new[]
+                {
+                    ClaimTypes.NameIdentifier,
+                    "sub",
+                    "user_id",
+                    "uid"
+                };
+                foreach (var ct in idClaims)
+                {
+                    var v = user.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(v) && long.TryParse(v, out var idFromClaims))
+                    {
+                        return idFromClaims;
+                    }
+                }
+            }
+
+            return 0;
         }
 
         /// <summary>

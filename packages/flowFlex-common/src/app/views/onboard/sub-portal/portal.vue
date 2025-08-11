@@ -8,27 +8,18 @@
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
 					<button @click="sidebarOpen = false" class="p-1 rounded-md hover:bg-gray-100">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+								d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
-					<div
-						v-for="item in navigation"
-						:key="item.name"
-						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
-							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-						]"
-						@click="handleNavigation(item)"
-					>
+					<div v-for="item in navigation" :key="item.name" :class="[
+						'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+						currentView === item.view
+							? 'bg-blue-100 text-blue-900'
+							: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+					]" @click="handleNavigation(item)">
 						<component :is="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
@@ -39,18 +30,10 @@
 					<div class="rounded-lg border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
 							<div class="bg-blue-100 p-2 rounded-full">
-								<svg
-									class="h-5 w-5 text-blue-600"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-									/>
+								<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor"
+									viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -74,17 +57,12 @@
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
-					<div
-						v-for="item in navigation"
-						:key="item.name"
-						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
-							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-						]"
-						@click="handleNavigation(item)"
-					>
+					<div v-for="item in navigation" :key="item.name" :class="[
+						'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+						currentView === item.view
+							? 'bg-blue-100 text-blue-900'
+							: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+					]" @click="handleNavigation(item)">
 						<component :is="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
@@ -95,18 +73,10 @@
 					<div class="rounded-lg border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
 							<div class="bg-blue-100 p-2 rounded-full">
-								<svg
-									class="h-5 w-5 text-blue-600"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-									/>
+								<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor"
+									viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -120,18 +90,9 @@
 						</div>
 						<div class="space-y-1">
 							<div class="flex items-center text-xs text-gray-500">
-								<svg
-									class="h-3 w-3 mr-1"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-									/>
+								<svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 								</svg>
 								Account Manager: {{ customerData.accountManager }}
 							</div>
@@ -147,12 +108,8 @@
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
 				<button @click="sidebarOpen = true" class="p-1 rounded-md hover:bg-gray-100">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 6h16M4 12h16M4 18h16"
-						/>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+							d="M4 6h16M4 12h16M4 18h16" />
 					</svg>
 				</button>
 				<h1 class="text-lg font-semibold">Customer Portal</h1>
@@ -166,12 +123,8 @@
 					<!-- 顶部导航栏 -->
 					<div class="flex justify-between items-center mb-6">
 						<div class="flex items-center">
-							<el-button
-								link
-								size="small"
-								@click="handleBack"
-								class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
-							>
+							<el-button link size="small" @click="handleBack"
+								class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded">
 								<el-icon class="text-lg">
 									<ArrowLeft />
 								</el-icon>
@@ -183,21 +136,13 @@
 							</h1>
 						</div>
 						<div class="flex items-center space-x-2">
-							<el-button
-								type="primary"
-								@click="saveQuestionnaireAndField"
-								:loading="saveAllLoading"
-							>
+							<el-button type="primary" @click="saveQuestionnaireAndField" :loading="saveAllLoading">
 								<el-icon class="mr-1">
 									<Document />
 								</el-icon>
 								Save
 							</el-button>
-							<el-button
-								type="primary"
-								@click="handleCompleteStage"
-								:loading="completing"
-							>
+							<el-button type="primary" @click="handleCompleteStage" :loading="completing">
 								<el-icon class="mr-1">
 									<Check />
 								</el-icon>
@@ -210,25 +155,17 @@
 					<div class="flex gap-6">
 						<!-- 左侧阶段详情 (2/3 宽度) -->
 						<div class="flex-[2]">
-							<div
-								class="rounded-md el-card is-always-shadow rounded-md el-card__header"
-							>
+							<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
 								<div
-									class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
-								>
+									class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg">
 									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 								</div>
 							</div>
 							<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
 								<div class="space-y-6 mt-4">
 									<!-- Stage Details 加载状态 -->
-									<div
-										v-if="stageDataLoading"
-										class="bg-white dark:bg-black-300 rounded-md p-8"
-									>
-										<div
-											class="flex flex-col items-center justify-center space-y-4"
-										>
+									<div v-if="stageDataLoading" class="bg-white dark:bg-black-300 rounded-md p-8">
+										<div class="flex flex-col items-center justify-center space-y-4">
 											<el-icon class="is-loading text-4xl text-primary-500">
 												<Loading />
 											</el-icon>
@@ -239,74 +176,43 @@
 									</div>
 
 									<!-- 根据Stage Components动态渲染 -->
-									<template
-										v-if="
-											!stageDataLoading &&
-											onboardingActiveStageInfo?.components
-										"
-									>
-										<div
-											v-for="component in sortedComponents"
-											:key="`${component.key}-${component.order}`"
-											v-show="component.isEnabled"
-										>
+									<template v-if="
+										!stageDataLoading &&
+										onboardingActiveStageInfo?.components
+									">
+										<div v-for="component in sortedComponents"
+											:key="`${component.key}-${component.order}`" v-show="component.isEnabled">
 											<!-- 静态字段表单 -->
-											<StaticForm
-												v-if="
-													component.key === 'fields' &&
-													component?.staticFields &&
-													component.staticFields?.length > 0
-												"
-												:ref="setStaticFormRef"
-												:static-fields="component.staticFields"
-												:onboarding-id="onboardingId"
-												:stage-id="activeStage"
-												@save-success="refreshChangeLog"
-											/>
+											<StaticForm v-if="
+												component.key === 'fields' &&
+												component?.staticFields &&
+												component.staticFields?.length > 0
+											" :ref="setStaticFormRef" :static-fields="component.staticFields" :onboarding-id="onboardingId"
+												:stage-id="activeStage" @save-success="refreshChangeLog" />
 
 											<!-- 检查清单组件 -->
-											<CheckList
-												v-else-if="
-													component.key === 'checklist' &&
-													component?.checklistIds &&
-													component.checklistIds?.length > 0
-												"
-												:loading="checkLoading"
-												:checklist-data="
-													getChecklistDataForComponent(component)
-												"
-												@task-toggled="handleTaskToggled"
-											/>
+											<CheckList v-else-if="
+												component.key === 'checklist' &&
+												component?.checklistIds &&
+												component.checklistIds?.length > 0
+											" :loading="checkLoading" :checklist-data="getChecklistDataForComponent(component)
+													" @task-toggled="handleTaskToggled" />
 
 											<!-- 问卷组件 -->
-											<QuestionnaireDetails
-												v-else-if="
-													component.key === 'questionnaires' &&
-													component?.questionnaireIds &&
-													component.questionnaireIds?.length > 0
-												"
-												:ref="setQuestionnaireDetailsRef"
-												:stage-id="activeStage"
-												:lead-data="onboardingData"
-												:workflow-stages="workflowStages"
-												:questionnaire-data="
-													getQuestionnaireDataForComponent(component)
-												"
-												:onboardingId="onboardingId"
-												@stage-updated="handleStageUpdated"
-												:questionnaire-answers="
-													getQuestionnaireAnswersForComponent(component)
-												"
-											/>
+											<QuestionnaireDetails v-else-if="
+												component.key === 'questionnaires' &&
+												component?.questionnaireIds &&
+												component.questionnaireIds?.length > 0
+											" :ref="setQuestionnaireDetailsRef" :stage-id="activeStage" :lead-data="onboardingData"
+												:workflow-stages="workflowStages" :questionnaire-data="getQuestionnaireDataForComponent(component)
+													" :onboardingId="onboardingId" @stage-updated="handleStageUpdated" :questionnaire-answers="getQuestionnaireAnswersForComponent(component)
+													" />
 
 											<!-- 文件组件 -->
-											<Documents
-												v-else-if="component.key === 'files'"
-												:onboarding-id="onboardingId"
-												:stage-id="activeStage"
-												@document-uploaded="handleDocumentUploaded"
-												@document-deleted="handleDocumentDeleted"
-											/>
+											<Documents v-else-if="component.key === 'files'"
+												:onboarding-id="onboardingId" :stage-id="activeStage"
+												:component="component" @document-uploaded="handleDocumentUploaded"
+												@document-deleted="handleDocumentDeleted" />
 										</div>
 									</template>
 								</div>
@@ -319,15 +225,11 @@
 								<div class="space-y-6">
 									<!-- OnboardingProgress组件 -->
 									<div class="rounded-md overflow-hidden">
-										<OnboardingProgress
-											v-if="onboardingData && onboardingId"
-											:active-stage="activeStage"
-											:onboarding-data="onboardingData"
-											:workflow-stages="workflowStages"
-											@set-active-stage="setActiveStageWithData"
+										<OnboardingProgress v-if="onboardingData && onboardingId"
+											:active-stage="activeStage" :onboarding-data="onboardingData"
+											:workflow-stages="workflowStages" @set-active-stage="setActiveStageWithData"
 											@stage-completed="loadOnboardingDetail"
-											class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600"
-										/>
+											class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600" />
 									</div>
 
 									<!-- 笔记区域 -->
@@ -341,37 +243,22 @@
 					</div>
 
 					<!-- 编辑对话框 -->
-					<el-dialog
-						v-model="editDialogVisible"
-						title="Edit Onboarding"
-						width="500px"
-						:before-close="handleEditDialogClose"
-					>
+					<el-dialog v-model="editDialogVisible" title="Edit Onboarding" width="500px"
+						:before-close="handleEditDialogClose">
 						<el-form :model="editForm" label-width="100px">
 							<el-form-item label="Priority">
-								<el-select
-									v-model="editForm.priority"
-									placeholder="Select Priority"
-									class="w-full"
-								>
+								<el-select v-model="editForm.priority" placeholder="Select Priority" class="w-full">
 									<el-option label="High" value="High" />
 									<el-option label="Medium" value="Medium" />
 									<el-option label="Low" value="Low" />
 								</el-select>
 							</el-form-item>
 							<el-form-item label="Assignee">
-								<el-input
-									v-model="editForm.assignee"
-									placeholder="Enter assignee name"
-								/>
+								<el-input v-model="editForm.assignee" placeholder="Enter assignee name" />
 							</el-form-item>
 							<el-form-item label="Notes">
-								<el-input
-									v-model="editForm.notes"
-									type="textarea"
-									:rows="3"
-									placeholder="Enter notes"
-								/>
+								<el-input v-model="editForm.notes" type="textarea" :rows="3"
+									placeholder="Enter notes" />
 							</el-form-item>
 						</el-form>
 
@@ -712,56 +599,66 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 
 	if (allChecklistIds.length === 0) return;
 
-	try {
-		// 并行调用两个接口
-		const [checklistResponse, completionResponse] = await Promise.all([
-			getCheckListIds(allChecklistIds),
-			getCheckListIsCompleted(onboardingId, stageId),
-		]);
+    try {
+        // 并行调用两个接口
+        const [checklistResponse, completionResponse] = await Promise.all([
+            getCheckListIds(allChecklistIds),
+            getCheckListIsCompleted(onboardingId, stageId),
+        ]);
 
-		if (checklistResponse.code === '200') {
-			// 获取已完成的任务信息
-			const completedTasksMap = new Map<string, boolean>();
-			if (completionResponse.code === '200' && completionResponse.data) {
-				if (Array.isArray(completionResponse.data)) {
-					completionResponse.data.forEach((completedTask: any) => {
-						const taskId = completedTask.taskId || completedTask.id;
-						if (taskId) {
-							completedTasksMap.set(taskId, true);
-						}
-					});
-				}
-			}
+        if (checklistResponse.code === '200') {
+            // 获取已完成的任务信息，包含完成者与完成时间
+            const completedTasksMap = new Map<string, any>();
+            if (completionResponse.code === '200' && completionResponse.data) {
+                if (Array.isArray(completionResponse.data)) {
+                    completionResponse.data.forEach((completedTask: any) => {
+                        const taskId = completedTask.taskId || completedTask.id;
+                        if (taskId) {
+                            completedTasksMap.set(taskId, {
+                                isCompleted: completedTask.isCompleted,
+                                completedBy: completedTask.modifyBy || completedTask.createBy,
+                                completedTime:
+                                    completedTask.completedTime || completedTask.modifyDate,
+                            });
+                        }
+                    });
+                }
+            }
 
-			// 处理每个 checklist 的数据，合并完成状态信息
-			const processedChecklists = (checklistResponse.data || []).map((checklist: any) => {
-				if (!checklist.tasks || !Array.isArray(checklist.tasks)) {
-					checklist.tasks = [];
-				}
+            // 处理每个 checklist 的数据，合并完成状态与完成者信息
+            const processedChecklists = (checklistResponse.data || []).map((checklist: any) => {
+                if (!checklist.tasks || !Array.isArray(checklist.tasks)) {
+                    checklist.tasks = [];
+                }
 
-				checklist.tasks = checklist.tasks.map((task: any) => ({
-					...task,
-					isCompleted: completedTasksMap.has(task.id) || task.isCompleted || false,
-				}));
+                checklist.tasks = checklist.tasks.map((task: any) => {
+                    const completionInfo = completedTasksMap.get(task.id);
+                    return {
+                        ...task,
+                        isCompleted: completionInfo?.isCompleted || task.isCompleted || false,
+                        completedBy: completionInfo?.completedBy || task.assigneeName || task.createBy,
+                        completedDate: completionInfo?.completedTime || task.completedDate,
+                    };
+                });
 
-				const completedTasks = checklist.tasks.filter(
-					(task: any) => task.isCompleted
-				).length;
-				const totalTasks = checklist.tasks.length;
-				const completionRate =
-					totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                const completedTasks = checklist.tasks.filter(
+                    (task: any) => task.isCompleted
+                ).length;
+                const totalTasks = checklist.tasks.length;
+                const completionRate =
+                    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-				return {
-					...checklist,
-					completedTasks,
-					totalTasks,
-					completionRate,
-				};
-			});
+                return {
+                    ...checklist,
+                    completedTasks,
+                    totalTasks,
+                    completionRate,
+                };
+            });
 
-			checklistsData.value = processedChecklists;
-		}
-	} catch (error) {
+            checklistsData.value = processedChecklists;
+        }
+    } catch (error) {
 		console.error('Failed to load checklists:', error);
 		ElMessage.error('Failed to load checklists');
 	}

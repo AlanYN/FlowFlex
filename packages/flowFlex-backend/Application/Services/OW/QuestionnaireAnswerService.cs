@@ -57,7 +57,46 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string GetCurrentUserName()
         {
-            return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+            // Priority 1: UserContext
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
+            {
+                return _userContext.UserName;
+            }
+
+            var httpContext = _httpContextAccessor?.HttpContext;
+            // Priority 2: Custom headers (fallback from gateway/frontend)
+            var headerName = httpContext?.Request?.Headers["X-User-Name"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerName))
+            {
+                return headerName;
+            }
+
+            // Priority 3: Claims from authenticated principal
+            var user = httpContext?.User;
+            if (user != null)
+            {
+                string[] claimTypes = new[]
+                {
+                    System.Security.Claims.ClaimTypes.Name,
+                    "name",
+                    "preferred_username",
+                    System.Security.Claims.ClaimTypes.Email,
+                    "email",
+                    "upn",
+                    System.Security.Claims.ClaimTypes.GivenName
+                };
+                foreach (var ct in claimTypes)
+                {
+                    var v = user.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(v))
+                    {
+                        return v;
+                    }
+                }
+            }
+
+            // Final fallback
+            return "System";
         }
 
         /// <summary>
