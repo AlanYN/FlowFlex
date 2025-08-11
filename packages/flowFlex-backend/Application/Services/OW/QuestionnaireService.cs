@@ -25,20 +25,17 @@ namespace FlowFlex.Application.Service.OW
     public class QuestionnaireService : IQuestionnaireService, IScopedService
     {
         private readonly IQuestionnaireRepository _questionnaireRepository;
-        private readonly IQuestionnaireSectionRepository _sectionRepository;
         private readonly IMapper _mapper;
         private readonly IStageAssignmentSyncService _syncService;
         private readonly UserContext _userContext;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
-            IQuestionnaireSectionRepository sectionRepository,
             IMapper mapper,
             IStageAssignmentSyncService syncService,
             UserContext userContext)
         {
             _questionnaireRepository = questionnaireRepository;
-            _sectionRepository = sectionRepository;
             _mapper = mapper;
             _syncService = syncService;
             _userContext = userContext;
@@ -131,11 +128,7 @@ namespace FlowFlex.Application.Service.OW
 
             await _questionnaireRepository.InsertAsync(entity);
 
-            // Create Sections
-            if (input.Sections != null && input.Sections.Any())
-            {
-                await CreateSectionsAsync(entity.Id, input.Sections);
-            }
+            // Sections module removed; ignore input.Sections to keep compatibility
 
             // 获取有效的stage assignments用于同步
             var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
@@ -248,11 +241,7 @@ namespace FlowFlex.Application.Service.OW
 
             var result = await _questionnaireRepository.UpdateAsync(entity);
 
-            // Update sections for the current entity
-            if (input.Sections != null)
-            {
-                await UpdateSectionsAsync(entity.Id, input.Sections);
-            }
+            // Sections module removed; ignore input.Sections to keep compatibility
 
             // Sync with stage components if update was successful
             if (result)
@@ -298,8 +287,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Template validation removed - direct deletion allowed
 
-            // Delete related Sections
-            await _sectionRepository.DeleteByQuestionnaireIdAsync(id);
+            // Sections module removed; nothing to delete
 
             var result = await _questionnaireRepository.DeleteAsync(entity);
 
@@ -483,30 +471,7 @@ namespace FlowFlex.Application.Service.OW
             newQuestionnaire.InitCreateInfo(_userContext);
 
             await _questionnaireRepository.InsertAsync(newQuestionnaire);
-
-            // Copy Sections
-            if (input.CopyStructure)
-            {
-                var sourceSections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(id);
-                foreach (var sourceSection in sourceSections)
-                {
-                    var newSection = new QuestionnaireSection
-                    {
-                        QuestionnaireId = newQuestionnaire.Id,
-                        Title = sourceSection.Title,
-                        Description = sourceSection.Description,
-                        Order = sourceSection.Order,
-                        IsActive = sourceSection.IsActive,
-                        Icon = sourceSection.Icon,
-                        Color = sourceSection.Color,
-                        IsCollapsible = sourceSection.IsCollapsible,
-                        IsExpanded = sourceSection.IsExpanded
-                    };
-                    newSection.InitCreateInfo(_userContext);
-                    await _sectionRepository.InsertAsync(newSection);
-                }
-            }
-
+                       
             // Calculate question statistics
             await CalculateQuestionStatistics(newQuestionnaire);
 
@@ -779,21 +744,7 @@ namespace FlowFlex.Application.Service.OW
             await Task.CompletedTask;
         }
 
-        private async Task CreateSectionsAsync(long questionnaireId, List<QuestionnaireSectionInputDto> sections)
-        {
-            foreach (var section in sections)
-            {
-                var newSection = _mapper.Map<QuestionnaireSection>(section);
-                newSection.QuestionnaireId = questionnaireId;
-                await _sectionRepository.InsertAsync(newSection);
-            }
-        }
-
-        private async Task UpdateSectionsAsync(long questionnaireId, List<QuestionnaireSectionInputDto> sections)
-        {
-            await _sectionRepository.DeleteByQuestionnaireIdAsync(questionnaireId);
-            await CreateSectionsAsync(questionnaireId, sections);
-        }
+        // Sections module removed; helper methods deleted
 
         // Cache method removed - Redis dependency removed
 
