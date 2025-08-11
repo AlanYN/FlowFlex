@@ -119,7 +119,7 @@
 								>
 									<div
 										:class="[
-											'w-4 h-4 border-2 rounded-full flex items-center justify-center',
+											'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
 											formData[question.id] === (option.value || option.label)
 												? 'border-blue-500 bg-blue-500'
 												: 'border-gray-300',
@@ -141,7 +141,15 @@
 											placeholder="Enter other"
 										/>
 									</div>
-									<span v-else class="text-sm">
+									<span
+										v-else
+										class="text-sm"
+										:class="{
+											'text-primary-500 font-bold':
+												formData[question.id] ===
+												(option.value || option.label),
+										}"
+									>
 										{{ option.label || option.text || option.value }}
 									</span>
 								</div>
