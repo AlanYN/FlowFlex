@@ -1186,6 +1186,10 @@ onMounted(async () => {
 							if (!(question.id in formData.value)) {
 								formData.value[question.id] = [];
 							}
+						} else if (question.type === 'file' || question.type === 'file_upload') {
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = [];
+							}
 						} else {
 							// 其他类型：初始化为空字符串
 							if (!(question.id in formData.value)) {
