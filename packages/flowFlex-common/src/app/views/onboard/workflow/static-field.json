@@ -7,9 +7,9 @@
         "category": "Basic Info"
       },
       {
-        "label": "Lead Company Name",
-        "vIfKey": "COMPANYNAME",
-        "formProp": "companyName",
+        "label": "Customer Name",
+        "vIfKey": "CUSTOMERNAME",
+        "formProp": "customerName",
         "category": "Basic Info"
       },
       {

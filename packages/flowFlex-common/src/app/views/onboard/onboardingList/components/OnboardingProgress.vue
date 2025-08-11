@@ -3,7 +3,7 @@
 		<!-- 可折叠的头部 -->
 		<template #header>
 			<div
-				class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white -mx-5 -mt-5 px-5 py-4 rounded-t-lg cursor-pointer hover:from-blue-700 hover:to-indigo-700 transition-colors"
+				class="bg-gradient-to-r from-primary-600 to-indigo-600 text-white -mx-5 -mt-5 px-5 py-4 rounded-t-lg cursor-pointer hover:from-primary-700 hover:to-indigo-700 transition-colors"
 				@click="toggleOpen"
 			>
 				<div class="flex items-center justify-between">
@@ -15,20 +15,19 @@
 						</el-icon>
 					</div>
 				</div>
+				<!-- 进度条 -->
+				<div class="w-full bg-white/25 rounded-full h-1.5 mt-6">
+					<div
+						class="bg-white h-1.5 rounded-full transition-all duration-300"
+						:style="{ width: `${progressPercentage}%` }"
+					></div>
+				</div>
 			</div>
 		</template>
 
 		<!-- 可折叠的内容 -->
 		<el-collapse-transition>
 			<div v-show="isOpen" class="pt-4 p-4">
-				<!-- 进度条 -->
-				<div class="w-full bg-gray-200 rounded-full h-1.5 mb-6">
-					<div
-						class="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-						:style="{ width: `${progressPercentage}%` }"
-					></div>
-				</div>
-
 				<!-- View All Stages 切换按钮 -->
 				<div class="mb-4">
 					<el-button
@@ -52,7 +51,7 @@
 									? 'border-green-500'
 									: 'border-gray-300 dark:border-gray-600',
 								activeStage === stage.stageId
-									? 'bg-blue-50 dark:bg-blue-900/20'
+									? 'bg-primary-50 dark:bg-primary-900/20'
 									: '',
 								index === displayedStages.length - 1 ? '!border-l-0' : '',
 							]"
@@ -65,7 +64,7 @@
 									stage.completed
 										? 'bg-green-500 text-white'
 										: activeStage === stage.stageId
-										? 'bg-blue-500 text-white'
+										? 'bg-primary-500 text-white'
 										: 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300',
 								]"
 							>

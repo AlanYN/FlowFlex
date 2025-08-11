@@ -44,7 +44,7 @@
 						<p class="font-medium">{{ customerData.leadId }}</p>
 					</div>
 					<div>
-						<p class="text-sm font-medium text-gray-500">Company Name</p>
+						<p class="text-sm font-medium text-gray-500">Customer Name</p>
 						<p class="font-medium">{{ customerData.leadName }}</p>
 					</div>
 					<div>
