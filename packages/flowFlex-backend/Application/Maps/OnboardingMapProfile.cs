@@ -63,7 +63,8 @@ namespace FlowFlex.Application.Maps
 
             try
             {
-                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
+                var normalized = NormalizeJson(componentsJson);
+                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(normalized);
                 return parsedComponents ?? new List<StageComponent>();
             }
             catch
@@ -71,6 +72,26 @@ namespace FlowFlex.Application.Maps
                 // If JSON is invalid, return empty list instead of default components
                 return new List<StageComponent>();
             }
+        }
+
+        private static string NormalizeJson(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return raw;
+            var current = raw.Trim();
+            for (int i = 0; i < 3; i++)
+            {
+                if (current.StartsWith("[") || current.StartsWith("{")) return current;
+                var quoted = (current.StartsWith("\"") && current.EndsWith("\"")) || (current.StartsWith("\'") && current.EndsWith("\'"));
+                if (!quoted) break;
+                try
+                {
+                    var inner = JsonSerializer.Deserialize<string>(current);
+                    if (string.IsNullOrWhiteSpace(inner)) break;
+                    current = inner.Trim();
+                }
+                catch { break; }
+            }
+            return current;
         }
 
 
