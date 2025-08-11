@@ -415,7 +415,7 @@
 													formData[`${question.id}_${row.id}`] !=
 													(column.value || column.label)
 												"
-												placeholder="Please specify..."
+												placeholder="Enter other"
 												size="small"
 												class="other-input"
 											/>
