@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Domain.Shared.Models;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Linq;
 
 namespace FlowFlex.Application.Maps
@@ -12,6 +13,10 @@ namespace FlowFlex.Application.Maps
     /// </summary>
     public class StageMapProfile : Profile
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
         public StageMapProfile()
         {
             // Entity to OutputDto mapping
@@ -88,7 +93,7 @@ namespace FlowFlex.Application.Maps
 
             try
             {
-                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(normalized);
+                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions);
                 return parsedComponents ?? new List<StageComponent>();
             }
             catch

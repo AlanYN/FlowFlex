@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -10,6 +11,8 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
+using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -18,10 +21,15 @@ namespace FlowFlex.Application.Service.OW
     /// </summary>
     public class StageAssignmentSyncService : IStageAssignmentSyncService, IScopedService
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
         private readonly IStageRepository _stageRepository;
         private readonly IChecklistRepository _checklistRepository;
         private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly ILogger<StageAssignmentSyncService> _logger;
+        private readonly IOperatorContextService _operatorContextService;
         private readonly UserContext _userContext;
 
         public StageAssignmentSyncService(
@@ -29,13 +37,55 @@ namespace FlowFlex.Application.Service.OW
             IChecklistRepository checklistRepository,
             IQuestionnaireRepository questionnaireRepository,
             ILogger<StageAssignmentSyncService> logger,
-            UserContext userContext)
+            UserContext userContext,
+            IOperatorContextService operatorContextService)
         {
             _stageRepository = stageRepository;
             _checklistRepository = checklistRepository;
             _questionnaireRepository = questionnaireRepository;
             _logger = logger;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
+        }
+
+        private void ApplyModifyAuditInfo(Stage stage)
+        {
+            stage.ModifyDate = DateTimeOffset.Now;
+            stage.ModifyBy = _operatorContextService.GetOperatorDisplayName();
+            stage.ModifyUserId = _operatorContextService.GetOperatorId();
+        }
+
+        private static string TryUnwrapDoubleEncodedJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return json;
+            }
+
+            var trimmed = json.Trim();
+            if (trimmed.StartsWith("[") || trimmed.StartsWith("{"))
+            {
+                return trimmed;
+            }
+
+            if ((trimmed.StartsWith("\"") && trimmed.EndsWith("\"")) ||
+                (trimmed.StartsWith("'") && trimmed.EndsWith("'")))
+            {
+                try
+                {
+                    var inner = JsonSerializer.Deserialize<string>(trimmed);
+                    if (!string.IsNullOrWhiteSpace(inner))
+                    {
+                        return inner.Trim();
+                    }
+                }
+                catch
+                {
+                    // fallthrough
+                }
+            }
+
+            return trimmed;
         }
 
         /// <summary>
@@ -205,7 +255,8 @@ namespace FlowFlex.Application.Service.OW
                     {
                         try
                         {
-                            var components = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson);
+                            var normalized = TryUnwrapDoubleEncodedJson(stage.ComponentsJson);
+                            var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions);
                             if (components?.Any() == true)
                             {
                                 var checklistIds = components
@@ -521,7 +572,8 @@ namespace FlowFlex.Application.Service.OW
                 {
                     try
                     {
-                        components = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson) ?? new List<StageComponent>();
+                        var normalized = TryUnwrapDoubleEncodedJson(stage.ComponentsJson);
+                        components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions) ?? new List<StageComponent>();
                     }
                     catch (JsonException)
                     {
@@ -529,53 +581,79 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
 
-                // Find or create checklist component
-                var checklistComponent = components.FirstOrDefault(c => c.Key == "checklist" && c.ChecklistIds.Contains(checklistId));
-                if (checklistComponent == null)
+                // Consolidate all checklist components into one before appending
+                var checklistComponents = components.Where(c => c.Key == "checklist").ToList();
+                StageComponent checklistComponent;
+                if (checklistComponents.Count == 0)
                 {
-                    // Check if there's an existing checklist component with this ID
-                    var existingComponent = components.FirstOrDefault(c => c.Key == "checklist" && c.ChecklistIds.Contains(checklistId));
-                    if (existingComponent == null)
+                    var newOrder = components.Any() ? components.Max(c => c.Order) + 1 : 1;
+                    checklistComponent = new StageComponent
                     {
-                        // Create new component
-                        var newOrder = components.Any() ? components.Max(c => c.Order) + 1 : 1;
-                        var newComponent = new StageComponent
-                        {
-                            Key = "checklist",
-                            Order = newOrder,
-                            IsEnabled = true,
-                            StaticFields = new List<string>(),
-                            ChecklistIds = new List<long> { checklistId },
-                            QuestionnaireIds = new List<long>(),
-                            ChecklistNames = new List<string>(),
-                            QuestionnaireNames = new List<string>()
-                        };
+                        Key = "checklist",
+                        Order = newOrder,
+                        IsEnabled = true,
+                        StaticFields = new List<string>(),
+                        ChecklistIds = new List<long>(),
+                        QuestionnaireIds = new List<long>(),
+                        ChecklistNames = new List<string>(),
+                        QuestionnaireNames = new List<string>()
+                    };
+                    components.Add(checklistComponent);
+                }
+                else if (checklistComponents.Count == 1)
+                {
+                    checklistComponent = checklistComponents[0];
+                }
+                else
+                {
+                    // Merge multiple checklist components into one to avoid accidental replacements
+                    checklistComponent = checklistComponents.OrderBy(c => c.Order).First();
+                    var mergedIds = checklistComponents
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+                    var mergedNames = checklistComponents
+                        .SelectMany(c => c.ChecklistNames ?? new List<string>())
+                        .Distinct()
+                        .ToList();
 
-                        // Fill checklist names
-                        try
-                        {
-                            var checklist = await _checklistRepository.GetByIdAsync(checklistId);
-                            if (checklist != null)
-                            {
-                                newComponent.ChecklistNames.Add(checklist.Name);
-                            }
-                            else
-                            {
-                                newComponent.ChecklistNames.Add($"Checklist {checklistId}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to fetch checklist name for ID {ChecklistId}", checklistId);
-                            newComponent.ChecklistNames.Add($"Checklist {checklistId}");
-                        }
+                    checklistComponent.ChecklistIds = mergedIds;
+                    checklistComponent.ChecklistNames = mergedNames;
 
-                        components.Add(newComponent);
+                    // Remove other duplicate components
+                    components = components.Where(c => c.Key != "checklist").ToList();
+                    components.Add(checklistComponent);
+                }
+
+                checklistComponent.ChecklistIds ??= new List<long>();
+                checklistComponent.ChecklistNames ??= new List<string>();
+
+                if (!checklistComponent.ChecklistIds.Contains(checklistId))
+                {
+                    checklistComponent.ChecklistIds.Add(checklistId);
+                    try
+                    {
+                        var checklist = await _checklistRepository.GetByIdAsync(checklistId);
+                        var checklistName = checklist?.Name ?? $"Checklist {checklistId}";
+                        if (!checklistComponent.ChecklistNames.Contains(checklistName))
+                        {
+                            checklistComponent.ChecklistNames.Add(checklistName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch checklist name for ID {ChecklistId}", checklistId);
+                        var fallbackName = $"Checklist {checklistId}";
+                        if (!checklistComponent.ChecklistNames.Contains(fallbackName))
+                        {
+                            checklistComponent.ChecklistNames.Add(fallbackName);
+                        }
                     }
                 }
 
                 stage.ComponentsJson = JsonSerializer.Serialize(components);
                 stage.Components = components;
+                ApplyModifyAuditInfo(stage);
                 return await _stageRepository.UpdateAsync(stage);
             }
             catch (Exception ex)
@@ -629,6 +707,7 @@ namespace FlowFlex.Application.Service.OW
 
                 stage.ComponentsJson = components.Any() ? JsonSerializer.Serialize(components) : null;
                 stage.Components = components;
+                ApplyModifyAuditInfo(stage);
                 return await _stageRepository.UpdateAsync(stage);
             }
             catch (Exception ex)
@@ -661,7 +740,8 @@ namespace FlowFlex.Application.Service.OW
                 {
                     try
                     {
-                        components = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson) ?? new List<StageComponent>();
+                        var normalized = TryUnwrapDoubleEncodedJson(stage.ComponentsJson);
+                        components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions) ?? new List<StageComponent>();
                     }
                     catch (JsonException)
                     {
@@ -669,53 +749,79 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
 
-                // Find or create questionnaire component
-                var questionnaireComponent = components.FirstOrDefault(c => c.Key == "questionnaires" && c.QuestionnaireIds.Contains(questionnaireId));
-                if (questionnaireComponent == null)
+                // Consolidate all questionnaire components into one before appending
+                var questionnaireComponents = components.Where(c => c.Key == "questionnaires").ToList();
+                StageComponent questionnaireComponent;
+                if (questionnaireComponents.Count == 0)
                 {
-                    // Check if there's an existing questionnaire component with this ID
-                    var existingComponent = components.FirstOrDefault(c => c.Key == "questionnaires" && c.QuestionnaireIds.Contains(questionnaireId));
-                    if (existingComponent == null)
+                    var newOrder = components.Any() ? components.Max(c => c.Order) + 1 : 1;
+                    questionnaireComponent = new StageComponent
                     {
-                        // Create new component
-                        var newOrder = components.Any() ? components.Max(c => c.Order) + 1 : 1;
-                        var newComponent = new StageComponent
-                        {
-                            Key = "questionnaires",
-                            Order = newOrder,
-                            IsEnabled = true,
-                            StaticFields = new List<string>(),
-                            ChecklistIds = new List<long>(),
-                            QuestionnaireIds = new List<long> { questionnaireId },
-                            ChecklistNames = new List<string>(),
-                            QuestionnaireNames = new List<string>()
-                        };
+                        Key = "questionnaires",
+                        Order = newOrder,
+                        IsEnabled = true,
+                        StaticFields = new List<string>(),
+                        ChecklistIds = new List<long>(),
+                        QuestionnaireIds = new List<long>(),
+                        ChecklistNames = new List<string>(),
+                        QuestionnaireNames = new List<string>()
+                    };
+                    components.Add(questionnaireComponent);
+                }
+                else if (questionnaireComponents.Count == 1)
+                {
+                    questionnaireComponent = questionnaireComponents[0];
+                }
+                else
+                {
+                    // Merge multiple questionnaire components into one to avoid accidental replacements
+                    questionnaireComponent = questionnaireComponents.OrderBy(c => c.Order).First();
+                    var mergedIds = questionnaireComponents
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+                    var mergedNames = questionnaireComponents
+                        .SelectMany(c => c.QuestionnaireNames ?? new List<string>())
+                        .Distinct()
+                        .ToList();
 
-                        // Fill questionnaire names
-                        try
-                        {
-                            var questionnaire = await _questionnaireRepository.GetByIdAsync(questionnaireId);
-                            if (questionnaire != null)
-                            {
-                                newComponent.QuestionnaireNames.Add(questionnaire.Name);
-                            }
-                            else
-                            {
-                                newComponent.QuestionnaireNames.Add($"Questionnaire {questionnaireId}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to fetch questionnaire name for ID {QuestionnaireId}", questionnaireId);
-                            newComponent.QuestionnaireNames.Add($"Questionnaire {questionnaireId}");
-                        }
+                    questionnaireComponent.QuestionnaireIds = mergedIds;
+                    questionnaireComponent.QuestionnaireNames = mergedNames;
 
-                        components.Add(newComponent);
+                    // Remove other duplicate components
+                    components = components.Where(c => c.Key != "questionnaires").ToList();
+                    components.Add(questionnaireComponent);
+                }
+
+                questionnaireComponent.QuestionnaireIds ??= new List<long>();
+                questionnaireComponent.QuestionnaireNames ??= new List<string>();
+
+                if (!questionnaireComponent.QuestionnaireIds.Contains(questionnaireId))
+                {
+                    questionnaireComponent.QuestionnaireIds.Add(questionnaireId);
+                    try
+                    {
+                        var questionnaire = await _questionnaireRepository.GetByIdAsync(questionnaireId);
+                        var questionnaireName = questionnaire?.Name ?? $"Questionnaire {questionnaireId}";
+                        if (!questionnaireComponent.QuestionnaireNames.Contains(questionnaireName))
+                        {
+                            questionnaireComponent.QuestionnaireNames.Add(questionnaireName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch questionnaire name for ID {QuestionnaireId}", questionnaireId);
+                        var fallbackName = $"Questionnaire {questionnaireId}";
+                        if (!questionnaireComponent.QuestionnaireNames.Contains(fallbackName))
+                        {
+                            questionnaireComponent.QuestionnaireNames.Add(fallbackName);
+                        }
                     }
                 }
 
                 stage.ComponentsJson = JsonSerializer.Serialize(components);
                 stage.Components = components;
+                ApplyModifyAuditInfo(stage);
                 return await _stageRepository.UpdateAsync(stage);
             }
             catch (Exception ex)
@@ -747,7 +853,8 @@ namespace FlowFlex.Application.Service.OW
                 List<StageComponent> components;
                 try
                 {
-                    components = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson) ?? new List<StageComponent>();
+                    var normalized = TryUnwrapDoubleEncodedJson(stage.ComponentsJson);
+                    components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions) ?? new List<StageComponent>();
                 }
                 catch (JsonException)
                 {
@@ -769,6 +876,7 @@ namespace FlowFlex.Application.Service.OW
 
                 stage.ComponentsJson = components.Any() ? JsonSerializer.Serialize(components) : null;
                 stage.Components = components;
+                ApplyModifyAuditInfo(stage);
                 return await _stageRepository.UpdateAsync(stage);
             }
             catch (Exception ex)
