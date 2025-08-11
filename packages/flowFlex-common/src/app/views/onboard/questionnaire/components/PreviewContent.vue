@@ -504,7 +504,7 @@
 															)
 														]?.includes(column.value || column.label)
 													"
-													placeholder="Please specify..."
+													placeholder="Enter other"
 													size="small"
 													class="other-input"
 												/>
@@ -647,7 +647,7 @@
 															)
 														]
 													"
-													placeholder="Please specify..."
+													placeholder="Enter other"
 													size="small"
 													class="other-input"
 												/>
