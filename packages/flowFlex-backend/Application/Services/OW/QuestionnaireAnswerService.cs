@@ -122,7 +122,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 bool isUpdate = existingAnswer != null;
-                string oldAnswerJson = existingAnswer?.AnswerJson;
+                string oldAnswerJson = existingAnswer?.Answer?.ToString(Newtonsoft.Json.Formatting.None);
 
                 // Format and validate answer JSON
                 var formattedJson = string.IsNullOrWhiteSpace(input.AnswerJson) ? "{}" : input.AnswerJson.Trim();
@@ -134,7 +134,7 @@ namespace FlowFlex.Application.Services.OW
                     var updatedAnswerJson = await ProcessAnswerChangesAsync(oldAnswerJson, formattedJson);
 
                     // Update existing answer
-                    existingAnswer.AnswerJson = updatedAnswerJson;
+                    existingAnswer.Answer = string.IsNullOrWhiteSpace(updatedAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(updatedAnswerJson);
                     existingAnswer.Status = input.Status ?? "Draft";
                     existingAnswer.CompletionRate = (int)Math.Round(input.CompletionRate ?? 0);
                     existingAnswer.CurrentSectionIndex = input.CurrentSectionIndex ?? existingAnswer.CurrentSectionIndex;
@@ -175,7 +175,7 @@ namespace FlowFlex.Application.Services.OW
                         OnboardingId = input.OnboardingId,
                         StageId = input.StageId,
                         QuestionnaireId = input.QuestionnaireId,
-                        AnswerJson = processedAnswerJson,
+                        Answer = string.IsNullOrWhiteSpace(processedAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(processedAnswerJson),
                         Status = input.Status ?? "Draft",
                         CompletionRate = (int)Math.Round(input.CompletionRate ?? 0),
                         CurrentSectionIndex = input.CurrentSectionIndex ?? 0,
@@ -318,7 +318,7 @@ namespace FlowFlex.Application.Services.OW
                 var existing = await _repository.GetByIdAsync(answerId);
                 if (existing == null) return false;
 
-                var oldAnswerJson = existing.AnswerJson;
+                var oldAnswerJson = existing.Answer?.ToString(Newtonsoft.Json.Formatting.None);
                 var newAnswerJson = input.AnswerJson;
 
                 // If there are important updates, create new version
@@ -327,7 +327,7 @@ namespace FlowFlex.Application.Services.OW
                     // Create new version
                     var newEntity = _mapper.Map<QuestionnaireAnswer>(existing);
                     newEntity.Id = 0; // Reset ID to create new record
-                    newEntity.AnswerJson = newAnswerJson;
+                    newEntity.Answer = string.IsNullOrWhiteSpace(newAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(newAnswerJson);
                     newEntity.Status = input.Status ?? existing.Status;
                     newEntity.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
                     newEntity.InitCreateInfo(_userContext);
@@ -343,7 +343,7 @@ namespace FlowFlex.Application.Services.OW
                 else
                 {
                     // Update existing version
-                    existing.AnswerJson = newAnswerJson;
+                    existing.Answer = string.IsNullOrWhiteSpace(newAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(newAnswerJson);
                     existing.Status = input.Status ?? existing.Status;
                     existing.CompletionRate = input.CompletionRate.HasValue ? (int)Math.Round(input.CompletionRate.Value) : existing.CompletionRate;
                     existing.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
@@ -479,7 +479,9 @@ namespace FlowFlex.Application.Services.OW
         private static bool ShouldCreateNewVersion(QuestionnaireAnswer existing, QuestionnaireAnswerUpdateDto input)
         {
             // If answer content changes, create new version
-            return existing.AnswerJson != input.AnswerJson;
+            var existingStr = existing.Answer?.ToString(Newtonsoft.Json.Formatting.None) ?? string.Empty;
+            var incomingStr = input.AnswerJson ?? string.Empty;
+            return existingStr != incomingStr;
         }
 
         private string GetClientIpAddress()

@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Contracts.Dtos
             FileExt = ext;
             FileSize = fileSize;
             CreateBy = create_by;
-            CreateDate = DateTime.Now;
+            CreateDate = DateTime.UtcNow;
         }
     }
 

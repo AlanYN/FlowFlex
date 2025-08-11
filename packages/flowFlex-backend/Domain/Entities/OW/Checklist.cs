@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using SqlSugar;
 using FlowFlex.Domain.Entities.Base;
 using System.Text.Json;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Domain.Entities.OW;
 
@@ -72,8 +73,56 @@ public class Checklist : EntityBaseCreateInfo
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// Assignments stored as JSONB (ORM-serialized)
+    /// Assignments stored as JSONB (raw JToken to handle both array and object)
     /// </summary>
     [SugarColumn(ColumnName = "assignments_json", ColumnDataType = "jsonb", IsJson = true, IsNullable = true)]
-    public List<AssignmentDto> Assignments { get; set; } = new List<AssignmentDto>();
+    public JToken AssignmentsRaw { get; set; }
+
+    /// <summary>
+    /// Assignments property (not directly mapped to DB)
+    /// - Supports both array and single object legacy formats
+    /// </summary>
+    [SugarColumn(IsIgnore = true)]
+    public List<AssignmentDto> Assignments
+    {
+        get
+        {
+            try
+            {
+                if (AssignmentsRaw == null || AssignmentsRaw.Type == JTokenType.Null)
+                {
+                    return new List<AssignmentDto>();
+                }
+                if (AssignmentsRaw.Type == JTokenType.Array)
+                {
+                    return AssignmentsRaw.ToObject<List<AssignmentDto>>() ?? new List<AssignmentDto>();
+                }
+                if (AssignmentsRaw.Type == JTokenType.Object)
+                {
+                    var single = AssignmentsRaw.ToObject<AssignmentDto>();
+                    return single != null ? new List<AssignmentDto> { single } : new List<AssignmentDto>();
+                }
+                if (AssignmentsRaw.Type == JTokenType.String)
+                {
+                    // Handle double-encoded string
+                    var text = AssignmentsRaw.ToObject<string>();
+                    if (string.IsNullOrWhiteSpace(text)) return new List<AssignmentDto>();
+                    // Try parse as array first, then object
+                    try { return JArray.Parse(text).ToObject<List<AssignmentDto>>() ?? new List<AssignmentDto>(); } catch { }
+                    try { var obj = JObject.Parse(text).ToObject<AssignmentDto>(); return obj != null ? new List<AssignmentDto> { obj } : new List<AssignmentDto>(); } catch { }
+                }
+            }
+            catch { }
+            return new List<AssignmentDto>();
+        }
+        set
+        {
+            if (value == null || value.Count == 0)
+            {
+                AssignmentsRaw = null;
+                return;
+            }
+            AssignmentsRaw = JArray.FromObject(value);
+        }
+    }
 }

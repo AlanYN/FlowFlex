@@ -65,7 +65,7 @@ namespace FlowFlex.Application.Services.OW
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
+                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>
@@ -115,7 +115,7 @@ namespace FlowFlex.Application.Services.OW
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
+                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>
@@ -186,7 +186,7 @@ namespace FlowFlex.Application.Services.OW
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
+                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>
@@ -240,7 +240,7 @@ namespace FlowFlex.Application.Services.OW
                             <p><strong>Account Details:</strong></p>
                             <ul>
                                 <li>Email: {to}</li>
-                                <li>Reset Time: {DateTime.Now:MM/dd/yyyy HH:mm:ss} UTC</li>
+                                <li>Reset Time: {DateTime.UtcNow:MM/dd/yyyy HH:mm:ss} UTC</li>
                             </ul>
                             
                             <p>You can now log in to the Customer Portal using your new password.</p>
@@ -257,7 +257,7 @@ namespace FlowFlex.Application.Services.OW
                         </div>
                         <div class='footer'>
                             <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.Now.Year} ITEM WFE. All rights reserved.</p>
+                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
                         </div>
                     </div>
                 </body>

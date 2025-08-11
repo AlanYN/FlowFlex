@@ -24,8 +24,8 @@ namespace FlowFlex.Infrastructure.Extensions
                 var migrationService = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
 
                 // Execute migrations synchronously during startup
-                var task = migrationService.ExecuteMigrationsAsync();
-                task.Wait();
+                // Use GetAwaiter().GetResult() to avoid AggregateException wrapping
+                migrationService.ExecuteMigrationsAsync().GetAwaiter().GetResult();
 
                 logger.LogInformation("Database migrations completed successfully");
             }
