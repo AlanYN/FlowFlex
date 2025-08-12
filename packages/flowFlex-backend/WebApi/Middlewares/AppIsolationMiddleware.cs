@@ -53,7 +53,7 @@ namespace FlowFlex.WebApi.Middlewares
                     RequestId = requestId,
                     ClientIp = GetClientIpAddress(context),
                     UserAgent = context.Request.Headers["User-Agent"].ToString(),
-                    RequestTime = DateTimeOffset.Now
+                    RequestTime = DateTimeOffset.UtcNow
                 };
                 
                 context.Items["AppContext"] = appContext;

@@ -75,6 +75,16 @@ namespace FlowFlex.Application.Contracts.IServices
         Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage);
 
         /// <summary>
+        /// Parse natural language with explicit AI model override
+        /// </summary>
+        /// <param name="naturalLanguage">Natural language input</param>
+        /// <param name="modelProvider">AI provider name, e.g. zhipuai/openai/anthropic</param>
+        /// <param name="modelName">Model name, e.g. glm-4/gpt-4o/claude-3</param>
+        /// <param name="modelId">Optional user model configuration id</param>
+        /// <returns>Structured requirements</returns>
+        Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage, string? modelProvider, string? modelName, string? modelId);
+
+        /// <summary>
         /// Enhance existing workflow using modification input
         /// </summary>
         /// <param name="input">Modification input</param>

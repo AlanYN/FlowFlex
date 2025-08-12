@@ -60,7 +60,7 @@ namespace FlowFlex.Application.Services.OW
                     RealName = result.OriginalFileName,
                     FileType = result.ContentType,
                     AccessUrl = result.AccessUrl,
-                    CreateDate = DateTimeOffset.Now,
+                CreateDate = DateTimeOffset.UtcNow,
                     TenantId = tenantId,
                     FileSize = result.FileSize,
                     FilePath = result.FilePath,
@@ -119,7 +119,7 @@ namespace FlowFlex.Application.Services.OW
                     RealName = $"test_{id}.txt",
                     FileType = "text/plain",
                     AccessUrl = $"/files/{id}",
-                    CreateDate = DateTimeOffset.Now
+            CreateDate = DateTimeOffset.UtcNow
                 });
             }
             return result;

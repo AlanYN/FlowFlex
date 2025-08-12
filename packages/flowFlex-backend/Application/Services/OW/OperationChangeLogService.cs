@@ -68,7 +68,7 @@ namespace FlowFlex.Application.Services.OW
                     TaskName = taskName,
                     CompletionNotes = completionNotes,
                     ActualHours = actualHours,
-                    CompletedAt = DateTimeOffset.Now
+            CompletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -109,7 +109,7 @@ namespace FlowFlex.Application.Services.OW
                     TaskId = taskId,
                     TaskName = taskName,
                     Reason = reason,
-                    UncompletedAt = DateTimeOffset.Now
+            UncompletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -175,7 +175,7 @@ namespace FlowFlex.Application.Services.OW
                     AnswerId = answerId,
                     QuestionnaireId = questionnaireId,
                     IsUpdate = isUpdate,
-                    SubmittedAt = DateTimeOffset.Now,
+            SubmittedAt = DateTimeOffset.UtcNow,
                     ChangedFieldsCount = changedFields.Count
                 });
 
@@ -247,7 +247,7 @@ namespace FlowFlex.Application.Services.OW
                     FieldLabel = fieldLabel,
                     DisplayFieldName = displayFieldName,
                     ChangedFieldsCount = changedFields?.Count ?? 0,
-                    ChangedAt = DateTimeOffset.Now
+            ChangedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -295,7 +295,7 @@ namespace FlowFlex.Application.Services.OW
                     FileSizeFormatted = FormatFileSize(fileSize),
                     ContentType = contentType,
                     Category = category,
-                    UploadedAt = DateTimeOffset.Now
+            UploadedAt = DateTimeOffset.UtcNow
                 });
 
                 _logger.LogInformation($"📝 [Log Step 4] Calling LogOperationAsync...");
@@ -346,7 +346,7 @@ namespace FlowFlex.Application.Services.OW
                     FileId = fileId,
                     FileName = fileName,
                     Reason = reason,
-                    DeletedAt = DateTimeOffset.Now
+            DeletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -395,7 +395,7 @@ namespace FlowFlex.Application.Services.OW
                     FileId = fileId,
                     FileName = fileName,
                     ChangedFieldsCount = changedFields?.Count ?? 0,
-                    UpdatedAt = DateTimeOffset.Now
+            UpdatedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -464,7 +464,7 @@ namespace FlowFlex.Application.Services.OW
                     ChangedFields = changedFields != null ? JsonSerializer.Serialize(changedFields) : null,
                     OperatorId = GetOperatorId(),
                     OperatorName = GetOperatorDisplayName(),
-                    OperationTime = DateTimeOffset.Now,
+            OperationTime = DateTimeOffset.UtcNow,
                     IpAddress = ipAddress,
                     UserAgent = userAgent,
                     OperationSource = operationSource,
@@ -1021,7 +1021,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string GetRelativeTimeDisplay(DateTimeOffset dateTime)
         {
-            var now = DateTimeOffset.Now;
+            var now = DateTimeOffset.UtcNow;
             var timeSpan = now - dateTime;
 
             if (timeSpan.TotalMinutes < 1)

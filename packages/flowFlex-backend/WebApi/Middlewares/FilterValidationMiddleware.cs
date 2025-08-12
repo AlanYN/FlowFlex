@@ -78,7 +78,7 @@ namespace FlowFlex.WebApi.Middlewares
                     RequestId = System.Guid.NewGuid().ToString("N")[..8],
                     ClientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     UserAgent = context.Request.Headers["User-Agent"].ToString(),
-                    RequestTime = System.DateTimeOffset.Now
+                    RequestTime = System.DateTimeOffset.UtcNow
                 };
                 
                 context.Items["AppContext"] = defaultAppContext;

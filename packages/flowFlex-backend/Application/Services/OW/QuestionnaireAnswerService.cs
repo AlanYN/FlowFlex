@@ -12,6 +12,7 @@ using System.Text.Json;
 using System.Linq;
 using FlowFlex.SqlSugarDB.Extensions;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -29,6 +30,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ISqlSugarClient _sqlSugarClient;
         private readonly UserContext _userContext;
+        private readonly IOperatorContextService _operatorContextService;
 
         public QuestionnaireAnswerService(
             IQuestionnaireAnswerRepository repository,
@@ -39,7 +41,8 @@ namespace FlowFlex.Application.Services.OW
             IMapper mapper,
             IHttpContextAccessor httpContextAccessor,
             ISqlSugarClient sqlSugarClient,
-            UserContext userContext)
+            UserContext userContext,
+            IOperatorContextService operatorContextService)
         {
             _repository = repository;
     
@@ -50,6 +53,7 @@ namespace FlowFlex.Application.Services.OW
             _httpContextAccessor = httpContextAccessor;
             _sqlSugarClient = sqlSugarClient;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
         }
 
         /// <summary>
@@ -181,7 +185,7 @@ namespace FlowFlex.Application.Services.OW
 
                     if (input.Status == "Submitted")
                     {
-                        existingAnswer.SubmitTime = DateTimeOffset.Now;
+                        existingAnswer.SubmitTime = DateTimeOffset.UtcNow;
                     }
 
                     var updateResult = await _repository.UpdateAsync(existingAnswer);
@@ -218,7 +222,7 @@ namespace FlowFlex.Application.Services.OW
                         Status = input.Status ?? "Draft",
                         CompletionRate = (int)Math.Round(input.CompletionRate ?? 0),
                         CurrentSectionIndex = input.CurrentSectionIndex ?? 0,
-                        SubmitTime = input.Status == "Submitted" ? DateTimeOffset.Now : null,
+                        SubmitTime = input.Status == "Submitted" ? DateTimeOffset.UtcNow : null,
                         Version = await GetNextVersionAsync(input.OnboardingId, input.StageId),
                         IsLatest = true,
                         Source = "customer_portal",
@@ -228,6 +232,7 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with proper ID and timestamps
                     entity.InitCreateInfo(_userContext);
+                    AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
                     // Debug logging handled by structured logging ?? "NULL"}");
 
                     // Use SqlSugar ORM insert
@@ -440,8 +445,8 @@ namespace FlowFlex.Application.Services.OW
                 var oldSubmitTime = answer.SubmitTime;
 
                 answer.Status = "Submitted";
-                answer.SubmitTime = DateTimeOffset.Now;
-                answer.ModifyDate = DateTimeOffset.Now;
+                answer.SubmitTime = DateTimeOffset.UtcNow;
+                answer.ModifyDate = DateTimeOffset.UtcNow;
 
                 var result = await _repository.UpdateAsync(answer);
 
@@ -644,7 +649,7 @@ namespace FlowFlex.Application.Services.OW
                 var oldAnswerData = JsonSerializer.Deserialize<JsonElement>(oldAnswerJson);
                 var newAnswerData = JsonSerializer.Deserialize<JsonElement>(newAnswerJson);
 
-                // Get current user info and time
+                // Get current user info and time (UTC only)
                 string currentUser = GetCurrentUserName();
                 DateTimeOffset currentTime = DateTimeOffset.UtcNow;
 
@@ -932,7 +937,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Add change history to response object
         /// </summary>
-        private void AddChangeHistory(Dictionary<string, object> responseObj, string user, DateTimeOffset time, string action)
+        private void AddChangeHistory(Dictionary<string, object> responseObj, string user, DateTimeOffset timeUtc, string action)
         {
             try
             {
@@ -941,8 +946,9 @@ namespace FlowFlex.Application.Services.OW
                 {
                     action = action, // "created", "modified"
                     user = user,
-                    timestamp = time.ToString("MM/dd/yyyy HH:mm:ss.fff"),
-                    timestampUtc = time.UtcDateTime
+                    // 保留原字段但以UTC标准存储，timestamp 使用 ISO 8601 且为 UTC
+                    timestamp = timeUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    timestampUtc = timeUtc.UtcDateTime
                 };
 
                 // 获取现有的变更历�?
@@ -969,7 +975,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // 添加最后修改信息（用于快速访问）
                 responseObj["lastModifiedBy"] = user;
-                responseObj["lastModifiedAt"] = time.ToString("MM/dd/yyyy HH:mm:ss.fff");
+                responseObj["lastModifiedAt"] = timeUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
             }
             catch (Exception ex)
             {
