@@ -681,7 +681,7 @@ onMounted(async () => {
 });
 
 // 获取工作流列表
-const fetchWorkflows = async () => {
+const fetchWorkflows = async (workflowId?: string) => {
 	try {
 		loading.workflows = true;
 		const res = await getWorkflowList();
@@ -690,8 +690,11 @@ const fetchWorkflows = async () => {
 			const defaultWorkflow = res.data.find((wf) => wf.isDefault) || res.data[0];
 
 			workflowListData.value = res.data;
+
 			// 设置当前工作流并获取阶段
-			if (defaultWorkflow) {
+			if (workflowId) {
+				await setCurrentWorkflow(workflowId);
+			} else if (defaultWorkflow) {
 				await setCurrentWorkflow(defaultWorkflow.id);
 			}
 		} else {
@@ -921,6 +924,7 @@ Activating an expired workflow may cause issues with the onboarding process. Do 
 									// 更新本地状态
 									workflow.value!.status = 'active';
 									workflow.value!.isActive = true;
+									fetchWorkflows(workflow.value!.id);
 									done(); // 关闭对话框
 								} else {
 									ElMessage.error(res.msg || t('sys.api.operationFailed'));
@@ -955,6 +959,7 @@ Activating an expired workflow may cause issues with the onboarding process. Do 
 			// 更新本地状态
 			workflow.value.status = 'active';
 			workflow.value.isActive = true;
+			fetchWorkflows(workflow.value!.id);
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
@@ -994,6 +999,7 @@ const deactivateWorkflow = async () => {
 							workflow.value!.status = 'inactive';
 							workflow.value!.isActive = false;
 							workflow.value!.endDate = new Date().toISOString();
+							fetchWorkflows(workflow.value!.id);
 							done(); // 关闭对话框
 						} else {
 							ElMessage.error(res.msg || t('sys.api.operationFailed'));
