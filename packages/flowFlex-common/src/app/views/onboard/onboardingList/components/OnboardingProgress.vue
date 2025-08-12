@@ -45,7 +45,7 @@
 						<div
 							v-for="(stage, index) in displayedStages"
 							:key="stage.stageId"
-							class="relative pl-8 py-3 pr-4 border-l-2 ml-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-r-lg"
+							class="relative pl-8 py-3 pr-4 ml-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-r-lg"
 							:class="[
 								stage.completed
 									? 'border-green-500'
