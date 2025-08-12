@@ -751,24 +751,16 @@ ASSIGNMENTS:
         if (checklists == null || !checklists.Any())
             return;
 
-        // Get the full checklist entities to access the Assignments property
+        // Batch load checklist entities to access Assignments (avoid N+1)
         var checklistIds = checklists.Select(c => c.Id).ToList();
-        var entities = new List<Checklist>();
-
-        foreach (var id in checklistIds)
-        {
-            var entity = await _checklistRepository.GetByIdAsync(id);
-            if (entity != null)
-            {
-                entities.Add(entity);
-            }
-        }
+        var entities = await _checklistRepository.GetByIdsAsync(checklistIds);
+        var entityById = entities?.ToDictionary(e => e.Id) ?? new Dictionary<long, Checklist>();
 
         // Map assignments and calculate task statistics
         foreach (var checklist in checklists)
         {
-            var entity = entities.FirstOrDefault(e => e.Id == checklist.Id);
-            if (entity != null)
+            var hasEntity = entityById.TryGetValue(checklist.Id, out var entity);
+            if (hasEntity && entity != null)
             {
                 // Use the Assignments property from the entity (which reads from AssignmentsJson)
                 checklist.Assignments = entity.Assignments?.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
@@ -782,40 +774,47 @@ ASSIGNMENTS:
                 checklist.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
             }
 
-            // Load tasks and calculate task statistics
-            try
+            // Defer task stats calculation after batch load
+        }
+
+        // Batch load tasks for all checklists (avoid N+1)
+        List<ChecklistTask> allTasks;
+        try
+        {
+            allTasks = await _checklistTaskRepository.GetByChecklistIdsAsync(checklistIds);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error batch loading tasks for checklists: {ex.Message}");
+            allTasks = new List<ChecklistTask>();
+        }
+
+        var tasksGrouped = allTasks
+            .GroupBy(t => t.ChecklistId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var checklist in checklists)
+        {
+            var tasks = tasksGrouped.TryGetValue(checklist.Id, out var list) ? list : new List<ChecklistTask>();
+
+            checklist.TotalTasks = tasks.Count;
+            checklist.CompletedTasks = tasks.Count(t => t.IsCompleted);
+
+            if (checklist.TotalTasks > 0)
             {
-                var tasks = await _checklistTaskRepository.GetByChecklistIdAsync(checklist.Id);
-                checklist.TotalTasks = tasks?.Count ?? 0;
-                checklist.CompletedTasks = tasks?.Count(t => t.IsCompleted) ?? 0;
-
-                // Calculate completion rate
-                if (checklist.TotalTasks > 0)
-                {
-                    checklist.CompletionRate = Math.Round((decimal)checklist.CompletedTasks / checklist.TotalTasks * 100, 2);
-                }
-                else
-                {
-                    checklist.CompletionRate = 0;
-                }
-
-                // Include task details if requested
-                if (includeTasks && tasks != null)
-                {
-                    checklist.Tasks = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
-                }
-                else
-                {
-                    checklist.Tasks = new List<ChecklistTaskOutputDto>();
-                }
+                checklist.CompletionRate = Math.Round((decimal)checklist.CompletedTasks / checklist.TotalTasks * 100, 2);
             }
-            catch (Exception ex)
+            else
             {
-                // Log error but don't fail the entire operation
-                Console.WriteLine($"Error calculating task statistics for checklist {checklist.Id}: {ex.Message}");
-                checklist.TotalTasks = 0;
-                checklist.CompletedTasks = 0;
                 checklist.CompletionRate = 0;
+            }
+
+            if (includeTasks && tasks.Count > 0)
+            {
+                checklist.Tasks = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+            }
+            else
+            {
                 checklist.Tasks = new List<ChecklistTaskOutputDto>();
             }
         }

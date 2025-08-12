@@ -13,6 +13,11 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<ChecklistTask>> GetByChecklistIdAsync(long checklistId);
 
         /// <summary>
+        /// Get tasks for multiple checklist ids in a single query
+        /// </summary>
+        Task<List<ChecklistTask>> GetByChecklistIdsAsync(List<long> checklistIds);
+
+        /// <summary>
         /// Get completed tasks count
         /// </summary>
         Task<int> GetCompletedCountAsync(long checklistId);
