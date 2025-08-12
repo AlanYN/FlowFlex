@@ -14,6 +14,8 @@ export const inputTextMaxLength = 50; // 文本框的最大长度
 
 export const notesPageTextraMaxLength = 1000; // 富文本的输入长度
 
+export const questionMaxlength = 500; // 问题最大长度
+
 export const textraTwoHundredLength = 1000;
 
 export const textraMaxLength = 100; // 普通富文本的输入长度

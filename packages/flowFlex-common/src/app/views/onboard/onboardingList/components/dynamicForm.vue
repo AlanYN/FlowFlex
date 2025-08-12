@@ -90,6 +90,7 @@
 						<el-input
 							v-if="question.type === 'short_answer' || question.type === 'text'"
 							v-model="formData[question.id]"
+							:maxlength="questionMaxlength"
 							:placeholder="'Enter ' + question.question"
 							@input="handleInputChange(question.id, $event)"
 						/>
@@ -102,8 +103,10 @@
 								question.type === 'textarea'
 							"
 							v-model="formData[question.id]"
+							:maxlength="notesPageTextraMaxLength"
 							type="textarea"
 							:rows="3"
+							show-word-limit
 							:placeholder="'Enter ' + question.question"
 							@input="handleInputChange(question.id, $event)"
 						/>
@@ -138,6 +141,7 @@
 											@click.stop
 											:disabled="formData[question.id] != option.value"
 											v-model="formData[`${question.id}_${option.id}`]"
+											:maxlength="questionMaxlength"
 											placeholder="Enter other"
 										/>
 									</div>
@@ -176,6 +180,7 @@
 												!formData[question.id]?.includes(option.value)
 											"
 											v-model="formData[`${question.id}_${option.id}`]"
+											:maxlength="questionMaxlength"
 											placeholder="Enter other"
 										/>
 									</div>
@@ -302,7 +307,6 @@
 										{{ column.label }}
 										<el-tag
 											v-if="column.isOther"
-											size="small"
 											type="warning"
 											class="other-column-tag"
 										>
@@ -341,8 +345,8 @@
 														column.id
 													)
 												"
+												:maxlength="questionMaxlength"
 												placeholder="Enter other"
-												size="small"
 												class="other-input"
 											/>
 										</div>
@@ -372,7 +376,6 @@
 										{{ column.label }}
 										<el-tag
 											v-if="column.isOther"
-											size="small"
 											type="warning"
 											class="other-column-tag"
 										>
@@ -416,7 +419,7 @@
 													(column.value || column.label)
 												"
 												placeholder="Enter other"
-												size="small"
+												:maxlength="questionMaxlength"
 												class="other-input"
 											/>
 										</div>
@@ -450,7 +453,6 @@
 										{{ column.label }}
 										<el-tag
 											v-if="column.isOther"
-											size="small"
 											type="warning"
 											class="other-column-tag"
 										>
@@ -473,6 +475,7 @@
 											v-model="
 												formData[`${question.id}_${column.id}_${row.id}`]
 											"
+											:maxlength="questionMaxlength"
 										/>
 									</div>
 								</div>
@@ -595,7 +598,11 @@ import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/i
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 import { ElNotification } from 'element-plus';
-import { projectDate } from '@/settings/projectSetting';
+import {
+	projectDate,
+	notesPageTextraMaxLength,
+	questionMaxlength,
+} from '@/settings/projectSetting';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -889,10 +896,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 			})
 			?.forEach((question: any, qIdx: number) => {
 				if (question.required) {
-					if (
-						question.type === 'multiple_choice_grid' ||
-						question.type === 'short_answer_grid'
-					) {
+					if (question.type === 'multiple_choice_grid') {
 						// 多选网格：检查每一行是否都有选择
 						if (question.rows && question.rows.length > 0) {
 							let allRowsCompleted = true;
@@ -900,6 +904,32 @@ const validateForm = (presentQuestionIndex?: number) => {
 								const gridKey = `${question.id}_${row.id || rowIndex}`;
 								const gridValue = formData.value[gridKey];
 								if (!Array.isArray(gridValue) || gridValue.length === 0) {
+									allRowsCompleted = false;
+								}
+							});
+							if (!allRowsCompleted) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
+							}
+						}
+					} else if (question.type === 'short_answer_grid') {
+						if (question.rows && question.columns && question.columns.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								// 检查该行是否至少有一个单元格有内容
+								let rowHasValue = false;
+								question.columns.forEach((column: any, columnIndex: number) => {
+									const gridKey = `${question.id}_${column.id}_${row.id}`;
+									const gridValue = formData.value[gridKey];
+									if (gridValue && gridValue.trim() !== '') {
+										rowHasValue = true;
+									}
+								});
+								// 如果该行没有任何内容，则标记为未完成
+								if (!rowHasValue) {
 									allRowsCompleted = false;
 								}
 							});
