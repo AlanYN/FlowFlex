@@ -86,10 +86,10 @@ export function validateAIWorkflow(workflow: any) {
  * @param naturalLanguage 自然语言描述
  * @returns 结构化需求
  */
-export function parseAIRequirements(naturalLanguage: string) {
+export function parseAIRequirements(naturalLanguage: string, opts?: { modelProvider?: string; modelName?: string; modelId?: string }) {
 	return defHttp.post({
 		url: Api().aiWorkflowParseRequirements,
-		params: { naturalLanguage },
+		params: { naturalLanguage, ...(opts || {}) },
 	});
 }
 
@@ -99,6 +99,20 @@ export function parseAIRequirements(naturalLanguage: string) {
  */
 export function getAIWorkflowStatus() {
 	return defHttp.get({ url: Api().aiWorkflowStatus });
+}
+
+/**
+ * 获取当前租户可用的AI模型配置列表
+ */
+export function getAIModels() {
+  return defHttp.get({ url: `${globSetting.apiProName}/ai/config/${globSetting.apiVersion}/models` });
+}
+
+/**
+ * 获取默认AI模型配置
+ */
+export function getDefaultAIModel() {
+  return defHttp.get({ url: `${globSetting.apiProName}/ai/config/${globSetting.apiVersion}/models/default` });
 }
 
 /**

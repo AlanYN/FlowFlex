@@ -12,6 +12,7 @@ using System.Text.Json;
 using System.Linq;
 using FlowFlex.SqlSugarDB.Extensions;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -29,6 +30,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ISqlSugarClient _sqlSugarClient;
         private readonly UserContext _userContext;
+        private readonly IOperatorContextService _operatorContextService;
 
         public QuestionnaireAnswerService(
             IQuestionnaireAnswerRepository repository,
@@ -39,7 +41,8 @@ namespace FlowFlex.Application.Services.OW
             IMapper mapper,
             IHttpContextAccessor httpContextAccessor,
             ISqlSugarClient sqlSugarClient,
-            UserContext userContext)
+            UserContext userContext,
+            IOperatorContextService operatorContextService)
         {
             _repository = repository;
     
@@ -50,6 +53,7 @@ namespace FlowFlex.Application.Services.OW
             _httpContextAccessor = httpContextAccessor;
             _sqlSugarClient = sqlSugarClient;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
         }
 
         /// <summary>
@@ -228,6 +232,7 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with proper ID and timestamps
                     entity.InitCreateInfo(_userContext);
+                    AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
                     // Debug logging handled by structured logging ?? "NULL"}");
 
                     // Use SqlSugar ORM insert
