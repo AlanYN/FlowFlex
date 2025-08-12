@@ -9,25 +9,23 @@
 						Use artificial intelligence to quickly create and optimize workflows
 					</p>
 				</div>
-				<div class="flex space-x-2">
+                <div class="flex space-x-2">
+                    <!-- Import Excel -->
+                 
+
+                    <!-- AI Analyze Files (open dialog) -->
+                    <el-button :loading="analyzing" type="primary" @click="openAIAnalyze">
+                        <el-icon class="mr-1">
+                            <Document />
+                        </el-icon>
+                        AI Analyze Files
+                    </el-button>
 					<el-button @click="showAIConfig" type="success">
 						<el-icon class="mr-1">
 							<Setting />
 						</el-icon>
 						AI Model Config
-					</el-button>
-					<el-button @click="openWorkflowList">
-						<el-icon class="mr-1">
-							<List />
-						</el-icon>
-						{{ showWorkflowList ? 'Hide' : 'Show' }} Workflow List
-					</el-button>
-					<el-button type="primary" @click="goToTraditionalCreate">
-						<el-icon class="mr-1">
-							<Plus />
-						</el-icon>
-						Traditional Create
-					</el-button>
+					</el-button>				
 				</div>
 			</div>
 		</div>
@@ -153,7 +151,7 @@
 										size="small"
 										placeholder="Stage name..."
 										class="stage-title-input"
-										@blur="updateStage(index)"
+                                        @blur="onStageChanged(index)"
 									/>
 								</div>
 								<div class="stage-actions">
@@ -208,7 +206,7 @@
 										type="textarea"
 										:rows="3"
 										placeholder="Describe what happens in this stage..."
-										@blur="updateStage(index)"
+                                        @blur="onStageChanged(index)"
 										class="description-textarea"
 									/>
 								</div>
@@ -402,6 +400,18 @@
 				<AIModelConfig />
 			</div>
 		</el-dialog>
+
+		<!-- AI Analyze Files Dialog -->
+		<el-dialog
+			v-model="showAIAnalyzeDialog"
+			title="AI Analyze Files"
+			width="60%"
+			:close-on-click-modal="false"
+			top="5vh"
+			class="ai-analyze-dialog"
+		>
+			<AIAnalyze />
+		</el-dialog>
 	</div>
 </template>
 
@@ -425,9 +435,14 @@ import {
 import AIWorkflowGenerator from '@/components/ai/AIWorkflowGenerator.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import AIModelConfig from './ai-config.vue';
+import AIAnalyze from './ai-analyze.vue';
 
 // APIs
-import { getWorkflowList, createWorkflow, updateWorkflow } from '@/apis/ow';
+import { getWorkflowList, createWorkflow, updateWorkflow, getStagesByWorkflow, updateStage as apiUpdateStage } from '@/apis/ow';
+import { createChecklist } from '@/apis/ow/checklist';
+import { createQuestionnaire } from '@/apis/ow/questionnaire';
+import { parseAIRequirements, generateAIWorkflow } from '@/apis/ai/workflow';
+import * as XLSX from 'xlsx-js-style';
 import { validateAIWorkflow } from '@/apis/ai/workflow';
 
 // Router
@@ -473,6 +488,8 @@ const generatedStages = ref<WorkflowStage[]>([]);
 const saving = ref(false);
 const enhancing = ref(false);
 const validating = ref(false);
+const importing = ref(false);
+const analyzing = ref(false);
 
 // Field Dialog
 const showFieldDialog = ref(false);
@@ -486,10 +503,410 @@ const enhanceResult = ref<EnhanceResult | null>(null);
 
 // AI Config Dialog
 const showAIConfigDialog = ref(false);
+const showAIAnalyzeDialog = ref(false);
 
 // Modification mode tracking
 const isModifyMode = ref(false);
 const selectedWorkflowId = ref<number | null>(null);
+// -------- Import Excel to create Workflow/Stages/Checklist/Questionnaire --------
+const onImportFileChange = async (file: any) => {
+    if (!file?.raw) return;
+    importing.value = true;
+    try {
+        const arrayBuffer = await file.raw.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+        // Expect header like: Team | Life Cycle | Stage | Customer Onboarding Process | Team | Checklist | Questionnaire | Required Fields | Documents
+        const dataRows = rows.slice(1).filter((r) => r && r.length > 0);
+        if (dataRows.length === 0) {
+            ElMessage.warning('No data rows found in Excel');
+            return;
+        }
+
+        // Build workflow input
+        const workflowName = `Imported Workflow ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`;
+        const stageInputs = dataRows
+            .filter((r) => r && r[3])
+            .map((r, idx) => {
+                const stageName = String(r[3]).trim();
+                const groupCell = r[4] || r[0] || 'General';
+                const documents = (r[8] || '').toString().toLowerCase();
+                const attachmentNeeded = documents.includes('yes') || documents.includes('y');
+                return {
+                    name: stageName,
+                    description: '',
+                    defaultAssignedGroup: String(groupCell || 'General'),
+                    estimatedDuration: 1,
+                    order: idx + 1, // ensure integer sequential order
+                    attachmentManagementNeeded: attachmentNeeded,
+                    visibleInPortal: true,
+                };
+            });
+
+        if (stageInputs.length === 0) {
+            ElMessage.warning('No stages parsed from Excel');
+            return;
+        }
+
+        const workflowPayload = {
+            name: workflowName,
+            description: 'Auto-imported from Excel',
+            isDefault: false,
+            status: 'active',
+            startDate: new Date().toISOString(),
+            isActive: true,
+            version: 1,
+            // configJson is optional; omit null to avoid model binding issues
+            stages: stageInputs,
+        } as any;
+
+        const wfRes = await createWorkflow(workflowPayload);
+        if (!(wfRes && (wfRes.success || wfRes.code === '200'))) {
+            ElMessage.error('Create workflow failed');
+            return;
+        }
+        const workflowId: number = wfRes.data || wfRes?.id || wfRes;
+
+        // Load created stages to get IDs
+        const stagesRes = await getStagesByWorkflow(workflowId);
+        const createdStages: any[] = stagesRes?.data || stagesRes || [];
+
+        // Map stage name => id for assignment
+        const stageMap = new Map<string, any>();
+        createdStages.forEach((s) => stageMap.set((s.name || '').toString().trim(), s));
+
+        // For each row, create checklist/questionnaire if present
+        for (const r of dataRows) {
+            const stageName = (r[3] || '').toString().trim();
+            if (!stageName) continue;
+            const targetStage = stageMap.get(stageName);
+            if (!targetStage?.id) continue;
+
+            // Checklist
+            const checklistCell = (r[5] || '').toString().trim();
+            if (checklistCell && checklistCell !== '--') {
+                const checklistName = `${stageName} Checklist`;
+                await createChecklist({
+                    name: checklistName,
+                    description: checklistCell,
+                    team: (r[0] || r[4] || 'General').toString(),
+                    type: 'Instance',
+                    status: 'Active',
+                    isTemplate: false,
+                    estimatedHours: 0,
+                    isActive: true,
+                    assignments: [
+                        { workflowId, stageId: Number(targetStage.id) },
+                    ],
+                });
+            }
+
+            // Questionnaire
+            const questionnaireCell = (r[6] || '').toString().trim();
+            if (questionnaireCell && questionnaireCell !== '--') {
+                const questionnaireName = `${stageName} Questionnaire`;
+                const structure = { title: questionnaireName, sections: [] };
+                await createQuestionnaire({
+                    name: questionnaireName,
+                    description: questionnaireCell,
+                    status: 'Draft',
+                    structureJson: JSON.stringify(structure),
+                    version: 1,
+                    previewImageUrl: '',
+                    category: 'Onboarding',
+                    tagsJson: '[]',
+                    estimatedMinutes: 0,
+                    allowDraft: true,
+                    allowMultipleSubmissions: false,
+                    isActive: true,
+                    assignments: [
+                        { workflowId, stageId: Number(targetStage.id) },
+                    ],
+                    sections: [],
+                });
+            }
+
+            // Required Fields -> update stage required fields if available in column 7
+            const requiredCell = (r[7] || '').toString().trim();
+            const hasRequired = requiredCell && requiredCell !== '--';
+            const documentsCell = (r[8] || '').toString().trim();
+            const needFiles = documentsCell && /yes|y/i.test(documentsCell);
+
+            if (hasRequired || needFiles) {
+                // Parse required fields to staticFields
+                const staticFields: string[] = [];
+                if (hasRequired) {
+                    const tokens = requiredCell
+                        .split(/[,;；、\|\/\n\r\t]+|\s{2,}/)
+                        .map((t: string) => t.trim())
+                        .filter((t: string) => t && t !== '--');
+                    for (const t of tokens) {
+                        const up = t.toUpperCase().replace(/\s+/g, '');
+                        if (up && up !== 'YES' && up !== 'Y' && up !== 'NO' && up !== 'N') {
+                            staticFields.push(up);
+                        }
+                    }
+                }
+
+                // Build components: fields + files (as needed)
+                const components: any[] = [];
+                if (staticFields.length > 0) {
+                    components.push({
+                        key: 'fields',
+                        order: 1,
+                        isEnabled: true,
+                        configuration: '',
+                        staticFields,
+                        checklistIds: [],
+                        questionnaireIds: [],
+                        checklistNames: [],
+                        questionnaireNames: [],
+                    });
+                }
+                if (needFiles) {
+                    components.push({
+                        key: 'files',
+                        order: staticFields.length > 0 ? 2 : 1,
+                        isEnabled: true,
+                        configuration: '',
+                        staticFields: [],
+                        checklistIds: [],
+                        questionnaireIds: [],
+                        checklistNames: [],
+                        questionnaireNames: [],
+                    });
+                }
+
+                const existing = targetStage;
+                const inputForUpdate: any = {
+                    workflowId,
+                    name: existing.name,
+                    description: existing.description || '',
+                    order: existing.sortOrder || existing.order || 1,
+                    defaultAssignedGroup:
+                        existing.defaultAssignedGroup || (r[4] || r[0] || 'General').toString(),
+                    estimatedDuration: existing.estimatedDays || existing.estimatedDuration || 1,
+                    visibleInPortal: true,
+                    attachmentManagementNeeded: needFiles,
+                    components,
+                };
+                try {
+                    await updateStage(existing.id, inputForUpdate);
+                } catch (e) {
+                    // ignore
+                }
+            }
+        }
+
+        ElMessage.success('Imported and created workflow successfully');
+        await refreshWorkflowList();
+    } catch (e) {
+        console.error('Import error:', e);
+        ElMessage.error('Import failed');
+    } finally {
+        importing.value = false;
+    }
+};
+
+// -------- AI Analyze Files to auto-generate and create Workflow --------
+const onAnalyzeFileChange = async (file: any) => {
+    if (!file?.raw) return;
+    analyzing.value = true;
+    try {
+        const text = await readFileAsText(file.raw);
+        if (!text || text.trim().length < 10) {
+            ElMessage.warning('File content too short for AI analysis');
+            return;
+        }
+        const res = await parseAIRequirements(text);
+        // Fallback: if parse endpoint not rich enough, try generate directly
+        let description = text.slice(0, 5000);
+        try {
+            if (res?.data?.success && res?.data?.structuredText) {
+                description = res.data.structuredText;
+            }
+        } catch {}
+        // 如果解析失败，直接把原文作为描述
+        const genRes = await generateAIWorkflow({ description });
+        if (!(genRes && (genRes.success || genRes.code === '200'))) {
+            ElMessage.error('AI generation failed');
+            return;
+        }
+        const data = genRes.data || genRes;
+        if (data?.success === false || !Array.isArray(data?.stages) || data.stages.length === 0) {
+            ElMessage.error(data?.message || 'AI service unavailable. Please check provider API key/config.');
+            return;
+        }
+
+        const aiWorkflow = data.generatedWorkflow || {
+            name: 'AI Generated Workflow',
+            description: 'Auto-created by AI',
+            isActive: true,
+        };
+        const aiStagesRaw: any[] = Array.isArray(data.stages) ? data.stages : [];
+        const aiStages = aiStagesRaw.map((s: any, idx: number) => ({
+            name: s?.name || `Stage ${idx + 1}`,
+            description: s?.description || '',
+            order: Number.isFinite(Number(s?.order)) ? Math.trunc(Number(s?.order)) : idx + 1,
+            assignedGroup: s?.assignedGroup || 'General',
+            requiredFields: Array.isArray(s?.requiredFields) ? s.requiredFields : [],
+            estimatedDuration: Number(s?.estimatedDuration) || 1,
+            checklistIds: Array.isArray(s?.checklistIds) ? s.checklistIds : [],
+            questionnaireIds: Array.isArray(s?.questionnaireIds) ? s.questionnaireIds : [],
+        }));
+
+        // 1) Create workflow with stages
+        const workflowPayload: any = {
+            name: aiWorkflow.name,
+            description: aiWorkflow.description || 'Auto-created by AI',
+            isDefault: false,
+            status: 'active',
+            startDate: new Date().toISOString(),
+            isActive: true,
+            version: 1,
+            configJson: null,
+            stages: aiStages.map((s: any, idx: number) => ({
+                name: s.name,
+                description: s.description,
+                defaultAssignedGroup: s.assignedGroup || 'General',
+                estimatedDuration: s.estimatedDuration || 1,
+                order: Number.isFinite(Number(s.order)) ? Math.trunc(Number(s.order)) : idx + 1,
+                visibleInPortal: true,
+                attachmentManagementNeeded: false,
+            })),
+        };
+
+        const wfRes = await createWorkflow(workflowPayload);
+        if (!(wfRes && (wfRes.success || wfRes.code === '200'))) {
+            ElMessage.error('Create workflow failed');
+            return;
+        }
+        const workflowId: number = wfRes.data || wfRes?.id || wfRes;
+
+        // 2) Fetch created stages to get their IDs
+        const stagesRes = await getStagesByWorkflow(workflowId);
+        const createdStages: any[] = stagesRes?.data || stagesRes || [];
+        const stageMap = new Map<string, any>();
+        createdStages.forEach((s) => stageMap.set((s.name || '').toString().trim(), s));
+
+        // 3) For each AI stage, create Checklist & Questionnaire if not provided, then update stage components with required fields
+        for (const s of aiStages) {
+            const targetStage = stageMap.get(s.name.trim());
+            if (!targetStage?.id) continue;
+
+            // Create Checklist when AI didn't give existing ids
+            if (!s.checklistIds || s.checklistIds.length === 0) {
+                try {
+                    await createChecklist({
+                        name: `${s.name} Checklist`,
+                        description: s.description || 'Auto-generated by AI',
+                        team: s.assignedGroup || 'General',
+                        type: 'Instance',
+                        status: 'Active',
+                        isTemplate: false,
+                        estimatedHours: 0,
+                        isActive: true,
+                        assignments: [
+                            { workflowId, stageId: Number(targetStage.id) },
+                        ],
+                    });
+                } catch (e) {
+                    // ignore single failure
+                }
+            }
+
+            // Create Questionnaire when AI didn't give existing ids
+            if (!s.questionnaireIds || s.questionnaireIds.length === 0) {
+                try {
+                    const qnName = `${s.name} Questionnaire`;
+                    const structure = { title: qnName, sections: [] };
+                    await createQuestionnaire({
+                        name: qnName,
+                        description: s.description || 'Auto-generated by AI',
+                        status: 'Draft',
+                        structureJson: JSON.stringify(structure),
+                        version: 1,
+                        previewImageUrl: '',
+                        category: 'Onboarding',
+                        tagsJson: '[]',
+                        estimatedMinutes: 0,
+                        allowDraft: true,
+                        allowMultipleSubmissions: false,
+                        isActive: true,
+                        assignments: [
+                            { workflowId, stageId: Number(targetStage.id) },
+                        ],
+                        sections: [],
+                    });
+                } catch (e) {
+                    // ignore single failure
+                }
+            }
+
+            // Update stage components with required fields if any
+            const staticFields: string[] = Array.isArray(s.requiredFields)
+                ? s.requiredFields
+                      .map((t: string) => (t || '').toString().trim())
+                      .filter((t: string) => !!t)
+                      .map((t: string) => t.toUpperCase().replace(/\s+/g, ''))
+                : [];
+
+            const components: any[] = [];
+            if (staticFields.length > 0) {
+                components.push({
+                    key: 'fields',
+                    order: 1,
+                    isEnabled: true,
+                    configuration: '',
+                    staticFields,
+                    checklistIds: [],
+                    questionnaireIds: [],
+                    checklistNames: [],
+                    questionnaireNames: [],
+                });
+            }
+
+            if (components.length > 0) {
+                const inputForUpdate: any = {
+                    workflowId,
+                    name: s.name,
+                    description: s.description || '',
+                    order: targetStage.sortOrder || targetStage.order || s.order,
+                    defaultAssignedGroup: s.assignedGroup || 'General',
+                    estimatedDuration:
+                        targetStage.estimatedDays || targetStage.estimatedDuration || s.estimatedDuration || 1,
+                    visibleInPortal: true,
+                    attachmentManagementNeeded: false,
+                    components,
+                };
+                try {
+                    await updateStage(targetStage.id, inputForUpdate);
+                } catch (e) {
+                    // ignore update failure for single stage
+                }
+            }
+        }
+
+        ElMessage.success('AI analyzed and created workflow with stages, checklist, and questionnaire');
+        await refreshWorkflowList();
+    } catch (e) {
+        console.error('Analyze error:', e);
+        ElMessage.error('AI analyze failed');
+    } finally {
+        analyzing.value = false;
+    }
+};
+
+const readFileAsText = (raw: File) =>
+    new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = (err) => reject(err);
+        reader.readAsText(raw);
+    });
+
 
 // Methods
 const handleWorkflowGenerated = (workflowData: AIWorkflowData) => {
@@ -533,6 +950,10 @@ const showAIConfig = () => {
 	showAIConfigDialog.value = true;
 };
 
+const openAIAnalyze = () => {
+	showAIAnalyzeDialog.value = true;
+};
+
 const addStage = () => {
 	const newOrder = Math.max(...generatedStages.value.map((s) => s.order), 0) + 1;
 	generatedStages.value.push({
@@ -553,7 +974,7 @@ const removeStage = (index: number) => {
 	});
 };
 
-const updateStage = (index: number) => {
+const onStageChanged = (index: number) => {
 	// Stage update logic, can add auto-save
 	console.log('Stage updated:', generatedStages.value[index]);
 };

@@ -641,6 +641,64 @@ namespace FlowFlex.Application.Services.AI
             }
         }
 
+        public async Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage, string? modelProvider, string? modelName, string? modelId)
+        {
+            try
+            {
+                _logger.LogInformation("Parsing requirements with explicit model override: Provider={Provider}, Model={ModelName}, Id={ModelId}", modelProvider, modelName, modelId);
+
+                var prompt = $"""
+                Please analyze the following natural language description and extract structured requirement information:
+
+                Description: {naturalLanguage}
+
+                Please extract:
+                1. Process type
+                2. Involved personnel
+                3. Key steps
+                4. Approval processes
+                5. Notification requirements
+
+                Please return the results in JSON format.
+                """;
+
+                var aiResponse = await CallAIProviderAsync(prompt, modelId, modelProvider, modelName);
+                if (!aiResponse.Success)
+                {
+                    return new AIRequirementsParsingResult
+                    {
+                        Success = false,
+                        Message = aiResponse.ErrorMessage
+                    };
+                }
+
+                var requirements = new AIRequirements
+                {
+                    ProcessType = "General",
+                    Stakeholders = new List<string> { "User", "Manager" },
+                    Steps = new List<string> { "Start", "Process", "End" },
+                    Approvals = new List<string>(),
+                    Notifications = new List<string>()
+                };
+
+                return new AIRequirementsParsingResult
+                {
+                    Success = true,
+                    Message = "Requirements parsed successfully",
+                    Requirements = requirements
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing requirements with override");
+                return new AIRequirementsParsingResult
+                {
+                    Success = false,
+                    Message = $"Failed to parse requirements: {ex.Message}"
+                };
+            }
+        }
+
         #region Private Methods
 
         private async Task<AIProviderResponse> CallAIProviderAsync(string prompt)
@@ -652,27 +710,51 @@ namespace FlowFlex.Application.Services.AI
         {
             try
             {
-                // Use specific model if provided, otherwise fall back to configuration
-                var provider = modelProvider?.ToLower() ?? _aiOptions.Provider.ToLower();
+                // Prefer specific model if provided; otherwise try user default AI model config, finally fallback to app options
+                string? effectiveModelId = modelId;
+                string? effectiveProvider = modelProvider;
+                string? effectiveModelName = modelName;
+
+                if (string.IsNullOrWhiteSpace(effectiveProvider))
+                {
+                    try
+                    {
+                        var defaultConfig = await _configService.GetUserDefaultConfigAsync(0);
+                        if (defaultConfig != null && !string.IsNullOrWhiteSpace(defaultConfig.Provider))
+                        {
+                            effectiveProvider = defaultConfig.Provider;
+                            effectiveModelId = defaultConfig.Id.ToString();
+                            effectiveModelName = string.IsNullOrWhiteSpace(modelName) ? defaultConfig.ModelName : modelName;
+                            _logger.LogInformation("Using tenant default AI config: Provider={Provider}, Model={Model}, ConfigId={Id}", defaultConfig.Provider, defaultConfig.ModelName, defaultConfig.Id);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get default AI model config, will fallback to app-level options");
+                    }
+                }
+
+                // Fallback to app settings if still missing
+                var provider = (effectiveProvider ?? _aiOptions.Provider).ToLower();
                 
-                _logger.LogInformation("Using AI provider: {Provider}, Model: {ModelName} (ID: {ModelId})", 
-                    provider, modelName, modelId);
+                _logger.LogInformation("Using AI provider: {Provider}, Model: {ModelName} (ID: {ModelId})",
+                    provider, effectiveModelName, effectiveModelId);
 
                 switch (provider)
                 {
                     case "zhipuai":
-                        return await CallZhipuAIAsync(prompt, modelId, modelName);
+                        return await CallZhipuAIAsync(prompt, effectiveModelId, effectiveModelName);
                     case "openai":
-                        return await CallOpenAIAsync(prompt, modelId, modelName);
+                        return await CallOpenAIAsync(prompt, effectiveModelId, effectiveModelName);
                     case "claude":
                     case "anthropic":
-                        return await CallClaudeAsync(prompt, modelId, modelName);
+                        return await CallClaudeAsync(prompt, effectiveModelId, effectiveModelName);
                     case "deepseek":
-                        return await CallDeepSeekAsync(prompt, modelId, modelName);
+                        return await CallDeepSeekAsync(prompt, effectiveModelId, effectiveModelName);
                     default:
                         // Try to call using generic OpenAI-compatible API
                         _logger.LogInformation("Unknown provider {Provider}, attempting to use OpenAI-compatible API", provider);
-                        return await CallGenericOpenAICompatibleAsync(prompt, modelId, modelName, provider);
+                        return await CallGenericOpenAICompatibleAsync(prompt, effectiveModelId, effectiveModelName, provider);
                 }
             }
             catch (Exception ex)
@@ -738,8 +820,16 @@ namespace FlowFlex.Application.Services.AI
                     apiUrl = $"{apiUrl}/chat/completions";
                 }
                 
-                var response = await _httpClient.PostAsync(apiUrl, content);
-                var responseContent = await response.Content.ReadAsStringAsync();
+                // Build request with HTTP/1.1 and per-call timeout
+                using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+                {
+                    Version = new Version(1, 1),
+                    Content = content,
+                };
+                var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var response = await _httpClient.SendAsync(request, cts.Token);
+                var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -974,8 +1064,15 @@ namespace FlowFlex.Application.Services.AI
                 _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
                 _httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
 
-                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/v1/messages", content);
-                var responseContent = await response.Content.ReadAsStringAsync();
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/v1/messages")
+                {
+                    Version = new Version(1, 1),
+                    Content = content,
+                };
+                var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var response = await _httpClient.SendAsync(request, cts.Token);
+                var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -1101,8 +1198,15 @@ namespace FlowFlex.Application.Services.AI
                     apiUrl = $"{apiUrl}/v1/chat/completions";
                 }
 
-                var response = await _httpClient.PostAsync(apiUrl, content);
-                var responseContent = await response.Content.ReadAsStringAsync();
+                using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+                {
+                    Version = new Version(1, 1),
+                    Content = content,
+                };
+                var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var response = await _httpClient.SendAsync(request, cts.Token);
+                var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -1230,8 +1334,15 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
-                        var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}{endpoint}", content);
-                        var responseContent = await response.Content.ReadAsStringAsync();
+                        using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}{endpoint}")
+                        {
+                            Version = new Version(1, 1),
+                            Content = content,
+                        };
+                        var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                        var response = await _httpClient.SendAsync(request, cts.Token);
+                        var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                         if (response.IsSuccessStatusCode)
                         {
@@ -2102,8 +2213,15 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var apiUrl = $"{_aiOptions.ZhipuAI.BaseUrl}/chat/completions";
             _logger.LogInformation("Calling ZhipuAI API: {Url} with {MessageCount} messages", apiUrl, messages.Count);
             
-            var response = await _httpClient.PostAsync(apiUrl, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Version = new Version(1, 1),
+                Content = content,
+            };
+            var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            var response = await _httpClient.SendAsync(request, cts.Token);
+            var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
             _logger.LogInformation("ZhipuAI API Response: {StatusCode} - {Content}", response.StatusCode, responseContent);
 

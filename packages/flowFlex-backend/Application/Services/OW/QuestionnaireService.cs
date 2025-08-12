@@ -16,6 +16,7 @@ using System.Diagnostics;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -27,18 +28,21 @@ namespace FlowFlex.Application.Service.OW
         private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly IMapper _mapper;
         private readonly IStageAssignmentSyncService _syncService;
+        private readonly IOperatorContextService _operatorContextService;
         private readonly UserContext _userContext;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
             IMapper mapper,
             IStageAssignmentSyncService syncService,
-            UserContext userContext)
+            UserContext userContext,
+            IOperatorContextService operatorContextService)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
             _syncService = syncService;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
         }
 
         private static string NormalizeJson(string raw)
@@ -122,6 +126,13 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
+            // Override audit with operator context to ensure non-empty ModifyBy/CreateBy
+            var opNameCreate = _operatorContextService.GetOperatorDisplayName();
+            var opIdCreate = _operatorContextService.GetOperatorId();
+            entity.CreateBy = opNameCreate;
+            entity.ModifyBy = opNameCreate;
+            entity.CreateUserId = opIdCreate;
+            entity.ModifyUserId = opIdCreate;
 
             // Calculate question statistics
             await CalculateQuestionStatistics(entity, input.Sections);
@@ -235,6 +246,12 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
+            // Override audit with operator context (ensures ModifyBy populated)
+            var opNameUpdate = _operatorContextService.GetOperatorDisplayName();
+            var opIdUpdate = _operatorContextService.GetOperatorId();
+            entity.ModifyBy = opNameUpdate;
+            entity.ModifyUserId = opIdUpdate;
+            entity.ModifyDate = DateTimeOffset.Now;
 
             // Recalculate question statistics
             await CalculateQuestionStatistics(entity, input.Sections);

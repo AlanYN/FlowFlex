@@ -15,6 +15,7 @@ using FlowFlex.Domain.Repository.OW;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
@@ -32,19 +33,22 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IMapper _mapper;
     private readonly IStageAssignmentSyncService _syncService;
     private readonly UserContext _userContext;
+    private readonly IOperatorContextService _operatorContextService;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
         IChecklistTaskRepository checklistTaskRepository,
         IMapper mapper,
         IStageAssignmentSyncService syncService,
-        UserContext userContext)
+        UserContext userContext,
+        IOperatorContextService operatorContextService)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
         _mapper = mapper;
         _syncService = syncService;
         _userContext = userContext;
+        _operatorContextService = operatorContextService;
     }
 
     /// <summary>
@@ -105,6 +109,7 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Initialize create information with proper ID and timestamps
         entity.InitCreateInfo(_userContext);
+        AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
 
         await _checklistRepository.InsertAsync(entity);
 
@@ -238,6 +243,7 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Initialize update information with proper timestamps
         entity.InitUpdateInfo(_userContext);
+        AuditHelper.ApplyModifyAudit(entity, _operatorContextService);
 
         var result = await _checklistRepository.UpdateAsync(entity);
 
@@ -418,7 +424,8 @@ public class ChecklistService : IChecklistService, IScopedService
         };
 
         // Initialize create information with proper ID and timestamps
-        newChecklist.InitCreateInfo(_userContext);
+            newChecklist.InitCreateInfo(_userContext);
+            AuditHelper.ApplyCreateAudit(newChecklist, _operatorContextService);
 
         var newChecklistId = await _checklistRepository.InsertReturnSnowflakeIdAsync(newChecklist);
 
@@ -517,7 +524,8 @@ public class ChecklistService : IChecklistService, IScopedService
         instance.AppCode = template.AppCode;
 
         // Initialize create information with proper ID and timestamps
-        instance.InitCreateInfo(_userContext);
+            instance.InitCreateInfo(_userContext);
+            AuditHelper.ApplyCreateAudit(instance, _operatorContextService);
 
         var instanceId = await _checklistRepository.InsertReturnSnowflakeIdAsync(instance);
 

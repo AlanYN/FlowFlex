@@ -147,6 +147,13 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return BadRequest("Natural language description is required");
             }
 
+            // If client provides model override, use it; otherwise fallback to default provider
+            if (!string.IsNullOrWhiteSpace(request.ModelProvider) || !string.IsNullOrWhiteSpace(request.ModelName) || !string.IsNullOrWhiteSpace(request.ModelId))
+            {
+                var resultWithOverride = await _aiService.ParseRequirementsAsync(request.NaturalLanguage, request.ModelProvider, request.ModelName, request.ModelId);
+                return Success(resultWithOverride);
+            }
+
             var result = await _aiService.ParseRequirementsAsync(request.NaturalLanguage);
             return Success(result);
         }
@@ -235,7 +242,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         public string Context { get; set; } = string.Empty;
     }
 
-    public class ParseRequirementsRequest
+        public class ParseRequirementsRequest
     {
         /// <summary>
         /// Natural language requirements description
@@ -247,6 +254,13 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// Context information
         /// </summary>
         public string Context { get; set; } = string.Empty;
+
+            /// <summary>
+            /// Optional explicit AI model override
+            /// </summary>
+            public string? ModelProvider { get; set; }
+            public string? ModelName { get; set; }
+            public string? ModelId { get; set; }
     }
 
     public class AIServiceStatus
