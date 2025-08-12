@@ -54,8 +54,8 @@
 								<el-empty description="No Data" :image-size="50" />
 							</slot>
 						</template>
-						<el-table-column type="selection" width="50" align />
-						<el-table-column label="Actions" width="80">
+						<el-table-column type="selection" fixed="left" width="50" align />
+						<el-table-column label="Actions" fixed="left" width="80">
 							<template #default="{ row }">
 								<el-dropdown trigger="click">
 									<el-button
@@ -88,6 +88,7 @@
 							label="Customer Name"
 							sortable="custom"
 							min-width="220"
+							fixed="left"
 						>
 							<template #default="{ row }">
 								<el-link
