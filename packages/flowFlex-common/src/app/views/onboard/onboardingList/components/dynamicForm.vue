@@ -247,7 +247,7 @@
 								:max="question.max"
 								:marks="getSliderMarks(question)"
 								class="preview-linear-scale"
-								@change="handleInputChange"
+								@change="handleInputChange(question.id, $event)"
 								:validate-event="false"
 								show-stops
 							/>
@@ -434,6 +434,47 @@
 								<div class="text-xs mt-1">
 									Rows: {{ question.rows?.length || 0 }}, Columns:
 									{{ question.columns?.length || 0 }}
+								</div>
+							</div>
+						</div>
+
+						<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
+							<div v-if="question.columns && question.rows" class="grid-container">
+								<div class="grid-header">
+									<div class="grid-cell grid-row-header"></div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-column-header"
+									>
+										{{ column.label }}
+										<el-tag
+											v-if="column.isOther"
+											size="small"
+											type="warning"
+											class="other-column-tag"
+										>
+											Other
+										</el-tag>
+									</div>
+								</div>
+								<div
+									v-for="(row, rowIndex) in question.rows"
+									:key="rowIndex"
+									class="grid-row"
+								>
+									<div class="grid-cell grid-row-header">{{ row.label }}</div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-checkbox-cell gap-x-2"
+									>
+										<el-input
+											v-model="
+												formData[`${question.id}_${column.id}_${row.id}`]
+											"
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -719,6 +760,22 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 					formData.value[key] = responseText[key];
 				});
 			}
+		} else if (ans.type === 'short_answer_grid') {
+			formData.value[ans.questionId] = ans.answer;
+			if (ans.responseText) {
+				const responseText = JSON.parse(ans.responseText);
+				Object.keys(responseText).forEach((key) => {
+					formData.value[key] = responseText[key];
+				});
+			}
+		} else if (ans.type === 'linear_scale' || ans.type === 'rating') {
+			// 确保数字类型的答案保持为数字
+			const numValue = Number(ans.answer);
+			formData.value[ans.questionId] = isNaN(numValue)
+				? ans.type === 'linear_scale'
+					? 1
+					: 0
+				: numValue;
 		} else {
 			formData.value[ans.questionId] = ans.answer;
 		}
@@ -832,7 +889,10 @@ const validateForm = (presentQuestionIndex?: number) => {
 			})
 			?.forEach((question: any, qIdx: number) => {
 				if (question.required) {
-					if (question.type === 'multiple_choice_grid') {
+					if (
+						question.type === 'multiple_choice_grid' ||
+						question.type === 'short_answer_grid'
+					) {
 						// 多选网格：检查每一行是否都有选择
 						if (question.rows && question.rows.length > 0) {
 							let allRowsCompleted = true;
@@ -947,6 +1007,27 @@ const transformFormDataForAPI = () => {
 								questionId: gridKey,
 								question: `${question.question} - ${row.label}`,
 								answer: gridValue,
+								type: question.type,
+								responseText: JSON.stringify(responseText),
+							};
+							questionnaireData.answerJson.push(answer);
+						});
+					}
+				} else if (question.type === 'short_answer_grid') {
+					if (question.rows && question.rows.length > 0) {
+						question.rows.forEach((row: any) => {
+							let responseText = {};
+
+							question.columns.forEach((column: any) => {
+								const gridKey = `${question.id}_${column.id}_${row.id}`;
+								if (formData.value[gridKey]) {
+									responseText[gridKey] = formData.value[gridKey];
+								}
+							});
+							const answer: QuestionnaireAnswer = {
+								questionId: question.id,
+								question: `${question.question} - ${row.label}`,
+								answer: '',
 								type: question.type,
 								responseText: JSON.stringify(responseText),
 							};
@@ -1189,10 +1270,31 @@ onMounted(async () => {
 									});
 								});
 							}
+						} else if (question.type == 'short_answer_grid') {
+							if (question.rows && question.rows.length > 0) {
+								question.rows.forEach((row: any) => {
+									question.columns.forEach((column: any) => {
+										const otherTextKey = `${question.id}_${column.id}_${row.id}`;
+										if (!(otherTextKey in formData.value)) {
+											formData.value[otherTextKey] = '';
+										}
+									});
+								});
+							}
 						} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
 							// 多选题：初始化为数组
 							if (!(question.id in formData.value)) {
 								formData.value[question.id] = [];
+							}
+						} else if (question.type === 'linear_scale') {
+							// 线性量表：初始化为最小值（数字类型）
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = question.min || 1;
+							}
+						} else if (question.type === 'rating') {
+							// 评分：初始化为0（数字类型）
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = 0;
 							}
 						} else {
 							// 其他类型：初始化为空字符串

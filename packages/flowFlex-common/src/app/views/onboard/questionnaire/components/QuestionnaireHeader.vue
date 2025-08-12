@@ -12,7 +12,7 @@
 					<el-icon class="back-icon"><Back /></el-icon>
 				</el-button>
 				<div class="header-info">
-					<h1 class="page-title">
+					<h1 class="page-title flex-shrink-0 truncate">
 						{{ title }}
 					</h1>
 					<p class="page-description">

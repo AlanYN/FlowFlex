@@ -331,6 +331,10 @@ const loadQuestionnaireData = async () => {
 		router.push('/onboard/questionnaire');
 	} finally {
 		loading.value = false;
+		nextTick(() => {
+			updateConfigScrollbar();
+			updateEditorScrollbar();
+		});
 	}
 };
 
@@ -367,62 +371,68 @@ const questionTypes = [
 	{
 		id: 'short_answer',
 		name: 'Short answer',
-		icon: 'EditPen',
+		icon: 'mdi-light:pencil',
 	},
 	{
 		id: 'paragraph',
 		name: 'Paragraph',
-		icon: 'Document',
+		icon: 'fluent:text-wrap-20-regular',
 	},
 	{
 		id: 'multiple_choice',
 		name: 'Multiple choice',
-		icon: 'CircleCheck',
+		icon: 'mdi:checkbox-marked-circle-outline',
 	},
 	{
 		id: 'checkboxes',
 		name: 'Checkboxes',
-		icon: 'Select',
+		icon: 'material-symbols-light:check-box-outline-sharp',
 	},
 	{
 		id: 'dropdown',
 		name: 'Dropdown',
-		icon: 'ArrowDown',
+		icon: 'ic:outline-arrow-drop-down-circle',
 	},
 	{
 		id: 'file_upload',
 		name: 'File upload',
-		icon: 'Upload',
+		icon: 'ic:outline-drive-folder-upload',
 	},
 	{
 		id: 'linear_scale',
 		name: 'Linear scale',
-		icon: 'Histogram',
+		icon: 'material-symbols:scan-outline-sharp',
 	},
 	{
 		id: 'rating',
 		name: 'Rating',
-		icon: 'Star',
+		icon: 'ic:twotone-star-rate',
 	},
 	{
 		id: 'multiple_choice_grid',
 		name: 'Multiple choice grid',
-		icon: 'Grid',
+		icon: 'tabler:grid-dots',
 	},
 	{
 		id: 'checkbox_grid',
 		name: 'Checkbox grid',
-		icon: 'Grid',
+		icon: 'gridicons:grid',
 	},
 	{
 		id: 'date',
 		name: 'Date',
-		icon: 'Calendar',
+		icon: 'ic:baseline-calendar-month',
 	},
 	{
 		id: 'time',
 		name: 'Time',
-		icon: 'Clock',
+		icon: 'ic:outline-access-alarms',
+	},
+	{
+		id: 'short_answer_grid',
+		name: 'Short Answer Grid',
+		icon: 'ph:grid-nine-light',
+		isNew: true,
 	},
 ];
 
@@ -823,10 +833,6 @@ const fetchAllStages = async () => {
 onMounted(async () => {
 	// 初始化数据 - 先加载问卷数据和工作流
 	await Promise.all([loadQuestionnaireData(), fetchWorkflows(), fetchAllStages()]);
-	nextTick(() => {
-		updateConfigScrollbar();
-		updateEditorScrollbar();
-	});
 });
 </script>
 
