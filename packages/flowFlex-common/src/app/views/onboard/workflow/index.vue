@@ -616,8 +616,7 @@ const dialogVisible = reactive({
 // 计算对话框标题
 const dialogTitle = computed(() => {
 	if (isEditingWorkflow.value && workflow.value) {
-		const versionInfo = workflow.value.version ? ` (Version ${workflow.value.version})` : '';
-		return `Edit Workflow${versionInfo}`;
+		return `Edit Workflow`;
 	}
 	return 'Create New Workflow';
 });
