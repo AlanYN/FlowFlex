@@ -18,8 +18,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
             entity.ModifyBy = name;
             entity.CreateUserId = id;
             entity.ModifyUserId = id;
-            if (entity.CreateDate == default) entity.CreateDate = DateTimeOffset.Now;
-            if (entity.ModifyDate == default) entity.ModifyDate = DateTimeOffset.Now;
+            if (entity.CreateDate == default) entity.CreateDate = DateTimeOffset.UtcNow;
+            if (entity.ModifyDate == default) entity.ModifyDate = DateTimeOffset.UtcNow;
         }
 
         public static void ApplyModifyAudit(EntityBaseCreateInfo entity, IOperatorContextService operatorContext)
@@ -27,7 +27,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             if (entity == null || operatorContext == null) return;
             entity.ModifyBy = operatorContext.GetOperatorDisplayName();
             entity.ModifyUserId = operatorContext.GetOperatorId();
-            entity.ModifyDate = DateTimeOffset.Now;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
         }
     }
 }

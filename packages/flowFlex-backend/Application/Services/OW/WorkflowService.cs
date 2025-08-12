@@ -72,7 +72,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             var entity = _mapper.Map<Workflow>(input);
-            entity.StartDate = input.StartDate == default ? DateTimeOffset.Now : input.StartDate;
+            entity.StartDate = input.StartDate == default ? DateTimeOffset.UtcNow : input.StartDate;
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
@@ -609,7 +609,7 @@ namespace FlowFlex.Application.Service.OW
                 Description = input.Description,
                 IsDefault = input.IsDefault,
                 Status = input.Status,
-                StartDate = input.StartDate == default ? DateTimeOffset.Now : input.StartDate,
+            StartDate = input.StartDate == default ? DateTimeOffset.UtcNow : input.StartDate,
                 EndDate = input.EndDate,
                 Version = 1,
                 IsActive = input.IsActive
@@ -664,7 +664,8 @@ namespace FlowFlex.Application.Service.OW
             // Update workflow start date to current date when creating new version
             // Use today's date at start of day in local timezone
             var today = DateTime.Today;
-            workflow.StartDate = new DateTimeOffset(today, DateTimeOffset.Now.Offset);
+            // Preserve original local date semantics but convert to UTC offset
+            workflow.StartDate = new DateTimeOffset(today, TimeSpan.Zero);
 
             // Update workflow version number
             workflow.Version += 1;

@@ -204,7 +204,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         var checklist = await _checklistRepository.GetByIdAsync(task.ChecklistId);
 
         task.IsCompleted = true;
-        task.CompletedDate = input.CompletedDate ?? DateTimeOffset.Now;
+            task.CompletedDate = input.CompletedDate ?? DateTimeOffset.UtcNow;
         task.CompletionNotes = input.CompletionNotes;
         task.ActualHours = input.ActualHours;
         task.Status = "Completed";
@@ -404,7 +404,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         task.AssigneeId = assigneeId;
         task.AssigneeName = assigneeName;
-        task.ModifyDate = DateTimeOffset.Now;
+            task.ModifyDate = DateTimeOffset.UtcNow;
 
         return await _checklistTaskRepository.UpdateAsync(task);
     }

@@ -59,8 +59,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>Added entity</returns>
         public virtual async Task<T> InsertAsync(T entity)
         {
-            entity.CreateDate = DateTimeOffset.Now;
-            entity.ModifyDate = DateTimeOffset.Now;
+            entity.CreateDate = DateTimeOffset.UtcNow;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
             entity.IsValid = true;
 
             // Set default value if TenantId is empty
@@ -82,8 +82,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             foreach (var entity in entities)
             {
-                entity.CreateDate = DateTimeOffset.Now;
-                entity.ModifyDate = DateTimeOffset.Now;
+                entity.CreateDate = DateTimeOffset.UtcNow;
+                entity.ModifyDate = DateTimeOffset.UtcNow;
                 entity.IsValid = true;
 
                 // Set default value if TenantId is empty
@@ -104,7 +104,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>Updated entity</returns>
         public virtual async Task<T> UpdateAsync(T entity)
         {
-            entity.ModifyDate = DateTimeOffset.Now;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
             await _db.Updateable(entity).ExecuteCommandAsync();
             return entity;
         }
@@ -118,7 +118,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             foreach (var entity in entities)
             {
-                entity.ModifyDate = DateTimeOffset.Now;
+                entity.ModifyDate = DateTimeOffset.UtcNow;
             }
 
             await _db.Updateable(entities).ExecuteCommandAsync();
@@ -133,7 +133,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public virtual async Task<bool> DeleteAsync(T entity)
         {
             entity.IsValid = false;
-            entity.ModifyDate = DateTimeOffset.Now;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
             return await _db.Updateable(entity).ExecuteCommandAsync() > 0;
         }
 
@@ -163,7 +163,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             foreach (var entity in entities)
             {
                 entity.IsValid = false;
-                entity.ModifyDate = DateTimeOffset.Now;
+                entity.ModifyDate = DateTimeOffset.UtcNow;
             }
 
             return await _db.Updateable(entities).ExecuteCommandAsync() > 0;

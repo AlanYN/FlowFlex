@@ -172,7 +172,7 @@ public class ChecklistService : IChecklistService, IScopedService
         {
             // Soft delete duplicate checklists
             duplicate.IsValid = false;
-            duplicate.ModifyDate = DateTimeOffset.Now;
+            duplicate.ModifyDate = DateTimeOffset.UtcNow;
             await _checklistRepository.UpdateAsync(duplicate);
         }
 
@@ -186,7 +186,7 @@ public class ChecklistService : IChecklistService, IScopedService
             {
                 // Soft delete existing checklists with the new name
                 duplicate.IsValid = false;
-                duplicate.ModifyDate = DateTimeOffset.Now;
+            duplicate.ModifyDate = DateTimeOffset.UtcNow;
                 await _checklistRepository.UpdateAsync(duplicate);
             }
         }
@@ -285,7 +285,7 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Soft delete
         checklist.IsValid = false;
-        checklist.ModifyDate = DateTimeOffset.Now;
+            checklist.ModifyDate = DateTimeOffset.UtcNow;
 
         var result = await _checklistRepository.UpdateAsync(checklist);
 
