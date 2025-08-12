@@ -1289,6 +1289,7 @@ onMounted(async () => {
 						} else if (question.type === 'file' || question.type === 'file_upload') {
 							if (!(question.id in formData.value)) {
 								formData.value[question.id] = [];
+							}
 						} else if (question.type === 'linear_scale') {
 							// 线性量表：初始化为最小值（数字类型）
 							if (!(question.id in formData.value)) {
