@@ -67,18 +67,27 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// <param name="input">Natural language workflow description</param>
         /// <returns>Streaming workflow generation updates</returns>
         [HttpPost("generate/stream")]
-        [ProducesResponseType(typeof(IAsyncEnumerable<AIWorkflowStreamResult>), 200)]
-        public async IAsyncEnumerable<AIWorkflowStreamResult> StreamGenerateWorkflow([FromBody] AIWorkflowGenerationInput input)
+        [ProducesResponseType(200)]
+        public async Task StreamGenerateWorkflow([FromBody] AIWorkflowGenerationInput input)
         {
+            // 设置流式响应头
+            Response.ContentType = "text/event-stream";
+            Response.Headers.Add("Cache-Control", "no-cache");
+            Response.Headers.Add("Connection", "keep-alive");
+            Response.Headers.Add("Access-Control-Allow-Origin", "*");
+            
             if (input == null || string.IsNullOrEmpty(input.Description))
             {
-                yield return new AIWorkflowStreamResult
+                var errorData = new AIWorkflowStreamResult
                 {
                     Type = "error",
                     Message = "Workflow description is required",
                     IsComplete = true
                 };
-                yield break;
+                
+                await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(errorData)}\n\n");
+                await Response.Body.FlushAsync();
+                return;
             }
 
             // Log the enhanced input information for streaming generation
@@ -87,9 +96,89 @@ namespace FlowFlex.WebApi.Controllers.AI
             Console.WriteLine($"[AI Workflow Stream] Session ID: {input.SessionId}");
             Console.WriteLine($"[AI Workflow Stream] Conversation History: {input.ConversationHistory?.Count ?? 0} messages");
 
-            await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
+            try
             {
-                yield return result;
+                var controllerStartTime = DateTime.UtcNow;
+                var messageCount = 0;
+                
+                // 使用同步写入避免缓冲区问题
+                
+                var enumeratorStartTime = DateTime.UtcNow;
+                Console.WriteLine("[Controller] Starting await foreach enumeration...");
+                
+                await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
+                {
+                    var iterationStartTime = DateTime.UtcNow;
+                    var iterationDuration = (iterationStartTime - enumeratorStartTime).TotalMilliseconds;
+                    
+                    messageCount++;
+                    Console.WriteLine($"[Controller] Iteration #{messageCount}: {iterationDuration}ms since last, type: {result.Type}");
+                    
+                    var writeStartTime = DateTime.UtcNow;
+                    
+                    // 同步写入，避免缓冲区问题
+                    try
+                    {
+                        var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
+                        var sseData = $"data: {jsonData}\n\n";
+                        
+                        // 直接写入，不使用Task.Run避免缓冲区竞争
+                        await Response.WriteAsync(sseData);
+                        
+                        var writeDuration = (DateTime.UtcNow - writeStartTime).TotalMilliseconds;
+                        if (writeDuration > 50)
+                        {
+                            Console.WriteLine($"[Controller] Write #{messageCount}: {writeDuration}ms for {result.Type}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Controller] Write error #{messageCount}: {ex.Message}");
+                    }
+                    
+                    // 更新下次迭代的起始时间
+                    enumeratorStartTime = DateTime.UtcNow;
+                    
+                    if (messageCount % 5 == 0)
+                    {
+                        var totalDuration = (DateTime.UtcNow - controllerStartTime).TotalMilliseconds;
+                        Console.WriteLine($"[Controller] Processed {messageCount} messages in {totalDuration}ms");
+                    }
+                }
+                
+                Console.WriteLine($"[Controller] All {messageCount} messages processed synchronously");
+                
+                // Send completion signal with timeout
+                try
+                {
+                    var doneStartTime = DateTime.UtcNow;
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await Response.WriteAsync("data: [DONE]\n\n").WaitAsync(cts.Token);
+                    await Response.Body.FlushAsync().WaitAsync(cts.Token);
+                    var doneTime = (DateTime.UtcNow - doneStartTime).TotalMilliseconds;
+                    Console.WriteLine($"[Controller] DONE signal sent in {doneTime}ms");
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("[Controller] DONE signal timeout, but continuing...");
+                }
+                
+                var controllerEndTime = DateTime.UtcNow;
+                var totalControllerTime = (controllerEndTime - controllerStartTime).TotalMilliseconds;
+                Console.WriteLine($"[Controller] Total optimized time: {totalControllerTime}ms, Messages: {messageCount}");
+            }
+            catch (Exception ex)
+            {
+                var errorData = new AIWorkflowStreamResult
+                {
+                    Type = "error",
+                    Message = $"Stream error: {ex.Message}",
+                    IsComplete = true
+                };
+                
+                var jsonData = System.Text.Json.JsonSerializer.Serialize(errorData);
+                await Response.WriteAsync($"data: {jsonData}\n\n");
+                await Response.Body.FlushAsync();
             }
         }
 

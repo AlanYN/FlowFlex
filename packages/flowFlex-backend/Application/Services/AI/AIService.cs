@@ -198,27 +198,6 @@ namespace FlowFlex.Application.Services.AI
                 IsComplete = false
             };
 
-            string prompt = null;
-            AIProviderResponse aiResponse = null;
-            AIWorkflowGenerationResult result = null;
-            Exception caughtException = null;
-
-            try
-            {
-                prompt = BuildWorkflowGenerationPrompt(input);
-                aiResponse = await CallAIProviderAsync(prompt);
-                
-                if (aiResponse.Success)
-                {
-                    result = ParseWorkflowGenerationResponse(aiResponse.Content);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in streaming workflow generation");
-                caughtException = ex;
-            }
-
             yield return new AIWorkflowStreamResult
             {
                 Type = "progress",
@@ -226,23 +205,274 @@ namespace FlowFlex.Application.Services.AI
                 IsComplete = false
             };
 
-            if (caughtException != null)
+            // 尝试使用真正的流式AI调用
+            var prompt = BuildWorkflowGenerationPrompt(input);
+            var streamingContent = new StringBuilder();
+            var hasReceivedContent = false;
+            
+            // 构建聊天消息格式
+            var messages = new List<object>
+            {
+                new { role = "system", content = "You are an AI workflow assistant that generates detailed business workflows." },
+                new { role = "user", content = prompt }
+            };
+
+            // 获取用户配置
+            AIModelConfig userConfig = null;
+            if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
+            {
+                userConfig = await _configService.GetConfigByIdAsync(modelId);
+            }
+
+            // 智能模型选择：优先使用快速模型
+            if (userConfig != null)
+            {
+                var progressSent = false;
+                var streamStartTime = DateTime.UtcNow;
+                
+                // 发送初始进度消息
+                yield return new AIWorkflowStreamResult
+                {
+                    Type = "progress",
+                    Message = "Generating workflow structure...",
+                    IsComplete = false
+                };
+                progressSent = true;
+                _logger.LogInformation("✅ Initial progress message sent");
+                
+                // 根据模型类型选择处理方式
+                if (userConfig.Provider?.ToLower() == "openai")
+                {
+                    _logger.LogInformation("🚀 Using OpenAI TRUE streaming - real-time progress updates");
+                    
+                    var lastProgressLength = 0;
+                    var lastProgressTime = DateTime.UtcNow;
+                    
+                    // 真正的流式处理：实时输出有意义的进度更新
+                    await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
+                    {
+                        if (!string.IsNullOrEmpty(chunk))
+                        {
+                            streamingContent.Append(chunk);
+                            hasReceivedContent = true;
+                            
+                            var now = DateTime.UtcNow;
+                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                            var lengthDifference = streamingContent.Length - lastProgressLength;
+                            
+                            // 条件：每收集50个字符或每2秒更新一次进度
+                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                            {
+                                yield return new AIWorkflowStreamResult
+                                {
+                                    Type = "progress",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress/1000:F1}s)",
+                                    IsComplete = false
+                                };
+                                
+                                lastProgressLength = streamingContent.Length;
+                                lastProgressTime = now;
+                                
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last", 
+                                    streamingContent.Length, timeSinceLastProgress);
+                            }
+                        }
+                    }
+                    
+                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                    _logger.LogInformation("🏁 OpenAI TRUE stream completed: {Length} chars in {Duration}ms", 
+                        streamingContent.Length, totalDuration);
+                }
+                else if (userConfig.Provider?.ToLower() == "deepseek")
+                {
+                    _logger.LogInformation("🚀 Using DeepSeek TRUE streaming - real-time progress updates");
+                    
+                    var lastProgressLength = 0;
+                    var lastProgressTime = DateTime.UtcNow;
+                    
+                    // 真正的流式处理：实时输出有意义的进度更新
+                    await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
+                    {
+                        if (!string.IsNullOrEmpty(chunk))
+                        {
+                            streamingContent.Append(chunk);
+                            hasReceivedContent = true;
+                            
+                            var now = DateTime.UtcNow;
+                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                            var lengthDifference = streamingContent.Length - lastProgressLength;
+                            
+                            // 条件：每收集50个字符或每2秒更新一次进度
+                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                            {
+                                yield return new AIWorkflowStreamResult
+                                {
+                                    Type = "progress",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress/1000:F1}s)",
+                                    IsComplete = false
+                                };
+                                
+                                lastProgressLength = streamingContent.Length;
+                                lastProgressTime = now;
+                                
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last", 
+                                    streamingContent.Length, timeSinceLastProgress);
+                            }
+                        }
+                    }
+                    
+                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                    _logger.LogInformation("🏁 DeepSeek TRUE stream completed: {Length} chars in {Duration}ms", 
+                        streamingContent.Length, totalDuration);
+                }
+                else
+                {
+                    // 其他模型使用真正的流式处理
+                    _logger.LogInformation("🚀 Using {Provider} TRUE streaming - real-time progress updates", userConfig.Provider);
+                    
+                    var lastProgressLength = 0;
+                    var lastProgressTime = DateTime.UtcNow;
+                    
+                    // 真正的流式处理：实时输出有意义的进度更新
+                    await foreach (var chunk in CallAIProviderForStreamChatAsync(messages, userConfig))
+                    {
+                        if (!string.IsNullOrEmpty(chunk))
+                        {
+                            streamingContent.Append(chunk);
+                            hasReceivedContent = true;
+                            
+                            var now = DateTime.UtcNow;
+                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                            var lengthDifference = streamingContent.Length - lastProgressLength;
+                            
+                            // 条件：每收集50个字符或每2秒更新一次进度
+                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                            {
+            yield return new AIWorkflowStreamResult
+            {
+                Type = "progress",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress/1000:F1}s)",
+                IsComplete = false
+            };
+
+                                lastProgressLength = streamingContent.Length;
+                                lastProgressTime = now;
+                                
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last", 
+                                    streamingContent.Length, timeSinceLastProgress);
+                            }
+                        }
+                    }
+                    
+                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                    _logger.LogInformation("🏁 {Provider} TRUE stream completed: {Length} chars in {Duration}ms", 
+                        userConfig.Provider, streamingContent.Length, totalDuration);
+                }
+                
+                // 流式完成后立即开始解析
+                if (hasReceivedContent)
+                {
+            yield return new AIWorkflowStreamResult
+            {
+                Type = "progress",
+                        Message = "Parsing workflow structure...",
+                IsComplete = false
+            };
+
+                    // 解析AI响应
+                    _logger.LogInformation("🔍 Starting to parse AI response, content length: {Length}", streamingContent.Length);
+                    var parseStartTime = DateTime.UtcNow;
+                    var streamResult = ParseWorkflowGenerationResponse(streamingContent.ToString());
+                    var parseEndTime = DateTime.UtcNow;
+                    _logger.LogInformation("✅ Parsing completed in {Duration}ms", (parseEndTime - parseStartTime).TotalMilliseconds);
+
+                    if (streamResult?.GeneratedWorkflow != null)
+                    {
+                        _logger.LogInformation("🎯 About to yield workflow and {Count} stages", streamResult.Stages?.Count ?? 0);
+                        
+                        yield return new AIWorkflowStreamResult
+                        {
+                            Type = "workflow",
+                            Data = streamResult.GeneratedWorkflow,
+                            Message = "Workflow basic information generated",
+                            IsComplete = false
+                        };
+
+                        var stageStartTime = DateTime.UtcNow;
+                        var stageCount = 0;
+                        foreach (var stage in streamResult.Stages)
+                        {
+                            yield return new AIWorkflowStreamResult
+                            {
+                                Type = "stage",
+                                Data = stage,
+                                Message = $"Stage '{stage.Name}' generated",
+                                IsComplete = false
+                            };
+                            stageCount++;
+                            
+                            // 每处理10个stage记录一次
+                            if (stageCount % 10 == 0)
+                            {
+                                _logger.LogInformation("📊 Processed {Count} stages so far...", stageCount);
+                            }
+                        }
+                        var stageEndTime = DateTime.UtcNow;
+                        _logger.LogInformation("✅ All {Count} stages yielded in {Duration}ms", stageCount, (stageEndTime - stageStartTime).TotalMilliseconds);
+
+                        var completeStartTime = DateTime.UtcNow;
+                        yield return new AIWorkflowStreamResult
+                        {
+                            Type = "complete",
+                            Data = streamResult,
+                            Message = "Workflow generation completed",
+                            IsComplete = true
+                        };
+                        var completeEndTime = DateTime.UtcNow;
+                        _logger.LogInformation("🏁 Complete message yielded in {Duration}ms", (completeEndTime - completeStartTime).TotalMilliseconds);
+                        
+                        _logger.LogInformation("🎉 StreamGenerateWorkflowAsync about to exit successfully");
+                        yield break;
+                    }
+                    else
             {
                 yield return new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = $"Error during generation: {caughtException.Message}",
+                            Message = "Unable to parse AI-generated workflow structure",
                     IsComplete = true
                 };
                 yield break;
+                    }
+                }
+            }
+            else
+            {
+                // 回退到非流式API
+                var aiResponse = await CallAIProviderAsync(prompt);
+                if (aiResponse.Success)
+                {
+                    streamingContent.Append(aiResponse.Content);
+                    hasReceivedContent = true;
+                }
+                else
+                {
+                    yield return new AIWorkflowStreamResult
+                    {
+                        Type = "error",
+                        Message = aiResponse.ErrorMessage ?? "AI service call failed",
+                        IsComplete = true
+                    };
+                    yield break;
+                }
             }
 
-            if (aiResponse == null || !aiResponse.Success)
+            if (!hasReceivedContent)
             {
                 yield return new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = aiResponse?.ErrorMessage ?? "AI service call failed",
+                    Message = "No content received from AI service",
                     IsComplete = true
                 };
                 yield break;
@@ -254,6 +484,9 @@ namespace FlowFlex.Application.Services.AI
                 Message = "Parsing workflow structure...",
                 IsComplete = false
             };
+
+            // 解析AI响应（非流式路径）
+            var result = ParseWorkflowGenerationResponse(streamingContent.ToString());
 
             if (result?.GeneratedWorkflow != null)
             {
@@ -1563,15 +1796,20 @@ namespace FlowFlex.Application.Services.AI
 
         private AIWorkflowGenerationResult ParseWorkflowGenerationResponse(string aiResponse)
         {
+            _logger.LogInformation("🔍 ParseWorkflowGenerationResponse started, response length: {Length}", aiResponse.Length);
+            var methodStartTime = DateTime.UtcNow;
+            
             try
             {
                 // Try to parse JSON response from AI
                 if (aiResponse.Contains("{") && aiResponse.Contains("}"))
                 {
+                    _logger.LogInformation("📄 Found JSON content, extracting...");
                     var jsonStart = aiResponse.IndexOf('{');
                     var jsonEnd = aiResponse.LastIndexOf('}') + 1;
                     var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
                     
+                    _logger.LogInformation("🔧 Deserializing JSON, content length: {Length}", jsonContent.Length);
                     var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
                     
                     var workflow = new WorkflowInputDto
@@ -1598,6 +1836,9 @@ namespace FlowFlex.Application.Services.AI
                         }
                     }
 
+                    var jsonEndTime = DateTime.UtcNow;
+                    _logger.LogInformation("✅ JSON parsing successful in {Duration}ms", (jsonEndTime - methodStartTime).TotalMilliseconds);
+
                     return new AIWorkflowGenerationResult
                     {
                         Success = true,
@@ -1614,11 +1855,22 @@ namespace FlowFlex.Application.Services.AI
             }
 
             // Fallback: Generate a basic workflow from the text response
-            return GenerateFallbackWorkflow(aiResponse);
+            _logger.LogInformation("🔄 Using fallback workflow generation...");
+            var fallbackStartTime = DateTime.UtcNow;
+            var result = GenerateFallbackWorkflow(aiResponse);
+            var fallbackEndTime = DateTime.UtcNow;
+            _logger.LogInformation("✅ Fallback completed in {Duration}ms", (fallbackEndTime - fallbackStartTime).TotalMilliseconds);
+            
+            var methodEndTime = DateTime.UtcNow;
+            _logger.LogInformation("🏁 ParseWorkflowGenerationResponse completed in {Duration}ms", (methodEndTime - methodStartTime).TotalMilliseconds);
+            
+            return result;
         }
 
         private AIWorkflowGenerationResult GenerateFallbackWorkflow(string aiResponse)
         {
+            _logger.LogInformation("🔄 GenerateFallbackWorkflow started, response length: {Length}", aiResponse.Length);
+            
             var workflow = new WorkflowInputDto
             {
                 Name = "AI Generated Workflow",
@@ -1627,7 +1879,12 @@ namespace FlowFlex.Application.Services.AI
             };
 
             // Intelligently extract stage information from AI response
+            _logger.LogInformation("🔍 Extracting stages from text...");
+            var extractStartTime = DateTime.UtcNow;
             var stages = ExtractStagesFromText(aiResponse);
+            var extractEndTime = DateTime.UtcNow;
+            _logger.LogInformation("✅ Stage extraction completed in {Duration}ms, found {Count} stages", 
+                (extractEndTime - extractStartTime).TotalMilliseconds, stages.Count);
             
             // If no stages extracted, create default stages
             if (!stages.Any())
@@ -1681,9 +1938,13 @@ namespace FlowFlex.Application.Services.AI
 
         private List<AIStageGenerationResult> ExtractStagesFromText(string text)
         {
+            _logger.LogInformation("🔍 ExtractStagesFromText started, text length: {Length}", text.Length);
+            
             var stages = new List<AIStageGenerationResult>();
             var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             var order = 1;
+
+            _logger.LogInformation("📄 Processing {LineCount} lines of text", lines.Length);
 
             foreach (var line in lines)
             {
@@ -2083,53 +2344,26 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 SessionId = sessionId
             };
 
-            var results = new List<AIChatStreamResult>();
-            Exception? streamException = null;
-
-            try
-            {
+            // 实时流式传输每个数据块
                 await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
                 {
-                    results.Add(new AIChatStreamResult
+                yield return new AIChatStreamResult
                     {
                         Type = "delta",
                         Content = chunk,
                         IsComplete = false,
                         SessionId = sessionId
-                    });
+                };
                 }
 
-                results.Add(new AIChatStreamResult
+            // 发送完成信号
+            yield return new AIChatStreamResult
                 {
                     Type = "complete",
                     Content = "",
                     IsComplete = true,
                     SessionId = sessionId
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in streaming AI chat for session: {SessionId}", sessionId);
-                streamException = ex;
-            }
-
-            // Yield all collected results
-            foreach (var result in results)
-            {
-                yield return result;
-            }
-
-            // Handle error case
-            if (streamException != null)
-            {
-                yield return new AIChatStreamResult
-                {
-                    Type = "error",
-                    Content = $"Error: {streamException.Message}",
-                    IsComplete = true,
-                    SessionId = sessionId
-                };
-            }
+            };
         }
 
         private async Task<AIProviderResponse> CallAIProviderForChatAsync(AIChatInput input)
@@ -2142,8 +2376,8 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 // Add system prompt
                 messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode) });
                 
-                // Add conversation history (last 10 messages)
-                foreach (var message in input.Messages.TakeLast(10))
+                // Add conversation history (last 5 messages to reduce token usage)
+                foreach (var message in input.Messages.TakeLast(5))
                 {
                     messages.Add(new { role = message.Role, content = message.Content });
                 }
@@ -2163,15 +2397,13 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     }
                 }
                 
-                // If no model is specified or configuration not found, use default configuration
-                if (userConfig == null)
+                // Try primary model first
+                AIProviderResponse response = null;
+                
+                if (userConfig != null)
                 {
-                    _logger.LogInformation("No specific model config found, using default ZhipuAI configuration");
-                    return await CallZhipuAIAsync(messages);
-                }
-
                 // Call corresponding API based on provider
-                return userConfig.Provider?.ToLower() switch
+                    response = userConfig.Provider?.ToLower() switch
                 {
                     "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
                     "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
@@ -2179,6 +2411,37 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
                     _ => await CallZhipuAIAsync(messages) // Default to ZhipuAI
                 };
+                    
+                    // Check if it's a rate limit error and try fallback
+                    if (!response.Success && (response.ErrorMessage?.Contains("rate_limit_exceeded") == true || 
+                                            response.ErrorMessage?.Contains("Rate limit reached") == true ||
+                                            response.ErrorMessage?.Contains("429") == true))
+                    {
+                        _logger.LogWarning("Primary model hit rate limit, attempting fallback to ZhipuAI for session: {SessionId}", input.SessionId);
+                        
+                        try
+                        {
+                            var fallbackResponse = await CallZhipuAIAsync(messages);
+                            if (fallbackResponse.Success)
+                            {
+                                _logger.LogInformation("Successfully used ZhipuAI fallback for session: {SessionId}", input.SessionId);
+                                return fallbackResponse;
+                            }
+                        }
+                        catch (Exception fallbackEx)
+                        {
+                            _logger.LogWarning(fallbackEx, "Fallback to ZhipuAI also failed for session: {SessionId}", input.SessionId);
+                        }
+                    }
+                }
+                else
+                {
+                    // No specific model config found, use default ZhipuAI configuration
+                    _logger.LogInformation("No specific model config found, using default ZhipuAI configuration");
+                    response = await CallZhipuAIAsync(messages);
+                }
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -2520,9 +2783,113 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             }
         }
 
+        private async IAsyncEnumerable<string> CallAIProviderForStreamChatAsync(List<object> messages, AIModelConfig userConfig)
+        {
+            // Try to use real streaming API if available
+            if (userConfig != null)
+            {
+                var provider = userConfig.Provider?.ToLower();
+                
+                if (provider == "deepseek")
+                {
+                    await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+                else if (provider == "openai")
+                {
+                    await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+                else if (provider == "zhipuai")
+                {
+                    // ZhipuAI doesn't have streaming API, use simulated streaming
+                    var response = await CallZhipuAIWithConfigAsync(messages, userConfig);
+                    if (response.Success && !string.IsNullOrEmpty(response.Content))
+                    {
+                        var words = response.Content.Split(' ');
+                        foreach (var word in words)
+                        {
+                            yield return word + " ";
+                            await Task.Delay(20);
+                        }
+                    }
+                    yield break;
+                }
+                else if (provider == "claude" || provider == "anthropic")
+                {
+                    // Claude doesn't have streaming API, use simulated streaming
+                    var response = await CallClaudeWithConfigAsync(messages, userConfig);
+                    if (response.Success && !string.IsNullOrEmpty(response.Content))
+                    {
+                        var words = response.Content.Split(' ');
+                        foreach (var word in words)
+                        {
+                            yield return word + " ";
+                            await Task.Delay(20);
+                        }
+                    }
+                    yield break;
+                }
+            }
+            
+            // Fallback to error message
+            yield return "I apologize, but I'm having trouble processing your request right now. ";
+            yield return "Please try again in a moment.";
+        }
+
         private async IAsyncEnumerable<string> CallAIProviderForStreamChatAsync(AIChatInput input)
         {
-            // For now, simulate streaming by breaking the response into chunks
+            // Build message array, directly use conversation history
+            var messages = new List<object>();
+            
+            // Add system prompt
+            messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode) });
+            
+            // Add conversation history (last 5 messages to reduce token usage)
+            foreach (var message in input.Messages.TakeLast(5))
+            {
+                messages.Add(new { role = message.Role, content = message.Content });
+            }
+
+            // Get user configuration
+            AIModelConfig userConfig = null;
+            
+            // If model ID is specified, use that configuration
+            if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
+            {
+                userConfig = await _configService.GetConfigByIdAsync(modelId);
+            }
+            
+            // Try to use real streaming API if available
+            if (userConfig != null)
+            {
+                var provider = userConfig.Provider?.ToLower();
+                
+                if (provider == "deepseek")
+                {
+                    await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+                else if (provider == "openai")
+                {
+                    await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+            }
+            
+            // Fallback to non-streaming response with simulated streaming
             var response = await CallAIProviderForChatAsync(input);
             
             if (response.Success && !string.IsNullOrEmpty(response.Content))
@@ -2531,12 +2898,254 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 foreach (var word in words)
                 {
                     yield return word + " ";
-                    await Task.Delay(50); // Simulate streaming delay
+                    await Task.Delay(20); // Reduced delay for better UX
                 }
             }
             else
             {
-                yield return "I apologize, but I'm having trouble processing your message right now.";
+                // Check if it's a rate limit error
+                if (response.ErrorMessage?.Contains("rate_limit_exceeded") == true || 
+                    response.ErrorMessage?.Contains("Rate limit reached") == true)
+                {
+                    yield return "I'm currently experiencing high demand and have reached the API rate limit. ";
+                    yield return "Please try again in a few minutes. ";
+                    yield return "In the meantime, you can continue planning your workflow by describing your requirements, ";
+                    yield return "and I'll help you once the limit resets.";
+                }
+                else
+                {
+                    yield return "I apologize, but I'm having trouble processing your message right now. ";
+                    yield return "Please try again in a moment.";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Call DeepSeek API with real streaming support
+        /// </summary>
+        private async IAsyncEnumerable<string> CallDeepSeekStreamAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,
+                stream = true // Enable streaming
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Intelligently handle API endpoints
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+            
+            if (baseUrl.Contains("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else
+            {
+                apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
+            }
+            
+            _logger.LogInformation("Calling DeepSeek Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+            
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Content = httpContent
+            };
+            request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+            request.Headers.Add("Accept", "text/event-stream");
+
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("DeepSeek Stream API failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
+                yield return "I'm having trouble connecting to the AI service. Please try again.";
+                yield break;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            
+            string line;
+            var lineTimeout = TimeSpan.FromSeconds(5); // 每行最多等待5秒
+            
+            while (true)
+            {
+                // 将try-catch移出yield return
+                string readLine = null;
+                bool shouldBreak = false;
+                bool shouldContinue = false;
+                string contentToYield = null;
+                
+                var readStartTime = DateTime.UtcNow;
+                try
+                {
+                    // 为每行读取设置超时
+                    using var cts = new CancellationTokenSource(lineTimeout);
+                    _logger.LogDebug("🔍 DeepSeek: Starting to read line with {Timeout}s timeout", lineTimeout.TotalSeconds);
+                    readLine = await reader.ReadLineAsync().WaitAsync(cts.Token);
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    const double slowReadInfoThresholdMs = 50d;
+                    if (readDuration >= slowReadInfoThresholdMs)
+                        _logger.LogInformation("✅ DeepSeek: Line read completed in {Duration}ms", readDuration);
+                    else
+                        _logger.LogDebug("✅ DeepSeek: Line read completed in {Duration}ms", readDuration);
+                }
+                catch (OperationCanceledException)
+                {
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    _logger.LogWarning("⏰ DeepSeek stream line read timeout after {Duration}ms (expected {Timeout}s), breaking stream", readDuration, lineTimeout.TotalSeconds);
+                    shouldBreak = true;
+                }
+                catch (Exception ex)
+                {
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    _logger.LogWarning(ex, "❌ Error reading DeepSeek stream line after {Duration}ms, breaking stream", readDuration);
+                    shouldBreak = true;
+                }
+                
+                if (shouldBreak)
+                    break;
+                    
+                if (readLine == null)
+                    break;
+                    
+                if (readLine.StartsWith("data: "))
+                {
+                    var data = readLine.Substring(6).Trim();
+                    
+                    if (data == "[DONE]")
+                        break;
+                        
+                    if (string.IsNullOrEmpty(data))
+                        continue;
+
+                    try
+                    {
+                        var jsonData = JsonSerializer.Deserialize<JsonElement>(data);
+                        
+                        if (jsonData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                        {
+                            var choice = choices[0];
+                            if (choice.TryGetProperty("delta", out var delta) && 
+                                delta.TryGetProperty("content", out var contentProp))
+                            {
+                                var content = contentProp.GetString();
+                                if (!string.IsNullOrEmpty(content))
+                                {
+                                    contentToYield = content;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error parsing DeepSeek stream JSON, skipping line");
+                        continue;
+                    }
+                }
+                
+                // yield return在try-catch外部
+                if (!string.IsNullOrEmpty(contentToYield))
+                {
+                    yield return contentToYield;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Call OpenAI API with real streaming support
+        /// </summary>
+        private async IAsyncEnumerable<string> CallOpenAIStreamAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,
+                stream = true // Enable streaming
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+            
+            if (baseUrl.Contains("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else
+            {
+                apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
+            }
+            
+            _logger.LogInformation("Calling OpenAI Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+            
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Content = httpContent
+            };
+            request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+            request.Headers.Add("Accept", "text/event-stream");
+
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("OpenAI Stream API failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
+                
+                // Check for rate limit and throw exception to trigger fallback
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    throw new HttpRequestException($"Rate limit exceeded: {errorContent}");
+                }
+                
+                yield return "I'm having trouble connecting to the AI service. Please try again.";
+                yield break;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            
+            string line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                if (line.StartsWith("data: "))
+                {
+                    var data = line.Substring(6).Trim();
+                    
+                    if (data == "[DONE]")
+                        break;
+                        
+                    if (string.IsNullOrEmpty(data))
+                        continue;
+
+                    var jsonData = JsonSerializer.Deserialize<JsonElement>(data);
+                    
+                    if (jsonData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                    {
+                        var choice = choices[0];
+                        if (choice.TryGetProperty("delta", out var delta) && 
+                            delta.TryGetProperty("content", out var contentProp))
+                        {
+                            var content = contentProp.GetString();
+                            if (!string.IsNullOrEmpty(content))
+                            {
+                                yield return content;
+                            }
+                        }
+                    }
+                }
             }
         }
 

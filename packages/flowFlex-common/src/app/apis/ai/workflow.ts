@@ -1,5 +1,8 @@
 import { defHttp } from '@/apis/axios';
 import { useGlobSetting } from '@/settings';
+import { getTokenobj } from '@/utils/auth';
+import { useUserStoreWithOut } from '@/stores/modules/user';
+import { getTimeZoneInfo } from '@/hooks/time';
 
 const globSetting = useGlobSetting();
 
@@ -57,6 +60,201 @@ export function streamGenerateAIWorkflow(params: AIWorkflowGenerationInput) {
 		params,
 		responseType: 'stream',
 	});
+}
+
+/**
+ * 真正的流式生成工作流（使用原生fetch）
+ * @param params AI工作流生成输入参数
+ * @param onChunk 流式数据回调
+ * @param onComplete 完成回调
+ * @param onError 错误回调
+ * @param abortController 可选的AbortController用于取消请求
+ */
+export async function streamGenerateAIWorkflowNative(
+	params: AIWorkflowGenerationInput,
+	onChunk: (chunk: string) => void,
+	onComplete: (data: any) => void,
+	onError: (error: any) => void,
+	abortController?: AbortController
+) {
+	const { apiProName, apiVersion } = useGlobSetting();
+	const url = `${apiProName}/ai/workflows/${apiVersion}/generate/stream`;
+	
+	console.log('🌐 Making stream request to:', url);
+	console.log('📤 Request params:', params);
+	
+	// 获取认证信息
+	const tokenObj = getTokenobj();
+	const userStore = useUserStoreWithOut();
+	const userInfo = userStore.getUserInfo;
+	
+	console.log('🔍 Debug - tokenObj:', tokenObj);
+	console.log('🔍 Debug - userInfo:', userInfo);
+	
+	// 构建请求头
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json',
+		'Accept': 'text/event-stream',
+		'Time-Zone': getTimeZoneInfo().timeZone,
+		'Application-code': globSetting.ssoCode || '',
+	};
+	
+	// 添加认证头
+	if (tokenObj?.accessToken?.token) {
+		const token = tokenObj.accessToken.token;
+		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
+		headers.Authorization = `${tokenType} ${token}`;
+		console.log('✅ Added Authorization header:', `${tokenType} ${token.substring(0, 20)}...`);
+	} else {
+		console.warn('❌ No token found in tokenObj');
+	}
+	
+	// 添加用户相关头信息
+	if (userInfo?.appCode) {
+		headers['X-App-Code'] = userInfo.appCode;
+		console.log('✅ Added X-App-Code:', userInfo.appCode);
+	}
+	if (userInfo?.tenantId) {
+		headers['X-Tenant-Id'] = userInfo.tenantId;
+		console.log('✅ Added X-Tenant-Id:', userInfo.tenantId);
+	}
+	
+	console.log('🔑 Final request headers:', headers);
+	
+	try {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify(params),
+			signal: abortController?.signal,
+		});
+		
+		console.log('📥 Stream response status:', response.status, response.statusText);
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const reader = response.body?.getReader();
+		if (!reader) {
+			throw new Error('No response body reader available');
+		}
+
+		const decoder = new TextDecoder();
+		let buffer = '';
+		let finalData: any = null;
+		let workflowData: any = null;
+		let stagesData: any[] = [];
+
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				
+				if (done) {
+					break;
+				}
+
+				// 解码数据块
+				const chunk = decoder.decode(value, { stream: true });
+				buffer += chunk;
+
+				// 处理SSE格式的数据
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || ''; // 保留不完整的行
+
+				for (const line of lines) {
+					if (line.startsWith('data: ')) {
+						const data = line.slice(6); // 移除 'data: ' 前缀
+						
+						if (data === '[DONE]') {
+							// 流式传输完成，构建最终数据
+							if (finalData) {
+								onComplete(finalData);
+							} else if (workflowData || stagesData.length > 0) {
+								// 从收集的数据构建最终结果
+								const constructedData = {
+									success: true,
+									message: 'Workflow generated successfully',
+									generatedWorkflow: workflowData,
+									stages: stagesData,
+									suggestions: ['Consider adding approval stages', 'Review stage assignments'],
+									confidenceScore: 0.8
+								};
+								console.log('🔧 Constructed final data from stream:', constructedData);
+								onComplete(constructedData);
+							}
+							return;
+						}
+
+						try {
+							const parsed = JSON.parse(data);
+							const messageType = parsed.Type || parsed.type; // 支持大小写
+							
+							if (messageType === 'start' || messageType === 'progress') {
+								// 开始和进度消息
+								onChunk(parsed.Message || parsed.message || '');
+							} else if (messageType === 'workflow') {
+								// 工作流基本信息
+								workflowData = parsed.Data || parsed.data;
+								console.log('📋 Collected workflow data:', workflowData);
+								const message = parsed.Message || parsed.message || '';
+								if (message) {
+									onChunk(message);
+								}
+							} else if (messageType === 'stage') {
+								// 阶段信息 - 收集所有stage数据
+								const stageData = parsed.Data || parsed.data;
+								if (stageData) {
+									stagesData.push(stageData);
+									console.log(`📊 Collected stage ${stagesData.length}:`, stageData.Name);
+								}
+								const message = parsed.Message || parsed.message || '';
+								if (message) {
+									onChunk(message);
+								}
+							} else if (messageType === 'chunk' || messageType === 'delta') {
+								// 流式数据块
+								onChunk(parsed.Content || parsed.content || parsed.Message || parsed.message || '');
+							} else if (messageType === 'complete') {
+								// 最终结果
+								finalData = parsed.Data || parsed.data || parsed;
+								console.log('✅ Received complete data:', finalData);
+							} else if (messageType === 'error') {
+								// 错误信息
+								onError(new Error(parsed.Message || parsed.message || 'Stream error'));
+								return;
+							}
+						} catch (parseError) {
+							// 如果不是JSON，可能是纯文本流式数据
+							onChunk(data);
+						}
+					}
+				}
+			}
+
+			// 如果没有收到完成信号，但流已结束
+			if (finalData) {
+				onComplete(finalData);
+			} else if (workflowData || stagesData.length > 0) {
+				// 从收集的数据构建最终结果
+				const constructedData = {
+					success: true,
+					message: 'Workflow generated successfully',
+					generatedWorkflow: workflowData,
+					stages: stagesData,
+					suggestions: ['Consider adding approval stages', 'Review stage assignments'],
+					confidenceScore: 0.8
+				};
+				console.log('🔧 Fallback: Constructed final data from stream:', constructedData);
+				onComplete(constructedData);
+			}
+		} finally {
+			reader.releaseLock();
+		}
+	} catch (error) {
+		console.error('Stream API error:', error);
+		onError(error);
+	}
 }
 
 /**
@@ -206,6 +404,151 @@ export function streamAIChatMessage(params: AIChatInput) {
 		params,
 		responseType: 'stream',
 	});
+}
+
+/**
+ * 真正的流式聊天（使用原生fetch）
+ * @param params AI聊天输入参数
+ * @param onChunk 流式数据回调
+ * @param onComplete 完成回调
+ * @param onError 错误回调
+ * @param abortController 可选的AbortController用于取消请求
+ */
+export async function streamAIChatMessageNative(
+	params: AIChatInput,
+	onChunk: (chunk: string) => void,
+	onComplete: (data: any) => void,
+	onError: (error: any) => void,
+	abortController?: AbortController
+) {
+	const { apiProName, apiVersion } = useGlobSetting();
+	const url = `${apiProName}/ai/chat/${apiVersion}/conversation/stream`;
+	
+	console.log('💬 Making stream chat request to:', url);
+	console.log('📤 Chat params:', params);
+	
+	// 获取认证信息
+	const tokenObj = getTokenobj();
+	const userStore = useUserStoreWithOut();
+	const userInfo = userStore.getUserInfo;
+	
+	console.log('🔍 Debug - tokenObj:', tokenObj);
+	console.log('🔍 Debug - userInfo:', userInfo);
+	
+	// 构建请求头
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json',
+		'Accept': 'text/event-stream',
+		'Time-Zone': getTimeZoneInfo().timeZone,
+		'Application-code': globSetting.ssoCode || '',
+	};
+	
+	// 添加认证头
+	if (tokenObj?.accessToken?.token) {
+		const token = tokenObj.accessToken.token;
+		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
+		headers.Authorization = `${tokenType} ${token}`;
+		console.log('✅ Added Authorization header:', `${tokenType} ${token.substring(0, 20)}...`);
+	} else {
+		console.warn('❌ No token found in tokenObj');
+	}
+	
+	// 添加用户相关头信息
+	if (userInfo?.appCode) {
+		headers['X-App-Code'] = userInfo.appCode;
+		console.log('✅ Added X-App-Code:', userInfo.appCode);
+	}
+	if (userInfo?.tenantId) {
+		headers['X-Tenant-Id'] = userInfo.tenantId;
+		console.log('✅ Added X-Tenant-Id:', userInfo.tenantId);
+	}
+	
+	console.log('🔑 Final chat request headers:', headers);
+	
+	try {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify(params),
+			signal: abortController?.signal,
+		});
+		
+		console.log('📥 Stream chat response status:', response.status, response.statusText);
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const reader = response.body?.getReader();
+		if (!reader) {
+			throw new Error('No response body reader available');
+		}
+
+		const decoder = new TextDecoder();
+		let buffer = '';
+		let finalData: any = null;
+
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				
+				if (done) {
+					break;
+				}
+
+				// 解码数据块
+				const chunk = decoder.decode(value, { stream: true });
+				buffer += chunk;
+
+				// 处理SSE格式的数据
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || ''; // 保留不完整的行
+
+				for (const line of lines) {
+					if (line.startsWith('data: ')) {
+						const data = line.slice(6); // 移除 'data: ' 前缀
+						
+						if (data === '[DONE]') {
+							// 流式传输完成
+							if (finalData) {
+								onComplete(finalData);
+							}
+							return;
+						}
+
+						try {
+							const parsed = JSON.parse(data);
+							
+							if (parsed.type === 'chunk' || parsed.type === 'content' || parsed.type === 'delta') {
+								// 流式数据块
+								onChunk(parsed.content || parsed.message || '');
+							} else if (parsed.type === 'complete') {
+								// 最终结果
+								finalData = parsed.data || parsed;
+							} else if (parsed.type === 'error') {
+								// 错误信息
+								onError(new Error(parsed.message || 'Stream error'));
+								return;
+							}
+						} catch (parseError) {
+							// 如果不是JSON，可能是纯文本流式数据
+							onChunk(data);
+						}
+					}
+				}
+			}
+
+			// 如果没有收到完成信号，但流已结束
+			if (finalData) {
+				onComplete(finalData);
+			}
+		} finally {
+			reader.releaseLock();
+		}
+	} catch (error) {
+		console.error('Stream chat API error:', error);
+		onError(error);
+	}
 }
 
 /**

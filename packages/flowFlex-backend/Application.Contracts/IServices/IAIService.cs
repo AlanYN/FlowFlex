@@ -387,8 +387,13 @@ namespace FlowFlex.Application.Contracts.IServices
     /// </summary>
     public class AIChatMessage
     {
+        [Newtonsoft.Json.JsonProperty("role")]
         public string Role { get; set; } = string.Empty; // 'user', 'assistant', 'system'
+        
+        [Newtonsoft.Json.JsonProperty("content")]
         public string Content { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("timestamp")]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 
@@ -397,14 +402,26 @@ namespace FlowFlex.Application.Contracts.IServices
     /// </summary>
     public class AIChatInput
     {
+        [Newtonsoft.Json.JsonProperty("messages")]
         public List<AIChatMessage> Messages { get; set; } = new();
+        
+        [Newtonsoft.Json.JsonProperty("context")]
         public string Context { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("sessionId")]
         public string SessionId { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("mode")]
         public string Mode { get; set; } = "general"; // 'workflow_planning', 'general'
         
         // 添加模型相关字段
+        [Newtonsoft.Json.JsonProperty("modelId")]
         public string? ModelId { get; set; }
+        
+        [Newtonsoft.Json.JsonProperty("modelProvider")]
         public string? ModelProvider { get; set; }
+        
+        [Newtonsoft.Json.JsonProperty("modelName")]
         public string? ModelName { get; set; }
     }
 
@@ -435,9 +452,20 @@ namespace FlowFlex.Application.Contracts.IServices
     /// </summary>
     public class AIChatStreamResult
     {
+        [Newtonsoft.Json.JsonProperty("type")]
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = string.Empty; // 'delta', 'complete', 'error'
+        
+        [Newtonsoft.Json.JsonProperty("content")]
+        [System.Text.Json.Serialization.JsonPropertyName("content")]
         public string Content { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("isComplete")]
+        [System.Text.Json.Serialization.JsonPropertyName("isComplete")]
         public bool IsComplete { get; set; }
+        
+        [Newtonsoft.Json.JsonProperty("sessionId")]
+        [System.Text.Json.Serialization.JsonPropertyName("sessionId")]
         public string SessionId { get; set; } = string.Empty;
     }
 

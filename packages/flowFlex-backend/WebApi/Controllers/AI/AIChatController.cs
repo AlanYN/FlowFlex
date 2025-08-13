@@ -73,27 +73,72 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// <param name="input">Chat input with messages and context</param>
         /// <returns>Streaming chat response</returns>
         [HttpPost("conversation/stream")]
-        [ProducesResponseType(typeof(IAsyncEnumerable<AIChatStreamResult>), 200)]
+        [ProducesResponseType(200)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
-        public async IAsyncEnumerable<AIChatStreamResult> StreamChatMessage([FromBody] AIChatInput input)
+        public async Task StreamChatMessage([FromBody] AIChatInput input)
         {
+            // 设置流式响应头
+            Response.ContentType = "text/event-stream";
+            Response.Headers.Add("Cache-Control", "no-cache");
+            Response.Headers.Add("Connection", "keep-alive");
+            Response.Headers.Add("Access-Control-Allow-Origin", "*");
+            
+            _logger.LogInformation("Stream chat request received. Input is null: {InputNull}", input == null);
+            
+            if (input != null)
+            {
+                _logger.LogInformation("Input details - Messages count: {MessageCount}, SessionId: {SessionId}, Mode: {Mode}", 
+                    input.Messages?.Count ?? 0, input.SessionId, input.Mode);
+            }
+            
             if (input == null || input.Messages == null || !input.Messages.Any())
             {
-                yield return new AIChatStreamResult
+                _logger.LogWarning("Invalid stream chat input - Input null: {InputNull}, Messages null: {MessagesNull}, Messages empty: {MessagesEmpty}",
+                    input == null, input?.Messages == null, input?.Messages?.Any() == false);
+                    
+                var errorData = new AIChatStreamResult
                 {
                     Type = "error",
                     Content = "Chat messages are required",
                     IsComplete = true,
                     SessionId = input?.SessionId ?? ""
                 };
-                yield break;
+                
+                await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(errorData)}\n\n");
+                await Response.Body.FlushAsync();
+                return;
             }
 
             _logger.LogInformation("Starting stream chat for session: {SessionId}", input.SessionId);
 
-            await foreach (var result in _aiService.StreamChatAsync(input))
+            try
             {
-                yield return result;
+                await foreach (var result in _aiService.StreamChatAsync(input))
+                {
+                    var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
+                    await Response.WriteAsync($"data: {jsonData}\n\n");
+                    await Response.Body.FlushAsync();
+                }
+                
+                // Send completion signal
+                await Response.WriteAsync("data: [DONE]\n\n");
+                await Response.Body.FlushAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in stream chat for session: {SessionId}", input.SessionId);
+                
+                var errorData = new AIChatStreamResult
+                {
+                    Type = "error",
+                    Content = $"Stream error: {ex.Message}",
+                    IsComplete = true,
+                    SessionId = input.SessionId
+                };
+                
+                var jsonData = System.Text.Json.JsonSerializer.Serialize(errorData);
+                await Response.WriteAsync($"data: {jsonData}\n\n");
+                await Response.Body.FlushAsync();
             }
 
             _logger.LogInformation("Stream chat completed for session: {SessionId}", input.SessionId);
