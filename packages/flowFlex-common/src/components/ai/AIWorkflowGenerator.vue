@@ -10,12 +10,7 @@
 							{{ currentAIModel ? `${currentAIModel.provider.toLowerCase()} ${currentAIModel.modelName}` : 'Online' }}
           </span>
 					</div>
-					<div class="header-actions">
-						<el-button size="small" @click="clearChat" type="text">
-							<el-icon><Delete /></el-icon>
-							Clear Chat
-						</el-button>
-					</div>
+					
         </div>
       </template>
 
@@ -47,31 +42,7 @@
 								</div>
 							</div>
 
-							<!-- System Message -->
-							<div v-else-if="message.type === 'system'" class="system-message">
-								<div class="system-content">
-									<el-icon><InfoFilled /></el-icon>
-									<div class="system-text">
-										<div class="system-message-text">{{ message.content }}</div>
-										<div class="system-actions" v-if="message.content.includes('Let\'s create your workflow!')">
-											<el-button size="small" @click="clearChat" class="start-over-btn">
-												<el-icon><Refresh /></el-icon>
-												Start Over
-											</el-button>
-											<el-button 
-												type="primary" 
-												size="small" 
-												@click="generateWorkflow"
-												:loading="generating"
-												class="generate-workflow-btn"
-											>
-												<el-icon><Star /></el-icon>
-												Generate My Workflow
-											</el-button>
-            </div>
-          </div>
-        </div>
-      </div>
+
 
 							<!-- Generation Complete -->
 							<div v-else-if="message.type === 'generation-complete'" class="generation-complete">
@@ -300,34 +271,31 @@
 
 					<!-- Input Area -->
 					<div class="input-area">
-						<!-- Generate Button -->
-						<div class="generate-section">
-        <el-button 
-          type="primary" 
-          size="default"
-          @click="generateWorkflow"
-          :loading="generating"
-								:disabled="!canGenerate"
-								class="generate-btn"
-        >
-                     <el-icon class="mr-1"><Star /></el-icon>
-								Generate My Workflow
-        </el-button>
-						</div>
 
-						<!-- File Upload -->
+						<!-- AI File Analyzer and Generate Button -->
 						<div class="file-upload-section">
-							<el-upload
-								:show-file-list="false"
-								:before-upload="handleFileUpload"
-								accept=".txt,.doc,.docx,.pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
-								class="file-upload"
-							>
-								<el-button size="small" type="text">
-									<el-icon><Paperclip /></el-icon>
-									AI Analyze Files
-								</el-button>
-							</el-upload>
+							<div class="file-analyzer-container">
+								<AIFileAnalyzer 
+									@file-analyzed="handleFileAnalyzed"
+									@analysis-complete="handleAnalysisComplete"
+									@stream-chunk="handleStreamChunk"
+									@analysis-started="handleAnalysisStarted"
+								/>
+								
+								<!-- Generate My Workflow Button (only show when there's chat history) -->
+								<div v-if="shouldShowGenerateButton" class="generate-workflow-right">
+									<el-button 
+										type="primary" 
+										size="default"
+										@click="generateWorkflow"
+										:loading="generating"
+										class="generate-workflow-btn-right"
+									>
+										<el-icon class="mr-1"><Star /></el-icon>
+										Generate My Workflow
+									</el-button>
+								</div>
+							</div>
 							
 							<!-- Uploaded File Display -->
 							<div v-if="uploadedFile" class="uploaded-file-display">
@@ -419,11 +387,14 @@
 					</div>
 				</div>
 
-				<!-- Chat History Sidebar -->
+				<!-- Enhanced Chat History Sidebar -->
 				<div class="chat-history" :class="{ collapsed: isHistoryCollapsed }">
 					<div class="history-header">
 						<div class="header-content">
-							<h4 v-if="!isHistoryCollapsed">Chat History</h4>
+							<div v-if="!isHistoryCollapsed" class="header-title-section">
+								<h4>Chat History</h4>
+								<span class="history-count">{{ chatHistory.length }} sessions</span>
+							</div>
 							<div class="header-actions">
 								<el-button 
 									v-if="!isHistoryCollapsed"
@@ -435,6 +406,23 @@
 									<el-icon><Plus /></el-icon>
 									New Chat
 								</el-button>
+								<el-dropdown v-if="!isHistoryCollapsed && chatHistory.length > 0" trigger="click" class="history-menu">
+									<el-button size="small" type="text" class="menu-btn">
+										<el-icon><MoreFilled /></el-icon>
+									</el-button>
+									<template #dropdown>
+										<el-dropdown-menu>
+											<el-dropdown-item @click="exportChatHistory">
+												<el-icon><Download /></el-icon>
+												Export History
+											</el-dropdown-item>
+											<el-dropdown-item @click="clearAllHistory" divided>
+												<el-icon><Delete /></el-icon>
+												Clear All History
+											</el-dropdown-item>
+										</el-dropdown-menu>
+									</template>
+								</el-dropdown>
 								<el-button size="small" type="text" @click="toggleHistory" class="collapse-btn">
 									<el-icon>
 										<ArrowRight v-if="isHistoryCollapsed" />
@@ -443,20 +431,116 @@
 								</el-button>
 							</div>
 						</div>
-					</div>
-					<div class="history-list" v-if="!isHistoryCollapsed">
-						<div 
-							v-for="(session, index) in chatHistory" 
-							:key="index"
-							:class="['history-item', { active: currentSessionId === session.id }]"
-							@click="loadChatSession(session.id)"
-						>
-							<div class="history-title">{{ session.title }}</div>
-							<div class="history-time">{{ formatDate(session.timestamp) }}</div>
+						
+						<!-- Search Bar -->
+						<div v-if="!isHistoryCollapsed && chatHistory.length > 0" class="history-search">
+							<el-input
+								v-model="historySearchQuery"
+								placeholder="Search chat history..."
+								size="small"
+								clearable
+								@input="filterChatHistory"
+							>
+								<template #prefix>
+									<el-icon><Search /></el-icon>
+								</template>
+							</el-input>
 						</div>
+					</div>
+					
+					<div class="history-list" v-if="!isHistoryCollapsed">
+						<!-- Pinned Sessions -->
+						<div v-if="pinnedSessions.length > 0" class="pinned-section">
+							<div class="section-header">
+								<el-icon><Star /></el-icon>
+								<span>Pinned</span>
+							</div>
+							<div 
+								v-for="session in pinnedSessions" 
+								:key="session.id"
+								:class="['history-item', 'pinned', { active: currentSessionId === session.id }]"
+								@click="loadChatSession(session.id)"
+								@contextmenu.prevent="showContextMenu($event, session)"
+							>
+								<div class="item-content">
+									<div class="history-title">{{ session.title }}</div>
+									<div class="history-meta">
+										<span class="history-time">{{ formatRelativeTime(session.timestamp) }}</span>
+										<span class="message-count">{{ session.messages.length }} msgs</span>
+									</div>
+								</div>
+								<div class="item-actions">
+									<el-icon class="pin-icon"><Star /></el-icon>
+								</div>
+							</div>
+						</div>
+						
+						<!-- Recent Sessions -->
+						<div v-if="filteredHistory.length > 0" class="recent-section">
+							<div class="section-header" v-if="pinnedSessions.length > 0">
+								<el-icon><Clock /></el-icon>
+								<span>Recent</span>
+							</div>
+							<div 
+								v-for="session in filteredHistory" 
+								:key="session.id"
+								:class="['history-item', { active: currentSessionId === session.id }]"
+								@click="loadChatSession(session.id)"
+								@contextmenu.prevent="showContextMenu($event, session)"
+							>
+								<div class="item-content">
+									<div class="history-title">{{ session.title }}</div>
+									<div class="history-meta">
+										<span class="history-time">{{ formatRelativeTime(session.timestamp) }}</span>
+										<span class="message-count">{{ session.messages.length }} msgs</span>
+									</div>
+								</div>
+								<div class="item-actions">
+									<el-dropdown trigger="click" @command="handleSessionAction">
+										<el-button size="small" type="text" class="action-btn">
+											<el-icon><MoreFilled /></el-icon>
+										</el-button>
+										<template #dropdown>
+											<el-dropdown-menu>
+												<el-dropdown-item :command="`pin-${session.id}`">
+													<el-icon><Star /></el-icon>
+													{{ session.isPinned ? 'Unpin' : 'Pin' }}
+												</el-dropdown-item>
+												<el-dropdown-item :command="`rename-${session.id}`">
+													<el-icon><Edit /></el-icon>
+													Rename
+												</el-dropdown-item>
+												<el-dropdown-item :command="`delete-${session.id}`" divided>
+													<el-icon><Delete /></el-icon>
+													Delete
+												</el-dropdown-item>
+											</el-dropdown-menu>
+										</template>
+									</el-dropdown>
+								</div>
+							</div>
+						</div>
+						
+						<!-- Empty State -->
 						<div v-if="chatHistory.length === 0" class="empty-history">
-							<el-icon><ChatDotRound /></el-icon>
-							<p>No chat history</p>
+							<div class="empty-icon">
+								<el-icon><ChatDotRound /></el-icon>
+							</div>
+							<p class="empty-title">No chat history</p>
+							<p class="empty-subtitle">Start a conversation to see your chat history here</p>
+							<el-button size="small" type="primary" @click="startNewChat" class="start-chat-btn">
+								<el-icon><Plus /></el-icon>
+								Start New Chat
+							</el-button>
+						</div>
+						
+						<!-- No Search Results -->
+						<div v-else-if="filteredHistory.length === 0 && historySearchQuery" class="no-results">
+							<div class="empty-icon">
+								<el-icon><Search /></el-icon>
+							</div>
+							<p class="empty-title">No results found</p>
+							<p class="empty-subtitle">Try different keywords</p>
 						</div>
 					</div>
 				</div>
@@ -481,12 +565,31 @@
 				</div>
 			</template>
 		</el-dialog>
+
+		<!-- Rename Session Dialog -->
+		<el-dialog
+			v-model="showRenameDialog"
+			title="Rename Chat Session"
+			width="400px"
+		>
+			<el-input
+				v-model="newSessionTitle"
+				placeholder="Enter new session title..."
+				@keyup.enter="confirmRenameSession"
+			/>
+			<template #footer>
+				<div class="dialog-footer">
+					<el-button @click="showRenameDialog = false">Cancel</el-button>
+					<el-button type="primary" @click="confirmRenameSession">Rename</el-button>
+				</div>
+			</template>
+		</el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
   Star, 
 	User,
@@ -501,12 +604,15 @@ import {
 	ArrowLeft,
 	ArrowRight,
 	ChatDotRound,
-	Paperclip,
 	Position,
 	Refresh,
 	Document,
 	Close,
-	Picture
+	Picture,
+	MoreFilled,
+	Download,
+	Search,
+	Edit
 } from '@element-plus/icons-vue';
 import { createWorkflow } from '@/apis/ow';
 import { createChecklist } from '@/apis/ow/checklist';
@@ -514,6 +620,7 @@ import { createQuestionnaire } from '@/apis/ow/questionnaire';
 import { sendAIChatMessage, streamAIChatMessageNative, type AIChatMessage } from '../../app/apis/ai/workflow';
 import { getDefaultAIModel, getUserAIModels, type AIModelConfig } from '../../app/apis/ai/config';
 import { useStreamAIWorkflow } from '../../hooks/useStreamAIWorkflow';
+import AIFileAnalyzer from './AIFileAnalyzer.vue';
 
 // Types
 interface Workflow {
@@ -564,6 +671,8 @@ interface ChatSession {
 	title: string;
 	timestamp: Date;
 	messages: ChatMessage[];
+	isPinned?: boolean;
+	tags?: string[];
 }
 
 // Emits
@@ -591,6 +700,11 @@ const availableModels = ref<AIModelConfig[]>([]);
 
 // UI State Management
 const isHistoryCollapsed = ref(false);
+const historySearchQuery = ref('');
+const filteredHistory = ref<ChatSession[]>([]);
+const showRenameDialog = ref(false);
+const renameSessionId = ref('');
+const newSessionTitle = ref('');
 
 // Stream AI Hook
 const { isStreaming, startStreaming, streamFileAnalysis, stopStreaming } = useStreamAIWorkflow();
@@ -601,6 +715,20 @@ const canGenerate = computed(() => {
 	const hasFile = uploadedFile.value;
 	const hasChatHistory = chatMessages.value.some(msg => msg.type === 'user');
 	return hasInput || hasFile || hasChatHistory;
+});
+
+// 显示Generate按钮的条件：只有当有聊天记录时才显示
+const shouldShowGenerateButton = computed(() => {
+	const hasChatHistory = chatMessages.value.some(msg => msg.type === 'user');
+	return hasChatHistory;
+});
+
+const pinnedSessions = computed(() => {
+	return chatHistory.value.filter(session => session.isPinned);
+});
+
+const unpinnedSessions = computed(() => {
+	return chatHistory.value.filter(session => !session.isPinned);
 });
 
 // Dialog states
@@ -881,20 +1009,6 @@ const sendMessage = async () => {
 			);
 			
 			if (streamSuccess) {
-				// Check if we should show the workflow creation prompt
-				const messageCount = chatMessages.value.filter(msg => msg.type === 'user').length;
-				if (messageCount >= 2) {
-					setTimeout(() => {
-						const createMessage: ChatMessage = {
-							id: (Date.now() + 2).toString(),
-							type: 'system',
-							content: `🔧 Let's create your workflow!\nI have the basics to start creating your workflow. Generate now for a quick start, or chat more for better customization.\n\nProgress: ${'▓'.repeat(Math.min(messageCount, 10))}${'░'.repeat(10 - Math.min(messageCount, 10))} ${Math.min(messageCount * 10, 100)}%`,
-							timestamp: new Date()
-						};
-						chatMessages.value.push(createMessage);
-						scrollToBottom();
-					}, 1000);
-				}
 				return;
 			}
 		} catch (streamError) {
@@ -920,20 +1034,7 @@ const sendMessage = async () => {
 			}
 			console.log('📡 Frontend: Added AI message:', actualResponse.response.content);
 			
-			// Check if we should show the workflow creation prompt
-			const messageCount = chatMessages.value.filter(msg => msg.type === 'user').length;
-			if (messageCount >= 2) {
-				setTimeout(() => {
-					const createMessage: ChatMessage = {
-						id: (Date.now() + 2).toString(),
-						type: 'system',
-						content: `🔧 Let's create your workflow!\nI have the basics to start creating your workflow. Generate now for a quick start, or chat more for better customization.\n\nProgress: ${'▓'.repeat(Math.min(messageCount, 10))}${'░'.repeat(10 - Math.min(messageCount, 10))} ${Math.min(messageCount * 10, 100)}%`,
-						timestamp: new Date()
-					};
-					chatMessages.value.push(createMessage);
-					scrollToBottom();
-				}, 1000);
-			}
+
 		} else {
 			throw new Error(actualResponse.message || response.message || 'AI response failed');
 		}
@@ -1124,12 +1225,7 @@ const removeQuestionnaire = (data: any, index: number) => {
 	data.questionnaires.splice(index, 1);
 };
 
-// File handling
-const handleFileUpload = (file: File) => {
-	uploadedFile.value = file;
-	ElMessage.success(`File "${file.name}" uploaded successfully`);
-	return false; // Prevent default upload
-};
+// File handling (legacy - now handled by AIFileAnalyzer)
 
 const removeUploadedFile = () => {
 	// 如果是图片文件，清理URL对象以避免内存泄漏
@@ -1182,7 +1278,7 @@ const saveChatSession = () => {
 	currentSessionId.value = sessionId;
 	
 	// Save to localStorage
-	localStorage.setItem('ai-workflow-chat-history', JSON.stringify(chatHistory.value));
+	saveChatHistoryToStorage();
 };
 
 const loadChatSession = (sessionId: string) => {
@@ -1218,6 +1314,229 @@ const startNewChat = () => {
 	isHistoryCollapsed.value = false;
 };
 
+// Enhanced Chat History Methods
+const filterChatHistory = () => {
+	if (!historySearchQuery.value.trim()) {
+		filteredHistory.value = unpinnedSessions.value;
+		return;
+	}
+	
+	const query = historySearchQuery.value.toLowerCase();
+	filteredHistory.value = unpinnedSessions.value.filter(session => {
+		return session.title.toLowerCase().includes(query) ||
+			session.messages.some(msg => 
+				msg.content.toLowerCase().includes(query)
+			);
+	});
+};
+
+const formatRelativeTime = (timestamp: Date) => {
+	const now = new Date();
+	const diff = now.getTime() - timestamp.getTime();
+	const minutes = Math.floor(diff / (1000 * 60));
+	const hours = Math.floor(diff / (1000 * 60 * 60));
+	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+	
+	if (minutes < 1) return 'Just now';
+	if (minutes < 60) return `${minutes}m ago`;
+	if (hours < 24) return `${hours}h ago`;
+	if (days < 7) return `${days}d ago`;
+	return timestamp.toLocaleDateString();
+};
+
+const handleSessionAction = (command: string) => {
+	const [action, sessionId] = command.split('-');
+	const session = chatHistory.value.find(s => s.id === sessionId);
+	
+	if (!session) return;
+	
+	switch (action) {
+		case 'pin':
+			togglePinSession(sessionId);
+			break;
+		case 'rename':
+			startRenameSession(sessionId);
+			break;
+		case 'delete':
+			deleteSession(sessionId);
+			break;
+	}
+};
+
+const togglePinSession = (sessionId: string) => {
+	const session = chatHistory.value.find(s => s.id === sessionId);
+	if (session) {
+		session.isPinned = !session.isPinned;
+		saveChatHistoryToStorage();
+		filterChatHistory();
+	}
+};
+
+const startRenameSession = (sessionId: string) => {
+	const session = chatHistory.value.find(s => s.id === sessionId);
+	if (session) {
+		renameSessionId.value = sessionId;
+		newSessionTitle.value = session.title;
+		showRenameDialog.value = true;
+	}
+};
+
+const confirmRenameSession = () => {
+	const session = chatHistory.value.find(s => s.id === renameSessionId.value);
+	if (session && newSessionTitle.value.trim()) {
+		session.title = newSessionTitle.value.trim();
+		saveChatHistoryToStorage();
+		showRenameDialog.value = false;
+		ElMessage.success('Session renamed successfully');
+	}
+};
+
+const deleteSession = (sessionId: string) => {
+	ElMessageBox.confirm(
+		'Are you sure you want to delete this chat session? This action cannot be undone.',
+		'Delete Chat Session',
+		{
+			confirmButtonText: 'Delete',
+			cancelButtonText: 'Cancel',
+			type: 'warning',
+		}
+	).then(() => {
+		const index = chatHistory.value.findIndex(s => s.id === sessionId);
+		if (index >= 0) {
+			chatHistory.value.splice(index, 1);
+			saveChatHistoryToStorage();
+			filterChatHistory();
+			
+			// If deleted session was current, clear chat
+			if (currentSessionId.value === sessionId) {
+				clearChat();
+			}
+			
+			ElMessage.success('Chat session deleted');
+		}
+	}).catch(() => {
+		// User cancelled
+	});
+};
+
+const exportChatHistory = () => {
+	try {
+		const exportData = {
+			exportDate: new Date().toISOString(),
+			sessions: chatHistory.value.map(session => ({
+				...session,
+				timestamp: session.timestamp.toISOString(),
+				messages: session.messages.map(msg => ({
+					...msg,
+					timestamp: msg.timestamp.toISOString()
+				}))
+			}))
+		};
+		
+		const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+			type: 'application/json'
+		});
+		
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `ai-workflow-chat-history-${new Date().toISOString().split('T')[0]}.json`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+		
+		ElMessage.success('Chat history exported successfully');
+	} catch (error) {
+		console.error('Export failed:', error);
+		ElMessage.error('Failed to export chat history');
+	}
+};
+
+const clearAllHistory = () => {
+	ElMessageBox.confirm(
+		'Are you sure you want to clear all chat history? This action cannot be undone.',
+		'Clear All History',
+		{
+			confirmButtonText: 'Clear All',
+			cancelButtonText: 'Cancel',
+			type: 'warning',
+		}
+	).then(() => {
+		chatHistory.value = [];
+		filteredHistory.value = [];
+		saveChatHistoryToStorage();
+		clearChat();
+		ElMessage.success('All chat history cleared');
+	}).catch(() => {
+		// User cancelled
+	});
+};
+
+const showContextMenu = (event: MouseEvent, session: ChatSession) => {
+	// Context menu functionality can be implemented here
+	event.preventDefault();
+};
+
+const saveChatHistoryToStorage = () => {
+	localStorage.setItem('ai-workflow-chat-history', JSON.stringify(chatHistory.value));
+};
+
+// File Analysis Handlers
+const handleFileAnalyzed = (content: string, fileName: string) => {
+	console.log('File analyzed:', fileName, 'Content length:', content.length);
+	
+	// Add a user message showing the file was uploaded
+	const fileMessage: ChatMessage = {
+		id: Date.now().toString(),
+		type: 'user',
+		content: `📎 Uploaded file: ${fileName}\n\nContent preview:\n${content.substring(0, 500)}${content.length > 500 ? '...' : ''}`,
+		timestamp: new Date()
+	};
+	
+	chatMessages.value.push(fileMessage);
+	saveChatSession();
+	scrollToBottom();
+	
+	ElMessage.success(`File "${fileName}" has been analyzed and content extracted`);
+};
+
+// 用于跟踪当前AI响应消息的ID
+let currentAIMessageId = '';
+
+const handleAnalysisStarted = (fileName: string) => {
+	console.log('Analysis started for file:', fileName);
+	
+	// 创建一个新的AI消息用于显示流式响应
+	currentAIMessageId = (Date.now() + 1).toString();
+	const aiMessage: ChatMessage = {
+		id: currentAIMessageId,
+		type: 'ai',
+		content: '', // 开始时内容为空，会通过流式响应填充
+		timestamp: new Date()
+	};
+	
+	chatMessages.value.push(aiMessage);
+	saveChatSession();
+	scrollToBottom();
+};
+
+const handleStreamChunk = (chunk: string) => {
+	// 找到当前AI消息并更新内容
+	const messageIndex = chatMessages.value.findIndex(msg => msg.id === currentAIMessageId);
+	if (messageIndex !== -1) {
+		chatMessages.value[messageIndex].content += chunk;
+		scrollToBottom();
+	}
+};
+
+const handleAnalysisComplete = (result: any) => {
+	console.log('Analysis complete:', result);
+	
+	// 保存会话
+	saveChatSession();
+};
+
 // Utility functions
 const formatTime = (timestamp: Date) => {
 	return timestamp.toLocaleTimeString('en-US', { 
@@ -1226,12 +1545,7 @@ const formatTime = (timestamp: Date) => {
 	});
 };
 
-const formatDate = (timestamp: Date) => {
-	return timestamp.toLocaleDateString('en-US', { 
-		month: 'short', 
-		day: 'numeric' 
-	});
-};
+
 
 const formatAIMessage = (content: string) => {
 	return content.replace(/\n/g, '<br>');
@@ -1323,6 +1637,9 @@ onMounted(async () => {
 		};
 		chatMessages.value.push(initialMessage);
 	}
+	
+	// Initialize filtered history
+	filterChatHistory();
 });
 </script>
 
@@ -1332,7 +1649,6 @@ onMounted(async () => {
 }
 
 .assistant-card {
-	height: 80vh;
 	display: flex;
 	flex-direction: column;
 }
@@ -1380,7 +1696,6 @@ onMounted(async () => {
 
 .assistant-container {
 	display: flex;
-	height: 100%;
 	gap: 1rem;
 }
 
@@ -1388,31 +1703,9 @@ onMounted(async () => {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
-	height: 100%;
 }
 
-.generate-section {
-	padding: 0.75rem 0;
-	text-align: center;
-	border-bottom: 1px solid #e5e7eb;
-	margin-bottom: 0.75rem;
-}
 
-.generate-btn {
-	min-width: 160px;
-	height: 36px;
-	font-size: 14px;
-	font-weight: 600;
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-	border: none;
-  border-radius: 8px;
-	transition: all 0.3s ease;
-}
-
-.generate-btn:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
-}
 
 .chat-messages {
 	flex: 1;
@@ -1421,8 +1714,7 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
-	max-height: 500px;
-	min-height: 400px;
+	max-height: 600px;
 }
 
 /* 自定义滚动条样式 */
@@ -1530,66 +1822,7 @@ onMounted(async () => {
 	51%, 100% { opacity: 0; }
 }
 
-.system-message {
-	display: flex;
-	justify-content: center;
-	margin: 1rem 0;
-}
 
-.system-content {
-	background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%);
-	color: #0d47a1;
-	padding: 1rem 1.5rem;
-	border-radius: 16px;
-	font-size: 14px;
-	display: flex;
-	align-items: flex-start;
-	gap: 0.75rem;
-	max-width: 80%;
-	border: 1px solid #81d4fa;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.system-text {
-	flex: 1;
-}
-
-.system-message-text {
-	white-space: pre-line;
-	line-height: 1.5;
-	margin-bottom: 1rem;
-}
-
-.system-actions {
-	display: flex;
-	gap: 0.75rem;
-	justify-content: flex-end;
-	margin-top: 0.75rem;
-}
-
-.start-over-btn {
-	background: white;
-	border: 1px solid #90caf9;
-	color: #1976d2;
-}
-
-.start-over-btn:hover {
-	background: #f3f4f6;
-	border-color: #64b5f6;
-}
-
-.generate-workflow-btn {
-	background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-	border: none;
-	color: white;
-	font-weight: 600;
-}
-
-.generate-workflow-btn:hover {
-	background: linear-gradient(135deg, #f57c00 0%, #ef6c00 100%);
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
-}
 
 .message-text {
 	margin-bottom: 0.25rem;
@@ -1941,6 +2174,41 @@ onMounted(async () => {
 	gap: 8px;
 }
 
+.file-analyzer-container {
+	display: flex;
+	align-items: flex-start;
+	gap: 1rem;
+}
+
+.generate-workflow-right {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.generate-workflow-btn-right {
+	min-width: 180px;
+	height: 40px;
+	font-size: 14px;
+	font-weight: 600;
+	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+	border: none;
+	border-radius: 8px;
+	transition: all 0.3s ease;
+	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+.generate-workflow-btn-right:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+}
+
+.generate-workflow-btn-right:disabled {
+	opacity: 0.6;
+	transform: none;
+	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1);
+}
+
 .file-upload .el-button {
   color: #6b7280;
 	border: none;
@@ -2008,6 +2276,8 @@ onMounted(async () => {
 	gap: 0.5rem;
 }
 
+
+
 .input-with-button {
 	display: flex;
 	align-items: center;
@@ -2036,7 +2306,7 @@ onMounted(async () => {
 	border-left: 1px solid #e5e7eb;
 	display: flex;
 	flex-direction: column;
-	height: 100%;
+	height: 600px;
 	transition: width 0.3s ease;
 	background: #f8fafc;
 }
@@ -2048,6 +2318,7 @@ onMounted(async () => {
 .history-header {
 	padding: 1rem;
 	border-bottom: 1px solid #e5e7eb;
+	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .header-content {
@@ -2055,6 +2326,26 @@ onMounted(async () => {
 	justify-content: space-between;
 	align-items: center;
 	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+}
+
+.header-title-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.header-title-section h4 {
+	margin: 0;
+	color: #374151;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.history-count {
+	font-size: 12px;
+	color: #6b7280;
+	font-weight: 500;
 }
 
 .header-actions {
@@ -2065,20 +2356,48 @@ onMounted(async () => {
 
 .new-chat-btn {
 	font-size: 12px;
-	padding: 4px 8px;
+	padding: 6px 12px;
+	border-radius: 6px;
+	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+	border: none;
+	color: white;
+	transition: all 0.2s ease;
 }
 
-.collapse-btn {
+.new-chat-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.menu-btn, .collapse-btn {
 	padding: 4px;
 	min-width: 28px;
 	height: 28px;
+	border-radius: 6px;
+	transition: all 0.2s ease;
 }
 
-.history-header h4 {
-	margin: 0;
-  color: #374151;
-  font-size: 16px;
-	font-weight: 600;
+.menu-btn:hover, .collapse-btn:hover {
+	background: #e5e7eb;
+}
+
+.history-search {
+	margin-top: 0.75rem;
+}
+
+.history-search .el-input {
+	border-radius: 8px;
+}
+
+.history-search .el-input__inner {
+	background: white;
+	border: 1px solid #d1d5db;
+	transition: all 0.2s ease;
+}
+
+.history-search .el-input__inner:focus {
+	border-color: #4f46e5;
+	box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
 .history-list {
@@ -2088,57 +2407,179 @@ onMounted(async () => {
 	max-height: 400px;
 }
 
+.section-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	margin-bottom: 0.5rem;
+	font-size: 12px;
+	font-weight: 600;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.pinned-section, .recent-section {
+	margin-bottom: 1rem;
+}
+
 .history-item {
+	display: flex;
+	align-items: center;
 	padding: 0.75rem;
 	border-radius: 8px;
 	cursor: pointer;
-	transition: background-color 0.2s ease;
+	transition: all 0.2s ease;
 	margin-bottom: 0.5rem;
+	background: white;
+	border: 1px solid #e5e7eb;
+	position: relative;
 }
 
 .history-item:hover {
-	background: #f3f4f6;
+	background: #f8fafc;
+	border-color: #cbd5e1;
+	transform: translateY(-1px);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .history-item.active {
-	background: #eff6ff;
-	border: 1px solid #dbeafe;
+	background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+	border-color: #3b82f6;
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.history-item.pinned {
+	background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+	border-color: #f59e0b;
+}
+
+.history-item.pinned:hover {
+	background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+}
+
+.item-content {
+	flex: 1;
+	min-width: 0;
 }
 
 .history-title {
 	font-size: 14px;
 	font-weight: 500;
-  color: #374151;
+	color: #374151;
 	margin-bottom: 0.25rem;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	line-height: 1.3;
+}
+
+.history-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
 }
 
 .history-time {
-  font-size: 12px;
+	font-size: 11px;
+	color: #6b7280;
+	font-weight: 500;
+}
+
+.message-count {
+	font-size: 11px;
+	color: #9ca3af;
+	background: #f3f4f6;
+	padding: 2px 6px;
+	border-radius: 10px;
+	font-weight: 500;
+}
+
+.item-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.history-item:hover .item-actions {
+	opacity: 1;
+}
+
+.pin-icon {
+	color: #f59e0b;
+	font-size: 14px;
+}
+
+.action-btn {
+	padding: 2px;
+	min-width: 20px;
+	height: 20px;
+	border-radius: 4px;
 	color: #6b7280;
 }
 
-.empty-history {
-  display: flex;
+.action-btn:hover {
+	background: #e5e7eb;
+	color: #374151;
+}
+
+.empty-history, .no-results {
+	display: flex;
 	flex-direction: column;
 	align-items: center;
-  justify-content: center;
-	padding: 2rem;
-	color: #6b7280;
+	justify-content: center;
+	padding: 2rem 1rem;
 	text-align: center;
 }
 
-.empty-history .el-icon {
-	font-size: 32px;
-	margin-bottom: 0.5rem;
-	opacity: 0.5;
+.empty-icon {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 1rem;
 }
 
-.empty-history p {
-	margin: 0;
+.empty-icon .el-icon {
+	font-size: 24px;
+	color: #9ca3af;
+}
+
+.empty-title {
+	margin: 0 0 0.5rem 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: #374151;
+}
+
+.empty-subtitle {
+	margin: 0 0 1rem 0;
 	font-size: 14px;
+	color: #6b7280;
+	line-height: 1.4;
+}
+
+.start-chat-btn {
+	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+	border: none;
+	color: white;
+	padding: 8px 16px;
+	border-radius: 6px;
+	font-weight: 500;
+	transition: all 0.2s ease;
+}
+
+.start-chat-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 .dialog-footer {
@@ -2181,7 +2622,7 @@ onMounted(async () => {
 		width: 100%;
 		border-left: none;
 		border-top: 1px solid #e5e7eb;
-		max-height: 200px;
+		max-height: 300px;
 	}
 	
 	.additional-components {
