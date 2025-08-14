@@ -182,9 +182,9 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsPrioritySet { get; set; } = false;
 
         /// <summary>
-        /// Dynamic Extension Fields (redundant common fields for easy list search/sorting/export)
+        /// Dynamic Extension Fields (redundant common fields for easy list search/sorting/export) - JSONB
         /// </summary>
-        [SugarColumn(ColumnName = "custom_fields_json")]
+        [SugarColumn(ColumnName = "custom_fields_json", ColumnDataType = "jsonb", IsJson = true)]
         public string CustomFieldsJson { get; set; }
 
         /// <summary>

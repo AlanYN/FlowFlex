@@ -16,6 +16,8 @@ using System.Reflection;
 using System.Text;
 using FlowFlex.Application.Client;
 using Item.Redis.Extensions;
+using Microsoft.Extensions.DependencyInjection;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -160,6 +162,56 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
         ClockSkew = TimeSpan.Zero
+    };
+
+    // Database-backed token validation integrated into JwtBearer events
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            try
+            {
+                var services = context.HttpContext.RequestServices;
+                var jwtService = services.GetService<IJwtService>();
+                var accessTokenService = services.GetService<IAccessTokenService>();
+
+                if (jwtService == null || accessTokenService == null)
+                {
+                    context.Fail("Authentication services unavailable");
+                    return;
+                }
+
+                var jwtToken = context.SecurityToken as System.IdentityModel.Tokens.Jwt.JwtSecurityToken;
+                var rawToken = jwtToken?.RawData
+                               ?? context.HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", string.Empty)?.Trim();
+
+                if (string.IsNullOrEmpty(rawToken))
+                {
+                    context.Fail("Missing token");
+                    return;
+                }
+
+                var jti = jwtService.GetJtiFromToken(rawToken);
+                if (string.IsNullOrEmpty(jti))
+                {
+                    context.Fail("Invalid token jti");
+                    return;
+                }
+
+                var isActive = await accessTokenService.ValidateTokenAsync(jti);
+                if (!isActive)
+                {
+                    context.Fail("Token revoked or inactive");
+                    return;
+                }
+
+                await accessTokenService.UpdateTokenUsageAsync(jti);
+            }
+            catch (Exception ex)
+            {
+                context.Fail($"Authentication error: {ex.Message}");
+            }
+        }
     };
 });
 
@@ -356,8 +408,7 @@ app.UseCors("AllowAll");
 
 // Add authentication and authorization middleware
 app.UseAuthentication();
-app.UseMiddleware<FlowFlex.WebApi.Middlewares.JwtAuthenticationMiddleware>(); // 重新启用自定义JWT认证中间件
-app.UseMiddleware<FlowFlex.WebApi.Middlewares.TokenValidationMiddleware>(); // 重新启用Token验证中间件
+// Custom JWT/Token validation middlewares removed in favor of JwtBearerEvents.OnTokenValidated
 app.UseAuthorization();
 
 app.MapControllers();

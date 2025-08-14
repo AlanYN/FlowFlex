@@ -8,6 +8,7 @@ using FlowFlex.Domain.Repository.OW;
 
 using FlowFlex.Domain.Shared;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System;
 using System.Linq;
 using FlowFlex.Domain.Repository;
@@ -23,6 +24,10 @@ namespace FlowFlex.Application.Service.OW
     /// </summary>
     public class StageService : IStageService, IScopedService
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
         private readonly IStageRepository _stageRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IMapper _mapper;
@@ -107,7 +112,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 try
                 {
-                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson) ?? new List<StageComponent>();
+                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
                 }
                 catch (JsonException)
                 {
@@ -634,7 +639,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 try
                 {
-                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson) ?? new List<StageComponent>();
+                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
                 }
                 catch (JsonException)
                 {
@@ -746,7 +751,7 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                var components = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson);
+                var components = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson, _jsonOptions);
                 if (components == null || !components.Any())
                 {
                     return new List<StageComponent>();

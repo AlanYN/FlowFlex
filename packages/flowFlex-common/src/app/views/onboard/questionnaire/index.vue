@@ -379,8 +379,8 @@ import { ElMessage } from 'element-plus';
 import {
 	Plus,
 	Edit,
-	Delete,
 	CopyDocument,
+	Delete,
 	Document,
 	More,
 	View,

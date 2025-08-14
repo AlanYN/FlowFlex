@@ -118,6 +118,70 @@ interface WorkflowStage {
 	estimatedDuration: number;
 }
 
+interface ChecklistTask {
+	id: string;
+	title: string;
+	description: string;
+	isRequired: boolean;
+	completed?: boolean;
+	estimatedMinutes?: number;
+	category?: string;
+}
+
+interface ChecklistItem {
+	name: string;
+	description: string;
+	stageId?: number;
+	tasks: ChecklistTask[];
+}
+
+interface QuestionnaireQuestion {
+	id: string;
+	question: string;
+	type: 'text' | 'select' | 'multiselect' | 'number' | 'date' | 'boolean';
+	options?: string[];
+	isRequired: boolean;
+	answer?: any;
+	category?: string;
+	helpText?: string;
+}
+
+interface QuestionnaireItem {
+	name: string;
+	description: string;
+	stageId?: number;
+	questions: QuestionnaireQuestion[];
+}
+
+interface ChatMessage {
+	id: string;
+	type:
+		| 'user'
+		| 'ai'
+		| 'system'
+		| 'generation-complete'
+		| 'workflow-modification'
+		| 'workflow-selection';
+	content: string;
+	timestamp: Date;
+	data?: {
+		workflow?: Workflow;
+		stages?: WorkflowStage[];
+		checklists?: ChecklistItem[];
+		questionnaires?: QuestionnaireItem[];
+		workflows?: any[]; // For workflow selection
+	};
+}
+
+interface ChatSession {
+	id: string;
+	title: string;
+	timestamp: Date;
+	messages: ChatMessage[];
+	isPinned?: boolean;
+	tags?: string[];
+}
+
 // Emits
 const emit = defineEmits<{
 	workflowGenerated: [
@@ -131,11 +195,78 @@ const emit = defineEmits<{
 }>();
 
 // Reactive data
-const selectedAction = ref<'create' | 'modify'>('create');
-const selectedWorkflowId = ref<number | null>(null);
-const workflowDescription = ref('');
+const currentInput = ref('');
 const generating = ref(false);
-const workflowList = ref<Workflow[]>([]);
+const applying = ref(false);
+const streamingMessage = ref('');
+const chatMessages = ref<ChatMessage[]>([]);
+const chatHistory = ref<ChatSession[]>([]);
+const currentSessionId = ref<string>('');
+const conversationId = ref<string>('');
+const uploadedFile = ref<File | null>(null);
+const currentAIModel = ref<AIModelConfig | null>(null);
+const availableModels = ref<AIModelConfig[]>([]);
+
+// Workflow modification data
+const searchedWorkflows = ref<any[]>([]);
+const selectedWorkflow = ref<any | null>(null);
+const isSearchingWorkflows = ref(false);
+
+// UI State Management
+const isHistoryCollapsed = ref(false);
+const historySearchQuery = ref('');
+const filteredHistory = computed(() => {
+	if (!historySearchQuery.value.trim()) {
+		return unpinnedSessions.value;
+	}
+
+	const query = historySearchQuery.value.toLowerCase();
+	return unpinnedSessions.value.filter((session) => {
+		return (
+			session.title.toLowerCase().includes(query) ||
+			session.messages.some((msg) => msg.content.toLowerCase().includes(query))
+		);
+	});
+});
+const showRenameDialog = ref(false);
+const renameSessionId = ref('');
+const newSessionTitle = ref('');
+
+// Collapse state management
+const checklistsCollapsed = ref(false);
+const questionnairesCollapsed = ref(false);
+const collapsedChecklistTasks = ref<Set<number>>(new Set());
+const collapsedQuestionnaireQuestions = ref<Set<number>>(new Set());
+
+// Stream AI Hook
+const { isStreaming, startStreaming, streamFileAnalysis, stopStreaming } = useStreamAIWorkflow();
+
+// Computed properties
+const canGenerate = computed(() => {
+	const hasInput = currentInput.value.trim();
+	const hasFile = uploadedFile.value;
+	const hasChatHistory = chatMessages.value.some((msg) => msg.type === 'user');
+	return hasInput || hasFile || hasChatHistory;
+});
+
+// Show Generate button only when there's chat history
+const shouldShowGenerateButton = computed(() => {
+	const hasChatHistory = chatMessages.value.some((msg) => msg.type === 'user');
+	return hasChatHistory;
+});
+
+const pinnedSessions = computed(() => {
+	return chatHistory.value.filter((session) => session.isPinned);
+});
+
+const unpinnedSessions = computed(() => {
+	return chatHistory.value.filter((session) => !session.isPinned);
+});
+
+// Dialog states
+
+// Refs
+const chatMessagesRef = ref<HTMLElement>();
 
 // Methods
 const loadWorkflowList = async () => {
@@ -227,11 +358,28 @@ onMounted(() => {
 	width: 100%;
 }
 
+.assistant-card {
+	display: flex;
+	flex-direction: column;
+}
+
 .card-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	font-weight: 600;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.assistant-title {
+	font-size: 18px;
+	font-weight: 700;
+	color: #374151;
 }
 
 .status-indicator {

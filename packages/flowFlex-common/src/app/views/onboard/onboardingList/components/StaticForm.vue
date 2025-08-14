@@ -25,13 +25,13 @@
 			</el-form-item>
 
 			<el-form-item
-				label="Lead Company Name"
-				prop="companyName"
-				v-if="staticFields.includes('COMPANYNAME')"
+				label="Customer Name"
+				prop="customerName"
+				v-if="staticFields.includes('CUSTOMERNAME')"
 			>
 				<el-input
-					v-model="formData.companyName"
-					placeholder="Input Company Name"
+					v-model="formData.customerName"
+					placeholder="Input Customer Name"
 					class="text-sm min-w-[250px]"
 				/>
 			</el-form-item>
@@ -250,18 +250,6 @@
 				/>
 			</el-form-item>
 
-			<el-form-item
-				label="Customer Name"
-				prop="customerName"
-				v-if="staticFields.includes('CUSTOMERNAME')"
-			>
-				<el-input
-					v-model="formData.customerName"
-					placeholder="Input Customer Name"
-					class="text-sm min-w-[250px]"
-				/>
-			</el-form-item>
-
 			<el-form-item label="Status" prop="status" v-if="staticFields.includes('STATUS')">
 				<el-select
 					v-model="formData.status"
@@ -439,7 +427,7 @@ const getLifeCycleStage = async () => {
 const formData = reactive({
 	// Lead Basic Info
 	leadId: '',
-	companyName: '',
+	customerName: '',
 	contactName: '',
 	contactEmail: '',
 	contactPhone: '',
@@ -459,7 +447,6 @@ const formData = reactive({
 
 	// Customer Account Info
 	customerCode: '',
-	customerName: '',
 	status: 'Draft', // 默认状态
 
 	// Account Holder Information
@@ -474,7 +461,7 @@ const formData = reactive({
 // 表单验证规则
 const formRules: FormRules = {
 	leadId: [{ required: true, message: 'Please select lead', trigger: 'change' }],
-	companyName: [{ required: true, message: 'Please enter company name', trigger: 'blur' }],
+	customerName: [{ required: true, message: 'Please enter customer name', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Please select priority', trigger: 'change' }],
 	requestedCreditLimit: [
 		{ required: true, message: 'Please enter requested credit limit', trigger: 'blur' },
@@ -521,7 +508,7 @@ const getFormData = () => {
 	// 字段映射关系 - 从表单字段名映射到API字段名
 	const formToApiFieldsMap = {
 		leadId: 'LEADID',
-		companyName: 'COMPANYNAME',
+		customerName: 'CUSTOMERNAME',
 		contactName: 'CONTACTNAME',
 		contactEmail: 'CONTACTEMAIL',
 		contactPhone: 'CONTACTPHONE',
@@ -537,7 +524,6 @@ const getFormData = () => {
 		creditScore: 'CREDITSCORE',
 		approvalNotes: 'APPROVALNOTES',
 		customerCode: 'CUSTOMERCODE',
-		customerName: 'CUSTOMERNAME',
 		status: 'STATUS',
 		accountHolderCategory: 'ACCOUNTHOLDERCATEGORY',
 		assignee: 'ASSIGNEE',
@@ -550,7 +536,6 @@ const getFormData = () => {
 	// 字段类型映射
 	const fieldTypeMap = {
 		leadId: 'text',
-		companyName: 'text',
 		contactName: 'text',
 		contactEmail: 'email',
 		contactPhone: 'tel',
@@ -579,7 +564,7 @@ const getFormData = () => {
 	// 必填字段定义
 	const requiredFields = new Set([
 		'leadId',
-		'companyName',
+		'customerName',
 		'priority',
 		'requestedCreditLimit',
 		'approvedCreditLimit',
@@ -594,7 +579,6 @@ const getFormData = () => {
 
 	const fieldLabelMap = {
 		LEADID: 'Lead ID',
-		COMPANYNAME: 'Lead Company Name',
 		CONTACTNAME: 'Contact Name',
 		CONTACTEMAIL: 'Contact Email',
 		CONTACTPHONE: 'Contact Phone',
@@ -679,7 +663,6 @@ const setFieldValues = (fieldValues: Record<string, any> | any[]) => {
 	const fieldsMap = {
 		// 原有的大写格式
 		LEADID: 'leadId',
-		COMPANYNAME: 'companyName',
 		CONTACTNAME: 'contactName',
 		CONTACTEMAIL: 'contactEmail',
 		CONTACTPHONE: 'contactPhone',

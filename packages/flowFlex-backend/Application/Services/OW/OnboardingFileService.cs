@@ -140,7 +140,7 @@ namespace FlowFlex.Application.Services.OW
                     StoragePath = attachment.AccessUrl,
                     UploadedById = _userContext.UserId,
                     UploadedByName = _userContext.UserName,
-                    UploadedDate = DateTimeOffset.Now,
+                UploadedDate = DateTimeOffset.UtcNow,
                     Status = "Active",
                     Version = 1,
                     SortOrder = 0
@@ -343,7 +343,7 @@ namespace FlowFlex.Application.Services.OW
                 onboardingFile.Status = "Deleted";
                 onboardingFile.ModifyBy = _userContext.UserId;
                 onboardingFile.ModifyUserId = long.Parse(_userContext.UserId);
-                onboardingFile.ModifyDate = DateTimeOffset.Now;
+            onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _onboardingFileRepository.UpdateAsync(onboardingFile);
 
@@ -431,7 +431,7 @@ namespace FlowFlex.Application.Services.OW
 
                 onboardingFile.ModifyBy = _userContext.UserId;
                 onboardingFile.ModifyUserId = long.Parse(_userContext.UserId);
-                onboardingFile.ModifyDate = DateTimeOffset.Now;
+            onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _onboardingFileRepository.UpdateAsync(onboardingFile);
 

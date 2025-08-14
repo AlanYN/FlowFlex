@@ -90,6 +90,7 @@
 						<el-input
 							v-if="question.type === 'short_answer' || question.type === 'text'"
 							v-model="formData[question.id]"
+							:maxlength="questionMaxlength"
 							:placeholder="'Enter ' + question.question"
 							@input="handleInputChange(question.id, $event)"
 						/>
@@ -102,8 +103,10 @@
 								question.type === 'textarea'
 							"
 							v-model="formData[question.id]"
+							:maxlength="notesPageTextraMaxLength"
 							type="textarea"
 							:rows="3"
+							show-word-limit
 							:placeholder="'Enter ' + question.question"
 							@input="handleInputChange(question.id, $event)"
 						/>
@@ -119,7 +122,7 @@
 								>
 									<div
 										:class="[
-											'w-4 h-4 border-2 rounded-full flex items-center justify-center',
+											'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
 											formData[question.id] === (option.value || option.label)
 												? 'border-blue-500 bg-blue-500'
 												: 'border-gray-300',
@@ -138,10 +141,19 @@
 											@click.stop
 											:disabled="formData[question.id] != option.value"
 											v-model="formData[`${question.id}_${option.id}`]"
+											:maxlength="questionMaxlength"
 											placeholder="Enter other"
 										/>
 									</div>
-									<span v-else class="text-sm">
+									<span
+										v-else
+										class="text-sm"
+										:class="{
+											'text-primary-500 font-bold':
+												formData[question.id] ===
+												(option.value || option.label),
+										}"
+									>
 										{{ option.label || option.text || option.value }}
 									</span>
 								</div>
@@ -168,6 +180,7 @@
 												!formData[question.id]?.includes(option.value)
 											"
 											v-model="formData[`${question.id}_${option.id}`]"
+											:maxlength="questionMaxlength"
 											placeholder="Enter other"
 										/>
 									</div>
@@ -233,16 +246,15 @@
 						<!-- 线性量表 -->
 						<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
 							<el-slider
+								:key="`slider-${question.id}-${formData[question.id] || 0}`"
 								v-model="formData[question.id]"
 								:min="question.min"
 								:max="question.max"
-								:step="1"
 								:marks="getSliderMarks(question)"
-								:show-input="false"
-								@change="handleInputChange(question.id, $event)"
 								class="preview-linear-scale"
+								@change="handleInputChange(question.id, $event)"
+								:validate-event="false"
 								show-stops
-								size="small"
 							/>
 							<div class="flex justify-between text-xs text-gray-500">
 								<span>{{ question.minLabel || question.min || 1 }}</span>
@@ -264,6 +276,7 @@
 										handleFileChange(question.id, file, fileList);
 									}
 								"
+								v-model:file-list="formData[question.id]"
 								:accept="question.accept"
 								class="w-full"
 							>
@@ -294,7 +307,6 @@
 										{{ column.label }}
 										<el-tag
 											v-if="column.isOther"
-											size="small"
 											type="warning"
 											class="other-column-tag"
 										>
@@ -333,8 +345,8 @@
 														column.id
 													)
 												"
+												:maxlength="questionMaxlength"
 												placeholder="Enter other"
-												size="small"
 												class="other-input"
 											/>
 										</div>
@@ -364,7 +376,6 @@
 										{{ column.label }}
 										<el-tag
 											v-if="column.isOther"
-											size="small"
 											type="warning"
 											class="other-column-tag"
 										>
@@ -407,8 +418,8 @@
 													formData[`${question.id}_${row.id}`] !=
 													(column.value || column.label)
 												"
-												placeholder="Please specify..."
-												size="small"
+												placeholder="Enter other"
+												:maxlength="questionMaxlength"
 												class="other-input"
 											/>
 										</div>
@@ -426,6 +437,47 @@
 								<div class="text-xs mt-1">
 									Rows: {{ question.rows?.length || 0 }}, Columns:
 									{{ question.columns?.length || 0 }}
+								</div>
+							</div>
+						</div>
+
+						<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
+							<div v-if="question.columns && question.rows" class="grid-container">
+								<div class="grid-header">
+									<div class="grid-cell grid-row-header"></div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-column-header"
+									>
+										{{ column.label }}
+										<el-tag
+											v-if="column.isOther"
+											type="warning"
+											class="other-column-tag"
+										>
+											Other
+										</el-tag>
+									</div>
+								</div>
+								<div
+									v-for="(row, rowIndex) in question.rows"
+									:key="rowIndex"
+									class="grid-row"
+								>
+									<div class="grid-cell grid-row-header">{{ row.label }}</div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-checkbox-cell gap-x-2"
+									>
+										<el-input
+											v-model="
+												formData[`${question.id}_${column.id}_${row.id}`]
+											"
+											:maxlength="questionMaxlength"
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -546,7 +598,11 @@ import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/i
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 import { ElNotification } from 'element-plus';
-import { projectDate } from '@/settings/projectSetting';
+import {
+	projectDate,
+	notesPageTextraMaxLength,
+	questionMaxlength,
+} from '@/settings/projectSetting';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -711,6 +767,18 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 					formData.value[key] = responseText[key];
 				});
 			}
+		} else if (ans.type === 'short_answer_grid') {
+			formData.value[ans.questionId] = ans.answer;
+			if (ans.responseText) {
+				const responseText = JSON.parse(ans.responseText);
+				Object.keys(responseText).forEach((key) => {
+					formData.value[key] = responseText[key];
+				});
+			}
+		} else if (ans.type === 'linear_scale' || ans.type === 'rating') {
+			// 确保数字类型的答案保持为数字
+			const numValue = Number(ans.answer);
+			formData.value[ans.questionId] = isNaN(numValue) ? 0 : numValue;
 		} else {
 			formData.value[ans.questionId] = ans.answer;
 		}
@@ -818,79 +886,117 @@ const validateForm = (presentQuestionIndex?: number) => {
 		if (!section.questions || section.questions.length === 0) {
 			return true;
 		}
-		section.questions.forEach((question: any, qIdx: number) => {
-			if (question.required) {
-				if (question.type === 'multiple_choice_grid') {
-					// 多选网格：检查每一行是否都有选择
-					if (question.rows && question.rows.length > 0) {
-						let allRowsCompleted = true;
-						question.rows.forEach((row: any, rowIndex: number) => {
-							const gridKey = `${question.id}_${row.id || rowIndex}`;
-							const gridValue = formData.value[gridKey];
-							if (!Array.isArray(gridValue) || gridValue.length === 0) {
-								allRowsCompleted = false;
+		section.questions
+			?.filter((item) => {
+				return item.type != 'page_break';
+			})
+			?.forEach((question: any, qIdx: number) => {
+				if (question.required) {
+					if (question.type === 'multiple_choice_grid') {
+						// 多选网格：检查每一行是否都有选择
+						if (question.rows && question.rows.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								const gridKey = `${question.id}_${row.id || rowIndex}`;
+								const gridValue = formData.value[gridKey];
+								if (!Array.isArray(gridValue) || gridValue.length === 0) {
+									allRowsCompleted = false;
+								}
+							});
+							if (!allRowsCompleted) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
 							}
-						});
-						if (!allRowsCompleted) {
+						}
+					} else if (question.type === 'short_answer_grid') {
+						if (question.rows && question.columns && question.columns.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								// 检查该行是否至少有一个单元格有内容
+								let rowHasValue = false;
+								question.columns.forEach((column: any, columnIndex: number) => {
+									const gridKey = `${question.id}_${column.id}_${row.id}`;
+									const gridValue = formData.value[gridKey];
+									if (gridValue && gridValue.trim() !== '') {
+										rowHasValue = true;
+									}
+								});
+								// 如果该行没有任何内容，则标记为未完成
+								if (!rowHasValue) {
+									allRowsCompleted = false;
+								}
+							});
+							if (!allRowsCompleted) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
+							}
+						}
+					} else if (question.type === 'checkbox_grid') {
+						// 单选网格：检查每一行是否都有选择
+						if (question.rows && question.rows.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								const gridKey = `${question.id}_${row.id || rowIndex}`;
+								const gridValue = formData.value[gridKey];
+								if (!gridValue || gridValue === '') {
+									allRowsCompleted = false;
+								}
+							});
+							if (!allRowsCompleted) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
+							}
+						}
+					} else if (question.type == 'rating') {
+						const value = formData.value[question.id];
+						if ((typeof value === 'number' && value < 1) || !value) {
 							isValid = false;
 							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
 								qIdx + 1
 							}`;
 							errors.push(errorMsg);
 						}
-					}
-				} else if (question.type === 'checkbox_grid') {
-					// 单选网格：检查每一行是否都有选择
-					if (question.rows && question.rows.length > 0) {
-						let allRowsCompleted = true;
-						question.rows.forEach((row: any, rowIndex: number) => {
-							const gridKey = `${question.id}_${row.id || rowIndex}`;
-							const gridValue = formData.value[gridKey];
-							if (!gridValue || gridValue === '') {
-								allRowsCompleted = false;
-							}
-						});
-						if (!allRowsCompleted) {
+					} else if (question.type == 'linear_scale') {
+						const value = formData.value[question.id];
+						if ((typeof value === 'number' && value <= question.min) || !value) {
 							isValid = false;
 							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
 								qIdx + 1
 							}`;
 							errors.push(errorMsg);
 						}
-					}
-				} else if (question.type == 'rating') {
-					const value = formData.value[question.id];
-					if ((typeof value === 'number' && value < 1) || !value) {
-						isValid = false;
-						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
-						errors.push(errorMsg);
-					}
-				} else if (question.type == 'linear_scale') {
-					const value = formData.value[question.id];
-					if ((typeof value === 'number' && value <= question.min) || !value) {
-						isValid = false;
-						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
-						errors.push(errorMsg);
-					}
-				} else {
-					// 其他类型的验证  其他类型的验证也需要单独处理
-					const value = formData.value[question.id];
-					// 更严格的空值检查
-					const isEmpty =
-						value === null ||
-						value === undefined ||
-						value === '' ||
-						(typeof value === 'string' && value.trim() === '') ||
-						(Array.isArray(value) && value.length === 0);
+					} else {
+						// 其他类型的验证  其他类型的验证也需要单独处理
+						if (question.type !== 'image' && question.type != 'video') {
+							const value = formData.value[question.id];
+							// 更严格的空值检查
+							const isEmpty =
+								value === null ||
+								value === undefined ||
+								value === '' ||
+								(typeof value === 'string' && value.trim() === '') ||
+								(Array.isArray(value) && value.length === 0);
 
-					if (isEmpty) {
-						isValid = false;
-						const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${qIdx + 1}`;
-						errors.push(errorMsg);
+							if (isEmpty) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
+							}
+						}
 					}
 				}
-			}
-		});
+			});
 	});
 	return { isValid, errors };
 };
@@ -927,6 +1033,27 @@ const transformFormDataForAPI = () => {
 								questionId: gridKey,
 								question: `${question.question} - ${row.label}`,
 								answer: gridValue,
+								type: question.type,
+								responseText: JSON.stringify(responseText),
+							};
+							questionnaireData.answerJson.push(answer);
+						});
+					}
+				} else if (question.type === 'short_answer_grid') {
+					if (question.rows && question.rows.length > 0) {
+						question.rows.forEach((row: any) => {
+							let responseText = {};
+
+							question.columns.forEach((column: any) => {
+								const gridKey = `${question.id}_${column.id}_${row.id}`;
+								if (formData.value[gridKey]) {
+									responseText[gridKey] = formData.value[gridKey];
+								}
+							});
+							const answer: QuestionnaireAnswer = {
+								questionId: question.id,
+								question: `${question.question} - ${row.label}`,
+								answer: '',
 								type: question.type,
 								responseText: JSON.stringify(responseText),
 							};
@@ -1138,62 +1265,93 @@ onMounted(async () => {
 	// 初始化表单数据
 	if (hasQuestionnaireData.value && formattedQuestionnaires.value.length > 0) {
 		formattedQuestionnaires.value.forEach((questionnaire) => {
-			questionnaire.sections.forEach((section: any) => {
-				section.questions.forEach((question: any) => {
-					// 根据问题类型初始化表单数据
-					if (
-						question.type === 'multiple_choice_grid' ||
-						question.type === 'checkbox_grid'
-					) {
-						// 多选网格：为每一行初始化多选值（数组）
-						if (question.rows && question.rows.length > 0) {
-							question.rows.forEach((row: any) => {
-								const key = `${question.id}_${row.id}`;
-								if (!(key in formData.value)) {
-									formData.value[key] =
-										question.type === 'multiple_choice_grid' ? [] : '';
-								}
-								question.columns.forEach((column: any) => {
-									if (column.isOther) {
-										const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+			questionnaire.sections
+				?.filter((item) => {
+					return (
+						item.type !== 'image' && item.type != 'video' && item.type != 'page_break'
+					);
+				})
+				.forEach((section: any) => {
+					section.questions.forEach((question: any) => {
+						// 根据问题类型初始化表单数据
+						if (
+							question.type === 'multiple_choice_grid' ||
+							question.type === 'checkbox_grid'
+						) {
+							// 多选网格：为每一行初始化多选值（数组）
+							if (question.rows && question.rows.length > 0) {
+								question.rows.forEach((row: any) => {
+									const key = `${question.id}_${row.id}`;
+									if (!(key in formData.value)) {
+										formData.value[key] =
+											question.type === 'multiple_choice_grid' ? [] : '';
+									}
+									question.columns.forEach((column: any) => {
+										if (column.isOther) {
+											const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+											if (!(otherTextKey in formData.value)) {
+												formData.value[otherTextKey] = '';
+											}
+										}
+									});
+								});
+							}
+						} else if (question.type == 'short_answer_grid') {
+							if (question.rows && question.rows.length > 0) {
+								question.rows.forEach((row: any) => {
+									question.columns.forEach((column: any) => {
+										const otherTextKey = `${question.id}_${column.id}_${row.id}`;
 										if (!(otherTextKey in formData.value)) {
 											formData.value[otherTextKey] = '';
 										}
-									}
+									});
 								});
-							});
+							}
+						} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
+							// 多选题：初始化为数组
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = [];
+							}
+						} else if (question.type === 'file' || question.type === 'file_upload') {
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = [];
+							}
+						} else if (question.type === 'linear_scale') {
+							// 线性量表：初始化为最小值（数字类型）
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = question.min || 1;
+							}
+						} else if (question.type === 'rating') {
+							// 评分：初始化为0（数字类型）
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = 0;
+							}
+						} else {
+							// 其他类型：初始化为空字符串
+							if (!(question.id in formData.value)) {
+								formData.value[question.id] = '';
+							}
 						}
-					} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
-						// 多选题：初始化为数组
-						if (!(question.id in formData.value)) {
-							formData.value[question.id] = [];
-						}
-					} else {
-						// 其他类型：初始化为空字符串
-						if (!(question.id in formData.value)) {
-							formData.value[question.id] = '';
-						}
-					}
-				});
+					});
 
-				section?.columns?.forEach((column: any) => {
-					if (column.isOther) {
-						const otherTextKey = `${section.id}_${column.id}`;
-						if (!(otherTextKey in formData.value)) {
-							formData.value[otherTextKey] = '';
+					section?.columns?.forEach((column: any) => {
+						if (column.isOther) {
+							const otherTextKey = `${section.id}_${column.id}`;
+							if (!(otherTextKey in formData.value)) {
+								formData.value[otherTextKey] = '';
+							}
 						}
-					}
-				});
+					});
 
-				section?.options?.forEach((option: any) => {
-					if (option.isOther) {
-						const otherTextKey = `${section.id}_${option.id}`;
-						if (!(otherTextKey in formData.value)) {
-							formData.value[otherTextKey] = '';
+					section?.options?.forEach((option: any) => {
+						if (option.isOther) {
+							const otherTextKey = `${section.id}_${option.id}`;
+							if (!(otherTextKey in formData.value)) {
+								formData.value[otherTextKey] = '';
+							}
 						}
-					}
+					});
 				});
-			});
 		});
 		// 初始化完毕后再应用答案，防止被覆盖
 		applyAnswers(props.questionnaireAnswers?.answer);

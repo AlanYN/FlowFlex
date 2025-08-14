@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Domain.Shared.Models;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Linq;
 
 namespace FlowFlex.Application.Maps
@@ -12,6 +13,10 @@ namespace FlowFlex.Application.Maps
     /// </summary>
     public class StageMapProfile : Profile
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
         public StageMapProfile()
         {
             // Entity to OutputDto mapping
@@ -30,7 +35,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
                 .ForMember(dest => dest.QuestionnaireId, opt => opt.MapFrom(src => src.QuestionnaireId))
                 .ForMember(dest => dest.Color, opt => opt.MapFrom(src => src.Color))
-                .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => src.ComponentsJson))
+                .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => NormalizeComponentsJson(src.ComponentsJson)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
@@ -78,22 +83,64 @@ namespace FlowFlex.Application.Maps
 
         private static List<StageComponent> ParseComponents(string componentsJson)
         {
-            if (string.IsNullOrEmpty(componentsJson))
+            if (string.IsNullOrWhiteSpace(componentsJson))
             {
-                // Return empty list when JSON is null or empty, not default components
                 return new List<StageComponent>();
             }
 
+            // Handle possible double-encoded JSON (e.g. "[ { ... } ]")
+            var normalized = TryUnwrapDoubleEncodedJson(componentsJson);
+
             try
             {
-                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
+                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions);
                 return parsedComponents ?? new List<StageComponent>();
             }
             catch
             {
-                // If JSON is invalid, return empty list instead of default components
                 return new List<StageComponent>();
             }
+        }
+
+        private static string TryUnwrapDoubleEncodedJson(string json)
+        {
+            var trimmed = json.Trim();
+
+            // If it looks like a JSON array/object already, return as-is
+            if (trimmed.StartsWith("[") || trimmed.StartsWith("{"))
+            {
+                return trimmed;
+            }
+
+            // If it looks like a quoted JSON string, try to unwrap once
+            if ((trimmed.StartsWith("\"") && trimmed.EndsWith("\"")) ||
+                (trimmed.StartsWith("\'") && trimmed.EndsWith("\'")))
+            {
+                try
+                {
+                    var inner = JsonSerializer.Deserialize<string>(trimmed);
+                    if (!string.IsNullOrWhiteSpace(inner))
+                    {
+                        return inner.Trim();
+                    }
+                }
+                catch
+                {
+                    // fallthrough
+                }
+            }
+
+            return trimmed;
+        }
+
+        private static string NormalizeComponentsJson(string componentsJson)
+        {
+            if (string.IsNullOrWhiteSpace(componentsJson))
+            {
+                return null;
+            }
+            var normalized = TryUnwrapDoubleEncodedJson(componentsJson);
+            return normalized;
         }
 
 

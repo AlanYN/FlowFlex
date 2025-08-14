@@ -112,9 +112,9 @@ public class ChecklistTask : EntityBaseCreateInfo
     public long? DependsOnTaskId { get; set; }
 
     /// <summary>
-    /// Attachment URL List (JSON)
+    /// Attachment URL List (JSONB)
     /// </summary>
-    [SugarColumn(ColumnName = "attachments_json")]
+    [SugarColumn(ColumnName = "attachments_json", ColumnDataType = "jsonb", IsJson = true)]
     public string AttachmentsJson { get; set; }
 
     /// <summary>

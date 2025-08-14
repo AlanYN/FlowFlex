@@ -1,4 +1,4 @@
-import { defHttp } from '@/app/apis/axios';
+import { defHttp } from '@/apis/axios';
 
 // Types
 export interface AIWorkflow {
@@ -80,5 +80,26 @@ export const validateAIWorkflow = (
 export const getAIWorkflowStatus = (): Promise<ApiResponse<any>> => {
 	return defHttp.get({
 		url: '/api/ai/workflow/status',
+	});
+};
+
+export const parseAIRequirements = (content: string): Promise<ApiResponse<any>> => {
+	return defHttp.post({
+		url: '/api/ai/workflow/parse-requirements',
+		data: { content },
+	});
+};
+
+export const chatWithAI = (
+	message: string,
+	conversationId?: string
+): Promise<ApiResponse<{ response: string; conversationId: string }>> => {
+	return defHttp.post({
+		url: '/api/ai/chat',
+		data: {
+			message,
+			conversationId,
+			context: 'workflow-assistant',
+		},
 	});
 };

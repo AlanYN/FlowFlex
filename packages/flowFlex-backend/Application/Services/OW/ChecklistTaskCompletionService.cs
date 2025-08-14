@@ -102,7 +102,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         // Set completion time if completed
         if (completion.IsCompleted)
         {
-            completion.CompletedTime = DateTimeOffset.Now;
+            completion.CompletedTime = DateTimeOffset.UtcNow;
         }
         else
         {
@@ -165,7 +165,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             // Set completion time if completed
             if (completion.IsCompleted)
             {
-                completion.CompletedTime = DateTimeOffset.Now;
+            completion.CompletedTime = DateTimeOffset.UtcNow;
             }
             else
             {

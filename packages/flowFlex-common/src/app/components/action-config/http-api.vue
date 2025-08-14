@@ -81,6 +81,7 @@ const emit = defineEmits<{
 }>();
 
 // Internal state
+// const testing = ref(false);
 const showTestResultLocal = ref(false);
 
 // Watch for props changes to sync local state

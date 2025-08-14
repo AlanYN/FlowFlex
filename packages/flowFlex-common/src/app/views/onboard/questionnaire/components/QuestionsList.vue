@@ -10,7 +10,7 @@
 			:animation="300"
 		>
 			<template #item="{ element: item, index }">
-				<div class="question-item flex">
+				<div class="question-item flex max-w-full">
 					<template v-if="editingQuestionId === item.id">
 						<div class="w-full">
 							<QuestionEditor
@@ -27,7 +27,7 @@
 						<div class="drag-handle">
 							<DragIcon class="drag-icon" />
 						</div>
-						<div class="flex-1">
+						<div class="flex-1 max-w-[calc(100%-2.25rem)]">
 							<div class="question-header">
 								<div class="question-left">
 									<div class="question-info">
@@ -174,21 +174,23 @@
 							</div>
 							<div
 								v-if="item.options && item.options.length > 0"
-								class="question-options"
+								class="question-options w-full"
 							>
 								<div class="options-label">Options:</div>
 								<div class="options-list gap-y-2">
 									<div
 										v-for="(option, optionIndex) in item.options"
 										:key="option.id"
-										class="option-item"
+										class="option-item max-w-[50%]"
 									>
 										<span class="option-number">{{ optionIndex + 1 }}.</span>
 										<el-tag v-if="option.isOther" type="warning">Other</el-tag>
-										<span v-else class="option-badge">{{ option.label }}</span>
+										<div v-else class="option-badge flex-1 truncate">
+											{{ option.label }}
+										</div>
 										<span
 											v-if="item.type === 'multiple_choice'"
-											class="jump-badge"
+											class="jump-badge flex-shrink-0"
 											:class="getJumpTargetClass(item, option.id)"
 										>
 											→ {{ getJumpTargetName(item, option.id) }}
@@ -541,8 +543,6 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 }
 
 .option-badge {
-	display: inline-flex;
-	align-items: center;
 	padding: 0.125rem 0.625rem;
 	border-radius: 9999px;
 	border: 1px solid #e5e7eb;

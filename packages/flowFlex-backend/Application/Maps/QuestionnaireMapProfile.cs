@@ -18,7 +18,9 @@ namespace FlowFlex.Application.Maps
 
             // Questionnaire entity to output DTO
             CreateMap<Questionnaire, QuestionnaireOutputDto>()
-                .ForMember(dest => dest.Assignments, opt => opt.MapFrom(src => src.Assignments));
+                .ForMember(dest => dest.Assignments, opt => opt.MapFrom(src => src.Assignments))
+                .ForMember(dest => dest.StructureJson, opt => opt.MapFrom(src => src.Structure != null ? src.Structure.ToString(Newtonsoft.Json.Formatting.None) : null))
+                .ForMember(dest => dest.TagsJson, opt => opt.MapFrom(src => src.Tags != null ? src.Tags.ToString(Newtonsoft.Json.Formatting.None) : null));
 
             // Input DTO to Questionnaire entity
             CreateMap<QuestionnaireInputDto, Questionnaire>()
@@ -33,7 +35,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.TotalQuestions, opt => opt.Ignore())
                 .ForMember(dest => dest.RequiredQuestions, opt => opt.Ignore())
-                .ForMember(dest => dest.Assignments, opt => opt.Ignore()); // Ignore assignments as they're handled separately in service
+                .ForMember(dest => dest.Assignments, opt => opt.Ignore()) // Ignore assignments as they're handled separately in service
+                .ForMember(dest => dest.Structure, opt => opt.MapFrom(src => ParseJToken(NormalizeJson(src.StructureJson))))
+                .ForMember(dest => dest.Tags, opt => opt.MapFrom(src => ParseJToken(NormalizeJson(src.TagsJson))));
 
             // QuestionnaireSection entity to output DTO
             CreateMap<QuestionnaireSection, QuestionnaireSectionDto>();
@@ -49,6 +53,47 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore());
+        }
+
+        private static string NormalizeJson(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var current = raw.Trim();
+            // Unwrap up to 3 layers until looks like JSON object/array
+            for (int i = 0; i < 3; i++)
+            {
+                if (current.StartsWith("[") || current.StartsWith("{"))
+                {
+                    return current;
+                }
+                var startsWithQuote = (current.StartsWith("\"") && current.EndsWith("\"")) ||
+                                      (current.StartsWith("\'") && current.EndsWith("\'"));
+                if (!startsWithQuote) break;
+                try
+                {
+                    var inner = System.Text.Json.JsonSerializer.Deserialize<string>(current);
+                    if (string.IsNullOrWhiteSpace(inner)) break;
+                    current = inner.Trim();
+                }
+                catch
+                {
+                    break;
+                }
+            }
+            return current;
+        }
+
+        private static Newtonsoft.Json.Linq.JToken ParseJToken(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            try
+            {
+                return Newtonsoft.Json.Linq.JToken.Parse(json);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

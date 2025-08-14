@@ -75,11 +75,31 @@ namespace FlowFlex.Application.Contracts.IServices
         Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage);
 
         /// <summary>
+        /// Parse natural language with explicit AI model override
+        /// </summary>
+        /// <param name="naturalLanguage">Natural language input</param>
+        /// <param name="modelProvider">AI provider name, e.g. zhipuai/openai/anthropic</param>
+        /// <param name="modelName">Model name, e.g. glm-4/gpt-4o/claude-3</param>
+        /// <param name="modelId">Optional user model configuration id</param>
+        /// <returns>Structured requirements</returns>
+        Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage, string? modelProvider, string? modelName, string? modelId);
+
+        /// <summary>
         /// Enhance existing workflow using modification input
         /// </summary>
         /// <param name="input">Modification input</param>
         /// <returns>Enhanced workflow result</returns>
         Task<AIWorkflowGenerationResult> EnhanceWorkflowAsync(AIWorkflowModificationInput input);
+
+        /// <summary>
+        /// Create actual checklist and questionnaire records and associate them with stages
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="stages">Generated stages</param>
+        /// <param name="checklists">Generated checklists</param>
+        /// <param name="questionnaires">Generated questionnaires</param>
+        /// <returns>Success status</returns>
+        Task<bool> CreateStageComponentsAsync(long workflowId, List<AIStageGenerationResult> stages, List<AIChecklistGenerationResult> checklists, List<AIQuestionnaireGenerationResult> questionnaires);
 
         /// <summary>
         /// Send message to AI chat and get response
@@ -187,6 +207,8 @@ namespace FlowFlex.Application.Contracts.IServices
         public string Message { get; set; } = string.Empty;
         public WorkflowInputDto GeneratedWorkflow { get; set; }
         public List<AIStageGenerationResult> Stages { get; set; } = new();
+        public List<AIChecklistGenerationResult> Checklists { get; set; } = new();
+        public List<AIQuestionnaireGenerationResult> Questionnaires { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
     }
@@ -219,8 +241,22 @@ namespace FlowFlex.Application.Contracts.IServices
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
         public QuestionnaireInputDto GeneratedQuestionnaire { get; set; }
+        public List<AIQuestionGenerationResult> Questions { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
+    }
+
+    public class AIQuestionGenerationResult
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Question { get; set; } = string.Empty;
+        public string Type { get; set; } = "text"; // text, select, multiselect, number, date, boolean
+        public List<string> Options { get; set; } = new();
+        public bool IsRequired { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public string HelpText { get; set; } = string.Empty;
+        public string ValidationRule { get; set; } = string.Empty;
+        public object DefaultValue { get; set; }
     }
 
     public class AIChecklistGenerationInput
@@ -239,8 +275,21 @@ namespace FlowFlex.Application.Contracts.IServices
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
         public ChecklistInputDto GeneratedChecklist { get; set; }
+        public List<AITaskGenerationResult> Tasks { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
+    }
+
+    public class AITaskGenerationResult
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public bool IsRequired { get; set; }
+        public bool Completed { get; set; } = false;
+        public int EstimatedMinutes { get; set; } = 0;
+        public string Category { get; set; } = string.Empty;
+        public List<string> Dependencies { get; set; } = new();
     }
 
     public class AIWorkflowStreamResult
@@ -377,8 +426,13 @@ namespace FlowFlex.Application.Contracts.IServices
     /// </summary>
     public class AIChatMessage
     {
+        [Newtonsoft.Json.JsonProperty("role")]
         public string Role { get; set; } = string.Empty; // 'user', 'assistant', 'system'
+        
+        [Newtonsoft.Json.JsonProperty("content")]
         public string Content { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("timestamp")]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 
@@ -387,14 +441,26 @@ namespace FlowFlex.Application.Contracts.IServices
     /// </summary>
     public class AIChatInput
     {
+        [Newtonsoft.Json.JsonProperty("messages")]
         public List<AIChatMessage> Messages { get; set; } = new();
+        
+        [Newtonsoft.Json.JsonProperty("context")]
         public string Context { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("sessionId")]
         public string SessionId { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("mode")]
         public string Mode { get; set; } = "general"; // 'workflow_planning', 'general'
         
         // 添加模型相关字段
+        [Newtonsoft.Json.JsonProperty("modelId")]
         public string? ModelId { get; set; }
+        
+        [Newtonsoft.Json.JsonProperty("modelProvider")]
         public string? ModelProvider { get; set; }
+        
+        [Newtonsoft.Json.JsonProperty("modelName")]
         public string? ModelName { get; set; }
     }
 
@@ -425,9 +491,20 @@ namespace FlowFlex.Application.Contracts.IServices
     /// </summary>
     public class AIChatStreamResult
     {
+        [Newtonsoft.Json.JsonProperty("type")]
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = string.Empty; // 'delta', 'complete', 'error'
+        
+        [Newtonsoft.Json.JsonProperty("content")]
+        [System.Text.Json.Serialization.JsonPropertyName("content")]
         public string Content { get; set; } = string.Empty;
+        
+        [Newtonsoft.Json.JsonProperty("isComplete")]
+        [System.Text.Json.Serialization.JsonPropertyName("isComplete")]
         public bool IsComplete { get; set; }
+        
+        [Newtonsoft.Json.JsonProperty("sessionId")]
+        [System.Text.Json.Serialization.JsonPropertyName("sessionId")]
         public string SessionId { get; set; } = string.Empty;
     }
 

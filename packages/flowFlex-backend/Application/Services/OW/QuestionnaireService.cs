@@ -16,6 +16,7 @@ using System.Diagnostics;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -25,23 +26,48 @@ namespace FlowFlex.Application.Service.OW
     public class QuestionnaireService : IQuestionnaireService, IScopedService
     {
         private readonly IQuestionnaireRepository _questionnaireRepository;
-        private readonly IQuestionnaireSectionRepository _sectionRepository;
         private readonly IMapper _mapper;
         private readonly IStageAssignmentSyncService _syncService;
+        private readonly IOperatorContextService _operatorContextService;
         private readonly UserContext _userContext;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
-            IQuestionnaireSectionRepository sectionRepository,
             IMapper mapper,
             IStageAssignmentSyncService syncService,
-            UserContext userContext)
+            UserContext userContext,
+            IOperatorContextService operatorContextService)
         {
             _questionnaireRepository = questionnaireRepository;
-            _sectionRepository = sectionRepository;
             _mapper = mapper;
             _syncService = syncService;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
+        }
+
+        private static string NormalizeJson(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var current = raw.Trim();
+            // Unwrap up to 3 layers
+            for (int i = 0; i < 3; i++)
+            {
+                if (current.StartsWith("[") || current.StartsWith("{"))
+                {
+                    return current;
+                }
+                var startsWithQuote = (current.StartsWith("\"") && current.EndsWith("\"")) ||
+                                      (current.StartsWith("\'") && current.EndsWith("\'"));
+                if (!startsWithQuote) break;
+                try
+                {
+                    var inner = JsonSerializer.Deserialize<string>(current);
+                    if (string.IsNullOrWhiteSpace(inner)) break;
+                    current = inner.Trim();
+                }
+                catch { break; }
+            }
+            return current;
         }
 
         public async Task<long> CreateAsync(QuestionnaireInputDto input)
@@ -100,17 +126,20 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
+            // Override audit with operator context to ensure non-empty ModifyBy/CreateBy
+            var opNameCreate = _operatorContextService.GetOperatorDisplayName();
+            var opIdCreate = _operatorContextService.GetOperatorId();
+            entity.CreateBy = opNameCreate;
+            entity.ModifyBy = opNameCreate;
+            entity.CreateUserId = opIdCreate;
+            entity.ModifyUserId = opIdCreate;
 
             // Calculate question statistics
             await CalculateQuestionStatistics(entity, input.Sections);
 
             await _questionnaireRepository.InsertAsync(entity);
 
-            // Create Sections
-            if (input.Sections != null && input.Sections.Any())
-            {
-                await CreateSectionsAsync(entity.Id, input.Sections);
-            }
+            // Sections module removed; ignore input.Sections to keep compatibility
 
             // 获取有效的stage assignments用于同步
             var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
@@ -193,7 +222,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // If questionnaire is published, do not allow structure modification
-            if (entity.Status == "Published" && input.StructureJson != entity.StructureJson)
+            if (entity.Status == "Published" && input.StructureJson != (entity.Structure != null ? entity.Structure.ToString(Newtonsoft.Json.Formatting.None) : null))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot modify structure of published questionnaire");
             }
@@ -217,17 +246,19 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
+            // Override audit with operator context (ensures ModifyBy populated)
+            var opNameUpdate = _operatorContextService.GetOperatorDisplayName();
+            var opIdUpdate = _operatorContextService.GetOperatorId();
+            entity.ModifyBy = opNameUpdate;
+            entity.ModifyUserId = opIdUpdate;
+            entity.ModifyDate = DateTimeOffset.Now;
 
             // Recalculate question statistics
             await CalculateQuestionStatistics(entity, input.Sections);
 
             var result = await _questionnaireRepository.UpdateAsync(entity);
 
-            // Update sections for the current entity
-            if (input.Sections != null)
-            {
-                await UpdateSectionsAsync(entity.Id, input.Sections);
-            }
+            // Sections module removed; ignore input.Sections to keep compatibility
 
             // Sync with stage components if update was successful
             if (result)
@@ -273,8 +304,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Template validation removed - direct deletion allowed
 
-            // Delete related Sections
-            await _sectionRepository.DeleteByQuestionnaireIdAsync(id);
+            // Sections module removed; nothing to delete
 
             var result = await _questionnaireRepository.DeleteAsync(entity);
 
@@ -296,9 +326,8 @@ namespace FlowFlex.Application.Service.OW
 
             var result = _mapper.Map<QuestionnaireOutputDto>(entity);
 
-            // Get Sections
-            var sections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(id);
-            result.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
+            // Sections removed with ff_questionnaire_section table; keep empty for compatibility
+            result.Sections = new List<QuestionnaireSectionDto>();
 
             // 直接从实体获取assignments
             if (entity.Assignments?.Any() == true)
@@ -322,28 +351,10 @@ namespace FlowFlex.Application.Service.OW
             var list = await _questionnaireRepository.GetByCategoryAsync(category);
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
-            // Batch get all questionnaires' Sections to avoid N+1 query problem
-            if (result.Any())
+            // Sections removed; keep empty lists
+            foreach (var questionnaire in result)
             {
-                var questionnaireIds = result.Select(q => q.Id).ToList();
-                var allSections = await _sectionRepository.GetByQuestionnaireIdsAsync(questionnaireIds);
-
-                // Group by questionnaire ID
-                var sectionsByQuestionnaireId = allSections.GroupBy(s => s.QuestionnaireId)
-                    .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Order).ThenBy(s => s.Id).ToList());
-
-                // Assign corresponding Sections to each questionnaire
-                foreach (var questionnaire in result)
-                {
-                    if (sectionsByQuestionnaireId.TryGetValue(questionnaire.Id, out var sections))
-                    {
-                        questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
-                    }
-                    else
-                    {
-                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
-                    }
-                }
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires
@@ -365,11 +376,10 @@ namespace FlowFlex.Application.Service.OW
             // Debug logging handled by structured logging
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
-            // Get Sections for each questionnaire
+            // Sections removed; keep empty lists
             foreach (var questionnaire in result)
             {
-                var sections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(questionnaire.Id);
-                questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires
@@ -388,28 +398,10 @@ namespace FlowFlex.Application.Service.OW
             var list = await _questionnaireRepository.GetByIdsAsync(ids);
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
 
-            // Batch get all questionnaires' Sections to avoid N+1 query problem
-            if (result.Any())
+            // Sections removed; keep empty lists
+            foreach (var questionnaire in result)
             {
-                var questionnaireIds = result.Select(q => q.Id).ToList();
-                var allSections = await _sectionRepository.GetByQuestionnaireIdsAsync(questionnaireIds);
-
-                // Group by questionnaire ID
-                var sectionsByQuestionnaireId = allSections.GroupBy(s => s.QuestionnaireId)
-                    .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Order).ThenBy(s => s.Id).ToList());
-
-                // Assign corresponding Sections to each questionnaire
-                foreach (var questionnaire in result)
-                {
-                    if (sectionsByQuestionnaireId.TryGetValue(questionnaire.Id, out var sections))
-                    {
-                        questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
-                    }
-                    else
-                    {
-                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
-                    }
-                }
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires
@@ -433,28 +425,10 @@ namespace FlowFlex.Application.Service.OW
 
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(items);
 
-            // Batch get all questionnaires' Sections to avoid N+1 query problem
-            if (result.Any())
+            // Sections removed; keep empty lists
+            foreach (var questionnaire in result)
             {
-                var questionnaireIds = result.Select(q => q.Id).ToList();
-                var allSections = await _sectionRepository.GetByQuestionnaireIdsAsync(questionnaireIds);
-
-                // Group by questionnaire ID
-                var sectionsByQuestionnaireId = allSections.GroupBy(s => s.QuestionnaireId)
-                    .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Order).ThenBy(s => s.Id).ToList());
-
-                // Assign corresponding Sections to each questionnaire
-                foreach (var questionnaire in result)
-                {
-                    if (sectionsByQuestionnaireId.TryGetValue(questionnaire.Id, out var sections))
-                    {
-                        questionnaire.Sections = _mapper.Map<List<QuestionnaireSectionDto>>(sections);
-                    }
-                    else
-                    {
-                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
-                    }
-                }
+                questionnaire.Sections = new List<QuestionnaireSectionDto>();
             }
 
             // Fill assignments for the questionnaires
@@ -485,9 +459,9 @@ namespace FlowFlex.Application.Service.OW
 
             // Process StructureJson to generate new IDs
             string newStructureJson = null;
-            if (input.CopyStructure && !string.IsNullOrWhiteSpace(sourceQuestionnaire.StructureJson))
+            if (input.CopyStructure && sourceQuestionnaire.Structure != null)
             {
-                newStructureJson = GenerateNewIdsInStructureJson(sourceQuestionnaire.StructureJson);
+                newStructureJson = GenerateNewIdsInStructureJson(sourceQuestionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None));
             }
 
             var newQuestionnaire = new Questionnaire
@@ -496,8 +470,8 @@ namespace FlowFlex.Application.Service.OW
                 Description = input.Description ?? sourceQuestionnaire.Description,
                 Category = input.Category ?? sourceQuestionnaire.Category,
                             Status = "Draft",
-                StructureJson = newStructureJson,
-                TagsJson = sourceQuestionnaire.TagsJson,
+                Structure = string.IsNullOrWhiteSpace(newStructureJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(newStructureJson),
+                Tags = sourceQuestionnaire.Tags != null ? (Newtonsoft.Json.Linq.JToken)sourceQuestionnaire.Tags.DeepClone() : null,
                 EstimatedMinutes = sourceQuestionnaire.EstimatedMinutes,
                 AllowDraft = sourceQuestionnaire.AllowDraft,
                 AllowMultipleSubmissions = sourceQuestionnaire.AllowMultipleSubmissions,
@@ -514,30 +488,7 @@ namespace FlowFlex.Application.Service.OW
             newQuestionnaire.InitCreateInfo(_userContext);
 
             await _questionnaireRepository.InsertAsync(newQuestionnaire);
-
-            // Copy Sections
-            if (input.CopyStructure)
-            {
-                var sourceSections = await _sectionRepository.GetOrderedByQuestionnaireIdAsync(id);
-                foreach (var sourceSection in sourceSections)
-                {
-                    var newSection = new QuestionnaireSection
-                    {
-                        QuestionnaireId = newQuestionnaire.Id,
-                        Title = sourceSection.Title,
-                        Description = sourceSection.Description,
-                        Order = sourceSection.Order,
-                        IsActive = sourceSection.IsActive,
-                        Icon = sourceSection.Icon,
-                        Color = sourceSection.Color,
-                        IsCollapsible = sourceSection.IsCollapsible,
-                        IsExpanded = sourceSection.IsExpanded
-                    };
-                    newSection.InitCreateInfo(_userContext);
-                    await _sectionRepository.InsertAsync(newSection);
-                }
-            }
-
+                       
             // Calculate question statistics
             await CalculateQuestionStatistics(newQuestionnaire);
 
@@ -706,7 +657,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Questionnaire is already published");
             }
 
-            if (string.IsNullOrWhiteSpace(entity.StructureJson))
+            if (entity.Structure == null || string.IsNullOrWhiteSpace(entity.Structure.ToString(Newtonsoft.Json.Formatting.None)))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot publish questionnaire without structure");
             }
@@ -743,7 +694,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Questionnaire with ID {id} not found");
             }
 
-            return await _questionnaireRepository.ValidateStructureAsync(entity.StructureJson);
+            var structureJson = entity.Structure != null ? entity.Structure.ToString(Newtonsoft.Json.Formatting.None) : null;
+            return await _questionnaireRepository.ValidateStructureAsync(structureJson);
         }
 
         public async Task<bool> UpdateStatisticsAsync(long id)
@@ -761,7 +713,7 @@ namespace FlowFlex.Application.Service.OW
 
         private async Task CalculateQuestionStatistics(Questionnaire questionnaire, List<QuestionnaireSectionInputDto> sections = null)
         {
-            if (string.IsNullOrWhiteSpace(questionnaire.StructureJson))
+            if (questionnaire.Structure == null || string.IsNullOrWhiteSpace(questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None)))
             {
                 questionnaire.TotalQuestions = 0;
                 questionnaire.RequiredQuestions = 0;
@@ -770,7 +722,7 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                var structure = JsonDocument.Parse(questionnaire.StructureJson);
+                var structure = JsonDocument.Parse(questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None));
 
                 // Question statistics logic - future enhancement
                 // This needs to be calculated based on the actual questionnaire structure JSON format
@@ -809,21 +761,7 @@ namespace FlowFlex.Application.Service.OW
             await Task.CompletedTask;
         }
 
-        private async Task CreateSectionsAsync(long questionnaireId, List<QuestionnaireSectionInputDto> sections)
-        {
-            foreach (var section in sections)
-            {
-                var newSection = _mapper.Map<QuestionnaireSection>(section);
-                newSection.QuestionnaireId = questionnaireId;
-                await _sectionRepository.InsertAsync(newSection);
-            }
-        }
-
-        private async Task UpdateSectionsAsync(long questionnaireId, List<QuestionnaireSectionInputDto> sections)
-        {
-            await _sectionRepository.DeleteByQuestionnaireIdAsync(questionnaireId);
-            await CreateSectionsAsync(questionnaireId, sections);
-        }
+        // Sections module removed; helper methods deleted
 
         // Cache method removed - Redis dependency removed
 

@@ -131,7 +131,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .SetColumns(x => new AIModelConfig 
                 { 
                     IsAvailable = isAvailable,
-                    LastCheckTime = DateTime.Now
+                    LastCheckTime = DateTime.UtcNow
                 })
                 .Where(x => x.Id == configId && x.IsValid == true)
                 .ExecuteCommandAsync() > 0;

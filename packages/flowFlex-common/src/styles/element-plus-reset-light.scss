@@ -106,11 +106,16 @@
 
 	// 选择框相关初始化
 	.el-checkbox {
+		white-space: normal;
+		height: auto;
+		line-height: inherit;
+		
+
 		.el-checkbox__input .el-checkbox__inner {
 			@apply border-gray-500 text-primary-500;
 		}
 		.el-checkbox__input.is-checked + .el-checkbox__label {
-			@apply font-bold text-primary-500;
+			@apply font-bold text-primary-500 ;
 		}
 		.el-checkbox__input.is-checked {
 			.el-checkbox__inner {
@@ -120,6 +125,10 @@
 				}
 			}
 		}
+	}
+
+	.el-checkbox__label {
+		line-height: 1.5;
 	}
 
 	// 选项卡相关初始化
@@ -388,6 +397,11 @@
 
 	.el-tag.el-tag--primary {
 		@apply bg-primary-500 text-white-100;
+	}
+
+	.el-radio {
+		white-space: normal;
+		height: auto;
 	}
 
 	// 单选框

@@ -13,9 +13,10 @@
 						>
 							<template #prefix>
 								<div v-if="newQuestion.type" class="type-option">
-									<el-icon class="type-icon">
-										<component :is="getQuestionTypeIcon(newQuestion.type)" />
-									</el-icon>
+									<Icon
+										:icon="getQuestionTypeIcon(newQuestion.type)"
+										class="type-icon"
+									/>
 								</div>
 							</template>
 							<el-option
@@ -25,9 +26,7 @@
 								:value="type.id"
 							>
 								<div class="type-option">
-									<el-icon class="type-icon">
-										<component :is="type.icon" />
-									</el-icon>
+									<Icon :icon="type.icon" class="type-icon" />
 									<span class="type-option-name">{{ type.name }}</span>
 									<el-tag
 										v-if="type.isNew"
@@ -460,7 +459,7 @@ const needsOptions = (type: string) => {
 };
 
 const needsGrid = (type: string) => {
-	return ['multiple_choice_grid', 'checkbox_grid'].includes(type);
+	return ['multiple_choice_grid', 'checkbox_grid', 'short_answer_grid'].includes(type);
 };
 
 const needsLinearScale = (type: string) => {
@@ -473,7 +472,7 @@ const needsRating = (type: string) => {
 
 const getQuestionTypeIcon = (type: string) => {
 	const questionType = props.questionTypes.find((t) => t.id === type);
-	return questionType ? questionType.icon : 'Document';
+	return questionType ? questionType.icon : 'material-symbols-light:edit-document-outline';
 };
 
 // 组件挂载时处理编辑状态

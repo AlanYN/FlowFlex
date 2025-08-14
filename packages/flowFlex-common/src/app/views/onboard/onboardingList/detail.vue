@@ -809,6 +809,8 @@ const handleCompleteStage = async () => {
 						}
 						done();
 					} finally {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Complete Stage';
 						completing.value = false;
 					}
 				} else {

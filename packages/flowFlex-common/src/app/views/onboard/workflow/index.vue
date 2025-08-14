@@ -37,6 +37,18 @@
 									{{ workflow.name }}
 								</span>
 								<el-tag
+									v-if="workflow.isAIGenerated"
+									type="primary"
+									effect="light"
+									size="small"
+									class="ai-tag rounded-md"
+								>
+									<div class="flex items-center gap-1">
+										<span class="ai-sparkles">✨</span>
+										AI
+									</div>
+								</el-tag>
+								<el-tag
 									v-if="workflow.isDefault"
 									type="warning"
 									effect="light"
@@ -96,6 +108,7 @@
 											</div>
 										</div>
 										<div class="flex items-center gap-1">
+																					<span v-if="workflowItem.isAIGenerated" class="ai-dropdown-sparkles">✨</span>
 											<div v-if="workflowItem.isDefault">⭐</div>
 											<el-icon
 												v-if="workflowItem.status === 'inactive'"
@@ -615,8 +628,7 @@ const dialogVisible = reactive({
 // 计算对话框标题
 const dialogTitle = computed(() => {
 	if (isEditingWorkflow.value && workflow.value) {
-		const versionInfo = workflow.value.version ? ` (Version ${workflow.value.version})` : '';
-		return `Edit Workflow${versionInfo}`;
+		return `Edit Workflow`;
 	}
 	return 'Create New Workflow';
 });
@@ -681,7 +693,7 @@ onMounted(async () => {
 });
 
 // 获取工作流列表
-const fetchWorkflows = async () => {
+const fetchWorkflows = async (workflowId?: string) => {
 	try {
 		loading.workflows = true;
 		const res = await getWorkflowList();
@@ -690,8 +702,11 @@ const fetchWorkflows = async () => {
 			const defaultWorkflow = res.data.find((wf) => wf.isDefault) || res.data[0];
 
 			workflowListData.value = res.data;
+
 			// 设置当前工作流并获取阶段
-			if (defaultWorkflow) {
+			if (workflowId) {
+				await setCurrentWorkflow(workflowId);
+			} else if (defaultWorkflow) {
 				await setCurrentWorkflow(defaultWorkflow.id);
 			}
 		} else {
@@ -921,6 +936,7 @@ Activating an expired workflow may cause issues with the onboarding process. Do 
 									// 更新本地状态
 									workflow.value!.status = 'active';
 									workflow.value!.isActive = true;
+									fetchWorkflows(workflow.value!.id);
 									done(); // 关闭对话框
 								} else {
 									ElMessage.error(res.msg || t('sys.api.operationFailed'));
@@ -955,6 +971,7 @@ Activating an expired workflow may cause issues with the onboarding process. Do 
 			// 更新本地状态
 			workflow.value.status = 'active';
 			workflow.value.isActive = true;
+			fetchWorkflows(workflow.value!.id);
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
@@ -994,6 +1011,7 @@ const deactivateWorkflow = async () => {
 							workflow.value!.status = 'inactive';
 							workflow.value!.isActive = false;
 							workflow.value!.endDate = new Date().toISOString();
+							fetchWorkflows(workflow.value!.id);
 							done(); // 关闭对话框
 						} else {
 							ElMessage.error(res.msg || t('sys.api.operationFailed'));
@@ -1522,6 +1540,17 @@ const resetCombineStagesForm = () => {
 	font-size: 11px;
 }
 
+.ai-tag {
+	background: linear-gradient(to right, var(--primary-400, #3b82f6), var(--primary-500, #2563eb));
+	color: white;
+	border-color: transparent;
+	padding: 2px 8px;
+	font-size: 11px;
+	display: inline-flex;
+	align-items: center;
+	margin-left: 8px;
+}
+
 .default-tag {
 	background: linear-gradient(to right, var(--yellow-400, #f59e0b), var(--yellow-500, #e6a23c));
 	color: white;
@@ -1533,11 +1562,47 @@ const resetCombineStagesForm = () => {
 	margin-left: 8px;
 }
 
+.ai-sparkles {
+	font-size: 12px;
+	animation: sparkle 2s ease-in-out infinite;
+	display: inline-block;
+}
+
+.ai-dropdown-sparkles {
+	font-size: 14px;
+	animation: sparkle 2s ease-in-out infinite;
+	display: inline-block;
+}
+
+@keyframes sparkle {
+	0%, 100% {
+		transform: scale(1) rotate(0deg);
+		opacity: 1;
+	}
+	25% {
+		transform: scale(1.1) rotate(5deg);
+		opacity: 0.9;
+	}
+	50% {
+		transform: scale(1.2) rotate(-5deg);
+		opacity: 0.8;
+	}
+	75% {
+		transform: scale(1.1) rotate(3deg);
+		opacity: 0.9;
+	}
+}
+
 .star-icon {
 	color: white;
 	margin-right: 4px;
 	width: 12px;
 	height: 12px;
+}
+
+.ai-dropdown-icon {
+	color: var(--primary-500, #2468f2);
+	font-size: 14px;
 }
 
 .inactive-icon {

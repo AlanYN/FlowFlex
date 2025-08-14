@@ -21,7 +21,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitCreateInfo(this EntityBaseCreateInfo createInfo, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Generate snowflake ID using entity's InitNewId method
             if (createInfo is IdEntityBase entityBase)
@@ -31,10 +31,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
             else
             {
                 // Fallback: generate a simple timestamp-based ID
-                createInfo.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                createInfo.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             }
 
-            // Set timestamps
+            // Set timestamps (UTC)
             createInfo.CreateDate = now;
             createInfo.ModifyDate = now;
 
@@ -76,7 +76,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             else
             {
                 // Fallback: generate a simple timestamp-based ID
-                createInfo.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                createInfo.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             }
 
             createInfo.TenantId = tenantId;
@@ -106,7 +106,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             else
             {
                 // Fallback: generate a simple timestamp-based ID
-                createInfo.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                createInfo.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             }
 
             createInfo.TenantId = tenantId;
@@ -126,7 +126,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitUpdateInfo(this EntityBaseCreateInfo createInfo, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Update timestamps
             createInfo.ModifyDate = now;
@@ -146,7 +146,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void UpdateInfo(this EntityBaseCreateInfo createInfo, string tenantId, long userId, string userName)
         {
             createInfo.ModifyBy = userName;
-            createInfo.ModifyDate = DateTimeOffset.Now;
+            createInfo.ModifyDate = DateTimeOffset.UtcNow;
             createInfo.ModifyUserId = userId;
         }
 
@@ -173,10 +173,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitCreateInfo(this OwEntityBase entity, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Generate timestamp-based ID for OwEntityBase
-            entity.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            entity.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             // Set timestamps
             entity.CreateDate = now;
@@ -201,7 +201,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitUpdateInfo(this OwEntityBase entity, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Update timestamps
             entity.ModifyDate = now;
@@ -218,10 +218,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitCreateInfo(this User user, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Generate timestamp-based ID
-            user.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            user.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             // Set timestamps
             user.CreateDate = now;
@@ -246,7 +246,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitUpdateInfo(this User user, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Update timestamps
             user.ModifyDate = now;
@@ -266,7 +266,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             DateTimeOffset now = DateTimeOffset.Now;
 
             // Generate timestamp-based ID
-            note.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            note.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             // Set timestamps
             note.CreateDate = now;
@@ -291,10 +291,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitCreateInfo(this UserInvitation invitation, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Generate timestamp-based ID
-            invitation.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            invitation.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             // Set timestamps
             invitation.CreateDate = now;
@@ -319,7 +319,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitUpdateInfo(this InternalNote note, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Update timestamps
             note.ModifyDate = now;
@@ -339,7 +339,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             DateTimeOffset now = DateTimeOffset.Now;
 
             // Generate timestamp-based ID
-            log.Id = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            log.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             // Set timestamps
             log.CreateDate = now;
@@ -363,7 +363,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitUpdateInfo(this OperationChangeLog log, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Update timestamps
             log.ModifyDate = now;

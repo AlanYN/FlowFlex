@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Update existing invitation
                         existingInvitation.InvitationToken = CryptoHelper.GenerateSecureToken();
-                        existingInvitation.SentDate = DateTimeOffset.UtcNow;
+                        existingInvitation.SentDate = GetCurrentTimeWithTimeZone();
                         existingInvitation.TokenExpiry = null; // No expiry
                         existingInvitation.Status = "Pending";
                         existingInvitation.SendCount += 1;
@@ -97,7 +97,7 @@ namespace FlowFlex.Application.Services.OW
                             email, 
                             existingInvitation.InvitationToken);
                         existingInvitation.InvitationUrl = GenerateShortInvitationUrl(existingInvitation.ShortUrlId, onboarding.TenantId ?? "DEFAULT", onboarding.AppCode ?? "DEFAULT", request.BaseUrl);
-                        existingInvitation.ModifyDate = DateTimeOffset.UtcNow;
+                        existingInvitation.ModifyDate = GetCurrentTimeWithTimeZone();
                         existingInvitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
 
                         await _invitationRepository.UpdateAsync(existingInvitation);
@@ -126,7 +126,7 @@ namespace FlowFlex.Application.Services.OW
                             Email = email,
                             InvitationToken = CryptoHelper.GenerateSecureToken(),
                             Status = "Pending",
-                            SentDate = DateTimeOffset.UtcNow,
+                            SentDate = GetCurrentTimeWithTimeZone(),
                             TokenExpiry = null, // No expiry
                             SendCount = 1,
                             TenantId = onboarding.TenantId
@@ -223,7 +223,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update invitation
                 invitation.InvitationToken = CryptoHelper.GenerateSecureToken();
-                invitation.SentDate = DateTimeOffset.UtcNow;
+                invitation.SentDate = GetCurrentTimeWithTimeZone();
                 invitation.TokenExpiry = null; // No expiry
                 invitation.Status = "Pending";
                 invitation.SendCount += 1;
@@ -232,7 +232,7 @@ namespace FlowFlex.Application.Services.OW
                     request.Email, 
                     invitation.InvitationToken);
                 invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding?.TenantId ?? "DEFAULT", onboarding?.AppCode ?? "DEFAULT", request.BaseUrl);
-                invitation.ModifyDate = DateTimeOffset.UtcNow;
+                invitation.ModifyDate = GetCurrentTimeWithTimeZone();
 
                 await _invitationRepository.UpdateAsync(invitation);
 
@@ -268,7 +268,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Soft delete the invitation
                 invitation.IsValid = false;
-                invitation.ModifyDate = DateTimeOffset.UtcNow;
+                invitation.ModifyDate = GetCurrentTimeWithTimeZone();
                 invitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
 
                 await _invitationRepository.UpdateAsync(invitation);
@@ -369,7 +369,7 @@ namespace FlowFlex.Application.Services.OW
                     return false;
 
                 invitation.Status = isActive ? "Active" : "Inactive";
-                invitation.ModifyDate = DateTimeOffset.UtcNow;
+                invitation.ModifyDate = GetCurrentTimeWithTimeZone();
                 invitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
 
                 await _invitationRepository.UpdateAsync(invitation);
@@ -460,7 +460,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Update invitation access date
-                invitation.LastAccessDate = DateTimeOffset.UtcNow;
+                invitation.LastAccessDate = GetCurrentTimeWithTimeZone();
                 await _invitationRepository.UpdateAsync(invitation);
 
                 // Find or create user
@@ -582,6 +582,21 @@ namespace FlowFlex.Application.Services.OW
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Get current time with +08:00 timezone (China Standard Time)
+        /// </summary>
+        /// <returns>Current time with +08:00 offset</returns>
+        private DateTimeOffset GetCurrentTimeWithTimeZone()
+        {
+            // China Standard Time is UTC+8
+            var chinaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
+            var utcNow = DateTime.UtcNow;
+            var chinaTime = TimeZoneInfo.ConvertTimeFromUtc(utcNow, chinaTimeZone);
+            
+            // Create DateTimeOffset with +08:00 offset
+            return new DateTimeOffset(chinaTime, TimeSpan.FromHours(8));
         }
     }
 }

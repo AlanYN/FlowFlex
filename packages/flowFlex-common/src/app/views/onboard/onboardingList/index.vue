@@ -54,8 +54,8 @@
 								<el-empty description="No Data" :image-size="50" />
 							</slot>
 						</template>
-						<el-table-column type="selection" width="50" align />
-						<el-table-column label="Actions" width="80">
+						<el-table-column type="selection" fixed="left" width="50" align />
+						<el-table-column label="Actions" fixed="left" width="80">
 							<template #default="{ row }">
 								<el-dropdown trigger="click">
 									<el-button
@@ -69,7 +69,7 @@
 										<el-dropdown-menu>
 											<el-dropdown-item @click="handleEdit(row.id)">
 												<el-icon><Edit /></el-icon>
-												Edit
+												Proceed
 											</el-dropdown-item>
 											<el-dropdown-item
 												@click="handleDelete(row.id)"
@@ -81,6 +81,26 @@
 										</el-dropdown-menu>
 									</template>
 								</el-dropdown>
+							</template>
+						</el-table-column>
+						<el-table-column
+							prop="leadName"
+							label="Customer Name"
+							sortable="custom"
+							min-width="220"
+							fixed="left"
+						>
+							<template #default="{ row }">
+								<el-link
+									type="primary"
+									:underline="false"
+									@click="handleEdit(row.id)"
+									class="table-cell-link"
+								>
+									<div class="table-cell-content" :title="row.leadName">
+										{{ row.leadName }}
+									</div>
+								</el-link>
 							</template>
 						</el-table-column>
 						<el-table-column
@@ -96,14 +116,14 @@
 							</template>
 						</el-table-column>
 						<el-table-column
-							prop="leadName"
-							label="Company/Contact Name"
+							prop="contactPerson"
 							sortable="custom"
-							min-width="220"
+							label="Contact Name"
+							width="220"
 						>
 							<template #default="{ row }">
-								<div class="table-cell-content" :title="row.leadName">
-									{{ row.leadName }}
+								<div class="table-cell-content" :title="row.contactPerson">
+									{{ row.contactPerson }}
 								</div>
 							</template>
 						</el-table-column>
@@ -185,7 +205,7 @@
 						>
 							<template #default="{ row }">
 								<div class="table-cell-content" :title="row.stageUpdatedBy">
-									{{ row.stageUpdatedBy }}
+									{{ row?.stageUpdatedBy || row?.modifyBy }}
 								</div>
 							</template>
 						</el-table-column>
@@ -198,9 +218,9 @@
 							<template #default="{ row }">
 								<div
 									class="table-cell-content"
-									:title="formatDateTime(row.stageUpdatedTime)"
+									:title="formatDateTime(row?.stageUpdatedTime || row.modifyDate)"
 								>
-									{{ formatDateTime(row.stageUpdatedTime) }}
+									{{ formatDateTime(row?.stageUpdatedTime || row?.modifyDate) }}
 								</div>
 							</template>
 						</el-table-column>
@@ -309,10 +329,19 @@
 				label-position="top"
 				class="onboarding-form"
 			>
-				<el-form-item label="Company Name" prop="leadName">
+				<el-form-item label="Customer Name" prop="leadName">
 					<el-input
 						v-model="formData.leadName"
-						placeholder="Input Company Name"
+						placeholder="Input Customer Name"
+						clearable
+						class="w-full rounded-md"
+					/>
+				</el-form-item>
+
+				<el-form-item label="Lead ID" prop="leadId">
+					<el-input
+						v-model="formData.leadId"
+						placeholder="Enter Lead ID"
 						clearable
 						class="w-full rounded-md"
 					/>
@@ -338,15 +367,6 @@
 						/>
 					</el-form-item>
 				</div>
-
-				<el-form-item label="Lead ID" prop="leadId">
-					<el-input
-						v-model="formData.leadId"
-						placeholder="Enter Lead ID"
-						clearable
-						class="w-full rounded-md"
-					/>
-				</el-form-item>
 
 				<el-form-item label="Life Cycle Stage" prop="lifeCycleStageId">
 					<el-select
@@ -488,8 +508,8 @@ const formData = reactive({
 const formRules = {
 	leadId: [{ required: true, message: 'Lead ID is required', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Priority is required', trigger: 'change' }],
-	leadName: [{ required: true, message: 'Company Name is required', trigger: 'blur' }],
-	ContactPerson: [{ required: true, message: 'Contact Name is required', trigger: 'blur' }], // 必填
+	leadName: [{ required: true, message: 'Customer Name is required', trigger: 'blur' }],
+	ContactPerson: [{ required: false, message: 'Contact Name is required', trigger: 'blur' }], // 必填
 	ContactEmail: [
 		{ required: true, message: 'Contact Email is required', trigger: 'blur' },
 		{ type: 'email', message: 'Please enter a valid email address', trigger: 'blur' },
@@ -1009,10 +1029,10 @@ const handleSave = async () => {
 							label: 'Lead ID',
 						},
 						leadName: {
-							apiField: 'COMPANYNAME',
+							apiField: 'CUSTOMERNAME',
 							type: 'text',
 							required: true,
-							label: 'Lead Company Name',
+							label: 'Customer Name',
 						},
 						ContactPerson: {
 							apiField: 'CONTACTNAME',
@@ -1397,6 +1417,16 @@ onMounted(async () => {
 	white-space: nowrap;
 	max-width: 100%;
 	display: block;
+}
+
+/* Ensure Element Plus link wrapper doesn't break ellipsis */
+.table-cell-link {
+	display: block;
+	width: 100%;
+}
+:deep(.table-cell-link .el-link__inner) {
+	display: block;
+	width: 100%;
 }
 
 /* 响应式调整 */

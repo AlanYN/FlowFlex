@@ -302,7 +302,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     TotalQuestions = totalQuestions,
                     RequiredQuestions = requiredQuestions,
-                    ModifyDate = DateTimeOffset.Now
+            ModifyDate = DateTimeOffset.UtcNow
                 })
                 .Where(x => x.Id == id && x.IsValid == true)
                 .ExecuteCommandAsync();
@@ -485,7 +485,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     TotalQuestions = totalQuestions,
                     RequiredQuestions = requiredQuestions,
-                    ModifyDate = DateTimeOffset.Now
+            ModifyDate = DateTimeOffset.UtcNow
                 })
                 .Where(x => x.Id == questionnaireId && x.IsValid == true)
                 .ExecuteCommandAsync();

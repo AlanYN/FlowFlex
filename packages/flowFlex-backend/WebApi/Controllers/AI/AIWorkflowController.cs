@@ -67,18 +67,27 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// <param name="input">Natural language workflow description</param>
         /// <returns>Streaming workflow generation updates</returns>
         [HttpPost("generate/stream")]
-        [ProducesResponseType(typeof(IAsyncEnumerable<AIWorkflowStreamResult>), 200)]
-        public async IAsyncEnumerable<AIWorkflowStreamResult> StreamGenerateWorkflow([FromBody] AIWorkflowGenerationInput input)
+        [ProducesResponseType(200)]
+        public async Task StreamGenerateWorkflow([FromBody] AIWorkflowGenerationInput input)
         {
+            // 设置流式响应头
+            Response.ContentType = "text/event-stream";
+            Response.Headers.Add("Cache-Control", "no-cache");
+            Response.Headers.Add("Connection", "keep-alive");
+            Response.Headers.Add("Access-Control-Allow-Origin", "*");
+            
             if (input == null || string.IsNullOrEmpty(input.Description))
             {
-                yield return new AIWorkflowStreamResult
+                var errorData = new AIWorkflowStreamResult
                 {
                     Type = "error",
                     Message = "Workflow description is required",
                     IsComplete = true
                 };
-                yield break;
+                
+                await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(errorData)}\n\n");
+                await Response.Body.FlushAsync();
+                return;
             }
 
             // Log the enhanced input information for streaming generation
@@ -87,9 +96,89 @@ namespace FlowFlex.WebApi.Controllers.AI
             Console.WriteLine($"[AI Workflow Stream] Session ID: {input.SessionId}");
             Console.WriteLine($"[AI Workflow Stream] Conversation History: {input.ConversationHistory?.Count ?? 0} messages");
 
-            await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
+            try
             {
-                yield return result;
+                var controllerStartTime = DateTime.UtcNow;
+                var messageCount = 0;
+                
+                // 使用同步写入避免缓冲区问题
+                
+                var enumeratorStartTime = DateTime.UtcNow;
+                Console.WriteLine("[Controller] Starting await foreach enumeration...");
+                
+                await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
+                {
+                    var iterationStartTime = DateTime.UtcNow;
+                    var iterationDuration = (iterationStartTime - enumeratorStartTime).TotalMilliseconds;
+                    
+                    messageCount++;
+                    Console.WriteLine($"[Controller] Iteration #{messageCount}: {iterationDuration}ms since last, type: {result.Type}");
+                    
+                    var writeStartTime = DateTime.UtcNow;
+                    
+                    // 同步写入，避免缓冲区问题
+                    try
+                    {
+                        var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
+                        var sseData = $"data: {jsonData}\n\n";
+                        
+                        // 直接写入，不使用Task.Run避免缓冲区竞争
+                        await Response.WriteAsync(sseData);
+                        
+                        var writeDuration = (DateTime.UtcNow - writeStartTime).TotalMilliseconds;
+                        if (writeDuration > 50)
+                        {
+                            Console.WriteLine($"[Controller] Write #{messageCount}: {writeDuration}ms for {result.Type}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Controller] Write error #{messageCount}: {ex.Message}");
+                    }
+                    
+                    // 更新下次迭代的起始时间
+                    enumeratorStartTime = DateTime.UtcNow;
+                    
+                    if (messageCount % 5 == 0)
+                    {
+                        var totalDuration = (DateTime.UtcNow - controllerStartTime).TotalMilliseconds;
+                        Console.WriteLine($"[Controller] Processed {messageCount} messages in {totalDuration}ms");
+                    }
+                }
+                
+                Console.WriteLine($"[Controller] All {messageCount} messages processed synchronously");
+                
+                // Send completion signal with timeout
+                try
+                {
+                    var doneStartTime = DateTime.UtcNow;
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await Response.WriteAsync("data: [DONE]\n\n").WaitAsync(cts.Token);
+                    await Response.Body.FlushAsync().WaitAsync(cts.Token);
+                    var doneTime = (DateTime.UtcNow - doneStartTime).TotalMilliseconds;
+                    Console.WriteLine($"[Controller] DONE signal sent in {doneTime}ms");
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("[Controller] DONE signal timeout, but continuing...");
+                }
+                
+                var controllerEndTime = DateTime.UtcNow;
+                var totalControllerTime = (controllerEndTime - controllerStartTime).TotalMilliseconds;
+                Console.WriteLine($"[Controller] Total optimized time: {totalControllerTime}ms, Messages: {messageCount}");
+            }
+            catch (Exception ex)
+            {
+                var errorData = new AIWorkflowStreamResult
+                {
+                    Type = "error",
+                    Message = $"Stream error: {ex.Message}",
+                    IsComplete = true
+                };
+                
+                var jsonData = System.Text.Json.JsonSerializer.Serialize(errorData);
+                await Response.WriteAsync($"data: {jsonData}\n\n");
+                await Response.Body.FlushAsync();
             }
         }
 
@@ -145,6 +234,13 @@ namespace FlowFlex.WebApi.Controllers.AI
             if (request == null || string.IsNullOrEmpty(request.NaturalLanguage))
             {
                 return BadRequest("Natural language description is required");
+            }
+
+            // If client provides model override, use it; otherwise fallback to default provider
+            if (!string.IsNullOrWhiteSpace(request.ModelProvider) || !string.IsNullOrWhiteSpace(request.ModelName) || !string.IsNullOrWhiteSpace(request.ModelId))
+            {
+                var resultWithOverride = await _aiService.ParseRequirementsAsync(request.NaturalLanguage, request.ModelProvider, request.ModelName, request.ModelId);
+                return Success(resultWithOverride);
             }
 
             var result = await _aiService.ParseRequirementsAsync(request.NaturalLanguage);
@@ -217,9 +313,63 @@ namespace FlowFlex.WebApi.Controllers.AI
             
             return Success(result);
         }
+
+        /// <summary>
+        /// Create stage components (checklists and questionnaires) for a workflow
+        /// </summary>
+        /// <param name="request">Stage components creation request</param>
+        /// <returns>Success status</returns>
+        [HttpPost("create-stage-components")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> CreateStageComponents([FromBody] CreateStageComponentsRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest("Request cannot be null");
+            }
+
+            Console.WriteLine($"[AI Workflow] Creating stage components for workflow {request.WorkflowId}");
+            Console.WriteLine($"[AI Workflow] Stages: {request.Stages?.Count ?? 0}");
+            Console.WriteLine($"[AI Workflow] Checklists: {request.Checklists?.Count ?? 0}");
+            Console.WriteLine($"[AI Workflow] Questionnaires: {request.Questionnaires?.Count ?? 0}");
+
+            var result = await _aiService.CreateStageComponentsAsync(
+                request.WorkflowId,
+                request.Stages ?? new List<AIStageGenerationResult>(),
+                request.Checklists ?? new List<AIChecklistGenerationResult>(),
+                request.Questionnaires ?? new List<AIQuestionnaireGenerationResult>()
+            );
+
+            return Success(result);
+        }
     }
 
     #region Request/Response Models
+
+    public class CreateStageComponentsRequest
+    {
+        /// <summary>
+        /// Workflow ID
+        /// </summary>
+        [Required]
+        public long WorkflowId { get; set; }
+
+        /// <summary>
+        /// Generated stages
+        /// </summary>
+        public List<AIStageGenerationResult> Stages { get; set; } = new();
+
+        /// <summary>
+        /// Generated checklists
+        /// </summary>
+        public List<AIChecklistGenerationResult> Checklists { get; set; } = new();
+
+        /// <summary>
+        /// Generated questionnaires
+        /// </summary>
+        public List<AIQuestionnaireGenerationResult> Questionnaires { get; set; } = new();
+    }
 
     public class EnhanceWorkflowRequest
     {
@@ -235,7 +385,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         public string Context { get; set; } = string.Empty;
     }
 
-    public class ParseRequirementsRequest
+        public class ParseRequirementsRequest
     {
         /// <summary>
         /// Natural language requirements description
@@ -247,6 +397,13 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// Context information
         /// </summary>
         public string Context { get; set; } = string.Empty;
+
+            /// <summary>
+            /// Optional explicit AI model override
+            /// </summary>
+            public string? ModelProvider { get; set; }
+            public string? ModelName { get; set; }
+            public string? ModelId { get; set; }
     }
 
     public class AIServiceStatus

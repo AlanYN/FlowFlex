@@ -20,6 +20,7 @@ using System.Diagnostics;
 using FlowFlex.Domain.Shared.Models;
 using System.Linq.Expressions;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Domain.Shared.Utils;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -31,6 +32,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IStageRepository _stageRepository;
+        private readonly IUserInvitationRepository _userInvitationRepository;
 
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
@@ -44,6 +46,7 @@ namespace FlowFlex.Application.Services.OW
             IOnboardingRepository onboardingRepository,
             IWorkflowRepository workflowRepository,
             IStageRepository stageRepository,
+            IUserInvitationRepository userInvitationRepository,
 
             IMapper mapper,
             UserContext userContext,
@@ -52,6 +55,7 @@ namespace FlowFlex.Application.Services.OW
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
+            _userInvitationRepository = userInvitationRepository ?? throw new ArgumentNullException(nameof(userInvitationRepository));
 
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
@@ -228,8 +232,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Initialize create information with proper ID and timestamps
                 entity.InitCreateInfo(_userContext);
-                
-               
+
+
                 // Debug logging handled by structured logging
                 // Generate unique ID if not set
                 if (entity.Id == 0)
@@ -428,6 +432,9 @@ namespace FlowFlex.Application.Services.OW
                             {
                                 // Debug logging handled by structured logging
                             }
+
+                            // Create default UserInvitation record if email is available
+                            await CreateDefaultUserInvitationAsync(insertedEntity);
                         }
                         else
                         {
@@ -791,7 +798,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
                 }
-                  if (!string.IsNullOrEmpty(appCode))
+                if (!string.IsNullOrEmpty(appCode))
                 {
                     whereExpressions.Add(x => x.AppCode.ToLower() == appCode.ToLower());
                 }
@@ -871,8 +878,10 @@ namespace FlowFlex.Application.Services.OW
                     var updatedByUsers = request.GetUpdatedByList();
                     if (updatedByUsers.Any())
                     {
-                        // Use OR condition to match any of the users (case-insensitive)
-                        whereExpressions.Add(x => updatedByUsers.Any(user => x.ModifyBy.ToLower().Contains(user.ToLower())));
+                        // Match by StageUpdatedBy first; fallback to ModifyBy (case-insensitive)
+                        whereExpressions.Add(x => updatedByUsers.Any(user =>
+                            (!string.IsNullOrEmpty(x.StageUpdatedBy) && x.StageUpdatedBy.ToLower().Contains(user.ToLower()))
+                            || x.ModifyBy.ToLower().Contains(user.ToLower())));
                     }
                 }
 
@@ -2827,8 +2836,12 @@ namespace FlowFlex.Application.Services.OW
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
                 Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
+                // Keep consistency with frontend index.vue display logic:
+                // Updated By => stageUpdatedBy || modifyBy
+                // Update Time => stageUpdatedTime || modifyDate
+                UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
+                UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
+                    .ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
 
             // Generate CSV content
@@ -2872,10 +2885,10 @@ namespace FlowFlex.Application.Services.OW
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
                 Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
-                UpdatedBy = item.ModifyBy,
-                UpdateTime = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
+                UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
+                UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
+                  .ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
-
             // Use EPPlus to generate Excel file (avoid NPOI version conflict)
             return GenerateExcelWithEPPlus(exportData);
         }
@@ -3480,11 +3493,11 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Get TenantId from onboarding
         /// </summary>
-        private string GetTenantIdFromOnboarding(long onboardingId)
+        private async Task<string> GetTenantIdFromOnboardingAsync(long onboardingId)
         {
             try
             {
-                var onboarding = _onboardingRepository.GetByIdAsync(onboardingId).Result;
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
                 return onboarding?.TenantId ?? "default";
             }
             catch
@@ -4135,6 +4148,105 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Error querying onboardings by stage ID {stageId}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Create default UserInvitation record without sending email
+        /// </summary>
+        /// <param name="onboarding">Onboarding entity</param>
+        private async Task CreateDefaultUserInvitationAsync(Onboarding onboarding)
+        {
+            try
+            {
+                // Determine which email to use (prefer ContactEmail, fallback to LeadEmail)
+                var emailToUse = !string.IsNullOrWhiteSpace(onboarding.ContactEmail)
+                    ? onboarding.ContactEmail
+                    : onboarding.LeadEmail;
+
+                // Skip if no email is available
+                if (string.IsNullOrWhiteSpace(emailToUse))
+                {
+                    return;
+                }
+
+                // Check if invitation already exists for this onboarding and email
+                var existingInvitation = await _userInvitationRepository.GetByEmailAndOnboardingIdAsync(emailToUse, onboarding.Id);
+                if (existingInvitation != null)
+                {
+                    // Invitation already exists, skip creation
+                    return;
+                }
+
+                // Create new UserInvitation record
+                var invitation = new UserInvitation
+                {
+                    OnboardingId = onboarding.Id,
+                    Email = emailToUse,
+                    InvitationToken = CryptoHelper.GenerateSecureToken(),
+                    Status = "Pending",
+                    SentDate = GetCurrentTimeWithTimeZone(),
+                    TokenExpiry = null, // No expiry
+                    SendCount = 0, // Not sent via email
+                    TenantId = onboarding.TenantId,
+                    Notes = "Auto-created default invitation (no email sent)"
+                };
+
+                // Generate short URL ID and invitation URL
+                invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
+                    onboarding.Id,
+                    emailToUse,
+                    invitation.InvitationToken);
+
+                // Generate invitation URL (using default base URL)
+                invitation.InvitationUrl = GenerateShortInvitationUrl(
+                    invitation.ShortUrlId,
+                    onboarding.TenantId ?? "DEFAULT",
+                    onboarding.AppCode ?? "DEFAULT");
+
+                // Initialize create info
+                invitation.InitCreateInfo(_userContext);
+
+                // Insert the invitation record
+                await _userInvitationRepository.InsertAsync(invitation);
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the onboarding creation
+                // This is a non-critical operation
+                // Note: In a real implementation, you would use structured logging here
+            }
+        }
+
+        /// <summary>
+        /// Get current time with +08:00 timezone (China Standard Time)
+        /// </summary>
+        /// <returns>Current time with +08:00 offset</returns>
+        private DateTimeOffset GetCurrentTimeWithTimeZone()
+        {
+            // China Standard Time is UTC+8
+            var chinaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
+            var utcNow = DateTime.UtcNow;
+            var chinaTime = TimeZoneInfo.ConvertTimeFromUtc(utcNow, chinaTimeZone);
+
+            // Create DateTimeOffset with +08:00 offset
+            return new DateTimeOffset(chinaTime, TimeSpan.FromHours(8));
+        }
+
+        /// <summary>
+        /// Generate short invitation URL (copied from UserInvitationService)
+        /// </summary>
+        /// <param name="shortUrlId">Short URL ID</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="appCode">App code</param>
+        /// <param name="baseUrl">Base URL (optional)</param>
+        /// <returns>Generated invitation URL</returns>
+        private string GenerateShortInvitationUrl(string shortUrlId, string tenantId, string appCode, string? baseUrl = null)
+        {
+            // Use provided base URL or fall back to a default one
+            var effectiveBaseUrl = baseUrl ?? "https://portal.flowflex.com"; // Default base URL
+
+            // Generate the short URL format: {baseUrl}/portal/{tenantId}/{appCode}/invite/{shortUrlId}
+            return $"{effectiveBaseUrl.TrimEnd('/')}/portal/{tenantId}/{appCode}/invite/{shortUrlId}";
         }
     }
 }

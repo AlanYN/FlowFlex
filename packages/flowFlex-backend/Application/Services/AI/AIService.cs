@@ -10,9 +10,11 @@ using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
+
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.OW;
 
 namespace FlowFlex.Application.Services.AI
 {
@@ -27,6 +29,11 @@ namespace FlowFlex.Application.Services.AI
         private readonly IMCPService _mcpService;
         private readonly IWorkflowService _workflowService;
         private readonly IAIModelConfigService _configService;
+        private readonly IChecklistService _checklistService;
+        private readonly IQuestionnaireService _questionnaireService;
+        private readonly IChecklistRepository _checklistRepository;
+        private readonly IQuestionnaireRepository _questionnaireRepository;
+        private readonly IChecklistTaskService _checklistTaskService;
 
         public AIService(
             IOptions<AIOptions> aiOptions,
@@ -34,7 +41,12 @@ namespace FlowFlex.Application.Services.AI
             HttpClient httpClient,
             IMCPService mcpService,
             IWorkflowService workflowService,
-            IAIModelConfigService configService)
+            IAIModelConfigService configService,
+            IChecklistService checklistService,
+            IQuestionnaireService questionnaireService,
+            IChecklistRepository checklistRepository,
+            IQuestionnaireRepository questionnaireRepository,
+            IChecklistTaskService checklistTaskService)
         {
             _aiOptions = aiOptions.Value;
             _logger = logger;
@@ -42,6 +54,11 @@ namespace FlowFlex.Application.Services.AI
             _mcpService = mcpService;
             _workflowService = workflowService;
             _configService = configService;
+            _checklistService = checklistService;
+            _questionnaireService = questionnaireService;
+            _checklistRepository = checklistRepository;
+            _questionnaireRepository = questionnaireRepository;
+            _checklistTaskService = checklistTaskService;
         }
 
         public async Task<AIWorkflowGenerationResult> GenerateWorkflowAsync(AIWorkflowGenerationInput input)
@@ -50,10 +67,10 @@ namespace FlowFlex.Application.Services.AI
             {
                 _logger.LogInformation("Generating workflow from natural language with enhanced context");
                 _logger.LogInformation("Description length: {DescriptionLength} characters", input.Description?.Length ?? 0);
-                _logger.LogInformation("AI Model: {Provider} {Model} (ID: {ModelId})", 
+                _logger.LogInformation("AI Model: {Provider} {Model} (ID: {ModelId})",
                     input.ModelProvider, input.ModelName, input.ModelId);
                 _logger.LogInformation("Session ID: {SessionId}", input.SessionId);
-                _logger.LogInformation("Conversation History: {MessageCount} messages", 
+                _logger.LogInformation("Conversation History: {MessageCount} messages",
                     input.ConversationHistory?.Count ?? 0);
 
                 // Store enhanced context in MCP for future reference
@@ -68,7 +85,7 @@ namespace FlowFlex.Application.Services.AI
                     { "modelName", input.ModelName ?? "" },
                     { "conversationMessageCount", input.ConversationHistory?.Count ?? 0 }
                 };
-                
+
                 if (input.ConversationMetadata != null)
                 {
                     contextMetadata.Add("conversationMode", input.ConversationMetadata.ConversationMode ?? "");
@@ -93,7 +110,7 @@ namespace FlowFlex.Application.Services.AI
                 var result = ParseWorkflowGenerationResponse(aiResponse.Content);
                 result.ConfidenceScore = CalculateConfidenceScore(result.GeneratedWorkflow);
 
-                // 确保至少有一些stages
+                // Ensure at least some stages exist
                 if (result.Stages == null || !result.Stages.Any())
                 {
                     _logger.LogWarning("AI response did not contain valid stages, using fallback stages");
@@ -194,66 +211,299 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIWorkflowStreamResult
             {
                 Type = "start",
-                Message = "开始生成工作流...",
+                Message = "Starting workflow generation...",
                 IsComplete = false
             };
 
-            string prompt = null;
-            AIProviderResponse aiResponse = null;
-            AIWorkflowGenerationResult result = null;
-            Exception caughtException = null;
-
-            try
+            yield return new AIWorkflowStreamResult
             {
-                prompt = BuildWorkflowGenerationPrompt(input);
-                aiResponse = await CallAIProviderAsync(prompt);
-                
-                if (aiResponse.Success)
+                Type = "progress",
+                Message = "Analyzing requirements...",
+                IsComplete = false
+            };
+
+            // 尝试使用真正的流式AI调用
+            var prompt = BuildWorkflowGenerationPrompt(input);
+            var streamingContent = new StringBuilder();
+            var hasReceivedContent = false;
+
+            // 构建聊天消息格式
+            var messages = new List<object>
+            {
+                new { role = "system", content = "You are an AI workflow assistant that generates detailed business workflows." },
+                new { role = "user", content = prompt }
+            };
+
+            // 获取用户配置
+            AIModelConfig userConfig = null;
+            if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
+            {
+                userConfig = await _configService.GetConfigByIdAsync(modelId);
+            }
+
+            // 智能模型选择：优先使用快速模型
+            if (userConfig != null)
+            {
+                var progressSent = false;
+                var streamStartTime = DateTime.UtcNow;
+
+                // 发送初始进度消息
+                yield return new AIWorkflowStreamResult
                 {
-                    result = ParseWorkflowGenerationResponse(aiResponse.Content);
+                    Type = "progress",
+                    Message = "Generating workflow structure...",
+                    IsComplete = false
+                };
+                progressSent = true;
+                _logger.LogInformation("✅ Initial progress message sent");
+
+                // 根据模型类型选择处理方式
+                if (userConfig.Provider?.ToLower() == "openai")
+                {
+                    _logger.LogInformation("🚀 Using OpenAI TRUE streaming - real-time progress updates");
+
+                    var lastProgressLength = 0;
+                    var lastProgressTime = DateTime.UtcNow;
+
+                    // 真正的流式处理：实时输出有意义的进度更新
+                    await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
+                    {
+                        if (!string.IsNullOrEmpty(chunk))
+                        {
+                            streamingContent.Append(chunk);
+                            hasReceivedContent = true;
+
+                            var now = DateTime.UtcNow;
+                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                            var lengthDifference = streamingContent.Length - lastProgressLength;
+
+                            // 条件：每收集50个字符或每2秒更新一次进度
+                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                            {
+                                yield return new AIWorkflowStreamResult
+                                {
+                                    Type = "progress",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
+                                    IsComplete = false
+                                };
+
+                                lastProgressLength = streamingContent.Length;
+                                lastProgressTime = now;
+
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
+                                    streamingContent.Length, timeSinceLastProgress);
+                            }
+                        }
+                    }
+
+                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                    _logger.LogInformation("🏁 OpenAI TRUE stream completed: {Length} chars in {Duration}ms",
+                        streamingContent.Length, totalDuration);
+                }
+                else if (userConfig.Provider?.ToLower() == "deepseek")
+                {
+                    _logger.LogInformation("🚀 Using DeepSeek TRUE streaming - real-time progress updates");
+
+                    var lastProgressLength = 0;
+                    var lastProgressTime = DateTime.UtcNow;
+
+                    // 真正的流式处理：实时输出有意义的进度更新
+                    await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
+                    {
+                        if (!string.IsNullOrEmpty(chunk))
+                        {
+                            streamingContent.Append(chunk);
+                            hasReceivedContent = true;
+
+                            var now = DateTime.UtcNow;
+                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                            var lengthDifference = streamingContent.Length - lastProgressLength;
+
+                            // 条件：每收集50个字符或每2秒更新一次进度
+                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                            {
+                                yield return new AIWorkflowStreamResult
+                                {
+                                    Type = "progress",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
+                                    IsComplete = false
+                                };
+
+                                lastProgressLength = streamingContent.Length;
+                                lastProgressTime = now;
+
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
+                                    streamingContent.Length, timeSinceLastProgress);
+                            }
+                        }
+                    }
+
+                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                    _logger.LogInformation("🏁 DeepSeek TRUE stream completed: {Length} chars in {Duration}ms",
+                        streamingContent.Length, totalDuration);
+                }
+                else
+                {
+                    // 其他模型使用真正的流式处理
+                    _logger.LogInformation("🚀 Using {Provider} TRUE streaming - real-time progress updates", userConfig.Provider);
+
+                    var lastProgressLength = 0;
+                    var lastProgressTime = DateTime.UtcNow;
+
+                    // 真正的流式处理：实时输出有意义的进度更新
+                    await foreach (var chunk in CallAIProviderForStreamChatAsync(messages, userConfig))
+                    {
+                        if (!string.IsNullOrEmpty(chunk))
+                        {
+                            streamingContent.Append(chunk);
+                            hasReceivedContent = true;
+
+                            var now = DateTime.UtcNow;
+                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                            var lengthDifference = streamingContent.Length - lastProgressLength;
+
+                            // 条件：每收集50个字符或每2秒更新一次进度
+                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                            {
+                                yield return new AIWorkflowStreamResult
+                                {
+                                    Type = "progress",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
+                                    IsComplete = false
+                                };
+
+                                lastProgressLength = streamingContent.Length;
+                                lastProgressTime = now;
+
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
+                                    streamingContent.Length, timeSinceLastProgress);
+                            }
+                        }
+                    }
+
+                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                    _logger.LogInformation("🏁 {Provider} TRUE stream completed: {Length} chars in {Duration}ms",
+                        userConfig.Provider, streamingContent.Length, totalDuration);
+                }
+
+                // 流式完成后立即开始解析
+                if (hasReceivedContent)
+                {
+                    yield return new AIWorkflowStreamResult
+                    {
+                        Type = "progress",
+                        Message = "Parsing workflow structure...",
+                        IsComplete = false
+                    };
+
+                    // 解析AI响应
+                    _logger.LogInformation("🔍 Starting to parse AI response, content length: {Length}", streamingContent.Length);
+                    var parseStartTime = DateTime.UtcNow;
+                    var streamResult = ParseWorkflowGenerationResponse(streamingContent.ToString());
+                    var parseEndTime = DateTime.UtcNow;
+                    _logger.LogInformation("✅ Parsing completed in {Duration}ms", (parseEndTime - parseStartTime).TotalMilliseconds);
+
+                    if (streamResult?.GeneratedWorkflow != null)
+                    {
+                        _logger.LogInformation("🎯 About to yield workflow and {Count} stages", streamResult.Stages?.Count ?? 0);
+
+                        yield return new AIWorkflowStreamResult
+                        {
+                            Type = "workflow",
+                            Data = streamResult.GeneratedWorkflow,
+                            Message = "Workflow basic information generated",
+                            IsComplete = false
+                        };
+
+                        var stageStartTime = DateTime.UtcNow;
+                        var stageCount = 0;
+                        foreach (var stage in streamResult.Stages)
+                        {
+                            yield return new AIWorkflowStreamResult
+                            {
+                                Type = "stage",
+                                Data = stage,
+                                Message = $"Stage '{stage.Name}' generated",
+                                IsComplete = false
+                            };
+                            stageCount++;
+
+                            // 每处理10个stage记录一次
+                            if (stageCount % 10 == 0)
+                            {
+                                _logger.LogInformation("📊 Processed {Count} stages so far...", stageCount);
+                            }
+                        }
+                        var stageEndTime = DateTime.UtcNow;
+                        _logger.LogInformation("✅ All {Count} stages yielded in {Duration}ms", stageCount, (stageEndTime - stageStartTime).TotalMilliseconds);
+
+                        var completeStartTime = DateTime.UtcNow;
+                        yield return new AIWorkflowStreamResult
+                        {
+                            Type = "complete",
+                            Data = streamResult,
+                            Message = "Workflow generation completed",
+                            IsComplete = true
+                        };
+                        var completeEndTime = DateTime.UtcNow;
+                        _logger.LogInformation("🏁 Complete message yielded in {Duration}ms", (completeEndTime - completeStartTime).TotalMilliseconds);
+
+                        _logger.LogInformation("🎉 StreamGenerateWorkflowAsync about to exit successfully");
+                        yield break;
+                    }
+                    else
+                    {
+                        yield return new AIWorkflowStreamResult
+                        {
+                            Type = "error",
+                            Message = "Unable to parse AI-generated workflow structure",
+                            IsComplete = true
+                        };
+                        yield break;
+                    }
                 }
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "Error in streaming workflow generation");
-                caughtException = ex;
+                // 回退到非流式API
+                var aiResponse = await CallAIProviderAsync(prompt);
+                if (aiResponse.Success)
+                {
+                    streamingContent.Append(aiResponse.Content);
+                    hasReceivedContent = true;
+                }
+                else
+                {
+                    yield return new AIWorkflowStreamResult
+                    {
+                        Type = "error",
+                        Message = aiResponse.ErrorMessage ?? "AI service call failed",
+                        IsComplete = true
+                    };
+                    yield break;
+                }
             }
 
-            yield return new AIWorkflowStreamResult
-            {
-                Type = "progress",
-                Message = "正在分析需求...",
-                IsComplete = false
-            };
-
-            if (caughtException != null)
+            if (!hasReceivedContent)
             {
                 yield return new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = $"生成过程中出现错误: {caughtException.Message}",
+                    Message = "No content received from AI service",
                     IsComplete = true
                 };
                 yield break;
             }
 
-            if (aiResponse == null || !aiResponse.Success)
-            {
-                yield return new AIWorkflowStreamResult
-                {
-                    Type = "error",
-                    Message = aiResponse?.ErrorMessage ?? "AI服务调用失败",
-                    IsComplete = true
-                };
-                yield break;
-            }
-
             yield return new AIWorkflowStreamResult
             {
                 Type = "progress",
-                Message = "正在解析工作流结构...",
+                Message = "Parsing workflow structure...",
                 IsComplete = false
             };
+
+            // 解析AI响应（非流式路径）
+            var result = ParseWorkflowGenerationResponse(streamingContent.ToString());
 
             if (result?.GeneratedWorkflow != null)
             {
@@ -261,7 +511,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "workflow",
                     Data = result.GeneratedWorkflow,
-                    Message = "工作流基本信息已生成",
+                    Message = "Workflow basic information generated",
                     IsComplete = false
                 };
 
@@ -271,7 +521,7 @@ namespace FlowFlex.Application.Services.AI
                     {
                         Type = "stage",
                         Data = stage,
-                        Message = $"阶段 '{stage.Name}' 已生成",
+                        Message = $"Stage '{stage.Name}' generated",
                         IsComplete = false
                     };
                 }
@@ -280,7 +530,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "complete",
                     Data = result,
-                    Message = "工作流生成完成",
+                    Message = "Workflow generation completed",
                     IsComplete = true
                 };
             }
@@ -289,7 +539,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = "无法解析AI生成的工作流结构",
+                    Message = "Unable to parse AI-generated workflow structure",
                     IsComplete = true
                 };
             }
@@ -302,7 +552,7 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIQuestionnaireStreamResult
             {
                 Type = "start",
-                Message = "开始生成问卷...",
+                Message = "Starting questionnaire generation...",
                 IsComplete = false
             };
 
@@ -315,7 +565,7 @@ namespace FlowFlex.Application.Services.AI
             {
                 prompt = BuildQuestionnaireGenerationPrompt(input);
                 aiResponse = await CallAIProviderAsync(prompt);
-                
+
                 if (aiResponse.Success)
                 {
                     result = ParseQuestionnaireGenerationResponse(aiResponse.Content);
@@ -332,7 +582,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIQuestionnaireStreamResult
                 {
                     Type = "error",
-                    Message = $"生成过程中出现错误: {caughtException.Message}",
+                    Message = $"Error during generation: {caughtException.Message}",
                     IsComplete = true
                 };
                 yield break;
@@ -343,7 +593,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIQuestionnaireStreamResult
                 {
                     Type = "error",
-                    Message = aiResponse?.ErrorMessage ?? "AI服务调用失败",
+                    Message = aiResponse?.ErrorMessage ?? "AI service call failed",
                     IsComplete = true
                 };
                 yield break;
@@ -355,7 +605,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "questionnaire",
                     Data = result.GeneratedQuestionnaire,
-                    Message = "问卷基本信息已生成",
+                    Message = "Questionnaire basic information generated",
                     IsComplete = false
                 };
 
@@ -363,7 +613,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "complete",
                     Data = result,
-                    Message = "问卷生成完成",
+                    Message = "Questionnaire generation completed",
                     IsComplete = true
                 };
             }
@@ -372,7 +622,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIQuestionnaireStreamResult
                 {
                     Type = "error",
-                    Message = "无法解析AI生成的问卷结构",
+                    Message = "Unable to parse AI-generated questionnaire structure",
                     IsComplete = true
                 };
             }
@@ -385,7 +635,7 @@ namespace FlowFlex.Application.Services.AI
             yield return new AIChecklistStreamResult
             {
                 Type = "start",
-                Message = "开始生成检查清单...",
+                Message = "Starting checklist generation...",
                 IsComplete = false
             };
 
@@ -398,7 +648,7 @@ namespace FlowFlex.Application.Services.AI
             {
                 prompt = BuildChecklistGenerationPrompt(input);
                 aiResponse = await CallAIProviderAsync(prompt);
-                
+
                 if (aiResponse.Success)
                 {
                     result = ParseChecklistGenerationResponse(aiResponse.Content);
@@ -415,7 +665,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIChecklistStreamResult
                 {
                     Type = "error",
-                    Message = $"生成过程中出现错误: {caughtException.Message}",
+                    Message = $"Error during generation: {caughtException.Message}",
                     IsComplete = true
                 };
                 yield break;
@@ -426,7 +676,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIChecklistStreamResult
                 {
                     Type = "error",
-                    Message = aiResponse?.ErrorMessage ?? "AI服务调用失败",
+                    Message = aiResponse?.ErrorMessage ?? "AI service call failed",
                     IsComplete = true
                 };
                 yield break;
@@ -438,7 +688,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "checklist",
                     Data = result.GeneratedChecklist,
-                    Message = "检查清单基本信息已生成",
+                    Message = "Checklist basic information generated",
                     IsComplete = false
                 };
 
@@ -446,7 +696,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Type = "complete",
                     Data = result,
-                    Message = "检查清单生成完成",
+                    Message = "Checklist generation completed",
                     IsComplete = true
                 };
             }
@@ -455,7 +705,7 @@ namespace FlowFlex.Application.Services.AI
                 yield return new AIChecklistStreamResult
                 {
                     Type = "error",
-                    Message = "无法解析AI生成的检查清单结构",
+                    Message = "Unable to parse AI-generated checklist structure",
                     IsComplete = true
                 };
             }
@@ -468,17 +718,17 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("Enhancing workflow {WorkflowId} with: {Enhancement}", workflowId, enhancement);
 
                 var prompt = $"""
-                请分析以下工作流增强需求，并提供具体的改进建议：
+                Please analyze the following workflow enhancement requirements and provide specific improvement suggestions:
 
-                工作流ID: {workflowId}
-                增强需求: {enhancement}
+                Workflow ID: {workflowId}
+                Enhancement Requirements: {enhancement}
 
-                请提供：
-                1. 具体的改进建议
-                2. 建议的优先级
-                3. 实施方案
+                Please provide:
+                1. Specific improvement suggestions
+                2. Suggested priority levels
+                3. Implementation plans
 
-                请以JSON格式返回结果。
+                Please return the results in JSON format.
                 """;
 
                 var aiResponse = await CallAIProviderAsync(prompt);
@@ -588,18 +838,18 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("Parsing requirements from natural language");
 
                 var prompt = $"""
-                请分析以下自然语言描述，提取出结构化的需求信息：
+                Please analyze the following natural language description and extract structured requirement information:
 
-                描述: {naturalLanguage}
+                Description: {naturalLanguage}
 
-                请提取：
-                1. 流程类型
-                2. 相关人员
-                3. 关键步骤
-                4. 审批环节
-                5. 通知要求
+                Please extract:
+                1. Process type
+                2. Involved personnel
+                3. Key steps
+                4. Approval processes
+                5. Notification requirements
 
-                请以JSON格式返回结果。
+                Please return the results in JSON format.
                 """;
 
                 var aiResponse = await CallAIProviderAsync(prompt);
@@ -641,6 +891,64 @@ namespace FlowFlex.Application.Services.AI
             }
         }
 
+        public async Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage, string? modelProvider, string? modelName, string? modelId)
+        {
+            try
+            {
+                _logger.LogInformation("Parsing requirements with explicit model override: Provider={Provider}, Model={ModelName}, Id={ModelId}", modelProvider, modelName, modelId);
+
+                var prompt = $"""
+                Please analyze the following natural language description and extract structured requirement information:
+
+                Description: {naturalLanguage}
+
+                Please extract:
+                1. Process type
+                2. Involved personnel
+                3. Key steps
+                4. Approval processes
+                5. Notification requirements
+
+                Please return the results in JSON format.
+                """;
+
+                var aiResponse = await CallAIProviderAsync(prompt, modelId, modelProvider, modelName);
+                if (!aiResponse.Success)
+                {
+                    return new AIRequirementsParsingResult
+                    {
+                        Success = false,
+                        Message = aiResponse.ErrorMessage
+                    };
+                }
+
+                var requirements = new AIRequirements
+                {
+                    ProcessType = "General",
+                    Stakeholders = new List<string> { "User", "Manager" },
+                    Steps = new List<string> { "Start", "Process", "End" },
+                    Approvals = new List<string>(),
+                    Notifications = new List<string>()
+                };
+
+                return new AIRequirementsParsingResult
+                {
+                    Success = true,
+                    Message = "Requirements parsed successfully",
+                    Requirements = requirements
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing requirements with override");
+                return new AIRequirementsParsingResult
+                {
+                    Success = false,
+                    Message = $"Failed to parse requirements: {ex.Message}"
+                };
+            }
+        }
+
         #region Private Methods
 
         private async Task<AIProviderResponse> CallAIProviderAsync(string prompt)
@@ -652,27 +960,51 @@ namespace FlowFlex.Application.Services.AI
         {
             try
             {
-                // Use specific model if provided, otherwise fall back to configuration
-                var provider = modelProvider?.ToLower() ?? _aiOptions.Provider.ToLower();
-                
-                _logger.LogInformation("Using AI provider: {Provider}, Model: {ModelName} (ID: {ModelId})", 
-                    provider, modelName, modelId);
+                // Prefer specific model if provided; otherwise try user default AI model config, finally fallback to app options
+                string? effectiveModelId = modelId;
+                string? effectiveProvider = modelProvider;
+                string? effectiveModelName = modelName;
+
+                if (string.IsNullOrWhiteSpace(effectiveProvider))
+                {
+                    try
+                    {
+                        var defaultConfig = await _configService.GetUserDefaultConfigAsync(0);
+                        if (defaultConfig != null && !string.IsNullOrWhiteSpace(defaultConfig.Provider))
+                        {
+                            effectiveProvider = defaultConfig.Provider;
+                            effectiveModelId = defaultConfig.Id.ToString();
+                            effectiveModelName = string.IsNullOrWhiteSpace(modelName) ? defaultConfig.ModelName : modelName;
+                            _logger.LogInformation("Using tenant default AI config: Provider={Provider}, Model={Model}, ConfigId={Id}", defaultConfig.Provider, defaultConfig.ModelName, defaultConfig.Id);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get default AI model config, will fallback to app-level options");
+                    }
+                }
+
+                // Fallback to app settings if still missing
+                var provider = (effectiveProvider ?? _aiOptions.Provider).ToLower();
+
+                _logger.LogInformation("Using AI provider: {Provider}, Model: {ModelName} (ID: {ModelId})",
+                    provider, effectiveModelName, effectiveModelId);
 
                 switch (provider)
                 {
                     case "zhipuai":
-                        return await CallZhipuAIAsync(prompt, modelId, modelName);
+                        return await CallZhipuAIAsync(prompt, effectiveModelId, effectiveModelName);
                     case "openai":
-                        return await CallOpenAIAsync(prompt, modelId, modelName);
+                        return await CallOpenAIAsync(prompt, effectiveModelId, effectiveModelName);
                     case "claude":
                     case "anthropic":
-                        return await CallClaudeAsync(prompt, modelId, modelName);
+                        return await CallClaudeAsync(prompt, effectiveModelId, effectiveModelName);
                     case "deepseek":
-                        return await CallDeepSeekAsync(prompt, modelId, modelName);
+                        return await CallDeepSeekAsync(prompt, effectiveModelId, effectiveModelName);
                     default:
                         // Try to call using generic OpenAI-compatible API
                         _logger.LogInformation("Unknown provider {Provider}, attempting to use OpenAI-compatible API", provider);
-                        return await CallGenericOpenAICompatibleAsync(prompt, modelId, modelName, provider);
+                        return await CallGenericOpenAICompatibleAsync(prompt, effectiveModelId, effectiveModelName, provider);
                 }
             }
             catch (Exception ex)
@@ -717,7 +1049,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -737,22 +1069,30 @@ namespace FlowFlex.Application.Services.AI
                 {
                     apiUrl = $"{apiUrl}/chat/completions";
                 }
-                
-                var response = await _httpClient.PostAsync(apiUrl, content);
-                var responseContent = await response.Content.ReadAsStringAsync();
 
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogError("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
-                return new AIProviderResponse
+                // Build request with HTTP/1.1 and per-call timeout
+                using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
                 {
-                    Success = false,
-                    ErrorMessage = $"ZhipuAI API error: {response.StatusCode}"
+                    Version = new Version(1, 1),
+                    Content = content,
                 };
-            }
+                var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var response = await _httpClient.SendAsync(request, cts.Token);
+                var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
-            var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-            var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"ZhipuAI API error: {response.StatusCode}"
+                    };
+                }
+
+                var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
 
                 return new AIProviderResponse
                 {
@@ -786,10 +1126,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get OpenAI configuration for ID: {ConfigId}", configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved OpenAI configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved OpenAI configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -803,7 +1143,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No OpenAI configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
-                    
+
                     // Try to fallback to ZhipuAI if OpenAI config is not available
                     try
                     {
@@ -834,7 +1174,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -869,12 +1209,12 @@ namespace FlowFlex.Application.Services.AI
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                
+
                 // Parse OpenAI response format
                 if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                 {
                     var firstChoice = choices[0];
-                    if (firstChoice.TryGetProperty("message", out var message) && 
+                    if (firstChoice.TryGetProperty("message", out var message) &&
                         message.TryGetProperty("content", out var messageContent))
                     {
                         var content_str = messageContent.GetString();
@@ -914,10 +1254,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get Claude configuration for ID: {ConfigId}", configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved Claude configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved Claude configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -930,7 +1270,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No Claude configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
-                    
+
                     // Try to fallback to ZhipuAI if Claude config is not available
                     try
                     {
@@ -974,8 +1314,15 @@ namespace FlowFlex.Application.Services.AI
                 _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
                 _httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
 
-                var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}/v1/messages", content);
-                var responseContent = await response.Content.ReadAsStringAsync();
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/v1/messages")
+                {
+                    Version = new Version(1, 1),
+                    Content = content,
+                };
+                var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var response = await _httpClient.SendAsync(request, cts.Token);
+                var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -988,7 +1335,7 @@ namespace FlowFlex.Application.Services.AI
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                
+
                 // Parse Claude response format
                 if (responseData.TryGetProperty("content", out var content_array) && content_array.GetArrayLength() > 0)
                 {
@@ -1032,10 +1379,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get DeepSeek configuration for ID: {ConfigId}", configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved DeepSeek configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved DeepSeek configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -1048,7 +1395,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No DeepSeek configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
-                    
+
                     // Try to fallback to ZhipuAI if DeepSeek config is not available
                     try
                     {
@@ -1080,7 +1427,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -1101,8 +1448,15 @@ namespace FlowFlex.Application.Services.AI
                     apiUrl = $"{apiUrl}/v1/chat/completions";
                 }
 
-                var response = await _httpClient.PostAsync(apiUrl, content);
-                var responseContent = await response.Content.ReadAsStringAsync();
+                using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+                {
+                    Version = new Version(1, 1),
+                    Content = content,
+                };
+                var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var response = await _httpClient.SendAsync(request, cts.Token);
+                var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -1115,12 +1469,12 @@ namespace FlowFlex.Application.Services.AI
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                
+
                 // Parse OpenAI-compatible response format
                 if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                 {
                     var firstChoice = choices[0];
-                    if (firstChoice.TryGetProperty("message", out var message) && 
+                    if (firstChoice.TryGetProperty("message", out var message) &&
                         message.TryGetProperty("content", out var messageContent))
                     {
                         var content_str = messageContent.GetString();
@@ -1160,10 +1514,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get {Provider} configuration for ID: {ConfigId}", providerName, configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved {Provider} configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved {Provider} configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             providerName, configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -1176,7 +1530,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No {Provider} configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", providerName, modelId);
-                    
+
                     // Try to fallback to ZhipuAI if config is not available
                     try
                     {
@@ -1208,7 +1562,7 @@ namespace FlowFlex.Application.Services.AI
                     model = model,
                     messages = new[]
                     {
-                        new { role = "system", content = "你是一个专业的工作流设计专家。请根据用户需求生成结构化的工作流定义。" },
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
                         new { role = "user", content = prompt }
                     },
                     max_tokens = maxTokens,
@@ -1230,18 +1584,25 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
-                        var response = await _httpClient.PostAsync($"{baseUrl.TrimEnd('/')}{endpoint}", content);
-                        var responseContent = await response.Content.ReadAsStringAsync();
+                        using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}{endpoint}")
+                        {
+                            Version = new Version(1, 1),
+                            Content = content,
+                        };
+                        var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                        var response = await _httpClient.SendAsync(request, cts.Token);
+                        var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                         if (response.IsSuccessStatusCode)
                         {
                             var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                            
+
                             // Parse OpenAI-compatible response format
                             if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                             {
                                 var firstChoice = choices[0];
-                                if (firstChoice.TryGetProperty("message", out var message) && 
+                                if (firstChoice.TryGetProperty("message", out var message) &&
                                     message.TryGetProperty("content", out var messageContent))
                                 {
                                     var content_str = messageContent.GetString();
@@ -1262,7 +1623,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                         else
                         {
-                            _logger.LogWarning("{Provider} API call failed with endpoint {Endpoint}: {StatusCode} - {Content}", 
+                            _logger.LogWarning("{Provider} API call failed with endpoint {Endpoint}: {StatusCode} - {Content}",
                                 providerName, endpoint, response.StatusCode, responseContent);
                             lastResponse = new AIProviderResponse
                             {
@@ -1303,61 +1664,62 @@ namespace FlowFlex.Application.Services.AI
         {
             var promptBuilder = new StringBuilder();
             promptBuilder.AppendLine($"{_aiOptions.Prompts.WorkflowSystem}");
+            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
-            
+
             // Check if this is a conversation-based workflow generation
             if (input.ConversationHistory != null && input.ConversationHistory.Any())
             {
-                promptBuilder.AppendLine("=== 基于详细对话生成工作流 ===");
-                promptBuilder.AppendLine("以下是与用户的完整对话历史，请根据这些详细信息生成精确的工作流：");
+                promptBuilder.AppendLine("=== Generate Workflow Based on Detailed Conversation ===");
+                promptBuilder.AppendLine("Below is the complete conversation history with the user. Please generate an accurate workflow based on these detailed information:");
                 promptBuilder.AppendLine();
-                
+
                 // Add conversation context
                 if (input.ConversationMetadata != null)
                 {
-                    promptBuilder.AppendLine($"会话信息：");
-                    promptBuilder.AppendLine($"- 会话ID: {input.SessionId}");
-                    promptBuilder.AppendLine($"- 总消息数: {input.ConversationMetadata.TotalMessages}");
-                    promptBuilder.AppendLine($"- 对话模式: {input.ConversationMetadata.ConversationMode}");
+                    promptBuilder.AppendLine($"Session Information:");
+                    promptBuilder.AppendLine($"- Session ID: {input.SessionId}");
+                    promptBuilder.AppendLine($"- Total Messages: {input.ConversationMetadata.TotalMessages}");
+                    promptBuilder.AppendLine($"- Conversation Mode: {input.ConversationMetadata.ConversationMode}");
                     promptBuilder.AppendLine();
                 }
-                
+
                 // Add full conversation history
-                promptBuilder.AppendLine("完整对话内容：");
+                promptBuilder.AppendLine("Complete Conversation Content:");
                 foreach (var message in input.ConversationHistory)
                 {
-                    var role = message.Role == "user" ? "👤 用户" : "🤖 AI助手";
-                    promptBuilder.AppendLine($"{role}：");
+                    var role = message.Role == "user" ? "👤 User" : "🤖 AI Assistant";
+                    promptBuilder.AppendLine($"{role}:");
                     promptBuilder.AppendLine(message.Content);
                     promptBuilder.AppendLine();
                 }
-                
-                promptBuilder.AppendLine("请特别注意：");
-                promptBuilder.AppendLine("1. 从对话中提取所有关键需求和细节");
-                promptBuilder.AppendLine("2. 使用AI助手在对话中提供的具体建议和详细信息");
-                promptBuilder.AppendLine("3. 确保工作流反映用户的具体需求和偏好");
-                promptBuilder.AppendLine("4. 如果AI助手提供了详细的行程、计划或步骤，请将其转化为工作流阶段");
+
+                promptBuilder.AppendLine("Please pay special attention to:");
+                promptBuilder.AppendLine("1. Extract all key requirements and details from the conversation");
+                promptBuilder.AppendLine("2. Use the specific suggestions and detailed information provided by the AI assistant in the conversation");
+                promptBuilder.AppendLine("3. Ensure the workflow reflects the user's specific needs and preferences");
+                promptBuilder.AppendLine("4. If the AI assistant provided detailed itineraries, plans, or steps, convert them into workflow stages");
                 promptBuilder.AppendLine();
             }
             else
             {
                 // Fallback to traditional prompt building
-                promptBuilder.AppendLine("请根据以下需求生成一个完整的工作流定义：");
-                promptBuilder.AppendLine($"描述: {input.Description}");
+                promptBuilder.AppendLine("Please generate a complete workflow definition based on the following requirements:");
+                promptBuilder.AppendLine($"Description: {input.Description}");
             }
-            
+
             if (!string.IsNullOrEmpty(input.Context))
-                promptBuilder.AppendLine($"上下文: {input.Context}");
-            
+                promptBuilder.AppendLine($"Context: {input.Context}");
+
             if (!string.IsNullOrEmpty(input.Industry))
-                promptBuilder.AppendLine($"行业: {input.Industry}");
-            
+                promptBuilder.AppendLine($"Industry: {input.Industry}");
+
             if (!string.IsNullOrEmpty(input.ProcessType))
-                promptBuilder.AppendLine($"流程类型: {input.ProcessType}");
+                promptBuilder.AppendLine($"Process Type: {input.ProcessType}");
 
             if (input.Requirements.Any())
             {
-                promptBuilder.AppendLine("具体要求:");
+                promptBuilder.AppendLine("Specific Requirements:");
                 foreach (var req in input.Requirements)
                 {
                     promptBuilder.AppendLine($"- {req}");
@@ -1368,19 +1730,19 @@ namespace FlowFlex.Application.Services.AI
             if (!string.IsNullOrEmpty(input.ModelProvider))
             {
                 promptBuilder.AppendLine();
-                promptBuilder.AppendLine($"使用的AI模型: {input.ModelProvider} {input.ModelName}");
+                promptBuilder.AppendLine($"AI Model Used: {input.ModelProvider} {input.ModelName}");
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请严格按照以下JSON格式返回响应，不要包含任何其他文本：");
+            promptBuilder.AppendLine("Please return the response strictly in the following JSON format, without any other text:");
             promptBuilder.AppendLine(@"{
-  ""name"": ""工作流名称"",
-  ""description"": ""工作流描述"",
+  ""name"": ""Workflow Name"",
+  ""description"": ""Workflow Description"",
   ""stages"": [
     {
-      ""name"": ""阶段名称"",
-      ""description"": ""阶段描述"",
-      ""assignedGroup"": ""负责团队"",
+      ""name"": ""Stage Name"",
+      ""description"": ""Stage Description"",
+      ""assignedGroup"": ""Responsible Team"",
       ""estimatedDuration"": 1
     }
   ]
@@ -1393,16 +1755,17 @@ namespace FlowFlex.Application.Services.AI
         {
             var promptBuilder = new StringBuilder();
             promptBuilder.AppendLine($"{_aiOptions.Prompts.QuestionnaireSystem}");
+            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请根据以下需求生成一个完整的问卷：");
-            promptBuilder.AppendLine($"目的: {input.Purpose}");
-            promptBuilder.AppendLine($"目标受众: {input.TargetAudience}");
-            promptBuilder.AppendLine($"复杂度: {input.Complexity}");
-            promptBuilder.AppendLine($"预计问题数量: {input.EstimatedQuestions}");
+            promptBuilder.AppendLine("Please generate a complete questionnaire based on the following requirements:");
+            promptBuilder.AppendLine($"Purpose: {input.Purpose}");
+            promptBuilder.AppendLine($"Target Audience: {input.TargetAudience}");
+            promptBuilder.AppendLine($"Complexity: {input.Complexity}");
+            promptBuilder.AppendLine($"Estimated Number of Questions: {input.EstimatedQuestions}");
 
             if (input.Topics.Any())
             {
-                promptBuilder.AppendLine("涉及主题:");
+                promptBuilder.AppendLine("Topics Covered:");
                 foreach (var topic in input.Topics)
                 {
                     promptBuilder.AppendLine($"- {topic}");
@@ -1410,10 +1773,10 @@ namespace FlowFlex.Application.Services.AI
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请生成包含以下信息的JSON格式响应:");
-            promptBuilder.AppendLine("1. 问卷基本信息 (name, description)");
-            promptBuilder.AppendLine("2. 问题分组 (sections)");
-            promptBuilder.AppendLine("3. 具体问题列表，包括问题类型、选项等");
+            promptBuilder.AppendLine("Please generate a JSON format response containing the following information:");
+            promptBuilder.AppendLine("1. Basic questionnaire information (name, description)");
+            promptBuilder.AppendLine("2. Question sections (sections)");
+            promptBuilder.AppendLine("3. Specific question list, including question types, options, etc.");
 
             return promptBuilder.ToString();
         }
@@ -1422,15 +1785,16 @@ namespace FlowFlex.Application.Services.AI
         {
             var promptBuilder = new StringBuilder();
             promptBuilder.AppendLine($"{_aiOptions.Prompts.ChecklistSystem}");
+            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请根据以下需求生成一个完整的检查清单：");
-            promptBuilder.AppendLine($"流程名称: {input.ProcessName}");
-            promptBuilder.AppendLine($"描述: {input.Description}");
-            promptBuilder.AppendLine($"负责团队: {input.Team}");
+            promptBuilder.AppendLine("Please generate a complete checklist based on the following requirements:");
+            promptBuilder.AppendLine($"Process Name: {input.ProcessName}");
+            promptBuilder.AppendLine($"Description: {input.Description}");
+            promptBuilder.AppendLine($"Responsible Team: {input.Team}");
 
             if (input.RequiredSteps.Any())
             {
-                promptBuilder.AppendLine("必需步骤:");
+                promptBuilder.AppendLine("Required Steps:");
                 foreach (var step in input.RequiredSteps)
                 {
                     promptBuilder.AppendLine($"- {step}");
@@ -1438,33 +1802,39 @@ namespace FlowFlex.Application.Services.AI
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("请生成包含以下信息的JSON格式响应:");
-            promptBuilder.AppendLine("1. 检查清单基本信息 (name, description, team)");
-            promptBuilder.AppendLine("2. 任务列表，包括任务名称、描述、预估时间、是否必需");
+            promptBuilder.AppendLine("Please generate a JSON format response containing the following information:");
+            promptBuilder.AppendLine("1. Basic checklist information (name, description, team)");
+            promptBuilder.AppendLine("2. Task list, including task name, description, estimated time, whether required");
             if (input.IncludeDependencies)
-                promptBuilder.AppendLine("3. 任务依赖关系");
+                promptBuilder.AppendLine("3. Task dependencies");
 
             return promptBuilder.ToString();
         }
 
         private AIWorkflowGenerationResult ParseWorkflowGenerationResponse(string aiResponse)
         {
+            _logger.LogInformation("🔍 ParseWorkflowGenerationResponse started, response length: {Length}", aiResponse.Length);
+            var methodStartTime = DateTime.UtcNow;
+
             try
             {
                 // Try to parse JSON response from AI
                 if (aiResponse.Contains("{") && aiResponse.Contains("}"))
                 {
+                    _logger.LogInformation("📄 Found JSON content, extracting...");
                     var jsonStart = aiResponse.IndexOf('{');
                     var jsonEnd = aiResponse.LastIndexOf('}') + 1;
                     var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
-                    
+
+                    _logger.LogInformation("🔧 Deserializing JSON, content length: {Length}", jsonContent.Length);
                     var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
-                    
+
                     var workflow = new WorkflowInputDto
                     {
                         Name = parsed.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : "AI Generated Workflow",
                         Description = parsed.TryGetProperty("description", out var descEl) ? descEl.GetString() : "Generated by AI",
-                        IsActive = true
+                        IsActive = true,
+                        IsAIGenerated = true
                     };
 
                     var stages = new List<AIStageGenerationResult>();
@@ -1484,6 +1854,9 @@ namespace FlowFlex.Application.Services.AI
                         }
                     }
 
+                    var jsonEndTime = DateTime.UtcNow;
+                    _logger.LogInformation("✅ JSON parsing successful in {Duration}ms", (jsonEndTime - methodStartTime).TotalMilliseconds);
+
                     return new AIWorkflowGenerationResult
                     {
                         Success = true,
@@ -1500,60 +1873,91 @@ namespace FlowFlex.Application.Services.AI
             }
 
             // Fallback: Generate a basic workflow from the text response
-            return GenerateFallbackWorkflow(aiResponse);
+            _logger.LogInformation("🔄 Using fallback workflow generation...");
+            var fallbackStartTime = DateTime.UtcNow;
+            var result = GenerateFallbackWorkflow(aiResponse);
+            var fallbackEndTime = DateTime.UtcNow;
+            _logger.LogInformation("✅ Fallback completed in {Duration}ms", (fallbackEndTime - fallbackStartTime).TotalMilliseconds);
+
+            var methodEndTime = DateTime.UtcNow;
+            _logger.LogInformation("🏁 ParseWorkflowGenerationResponse completed in {Duration}ms", (methodEndTime - methodStartTime).TotalMilliseconds);
+
+            return result;
         }
 
         private AIWorkflowGenerationResult GenerateFallbackWorkflow(string aiResponse)
         {
+            _logger.LogInformation("🔄 GenerateFallbackWorkflow started, response length: {Length}", aiResponse.Length);
+
             var workflow = new WorkflowInputDto
             {
                 Name = "AI Generated Workflow",
                 Description = "Generated by AI",
-                IsActive = true
+                IsActive = true,
+                IsAIGenerated = true
             };
 
-            // 从AI响应中智能提取阶段信息
+            // Intelligently extract stage information from AI response
+            _logger.LogInformation("🔍 Extracting stages from text...");
+            var extractStartTime = DateTime.UtcNow;
             var stages = ExtractStagesFromText(aiResponse);
-            
-            // 如果没有提取到阶段，创建默认阶段
+            var extractEndTime = DateTime.UtcNow;
+            _logger.LogInformation("✅ Stage extraction completed in {Duration}ms, found {Count} stages",
+                (extractEndTime - extractStartTime).TotalMilliseconds, stages.Count);
+
+            // If no stages extracted, create default stages
             if (!stages.Any())
             {
                 stages = new List<AIStageGenerationResult>
                 {
                     new AIStageGenerationResult
                     {
-                        Name = "准备阶段",
-                        Description = "收集所需信息和资源",
+                        Name = "Preparation Stage",
+                        Description = "Gather required information and resources",
                         Order = 1,
-                        AssignedGroup = "执行团队",
+                        AssignedGroup = "Execution Team",
                         EstimatedDuration = 2
                     },
                     new AIStageGenerationResult
                     {
-                        Name = "执行阶段",
-                        Description = "执行主要工作任务",
+                        Name = "Execution Stage",
+                        Description = "Execute main work tasks",
                         Order = 2,
-                        AssignedGroup = "执行团队",
+                        AssignedGroup = "Execution Team",
                         EstimatedDuration = 5
                     },
                     new AIStageGenerationResult
                     {
-                        Name = "审核阶段",
-                        Description = "审核工作成果和质量",
+                        Name = "Review Stage",
+                        Description = "Review work results and quality",
                         Order = 3,
-                        AssignedGroup = "管理团队",
+                        AssignedGroup = "Management Team",
                         EstimatedDuration = 2
                     },
                     new AIStageGenerationResult
                     {
-                        Name = "完成阶段",
-                        Description = "确认完成并交付成果",
+                        Name = "Completion Stage",
+                        Description = "Confirm completion and deliver results",
                         Order = 4,
-                        AssignedGroup = "管理团队",
+                        AssignedGroup = "Management Team",
                         EstimatedDuration = 1
                     }
                 };
             }
+
+            // Generate checklists and questionnaires for each stage (metadata only for now)
+            _logger.LogInformation("🔍 Generating checklists and questionnaires metadata for {Count} stages...", stages.Count);
+            var checklistsStartTime = DateTime.UtcNow;
+            var checklists = GenerateChecklistsForStages(stages);
+            var checklistsEndTime = DateTime.UtcNow;
+            _logger.LogInformation("✅ Checklists metadata generation completed in {Duration}ms, generated {Count} checklists",
+                (checklistsEndTime - checklistsStartTime).TotalMilliseconds, checklists.Count);
+
+            var questionnairesStartTime = DateTime.UtcNow;
+            var questionnaires = GenerateQuestionnairesForStages(stages);
+            var questionnairesEndTime = DateTime.UtcNow;
+            _logger.LogInformation("✅ Questionnaires metadata generation completed in {Duration}ms, generated {Count} questionnaires",
+                (questionnairesEndTime - questionnairesStartTime).TotalMilliseconds, questionnaires.Count);
 
             return new AIWorkflowGenerationResult
             {
@@ -1561,22 +1965,28 @@ namespace FlowFlex.Application.Services.AI
                 Message = "Workflow generated successfully",
                 GeneratedWorkflow = workflow,
                 Stages = stages,
+                Checklists = checklists,
+                Questionnaires = questionnaires,
                 Suggestions = new List<string> { "Consider adding approval stages", "Review stage assignments" }
             };
         }
 
         private List<AIStageGenerationResult> ExtractStagesFromText(string text)
         {
+            _logger.LogInformation("🔍 ExtractStagesFromText started, text length: {Length}", text.Length);
+
             var stages = new List<AIStageGenerationResult>();
             var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             var order = 1;
 
+            _logger.LogInformation("📄 Processing {LineCount} lines of text", lines.Length);
+
             foreach (var line in lines)
             {
                 var trimmedLine = line.Trim();
-                
-                // 查找可能的阶段标识符
-                if (trimmedLine.Contains("阶段") || trimmedLine.Contains("步骤") || 
+
+                // Find possible stage identifiers
+                if (trimmedLine.Contains("阶段") || trimmedLine.Contains("步骤") ||
                     trimmedLine.Contains("Stage") || trimmedLine.Contains("Step") ||
                     trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*") ||
                     Regex.IsMatch(trimmedLine, @"^\d+\."))
@@ -1587,9 +1997,9 @@ namespace FlowFlex.Application.Services.AI
                         stages.Add(new AIStageGenerationResult
                         {
                             Name = stageName,
-                            Description = $"AI生成的{stageName}",
+                            Description = $"AI-generated {stageName}",
                             Order = order++,
-                            AssignedGroup = "执行团队",
+                            AssignedGroup = "Execution Team",
                             EstimatedDuration = 2
                         });
                     }
@@ -1601,18 +2011,18 @@ namespace FlowFlex.Application.Services.AI
 
         private string ExtractStageName(string line)
         {
-            // 移除常见的前缀和标识符
+            // Remove common prefixes and identifiers
             var cleaned = line.Trim()
                 .Replace("-", "")
                 .Replace("*", "")
                 .Replace("•", "");
-            
-            // 移除数字前缀 (如 "1. ", "2. ")
+
+            // Remove numeric prefixes (e.g., "1. ", "2. ")
             cleaned = Regex.Replace(cleaned, @"^\d+\.\s*", "");
-            
-            // 移除括号内容
+
+            // Remove parentheses content
             cleaned = Regex.Replace(cleaned, @"\([^)]*\)", "");
-            
+
             return cleaned.Trim();
         }
 
@@ -1658,7 +2068,7 @@ namespace FlowFlex.Application.Services.AI
 
             if (!string.IsNullOrEmpty(workflow.Name)) score += 0.2;
             if (!string.IsNullOrEmpty(workflow.Description)) score += 0.2;
-            
+
             return Math.Min(score, 1.0);
         }
 
@@ -1681,7 +2091,7 @@ namespace FlowFlex.Application.Services.AI
         private double CalculateWorkflowQualityScore(WorkflowInputDto workflow, List<AIValidationIssue> issues)
         {
             double score = 1.0;
-            
+
             foreach (var issue in issues)
             {
                 switch (issue.Severity)
@@ -1705,66 +2115,66 @@ namespace FlowFlex.Application.Services.AI
 
             try
             {
-                _logger.LogInformation("Modifying workflow {WorkflowId}: {Description}", 
+                _logger.LogInformation("Modifying workflow {WorkflowId}: {Description}",
                     input.WorkflowId, input.Description);
 
-                // 获取现有workflow的详细信息
+                // Get detailed information of existing workflow
                 _logger.LogInformation("Fetching existing workflow with ID: {WorkflowId}", input.WorkflowId);
                 var existingWorkflowInfo = await GetExistingWorkflowAsync(input.WorkflowId);
-                _logger.LogInformation("Retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}", 
+                _logger.LogInformation("Retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}",
                     existingWorkflowInfo.Name, existingWorkflowInfo.Description, existingWorkflowInfo.Stages.Count);
-                
-                // 详细记录现有阶段信息
+
+                // Record detailed information of existing stages
                 for (int i = 0; i < existingWorkflowInfo.Stages.Count; i++)
                 {
                     var stage = existingWorkflowInfo.Stages[i];
-                    _logger.LogInformation("Stage {Index}: Name='{Name}', Description='{Description}', Duration={Duration}, Team='{Team}'", 
+                    _logger.LogInformation("Stage {Index}: Name='{Name}', Description='{Description}', Duration={Duration}, Team='{Team}'",
                         i + 1, stage.Name, stage.Description, stage.EstimatedDuration, stage.AssignedGroup);
                 }
-                
-                // 构建修改提示词
+
+                // Build modification prompt
                 var prompt = await BuildWorkflowModificationPromptAsync(input, existingWorkflowInfo);
-                
-                // 调试日志：输出完整的提示词
+
+                // Debug log: output complete prompt
                 _logger.LogInformation("AI Modification Prompt: {Prompt}", prompt);
-                
-                // 调用AI进行workflow修改
+
+                // Call AI for workflow modification
                 var aiResponse = await CallAIProviderAsync(prompt);
-                
-                // 调试日志：输出AI响应
-                _logger.LogInformation("AI Modification Response: Success={Success}, Content={Content}", 
+
+                // Debug log: output AI response
+                _logger.LogInformation("AI Modification Response: Success={Success}, Content={Content}",
                     aiResponse.Success, aiResponse.Content);
-                
+
                 if (!aiResponse.Success)
                 {
                     result.Success = false;
                     result.Message = aiResponse.ErrorMessage;
                     return GenerateFallbackWorkflow($"Error modifying workflow {input.WorkflowId}");
                 }
-                
-                // 解析AI响应
+
+                // Parse AI response
                 var modificationResult = ParseWorkflowGenerationResponse(aiResponse.Content);
-                
+
                 if (modificationResult.Stages == null || !modificationResult.Stages.Any())
                 {
                     modificationResult = GenerateFallbackWorkflow($"Modified workflow for ID: {input.WorkflowId}");
                 }
 
-                // 强制确保workflow名称正确（防止AI不遵循指令）
-                _logger.LogInformation("Checking workflow name correction: AI returned '{AIName}', expected '{ExpectedName}'", 
+                // Force ensure workflow name is correct (prevent AI from not following instructions)
+                _logger.LogInformation("Checking workflow name correction: AI returned '{AIName}', expected '{ExpectedName}'",
                     modificationResult.GeneratedWorkflow?.Name ?? "NULL", existingWorkflowInfo.Name);
-                
-                if (modificationResult.GeneratedWorkflow != null && 
+
+                if (modificationResult.GeneratedWorkflow != null &&
                     modificationResult.GeneratedWorkflow.Name != existingWorkflowInfo.Name)
                 {
-                    _logger.LogWarning("AI returned incorrect workflow name '{AIName}', forcing to correct name '{CorrectName}'", 
+                    _logger.LogWarning("AI returned incorrect workflow name '{AIName}', forcing to correct name '{CorrectName}'",
                         modificationResult.GeneratedWorkflow.Name, existingWorkflowInfo.Name);
-                    
+
                     var originalName = modificationResult.GeneratedWorkflow.Name;
                     modificationResult.GeneratedWorkflow.Name = existingWorkflowInfo.Name;
                     modificationResult.GeneratedWorkflow.Description = existingWorkflowInfo.Description + " - Modified based on user requirements";
-                    
-                    _logger.LogInformation("Name correction applied: '{OriginalName}' -> '{CorrectedName}'", 
+
+                    _logger.LogInformation("Name correction applied: '{OriginalName}' -> '{CorrectedName}'",
                         originalName, modificationResult.GeneratedWorkflow.Name);
                 }
                 else
@@ -1774,7 +2184,7 @@ namespace FlowFlex.Application.Services.AI
 
                 result = modificationResult;
                 result.Message = "Workflow modified successfully";
-                
+
                 _logger.LogInformation("Workflow modification completed successfully for ID: {WorkflowId}", input.WorkflowId);
             }
             catch (Exception ex)
@@ -1791,11 +2201,12 @@ namespace FlowFlex.Application.Services.AI
         private Task<string> BuildWorkflowModificationPromptAsync(AIWorkflowModificationInput input, MockWorkflowInfo existingWorkflowInfo)
         {
             var systemPrompt = _aiOptions.Prompts.WorkflowSystem;
-            var modificationContext = input.PreserveExisting ? 
-                "请在保持现有工作流核心结构和现有阶段的基础上进行修改。只根据具体要求添加、修改或删除阶段。" :
-                "如果需要，您可以完全重新设计工作流。";
+            var modificationContext = input.PreserveExisting ?
+                "Please modify based on maintaining the core structure and existing stages of the current workflow. Only add, modify, or delete stages according to specific requirements." :
+                "If needed, you can completely redesign the workflow.";
 
             var prompt = $@"CRITICAL: This is a MODIFICATION task, NOT a creation task.
+Output the result according to the language input by the user.
 
 MANDATORY RULES - DO NOT VIOLATE:
 1. Workflow name MUST remain EXACTLY: ""{existingWorkflowInfo.Name}""
@@ -1807,7 +2218,7 @@ EXISTING WORKFLOW TO MODIFY:
 Name: {existingWorkflowInfo.Name}
 Description: {existingWorkflowInfo.Description}
 Current Stages:
-{string.Join("\n", existingWorkflowInfo.Stages.Select((stage, index) => 
+{string.Join("\n", existingWorkflowInfo.Stages.Select((stage, index) =>
     $"{index + 1}. {stage.Name} - {stage.Description} (Duration: {stage.EstimatedDuration} days, Team: {stage.AssignedGroup})"))}
 
 USER MODIFICATION REQUEST: {input.Description}
@@ -1818,7 +2229,7 @@ REQUIRED OUTPUT FORMAT - Use EXACT name ""{existingWorkflowInfo.Name}"":
     ""description"": ""{existingWorkflowInfo.Description} - Modified based on user requirements"",
     ""isActive"": true,
     ""stages"": [
-{string.Join(",\n", existingWorkflowInfo.Stages.Select((stage, index) => 
+{string.Join(",\n", existingWorkflowInfo.Stages.Select((stage, index) =>
     $@"        {{
             ""name"": ""{stage.Name}"",
             ""description"": ""{stage.Description}"",
@@ -1846,12 +2257,12 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             {
                 _logger.LogInformation("Attempting to fetch workflow with ID: {WorkflowId}", workflowId);
                 var workflow = await _workflowService.GetByIdAsync(workflowId);
-                
+
                 if (workflow != null)
                 {
-                    _logger.LogInformation("Successfully retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}", 
+                    _logger.LogInformation("Successfully retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}",
                         workflow.Name, workflow.Description, workflow.Stages?.Count ?? 0);
-                    
+
                     var mockInfo = new MockWorkflowInfo
                     {
                         Name = workflow.Name,
@@ -1864,10 +2275,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                             AssignedGroup = s.DefaultAssignedGroup ?? "Default Team"
                         }).ToList() ?? new List<MockStageInfo>()
                     };
-                    
-                    _logger.LogInformation("Converted to MockWorkflowInfo: Name={Name}, StageCount={StageCount}", 
+
+                    _logger.LogInformation("Converted to MockWorkflowInfo: Name={Name}, StageCount={StageCount}",
                         mockInfo.Name, mockInfo.Stages.Count);
-                    
+
                     return mockInfo;
                 }
                 else
@@ -1880,7 +2291,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 _logger.LogError(ex, "Error fetching workflow {WorkflowId}", workflowId);
             }
 
-            // 如果获取失败，返回默认数据
+            // If retrieval fails, return default data
             _logger.LogWarning("Returning default workflow data for ID {WorkflowId}", workflowId);
             return new MockWorkflowInfo
             {
@@ -1936,7 +2347,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 if (response.Success)
                 {
                     var chatResponse = ParseChatResponse(response.Content, input);
-                    
+
                     _logger.LogInformation("AI chat response generated successfully for session: {SessionId}", input.SessionId);
                     return chatResponse;
                 }
@@ -1959,7 +2370,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         public async IAsyncEnumerable<AIChatStreamResult> StreamChatAsync(AIChatInput input)
         {
             var sessionId = input.SessionId;
-            
+
             yield return new AIChatStreamResult
             {
                 Type = "start",
@@ -1968,102 +2379,104 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 SessionId = sessionId
             };
 
-            var results = new List<AIChatStreamResult>();
-            Exception? streamException = null;
-
-            try
-            {
-                await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
-                {
-                    results.Add(new AIChatStreamResult
-                    {
-                        Type = "delta",
-                        Content = chunk,
-                        IsComplete = false,
-                        SessionId = sessionId
-                    });
-                }
-
-                results.Add(new AIChatStreamResult
-                {
-                    Type = "complete",
-                    Content = "",
-                    IsComplete = true,
-                    SessionId = sessionId
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in streaming AI chat for session: {SessionId}", sessionId);
-                streamException = ex;
-            }
-
-            // Yield all collected results
-            foreach (var result in results)
-            {
-                yield return result;
-            }
-
-            // Handle error case
-            if (streamException != null)
+            // 实时流式传输每个数据块
+            await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
             {
                 yield return new AIChatStreamResult
                 {
-                    Type = "error",
-                    Content = $"Error: {streamException.Message}",
-                    IsComplete = true,
+                    Type = "delta",
+                    Content = chunk,
+                    IsComplete = false,
                     SessionId = sessionId
                 };
             }
+
+            // 发送完成信号
+            yield return new AIChatStreamResult
+            {
+                Type = "complete",
+                Content = "",
+                IsComplete = true,
+                SessionId = sessionId
+            };
         }
 
         private async Task<AIProviderResponse> CallAIProviderForChatAsync(AIChatInput input)
         {
             try
             {
-                // 构建消息数组，直接使用对话历史
+                // Build message array, directly use conversation history
                 var messages = new List<object>();
-                
-                // 添加系统提示
-                messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode) });
-                
-                // 添加对话历史（最近10条消息）
-                foreach (var message in input.Messages.TakeLast(10))
+
+                // Add system prompt
+                messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode, input.Messages.LastOrDefault()?.Content ?? "") });
+
+                // Add conversation history (last 5 messages to reduce token usage)
+                foreach (var message in input.Messages.TakeLast(5))
                 {
                     messages.Add(new { role = message.Role, content = message.Content });
                 }
 
-                // 获取用户配置
+                // Get user configuration
                 AIModelConfig userConfig = null;
-                
-                // 如果指定了模型ID，使用该配置
+
+                // If model ID is specified, use that configuration
                 if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
                 {
-                    // 使用租户隔离获取配置，不需要手动传递用户ID
+                    // Use tenant isolation to get configuration, no need to manually pass user ID
                     userConfig = await _configService.GetConfigByIdAsync(modelId);
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Using specified model config: {Provider} - {ModelName} for session: {SessionId}", 
+                        _logger.LogInformation("Using specified model config: {Provider} - {ModelName} for session: {SessionId}",
                             userConfig.Provider, userConfig.ModelName, input.SessionId);
                     }
                 }
-                
-                // 如果没有指定模型或找不到配置，使用默认配置
-                if (userConfig == null)
+
+                // Try primary model first
+                AIProviderResponse response = null;
+
+                if (userConfig != null)
                 {
+                    // Call corresponding API based on provider
+                    response = userConfig.Provider?.ToLower() switch
+                    {
+                        "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
+                        "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
+                        "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
+                        "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
+                        _ => await CallZhipuAIAsync(messages) // Default to ZhipuAI
+                    };
+
+                    // Check if it's a rate limit error and try fallback
+                    if (!response.Success && (response.ErrorMessage?.Contains("rate_limit_exceeded") == true ||
+                                            response.ErrorMessage?.Contains("Rate limit reached") == true ||
+                                            response.ErrorMessage?.Contains("429") == true))
+                    {
+                        _logger.LogWarning("Primary model hit rate limit, attempting fallback to ZhipuAI for session: {SessionId}", input.SessionId);
+
+                        try
+                        {
+                            var fallbackResponse = await CallZhipuAIAsync(messages);
+                            if (fallbackResponse.Success)
+                            {
+                                _logger.LogInformation("Successfully used ZhipuAI fallback for session: {SessionId}", input.SessionId);
+                                return fallbackResponse;
+                            }
+                        }
+                        catch (Exception fallbackEx)
+                        {
+                            _logger.LogWarning(fallbackEx, "Fallback to ZhipuAI also failed for session: {SessionId}", input.SessionId);
+                        }
+                    }
+                }
+                else
+                {
+                    // No specific model config found, use default ZhipuAI configuration
                     _logger.LogInformation("No specific model config found, using default ZhipuAI configuration");
-                    return await CallZhipuAIAsync(messages);
+                    response = await CallZhipuAIAsync(messages);
                 }
 
-                // 根据提供商调用相应的API
-                return userConfig.Provider?.ToLower() switch
-                {
-                    "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
-                    "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
-                    "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
-                    "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
-                    _ => await CallZhipuAIAsync(messages) // 默认使用ZhipuAI
-                };
+                return response;
             }
             catch (Exception ex)
             {
@@ -2077,7 +2490,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用默认ZhipuAI配置调用API
+        /// Call API using default ZhipuAI configuration
         /// </summary>
         private async Task<AIProviderResponse> CallZhipuAIAsync(List<object> messages)
         {
@@ -2097,9 +2510,16 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             var apiUrl = $"{_aiOptions.ZhipuAI.BaseUrl}/chat/completions";
             _logger.LogInformation("Calling ZhipuAI API: {Url} with {MessageCount} messages", apiUrl, messages.Count);
-            
-            var response = await _httpClient.PostAsync(apiUrl, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Version = new Version(1, 1),
+                Content = content,
+            };
+            var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            var response = await _httpClient.SendAsync(request, cts.Token);
+            var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
             _logger.LogInformation("ZhipuAI API Response: {StatusCode} - {Content}", response.StatusCode, responseContent);
 
@@ -2132,7 +2552,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用ZhipuAI API
+        /// Call ZhipuAI API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallZhipuAIWithConfigAsync(List<object> messages, AIModelConfig config)
         {
@@ -2150,23 +2570,23 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
 
-            // 智能处理API端点，避免路径重复
+            // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
-            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+
+            // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/chat/completions"))
             {
                 apiUrl = baseUrl;
             }
             else
             {
-                // 否则添加端点路径
+                // Otherwise add endpoint path
                 apiUrl = $"{baseUrl}/chat/completions";
             }
-            
+
             _logger.LogInformation("Calling ZhipuAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2197,7 +2617,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用OpenAI API
+        /// Call OpenAI API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallOpenAIWithConfigAsync(List<object> messages, AIModelConfig config)
         {
@@ -2215,7 +2635,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
 
-            // 确保OpenAI API端点包含正确的版本路径，避免重复
+            // Ensure OpenAI API endpoint contains correct version path, avoid duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
             if (baseUrl.EndsWith("/v1/chat/completions") || baseUrl.EndsWith("/chat/completions"))
@@ -2231,7 +2651,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 apiUrl = $"{baseUrl}/v1/chat/completions";
             }
             _logger.LogInformation("Calling OpenAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2262,15 +2682,15 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用Claude API
+        /// Call Claude API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallClaudeWithConfigAsync(List<object> messages, AIModelConfig config)
         {
-            // Claude API格式略有不同
-            var claudeMessages = messages.Skip(1).Select(m => new 
-            { 
-                role = ((dynamic)m).role == "assistant" ? "assistant" : "user", 
-                content = ((dynamic)m).content 
+            // Claude API format is slightly different
+            var claudeMessages = messages.Skip(1).Select(m => new
+            {
+                role = ((dynamic)m).role == "assistant" ? "assistant" : "user",
+                content = ((dynamic)m).content
             }).ToArray();
 
             var requestBody = new
@@ -2288,23 +2708,23 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Add("x-api-key", config.ApiKey);
             _httpClient.DefaultRequestHeaders.Add("anthropic-version", config.ApiVersion ?? "2023-06-01");
 
-            // 智能处理API端点，避免路径重复
+            // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
-            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+
+            // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/messages"))
             {
                 apiUrl = baseUrl;
             }
             else
             {
-                // 否则添加端点路径，Claude使用/v1/messages
+                // Otherwise add endpoint path，Claude使用/v1/messages
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/messages" : $"{baseUrl}/v1/messages";
             }
-            
+
             _logger.LogInformation("Calling Claude API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2334,7 +2754,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         }
 
         /// <summary>
-        /// 使用用户配置调用DeepSeek API
+        /// Call DeepSeek API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallDeepSeekWithConfigAsync(List<object> messages, AIModelConfig config)
         {
@@ -2352,23 +2772,23 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
 
-            // 智能处理API端点，避免路径重复
+            // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
-            // 如果BaseUrl已经包含了完整的端点路径，直接使用
+
+            // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/chat/completions"))
             {
                 apiUrl = baseUrl;
             }
             else
             {
-                // 否则添加端点路径，DeepSeek通常需要v1版本
+                // Otherwise add endpoint path，DeepSeek通常需要v1版本
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
             }
-            
+
             _logger.LogInformation("Calling DeepSeek API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2398,30 +2818,376 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             }
         }
 
+        private async IAsyncEnumerable<string> CallAIProviderForStreamChatAsync(List<object> messages, AIModelConfig userConfig)
+        {
+            // Try to use real streaming API if available
+            if (userConfig != null)
+            {
+                var provider = userConfig.Provider?.ToLower();
+
+                if (provider == "deepseek")
+                {
+                    await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+                else if (provider == "openai")
+                {
+                    await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+                else if (provider == "zhipuai")
+                {
+                    // ZhipuAI doesn't have streaming API, use simulated streaming
+                    var response = await CallZhipuAIWithConfigAsync(messages, userConfig);
+                    if (response.Success && !string.IsNullOrEmpty(response.Content))
+                    {
+                        var words = response.Content.Split(' ');
+                        foreach (var word in words)
+                        {
+                            yield return word + " ";
+                            await Task.Delay(20);
+                        }
+                    }
+                    yield break;
+                }
+                else if (provider == "claude" || provider == "anthropic")
+                {
+                    // Claude doesn't have streaming API, use simulated streaming
+                    var response = await CallClaudeWithConfigAsync(messages, userConfig);
+                    if (response.Success && !string.IsNullOrEmpty(response.Content))
+                    {
+                        var words = response.Content.Split(' ');
+                        foreach (var word in words)
+                        {
+                            yield return word + " ";
+                            await Task.Delay(20);
+                        }
+                    }
+                    yield break;
+                }
+            }
+
+            // Fallback to error message
+            yield return "I apologize, but I'm having trouble processing your request right now. ";
+            yield return "Please try again in a moment.";
+        }
+
         private async IAsyncEnumerable<string> CallAIProviderForStreamChatAsync(AIChatInput input)
         {
-            // For now, simulate streaming by breaking the response into chunks
+            // Build message array, directly use conversation history
+            var messages = new List<object>();
+
+            // Add system prompt
+            messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode, input.Messages.LastOrDefault()?.Content ?? "") });
+
+            // Add conversation history (last 5 messages to reduce token usage)
+            foreach (var message in input.Messages.TakeLast(5))
+            {
+                messages.Add(new { role = message.Role, content = message.Content });
+            }
+
+            // Get user configuration
+            AIModelConfig userConfig = null;
+
+            // If model ID is specified, use that configuration
+            if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
+            {
+                userConfig = await _configService.GetConfigByIdAsync(modelId);
+            }
+
+            // Try to use real streaming API if available
+            if (userConfig != null)
+            {
+                var provider = userConfig.Provider?.ToLower();
+
+                if (provider == "deepseek")
+                {
+                    await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+                else if (provider == "openai")
+                {
+                    await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+            }
+
+            // Fallback to non-streaming response with simulated streaming
             var response = await CallAIProviderForChatAsync(input);
-            
+
             if (response.Success && !string.IsNullOrEmpty(response.Content))
             {
                 var words = response.Content.Split(' ');
                 foreach (var word in words)
                 {
                     yield return word + " ";
-                    await Task.Delay(50); // Simulate streaming delay
+                    await Task.Delay(20); // Reduced delay for better UX
                 }
             }
             else
             {
-                yield return "I apologize, but I'm having trouble processing your message right now.";
+                // Check if it's a rate limit error
+                if (response.ErrorMessage?.Contains("rate_limit_exceeded") == true ||
+                    response.ErrorMessage?.Contains("Rate limit reached") == true)
+                {
+                    yield return "I'm currently experiencing high demand and have reached the API rate limit. ";
+                    yield return "Please try again in a few minutes. ";
+                    yield return "In the meantime, you can continue planning your workflow by describing your requirements, ";
+                    yield return "and I'll help you once the limit resets.";
+                }
+                else
+                {
+                    yield return "I apologize, but I'm having trouble processing your message right now. ";
+                    yield return "Please try again in a moment.";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Call DeepSeek API with real streaming support
+        /// </summary>
+        private async IAsyncEnumerable<string> CallDeepSeekStreamAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,
+                stream = true // Enable streaming
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Intelligently handle API endpoints
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+
+            if (baseUrl.Contains("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else
+            {
+                apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
+            }
+
+            _logger.LogInformation("Calling DeepSeek Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Content = httpContent
+            };
+            request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+            request.Headers.Add("Accept", "text/event-stream");
+
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("DeepSeek Stream API failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
+                yield return "I'm having trouble connecting to the AI service. Please try again.";
+                yield break;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+
+            string line;
+            var lineTimeout = TimeSpan.FromSeconds(5); // 每行最多等待5秒
+
+            while (true)
+            {
+                // 将try-catch移出yield return
+                string readLine = null;
+                bool shouldBreak = false;
+                bool shouldContinue = false;
+                string contentToYield = null;
+
+                var readStartTime = DateTime.UtcNow;
+                try
+                {
+                    // 为每行读取设置超时
+                    using var cts = new CancellationTokenSource(lineTimeout);
+                    _logger.LogDebug("🔍 DeepSeek: Starting to read line with {Timeout}s timeout", lineTimeout.TotalSeconds);
+                    readLine = await reader.ReadLineAsync().WaitAsync(cts.Token);
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    const double slowReadInfoThresholdMs = 50d;
+                    if (readDuration >= slowReadInfoThresholdMs)
+                        _logger.LogInformation("✅ DeepSeek: Line read completed in {Duration}ms", readDuration);
+                    else
+                        _logger.LogDebug("✅ DeepSeek: Line read completed in {Duration}ms", readDuration);
+                }
+                catch (OperationCanceledException)
+                {
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    _logger.LogWarning("⏰ DeepSeek stream line read timeout after {Duration}ms (expected {Timeout}s), breaking stream", readDuration, lineTimeout.TotalSeconds);
+                    shouldBreak = true;
+                }
+                catch (Exception ex)
+                {
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    _logger.LogWarning(ex, "❌ Error reading DeepSeek stream line after {Duration}ms, breaking stream", readDuration);
+                    shouldBreak = true;
+                }
+
+                if (shouldBreak)
+                    break;
+
+                if (readLine == null)
+                    break;
+
+                if (readLine.StartsWith("data: "))
+                {
+                    var data = readLine.Substring(6).Trim();
+
+                    if (data == "[DONE]")
+                        break;
+
+                    if (string.IsNullOrEmpty(data))
+                        continue;
+
+                    try
+                    {
+                        var jsonData = JsonSerializer.Deserialize<JsonElement>(data);
+
+                        if (jsonData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                        {
+                            var choice = choices[0];
+                            if (choice.TryGetProperty("delta", out var delta) &&
+                                delta.TryGetProperty("content", out var contentProp))
+                            {
+                                var content = contentProp.GetString();
+                                if (!string.IsNullOrEmpty(content))
+                                {
+                                    contentToYield = content;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error parsing DeepSeek stream JSON, skipping line");
+                        continue;
+                    }
+                }
+
+                // yield return在try-catch外部
+                if (!string.IsNullOrEmpty(contentToYield))
+                {
+                    yield return contentToYield;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Call OpenAI API with real streaming support
+        /// </summary>
+        private async IAsyncEnumerable<string> CallOpenAIStreamAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,
+                stream = true // Enable streaming
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+
+            if (baseUrl.Contains("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else
+            {
+                apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
+            }
+
+            _logger.LogInformation("Calling OpenAI Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Content = httpContent
+            };
+            request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+            request.Headers.Add("Accept", "text/event-stream");
+
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("OpenAI Stream API failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
+
+                // Check for rate limit and throw exception to trigger fallback
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    throw new HttpRequestException($"Rate limit exceeded: {errorContent}");
+                }
+
+                yield return "I'm having trouble connecting to the AI service. Please try again.";
+                yield break;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+
+            string line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                if (line.StartsWith("data: "))
+                {
+                    var data = line.Substring(6).Trim();
+
+                    if (data == "[DONE]")
+                        break;
+
+                    if (string.IsNullOrEmpty(data))
+                        continue;
+
+                    var jsonData = JsonSerializer.Deserialize<JsonElement>(data);
+
+                    if (jsonData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                    {
+                        var choice = choices[0];
+                        if (choice.TryGetProperty("delta", out var delta) &&
+                            delta.TryGetProperty("content", out var contentProp))
+                        {
+                            var content = contentProp.GetString();
+                            if (!string.IsNullOrEmpty(content))
+                            {
+                                yield return content;
+                            }
+                        }
+                    }
+                }
             }
         }
 
         private string BuildChatPrompt(AIChatInput input)
         {
             var prompt = new StringBuilder();
-            
+
             if (input.Mode == "workflow_planning")
             {
                 prompt.AppendLine("You are an AI Workflow Assistant helping users design business workflows.");
@@ -2447,11 +3213,11 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             return prompt.ToString();
         }
 
-        private string GetChatSystemPrompt(string mode)
+        private string GetChatSystemPrompt(string mode, string input)
         {
             return mode switch
             {
-                "workflow_planning" => @"You are an expert AI Workflow Assistant specialized in business process design. Your role is to:
+                "workflow_planning" => @"You are an expert AI Workflow Assistant specialized in business process design. Output the result according to the language input by the user. Your role is to:
 
 1. **Understand User Needs**: Engage in natural conversation to deeply understand the user's workflow requirements
 2. **Ask Smart Questions**: Ask relevant, specific questions to gather essential information about:
@@ -2475,7 +3241,9 @@ Guidelines:
 
 Remember: Your goal is to collect enough detailed information to create a comprehensive, practical workflow that meets the user's specific needs.",
 
-                _ => @"You are a helpful, knowledgeable AI assistant. Provide clear, accurate, and helpful responses to user questions. Be conversational, friendly, and thorough in your explanations."
+                "generate_code" => GetGenerateCodePrompt(input),
+
+                _ => @"You are a helpful, knowledgeable AI assistant. Output the result according to the language input by the user. Provide clear, accurate, and helpful responses to user questions. Be conversational, friendly, and thorough in your explanations."
             };
         }
 
@@ -2483,7 +3251,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
         {
             // Analyze the response to determine if conversation is complete
             var isComplete = DetermineChatCompletion(content, input);
-            
+
             return new AIChatResponse
             {
                 Success = true,
@@ -2504,8 +3272,8 @@ Remember: Your goal is to collect enough detailed information to create a compre
             // Simple heuristics to determine if conversation is complete
             var completionKeywords = new[] { "enough information", "ready to create", "comprehensive workflow", "proceed with generation" };
             var lowerContent = content.ToLower();
-            
-            return completionKeywords.Any(keyword => lowerContent.Contains(keyword)) || 
+
+            return completionKeywords.Any(keyword => lowerContent.Contains(keyword)) ||
                    input.Messages.Count(m => m.Role == "user") >= 4;
         }
 
@@ -2513,12 +3281,12 @@ Remember: Your goal is to collect enough detailed information to create a compre
         {
             // Extract suggestions from AI response (simple implementation)
             var suggestions = new List<string>();
-            
+
             if (content.Contains("consider", StringComparison.OrdinalIgnoreCase))
             {
                 suggestions.Add("Consider the suggestions mentioned in the response");
             }
-            
+
             return suggestions;
         }
 
@@ -2527,7 +3295,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
             // Extract questions from AI response
             var questions = new List<string>();
             var sentences = content.Split('.', '?', '!');
-            
+
             foreach (var sentence in sentences)
             {
                 if (sentence.Trim().Contains('?'))
@@ -2535,14 +3303,14 @@ Remember: Your goal is to collect enough detailed information to create a compre
                     questions.Add(sentence.Trim() + "?");
                 }
             }
-            
+
             return questions.Take(2).ToList(); // Limit to 2 questions
         }
 
         private AIChatResponse GenerateFallbackChatResponse(AIChatInput input)
         {
             var userMessageCount = input.Messages.Count(m => m.Role == "user");
-            
+
             string fallbackContent = userMessageCount switch
             {
                 1 => "I'm currently experiencing some technical issues with the AI service. However, I'd be happy to help you with your workflow! Could you tell me more about the teams or people who will be involved in this process?",
@@ -2585,16 +3353,16 @@ Remember: Your goal is to collect enough detailed information to create a compre
         {
             var isModelNotFoundError = errorMessage.Contains("model_not_found") || errorMessage.Contains("does not exist");
             var isAuthError = errorMessage.Contains("Unauthorized") || errorMessage.Contains("authentication");
-            
+
             string errorContent;
             List<string> errorSuggestions;
-            
+
             if (isModelNotFoundError)
             {
                 errorContent = "I'm having trouble accessing the specified AI model. This might be because the model doesn't exist or your API key doesn't have access to it. I'll try to help you with an alternative approach.";
-                errorSuggestions = new List<string> 
-                { 
-                    "Check your AI model configuration", 
+                errorSuggestions = new List<string>
+                {
+                    "Check your AI model configuration",
                     "Verify your API key permissions",
                     "Try using a different model (e.g., gpt-3.5-turbo)",
                     "Continue with manual workflow creation"
@@ -2603,9 +3371,9 @@ Remember: Your goal is to collect enough detailed information to create a compre
             else if (isAuthError)
             {
                 errorContent = "There seems to be an authentication issue with the AI service. Please check your API configuration.";
-                errorSuggestions = new List<string> 
-                { 
-                    "Verify your API key is correct", 
+                errorSuggestions = new List<string>
+                {
+                    "Verify your API key is correct",
                     "Check if your API key has expired",
                     "Ensure your account has sufficient credits"
                 };
@@ -2613,9 +3381,9 @@ Remember: Your goal is to collect enough detailed information to create a compre
             else
             {
                 errorContent = "I'm experiencing technical difficulties right now. Let me try to assist you manually while we resolve this issue.";
-                errorSuggestions = new List<string> 
-                { 
-                    "Try again in a few moments", 
+                errorSuggestions = new List<string>
+                {
+                    "Try again in a few moments",
                     "Continue describing your workflow manually",
                     "Check system status and try again"
                 };
@@ -2630,14 +3398,606 @@ Remember: Your goal is to collect enough detailed information to create a compre
                     Content = errorContent,
                     IsComplete = false,
                     Suggestions = errorSuggestions,
-                    NextQuestions = new List<string> 
-                    { 
-                        "Would you like to continue manually?", 
-                        "Should I help you configure a different AI model?" 
+                    NextQuestions = new List<string>
+                    {
+                        "Would you like to continue manually?",
+                        "Should I help you configure a different AI model?"
                     }
                 },
                 SessionId = input.SessionId
             };
+        }
+
+        private string GetGenerateCodePrompt(string instruction, string codeLanguage = "python")
+        {
+            var promptBuilder = new StringBuilder();
+
+            promptBuilder.AppendLine("You are an expert programmer. Generate code based on the following instructions:");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Instructions: {{INSTRUCTION}}");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("Write the code in {{CODE_LANGUAGE}}.");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Please ensure that you meet the following requirements:");
+            promptBuilder.AppendLine("1. Define a function named 'main'.");
+            promptBuilder.AppendLine("2. The 'main' function must return a dictionary (dict).");
+            promptBuilder.AppendLine("3. You may modify the arguments of the 'main' function, but include appropriate type hints.");
+            promptBuilder.AppendLine("4. The returned dictionary should contain at least one key-value pair.");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("5. You may ONLY use the following libraries in your code:");
+            var allowedLibraries = new[]
+            {
+                "json", "datetime", "math", "random", "re", "string", "sys", "time", "traceback",
+                "uuid", "os", "base64", "hashlib", "hmac", "binascii", "collections", "functools", "operator", "itertools"
+            };
+
+            foreach (var library in allowedLibraries)
+            {
+                promptBuilder.AppendLine($"- {library}");
+            }
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Example:");
+            promptBuilder.AppendLine("def main(arg1: str, arg2: int) -> dict:");
+            promptBuilder.AppendLine("    return {");
+            promptBuilder.AppendLine("        \"result\": arg1 * arg2,");
+            promptBuilder.AppendLine("    }");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("IMPORTANT:");
+            promptBuilder.AppendLine("- Provide ONLY the code without any additional explanations, comments, or markdown formatting.");
+            promptBuilder.AppendLine("- DO NOT use markdown code blocks (``` or ``` python). Return the raw code directly.");
+            promptBuilder.AppendLine("- The code should start immediately after this instruction, without any preceding newlines or spaces.");
+            promptBuilder.AppendLine("- The code should be complete, functional, and follow best practices for {{CODE_LANGUAGE}}.");
+            promptBuilder.AppendLine("- Always use the format return {'result': ...} for the output.");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Generated Code:");
+
+            return ProcessTemplateVariables(promptBuilder.ToString(), instruction, codeLanguage);
+        }
+
+        private string ProcessTemplateVariables(string template, string instruction, string codeLanguage)
+        {
+            if (string.IsNullOrEmpty(template))
+                return template;
+
+            var result = template;
+
+            var variableMappings = new Dictionary<string, string>
+            {
+                { "{{INSTRUCTION}}", instruction },
+                { "{{CODE_LANGUAGE}}", codeLanguage }
+            };
+
+            foreach (var mapping in variableMappings)
+            {
+                result = result.Replace(mapping.Key, mapping.Value);
+            }
+
+            return result;
+        }
+        private List<AIChecklistGenerationResult> GenerateChecklistsForStages(List<AIStageGenerationResult> stages)
+        {
+            var checklists = new List<AIChecklistGenerationResult>();
+
+            foreach (var stage in stages)
+            {
+                var checklist = new AIChecklistGenerationResult
+                {
+                    Success = true,
+                    Message = $"Checklist generated for {stage.Name}",
+                    GeneratedChecklist = new ChecklistInputDto
+                    {
+                        Name = $"{stage.Name} Checklist",
+                        Description = $"Essential tasks to complete during the {stage.Name} stage",
+                        Team = stage.AssignedGroup,
+                        IsActive = true
+                    },
+                    Tasks = GenerateTasksForStage(stage),
+                    ConfidenceScore = 0.85
+                };
+
+                checklists.Add(checklist);
+            }
+
+            return checklists;
+        }
+
+        private List<AIQuestionnaireGenerationResult> GenerateQuestionnairesForStages(List<AIStageGenerationResult> stages)
+        {
+            var questionnaires = new List<AIQuestionnaireGenerationResult>();
+
+            foreach (var stage in stages)
+            {
+                var questionnaire = new AIQuestionnaireGenerationResult
+                {
+                    Success = true,
+                    Message = $"Questionnaire generated for {stage.Name}",
+                    GeneratedQuestionnaire = new QuestionnaireInputDto
+                    {
+                        Name = $"{stage.Name} Questionnaire",
+                        Description = $"Key questions to gather information for the {stage.Name} stage",
+                        IsActive = true
+                    },
+                    Questions = GenerateQuestionsForStage(stage),
+                    ConfidenceScore = 0.85
+                };
+
+                questionnaires.Add(questionnaire);
+            }
+
+            return questionnaires;
+        }
+
+        private List<AITaskGenerationResult> GenerateTasksForStage(AIStageGenerationResult stage)
+        {
+            var stageName = stage.Name.ToLower();
+            var stageDesc = stage.Description.ToLower();
+
+            // Task templates based on stage characteristics
+            var taskTemplates = new Dictionary<string, List<AITaskGenerationResult>>
+            {
+                ["initial"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "req-gather", Title = "Gather Requirements", Description = "Collect and document all necessary requirements", IsRequired = true, EstimatedMinutes = 120, Category = "Planning" },
+                    new AITaskGenerationResult { Id = "stakeholder-id", Title = "Identify Stakeholders", Description = "List all key stakeholders and their roles", IsRequired = true, EstimatedMinutes = 60, Category = "Planning" },
+                    new AITaskGenerationResult { Id = "timeline-est", Title = "Estimate Timeline", Description = "Create initial timeline estimates", IsRequired = false, EstimatedMinutes = 90, Category = "Planning" },
+                    new AITaskGenerationResult { Id = "resource-check", Title = "Check Resource Availability", Description = "Verify required resources are available", IsRequired = true, EstimatedMinutes = 45, Category = "Planning" }
+                },
+                ["planning"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "plan-create", Title = "Create Detailed Plan", Description = "Develop comprehensive project plan", IsRequired = true, EstimatedMinutes = 180, Category = "Planning" },
+                    new AITaskGenerationResult { Id = "risk-assess", Title = "Risk Assessment", Description = "Identify and assess potential risks", IsRequired = true, EstimatedMinutes = 120, Category = "Risk Management" },
+                    new AITaskGenerationResult { Id = "budget-approve", Title = "Budget Approval", Description = "Get budget approval from management", IsRequired = true, EstimatedMinutes = 60, Category = "Finance" },
+                    new AITaskGenerationResult { Id = "team-assign", Title = "Assign Team Members", Description = "Assign roles and responsibilities to team members", IsRequired = true, EstimatedMinutes = 90, Category = "Team Management" }
+                },
+                ["design"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "wireframe", Title = "Create Wireframes", Description = "Design initial wireframes and mockups", IsRequired = true, EstimatedMinutes = 240, Category = "Design" },
+                    new AITaskGenerationResult { Id = "prototype", Title = "Build Prototype", Description = "Develop working prototype", IsRequired = false, EstimatedMinutes = 360, Category = "Development" },
+                    new AITaskGenerationResult { Id = "design-review", Title = "Design Review", Description = "Conduct design review with stakeholders", IsRequired = true, EstimatedMinutes = 90, Category = "Review" },
+                    new AITaskGenerationResult { Id = "spec-finalize", Title = "Finalize Specifications", Description = "Complete technical specifications", IsRequired = true, EstimatedMinutes = 150, Category = "Documentation" }
+                },
+                ["implementation"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "env-setup", Title = "Setup Environment", Description = "Configure development/production environment", IsRequired = true, EstimatedMinutes = 120, Category = "Infrastructure" },
+                    new AITaskGenerationResult { Id = "code-develop", Title = "Develop Code", Description = "Write and implement code according to specifications", IsRequired = true, EstimatedMinutes = 480, Category = "Development" },
+                    new AITaskGenerationResult { Id = "unit-test", Title = "Unit Testing", Description = "Perform unit testing on developed components", IsRequired = true, EstimatedMinutes = 180, Category = "Testing" },
+                    new AITaskGenerationResult { Id = "code-review", Title = "Code Review", Description = "Conduct peer code review", IsRequired = true, EstimatedMinutes = 120, Category = "Quality Assurance" }
+                },
+                ["testing"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "test-plan", Title = "Create Test Plan", Description = "Develop comprehensive test plan", IsRequired = true, EstimatedMinutes = 120, Category = "Planning" },
+                    new AITaskGenerationResult { Id = "test-cases", Title = "Write Test Cases", Description = "Create detailed test cases", IsRequired = true, EstimatedMinutes = 180, Category = "Testing" },
+                    new AITaskGenerationResult { Id = "execute-tests", Title = "Execute Tests", Description = "Run all test cases and document results", IsRequired = true, EstimatedMinutes = 240, Category = "Testing" },
+                    new AITaskGenerationResult { Id = "bug-fix", Title = "Fix Bugs", Description = "Address and fix identified issues", IsRequired = true, EstimatedMinutes = 300, Category = "Development" }
+                },
+                ["review"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "quality-check", Title = "Quality Assurance Check", Description = "Perform quality assurance review", IsRequired = true, EstimatedMinutes = 90, Category = "Quality Assurance" },
+                    new AITaskGenerationResult { Id = "stakeholder-review", Title = "Stakeholder Review", Description = "Present to stakeholders for review", IsRequired = true, EstimatedMinutes = 120, Category = "Review" },
+                    new AITaskGenerationResult { Id = "feedback-collect", Title = "Collect Feedback", Description = "Gather and document feedback", IsRequired = true, EstimatedMinutes = 60, Category = "Communication" },
+                    new AITaskGenerationResult { Id = "approval-get", Title = "Get Final Approval", Description = "Obtain final approval to proceed", IsRequired = true, EstimatedMinutes = 45, Category = "Approval" }
+                },
+                ["deployment"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "deploy-prep", Title = "Prepare Deployment", Description = "Prepare all deployment materials", IsRequired = true, EstimatedMinutes = 90, Category = "Deployment" },
+                    new AITaskGenerationResult { Id = "backup-create", Title = "Create Backup", Description = "Create system backup before deployment", IsRequired = true, EstimatedMinutes = 30, Category = "Infrastructure" },
+                    new AITaskGenerationResult { Id = "deploy-execute", Title = "Execute Deployment", Description = "Deploy to production environment", IsRequired = true, EstimatedMinutes = 60, Category = "Deployment" },
+                    new AITaskGenerationResult { Id = "smoke-test", Title = "Smoke Testing", Description = "Perform post-deployment smoke tests", IsRequired = true, EstimatedMinutes = 45, Category = "Testing" }
+                },
+                ["training"] = new List<AITaskGenerationResult>
+                {
+                    new AITaskGenerationResult { Id = "material-prep", Title = "Prepare Training Materials", Description = "Create training documentation and materials", IsRequired = true, EstimatedMinutes = 180, Category = "Training" },
+                    new AITaskGenerationResult { Id = "schedule-training", Title = "Schedule Training Sessions", Description = "Organize training sessions with users", IsRequired = true, EstimatedMinutes = 60, Category = "Training" },
+                    new AITaskGenerationResult { Id = "conduct-training", Title = "Conduct Training", Description = "Deliver training to end users", IsRequired = true, EstimatedMinutes = 240, Category = "Training" },
+                    new AITaskGenerationResult { Id = "support-provide", Title = "Provide Support", Description = "Offer ongoing support during transition", IsRequired = true, EstimatedMinutes = 120, Category = "Support" }
+                }
+            };
+
+            // Default tasks
+            var defaultTasks = new List<AITaskGenerationResult>
+            {
+                new AITaskGenerationResult { Id = "task-plan", Title = "Plan Tasks", Description = $"Plan all tasks for {stage.Name}", IsRequired = true, EstimatedMinutes = 60, Category = "Planning" },
+                new AITaskGenerationResult { Id = "resource-allocate", Title = "Allocate Resources", Description = "Ensure necessary resources are allocated", IsRequired = true, EstimatedMinutes = 45, Category = "Resource Management" },
+                new AITaskGenerationResult { Id = "progress-monitor", Title = "Monitor Progress", Description = "Track and monitor stage progress", IsRequired = true, EstimatedMinutes = 30, Category = "Management" },
+                new AITaskGenerationResult { Id = "deliverable-complete", Title = "Complete Deliverables", Description = "Finish all stage deliverables", IsRequired = true, EstimatedMinutes = 120, Category = "Execution" }
+            };
+
+            // Determine which template to use
+            List<AITaskGenerationResult> selectedTasks = defaultTasks;
+
+            if (stageName.Contains("initial") || stageName.Contains("assessment") || stageName.Contains("analysis"))
+                selectedTasks = taskTemplates["initial"];
+            else if (stageName.Contains("plan") || stageName.Contains("design") || stageDesc.Contains("plan"))
+                selectedTasks = taskTemplates["planning"];
+            else if (stageName.Contains("design") || stageName.Contains("prototype") || stageDesc.Contains("design"))
+                selectedTasks = taskTemplates["design"];
+            else if (stageName.Contains("implement") || stageName.Contains("develop") || stageName.Contains("build") || stageDesc.Contains("develop"))
+                selectedTasks = taskTemplates["implementation"];
+            else if (stageName.Contains("test") || stageName.Contains("qa") || stageDesc.Contains("test"))
+                selectedTasks = taskTemplates["testing"];
+            else if (stageName.Contains("review") || stageName.Contains("approval") || stageDesc.Contains("review"))
+                selectedTasks = taskTemplates["review"];
+            else if (stageName.Contains("deploy") || stageName.Contains("launch") || stageName.Contains("release"))
+                selectedTasks = taskTemplates["deployment"];
+            else if (stageName.Contains("training") || stageName.Contains("onboard") || stageDesc.Contains("training"))
+                selectedTasks = taskTemplates["training"];
+
+            // Add unique IDs with stage prefix
+            return selectedTasks.Select((task, index) => new AITaskGenerationResult
+            {
+                Id = $"{stage.Name.ToLower().Replace(" ", "-")}-{task.Id}-{index}",
+                Title = task.Title,
+                Description = task.Description,
+                IsRequired = task.IsRequired,
+                Completed = task.Completed,
+                EstimatedMinutes = task.EstimatedMinutes,
+                Category = task.Category,
+                Dependencies = task.Dependencies
+            }).ToList();
+        }
+
+        private List<AIQuestionGenerationResult> GenerateQuestionsForStage(AIStageGenerationResult stage)
+        {
+            var stageName = stage.Name.ToLower();
+            var stageDesc = stage.Description.ToLower();
+
+            // Question templates based on stage characteristics
+            var questionTemplates = new Dictionary<string, List<AIQuestionGenerationResult>>
+            {
+                ["initial"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "project-scope", Question = "What is the scope of this project?", Type = "text", IsRequired = true, Category = "Scope" },
+                    new AIQuestionGenerationResult { Id = "success-criteria", Question = "What are the success criteria?", Type = "text", IsRequired = true, Category = "Goals" },
+                    new AIQuestionGenerationResult { Id = "budget-range", Question = "What is the budget range?", Type = "select", Options = new List<string> { "< $10K", "$10K - $50K", "$50K - $100K", "> $100K" }, IsRequired = true, Category = "Budget" },
+                    new AIQuestionGenerationResult { Id = "timeline-preference", Question = "What is your preferred timeline?", Type = "select", Options = new List<string> { "1-2 weeks", "1 month", "2-3 months", "6+ months" }, IsRequired = true, Category = "Timeline" }
+                },
+                ["planning"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "team-size", Question = "How many team members are needed?", Type = "number", IsRequired = true, Category = "Resources" },
+                    new AIQuestionGenerationResult { Id = "key-milestones", Question = "What are the key milestones?", Type = "text", IsRequired = true, Category = "Planning" },
+                    new AIQuestionGenerationResult { Id = "risk-tolerance", Question = "What is your risk tolerance level?", Type = "select", Options = new List<string> { "Low", "Medium", "High" }, IsRequired = true, Category = "Risk" },
+                    new AIQuestionGenerationResult { Id = "communication-frequency", Question = "How often should progress be reported?", Type = "select", Options = new List<string> { "Daily", "Weekly", "Bi-weekly", "Monthly" }, IsRequired = false, Category = "Communication" }
+                },
+                ["design"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "design-style", Question = "What design style do you prefer?", Type = "select", Options = new List<string> { "Modern", "Classic", "Minimalist", "Bold" }, IsRequired = true, Category = "Design" },
+                    new AIQuestionGenerationResult { Id = "target-audience", Question = "Who is the target audience?", Type = "text", IsRequired = true, Category = "Audience" },
+                    new AIQuestionGenerationResult { Id = "brand-guidelines", Question = "Are there existing brand guidelines?", Type = "boolean", IsRequired = true, Category = "Branding" },
+                    new AIQuestionGenerationResult { Id = "accessibility-requirements", Question = "Are there accessibility requirements?", Type = "multiselect", Options = new List<string> { "WCAG 2.1 AA", "Screen Reader Support", "Keyboard Navigation", "Color Contrast" }, IsRequired = false, Category = "Accessibility" }
+                },
+                ["implementation"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "tech-stack", Question = "What technology stack should be used?", Type = "multiselect", Options = new List<string> { "React", "Vue", "Angular", "Node.js", "Python", "Java", ".NET" }, IsRequired = true, Category = "Technology" },
+                    new AIQuestionGenerationResult { Id = "performance-requirements", Question = "What are the performance requirements?", Type = "text", IsRequired = true, Category = "Performance" },
+                    new AIQuestionGenerationResult { Id = "security-level", Question = "What security level is required?", Type = "select", Options = new List<string> { "Basic", "Standard", "High", "Enterprise" }, IsRequired = true, Category = "Security" },
+                    new AIQuestionGenerationResult { Id = "integration-needs", Question = "What systems need integration?", Type = "text", IsRequired = false, Category = "Integration" }
+                },
+                ["testing"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "test-types", Question = "What types of testing are required?", Type = "multiselect", Options = new List<string> { "Unit Testing", "Integration Testing", "Performance Testing", "Security Testing", "User Acceptance Testing" }, IsRequired = true, Category = "Testing" },
+                    new AIQuestionGenerationResult { Id = "test-environment", Question = "What test environment is available?", Type = "select", Options = new List<string> { "Development", "Staging", "Production-like", "Cloud-based" }, IsRequired = true, Category = "Environment" },
+                    new AIQuestionGenerationResult { Id = "acceptance-criteria", Question = "What are the acceptance criteria?", Type = "text", IsRequired = true, Category = "Criteria" },
+                    new AIQuestionGenerationResult { Id = "test-data", Question = "Is test data available?", Type = "boolean", IsRequired = true, Category = "Data" }
+                },
+                ["review"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "review-criteria", Question = "What are the review criteria?", Type = "text", IsRequired = true, Category = "Criteria" },
+                    new AIQuestionGenerationResult { Id = "reviewers", Question = "Who are the key reviewers?", Type = "text", IsRequired = true, Category = "Stakeholders" },
+                    new AIQuestionGenerationResult { Id = "approval-process", Question = "What is the approval process?", Type = "text", IsRequired = true, Category = "Process" },
+                    new AIQuestionGenerationResult { Id = "feedback-timeline", Question = "What is the feedback timeline?", Type = "select", Options = new List<string> { "24 hours", "2-3 days", "1 week", "2 weeks" }, IsRequired = true, Category = "Timeline" }
+                },
+                ["deployment"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "deployment-strategy", Question = "What deployment strategy should be used?", Type = "select", Options = new List<string> { "Blue-Green", "Rolling", "Canary", "Big Bang" }, IsRequired = true, Category = "Strategy" },
+                    new AIQuestionGenerationResult { Id = "rollback-plan", Question = "Is there a rollback plan?", Type = "boolean", IsRequired = true, Category = "Risk Management" },
+                    new AIQuestionGenerationResult { Id = "monitoring-setup", Question = "What monitoring is needed?", Type = "multiselect", Options = new List<string> { "Performance Monitoring", "Error Tracking", "User Analytics", "Security Monitoring" }, IsRequired = true, Category = "Monitoring" },
+                    new AIQuestionGenerationResult { Id = "maintenance-window", Question = "When is the maintenance window?", Type = "text", IsRequired = false, Category = "Schedule" }
+                },
+                ["training"] = new List<AIQuestionGenerationResult>
+                {
+                    new AIQuestionGenerationResult { Id = "training-format", Question = "What training format is preferred?", Type = "select", Options = new List<string> { "In-person", "Virtual", "Self-paced", "Hybrid" }, IsRequired = true, Category = "Format" },
+                    new AIQuestionGenerationResult { Id = "audience-size", Question = "How many people need training?", Type = "number", IsRequired = true, Category = "Audience" },
+                    new AIQuestionGenerationResult { Id = "skill-level", Question = "What is the current skill level?", Type = "select", Options = new List<string> { "Beginner", "Intermediate", "Advanced", "Mixed" }, IsRequired = true, Category = "Skills" },
+                    new AIQuestionGenerationResult { Id = "training-materials", Question = "What training materials are needed?", Type = "multiselect", Options = new List<string> { "User Manual", "Video Tutorials", "Interactive Demos", "Quick Reference" }, IsRequired = true, Category = "Materials" }
+                }
+            };
+
+            // Default questions
+            var defaultQuestions = new List<AIQuestionGenerationResult>
+            {
+                new AIQuestionGenerationResult { Id = "stage-objectives", Question = $"What are the main objectives for {stage.Name}?", Type = "text", IsRequired = true, Category = "Objectives" },
+                new AIQuestionGenerationResult { Id = "success-metrics", Question = "How will success be measured?", Type = "text", IsRequired = true, Category = "Metrics" },
+                new AIQuestionGenerationResult { Id = "dependencies", Question = "Are there any dependencies?", Type = "text", IsRequired = false, Category = "Dependencies" },
+                new AIQuestionGenerationResult { Id = "special-requirements", Question = "Are there any special requirements?", Type = "text", IsRequired = false, Category = "Requirements" }
+            };
+
+            // Determine which template to use
+            List<AIQuestionGenerationResult> selectedQuestions = defaultQuestions;
+
+            if (stageName.Contains("initial") || stageName.Contains("assessment") || stageName.Contains("analysis"))
+                selectedQuestions = questionTemplates["initial"];
+            else if (stageName.Contains("plan") || stageDesc.Contains("plan"))
+                selectedQuestions = questionTemplates["planning"];
+            else if (stageName.Contains("design") || stageDesc.Contains("design"))
+                selectedQuestions = questionTemplates["design"];
+            else if (stageName.Contains("implement") || stageName.Contains("develop") || stageName.Contains("build"))
+                selectedQuestions = questionTemplates["implementation"];
+            else if (stageName.Contains("test") || stageName.Contains("qa"))
+                selectedQuestions = questionTemplates["testing"];
+            else if (stageName.Contains("review") || stageName.Contains("approval"))
+                selectedQuestions = questionTemplates["review"];
+            else if (stageName.Contains("deploy") || stageName.Contains("launch"))
+                selectedQuestions = questionTemplates["deployment"];
+            else if (stageName.Contains("training") || stageName.Contains("onboard"))
+                selectedQuestions = questionTemplates["training"];
+
+            // Add unique IDs with stage prefix
+            return selectedQuestions.Select((question, index) => new AIQuestionGenerationResult
+            {
+                Id = $"{stage.Name.ToLower().Replace(" ", "-")}-{question.Id}-{index}",
+                Question = question.Question,
+                Type = question.Type,
+                Options = question.Options,
+                IsRequired = question.IsRequired,
+                Category = question.Category,
+                HelpText = question.HelpText,
+                ValidationRule = question.ValidationRule,
+                DefaultValue = question.DefaultValue
+            }).ToList();
+        }
+
+        /// <summary>
+        /// Create actual checklist and questionnaire records and associate them with stages
+        /// </summary>
+        public async Task<bool> CreateStageComponentsAsync(long workflowId, List<AIStageGenerationResult> stages, List<AIChecklistGenerationResult> checklists, List<AIQuestionnaireGenerationResult> questionnaires)
+        {
+            try
+            {
+                _logger.LogInformation("🔍 Creating stage components for workflow {WorkflowId}...", workflowId);
+
+                // Get the created workflow with stages from the database
+                var workflow = await _workflowService.GetByIdAsync(workflowId);
+                if (workflow == null || workflow.Stages == null || !workflow.Stages.Any())
+                {
+                    _logger.LogWarning("No stages found for workflow {WorkflowId}", workflowId);
+                    return false;
+                }
+
+                var createdStages = workflow.Stages;
+
+                // Create checklists and associate with stages
+                for (int i = 0; i < Math.Min(checklists.Count, createdStages.Count); i++)
+                {
+                    var checklist = checklists[i];
+                    var stage = createdStages[i];
+
+                    // Ensure GeneratedChecklist is not null
+                    if (checklist.GeneratedChecklist == null)
+                    {
+                        _logger.LogWarning("Skipping checklist {Index} - GeneratedChecklist is null", i);
+                        continue;
+                    }
+
+                    // Ensure unique checklist name
+                    checklist.GeneratedChecklist.Name = await EnsureUniqueChecklistNameAsync(checklist.GeneratedChecklist.Name, checklist.GeneratedChecklist.Team);
+
+                    // Set up assignments for the checklist
+                    checklist.GeneratedChecklist.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>
+                    {
+                        new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                        {
+                            WorkflowId = workflowId,
+                            StageId = stage.Id
+                        }
+                    };
+
+                    // Create the checklist
+                    var checklistId = await _checklistService.CreateAsync(checklist.GeneratedChecklist);
+                    _logger.LogInformation("✅ Created checklist {ChecklistId} for stage {StageId}", checklistId, stage.Id);
+
+                    // Create tasks for the checklist
+                    if (checklist.Tasks != null && checklist.Tasks.Any())
+                    {
+                        foreach (var task in checklist.Tasks)
+                        {
+                            try
+                            {
+                                var taskInputDto = new ChecklistTaskInputDto
+                                {
+                                    ChecklistId = checklistId,
+                                    Name = task.Title,
+                                    Description = task.Description,
+                                    IsRequired = task.IsRequired,
+                                    EstimatedHours = task.EstimatedMinutes > 0 ? task.EstimatedMinutes / 60 : 0, // Convert minutes to hours
+                                    TaskType = task.Category ?? "General",
+                                    Order = checklist.Tasks.ToList().IndexOf(task) + 1,
+                                    IsActive = true
+                                };
+
+                                var taskId = await _checklistTaskService.CreateAsync(taskInputDto);
+                                _logger.LogInformation("✅ Created task {TaskId} for checklist {ChecklistId}", taskId, checklistId);
+                            }
+                            catch (Exception taskEx)
+                            {
+                                _logger.LogWarning(taskEx, "Failed to create task '{TaskTitle}' for checklist {ChecklistId}", task.Title, checklistId);
+                            }
+                        }
+                    }
+                }
+
+                // Create questionnaires and associate with stages
+                for (int i = 0; i < Math.Min(questionnaires.Count, createdStages.Count); i++)
+                {
+                    var questionnaire = questionnaires[i];
+                    var stage = createdStages[i];
+
+                    // Ensure GeneratedQuestionnaire is not null
+                    if (questionnaire.GeneratedQuestionnaire == null)
+                    {
+                        _logger.LogWarning("Skipping questionnaire {Index} - GeneratedQuestionnaire is null", i);
+                        continue;
+                    }
+
+                    // Ensure unique questionnaire name
+                    questionnaire.GeneratedQuestionnaire.Name = await EnsureUniqueQuestionnaireNameAsync(questionnaire.GeneratedQuestionnaire.Name);
+
+                    // Add questions to the questionnaire structure
+                    _logger.LogInformation("🔍 Processing questionnaire with {QuestionCount} questions", questionnaire.Questions?.Count ?? 0);
+
+                    if (questionnaire.Questions != null && questionnaire.Questions.Any())
+                    {
+                        _logger.LogInformation("✅ Creating section with {QuestionCount} questions", questionnaire.Questions.Count);
+
+                        var section = new QuestionnaireSectionInputDto
+                        {
+                            Title = "Main Section",
+                            Description = "Generated questions",
+                            Order = 1,
+                            Questions = questionnaire.Questions.Select((q, index) => new QuestionInputDto
+                            {
+                                Id = q.Id,
+                                Text = q.Question,
+                                Type = q.Type ?? "text",
+                                IsRequired = q.IsRequired,
+                                Order = index + 1,
+                                Options = q.Options?.Select((opt, optIndex) => new QuestionOptionDto
+                                {
+                                    Label = opt,
+                                    Value = opt,
+                                    Order = optIndex + 1
+                                }).ToList() ?? new List<QuestionOptionDto>()
+                            }).ToList()
+                        };
+
+                        // Convert sections to JSON structure for storage
+                        var structureJson = new
+                        {
+                            sections = new[]
+                            {
+                                new
+                                {
+                                    title = section.Title,
+                                    description = section.Description,
+                                    order = section.Order,
+                                    questions = section.Questions.Select(q => new
+                                    {
+                                        id = q.Id,
+                                        title = q.Text,  // 使用 title 而不是 text
+                                        type = q.Type,
+                                        required = q.IsRequired,
+                                        order = q.Order,
+                                        options = q.Options.Select(opt => new
+                                        {
+                                            label = opt.Label,
+                                            value = opt.Value,
+                                            order = opt.Order
+                                        }).ToArray()
+                                    }).ToArray()
+                                }
+                            }
+                        };
+
+                        questionnaire.GeneratedQuestionnaire.StructureJson = System.Text.Json.JsonSerializer.Serialize(structureJson);
+                        _logger.LogInformation("✅ Added structure JSON with {QuestionCount} questions to questionnaire", section.Questions.Count);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("⚠️ No questions found for questionnaire {Index}", i);
+                    }
+
+                    // Set up assignments for the questionnaire
+                    questionnaire.GeneratedQuestionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>
+                    {
+                        new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                        {
+                            WorkflowId = workflowId,
+                            StageId = stage.Id
+                        }
+                    };
+
+                    // Create the questionnaire
+                    var questionnaireId = await _questionnaireService.CreateAsync(questionnaire.GeneratedQuestionnaire);
+                    _logger.LogInformation("✅ Created questionnaire {QuestionnaireId} for stage {StageId}", questionnaireId, stage.Id);
+
+                    // Note: Questions are created as part of the questionnaire structure
+                    // The QuestionnaireInputDto should include the questions in its structure
+                    _logger.LogInformation("✅ Questionnaire {QuestionnaireId} created with {QuestionCount} questions",
+                        questionnaireId, questionnaire.Questions?.Count ?? 0);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create stage components for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        private async Task<string> EnsureUniqueChecklistNameAsync(string baseName, string team)
+        {
+            var originalName = baseName;
+            var counter = 1;
+            var currentName = baseName;
+
+            while (true)
+            {
+                try
+                {
+                    // Check if the name exists using the ChecklistRepository
+                    var exists = await _checklistRepository.IsNameExistsAsync(currentName, team);
+                    if (!exists)
+                    {
+                        return currentName;
+                    }
+
+                    // Generate a new name with counter
+                    counter++;
+                    currentName = $"{originalName} ({counter})";
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error checking checklist name uniqueness for {Name}, using fallback", currentName);
+                    // If there's an error checking, use timestamp as fallback
+                    return $"{originalName} {DateTime.Now:yyyyMMdd-HHmmss}";
+                }
+            }
+        }
+
+        private async Task<string> EnsureUniqueQuestionnaireNameAsync(string baseName)
+        {
+            var originalName = baseName;
+            var counter = 1;
+            var currentName = baseName;
+
+            while (true)
+            {
+                try
+                {
+                    // Check if the name exists using the QuestionnaireRepository
+                    var exists = await _questionnaireRepository.IsNameExistsAsync(currentName);
+                    if (!exists)
+                    {
+                        return currentName;
+                    }
+
+                    // Generate a new name with counter
+                    counter++;
+                    currentName = $"{originalName} ({counter})";
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error checking questionnaire name uniqueness for {Name}, using fallback", currentName);
+                    // If there's an error checking, use timestamp as fallback
+                    return $"{originalName} {DateTime.Now:yyyyMMdd-HHmmss}";
+                }
+            }
         }
 
         #endregion
@@ -2653,4 +4013,4 @@ Remember: Your goal is to collect enough detailed information to create a compre
     }
 
     #endregion
-} 
+}

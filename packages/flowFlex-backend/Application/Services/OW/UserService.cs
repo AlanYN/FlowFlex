@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Services.OW
                     existingUser.PasswordHash = BC.HashPassword(request.Password);
                     existingUser.EmailVerified = true;
                     existingUser.Status = "active";
-                    existingUser.ModifyDate = DateTimeOffset.Now;
+            existingUser.ModifyDate = DateTimeOffset.UtcNow;
                     existingUser.ModifyBy = request.Email;
 
                     await _userRepository.UpdateAsync(existingUser);
@@ -127,13 +127,13 @@ namespace FlowFlex.Application.Services.OW
                         existingUser.EmailVerificationCode == request.VerificationCode)
                     {
                         // Verify if verification code has not expired
-                        if (existingUser.VerificationCodeExpiry >= DateTimeOffset.Now)
+            if (existingUser.VerificationCodeExpiry >= DateTimeOffset.UtcNow)
                         {
                             _logger.LogInformation("Allowing password reset for verified user with valid verification code: {Email}", request.Email);
                             
                             // Update password for existing verified user
                             existingUser.PasswordHash = BC.HashPassword(request.Password);
-                            existingUser.ModifyDate = DateTimeOffset.Now;
+            existingUser.ModifyDate = DateTimeOffset.UtcNow;
                             existingUser.ModifyBy = request.Email;
                             // Clear verification code after use
                             existingUser.EmailVerificationCode = null;
@@ -177,7 +177,7 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                     // Verify if verification code has expired
-                    if (existingUser.VerificationCodeExpiry < DateTimeOffset.Now)
+            if (existingUser.VerificationCodeExpiry < DateTimeOffset.UtcNow)
                     {
                         throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
                     }
@@ -187,7 +187,7 @@ namespace FlowFlex.Application.Services.OW
                     existingUser.PasswordHash = BC.HashPassword(request.Password);
                     existingUser.EmailVerified = true;
                     existingUser.Status = "active";
-                    existingUser.ModifyDate = DateTimeOffset.Now;
+            existingUser.ModifyDate = DateTimeOffset.UtcNow;
                     existingUser.ModifyBy = request.Email;
 
                     await _userRepository.UpdateAsync(existingUser);
@@ -265,7 +265,7 @@ namespace FlowFlex.Application.Services.OW
                     EmailVerified = false,
                     Status = "pending", // Pending verification status
                     EmailVerificationCode = verificationCode,
-                    VerificationCodeExpiry = DateTimeOffset.Now.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
+            VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
                     TenantId = "DEFAULT" // Set default tenant ID
                 };
 
@@ -279,7 +279,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Update existing user's verification code
                 user.EmailVerificationCode = verificationCode;
-                user.VerificationCodeExpiry = DateTimeOffset.Now.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes);
+            user.VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes);
                 user.InitUpdateInfo(null);
                 await _userRepository.UpdateAsync(user);
             }
@@ -315,7 +315,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Verify if verification code has expired
-            if (user.VerificationCodeExpiry < DateTimeOffset.Now)
+            if (user.VerificationCodeExpiry < DateTimeOffset.UtcNow)
             {
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
             }
@@ -417,7 +417,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Verify if verification code has expired
-            if (user.VerificationCodeExpiry < DateTimeOffset.Now)
+            if (user.VerificationCodeExpiry < DateTimeOffset.UtcNow)
             {
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
             }
@@ -438,7 +438,7 @@ namespace FlowFlex.Application.Services.OW
             // Clear verification code (one-time use)
             user.EmailVerificationCode = null;
             user.VerificationCodeExpiry = null;
-            user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
             user.ModifyBy = request.Email;
             await _userRepository.UpdateAsync(user);
 
@@ -538,7 +538,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Update user password
             user.PasswordHash = passwordHash;
-            user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
             user.ModifyBy = user.Email;
             await _userRepository.UpdateAsync(user);
 
@@ -768,11 +768,11 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // User exists in the specific tenant, update login information
                     user = existingUser;
-                    user.LastLoginDate = DateTimeOffset.Now;
+            user.LastLoginDate = DateTimeOffset.UtcNow;
                     user.Status = "active"; // Ensure user is active
                     user.EmailVerified = true; // Trust third-party verification
 
-                    user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
                     user.ModifyBy = email;
                     await _userRepository.UpdateAsync(user);
 
@@ -786,10 +786,10 @@ namespace FlowFlex.Application.Services.OW
                     user = existingUserAcrossTenants;
                     
                     // Update login information but keep the original tenant as primary
-                    user.LastLoginDate = DateTimeOffset.Now;
+            user.LastLoginDate = DateTimeOffset.UtcNow;
                     user.Status = "active";
                     user.EmailVerified = true;
-                    user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
                     user.ModifyBy = email;
                     await _userRepository.UpdateAsync(user);
 
@@ -810,7 +810,7 @@ namespace FlowFlex.Application.Services.OW
                         EmailVerified = true, // Trust third-party verification
                         Status = "active",
                         TenantId = request.TenantId,
-                        LastLoginDate = DateTimeOffset.Now,
+            LastLoginDate = DateTimeOffset.UtcNow,
                         AppCode = request.AppCode // Set AppCode from request
                     };
 

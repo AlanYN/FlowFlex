@@ -504,44 +504,11 @@
 															)
 														]?.includes(column.value || column.label)
 													"
-													placeholder="Please specify..."
+													placeholder="Enter other"
 													size="small"
 													class="other-input"
 												/>
 											</div>
-										</div>
-									</div>
-								</div>
-
-								<!-- 如果只有options数据，转换为多选 -->
-								<div v-else-if="item.options" class="grid-container">
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(option, optionIndex) in item.options"
-											:key="option.id || optionIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ option.label || option.text || option.value }}
-										</div>
-									</div>
-									<div class="grid-row">
-										<div class="grid-cell grid-row-header">Choice</div>
-										<div
-											v-for="(option, optionIndex) in item.options"
-											:key="option.id || optionIndex"
-											class="grid-cell grid-checkbox-cell"
-										>
-											<el-checkbox-group
-												v-model="
-													previewData[getItemKey(sectionIndex, itemIndex)]
-												"
-											>
-												<el-checkbox
-													:value="option.value || option.label"
-													class="grid-checkbox"
-												/>
-											</el-checkbox-group>
 										</div>
 									</div>
 								</div>
@@ -647,7 +614,7 @@
 															)
 														]
 													"
-													placeholder="Please specify..."
+													placeholder="Enter other"
 													size="small"
 													class="other-input"
 												/>
@@ -668,6 +635,53 @@
 									<div class="text-xs mt-1">
 										Rows: {{ item.rows?.length || 0 }}, Columns:
 										{{ item.columns?.length || 0 }}
+									</div>
+								</div>
+							</div>
+
+							<div v-else-if="item.type === 'short_answer_grid'" class="preview-grid">
+								<div v-if="item.columns && item.rows" class="grid-container">
+									<div class="grid-header">
+										<div class="grid-cell grid-row-header"></div>
+										<div
+											v-for="(column, colIndex) in item.columns"
+											:key="colIndex"
+											class="grid-cell grid-column-header"
+										>
+											{{ column.label }}
+											<el-tag
+												v-if="column.isOther"
+												size="small"
+												type="warning"
+												class="other-column-tag"
+											>
+												Other
+											</el-tag>
+										</div>
+									</div>
+									<div
+										v-for="(row, rowIndex) in item.rows"
+										:key="rowIndex"
+										class="grid-row"
+									>
+										<div class="grid-cell grid-row-header">{{ row.label }}</div>
+										<div
+											v-for="(column, colIndex) in item.columns"
+											:key="colIndex"
+											class="grid-cell grid-checkbox-cell gap-x-2"
+										>
+											<el-input
+												v-model="
+													previewData[
+														getGridKey(
+															sectionIndex,
+															column.id,
+															rowIndex
+														)
+													]
+												"
+											/>
+										</div>
 									</div>
 								</div>
 							</div>

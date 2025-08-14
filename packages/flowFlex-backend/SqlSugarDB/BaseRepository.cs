@@ -827,129 +827,338 @@ namespace FlowFlex.SqlSugarDB
 
         #endregion Pagination Query
 
-        #region Delete
+        #region Delete (Soft Delete Implementation)
 
         /// <summary>
-        /// Delete data
+        /// Delete data using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public bool Delete(T deleteObj)
         {
-            var backupFilters = BackupFilters();
-            var result = db.Deleteable<T>().Where(deleteObj).ExecuteCommand() > 0;
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            return PerformSoftDelete(deleteObj);
         }
 
         /// <summary>
-        /// Delete data list
+        /// Delete data list using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public bool Delete(List<T> deleteObjs)
         {
-            var backupFilters = BackupFilters();
-            var result = db.Deleteable<T>().Where(deleteObjs).ExecuteCommand() > 0;
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            return PerformSoftDelete(deleteObjs);
         }
 
         /// <summary>
-        /// Delete data by condition
+        /// Delete data by condition using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public bool Delete(Expression<Func<T, bool>> whereExpression)
         {
-            var backupFilters = BackupFilters();
-            var result = db.Deleteable<T>().Where(whereExpression).ExecuteCommand() > 0;
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            return PerformSoftDeleteByCondition(whereExpression);
         }
 
         /// <summary>
-        /// Delete data by ID
+        /// Delete data by ID using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public bool DeleteById(object id)
         {
-            var backupFilters = BackupFilters();
-            var result = db.Deleteable<T>().In(id).ExecuteCommand() > 0;
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            var entity = GetById(id);
+            if (entity == null) return false;
+            return PerformSoftDelete(entity);
         }
 
         /// <summary>
-        /// Delete data (async)
+        /// Delete data (async) using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public async Task<bool> DeleteAsync(T deleteObj, CancellationToken cancellationToken = default)
         {
-            var backupFilters = BackupFilters();
-
-            db.Ado.CancellationToken = cancellationToken;
-            var result = await db.Deleteable<T>().Where(deleteObj).ExecuteCommandAsync() > 0;
-
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            return await PerformSoftDeleteAsync(deleteObj, cancellationToken);
         }
 
         /// <summary>
-        /// Batch delete data (async)
+        /// Batch delete data (async) using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public async Task<bool> DeleteAsync(List<T> deleteObjs, CancellationToken cancellationToken = default)
         {
-            var backupFilters = BackupFilters();
-
-            db.Ado.CancellationToken = cancellationToken;
-            var result = await db.Deleteable<T>().Where(deleteObjs).ExecuteCommandAsync() > 0;
-
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            return await PerformSoftDeleteAsync(deleteObjs, cancellationToken);
         }
 
         /// <summary>
-        /// Delete data by condition (async)
+        /// Delete data by condition (async) using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public async Task<bool> DeleteAsync(Expression<Func<T, bool>> whereExpression, CancellationToken cancellationToken = default)
         {
-            var backupFilters = BackupFilters();
-
-            db.Ado.CancellationToken = cancellationToken;
-            var result = await db.Deleteable<T>().Where(whereExpression).ExecuteCommandAsync() > 0;
-
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            return await PerformSoftDeleteByConditionAsync(whereExpression, cancellationToken);
         }
 
         /// <summary>
-        /// Delete data by ID (async)
+        /// Delete data by ID (async) using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public async Task<bool> DeleteByIdAsync(object id, CancellationToken cancellationToken = default)
         {
-            var backupFilters = BackupFilters();
-
-            var result = await new SimpleClient<T>(db).DeleteByIdAsync(id, cancellationToken);
-
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            var entity = await GetByIdAsync(id, cancellationToken: cancellationToken);
+            if (entity == null) return false;
+            return await PerformSoftDeleteAsync(entity, cancellationToken);
         }
 
         /// <summary>
-        /// Delete data by IDs (async)
+        /// Delete data by IDs (async) using soft delete (sets IsValid = false)
         /// </summary>
         /// <returns>Whether successful</returns>
         public async Task<bool> DeleteByIdsAsync(dynamic[] ids, CancellationToken cancellationToken = default)
         {
-            var backupFilters = BackupFilters();
-
-            db.Ado.CancellationToken = cancellationToken;
-            var result = await db.Deleteable<T>().In(ids).ExecuteCommandAsync() > 0;
-
-            RestoreFiltersIfChanged(backupFilters);
-            return result;
+            var entities = new List<T>();
+            foreach (var id in ids)
+            {
+                var entity = await GetByIdAsync(id, cancellationToken: cancellationToken);
+                if (entity != null)
+                {
+                    entities.Add(entity);
+                }
+            }
+            return await PerformSoftDeleteAsync(entities, cancellationToken);
         }
+
+        #region Soft Delete Helper Methods
+
+        /// <summary>
+        /// Perform soft delete on a single entity
+        /// </summary>
+        private bool PerformSoftDelete(T entity)
+        {
+            try
+            {
+                // Check if entity supports soft delete
+                if (entity is FlowFlex.Domain.Abstracts.ISoftDeletable softDeletableEntity)
+                {
+                    softDeletableEntity.IsValid = false;
+                    softDeletableEntity.ModifyDate = DateTimeOffset.UtcNow;
+                    return Update(entity);
+                }
+                else
+                {
+                    // Try to use reflection to check for IsValid property
+                    var isValidProperty = typeof(T).GetProperty("IsValid");
+                    var modifyDateProperty = typeof(T).GetProperty("ModifyDate");
+                    
+                    if (isValidProperty != null && isValidProperty.CanWrite)
+                    {
+                        isValidProperty.SetValue(entity, false);
+                        if (modifyDateProperty != null && modifyDateProperty.CanWrite)
+                        {
+                            modifyDateProperty.SetValue(entity, DateTimeOffset.UtcNow);
+                        }
+                        return Update(entity);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Entity type {typeof(T).Name} does not support soft delete. Please implement ISoftDeletable interface or add IsValid property.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to perform soft delete on entity {typeof(T).Name}: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Perform soft delete on multiple entities
+        /// </summary>
+        private bool PerformSoftDelete(List<T> entities)
+        {
+            try
+            {
+                foreach (var entity in entities)
+                {
+                    if (entity is FlowFlex.Domain.Abstracts.ISoftDeletable softDeletableEntity)
+                    {
+                        softDeletableEntity.IsValid = false;
+                        softDeletableEntity.ModifyDate = DateTimeOffset.UtcNow;
+                    }
+                    else
+                    {
+                        // Try to use reflection to check for IsValid property
+                        var isValidProperty = typeof(T).GetProperty("IsValid");
+                        var modifyDateProperty = typeof(T).GetProperty("ModifyDate");
+                        
+                        if (isValidProperty != null && isValidProperty.CanWrite)
+                        {
+                            isValidProperty.SetValue(entity, false);
+                            if (modifyDateProperty != null && modifyDateProperty.CanWrite)
+                            {
+                                modifyDateProperty.SetValue(entity, DateTimeOffset.UtcNow);
+                            }
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException($"Entity type {typeof(T).Name} does not support soft delete. Please implement ISoftDeletable interface or add IsValid property.");
+                        }
+                    }
+                }
+                return UpdateRange(entities);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to perform soft delete on entities {typeof(T).Name}: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Perform soft delete by condition
+        /// </summary>
+        private bool PerformSoftDeleteByCondition(Expression<Func<T, bool>> whereExpression)
+        {
+            try
+            {
+                // Check if entity supports soft delete
+                var isValidProperty = typeof(T).GetProperty("IsValid");
+                var modifyDateProperty = typeof(T).GetProperty("ModifyDate");
+                
+                if (isValidProperty != null && isValidProperty.CanWrite)
+                {
+                    var backupFilters = BackupFilters();
+                    var result = db.Updateable<T>()
+                        .SetColumns("is_valid", false)
+                        .SetColumns("modify_date", DateTimeOffset.UtcNow)
+                        .Where(whereExpression)
+                        .ExecuteCommand() > 0;
+                    RestoreFiltersIfChanged(backupFilters);
+                    return result;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Entity type {typeof(T).Name} does not support soft delete. Please implement ISoftDeletable interface or add IsValid property.");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to perform soft delete by condition on entity {typeof(T).Name}: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Perform soft delete on a single entity (async)
+        /// </summary>
+        private async Task<bool> PerformSoftDeleteAsync(T entity, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Check if entity supports soft delete
+                if (entity is FlowFlex.Domain.Abstracts.ISoftDeletable softDeletableEntity)
+                {
+                    softDeletableEntity.IsValid = false;
+                    softDeletableEntity.ModifyDate = DateTimeOffset.UtcNow;
+                    return await UpdateAsync(entity, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    // Try to use reflection to check for IsValid property
+                    var isValidProperty = typeof(T).GetProperty("IsValid");
+                    var modifyDateProperty = typeof(T).GetProperty("ModifyDate");
+                    
+                    if (isValidProperty != null && isValidProperty.CanWrite)
+                    {
+                        isValidProperty.SetValue(entity, false);
+                        if (modifyDateProperty != null && modifyDateProperty.CanWrite)
+                        {
+                            modifyDateProperty.SetValue(entity, DateTimeOffset.UtcNow);
+                        }
+                        return await UpdateAsync(entity, cancellationToken: cancellationToken);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Entity type {typeof(T).Name} does not support soft delete. Please implement ISoftDeletable interface or add IsValid property.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to perform soft delete on entity {typeof(T).Name}: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Perform soft delete on multiple entities (async)
+        /// </summary>
+        private async Task<bool> PerformSoftDeleteAsync(List<T> entities, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                foreach (var entity in entities)
+                {
+                    if (entity is FlowFlex.Domain.Abstracts.ISoftDeletable softDeletableEntity)
+                    {
+                        softDeletableEntity.IsValid = false;
+                        softDeletableEntity.ModifyDate = DateTimeOffset.UtcNow;
+                    }
+                    else
+                    {
+                        // Try to use reflection to check for IsValid property
+                        var isValidProperty = typeof(T).GetProperty("IsValid");
+                        var modifyDateProperty = typeof(T).GetProperty("ModifyDate");
+                        
+                        if (isValidProperty != null && isValidProperty.CanWrite)
+                        {
+                            isValidProperty.SetValue(entity, false);
+                            if (modifyDateProperty != null && modifyDateProperty.CanWrite)
+                            {
+                                modifyDateProperty.SetValue(entity, DateTimeOffset.UtcNow);
+                            }
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException($"Entity type {typeof(T).Name} does not support soft delete. Please implement ISoftDeletable interface or add IsValid property.");
+                        }
+                    }
+                }
+                return await UpdateRangeAsync(entities, cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to perform soft delete on entities {typeof(T).Name}: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Perform soft delete by condition (async)
+        /// </summary>
+        private async Task<bool> PerformSoftDeleteByConditionAsync(Expression<Func<T, bool>> whereExpression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Check if entity supports soft delete
+                var isValidProperty = typeof(T).GetProperty("IsValid");
+                var modifyDateProperty = typeof(T).GetProperty("ModifyDate");
+                
+                if (isValidProperty != null && isValidProperty.CanWrite)
+                {
+                    var backupFilters = BackupFilters();
+                    db.Ado.CancellationToken = cancellationToken;
+                    var result = await db.Updateable<T>()
+                        .SetColumns("is_valid", false)
+                        .SetColumns("modify_date", DateTimeOffset.UtcNow)
+                        .Where(whereExpression)
+                        .ExecuteCommandAsync() > 0;
+                    RestoreFiltersIfChanged(backupFilters);
+                    return result;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Entity type {typeof(T).Name} does not support soft delete. Please implement ISoftDeletable interface or add IsValid property.");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to perform soft delete by condition on entity {typeof(T).Name}: {ex.Message}", ex);
+            }
+        }
+
+        #endregion Soft Delete Helper Methods
 
         #endregion Delete
 
