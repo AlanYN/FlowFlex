@@ -75,7 +75,7 @@ const leads: AppRouteModule = {
 				beta: true,
 			},
 		},
-		
+
 		{
 			path: 'checklist',
 			name: 'Checklist',

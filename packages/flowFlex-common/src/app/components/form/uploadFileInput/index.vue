@@ -33,8 +33,8 @@
 import { ref, computed, toRaw } from 'vue';
 import { ElMessage } from 'element-plus';
 import { FirstAidKit } from '@element-plus/icons-vue';
-import { globalUploadFile, globalDeleteFile } from '@/apis/global';
-import { fileAttachment } from '@/apis/global';
+import { globalUploadFile, globalDeleteFile, fileAttachment } from '@/apis/global';
+
 import { useI18n } from '@/hooks/useI18n';
 
 const { t } = useI18n();

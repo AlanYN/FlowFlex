@@ -467,7 +467,7 @@ const parseResponseText = (responseText: string): { [key: string]: string } => {
 	if (!responseText || responseText.trim() === '{}') {
 		return {};
 	}
-	
+
 	try {
 		// 处理Unicode转义序列
 		let decodedText = responseText;
@@ -477,7 +477,7 @@ const parseResponseText = (responseText: string): { [key: string]: string } => {
 		decodedText = decodedText.replace(/u002C/g, ',');
 		decodedText = decodedText.replace(/u007B/g, '{');
 		decodedText = decodedText.replace(/u007D/g, '}');
-		
+
 		const parsed = JSON.parse(decodedText);
 		return parsed || {};
 	} catch (error) {
@@ -487,18 +487,21 @@ const parseResponseText = (responseText: string): { [key: string]: string } => {
 };
 
 // 从responseText中提取Other选项的自定义值
-const extractOtherValues = (responseText: string, questionId: string): { [key: string]: string } => {
+const extractOtherValues = (
+	responseText: string,
+	questionId: string
+): { [key: string]: string } => {
 	const parsed = parseResponseText(responseText);
 	const otherValues: { [key: string]: string } = {};
-	
+
 	// 查找包含questionId的键
-	Object.keys(parsed).forEach(key => {
+	Object.keys(parsed).forEach((key) => {
 		if (key.includes(questionId)) {
 			// 对于网格类型：查找包含"other"的键
 			if (key.includes('other')) {
 				// 提取column ID，格式如：question-xxx_row-xxx_column-other-xxx
 				const parts = key.split('_');
-				const columnPart = parts.find(part => part.startsWith('column-other-'));
+				const columnPart = parts.find((part) => part.startsWith('column-other-'));
 				if (columnPart) {
 					otherValues[columnPart] = parsed[key];
 				}
@@ -507,7 +510,7 @@ const extractOtherValues = (responseText: string, questionId: string): { [key: s
 			else if (key.includes('option-') || key.includes('option_')) {
 				// 提取option ID，格式如：question-xxx_option-xxx
 				const parts = key.split('_');
-				let optionPart = parts.find(part => part.startsWith('option-'));
+				let optionPart = parts.find((part) => part.startsWith('option-'));
 				if (optionPart) {
 					// 同时支持 option- 和 option_ 格式
 					const alternativeKey = optionPart.replace('option-', 'option_');
@@ -517,7 +520,7 @@ const extractOtherValues = (responseText: string, questionId: string): { [key: s
 			}
 		}
 	});
-	
+
 	return otherValues;
 };
 
@@ -527,32 +530,32 @@ const questionColumnMaps = new Map<string, Map<string, string>>();
 // 为特定问题的 column ID 生成字母标签
 const getColumnLabel = (columnId: string, questionId?: string): string => {
 	const mapKey = questionId || 'global';
-	
+
 	if (!questionColumnMaps.has(mapKey)) {
 		questionColumnMaps.set(mapKey, new Map<string, string>());
 	}
-	
+
 	const columnMap = questionColumnMaps.get(mapKey)!;
-	
+
 	if (columnMap.has(columnId)) {
 		return columnMap.get(columnId)!;
 	}
-	
+
 	// 生成字母标签 (a, b, c, d, ...)
 	const label = String.fromCharCode(97 + columnMap.size); // 97 = 'a'
 	columnMap.set(columnId, label);
-	
+
 	return label;
 };
 
 // 获取多选答案数组
 const getCheckboxAnswers = (answer: any): string[] => {
 	if (!answer) return [];
-	
+
 	if (Array.isArray(answer)) {
 		return answer.filter(Boolean);
 	}
-	
+
 	if (typeof answer === 'string') {
 		// 检查是否是JSON数组字符串
 		if (answer.startsWith('[') && answer.endsWith(']')) {
@@ -565,48 +568,58 @@ const getCheckboxAnswers = (answer: any): string[] => {
 				// 如果解析失败，按逗号分割
 			}
 		}
-		
+
 		// 按逗号分割字符串
-		return answer.split(',').map(item => item.trim()).filter(Boolean);
+		return answer
+			.split(',')
+			.map((item) => item.trim())
+			.filter(Boolean);
 	}
-	
+
 	return [String(answer)];
 };
 
 // 获取多选题标签
-const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: string, questionId?: string): string[] => {
+const getCheckboxLabels = (
+	answer: any,
+	questionConfig: any,
+	responseText?: string,
+	questionId?: string
+): string[] => {
 	if (!answer) {
 		return [];
 	}
-	
+
 	// 如果没有questionConfig，仍然尝试解析Other选项
 	if (!questionConfig?.options) {
 		const answerValues = getCheckboxAnswers(answer);
-		
+
 		// 尝试提取Other选项的自定义值
 		let otherValues: { [key: string]: string } = {};
 		if (responseText && questionId) {
 			otherValues = extractOtherValues(responseText, questionId);
 		}
-		
+
 		// 处理答案值，替换Other选项
 		const processedAnswers: string[] = [];
 		let hasOtherWithCustomValue = false;
-		
+
 		// 首先检查是否有Other选项带自定义值
-		answerValues.forEach(value => {
+		answerValues.forEach((value) => {
 			if (value.startsWith('option_')) {
-				const customValue = otherValues[value] || otherValues[value.replace('option_', 'option-')];
+				const customValue =
+					otherValues[value] || otherValues[value.replace('option_', 'option-')];
 				if (customValue) {
 					hasOtherWithCustomValue = true;
 				}
 			}
 		});
-		
-		answerValues.forEach(value => {
+
+		answerValues.forEach((value) => {
 			// 检查是否是option_开头的Other选项
 			if (value.startsWith('option_')) {
-				const customValue = otherValues[value] || otherValues[value.replace('option_', 'option-')];
+				const customValue =
+					otherValues[value] || otherValues[value.replace('option_', 'option-')];
 				if (customValue) {
 					processedAnswers.push(`Other: ${customValue}`);
 				} else {
@@ -614,57 +627,62 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 				}
 			} else {
 				// 检查是否是Other选项的自定义输入值，如果是则跳过
-				const isCustomInput = Object.values(otherValues).some(customVal => 
-					customVal.toLowerCase() === value.toLowerCase()
+				const isCustomInput = Object.values(otherValues).some(
+					(customVal) => customVal.toLowerCase() === value.toLowerCase()
 				);
-				
+
 				// 如果有Other自定义值且当前值等于自定义值，则跳过
 				if (isCustomInput && hasOtherWithCustomValue) {
 					return;
 				}
-				
+
 				processedAnswers.push(value);
 			}
 		});
-		
+
 		return processedAnswers;
 	}
-	
+
 	const answerValues = getCheckboxAnswers(answer);
-	
+
 	const optionMap = new Map<string, string>();
 	const otherOptionIds = new Set<string>();
-	
+
 	// 建立选项映射并识别Other选项
 	questionConfig.options.forEach((option: any) => {
 		optionMap.set(option.value, option.label);
-		if (option.isOther || option.type === 'other' || option.allowCustom || option.hasInput || 
-			(option.label && (
-				option.label.toLowerCase().includes('other') ||
-				option.label.toLowerCase().includes('enter other') ||
-				option.label.toLowerCase().includes('custom') ||
-				option.label.toLowerCase().includes('specify')
-			))) {
+		if (
+			option.isOther ||
+			option.type === 'other' ||
+			option.allowCustom ||
+			option.hasInput ||
+			(option.label &&
+				(option.label.toLowerCase().includes('other') ||
+					option.label.toLowerCase().includes('enter other') ||
+					option.label.toLowerCase().includes('custom') ||
+					option.label.toLowerCase().includes('specify')))
+		) {
 			otherOptionIds.add(option.value);
 		}
 	});
-	
+
 	// 提取Other选项的自定义值
 	let otherValues: { [key: string]: string } = {};
 	if (responseText && questionId) {
 		otherValues = extractOtherValues(responseText, questionId);
 	}
-	
+
 	const labels: string[] = [];
 	const processedValues = new Set<string>(); // 跟踪已处理的值
-	
+
 	answerValues.forEach((value) => {
 		const optionLabel = optionMap.get(value);
-		
+
 		if (optionLabel) {
 			if (otherOptionIds.has(value)) {
 				// 这是一个Other选项，查找自定义值
-				const customValue = otherValues[value] || otherValues[value.replace('option_', 'option-')];
+				const customValue =
+					otherValues[value] || otherValues[value.replace('option_', 'option-')];
 				if (customValue) {
 					labels.push(`Other: ${customValue}`);
 					// 标记这个自定义值已处理，避免显示原始的输入值
@@ -674,8 +692,8 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 				}
 			} else {
 				// 检查这个值是否是某个Other选项的自定义输入值
-				const isCustomInput = Object.values(otherValues).some(customVal => 
-					customVal.toLowerCase() === value.toLowerCase()
+				const isCustomInput = Object.values(otherValues).some(
+					(customVal) => customVal.toLowerCase() === value.toLowerCase()
 				);
 				if (!isCustomInput) {
 					labels.push(optionLabel);
@@ -683,13 +701,18 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 			}
 		} else {
 			// 检查是否是Other相关的值
-			const isOtherValue = Object.keys(otherValues).some(otherKey => {
-				return otherKey.includes(value) || value.includes(otherKey.replace('option-', '').replace('option_', ''));
+			const isOtherValue = Object.keys(otherValues).some((otherKey) => {
+				return (
+					otherKey.includes(value) ||
+					value.includes(otherKey.replace('option-', '').replace('option_', ''))
+				);
 			});
-			
+
 			if (isOtherValue) {
-				const customValue = Object.entries(otherValues).find(([key]) => 
-					key.includes(value) || value.includes(key.replace('option-', '').replace('option_', ''))
+				const customValue = Object.entries(otherValues).find(
+					([key]) =>
+						key.includes(value) ||
+						value.includes(key.replace('option-', '').replace('option_', ''))
 				)?.[1];
 				if (customValue) {
 					labels.push(`Other: ${customValue}`);
@@ -697,8 +720,8 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 				}
 			} else {
 				// 检查这个值是否是某个Other选项的自定义输入值，如果是则跳过
-				const isCustomInput = Object.values(otherValues).some(customVal => 
-					customVal.toLowerCase() === value.toLowerCase()
+				const isCustomInput = Object.values(otherValues).some(
+					(customVal) => customVal.toLowerCase() === value.toLowerCase()
 				);
 				if (!isCustomInput && !processedValues.has(value.toLowerCase())) {
 					labels.push(value);
@@ -706,30 +729,36 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 			}
 		}
 	});
-	
+
 	return labels.filter(Boolean);
 };
 
 // 获取网格答案标签
-const getGridAnswerLabels = (answer: any, questionConfig: any, responseText?: string, questionId?: string): string[] => {
+const getGridAnswerLabels = (
+	answer: any,
+	questionConfig: any,
+	responseText?: string,
+	questionId?: string
+): string[] => {
 	if (!answer) return [];
-	
+
 	// 如果没有questionConfig，仍然尝试解析Other选项
 	if (!questionConfig?.columns) {
 		const answerIds = getCheckboxAnswers(answer);
-		
+
 		// 尝试提取Other选项的自定义值
 		let otherValues: { [key: string]: string } = {};
 		if (responseText && questionId) {
 			otherValues = extractOtherValues(responseText, questionId);
 		}
-		
+
 		// 处理答案ID，替换Other选项和提供基本的列映射
 		const processedLabels: string[] = [];
-		answerIds.forEach(id => {
+		answerIds.forEach((id) => {
 			if (id.includes('other') || id.startsWith('column-other-')) {
-				const customValue = otherValues[id] || 
-								   Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
+				const customValue =
+					otherValues[id] ||
+					Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
 				if (customValue) {
 					processedLabels.push(`Other: ${customValue}`);
 				} else {
@@ -745,47 +774,56 @@ const getGridAnswerLabels = (answer: any, questionConfig: any, responseText?: st
 				processedLabels.push(displayLabel);
 			}
 		});
-		
+
 		return processedLabels;
 	}
-	
+
 	const answerIds = getCheckboxAnswers(answer);
 	const columnMap = new Map<string, string>();
 	const otherColumnIds = new Set<string>();
-	
+
 	// 建立列映射并识别Other列
 	questionConfig.columns.forEach((column: any) => {
 		columnMap.set(column.id, column.label);
-		if (column.isOther || column.type === 'other' || column.allowCustom || column.hasInput || 
-			(column.label && (
-				column.label.toLowerCase().includes('other') ||
-				column.label.toLowerCase().includes('enter other') ||
-				column.label.toLowerCase().includes('custom') ||
-				column.label.toLowerCase().includes('specify')
-			))) {
+		if (
+			column.isOther ||
+			column.type === 'other' ||
+			column.allowCustom ||
+			column.hasInput ||
+			(column.label &&
+				(column.label.toLowerCase().includes('other') ||
+					column.label.toLowerCase().includes('enter other') ||
+					column.label.toLowerCase().includes('custom') ||
+					column.label.toLowerCase().includes('specify')))
+		) {
 			otherColumnIds.add(column.id);
 		}
 	});
-	
+
 	// 从responseText中提取Other选项的自定义值
 	let otherValues: { [key: string]: string } = {};
 	if (responseText && questionId) {
 		otherValues = extractOtherValues(responseText, questionId);
 	}
-	
+
 	// 将ID转换为对应的label
 	const labels: string[] = [];
 	answerIds.forEach((id) => {
 		const columnLabel = columnMap.get(id);
-		
+
 		if (columnLabel) {
 			// 如果这是一个other类型的列，显示自定义值
-			if (otherColumnIds.has(id) || id.includes('other') || columnLabel.toLowerCase().includes('other')) {
+			if (
+				otherColumnIds.has(id) ||
+				id.includes('other') ||
+				columnLabel.toLowerCase().includes('other')
+			) {
 				// 查找对应的自定义值，尝试多种格式
-				const customValue = otherValues[id] || 
-								   otherValues[id.replace('column-', 'column-other-')] ||
-								   Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
-				
+				const customValue =
+					otherValues[id] ||
+					otherValues[id.replace('column-', 'column-other-')] ||
+					Object.entries(otherValues).find(([key]) => key.includes(id))?.[1];
+
 				if (customValue) {
 					labels.push(`Other: ${customValue}`);
 				} else {
@@ -796,13 +834,15 @@ const getGridAnswerLabels = (answer: any, questionConfig: any, responseText?: st
 			}
 		} else {
 			// 没有找到对应的列配置，检查是否是Other相关的值
-			const isOtherValue = Object.keys(otherValues).some(otherKey => {
-				return otherKey.includes(id) || (id.includes('other') && otherKey.includes('other'));
+			const isOtherValue = Object.keys(otherValues).some((otherKey) => {
+				return (
+					otherKey.includes(id) || (id.includes('other') && otherKey.includes('other'))
+				);
 			});
-			
+
 			if (isOtherValue) {
-				const customValue = Object.entries(otherValues).find(([key]) => 
-					key.includes(id) || (id.includes('other') && key.includes('other'))
+				const customValue = Object.entries(otherValues).find(
+					([key]) => key.includes(id) || (id.includes('other') && key.includes('other'))
 				)?.[1];
 				if (customValue) {
 					labels.push(`Other: ${customValue}`);
@@ -825,14 +865,14 @@ const getGridAnswerLabels = (answer: any, questionConfig: any, responseText?: st
 			}
 		}
 	});
-	
+
 	return labels.filter(Boolean);
 };
 
 // 检查是否有有效答案
 const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
-	
+
 	if (typeof answer === 'string') {
 		const trimmed = answer.trim();
 		// 检查空的JSON对象字符串
@@ -847,28 +887,27 @@ const hasValidAnswer = (answer: string | any): boolean => {
 			trimmed !== 'undefined'
 		);
 	}
-	
+
 	if (Array.isArray(answer)) {
 		return answer.length > 0;
 	}
-	
+
 	if (typeof answer === 'object' && answer !== null) {
 		// 检查是否是空对象
 		return Object.keys(answer).length > 0;
 	}
-	
+
 	return true;
 };
 
 // 增强的答案格式化函数
 const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string => {
-
 	if (!response.answer && !response.responseText) {
 		return 'No answer';
 	}
 
 	const answer = response.answer || response.responseText;
-	
+
 	// 检查是否有有效答案
 	if (!hasValidAnswer(answer)) {
 		return 'No answer';
@@ -925,9 +964,9 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 		case 'checkboxes':
 			// 处理多选题，支持Other选项的自定义值
 			const checkboxLabels = getCheckboxLabels(
-				answer, 
-				questionConfig, 
-				response.responseText, 
+				answer,
+				questionConfig,
+				response.responseText,
 				response.questionId
 			);
 			return checkboxLabels.join(', ');
@@ -936,9 +975,9 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 		case 'checkbox_grid':
 			// 处理网格类型题目，支持Other选项的自定义值
 			const gridLabels = getGridAnswerLabels(
-				answer, 
-				questionConfig, 
-				response.responseText, 
+				answer,
+				questionConfig,
+				response.responseText,
 				response.questionId
 			);
 			return gridLabels.join(', ');
@@ -1002,9 +1041,12 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 					// 确保 responseText 被正确传递
 					const enhancedResponse = {
 						...response,
-						responseText: response.responseText || after.responseText
+						responseText: response.responseText || after.responseText,
 					};
-					const formattedAnswer = formatAnswerWithConfig(enhancedResponse, questionnaireConfig);
+					const formattedAnswer = formatAnswerWithConfig(
+						enhancedResponse,
+						questionnaireConfig
+					);
 					changesList.push(
 						`${response.question || response.questionId}: ${formattedAnswer}`
 					);
@@ -1037,7 +1079,7 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 						// 新增的答案
 						const enhancedAfterResp = {
 							...afterResp,
-							responseText: afterResp.responseText || after.responseText
+							responseText: afterResp.responseText || after.responseText,
 						};
 						const formattedAnswer = formatAnswerWithConfig(
 							enhancedAfterResp,
@@ -1051,17 +1093,20 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 						// 修改的答案
 						const enhancedBeforeResp = {
 							...beforeResp,
-							responseText: beforeResp.responseText || before.responseText
+							responseText: beforeResp.responseText || before.responseText,
 						};
 						const enhancedAfterResp = {
 							...afterResp,
-							responseText: afterResp.responseText || after.responseText
+							responseText: afterResp.responseText || after.responseText,
 						};
 						const beforeAnswer = formatAnswerWithConfig(
 							enhancedBeforeResp,
 							questionnaireConfig
 						);
-						const afterAnswer = formatAnswerWithConfig(enhancedAfterResp, questionnaireConfig);
+						const afterAnswer = formatAnswerWithConfig(
+							enhancedAfterResp,
+							questionnaireConfig
+						);
 						changesList.push(
 							`${afterResp.question || questionId}: ${beforeAnswer} → ${afterAnswer}`
 						);

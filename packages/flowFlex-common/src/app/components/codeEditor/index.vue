@@ -8,7 +8,10 @@
 				{{ description }}
 			</p>
 		</div>
-		<div ref="editorContainer" class="code-editor-wrapper"></div>
+		<div ref="editorContainer" class="code-editor-wrapper">
+			<!-- Loading skeleton -->
+			<el-skeleton v-if="loading" :rows="8" animated class="editor-skeleton" />
+		</div>
 	</div>
 </template>
 
@@ -17,30 +20,34 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import loader from '@monaco-editor/loader';
 
 // Props
-const props = withDefaults(defineProps<{
-	modelValue?: string;
-	language?: string;
-	title?: string;
-	description?: string;
-	height?: string;
-	readOnly?: boolean;
-}>(), {
-	modelValue: '',
-	language: 'python',
-	title: 'Code Editor',
-	description: 'Write your Python code here',
-	height: '300px',
-	readOnly: false,
-});
+const props = withDefaults(
+	defineProps<{
+		modelValue?: string;
+		language?: string;
+		title?: string;
+		description?: string;
+		height?: string;
+		readOnly?: boolean;
+	}>(),
+	{
+		modelValue: '',
+		language: 'python',
+		title: 'Code Editor',
+		description: 'Write your Python code here',
+		height: '300px',
+		readOnly: false,
+	}
+);
 
 // Emits
 const emit = defineEmits<{
 	'update:modelValue': [value: string];
-	'change': [value: string];
+	change: [value: string];
 }>();
 
 // Refs
 const editorContainer = ref<HTMLElement>();
+const loading = ref(false);
 let editor: any = null;
 let monaco: any = null;
 
@@ -48,12 +55,14 @@ let monaco: any = null;
 const initEditor = async () => {
 	if (!editorContainer.value) return;
 
+	loading.value = true;
+
 	try {
 		// Load Monaco editor using loader
 		loader.config({
 			paths: {
-				'vs': 'https://unpkg.com/monaco-editor@0.52.2/min/vs'
-			}
+				vs: 'https://unpkg.com/monaco-editor@0.52.2/min/vs',
+			},
 		});
 		monaco = await loader.init();
 
@@ -116,8 +125,13 @@ const initEditor = async () => {
 		if (props.modelValue) {
 			editor.setValue(props.modelValue);
 		}
+
+		// Hide loading when editor is ready
+		loading.value = false;
 	} catch (error) {
 		console.error('Failed to initialize Monaco editor:', error);
+		loading.value = false;
+
 		// If it's a passive event listener error, try to reinitialize
 		if (error instanceof Error && error.message.includes('passive')) {
 			console.warn('Passive event listener error detected, retrying...');
@@ -155,9 +169,7 @@ const updateReadOnly = (readOnly: boolean) => {
 // Lifecycle
 onMounted(async () => {
 	// Delay initialization to ensure DOM is fully ready
-	setTimeout(async () => {
-		await initEditor();
-	}, 100);
+	await initEditor();
 });
 
 onBeforeUnmount(() => {
@@ -177,6 +189,7 @@ defineExpose({
 	setValue: (value: string) => editor?.setValue(value),
 	focus: () => editor?.focus(),
 	dispose: () => editor?.dispose(),
+	isLoading: () => loading.value,
 });
 </script>
 
@@ -191,9 +204,14 @@ defineExpose({
 }
 
 .code-editor-wrapper {
-	@apply border rounded-md border-primary-200 bg-white overflow-hidden;
+	@apply border rounded-md border-primary-200 bg-white overflow-hidden relative;
 	height: v-bind(height);
 	min-height: 200px;
+}
+
+.editor-skeleton {
+	@apply p-4;
+	height: 100%;
 }
 
 // Monaco editor custom styles

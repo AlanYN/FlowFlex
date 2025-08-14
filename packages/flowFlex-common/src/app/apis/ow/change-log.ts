@@ -202,11 +202,15 @@ function formatAnswerForDisplay(response: any): string {
 	switch (type) {
 		case 'multiple_choice':
 			// 处理单选题 - 尝试从问题配置中获取对应的 label
-			return getChoiceLabel(answer, response.questionConfig || response.config) || String(answer);
+			return (
+				getChoiceLabel(answer, response.questionConfig || response.config) || String(answer)
+			);
 
 		case 'dropdown':
 			// 处理下拉选择 - 尝试从问题配置中获取对应的 label
-			return getChoiceLabel(answer, response.questionConfig || response.config) || String(answer);
+			return (
+				getChoiceLabel(answer, response.questionConfig || response.config) || String(answer)
+			);
 
 		case 'checkboxes':
 			// 处理复选框 - 获取多个选项的 labels
@@ -272,7 +276,7 @@ function getCheckboxLabels(answer: any, questionConfig: any): string {
 
 	// 首先处理答案格式
 	let answerValues: string[] = [];
-	
+
 	if (Array.isArray(answer)) {
 		answerValues = answer.map((item) => String(item)).filter(Boolean);
 	} else {
@@ -284,11 +288,17 @@ function getCheckboxLabels(answer: any, questionConfig: any): string {
 				answerValues = parsed.map((item) => String(item)).filter(Boolean);
 			} else {
 				// 如果不是数组，按逗号分割
-				answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+				answerValues = answerStr
+					.split(',')
+					.map((item) => item.trim())
+					.filter(Boolean);
 			}
 		} catch {
 			// 解析失败，按逗号分割
-			answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+			answerValues = answerStr
+				.split(',')
+				.map((item) => item.trim())
+				.filter(Boolean);
 		}
 	}
 
@@ -304,7 +314,7 @@ function getCheckboxLabels(answer: any, questionConfig: any): string {
 	});
 
 	// 将值转换为标签
-	const labels = answerValues.map(value => optionMap.get(value) || value);
+	const labels = answerValues.map((value) => optionMap.get(value) || value);
 	return labels.join(', ');
 }
 

@@ -94,6 +94,9 @@
 					@update:model-value="updateComponentsData"
 				/>
 			</TabPane>
+			<TabPane value="actions">
+				<Action :stage-id="formData.id" v-model="formData.actions" />
+			</TabPane>
 		</PrototypeTabs>
 
 		<div class="form-actions">
@@ -117,6 +120,7 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { Options } from '#/setting';
 import StageComponentsSelector from './StageComponentsSelector.vue';
+import Action from './Action.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentData } from '#/onboard';
@@ -190,10 +194,15 @@ const tabsConfig = [
 		value: 'components',
 		label: 'Components',
 	},
+	{
+		value: 'actions',
+		label: 'Actions',
+	},
 ];
 
 // 表单数据
 const formData = ref({
+	id: '',
 	name: '',
 	description: '',
 	visibleInPortal: false,
@@ -205,6 +214,7 @@ const formData = ref({
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 	attachmentManagementNeeded: false,
+	actions: [] as any[],
 });
 
 // 表单验证规则

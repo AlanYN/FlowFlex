@@ -17,7 +17,7 @@ const Api = () => {
 
 // 检查邮箱是否存在
 export function checkEmailExists(email: string) {
-	return defHttp.get({ 
+	return defHttp.get({
 		url: Api().checkEmail,
 		params: { email },
 	});
@@ -30,47 +30,39 @@ export function registerUser(params: {
 	confirmPassword: string;
 	verificationCode: string;
 }) {
-	return defHttp.post({ 
-		url: Api().register, 
+	return defHttp.post({
+		url: Api().register,
 		params,
 	});
 }
 
 // 用户登录
-export function loginUser(params: {
-	email: string;
-	password: string;
-}) {
-	return defHttp.post({ 
-		url: Api().login, 
+export function loginUser(params: { email: string; password: string }) {
+	return defHttp.post({
+		url: Api().login,
 		params,
 	});
 }
 
 // 发送验证码
-export function sendVerificationCode(params: {
-	email: string;
-}) {
-	return defHttp.post({ 
-		url: Api().sendVerificationCode, 
+export function sendVerificationCode(params: { email: string }) {
+	return defHttp.post({
+		url: Api().sendVerificationCode,
 		params,
 	});
 }
 
 // 验证邮箱
-export function verifyEmail(params: {
-	email: string;
-	verificationCode: string;
-}) {
-	return defHttp.post({ 
-		url: Api().verifyEmail, 
+export function verifyEmail(params: { email: string; verificationCode: string }) {
+	return defHttp.post({
+		url: Api().verifyEmail,
 		params,
 	});
 }
 
 // 获取当前用户信息
 export function getCurrentUser() {
-	return defHttp.get({ 
+	return defHttp.get({
 		url: Api().currentUser,
 	});
 }
@@ -81,8 +73,8 @@ export function portalAutoRegisterAndLogin(params: {
 	password: string;
 	onboardingId: string;
 }) {
-	return defHttp.post({ 
-		url: Api().register, 
+	return defHttp.post({
+		url: Api().register,
 		params: {
 			email: params.email,
 			password: params.password,
@@ -91,4 +83,4 @@ export function portalAutoRegisterAndLogin(params: {
 			skipEmailVerification: true, // 特殊标记，表示portal用户跳过邮箱验证
 		},
 	});
-} 
+}

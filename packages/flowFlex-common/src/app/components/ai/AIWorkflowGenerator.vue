@@ -188,7 +188,7 @@
 				<div class="conversation-header">
 					<div class="conversation-title">
 						<div class="title-content">
-							<h3>AI Workflow Assistant</h3>						
+							<h3>AI Workflow Assistant</h3>
 						</div>
 						<!-- Current Model Display (moved to top right) -->
 						<div v-if="currentModelInfo" class="current-model-display">
@@ -272,7 +272,10 @@
 
 					<!-- Smart Generation Actions -->
 					<div class="smart-generation-actions" v-if="canGenerateWorkflow">
-						<div class="generation-card" :class="{ 'high-confidence': conversationProgress >= 60 }">
+						<div
+							class="generation-card"
+							:class="{ 'high-confidence': conversationProgress >= 60 }"
+						>
 							<div class="generation-icon">
 								<el-icon v-if="conversationProgress >= 80"><Check /></el-icon>
 								<el-icon v-else-if="conversationProgress >= 60"><Star /></el-icon>
@@ -285,35 +288,38 @@
 								<h4 v-else-if="conversationProgress >= 60">
 									✨ Great! Ready to generate your workflow!
 								</h4>
-								<h4 v-else>
-									🚀 Let's create your workflow!
-								</h4>
+								<h4 v-else>🚀 Let's create your workflow!</h4>
 								<p v-if="conversationProgress >= 80">
-									Based on our detailed conversation, I can create a comprehensive,
-									customized workflow that perfectly matches your needs.
+									Based on our detailed conversation, I can create a
+									comprehensive, customized workflow that perfectly matches your
+									needs.
 								</p>
 								<p v-else-if="conversationProgress >= 60">
-									I have solid information to create a good workflow for you.
-									You can generate now or continue chatting for even better results.
+									I have solid information to create a good workflow for you. You
+									can generate now or continue chatting for even better results.
 								</p>
 								<p v-else>
-									I have the basics to start creating your workflow.
-									Generate now for a quick start, or chat more for better customization.
+									I have the basics to start creating your workflow. Generate now
+									for a quick start, or chat more for better customization.
 								</p>
 								<div class="confidence-indicator">
 									<span class="confidence-label">Progress:</span>
 									<div class="confidence-bar-mini">
-										<div 
-											class="confidence-fill-mini" 
+										<div
+											class="confidence-fill-mini"
 											:style="{ width: conversationProgress + '%' }"
 											:class="{
 												'progress-excellent': conversationProgress >= 80,
-												'progress-good': conversationProgress >= 60 && conversationProgress < 80,
-												'progress-basic': conversationProgress < 60
+												'progress-good':
+													conversationProgress >= 60 &&
+													conversationProgress < 80,
+												'progress-basic': conversationProgress < 60,
 											}"
 										></div>
 									</div>
-									<span class="confidence-percentage">{{ conversationProgress }}%</span>
+									<span class="confidence-percentage">
+										{{ conversationProgress }}%
+									</span>
 								</div>
 							</div>
 						</div>
@@ -321,22 +327,27 @@
 							<el-button @click="resetConversation" class="secondary-btn">
 								<el-icon class="mr-1"><Refresh /></el-icon>
 								Start Over
-							</el-button>							
+							</el-button>
 							<el-button
 								type="primary"
 								@click="proceedToGeneration"
 								class="primary-btn"
-								:class="{ 
+								:class="{
 									'pulse-animation': conversationProgress >= 80,
-									'ready-animation': conversationProgress >= 60 && conversationProgress < 80,
-									'basic-ready': conversationProgress < 60
+									'ready-animation':
+										conversationProgress >= 60 && conversationProgress < 80,
+									'basic-ready': conversationProgress < 60,
 								}"
 							>
 								<el-icon class="mr-1">
 									<Setting v-if="conversationProgress >= 80" />
 									<Star v-else />
 								</el-icon>
-								{{ conversationProgress >= 80 ? 'Generate Perfect Workflow' : 'Generate My Workflow' }}
+								{{
+									conversationProgress >= 80
+										? 'Generate Perfect Workflow'
+										: 'Generate My Workflow'
+								}}
 							</el-button>
 						</div>
 					</div>
@@ -708,25 +719,25 @@ const getStageCount = (workflow: any) => {
 
 // 智能对话进度评估系统
 const evaluateConversationProgress = () => {
-	const userMessages = conversationHistory.value.filter(m => m.role === 'user');
+	const userMessages = conversationHistory.value.filter((m) => m.role === 'user');
 	const messageCount = userMessages.length;
-	
+
 	if (messageCount === 0) {
 		conversationProgress.value = 0;
 		canGenerateWorkflow.value = false;
 		return;
 	}
-	
+
 	let progress = 0;
 	let hasWorkflowType = false;
 	let hasTeamInfo = false;
 	let hasStructureInfo = false;
 	let hasRequirements = false;
 	let hasModificationDetails = false;
-	
+
 	// 分析所有用户消息内容
-	const allUserContent = userMessages.map(m => m.content.toLowerCase()).join(' ');
-	
+	const allUserContent = userMessages.map((m) => m.content.toLowerCase()).join(' ');
+
 	// 检测无意义输入
 	const meaninglessPatterns = [
 		/^[\d\s]*$/, // 只包含数字和空格
@@ -734,13 +745,14 @@ const evaluateConversationProgress = () => {
 		/^[\W\s]*$/, // 只包含特殊字符和空格
 		/^(test|testing|hello|hi|hey|ok|yes|no)\s*$/i, // 简单测试词
 	];
-	
-	const isMeaninglessInput = allUserContent.trim().length < 3 || 
-		meaninglessPatterns.some(pattern => pattern.test(allUserContent.trim()));
-	
+
+	const isMeaninglessInput =
+		allUserContent.trim().length < 3 ||
+		meaninglessPatterns.some((pattern) => pattern.test(allUserContent.trim()));
+
 	if (operationMode.value === 'create') {
 		// 创建模式评估 - 智能渐进式评估
-		
+
 		// 基础分数：根据输入质量给分
 		if (messageCount > 0) {
 			if (isMeaninglessInput) {
@@ -749,38 +761,124 @@ const evaluateConversationProgress = () => {
 				progress += 20; // 有意义输入给20%
 			}
 		}
-		
+
 		// 1. 工作流类型识别 (25%) - 扩展关键词覆盖
-		const workflowKeywords = ['onboard', 'approval', 'customer', 'support', 'process', 'workflow', 'employee', 'project', 'review', 'training', 'document', 'verification', 'testing', 'software', 'development', 'design', 'create', 'build', 'manage', 'system', 'application'];
-		if (workflowKeywords.some(keyword => allUserContent.includes(keyword))) {
+		const workflowKeywords = [
+			'onboard',
+			'approval',
+			'customer',
+			'support',
+			'process',
+			'workflow',
+			'employee',
+			'project',
+			'review',
+			'training',
+			'document',
+			'verification',
+			'testing',
+			'software',
+			'development',
+			'design',
+			'create',
+			'build',
+			'manage',
+			'system',
+			'application',
+		];
+		if (workflowKeywords.some((keyword) => allUserContent.includes(keyword))) {
 			hasWorkflowType = true;
 			progress += 25;
 		}
-		
+
 		// 2. 团队信息 (15%) - 只有真正提到团队相关内容才加分
-		const teamKeywords = ['team', 'hr', 'it', 'sales', 'finance', 'operations', 'manager', 'supervisor', 'department', 'role', 'assign', 'responsible', 'developer', 'tester', 'designer', 'company', 'organization', 'group', 'member'];
-		if (teamKeywords.some(keyword => allUserContent.includes(keyword))) {
+		const teamKeywords = [
+			'team',
+			'hr',
+			'it',
+			'sales',
+			'finance',
+			'operations',
+			'manager',
+			'supervisor',
+			'department',
+			'role',
+			'assign',
+			'responsible',
+			'developer',
+			'tester',
+			'designer',
+			'company',
+			'organization',
+			'group',
+			'member',
+		];
+		if (teamKeywords.some((keyword) => allUserContent.includes(keyword))) {
 			hasTeamInfo = true;
 			progress += 15;
 		}
-		
+
 		// 3. 结构和时间信息 (20%) - 需要明确的结构描述或多轮对话
-		const structureKeywords = ['stage', 'step', 'phase', 'day', 'week', 'month', 'duration', 'time', 'sequence', 'order', 'first', 'then', 'next', 'final', 'begin', 'start', 'end', 'complete', 'flow'];
-		if (structureKeywords.some(keyword => allUserContent.includes(keyword)) || messageCount >= 2) {
+		const structureKeywords = [
+			'stage',
+			'step',
+			'phase',
+			'day',
+			'week',
+			'month',
+			'duration',
+			'time',
+			'sequence',
+			'order',
+			'first',
+			'then',
+			'next',
+			'final',
+			'begin',
+			'start',
+			'end',
+			'complete',
+			'flow',
+		];
+		if (
+			structureKeywords.some((keyword) => allUserContent.includes(keyword)) ||
+			messageCount >= 2
+		) {
 			hasStructureInfo = true;
 			progress += 20;
 		}
-		
+
 		// 4. 需求和细节 (20%) - 需要明确的需求描述或详细对话
-		const requirementKeywords = ['require', 'need', 'must', 'should', 'document', 'approval', 'check', 'verify', 'complete', 'ensure', 'compliance', 'policy', 'quality', 'test', 'validate', 'want', 'like', 'expect'];
-		if (requirementKeywords.some(keyword => allUserContent.includes(keyword)) || (messageCount >= 2 && allUserContent.length > 50)) {
+		const requirementKeywords = [
+			'require',
+			'need',
+			'must',
+			'should',
+			'document',
+			'approval',
+			'check',
+			'verify',
+			'complete',
+			'ensure',
+			'compliance',
+			'policy',
+			'quality',
+			'test',
+			'validate',
+			'want',
+			'like',
+			'expect',
+		];
+		if (
+			requirementKeywords.some((keyword) => allUserContent.includes(keyword)) ||
+			(messageCount >= 2 && allUserContent.length > 50)
+		) {
 			hasRequirements = true;
 			progress += 20;
 		}
-		
 	} else {
 		// 修改模式评估 - 优化为更容易达到可生成状态
-		
+
 		// 前提: 必须选择工作流
 		if (!selectedWorkflowId.value) {
 			progress = 0;
@@ -789,68 +887,116 @@ const evaluateConversationProgress = () => {
 			if (messageCount > 0) {
 				progress += 50;
 			}
-			
+
 			// 1. 修改意图识别 (25%) - 扩展关键词
-			const modifyKeywords = ['add', 'remove', 'change', 'modify', 'update', 'improve', 'enhance', 'optimize', 'adjust', 'replace', 'delete', 'fix', 'edit', 'revise', 'refine', 'better', 'new'];
-			if (modifyKeywords.some(keyword => allUserContent.includes(keyword))) {
+			const modifyKeywords = [
+				'add',
+				'remove',
+				'change',
+				'modify',
+				'update',
+				'improve',
+				'enhance',
+				'optimize',
+				'adjust',
+				'replace',
+				'delete',
+				'fix',
+				'edit',
+				'revise',
+				'refine',
+				'better',
+				'new',
+			];
+			if (modifyKeywords.some((keyword) => allUserContent.includes(keyword))) {
 				hasModificationDetails = true;
 				progress += 25;
 			}
-			
+
 			// 2. 具体修改内容 (15%) - 更容易触发
-			const detailKeywords = ['stage', 'step', 'team', 'duration', 'time', 'assignment', 'approval', 'requirement', 'field', 'process', 'flow', 'sequence', 'order'];
-			if (detailKeywords.some(keyword => allUserContent.includes(keyword)) || messageCount >= 1) {
+			const detailKeywords = [
+				'stage',
+				'step',
+				'team',
+				'duration',
+				'time',
+				'assignment',
+				'approval',
+				'requirement',
+				'field',
+				'process',
+				'flow',
+				'sequence',
+				'order',
+			];
+			if (
+				detailKeywords.some((keyword) => allUserContent.includes(keyword)) ||
+				messageCount >= 1
+			) {
 				progress += 15;
 			}
-			
+
 			// 3. 约束和要求 (10%) - 降低权重
 			if (messageCount >= 1) {
 				progress += 10;
 			}
 		}
 	}
-	
+
 	// 智能额外加分项 - 基于内容质量和对话深度
-	
+
 	// 1. 内容长度和质量加分
 	if (allUserContent.length > 50 && messageCount >= 2) {
 		progress += 5; // 有一定深度的对话
 	}
-	
+
 	if (allUserContent.length > 150 && messageCount >= 3) {
 		progress += 5; // 详细描述加分
 	}
-	
+
 	if (allUserContent.length > 300) {
 		progress += 5; // 非常详细的描述
 	}
-	
+
 	// 2. 多轮对话质量加分
 	if (messageCount >= 4) {
 		progress += 5; // 深度交互加分
 	}
-	
+
 	// 3. 特殊关键词组合加分
-	const advancedKeywords = ['stakeholder', 'deliverable', 'milestone', 'criteria', 'metric', 'kpi', 'sla', 'automation', 'integration', 'escalation'];
-	const advancedMatches = advancedKeywords.filter(keyword => allUserContent.includes(keyword)).length;
+	const advancedKeywords = [
+		'stakeholder',
+		'deliverable',
+		'milestone',
+		'criteria',
+		'metric',
+		'kpi',
+		'sla',
+		'automation',
+		'integration',
+		'escalation',
+	];
+	const advancedMatches = advancedKeywords.filter((keyword) =>
+		allUserContent.includes(keyword)
+	).length;
 	if (advancedMatches >= 2) {
 		progress += 5; // 高级词汇使用加分
 	}
-	
+
 	// 确保进度不超过100%
 	progress = Math.min(progress, 100);
-	
+
 	// 更新进度
 	conversationProgress.value = progress;
-	
+
 	// 判断是否可以生成工作流 (只要有用户输入就可以生成)
 	canGenerateWorkflow.value = messageCount > 0;
-	
+
 	// 如果进度达到80%以上，设置对话完成
 	if (progress >= 80) {
 		conversationComplete.value = true;
 	}
-	
+
 	console.log('Conversation Progress Analysis:', {
 		operationMode: operationMode.value,
 		messageCount,
@@ -864,7 +1010,7 @@ const evaluateConversationProgress = () => {
 		hasModificationDetails,
 		finalProgress: progress,
 		canGenerateWorkflow: canGenerateWorkflow.value,
-		conversationComplete: conversationComplete.value
+		conversationComplete: conversationComplete.value,
 	});
 };
 
@@ -940,7 +1086,7 @@ const addUserMessage = (content: string) => {
 		timestamp: new Date().toLocaleTimeString(),
 	};
 	conversationHistory.value.push(message);
-	
+
 	// 评估对话进度
 	nextTick(() => {
 		evaluateConversationProgress();
@@ -1007,7 +1153,7 @@ const callRealAI = async (userMessage: string) => {
 			if (aiResponse.sessionId) {
 				conversationSessionId.value = aiResponse.sessionId;
 			}
-			
+
 			// 重新评估进度
 			nextTick(() => {
 				evaluateConversationProgress();
@@ -1139,26 +1285,31 @@ const resetConversation = () => {
 
 const continueConversation = () => {
 	// 鼓励用户继续提供更多信息
-	const messageCount = conversationHistory.value.filter(m => m.role === 'user').length;
-	
+	const messageCount = conversationHistory.value.filter((m) => m.role === 'user').length;
+
 	let encouragementMessage = '';
-	
+
 	if (operationMode.value === 'create') {
 		if (messageCount <= 1) {
-			encouragementMessage = "Great start! To make your workflow even better, could you tell me more about the teams or people who will be involved in this process?";
+			encouragementMessage =
+				'Great start! To make your workflow even better, could you tell me more about the teams or people who will be involved in this process?';
 		} else if (messageCount <= 2) {
-			encouragementMessage = "Excellent! Now, could you describe the main stages or steps you envision? How long should the entire process take?";
+			encouragementMessage =
+				'Excellent! Now, could you describe the main stages or steps you envision? How long should the entire process take?';
 		} else {
-			encouragementMessage = "Perfect! Are there any specific requirements, documents, or approval processes that should be included?";
+			encouragementMessage =
+				'Perfect! Are there any specific requirements, documents, or approval processes that should be included?';
 		}
 	} else {
 		if (messageCount <= 1) {
-			encouragementMessage = "Good! Could you provide more specific details about what you want to change? Which stages or aspects need modification?";
+			encouragementMessage =
+				'Good! Could you provide more specific details about what you want to change? Which stages or aspects need modification?';
 		} else {
-			encouragementMessage = "Great! Are there any constraints or requirements I should consider for these modifications?";
+			encouragementMessage =
+				'Great! Are there any constraints or requirements I should consider for these modifications?';
 		}
 	}
-	
+
 	addAIMessage(encouragementMessage);
 };
 
@@ -1578,7 +1729,7 @@ onMounted(() => {
 	setTimeout(() => {
 		startConversation();
 	}, 500);
-	
+
 	// Initialize progress evaluation
 	nextTick(() => {
 		evaluateConversationProgress();
@@ -2496,7 +2647,8 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes status-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		transform: scale(1);
 		opacity: 1;
 	}
@@ -2752,7 +2904,8 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes generation-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		transform: scale(1);
 		box-shadow:
 			0 4px 12px rgba(16, 185, 129, 0.3),
@@ -2767,7 +2920,8 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes primary-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		box-shadow:
 			0 4px 15px rgba(59, 130, 246, 0.4),
 			0 0 30px rgba(59, 130, 246, 0.2);
@@ -2780,7 +2934,8 @@ watch(operationMode, (newMode) => {
 }
 
 @keyframes ready-glow {
-	0%, 100% {
+	0%,
+	100% {
 		box-shadow:
 			0 4px 15px rgba(59, 130, 246, 0.3),
 			0 0 25px rgba(59, 130, 246, 0.15);
@@ -3386,4 +3541,3 @@ watch(operationMode, (newMode) => {
 	position: relative !important;
 }
 </style>
-
