@@ -14,7 +14,12 @@
 				</el-select>
 			</el-form-item>
 			<el-form-item label="Headers">
-				<el-input v-model="config.headers" type="textarea" :rows="3" placeholder="JSON format headers" />
+				<el-input
+					v-model="config.headers"
+					type="textarea"
+					:rows="3"
+					placeholder="JSON format headers"
+				/>
 			</el-form-item>
 			<el-form-item label="Timeout (seconds)">
 				<el-input-number v-model="config.timeout" :min="1" :max="300" />
@@ -44,42 +49,49 @@ import { reactive, watch, ref } from 'vue';
 import { type TestResult } from '../../apis/action';
 
 // Props
-const props = withDefaults(defineProps<{
-	modelValue?: any;
-	showTestButton?: boolean;
-	actionId?: string;
-	testResult?: string;
-	showTestResult?: boolean;
-	testing?: boolean;
-}>(), {
-	modelValue: () => ({
-		url: '',
-		method: 'POST',
-		headers: '{"Content-Type": "application/json"}',
-		timeout: 30,
-	}),
-	showTestButton: false,
-	actionId: '',
-	testResult: '',
-	showTestResult: false,
-	testing: false,
-});
+const props = withDefaults(
+	defineProps<{
+		modelValue?: any;
+		showTestButton?: boolean;
+		actionId?: string;
+		testResult?: string;
+		showTestResult?: boolean;
+		testing?: boolean;
+	}>(),
+	{
+		modelValue: () => ({
+			url: '',
+			method: 'POST',
+			headers: '{"Content-Type": "application/json"}',
+			timeout: 30,
+		}),
+		showTestButton: false,
+		actionId: '',
+		testResult: '',
+		showTestResult: false,
+		testing: false,
+	}
+);
 
 // Emits
 const emit = defineEmits<{
 	'update:modelValue': [value: any];
-	'test': [result: TestResult | null];
+	test: [result: TestResult | null];
 	'update:showTestResult': [value: boolean];
 }>();
 
 // Internal state
-const testing = ref(false);
+// const testing = ref(false);
 const showTestResultLocal = ref(false);
 
 // Watch for props changes to sync local state
-watch(() => props.showTestResult, (newValue) => {
-	showTestResultLocal.value = newValue;
-}, { immediate: true });
+watch(
+	() => props.showTestResult,
+	(newValue) => {
+		showTestResultLocal.value = newValue;
+	},
+	{ immediate: true }
+);
 
 // Close test result dialog
 const closeTestResult = () => {
@@ -96,16 +108,24 @@ const config = reactive({
 });
 
 // Watch for prop changes
-watch(() => props.modelValue, (newValue) => {
-	if (newValue) {
-		Object.assign(config, newValue);
-	}
-}, { immediate: true, deep: true });
+watch(
+	() => props.modelValue,
+	(newValue) => {
+		if (newValue) {
+			Object.assign(config, newValue);
+		}
+	},
+	{ immediate: true, deep: true }
+);
 
 // Watch for local changes
-watch(config, (newValue) => {
-	emit('update:modelValue', { ...newValue });
-}, { deep: true });
+watch(
+	config,
+	(newValue) => {
+		emit('update:modelValue', { ...newValue });
+	},
+	{ deep: true }
+);
 
 // Test run method
 const handleTestRun = async () => {

@@ -17,26 +17,29 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import loader from '@monaco-editor/loader';
 
 // Props
-const props = withDefaults(defineProps<{
-	modelValue?: string;
-	language?: string;
-	title?: string;
-	description?: string;
-	height?: string;
-	readOnly?: boolean;
-}>(), {
-	modelValue: '',
-	language: 'python',
-	title: 'Code Editor',
-	description: 'Write your Python code here',
-	height: '300px',
-	readOnly: false,
-});
+const props = withDefaults(
+	defineProps<{
+		modelValue?: string;
+		language?: string;
+		title?: string;
+		description?: string;
+		height?: string;
+		readOnly?: boolean;
+	}>(),
+	{
+		modelValue: '',
+		language: 'python',
+		title: 'Code Editor',
+		description: 'Write your Python code here',
+		height: '300px',
+		readOnly: false,
+	}
+);
 
 // Emits
 const emit = defineEmits<{
 	'update:modelValue': [value: string];
-	'change': [value: string];
+	change: [value: string];
 }>();
 
 // Refs
@@ -52,8 +55,8 @@ const initEditor = async () => {
 		// Load Monaco editor using loader
 		loader.config({
 			paths: {
-				'vs': 'https://unpkg.com/monaco-editor@0.52.2/min/vs'
-			}
+				vs: 'https://unpkg.com/monaco-editor@0.52.2/min/vs',
+			},
 		});
 		monaco = await loader.init();
 
