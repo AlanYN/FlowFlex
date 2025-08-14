@@ -313,9 +313,63 @@ namespace FlowFlex.WebApi.Controllers.AI
             
             return Success(result);
         }
+
+        /// <summary>
+        /// Create stage components (checklists and questionnaires) for a workflow
+        /// </summary>
+        /// <param name="request">Stage components creation request</param>
+        /// <returns>Success status</returns>
+        [HttpPost("create-stage-components")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task<IActionResult> CreateStageComponents([FromBody] CreateStageComponentsRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest("Request cannot be null");
+            }
+
+            Console.WriteLine($"[AI Workflow] Creating stage components for workflow {request.WorkflowId}");
+            Console.WriteLine($"[AI Workflow] Stages: {request.Stages?.Count ?? 0}");
+            Console.WriteLine($"[AI Workflow] Checklists: {request.Checklists?.Count ?? 0}");
+            Console.WriteLine($"[AI Workflow] Questionnaires: {request.Questionnaires?.Count ?? 0}");
+
+            var result = await _aiService.CreateStageComponentsAsync(
+                request.WorkflowId,
+                request.Stages ?? new List<AIStageGenerationResult>(),
+                request.Checklists ?? new List<AIChecklistGenerationResult>(),
+                request.Questionnaires ?? new List<AIQuestionnaireGenerationResult>()
+            );
+
+            return Success(result);
+        }
     }
 
     #region Request/Response Models
+
+    public class CreateStageComponentsRequest
+    {
+        /// <summary>
+        /// Workflow ID
+        /// </summary>
+        [Required]
+        public long WorkflowId { get; set; }
+
+        /// <summary>
+        /// Generated stages
+        /// </summary>
+        public List<AIStageGenerationResult> Stages { get; set; } = new();
+
+        /// <summary>
+        /// Generated checklists
+        /// </summary>
+        public List<AIChecklistGenerationResult> Checklists { get; set; } = new();
+
+        /// <summary>
+        /// Generated questionnaires
+        /// </summary>
+        public List<AIQuestionnaireGenerationResult> Questionnaires { get; set; } = new();
+    }
 
     public class EnhanceWorkflowRequest
     {

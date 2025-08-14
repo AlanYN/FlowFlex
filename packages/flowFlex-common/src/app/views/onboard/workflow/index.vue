@@ -37,6 +37,18 @@
 									{{ workflow.name }}
 								</span>
 								<el-tag
+									v-if="workflow.isAIGenerated"
+									type="primary"
+									effect="light"
+									size="small"
+									class="ai-tag rounded-md"
+								>
+									<div class="flex items-center gap-1">
+										<span class="ai-sparkles">✨</span>
+										AI
+									</div>
+								</el-tag>
+								<el-tag
 									v-if="workflow.isDefault"
 									type="warning"
 									effect="light"
@@ -96,6 +108,7 @@
 											</div>
 										</div>
 										<div class="flex items-center gap-1">
+																					<span v-if="workflowItem.isAIGenerated" class="ai-dropdown-sparkles">✨</span>
 											<div v-if="workflowItem.isDefault">⭐</div>
 											<el-icon
 												v-if="workflowItem.status === 'inactive'"
@@ -1528,6 +1541,17 @@ const resetCombineStagesForm = () => {
 	font-size: 11px;
 }
 
+.ai-tag {
+	background: linear-gradient(to right, var(--primary-400, #3b82f6), var(--primary-500, #2563eb));
+	color: white;
+	border-color: transparent;
+	padding: 2px 8px;
+	font-size: 11px;
+	display: inline-flex;
+	align-items: center;
+	margin-left: 8px;
+}
+
 .default-tag {
 	background: linear-gradient(to right, var(--yellow-400, #f59e0b), var(--yellow-500, #e6a23c));
 	color: white;
@@ -1539,11 +1563,47 @@ const resetCombineStagesForm = () => {
 	margin-left: 8px;
 }
 
+.ai-sparkles {
+	font-size: 12px;
+	animation: sparkle 2s ease-in-out infinite;
+	display: inline-block;
+}
+
+.ai-dropdown-sparkles {
+	font-size: 14px;
+	animation: sparkle 2s ease-in-out infinite;
+	display: inline-block;
+}
+
+@keyframes sparkle {
+	0%, 100% {
+		transform: scale(1) rotate(0deg);
+		opacity: 1;
+	}
+	25% {
+		transform: scale(1.1) rotate(5deg);
+		opacity: 0.9;
+	}
+	50% {
+		transform: scale(1.2) rotate(-5deg);
+		opacity: 0.8;
+	}
+	75% {
+		transform: scale(1.1) rotate(3deg);
+		opacity: 0.9;
+	}
+}
+
 .star-icon {
 	color: white;
 	margin-right: 4px;
 	width: 12px;
 	height: 12px;
+}
+
+.ai-dropdown-icon {
+	color: var(--primary-500, #2468f2);
+	font-size: 14px;
 }
 
 .inactive-icon {

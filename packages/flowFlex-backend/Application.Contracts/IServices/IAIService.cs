@@ -92,6 +92,16 @@ namespace FlowFlex.Application.Contracts.IServices
         Task<AIWorkflowGenerationResult> EnhanceWorkflowAsync(AIWorkflowModificationInput input);
 
         /// <summary>
+        /// Create actual checklist and questionnaire records and associate them with stages
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="stages">Generated stages</param>
+        /// <param name="checklists">Generated checklists</param>
+        /// <param name="questionnaires">Generated questionnaires</param>
+        /// <returns>Success status</returns>
+        Task<bool> CreateStageComponentsAsync(long workflowId, List<AIStageGenerationResult> stages, List<AIChecklistGenerationResult> checklists, List<AIQuestionnaireGenerationResult> questionnaires);
+
+        /// <summary>
         /// Send message to AI chat and get response
         /// </summary>
         /// <param name="input">Chat input with messages and context</param>
@@ -197,6 +207,8 @@ namespace FlowFlex.Application.Contracts.IServices
         public string Message { get; set; } = string.Empty;
         public WorkflowInputDto GeneratedWorkflow { get; set; }
         public List<AIStageGenerationResult> Stages { get; set; } = new();
+        public List<AIChecklistGenerationResult> Checklists { get; set; } = new();
+        public List<AIQuestionnaireGenerationResult> Questionnaires { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
     }
@@ -229,8 +241,22 @@ namespace FlowFlex.Application.Contracts.IServices
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
         public QuestionnaireInputDto GeneratedQuestionnaire { get; set; }
+        public List<AIQuestionGenerationResult> Questions { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
+    }
+
+    public class AIQuestionGenerationResult
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Question { get; set; } = string.Empty;
+        public string Type { get; set; } = "text"; // text, select, multiselect, number, date, boolean
+        public List<string> Options { get; set; } = new();
+        public bool IsRequired { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public string HelpText { get; set; } = string.Empty;
+        public string ValidationRule { get; set; } = string.Empty;
+        public object DefaultValue { get; set; }
     }
 
     public class AIChecklistGenerationInput
@@ -249,8 +275,21 @@ namespace FlowFlex.Application.Contracts.IServices
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
         public ChecklistInputDto GeneratedChecklist { get; set; }
+        public List<AITaskGenerationResult> Tasks { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
+    }
+
+    public class AITaskGenerationResult
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public bool IsRequired { get; set; }
+        public bool Completed { get; set; } = false;
+        public int EstimatedMinutes { get; set; } = 0;
+        public string Category { get; set; } = string.Empty;
+        public List<string> Dependencies { get; set; } = new();
     }
 
     public class AIWorkflowStreamResult

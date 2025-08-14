@@ -54,8 +54,27 @@
 								<!-- Workflow Preview -->
 								<div class="workflow-preview">
 									<div class="workflow-info">
-										<h5>{{ message.data?.workflow?.name || 'Workflow' }}</h5>
-										<p>{{ message.data?.workflow?.description || 'Description' }}</p>
+										<div class="workflow-header">
+											<el-input
+												v-if="message.data?.workflow"
+												v-model="message.data.workflow.name"
+												class="workflow-name-input"
+												placeholder="Enter workflow name"
+												@blur="onWorkflowUpdated(message.data!)"
+											/>
+											<span class="status" :class="{ active: message.data?.workflow?.isActive }">
+												{{ message.data?.workflow?.isActive ? 'Active' : 'Inactive' }}
+											</span>
+										</div>
+										<el-input
+											v-if="message.data?.workflow"
+											v-model="message.data.workflow.description"
+											type="textarea"
+											class="workflow-description-input"
+											placeholder="Enter workflow description"
+											:rows="2"
+											@blur="onWorkflowUpdated(message.data!)"
+										/>
 										<div class="workflow-stats">
 											<span class="stat-item">
 												<el-icon><List /></el-icon>
@@ -156,23 +175,84 @@
 									<!-- Checklists & Questionnaires -->
 									<div class="additional-components">
 										<div class="component-section">
-											<h6>Checklists</h6>
-											<div class="component-list">
-												<div 
-													v-for="(checklist, clIndex) in message.data?.checklists || []"
-													:key="clIndex"
-													class="component-item"
+											<div class="section-header">
+												<h6>Checklists</h6>
+												<el-button 
+													size="small" 
+													type="text"
+													@click="toggleChecklistsCollapse"
+													class="collapse-toggle"
 												>
-													<el-input v-model="checklist.name" size="small" />
-													<el-button 
-														size="small" 
-														type="danger" 
-														@click="removeChecklist(message.data, clIndex)"
-													>
-														<el-icon><Remove /></el-icon>
-													</el-button>
-												</div>
+													<el-icon>
+														<ArrowDown v-if="checklistsCollapsed" />
+														<ArrowUp v-else />
+													</el-icon>
+													{{ checklistsCollapsed ? 'Expand' : 'Collapse' }}
+												</el-button>
 											</div>
+											
+											<el-collapse-transition>
+												<div v-show="!checklistsCollapsed" class="checklists-grid">
+													<div 
+														v-for="(checklist, clIndex) in message.data?.checklists || []"
+														:key="clIndex"
+														class="checklist-card"
+													>
+														<div class="checklist-header">
+															<h7>{{ checklist.name }}</h7>
+															<div class="card-actions">
+																<el-button 
+																	size="small" 
+																	type="text"
+																	@click="toggleChecklistTasks(clIndex)"
+																	class="expand-btn"
+																>
+																	<el-icon>
+																		<ArrowDown v-if="isChecklistTasksCollapsed(clIndex)" />
+																		<ArrowUp v-else />
+																	</el-icon>
+																</el-button>
+																<el-button 
+																	size="small" 
+																	type="danger" 
+																	@click="removeChecklist(message.data, clIndex)"
+																	circle
+																>
+																	<el-icon><Close /></el-icon>
+																</el-button>
+															</div>
+														</div>
+														<p class="checklist-description">{{ checklist.description }}</p>
+														
+														<el-collapse-transition>
+															<div v-show="!isChecklistTasksCollapsed(clIndex)" class="tasks-list">
+																<div 
+																	v-for="task in checklist.tasks || []"
+																	:key="task.id"
+																	class="task-item"
+																>
+																	<div class="task-header">
+																		<el-checkbox 
+																			v-model="task.completed"
+																			:disabled="true"
+																		/>
+																		<span class="task-title" :class="{ required: task.isRequired }">
+																			{{ task.title }}
+																			<el-tag v-if="task.isRequired" size="small" type="danger">Required</el-tag>
+																		</span>
+																	</div>
+																	<p class="task-description">{{ task.description }}</p>
+																	<div class="task-meta">
+																		<el-tag size="small" type="info">{{ task.category }}</el-tag>
+																		<span class="estimated-time">{{ task.estimatedMinutes }}min</span>
+																	</div>
+																</div>
+															</div>
+														</el-collapse-transition>
+													</div>
+												</div>
+											</el-collapse-transition>
+											
 											<el-button 
 												size="small" 
 												type="default" 
@@ -184,23 +264,90 @@
 										</div>
 
 										<div class="component-section">
-											<h6>Questionnaires</h6>
-											<div class="component-list">
-												<div 
-													v-for="(questionnaire, qIndex) in message.data?.questionnaires || []"
-													:key="qIndex"
-													class="component-item"
+											<div class="section-header">
+												<h6>Questionnaires</h6>
+												<el-button 
+													size="small" 
+													type="text"
+													@click="toggleQuestionnairesCollapse"
+													class="collapse-toggle"
 												>
-													<el-input v-model="questionnaire.name" size="small" />
-													<el-button 
-														size="small" 
-														type="danger" 
-														@click="removeQuestionnaire(message.data, qIndex)"
-													>
-														<el-icon><Remove /></el-icon>
-													</el-button>
-												</div>
+													<el-icon>
+														<ArrowDown v-if="questionnairesCollapsed" />
+														<ArrowUp v-else />
+													</el-icon>
+													{{ questionnairesCollapsed ? 'Expand' : 'Collapse' }}
+												</el-button>
 											</div>
+											
+											<el-collapse-transition>
+												<div v-show="!questionnairesCollapsed" class="questionnaires-grid">
+													<div 
+														v-for="(questionnaire, qIndex) in message.data?.questionnaires || []"
+														:key="qIndex"
+														class="questionnaire-card"
+													>
+														<div class="questionnaire-header">
+															<h7>{{ questionnaire.name }}</h7>
+															<div class="card-actions">
+																<el-button 
+																	size="small" 
+																	type="text"
+																	@click="toggleQuestionnaireQuestions(qIndex)"
+																	class="expand-btn"
+																>
+																	<el-icon>
+																		<ArrowDown v-if="isQuestionnaireQuestionsCollapsed(qIndex)" />
+																		<ArrowUp v-else />
+																	</el-icon>
+																</el-button>
+																<el-button 
+																	size="small" 
+																	type="danger" 
+																	@click="removeQuestionnaire(message.data, qIndex)"
+																	circle
+																>
+																	<el-icon><Close /></el-icon>
+																</el-button>
+															</div>
+														</div>
+														<p class="questionnaire-description">{{ questionnaire.description }}</p>
+														
+														<el-collapse-transition>
+															<div v-show="!isQuestionnaireQuestionsCollapsed(qIndex)" class="questions-list">
+																<div 
+																	v-for="question in questionnaire.questions || []"
+																	:key="question.id"
+																	class="question-item"
+																>
+																	<div class="question-header">
+																		<span class="question-text" :class="{ required: question.isRequired }">
+																			{{ question.question }}
+																			<el-tag v-if="question.isRequired" size="small" type="warning">Required</el-tag>
+																		</span>
+																		<el-tag size="small" type="info">{{ question.type }}</el-tag>
+																	</div>
+																	<div v-if="question.options && question.options.length > 0" class="question-options">
+																		<el-tag 
+																			v-for="option in question.options"
+																			:key="option"
+																			size="small"
+																			class="option-tag"
+																		>
+																			{{ option }}
+																		</el-tag>
+																	</div>
+																	<div class="question-meta">
+																		<el-tag size="small" type="success">{{ question.category }}</el-tag>
+																		<span v-if="question.helpText" class="help-text">{{ question.helpText }}</span>
+																	</div>
+																</div>
+															</div>
+														</el-collapse-transition>
+													</div>
+												</div>
+											</el-collapse-transition>
+											
 											<el-button 
 												size="small" 
 												type="default" 
@@ -689,12 +836,13 @@ import {
 	CircleCheckFilled,
 	List,
 	Clock,
-	Remove,
 	Plus,
 	Check,
 	Delete,
 	ArrowLeft,
 	ArrowRight,
+	ArrowDown,
+	ArrowUp,
 	ChatDotRound,
 	Position,
 	Refresh,
@@ -735,16 +883,39 @@ interface WorkflowStage {
 
 
 
+interface ChecklistTask {
+	id: string;
+	title: string;
+	description: string;
+	isRequired: boolean;
+	completed?: boolean;
+	estimatedMinutes?: number;
+	category?: string;
+}
+
 interface ChecklistItem {
 	name: string;
 	description: string;
 	stageId?: number;
+	tasks: ChecklistTask[];
+}
+
+interface QuestionnaireQuestion {
+	id: string;
+	question: string;
+	type: 'text' | 'select' | 'multiselect' | 'number' | 'date' | 'boolean';
+	options?: string[];
+	isRequired: boolean;
+	answer?: any;
+	category?: string;
+	helpText?: string;
 }
 
 interface QuestionnaireItem {
 	name: string;
 	description: string;
 	stageId?: number;
+	questions: QuestionnaireQuestion[];
 }
 
 interface ChatMessage {
@@ -817,6 +988,12 @@ const filteredHistory = computed(() => {
 const showRenameDialog = ref(false);
 const renameSessionId = ref('');
 const newSessionTitle = ref('');
+
+// Collapse state management
+const checklistsCollapsed = ref(false);
+const questionnairesCollapsed = ref(false);
+const collapsedChecklistTasks = ref<Set<number>>(new Set());
+const collapsedQuestionnaireQuestions = ref<Set<number>>(new Set());
 
 // Stream AI Hook
 const { isStreaming, startStreaming, streamFileAnalysis, stopStreaming } = useStreamAIWorkflow();
@@ -994,21 +1171,243 @@ const generateWorkflow = async () => {
 		processStagesSequentially(stages, currentIndex + 1);
 	};
 
+	// Generate realistic checklist tasks based on stage name and description
+	const generateChecklistTasks = (stage: WorkflowStage): ChecklistTask[] => {
+		const stageName = stage.name.toLowerCase();
+		const stageDesc = stage.description.toLowerCase();
+		
+		// Common task templates based on stage characteristics
+		const taskTemplates: { [key: string]: ChecklistTask[] } = {
+			// Initial/Assessment stages
+			initial: [
+				{ id: 'req-gather', title: 'Gather Requirements', description: 'Collect and document all necessary requirements', isRequired: true },
+				{ id: 'stakeholder-id', title: 'Identify Stakeholders', description: 'List all key stakeholders and their roles', isRequired: true },
+				{ id: 'timeline-est', title: 'Estimate Timeline', description: 'Create initial timeline estimates', isRequired: false },
+				{ id: 'resource-check', title: 'Check Resource Availability', description: 'Verify required resources are available', isRequired: true }
+			],
+			
+			// Planning stages
+			planning: [
+				{ id: 'plan-create', title: 'Create Detailed Plan', description: 'Develop comprehensive project plan', isRequired: true },
+				{ id: 'risk-assess', title: 'Risk Assessment', description: 'Identify and assess potential risks', isRequired: true },
+				{ id: 'budget-approve', title: 'Budget Approval', description: 'Get budget approval from management', isRequired: true },
+				{ id: 'team-assign', title: 'Assign Team Members', description: 'Assign roles and responsibilities to team members', isRequired: true }
+			],
+			
+			// Design/Development stages
+			design: [
+				{ id: 'wireframe', title: 'Create Wireframes', description: 'Design initial wireframes and mockups', isRequired: true },
+				{ id: 'prototype', title: 'Build Prototype', description: 'Develop working prototype', isRequired: false },
+				{ id: 'design-review', title: 'Design Review', description: 'Conduct design review with stakeholders', isRequired: true },
+				{ id: 'spec-finalize', title: 'Finalize Specifications', description: 'Complete technical specifications', isRequired: true }
+			],
+			
+			// Implementation/Development stages
+			implementation: [
+				{ id: 'env-setup', title: 'Setup Environment', description: 'Configure development/production environment', isRequired: true },
+				{ id: 'code-develop', title: 'Develop Code', description: 'Write and implement code according to specifications', isRequired: true },
+				{ id: 'unit-test', title: 'Unit Testing', description: 'Perform unit testing on developed components', isRequired: true },
+				{ id: 'code-review', title: 'Code Review', description: 'Conduct peer code review', isRequired: true }
+			],
+			
+			// Testing stages
+			testing: [
+				{ id: 'test-plan', title: 'Create Test Plan', description: 'Develop comprehensive test plan', isRequired: true },
+				{ id: 'test-cases', title: 'Write Test Cases', description: 'Create detailed test cases', isRequired: true },
+				{ id: 'execute-tests', title: 'Execute Tests', description: 'Run all test cases and document results', isRequired: true },
+				{ id: 'bug-fix', title: 'Fix Bugs', description: 'Address and fix identified issues', isRequired: true }
+			],
+			
+			// Review/Approval stages
+			review: [
+				{ id: 'quality-check', title: 'Quality Assurance Check', description: 'Perform quality assurance review', isRequired: true },
+				{ id: 'stakeholder-review', title: 'Stakeholder Review', description: 'Present to stakeholders for review', isRequired: true },
+				{ id: 'feedback-collect', title: 'Collect Feedback', description: 'Gather and document feedback', isRequired: true },
+				{ id: 'approval-get', title: 'Get Final Approval', description: 'Obtain final approval to proceed', isRequired: true }
+			],
+			
+			// Deployment/Launch stages
+			deployment: [
+				{ id: 'deploy-prep', title: 'Prepare Deployment', description: 'Prepare all deployment materials', isRequired: true },
+				{ id: 'backup-create', title: 'Create Backup', description: 'Create system backup before deployment', isRequired: true },
+				{ id: 'deploy-execute', title: 'Execute Deployment', description: 'Deploy to production environment', isRequired: true },
+				{ id: 'smoke-test', title: 'Smoke Testing', description: 'Perform post-deployment smoke tests', isRequired: true }
+			],
+			
+			// Training/Onboarding stages
+			training: [
+				{ id: 'material-prep', title: 'Prepare Training Materials', description: 'Create training documentation and materials', isRequired: true },
+				{ id: 'schedule-training', title: 'Schedule Training Sessions', description: 'Organize training sessions with users', isRequired: true },
+				{ id: 'conduct-training', title: 'Conduct Training', description: 'Deliver training to end users', isRequired: true },
+				{ id: 'support-provide', title: 'Provide Support', description: 'Offer ongoing support during transition', isRequired: true }
+			],
+			
+			// Default/Generic tasks
+			default: [
+				{ id: 'task-plan', title: 'Plan Tasks', description: `Plan all tasks for ${stage.name}`, isRequired: true },
+				{ id: 'resource-allocate', title: 'Allocate Resources', description: 'Ensure necessary resources are allocated', isRequired: true },
+				{ id: 'progress-monitor', title: 'Monitor Progress', description: 'Track and monitor stage progress', isRequired: true },
+				{ id: 'deliverable-complete', title: 'Complete Deliverables', description: 'Finish all stage deliverables', isRequired: true }
+			]
+		};
+		
+		// Determine which template to use based on stage name and description
+		let selectedTasks: ChecklistTask[] = [];
+		
+		if (stageName.includes('initial') || stageName.includes('assessment') || stageName.includes('analysis')) {
+			selectedTasks = taskTemplates.initial;
+		} else if (stageName.includes('plan') || stageName.includes('design') || stageDesc.includes('plan')) {
+			selectedTasks = taskTemplates.planning;
+		} else if (stageName.includes('design') || stageName.includes('prototype') || stageDesc.includes('design')) {
+			selectedTasks = taskTemplates.design;
+		} else if (stageName.includes('implement') || stageName.includes('develop') || stageName.includes('build') || stageDesc.includes('develop')) {
+			selectedTasks = taskTemplates.implementation;
+		} else if (stageName.includes('test') || stageName.includes('qa') || stageDesc.includes('test')) {
+			selectedTasks = taskTemplates.testing;
+		} else if (stageName.includes('review') || stageName.includes('approval') || stageDesc.includes('review')) {
+			selectedTasks = taskTemplates.review;
+		} else if (stageName.includes('deploy') || stageName.includes('launch') || stageName.includes('release')) {
+			selectedTasks = taskTemplates.deployment;
+		} else if (stageName.includes('training') || stageName.includes('onboard') || stageDesc.includes('training')) {
+			selectedTasks = taskTemplates.training;
+		} else {
+			selectedTasks = taskTemplates.default;
+		}
+		
+		// Add unique IDs with stage prefix
+		return selectedTasks.map((task, index) => ({
+			...task,
+			id: `${stage.name.toLowerCase().replace(/\s+/g, '-')}-${task.id}-${index}`
+		}));
+	};
+
+	// Generate realistic questionnaire questions based on stage name and description
+	const generateQuestionnaireQuestions = (stage: WorkflowStage): QuestionnaireQuestion[] => {
+		const stageName = stage.name.toLowerCase();
+		const stageDesc = stage.description.toLowerCase();
+		
+		// Question templates based on stage characteristics
+		const questionTemplates: { [key: string]: QuestionnaireQuestion[] } = {
+			// Initial/Assessment stages
+			initial: [
+				{ id: 'project-scope', question: 'What is the scope of this project?', type: 'text', isRequired: true },
+				{ id: 'success-criteria', question: 'What are the success criteria?', type: 'text', isRequired: true },
+				{ id: 'budget-range', question: 'What is the budget range?', type: 'select', options: ['< $10K', '$10K - $50K', '$50K - $100K', '> $100K'], isRequired: true },
+				{ id: 'timeline-preference', question: 'What is your preferred timeline?', type: 'select', options: ['1-2 weeks', '1 month', '2-3 months', '6+ months'], isRequired: true }
+			],
+			
+			// Planning stages
+			planning: [
+				{ id: 'team-size', question: 'How many team members are needed?', type: 'number', isRequired: true },
+				{ id: 'key-milestones', question: 'What are the key milestones?', type: 'text', isRequired: true },
+				{ id: 'risk-tolerance', question: 'What is your risk tolerance level?', type: 'select', options: ['Low', 'Medium', 'High'], isRequired: true },
+				{ id: 'communication-frequency', question: 'How often should progress be reported?', type: 'select', options: ['Daily', 'Weekly', 'Bi-weekly', 'Monthly'], isRequired: false }
+			],
+			
+			// Design stages
+			design: [
+				{ id: 'design-style', question: 'What design style do you prefer?', type: 'select', options: ['Modern', 'Classic', 'Minimalist', 'Bold'], isRequired: true },
+				{ id: 'target-audience', question: 'Who is the target audience?', type: 'text', isRequired: true },
+				{ id: 'brand-guidelines', question: 'Are there existing brand guidelines?', type: 'boolean', isRequired: true },
+				{ id: 'accessibility-requirements', question: 'Are there accessibility requirements?', type: 'multiselect', options: ['WCAG 2.1 AA', 'Screen Reader Support', 'Keyboard Navigation', 'Color Contrast'], isRequired: false }
+			],
+			
+			// Implementation stages
+			implementation: [
+				{ id: 'tech-stack', question: 'What technology stack should be used?', type: 'multiselect', options: ['React', 'Vue', 'Angular', 'Node.js', 'Python', 'Java', '.NET'], isRequired: true },
+				{ id: 'performance-requirements', question: 'What are the performance requirements?', type: 'text', isRequired: true },
+				{ id: 'security-level', question: 'What security level is required?', type: 'select', options: ['Basic', 'Standard', 'High', 'Enterprise'], isRequired: true },
+				{ id: 'integration-needs', question: 'What systems need integration?', type: 'text', isRequired: false }
+			],
+			
+			// Testing stages
+			testing: [
+				{ id: 'test-types', question: 'What types of testing are required?', type: 'multiselect', options: ['Unit Testing', 'Integration Testing', 'Performance Testing', 'Security Testing', 'User Acceptance Testing'], isRequired: true },
+				{ id: 'test-environment', question: 'What test environment is available?', type: 'select', options: ['Development', 'Staging', 'Production-like', 'Cloud-based'], isRequired: true },
+				{ id: 'acceptance-criteria', question: 'What are the acceptance criteria?', type: 'text', isRequired: true },
+				{ id: 'test-data', question: 'Is test data available?', type: 'boolean', isRequired: true }
+			],
+			
+			// Review stages
+			review: [
+				{ id: 'review-criteria', question: 'What are the review criteria?', type: 'text', isRequired: true },
+				{ id: 'reviewers', question: 'Who are the key reviewers?', type: 'text', isRequired: true },
+				{ id: 'approval-process', question: 'What is the approval process?', type: 'text', isRequired: true },
+				{ id: 'feedback-timeline', question: 'What is the feedback timeline?', type: 'select', options: ['24 hours', '2-3 days', '1 week', '2 weeks'], isRequired: true }
+			],
+			
+			// Deployment stages
+			deployment: [
+				{ id: 'deployment-strategy', question: 'What deployment strategy should be used?', type: 'select', options: ['Blue-Green', 'Rolling', 'Canary', 'Big Bang'], isRequired: true },
+				{ id: 'rollback-plan', question: 'Is there a rollback plan?', type: 'boolean', isRequired: true },
+				{ id: 'monitoring-setup', question: 'What monitoring is needed?', type: 'multiselect', options: ['Performance Monitoring', 'Error Tracking', 'User Analytics', 'Security Monitoring'], isRequired: true },
+				{ id: 'maintenance-window', question: 'When is the maintenance window?', type: 'text', isRequired: false }
+			],
+			
+			// Training stages
+			training: [
+				{ id: 'training-format', question: 'What training format is preferred?', type: 'select', options: ['In-person', 'Virtual', 'Self-paced', 'Hybrid'], isRequired: true },
+				{ id: 'audience-size', question: 'How many people need training?', type: 'number', isRequired: true },
+				{ id: 'skill-level', question: 'What is the current skill level?', type: 'select', options: ['Beginner', 'Intermediate', 'Advanced', 'Mixed'], isRequired: true },
+				{ id: 'training-materials', question: 'What training materials are needed?', type: 'multiselect', options: ['User Manual', 'Video Tutorials', 'Interactive Demos', 'Quick Reference'], isRequired: true }
+			],
+			
+			// Default questions
+			default: [
+				{ id: 'stage-objectives', question: `What are the main objectives for ${stage.name}?`, type: 'text', isRequired: true },
+				{ id: 'success-metrics', question: 'How will success be measured?', type: 'text', isRequired: true },
+				{ id: 'dependencies', question: 'Are there any dependencies?', type: 'text', isRequired: false },
+				{ id: 'special-requirements', question: 'Are there any special requirements?', type: 'text', isRequired: false }
+			]
+		};
+		
+		// Determine which template to use
+		let selectedQuestions: QuestionnaireQuestion[] = [];
+		
+		if (stageName.includes('initial') || stageName.includes('assessment') || stageName.includes('analysis')) {
+			selectedQuestions = questionTemplates.initial;
+		} else if (stageName.includes('plan') || stageDesc.includes('plan')) {
+			selectedQuestions = questionTemplates.planning;
+		} else if (stageName.includes('design') || stageDesc.includes('design')) {
+			selectedQuestions = questionTemplates.design;
+		} else if (stageName.includes('implement') || stageName.includes('develop') || stageName.includes('build')) {
+			selectedQuestions = questionTemplates.implementation;
+		} else if (stageName.includes('test') || stageName.includes('qa')) {
+			selectedQuestions = questionTemplates.testing;
+		} else if (stageName.includes('review') || stageName.includes('approval')) {
+			selectedQuestions = questionTemplates.review;
+		} else if (stageName.includes('deploy') || stageName.includes('launch')) {
+			selectedQuestions = questionTemplates.deployment;
+		} else if (stageName.includes('training') || stageName.includes('onboard')) {
+			selectedQuestions = questionTemplates.training;
+		} else {
+			selectedQuestions = questionTemplates.default;
+		}
+		
+		// Add unique IDs with stage prefix
+		return selectedQuestions.map((question, index) => ({
+			...question,
+			id: `${stage.name.toLowerCase().replace(/\s+/g, '-')}-${question.id}-${index}`
+		}));
+	};
+
 	// Add checklists and questionnaires
 	const addChecklistsAndQuestionnaires = async () => {
-		// Generate checklists
+		// Generate realistic checklists with tasks
 		streamingWorkflowData.checklists = streamingWorkflowData.stages.map((stage: WorkflowStage) => ({
 			name: `${stage.name} Checklist`,
-			description: `Checklist for ${stage.name} stage`
+			description: `Essential tasks to complete during the ${stage.name} stage`,
+			tasks: generateChecklistTasks(stage)
 		}));
 
 		updateGenerationCompleteMessage();
 		await new Promise(resolve => setTimeout(resolve, 500));
 
-		// Generate questionnaires
+		// Generate realistic questionnaires with questions
 		streamingWorkflowData.questionnaires = streamingWorkflowData.stages.map((stage: WorkflowStage) => ({
 			name: `${stage.name} Questionnaire`,
-			description: `Questionnaire for ${stage.name} stage`
+			description: `Key questions to gather information for the ${stage.name} stage`,
+			questions: generateQuestionnaireQuestions(stage)
 		}));
 
 		updateGenerationCompleteMessage();
@@ -1341,6 +1740,7 @@ const applyWorkflow = async (data: any) => {
 			name: data.workflow.name,
 			description: data.workflow.description,
 			isActive: data.workflow.isActive,
+			isAIGenerated: true,
 			status: 'active',
 			startDate: new Date().toISOString(),
 			stages: data.stages.map((stage: WorkflowStage, index: number) => ({
@@ -1361,51 +1761,57 @@ const applyWorkflow = async (data: any) => {
 
 		const workflowId = response.data;
 
-		// Create checklists and questionnaires
-		if (data.checklists && data.checklists.length > 0) {
-			for (const checklist of data.checklists) {
-				try {
-					await createChecklist({
-						name: checklist.name,
-						description: checklist.description,
-						team: 'General',
-						type: 'Instance',
-						status: 'Active',
-						isTemplate: false,
-						estimatedHours: 0,
-						isActive: true,
-						assignments: [{ workflowId, stageId: null }],
-					});
-				} catch (e) {
-					console.warn('Failed to create checklist:', e);
-				}
-			}
-		}
+		// Create checklists and questionnaires using the new backend method
+		try {
+			const { apiVersion } = useGlobSetting();
+			
+			// Transform checklists to the expected backend format
+			const transformedChecklists = data.checklists.map(checklist => ({
+				Success: true,
+				Message: `Checklist generated for ${checklist.name}`,
+				GeneratedChecklist: {
+					Name: checklist.name,
+					Description: checklist.description,
+					Team: checklist.team || 'Default Team',
+					IsActive: true,
+					Assignments: [] // Will be set by backend
+				},
+				Tasks: checklist.tasks || [],
+				ConfidenceScore: 0.85
+			}));
 
-		if (data.questionnaires && data.questionnaires.length > 0) {
-			for (const questionnaire of data.questionnaires) {
-				try {
-					const structure = { title: questionnaire.name, sections: [] };
-					await createQuestionnaire({
-						name: questionnaire.name,
-						description: questionnaire.description,
-						status: 'Draft',
-						structureJson: JSON.stringify(structure),
-						version: 1,
-						previewImageUrl: '',
-						category: 'Onboarding',
-						tagsJson: '[]',
-						estimatedMinutes: 0,
-						allowDraft: true,
-						allowMultipleSubmissions: false,
-						isActive: true,
-						assignments: [{ workflowId, stageId: null }],
-						sections: [],
-					});
-				} catch (e) {
-					console.warn('Failed to create questionnaire:', e);
+			// Transform questionnaires to the expected backend format
+			const transformedQuestionnaires = data.questionnaires.map(questionnaire => ({
+				Success: true,
+				Message: `Questionnaire generated for ${questionnaire.name}`,
+				GeneratedQuestionnaire: {
+					Name: questionnaire.name,
+					Description: questionnaire.description,
+					Category: questionnaire.category || 'General',
+					IsActive: true,
+					Assignments: [] // Will be set by backend
+				},
+				Questions: questionnaire.questions || [],
+				ConfidenceScore: 0.85
+			}));
+
+			const createComponentsResponse = await defHttp.post({
+				url: `/api/ai/workflows/${apiVersion}/create-stage-components`,
+				data: {
+					workflowId: workflowId,
+					stages: data.stages,
+					checklists: transformedChecklists,
+					questionnaires: transformedQuestionnaires
 				}
+			});
+
+			if (createComponentsResponse.success) {
+				console.log('✅ Stage components created successfully');
+			} else {
+				console.warn('⚠️ Failed to create stage components:', createComponentsResponse.message);
 			}
+		} catch (e) {
+			console.warn('⚠️ Failed to create stage components:', e);
 		}
 
 		ElMessage.success('Workflow applied successfully!');
@@ -1688,6 +2094,14 @@ const onStageUpdated = (messageData: any, stageIndex: number) => {
 		messageData.workflow.isModified = true;
 	}
 	console.log('Stage updated:', stageIndex, messageData.stages[stageIndex]);
+};
+
+const onWorkflowUpdated = (messageData: any) => {
+	// Mark the workflow as modified
+	if (messageData.workflow) {
+		messageData.workflow.isModified = true;
+	}
+	console.log('Workflow updated:', messageData.workflow);
 };
 
 // Validate workflow data before saving
@@ -2115,6 +2529,39 @@ const scrollToBottom = async () => {
 	}
 };
 
+// Collapse/Expand methods
+const toggleChecklistsCollapse = () => {
+	checklistsCollapsed.value = !checklistsCollapsed.value;
+};
+
+const toggleQuestionnairesCollapse = () => {
+	questionnairesCollapsed.value = !questionnairesCollapsed.value;
+};
+
+const toggleChecklistTasks = (checklistIndex: number) => {
+	if (collapsedChecklistTasks.value.has(checklistIndex)) {
+		collapsedChecklistTasks.value.delete(checklistIndex);
+	} else {
+		collapsedChecklistTasks.value.add(checklistIndex);
+	}
+};
+
+const toggleQuestionnaireQuestions = (questionnaireIndex: number) => {
+	if (collapsedQuestionnaireQuestions.value.has(questionnaireIndex)) {
+		collapsedQuestionnaireQuestions.value.delete(questionnaireIndex);
+	} else {
+		collapsedQuestionnaireQuestions.value.add(questionnaireIndex);
+	}
+};
+
+const isChecklistTasksCollapsed = (checklistIndex: number) => {
+	return collapsedChecklistTasks.value.has(checklistIndex);
+};
+
+const isQuestionnaireQuestionsCollapsed = (questionnaireIndex: number) => {
+	return collapsedQuestionnaireQuestions.value.has(questionnaireIndex);
+};
+
 // Model management
 const handleModelChange = (model: AIModelConfig) => {
 	currentAIModel.value = model;
@@ -2418,17 +2865,74 @@ onMounted(async () => {
 	gap: 1rem;
 }
 
-.workflow-info h5 {
-	margin: 0 0 0.5rem 0;
-  color: #374151;
-  font-size: 1px;
-	font-weight: 600;
+.workflow-header {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin-bottom: 0.75rem;
 }
 
-.workflow-info p {
-	margin: 0 0 0.75rem 0;
-  color: #6b7280;
-  font-size: 14px;
+.workflow-name-input {
+	flex: 1;
+}
+
+.workflow-name-input .el-input__wrapper {
+	font-size: 18px;
+	font-weight: 600;
+	color: #1e293b;
+	border: 1px solid transparent;
+	background: transparent;
+	transition: all 0.2s ease;
+}
+
+.workflow-name-input .el-input__wrapper:hover {
+	border-color: #d1d5db;
+	background: #f9fafb;
+}
+
+.workflow-name-input .el-input__wrapper.is-focus {
+	border-color: #3b82f6;
+	background: #ffffff;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.workflow-description-input {
+	margin-bottom: 1rem;
+}
+
+.workflow-description-input .el-textarea__inner {
+	color: #64748b;
+	font-size: 14px;
+	line-height: 1.5;
+	border: 1px solid transparent;
+	background: transparent;
+	transition: all 0.2s ease;
+}
+
+.workflow-description-input .el-textarea__inner:hover {
+	border-color: #d1d5db;
+	background: #f9fafb;
+}
+
+.workflow-description-input .el-textarea__inner:focus {
+	border-color: #3b82f6;
+	background: #ffffff;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.status {
+	padding: 4px 12px;
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 500;
+	background: #f1f5f9;
+	color: #64748b;
+	white-space: nowrap;
+}
+
+.status.active {
+	background: #dcfce7;
+	color: #16a34a;
 }
 
 .workflow-stats {
@@ -2820,49 +3324,62 @@ onMounted(async () => {
 }
 
 .chat-history {
-	width: 300px;
-	border-left: 1px solid #e5e7eb;
+	width: 320px;
+	border: 1px solid #e2e8f0;
+	border-right: none;
 	display: flex;
 	flex-direction: column;
-	transition: width 0.3s ease;
-	background: #f8fafc;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.04);
+	border-radius: 16px 0 0 16px;
+	overflow: hidden;
 }
 
 .chat-history.collapsed {
-	width: 50px;
+	width: 60px;
+	box-shadow: -1px 0 4px rgba(0, 0, 0, 0.02);
+	border-radius: 16px 0 0 16px;
 }
 
 .history-header {
-	padding: 1rem;
-	border-bottom: 1px solid #e5e7eb;
-	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+	padding: 1.25rem;
+	border-bottom: 1px solid #f1f5f9;
+	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+	backdrop-filter: blur(10px);
+	position: relative;
 }
 
 .header-content {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	gap: 0.5rem;
-	margin-bottom: 0.75rem;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
 }
 
 .header-title-section {
 	display: flex;
 	flex-direction: column;
-	gap: 0.25rem;
+	gap: 0.375rem;
 }
 
 .header-title-section h4 {
 	margin: 0;
-	color: #374151;
+	color: #1e293b;
 	font-size: 15px;
-	font-weight: 600;
+	font-weight: 700;
+	letter-spacing: -0.025em;
 }
 
 .history-count {
 	font-size: 12px;
-	color: #6b7280;
+	color: #64748b;
 	font-weight: 500;
+	background: #f1f5f9;
+	padding: 2px 8px;
+	border-radius: 12px;
+	display: inline-block;
 }
 
 .header-actions {
@@ -2873,107 +3390,163 @@ onMounted(async () => {
 
 .new-chat-btn {
 	font-size: 12px;
-	padding: 6px 12px;
-	border-radius: 6px;
+	padding: 8px 14px;
+	border-radius: 8px;
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	border: none;
 	color: white;
-	transition: all 0.2s ease;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+	font-weight: 600;
 }
 
 .new-chat-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+	background: linear-gradient(135deg, #5b52e8 0%, #4c44cd 100%);
 }
 
 .menu-btn, .collapse-btn {
-	padding: 4px;
-	min-width: 28px;
-	height: 28px;
-	border-radius: 6px;
-	transition: all 0.2s ease;
+	padding: 6px;
+	min-width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	border: 1px solid transparent;
 }
 
 .menu-btn:hover, .collapse-btn:hover {
-	background: #e5e7eb;
+	background: #f1f5f9;
+	border-color: #e2e8f0;
+	transform: scale(1.05);
 }
 
 .history-search {
-	margin-top: 0.75rem;
+	margin-top: 1rem;
 }
 
 .history-search .el-input {
-	border-radius: 8px;
+	border-radius: 12px;
 }
 
-.history-search .el-input__inner {
-	background: white;
-	border: 1px solid #d1d5db;
-	transition: all 0.2s ease;
+.history-search .el-input__wrapper {
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.history-search .el-input__inner:focus {
+.history-search .el-input__wrapper:hover {
+	border-color: #cbd5e1;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.history-search .el-input__wrapper.is-focus {
 	border-color: #4f46e5;
-	box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+	box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
 .history-list {
 	flex: 1;
 	overflow-y: auto;
-	padding: 0.5rem;
+	padding: 1rem 0.75rem;
 }
 
 .section-header {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	padding: 0.5rem 0.75rem;
-	margin-bottom: 0.5rem;
-	font-size: 12px;
-	font-weight: 600;
-	color: #6b7280;
+	padding: 0.75rem 1rem;
+	margin-bottom: 0.75rem;
+	font-size: 11px;
+	font-weight: 700;
+	color: #64748b;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	border-bottom: 1px solid #e5e7eb;
+	letter-spacing: 0.8px;
+	border-bottom: 1px solid #f1f5f9;
+	background: linear-gradient(90deg, #f8fafc 0%, transparent 100%);
+	position: relative;
+}
+
+.section-header::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 3px;
+	background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
+	border-radius: 0 2px 2px 0;
 }
 
 .pinned-section, .recent-section {
-	margin-bottom: 1rem;
+	margin-bottom: 1.5rem;
 }
 
 .history-item {
 	display: flex;
 	align-items: center;
-	padding: 0.75rem;
-	border-radius: 8px;
+	padding: 1rem;
+	border-radius: 12px;
 	cursor: pointer;
-	transition: all 0.2s ease;
-	margin-bottom: 0.5rem;
-	background: white;
-	border: 1px solid #e5e7eb;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	margin-bottom: 0.75rem;
+	background: #ffffff;
+	border: 1px solid #f1f5f9;
 	position: relative;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.history-item::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 0;
+	height: 60%;
+	background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
+	border-radius: 0 2px 2px 0;
+	transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .history-item:hover {
 	background: #f8fafc;
-	border-color: #cbd5e1;
-	transform: translateY(-1px);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	border-color: #e2e8f0;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.history-item:hover::before {
+	width: 4px;
 }
 
 .history-item.active {
 	background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
 	border-color: #3b82f6;
-	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+	box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+}
+
+.history-item.active::before {
+	width: 4px;
+	background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
 }
 
 .history-item.pinned {
-	background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-	border-color: #f59e0b;
+	background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+	border-color: #fbbf24;
+	box-shadow: 0 2px 8px rgba(251, 191, 36, 0.15);
+}
+
+.history-item.pinned::before {
+	background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+	width: 4px;
 }
 
 .history-item.pinned:hover {
-	background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+	background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+	border-color: #f59e0b;
+	box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
 }
 
 .item-content {
@@ -2983,65 +3556,77 @@ onMounted(async () => {
 
 .history-title {
 	font-size: 14px;
-	font-weight: 500;
-	color: #374151;
-	margin-bottom: 0.25rem;
+	font-weight: 600;
+	color: #1e293b;
+	margin-bottom: 0.375rem;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	line-height: 1.3;
+	line-height: 1.4;
+	letter-spacing: -0.01em;
 }
 
 .history-meta {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 0.5rem;
+	gap: 0.75rem;
 }
 
 .history-time {
 	font-size: 11px;
-	color: #6b7280;
+	color: #64748b;
 	font-weight: 500;
+	background: #f8fafc;
+	padding: 2px 6px;
+	border-radius: 8px;
 }
 
 .message-count {
-	font-size: 11px;
-	color: #9ca3af;
-	background: #f3f4f6;
-	padding: 2px 6px;
-	border-radius: 10px;
-	font-weight: 500;
+	font-size: 10px;
+	color: #64748b;
+	background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+	padding: 3px 8px;
+	border-radius: 12px;
+	font-weight: 600;
+	border: 1px solid #e2e8f0;
 }
 
 .item-actions {
 	display: flex;
 	align-items: center;
-	gap: 0.25rem;
+	gap: 0.375rem;
 	opacity: 0;
-	transition: opacity 0.2s ease;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	transform: translateX(8px);
 }
 
 .history-item:hover .item-actions {
 	opacity: 1;
+	transform: translateX(0);
 }
 
 .pin-icon {
 	color: #f59e0b;
 	font-size: 14px;
+	filter: drop-shadow(0 1px 2px rgba(245, 158, 11, 0.3));
 }
 
 .action-btn {
-	padding: 2px;
-	min-width: 20px;
-	height: 20px;
-	border-radius: 4px;
-	color: #6b7280;
+	padding: 4px;
+	min-width: 24px;
+	height: 24px;
+	border-radius: 6px;
+	color: #64748b;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	border: 1px solid transparent;
 }
 
 .action-btn:hover {
-	background: #e5e7eb;
-	color: #374151;
+	background: #f1f5f9;
+	border-color: #e2e8f0;
+	color: #1e293b;
+	transform: scale(1.1);
 }
 
 .empty-history, .no-results {
@@ -3049,53 +3634,60 @@ onMounted(async () => {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: 2rem 1rem;
+	padding: 3rem 1.5rem;
 	text-align: center;
 }
 
 .empty-icon {
-	width: 48px;
-	height: 48px;
+	width: 56px;
+	height: 56px;
 	border-radius: 50%;
-	background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-bottom: 1rem;
+	margin-bottom: 1.5rem;
+	border: 1px solid #e2e8f0;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .empty-icon .el-icon {
-	font-size: 24px;
-	color: #9ca3af;
+	font-size: 28px;
+	color: #94a3b8;
 }
 
 .empty-title {
-	margin: 0 0 0.5rem 0;
+	margin: 0 0 0.75rem 0;
 	font-size: 16px;
-	font-weight: 600;
-	color: #374151;
+	font-weight: 700;
+	color: #1e293b;
+	letter-spacing: -0.025em;
 }
 
 .empty-subtitle {
-	margin: 0 0 1rem 0;
+	margin: 0 0 1.5rem 0;
 	font-size: 14px;
-	color: #6b7280;
-	line-height: 1.4;
+	color: #64748b;
+	line-height: 1.5;
+	max-width: 200px;
 }
 
 .start-chat-btn {
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	border: none;
 	color: white;
-	padding: 8px 16px;
-	border-radius: 6px;
-	font-weight: 500;
-	transition: all 0.2s ease;
+	padding: 10px 20px;
+	border-radius: 8px;
+	font-weight: 600;
+	font-size: 14px;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
 }
 
 .start-chat-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+	background: linear-gradient(135deg, #5b52e8 0%, #4c44cd 100%);
 }
 
 .dialog-footer {
@@ -3110,22 +3702,25 @@ onMounted(async () => {
 
 /* Chat history area scrollbar styles */
 .history-list::-webkit-scrollbar {
-	width: 6px;
+	width: 8px;
 }
 
 .history-list::-webkit-scrollbar-track {
-	background: #f1f5f9;
-	border-radius: 3px;
+	background: #f8fafc;
+	border-radius: 4px;
+	margin: 4px 0;
 }
 
 .history-list::-webkit-scrollbar-thumb {
-	background: #cbd5e1;
-	border-radius: 3px;
-	transition: background 0.2s ease;
+	background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+	border-radius: 4px;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	border: 1px solid #e2e8f0;
 }
 
 .history-list::-webkit-scrollbar-thumb:hover {
-	background: #94a3b8;
+	background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+	border-color: #cbd5e1;
 }
 
 /* Responsive Design */
@@ -3136,9 +3731,18 @@ onMounted(async () => {
 	
 	.chat-history {
 		width: 100%;
-		border-left: none;
-		border-top: 1px solid #e5e7eb;
-		max-height: 300px;
+		border: 1px solid #e2e8f0;
+		border-bottom: none;
+		border-radius: 16px 16px 0 0;
+		max-height: 350px;
+		box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+	}
+	
+	.chat-history.collapsed {
+		width: 100%;
+		height: 60px;
+		max-height: 60px;
+		border-radius: 16px 16px 0 0;
 	}
 	
 	.additional-components {
@@ -3148,6 +3752,15 @@ onMounted(async () => {
 	.user-message .message-content,
 	.ai-message .message-content {
 		max-width: 85%;
+	}
+	
+	.history-item {
+		padding: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+	
+	.section-header {
+		padding: 0.5rem 0.75rem;
 	}
 }
 
@@ -3444,6 +4057,302 @@ onMounted(async () => {
 	}
 	
 	.stages-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+/* Checklists and Questionnaires Styles */
+.additional-components {
+	margin-top: 2rem;
+	padding-top: 2rem;
+	border-top: 1px solid #e2e8f0;
+}
+
+.component-section {
+	margin-bottom: 2rem;
+}
+
+.section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 1rem;
+}
+
+.component-section h6 {
+	margin: 0;
+	color: #1e293b;
+	font-size: 18px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.component-section h6::before {
+	content: '';
+	width: 4px;
+	height: 20px;
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+	border-radius: 2px;
+}
+
+.collapse-toggle {
+	color: #6b7280;
+	font-size: 14px;
+	padding: 4px 8px;
+	transition: all 0.2s ease;
+}
+
+.collapse-toggle:hover {
+	color: #3b82f6;
+	background-color: #f1f5f9;
+}
+
+/* Checklists Grid */
+.checklists-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.checklist-card {
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	padding: 1rem;
+	transition: all 0.2s ease;
+}
+
+.checklist-card:hover {
+	border-color: #3b82f6;
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+.checklist-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.75rem;
+}
+
+.checklist-header h7 {
+	margin: 0;
+	color: #1e293b;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.card-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.expand-btn {
+	color: #6b7280;
+	padding: 4px;
+	transition: all 0.2s ease;
+}
+
+.expand-btn:hover {
+	color: #3b82f6;
+	background-color: #f1f5f9;
+}
+
+.checklist-description {
+	margin: 0 0 1rem 0;
+	color: #64748b;
+	font-size: 14px;
+	line-height: 1.4;
+}
+
+.tasks-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.task-item {
+	background: white;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 0.75rem;
+}
+
+.task-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.task-title {
+	flex: 1;
+	font-size: 14px;
+	font-weight: 500;
+	color: #374151;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.task-title.required {
+	color: #dc2626;
+}
+
+.task-description {
+	margin: 0 0 0.5rem 0;
+	font-size: 13px;
+	color: #6b7280;
+	line-height: 1.4;
+	padding-left: 1.5rem;
+}
+
+.task-meta {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding-left: 1.5rem;
+	margin-top: 0.5rem;
+}
+
+.estimated-time {
+	font-size: 12px;
+	color: #9ca3af;
+	background: #f3f4f6;
+	padding: 2px 6px;
+	border-radius: 4px;
+}
+
+/* Questionnaires Grid */
+.questionnaires-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.questionnaire-card {
+	background: #fefce8;
+	border: 1px solid #fde047;
+	border-radius: 12px;
+	padding: 1rem;
+	transition: all 0.2s ease;
+}
+
+.questionnaire-card:hover {
+	border-color: #eab308;
+	box-shadow: 0 4px 12px rgba(234, 179, 8, 0.1);
+}
+
+.questionnaire-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.75rem;
+}
+
+.questionnaire-header h7 {
+	margin: 0;
+	color: #1e293b;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.questionnaire-description {
+	margin: 0 0 1rem 0;
+	color: #64748b;
+	font-size: 14px;
+	line-height: 1.4;
+}
+
+.questions-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.question-item {
+	background: white;
+	border: 1px solid #fde047;
+	border-radius: 8px;
+	padding: 0.75rem;
+}
+
+.question-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.question-text {
+	flex: 1;
+	font-size: 14px;
+	font-weight: 500;
+	color: #374151;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.question-text.required {
+	color: #dc2626;
+}
+
+.question-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin-top: 0.5rem;
+}
+
+.option-tag {
+	background: #f1f5f9 !important;
+	border-color: #cbd5e1 !important;
+	color: #475569 !important;
+}
+
+.question-meta {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+.help-text {
+	font-size: 12px;
+	color: #9ca3af;
+	background: #f9fafb;
+	padding: 2px 6px;
+	border-radius: 4px;
+}
+
+/* Responsive Design for Checklists and Questionnaires */
+@media (max-width: 768px) {
+	.checklists-grid,
+	.questionnaires-grid {
+		grid-template-columns: 1fr;
+	}
+	
+	.task-header,
+	.question-header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+	}
+	
+	.task-description {
+		padding-left: 0;
+	}
+}
+
+@media (max-width: 1200px) and (min-width: 769px) {
+	.checklists-grid,
+	.questionnaires-grid {
 		grid-template-columns: repeat(2, 1fr);
 	}
 }

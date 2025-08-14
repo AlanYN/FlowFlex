@@ -48,7 +48,21 @@
 								class="workflow-item border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
 							>
 								<div class="flex items-center justify-between mb-2">
-									<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
+									<div class="flex items-center gap-2">
+										<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
+										<el-tag
+											v-if="workflow.isAIGenerated"
+											type="primary"
+											effect="light"
+											size="small"
+											class="ai-tag"
+										>
+											<div class="flex items-center gap-1">
+												<span class="ai-sparkles">✨</span>
+												AI
+											</div>
+										</el-tag>
+									</div>
 									<el-tag
 										:type="workflow.isActive ? 'success' : 'info'"
 										size="small"
@@ -134,6 +148,7 @@ interface Workflow {
 	name: string;
 	description: string;
 	isActive: boolean;
+	isAIGenerated?: boolean;
 	stages?: WorkflowStage[];
 	createdAt?: string;
 }
@@ -843,5 +858,41 @@ onMounted(() => {
 .ai-config-container {
 	height: auto;
 	min-height: fit-content;
+}
+
+/* AI Tag Styles */
+.ai-tag {
+	background: linear-gradient(to right, var(--el-color-primary), var(--el-color-primary-light-3));
+	color: white;
+	border-color: transparent;
+	padding: 2px 6px;
+	font-size: 10px;
+	display: inline-flex;
+	align-items: center;
+}
+
+.ai-sparkles {
+	font-size: 10px;
+	animation: sparkle 2s ease-in-out infinite;
+	display: inline-block;
+}
+
+@keyframes sparkle {
+	0%, 100% {
+		transform: scale(1) rotate(0deg);
+		opacity: 1;
+	}
+	25% {
+		transform: scale(1.1) rotate(5deg);
+		opacity: 0.9;
+	}
+	50% {
+		transform: scale(1.2) rotate(-5deg);
+		opacity: 0.8;
+	}
+	75% {
+		transform: scale(1.1) rotate(3deg);
+		opacity: 0.9;
+	}
 }
 </style>
