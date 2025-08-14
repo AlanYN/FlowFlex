@@ -15,7 +15,6 @@
 				</div>
 				<div class="upload-text">
 					<p class="upload-title">AI Analyze Files</p>
-					<p class="upload-subtitle">Click to select files for AI analysis</p>
 					<p class="supported-formats">
 						Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON
 					</p>

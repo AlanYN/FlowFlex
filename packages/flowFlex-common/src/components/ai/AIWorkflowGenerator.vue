@@ -138,33 +138,7 @@
         </div>
       </div>
 
-											<!-- Required Fields -->
-											<div class="required-fields-compact">
-												<div class="fields-header">
-													<span class="fields-label">Required Fields:</span>
-													<el-button 
-														size="small" 
-														type="primary"
-														@click="addRequiredField(message.data!, stageIndex)"
-														class="add-field-btn"
-														circle
-													>
-														<el-icon><Plus /></el-icon>
-													</el-button>
-												</div>
-												<div class="fields-tags" v-if="stage.requiredFields && stage.requiredFields.length > 0">
-													<el-tag 
-														v-for="(field, fieldIndex) in stage.requiredFields"
-														:key="fieldIndex"
-														size="small"
-														closable
-														@close="removeRequiredField(message.data, stageIndex, fieldIndex)"
-														class="field-tag"
-													>
-														{{ field }}
-													</el-tag>
-												</div>
-											</div>
+
 										</div>
 									</div>
 								</div>
@@ -250,6 +224,143 @@
 											<el-icon class="mr-1"><Check /></el-icon>
 											Apply Workflow
 										</el-button>
+									</div>
+								</div>
+							</div>
+
+							<!-- Workflow Modification Message -->
+							<div v-else-if="message.type === 'workflow-modification'" class="workflow-modification">
+								<div class="message-avatar">
+									<el-icon><Edit /></el-icon>
+								</div>
+								<div class="message-content">
+									<div class="workflow-header">
+										<h4>{{ message.content }}</h4>
+									</div>
+									
+									<!-- Workflow Info -->
+									<div class="workflow-info-card">
+										<div class="workflow-details">
+											<h5>{{ message.data?.workflow?.name }}</h5>
+											<p>{{ message.data?.workflow?.description }}</p>
+											<div class="workflow-meta">
+												<span class="status" :class="{ active: message.data?.workflow?.isActive }">
+													{{ message.data?.workflow?.isActive ? 'Active' : 'Inactive' }}
+												</span>
+												<span class="stage-count">{{ message.data?.stages?.length || 0 }} stages</span>
+											</div>
+										</div>
+									</div>
+
+									<!-- Stages List -->
+									<div v-if="message.data?.stages && message.data.stages.length > 0" class="stages-list">
+										<h6>Workflow Stages:</h6>
+										<div class="stages-container">
+											<div 
+												v-for="(stage, stageIndex) in message.data.stages" 
+												:key="stageIndex" 
+												class="stage-card editable"
+											>
+												<div class="stage-header">
+													<span class="stage-number">{{ stage.order || stageIndex + 1 }}</span>
+													<el-input 
+														v-model="stage.name" 
+														size="small"
+														class="stage-name-input"
+														@blur="onStageUpdated(message.data!, stageIndex)"
+													/>
+												</div>
+												<el-input 
+													v-model="stage.description" 
+													type="textarea" 
+													:rows="2" 
+													size="small"
+													class="stage-description-input"
+													@blur="onStageUpdated(message.data!, stageIndex)"
+												/>
+												
+												<div class="stage-details">
+													<div class="stage-field">
+														<label>Assigned Team:</label>
+														<el-select 
+															v-model="stage.assignedGroup" 
+															size="small"
+															@change="onStageUpdated(message.data!, stageIndex)"
+														>
+															<el-option label="Sales" value="Sales" />
+															<el-option label="Finance" value="Finance" />
+															<el-option label="Operations" value="Operations" />
+														</el-select>
+													</div>
+													<div class="stage-field">
+														<label>Duration (days):</label>
+														<el-input-number 
+															v-model="stage.estimatedDuration" 
+															size="small" 
+															:min="1"
+															@change="onStageUpdated(message.data!, stageIndex)"
+														/>
+													</div>
+												</div>
+
+
+											</div>
+										</div>
+										
+										<!-- Action Buttons -->
+										<div class="save-section">
+											<el-button 
+												size="small"
+												@click="refreshWorkflowData(message.data!)"
+												:loading="applying"
+											>
+												<el-icon><Refresh /></el-icon>
+												Refresh Data
+											</el-button>
+											<el-button 
+												type="primary" 
+												@click="saveWorkflowChanges(message.data!)"
+												:loading="applying"
+											>
+												<el-icon><Check /></el-icon>
+												Save Changes
+											</el-button>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Workflow Selection Message -->
+							<div v-else-if="message.type === 'workflow-selection'" class="workflow-selection">
+								<div class="message-avatar">
+									<el-icon><Search /></el-icon>
+								</div>
+								<div class="message-content">
+									<div class="selection-header">
+										<h4>{{ message.content }}</h4>
+									</div>
+									
+									<div class="workflows-list">
+										<div 
+											v-for="(workflow, workflowIndex) in message.data?.workflows" 
+											:key="workflowIndex"
+											class="workflow-option"
+											@click="selectWorkflowForModification(workflow)"
+										>
+											<div class="workflow-option-content">
+												<h5>{{ workflow.name }}</h5>
+												<p>{{ workflow.description }}</p>
+																							<div class="workflow-option-meta">
+												<span class="status" :class="{ active: workflow.isActive }">
+													{{ workflow.isActive ? 'Active' : 'Inactive' }}
+												</span>
+													<span class="created-date">
+														{{ formatTime(new Date(workflow.createdAt || workflow.createDate)) }}
+													</span>
+												</div>
+											</div>
+											<el-icon class="select-icon"><ArrowRight /></el-icon>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -439,7 +550,6 @@
 								placeholder="Search chat history..."
 								size="small"
 								clearable
-								@input="filterChatHistory"
 							>
 								<template #prefix>
 									<el-icon><Search /></el-icon>
@@ -547,24 +657,7 @@
       </div>
     </el-card>
 
-		<!-- Field Addition Dialog -->
-		<el-dialog
-			v-model="showFieldDialog"
-			title="Add Required Field"
-			width="400px"
-		>
-			<el-input
-				v-model="newFieldName"
-				placeholder="Enter field name..."
-				@keyup.enter="confirmAddField"
-			/>
-			<template #footer>
-				<div class="dialog-footer">
-					<el-button @click="showFieldDialog = false">Cancel</el-button>
-					<el-button type="primary" @click="confirmAddField">Add Field</el-button>
-				</div>
-			</template>
-		</el-dialog>
+
 
 		<!-- Rename Session Dialog -->
 		<el-dialog
@@ -593,7 +686,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
   Star, 
 	User,
-	InfoFilled,
 	CircleCheckFilled,
 	List,
 	Clock,
@@ -617,6 +709,8 @@ import {
 import { createWorkflow } from '@/apis/ow';
 import { createChecklist } from '@/apis/ow/checklist';
 import { createQuestionnaire } from '@/apis/ow/questionnaire';
+import { defHttp } from '../../app/apis/axios';
+import { useGlobSetting } from '../../app/settings';
 import { sendAIChatMessage, streamAIChatMessageNative, type AIChatMessage } from '../../app/apis/ai/workflow';
 import { getDefaultAIModel, getUserAIModels, type AIModelConfig } from '../../app/apis/ai/config';
 import { useStreamAIWorkflow } from '../../hooks/useStreamAIWorkflow';
@@ -655,14 +749,15 @@ interface QuestionnaireItem {
 
 interface ChatMessage {
 	id: string;
-	type: 'user' | 'ai' | 'system' | 'generation-complete';
+	type: 'user' | 'ai' | 'system' | 'generation-complete' | 'workflow-modification' | 'workflow-selection';
 	content: string;
 	timestamp: Date;
 	data?: {
-		workflow: Workflow;
-		stages: WorkflowStage[];
+		workflow?: Workflow;
+		stages?: WorkflowStage[];
 		checklists?: ChecklistItem[];
 		questionnaires?: QuestionnaireItem[];
+		workflows?: any[]; // For workflow selection
 	};
 }
 
@@ -698,10 +793,27 @@ const uploadedFile = ref<File | null>(null);
 const currentAIModel = ref<AIModelConfig | null>(null);
 const availableModels = ref<AIModelConfig[]>([]);
 
+// Workflow modification data
+const searchedWorkflows = ref<any[]>([]);
+const selectedWorkflow = ref<any | null>(null);
+const isSearchingWorkflows = ref(false);
+
 // UI State Management
 const isHistoryCollapsed = ref(false);
 const historySearchQuery = ref('');
-const filteredHistory = ref<ChatSession[]>([]);
+const filteredHistory = computed(() => {
+	if (!historySearchQuery.value.trim()) {
+		return unpinnedSessions.value;
+	}
+	
+	const query = historySearchQuery.value.toLowerCase();
+	return unpinnedSessions.value.filter(session => {
+		return session.title.toLowerCase().includes(query) ||
+			session.messages.some(msg => 
+				msg.content.toLowerCase().includes(query)
+			);
+	});
+});
 const showRenameDialog = ref(false);
 const renameSessionId = ref('');
 const newSessionTitle = ref('');
@@ -717,7 +829,7 @@ const canGenerate = computed(() => {
 	return hasInput || hasFile || hasChatHistory;
 });
 
-// 显示Generate按钮的条件：只有当有聊天记录时才显示
+// Show Generate button only when there's chat history
 const shouldShowGenerateButton = computed(() => {
 	const hasChatHistory = chatMessages.value.some(msg => msg.type === 'user');
 	return hasChatHistory;
@@ -732,10 +844,7 @@ const unpinnedSessions = computed(() => {
 });
 
 // Dialog states
-const showFieldDialog = ref(false);
-const newFieldName = ref('');
-const currentStageIndex = ref(-1);
-const currentMessageData = ref<any>(null);
+
 
 // Refs
 const chatMessagesRef = ref<HTMLElement>();
@@ -747,24 +856,23 @@ const generateWorkflow = async () => {
     return;
   }
 	
-	// 检查输入类型
+	// Check input type
 	const hasInput = currentInput.value.trim();
 	const hasFile = uploadedFile.value;
-	const hasChatHistory = chatMessages.value.some(msg => msg.type === 'user');
 
   generating.value = true;
 	
-	// 性能提示：如果使用DeepSeek，建议切换到更快的模型
+	// Performance tip for DeepSeek model
 	if (currentAIModel.value?.provider?.toLowerCase() === 'deepseek') {
 		ElMessage({
-			message: '🚀 DeepSeek真实流式处理：您将看到实时进度更新（约20-30秒）',
+			message: '🚀 DeepSeek streaming processing: Real-time progress updates (20-30 seconds)',
 			type: 'info',
 			duration: 5000,
 			showClose: true
 		})
 	}
 	
-	// 只有在有新输入时才添加用户消息
+	// Only add user message when there's new input
 	if (hasInput || hasFile) {
 		const userMessage: ChatMessage = {
 			id: Date.now().toString(),
@@ -790,12 +898,21 @@ const generateWorkflow = async () => {
 			scrollToBottom();
 		};
 
+		// Track streaming workflow data
+		let streamingWorkflowData = {
+			workflow: null as any,
+			stages: [] as any[],
+			checklists: [] as any[],
+			questionnaires: [] as any[],
+			completeMessageId: ''
+		};
+
 		const onStreamComplete = (data: any) => {
 			// Clear streaming message
 			streamingMessage.value = '';
 			
-			console.log('🎯 onStreamComplete received data:', data);
-			console.log('🎯 data.stages:', data.stages);
+			console.log('onStreamComplete received data:', data);
+			console.log('data.stages:', data.stages);
 			
 			const aiWorkflow = data.generatedWorkflow || data.GeneratedWorkflow || {
 				name: 'AI Generated Workflow',
@@ -803,60 +920,122 @@ const generateWorkflow = async () => {
 				isActive: true,
 			};
 			
-			// 处理workflow字段的大小写兼容性
+			// Handle workflow field case compatibility
 			if (aiWorkflow && typeof aiWorkflow === 'object') {
 				aiWorkflow.name = aiWorkflow.Name || aiWorkflow.name || 'AI Generated Workflow';
 				aiWorkflow.description = aiWorkflow.Description || aiWorkflow.description || 'Auto-created by AI';
 				aiWorkflow.isActive = aiWorkflow.IsActive !== undefined ? aiWorkflow.IsActive : (aiWorkflow.isActive !== undefined ? aiWorkflow.isActive : true);
 			}
 
-			const aiStages = (data.stages || []).map((s: any, idx: number) => {
-				console.log(`🎯 Processing stage ${idx + 1}:`, s);
-				return {
-					name: s?.Name || s?.name || `Stage ${idx + 1}`,
-					description: s?.Description || s?.description || '',
-					order: Number.isFinite(Number(s?.Order || s?.order)) ? Math.trunc(Number(s?.Order || s?.order)) : idx + 1,
-					assignedGroup: s?.AssignedGroup || s?.assignedGroup || 'General',
-					requiredFields: Array.isArray(s?.RequiredFields || s?.requiredFields) ? (s?.RequiredFields || s?.requiredFields) : [],
-					estimatedDuration: Number(s?.EstimatedDuration || s?.estimatedDuration) || 1,
-				};
-			});
-			
-			console.log('🎯 Processed aiStages:', aiStages);
+			// Initialize streaming workflow data
+			streamingWorkflowData.workflow = aiWorkflow;
+			streamingWorkflowData.stages = [];
+			streamingWorkflowData.checklists = [];
+			streamingWorkflowData.questionnaires = [];
 
-			// Generate default checklists and questionnaires
-			const checklists: ChecklistItem[] = aiStages.map((stage: WorkflowStage) => ({
-				name: `${stage.name} Checklist`,
-				description: `Checklist for ${stage.name} stage`
-			}));
-
-			const questionnaires: QuestionnaireItem[] = aiStages.map((stage: WorkflowStage) => ({
-				name: `${stage.name} Questionnaire`,
-				description: `Questionnaire for ${stage.name} stage`
-			}));
-
-			// Add generation complete message
+			// Create initial generation complete message
 			const completeMessage: ChatMessage = {
 				id: (Date.now() + 2).toString(),
 				type: 'generation-complete',
-				content: 'Workflow generation completed successfully!',
+				content: 'Workflow generation in progress...',
 				timestamp: new Date(),
 				data: {
 					workflow: aiWorkflow,
-					stages: aiStages,
-					checklists,
-					questionnaires
+					stages: [],
+					checklists: [],
+					questionnaires: []
 				}
 			};
 
-			// Remove system message and add complete message
-			chatMessages.value = chatMessages.value.filter(msg => msg.type !== 'system');
+			streamingWorkflowData.completeMessageId = completeMessage.id;
 			chatMessages.value.push(completeMessage);
-
-			// Save to history
-			saveChatSession();
 			scrollToBottom();
+
+			// Process stages one by one with delay
+			const stages = data.stages || [];
+			processStagesSequentially(stages, 0);
+
+					// Save to history
+		saveChatSession();
+		scrollToBottom();
+	};
+
+	// Process stages sequentially with animation
+	const processStagesSequentially = async (stages: any[], currentIndex: number) => {
+		if (currentIndex >= stages.length) {
+			// All stages processed, now add checklists and questionnaires
+			await addChecklistsAndQuestionnaires();
+			return;
+		}
+
+		// Process current stage
+		const stage = stages[currentIndex];
+		const processedStage = {
+			name: stage?.Name || stage?.name || `Stage ${currentIndex + 1}`,
+			description: stage?.Description || stage?.description || '',
+			order: Number.isFinite(Number(stage?.Order || stage?.order)) ? Math.trunc(Number(stage?.Order || stage?.order)) : currentIndex + 1,
+			assignedGroup: stage?.AssignedGroup || stage?.assignedGroup || 'General',
+			requiredFields: Array.isArray(stage?.RequiredFields || stage?.requiredFields) ? (stage?.RequiredFields || stage?.requiredFields) : [],
+			estimatedDuration: Number(stage?.EstimatedDuration || stage?.estimatedDuration) || 1,
 		};
+
+		console.log(`Processing stage ${currentIndex + 1}:`, processedStage);
+
+		// Add stage to streaming data
+		streamingWorkflowData.stages.push(processedStage);
+
+		// Update the generation complete message
+		updateGenerationCompleteMessage();
+
+		// Wait for animation effect
+		await new Promise(resolve => setTimeout(resolve, 800));
+
+		// Process next stage
+		processStagesSequentially(stages, currentIndex + 1);
+	};
+
+	// Add checklists and questionnaires
+	const addChecklistsAndQuestionnaires = async () => {
+		// Generate checklists
+		streamingWorkflowData.checklists = streamingWorkflowData.stages.map((stage: WorkflowStage) => ({
+			name: `${stage.name} Checklist`,
+			description: `Checklist for ${stage.name} stage`
+		}));
+
+		updateGenerationCompleteMessage();
+		await new Promise(resolve => setTimeout(resolve, 500));
+
+		// Generate questionnaires
+		streamingWorkflowData.questionnaires = streamingWorkflowData.stages.map((stage: WorkflowStage) => ({
+			name: `${stage.name} Questionnaire`,
+			description: `Questionnaire for ${stage.name} stage`
+		}));
+
+		updateGenerationCompleteMessage();
+
+		// Final update - mark as completed
+		const messageIndex = chatMessages.value.findIndex(msg => msg.id === streamingWorkflowData.completeMessageId);
+		if (messageIndex !== -1) {
+			chatMessages.value[messageIndex].content = 'Workflow generation completed successfully!';
+		}
+
+		scrollToBottom();
+		saveChatSession();
+	};
+
+	// Update generation complete message with current data
+	const updateGenerationCompleteMessage = () => {
+		const messageIndex = chatMessages.value.findIndex(msg => msg.id === streamingWorkflowData.completeMessageId);
+		if (messageIndex !== -1) {
+			chatMessages.value[messageIndex].data = {
+				workflow: streamingWorkflowData.workflow,
+				stages: [...streamingWorkflowData.stages],
+				checklists: [...streamingWorkflowData.checklists],
+				questionnaires: [...streamingWorkflowData.questionnaires]
+			};
+		}
+		scrollToBottom();
+	};
 
 		// Use stream response based on input type
 		if (uploadedFile.value) {
@@ -866,15 +1045,41 @@ const generateWorkflow = async () => {
 				modelName: currentAIModel.value?.modelName
 			});
 		} else {
-			// 如果没有当前输入，从聊天历史构建描述
-			let workflowDescription = currentInput.value;
-			if (!workflowDescription && hasChatHistory) {
-				const userMessages = chatMessages.value
-					.filter(msg => msg.type === 'user')
-					.map(msg => msg.content)
-					.join(' ');
-				workflowDescription = userMessages;
+			// Build comprehensive description from entire chat history
+			let workflowDescription = '';
+			
+			// Include current input if available
+			if (currentInput.value.trim()) {
+				workflowDescription = currentInput.value;
 			}
+			
+			// Always include chat history context
+			if (chatMessages.value.length > 0) {
+				const chatContext = chatMessages.value
+					.filter(msg => msg.type === 'user' || msg.type === 'ai')
+					.map(msg => {
+						if (msg.type === 'user') {
+							return `User: ${msg.content}`;
+						} else {
+							return `AI: ${msg.content}`;
+						}
+					})
+					.join('\n');
+				
+				if (workflowDescription) {
+					workflowDescription = `${workflowDescription}\n\nChat History:\n${chatContext}`;
+				} else {
+					workflowDescription = `Chat History:\n${chatContext}`;
+				}
+			}
+			
+			// If still no description, use a default
+			if (!workflowDescription.trim()) {
+				workflowDescription = 'Generate a workflow based on our conversation';
+			}
+			
+			console.log('Final workflow description:', workflowDescription);
+			
 			await startStreaming(workflowDescription, onStreamChunk, onStreamComplete, {
 				id: currentAIModel.value?.id?.toString(),
 				provider: currentAIModel.value?.provider,
@@ -915,6 +1120,76 @@ const sendMessage = async () => {
 	currentInput.value = '';
 	uploadedFile.value = null;
 	await scrollToBottom();
+	
+	console.log('User message added, current messages:', chatMessages.value.length);
+
+	// Check for workflow modification intent
+	const modificationIntent = detectWorkflowModificationIntent(messageContent);
+	if (modificationIntent.isModification && modificationIntent.keywords.length > 0) {
+		console.log('Detected workflow modification intent:', modificationIntent);
+		
+		// Search for workflows based on keywords
+		for (const keyword of modificationIntent.keywords) {
+			const workflows = await searchWorkflows(keyword);
+			if (workflows.length > 0) {
+				searchedWorkflows.value = workflows;
+				
+				// If only one workflow found, automatically select it and show stages
+				if (workflows.length === 1) {
+					const workflowWithStages = await getWorkflowWithStages(workflows[0].id);
+					if (workflowWithStages) {
+						selectedWorkflow.value = workflowWithStages;
+						
+						// Add a special message showing the workflow and stages
+						const workflowMessage: ChatMessage = {
+							id: (Date.now() + 2).toString(),
+							type: 'workflow-modification',
+							content: `Found workflow: ${workflowWithStages.name}`,
+							timestamp: new Date(),
+							data: {
+								workflow: workflowWithStages,
+								stages: workflowWithStages.stages || []
+							}
+						};
+						chatMessages.value.push(workflowMessage);
+						await scrollToBottom();
+						saveChatSession();
+						return; // Don't proceed with normal AI chat
+					}
+				} else {
+					// Multiple workflows found, show selection
+					const selectionMessage: ChatMessage = {
+						id: (Date.now() + 2).toString(),
+						type: 'workflow-selection',
+						content: `Found ${workflows.length} related workflows, please select the workflow to modify:`,
+						timestamp: new Date(),
+						data: {
+							workflows: workflows
+						}
+					};
+					chatMessages.value.push(selectionMessage);
+					await scrollToBottom();
+					saveChatSession();
+					return; // Don't proceed with normal AI chat
+				}
+				break;
+			}
+		}
+		
+		// If no workflows found
+		if (searchedWorkflows.value.length === 0) {
+			const noResultMessage: ChatMessage = {
+				id: (Date.now() + 2).toString(),
+				type: 'ai',
+				content: `No matching workflows found. Please check your keywords or create a new workflow.`,
+				timestamp: new Date()
+			};
+			chatMessages.value.push(noResultMessage);
+			await scrollToBottom();
+			saveChatSession();
+			return;
+		}
+	}
 
 	// Add streaming AI message placeholder
 	const aiMessageId = (Date.now() + 1).toString();
@@ -925,6 +1200,10 @@ const sendMessage = async () => {
 		timestamp: new Date()
 	};
 	chatMessages.value.push(aiMessage);
+	
+	// Save session immediately after adding AI message placeholder
+	console.log('💾 Saving session after adding AI message placeholder');
+	saveChatSession();
 
 	try {
 		// Get current AI model configuration if not already loaded
@@ -981,8 +1260,6 @@ const sendMessage = async () => {
 		};
 
 		// Try streaming chat first
-		let streamSuccess = false;
-		
 		try {
 			console.log('💬 Attempting to use native stream chat API');
 			await streamAIChatMessageNative(
@@ -996,21 +1273,22 @@ const sendMessage = async () => {
 					}
 				},
 				(data: any) => {
-					console.log('✅ Stream chat completed:', data);
+					console.log('Stream chat completed:', data);
 					if (data?.sessionId) {
 						conversationId.value = data.sessionId;
 					}
-					streamSuccess = true;
+					// Save the current chat session to history after stream completes
+					saveChatSession();
 				},
 				(error: any) => {
-					console.warn('❌ Native stream chat failed:', error);
+					console.warn('Native stream chat failed:', error);
 					throw error;
 				}
 			);
 			
-			if (streamSuccess) {
-				return;
-			}
+			// If we reach here, streaming was successful
+			console.log('Stream completed successfully');
+			return;
 		} catch (streamError) {
 			console.warn('Stream chat failed, falling back to regular API:', streamError);
 		}
@@ -1050,6 +1328,9 @@ const sendMessage = async () => {
 	}
 	
 	await scrollToBottom();
+	
+	// Save the current chat session to history
+	saveChatSession();
 };
 
 const applyWorkflow = async (data: any) => {
@@ -1165,39 +1446,7 @@ const removeStage = (data: any, index: number) => {
 	});
 };
 
-const onStageUpdated = (data: any, index: number) => {
-	// Stage update logic
-	console.log('Stage updated:', data.stages[index]);
-};
 
-// Required fields management
-const addRequiredField = (data: any, stageIndex: number) => {
-	currentStageIndex.value = stageIndex;
-	currentMessageData.value = data;
-	showFieldDialog.value = true;
-};
-
-const confirmAddField = () => {
-	if (!newFieldName.value.trim()) {
-		ElMessage.warning('Field name cannot be empty');
-		return;
-	}
-
-	if (currentStageIndex.value >= 0 && currentMessageData.value) {
-		if (!currentMessageData.value.stages[currentStageIndex.value].requiredFields) {
-			currentMessageData.value.stages[currentStageIndex.value].requiredFields = [];
-		}
-		currentMessageData.value.stages[currentStageIndex.value].requiredFields.push(
-			newFieldName.value.trim()
-		);
-		newFieldName.value = '';
-		showFieldDialog.value = false;
-	}
-};
-
-const removeRequiredField = (data: any, stageIndex: number, fieldIndex: number) => {
-	data.stages[stageIndex].requiredFields.splice(fieldIndex, 1);
-};
 
 // Checklist management
 const addChecklist = (data: any) => {
@@ -1228,7 +1477,7 @@ const removeQuestionnaire = (data: any, index: number) => {
 // File handling (legacy - now handled by AIFileAnalyzer)
 
 const removeUploadedFile = () => {
-	// 如果是图片文件，清理URL对象以避免内存泄漏
+			// Clean up URL object for image files to avoid memory leaks
 	if (uploadedFile.value && isImageFile(uploadedFile.value)) {
 		const previewUrl = getFilePreviewUrl(uploadedFile.value);
 		if (previewUrl) {
@@ -1256,10 +1505,17 @@ const getFilePreviewUrl = (file: File): string | undefined => {
 
 // Chat history management
 const saveChatSession = () => {
-	if (chatMessages.value.length === 0) return;
+	console.log('saveChatSession called, chatMessages length:', chatMessages.value.length);
+	if (chatMessages.value.length === 0) {
+		console.log('No chat messages to save');
+		return;
+	}
 
 	const sessionId = currentSessionId.value || Date.now().toString();
-	const title = chatMessages.value.find(msg => msg.type === 'user')?.content.slice(0, 50) + '...' || 'New Chat';
+	const userMessage = chatMessages.value.find(msg => msg.type === 'user');
+	const title = userMessage ? (userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? '...' : '')) : 'New Chat';
+	
+	console.log('💾 Creating session:', { sessionId, title, messageCount: chatMessages.value.length });
 	
 	const session: ChatSession = {
 		id: sessionId,
@@ -1270,12 +1526,16 @@ const saveChatSession = () => {
 
 	const existingIndex = chatHistory.value.findIndex(s => s.id === sessionId);
 	if (existingIndex >= 0) {
+		console.log('Updating existing session at index:', existingIndex);
 		chatHistory.value[existingIndex] = session;
 	} else {
+		console.log('Adding new session to history');
 		chatHistory.value.unshift(session);
 	}
 
 	currentSessionId.value = sessionId;
+	
+	console.log('💾 Chat history now has', chatHistory.value.length, 'sessions');
 	
 	// Save to localStorage
 	saveChatHistoryToStorage();
@@ -1315,19 +1575,315 @@ const startNewChat = () => {
 };
 
 // Enhanced Chat History Methods
-const filterChatHistory = () => {
-	if (!historySearchQuery.value.trim()) {
-		filteredHistory.value = unpinnedSessions.value;
-		return;
+
+// Workflow Search and Modification Methods
+const globSetting = useGlobSetting();
+
+const searchWorkflows = async (query: string): Promise<any[]> => {
+	try {
+		isSearchingWorkflows.value = true;
+		
+		const response = await defHttp.post({
+			url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/query`,
+			data: {
+				PageIndex: 1,
+				PageSize: 10,
+				Name: query,
+				IsActive: true
+			}
+		});
+		
+		if (response.success && response.data?.items) {
+			return response.data.items;
+		}
+		return [];
+	} catch (error) {
+		console.error('Error searching workflows:', error);
+		ElMessage.error('Failed to search workflows');
+		return [];
+	} finally {
+		isSearchingWorkflows.value = false;
+	}
+};
+
+const getWorkflowWithStages = async (workflowId: number): Promise<any | null> => {
+	try {
+		const response = await defHttp.get({
+			url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}`
+		});
+		
+		if (response.success && response.data) {
+			// Get stages for this workflow
+			const stagesResponse = await defHttp.get({
+				url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}/stages`
+			});
+			
+			if (stagesResponse.success && stagesResponse.data) {
+				response.data.stages = stagesResponse.data;
+			}
+			
+			return response.data;
+		}
+		return null;
+	} catch (error) {
+		console.error('Error getting workflow with stages:', error);
+		ElMessage.error('Failed to get workflow details');
+		return null;
+	}
+};
+
+const detectWorkflowModificationIntent = (message: string): { isModification: boolean; keywords: string[] } => {
+	const modificationKeywords = ['modify', 'edit', 'update', 'change', 'adjust', 'optimize'];
+	const workflowKeywords = ['workflow', 'process', 'flow'];
+	
+	const lowerMessage = message.toLowerCase();
+	const isModification = modificationKeywords.some(keyword => lowerMessage.includes(keyword));
+	const hasWorkflow = workflowKeywords.some(keyword => lowerMessage.includes(keyword));
+	
+	if (isModification && hasWorkflow) {
+		// Extract potential workflow names (simple extraction)
+		const words = message.split(/\s+|，|。|、/);
+		const keywords = words.filter(word => 
+			word.length > 1 && 
+			!modificationKeywords.includes(word) && 
+			!workflowKeywords.includes(word)
+		);
+		
+		return { isModification: true, keywords };
 	}
 	
-	const query = historySearchQuery.value.toLowerCase();
-	filteredHistory.value = unpinnedSessions.value.filter(session => {
-		return session.title.toLowerCase().includes(query) ||
-			session.messages.some(msg => 
-				msg.content.toLowerCase().includes(query)
-			);
-	});
+	return { isModification: false, keywords: [] };
+};
+
+const selectWorkflowForModification = async (workflow: any) => {
+	try {
+		const workflowWithStages = await getWorkflowWithStages(workflow.id);
+		if (workflowWithStages) {
+			selectedWorkflow.value = workflowWithStages;
+			
+			// Add a workflow modification message
+			const workflowMessage: ChatMessage = {
+				id: Date.now().toString(),
+				type: 'workflow-modification',
+				content: `Selected workflow: ${workflowWithStages.name}`,
+				timestamp: new Date(),
+				data: {
+					workflow: workflowWithStages,
+					stages: workflowWithStages.stages || []
+				}
+			};
+			chatMessages.value.push(workflowMessage);
+			await scrollToBottom();
+			saveChatSession();
+		}
+	} catch (error) {
+		console.error('Error selecting workflow:', error);
+		ElMessage.error('Failed to select workflow');
+	}
+};
+
+const onStageUpdated = (messageData: any, stageIndex: number) => {
+	// Mark the workflow as modified
+	if (messageData.workflow) {
+		messageData.workflow.isModified = true;
+	}
+	console.log('Stage updated:', stageIndex, messageData.stages[stageIndex]);
+};
+
+// Validate workflow data before saving
+const validateWorkflowData = (messageData: any): boolean => {
+	if (!messageData.workflow) {
+		ElMessage.error('Workflow data is missing');
+		return false;
+	}
+	
+	if (!messageData.workflow.id) {
+		ElMessage.error('Workflow ID is missing');
+		return false;
+	}
+	
+	if (!messageData.stages || !Array.isArray(messageData.stages)) {
+		ElMessage.error('Stage data is missing or invalid');
+		return false;
+	}
+	
+	// Check if all stages have required fields
+	for (const stage of messageData.stages) {
+		if (!stage.name || !stage.name.trim()) {
+			ElMessage.error('All stages must have a name');
+			return false;
+		}
+		if (!stage.id) {
+			ElMessage.error('Stage ID is missing');
+			return false;
+		}
+	}
+	
+	return true;
+};
+
+// Refresh workflow data from server
+const refreshWorkflowData = async (messageData: any) => {
+	if (!messageData.workflow?.id) {
+		ElMessage.error('Workflow ID is missing');
+		return;
+	}
+
+	try {
+		applying.value = true;
+		
+		// Fetch fresh workflow data
+		const workflowWithStages = await getWorkflowWithStages(messageData.workflow.id);
+		
+		if (workflowWithStages) {
+			// Update the message data with fresh server data
+			messageData.workflow = workflowWithStages;
+			messageData.stages = workflowWithStages.stages || [];
+			
+			ElMessage.success('Workflow data refreshed successfully');
+			console.log('Refreshed workflow data:', workflowWithStages);
+		} else {
+			ElMessage.error('Failed to refresh workflow data');
+		}
+	} catch (error) {
+		console.error('Error refreshing workflow data:', error);
+		ElMessage.error('Failed to refresh workflow data');
+	} finally {
+		applying.value = false;
+	}
+};
+
+const saveWorkflowChanges = async (messageData: any) => {
+	if (!validateWorkflowData(messageData)) {
+		return;
+	}
+
+	try {
+		applying.value = true;
+		
+		// Update workflow first
+		const workflowResponse = await defHttp.put({
+			url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${messageData.workflow.id}`,
+			data: {
+				name: messageData.workflow.name,
+				description: messageData.workflow.description,
+				isActive: messageData.workflow.isActive
+			}
+		});
+
+		if (!workflowResponse.success) {
+			throw new Error('Failed to update workflow');
+		}
+
+		// Update stages with proper error handling
+		for (const stage of messageData.stages) {
+			if (stage.id) {
+				try {
+					// Ensure we have the workflow ID in the stage data
+					const stageUpdateData = {
+						name: stage.name,
+						description: stage.description,
+						order: stage.order,
+						workflowId: messageData.workflow.id, // Explicitly include workflow ID
+						defaultAssignedGroup: stage.assignedGroup || stage.defaultAssignedGroup,
+						estimatedDuration: stage.estimatedDuration
+					};
+
+					console.log('Updating stage:', stage.id, 'with data:', stageUpdateData);
+
+					await defHttp.put({
+						url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stage.id}`,
+						data: stageUpdateData
+					});
+				} catch (stageError) {
+					console.error(`Error updating stage ${stage.id}:`, stageError);
+					
+					// If it's a foreign key constraint error, try different approaches
+					if (stageError.response?.status === 400 && 
+						stageError.response?.data?.message?.includes('Foreign key constraint')) {
+						
+						console.log('Foreign key constraint detected. Trying alternative approaches...');
+						
+						// First, try to refresh the stage data from server
+						try {
+							const currentStageResponse = await defHttp.get({
+								url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stage.id}`
+							});
+							
+							if (currentStageResponse.success && currentStageResponse.data) {
+								// Use the current server data as base and only update what we need
+								const serverStageData = currentStageResponse.data;
+								await defHttp.put({
+									url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stage.id}`,
+									data: {
+										...serverStageData,
+										name: stage.name,
+										description: stage.description,
+										order: stage.order,
+										estimatedDuration: stage.estimatedDuration,
+										// Only update assignedGroup if it's different from server
+										defaultAssignedGroup: stage.assignedGroup !== serverStageData.defaultAssignedGroup 
+											? stage.assignedGroup 
+											: serverStageData.defaultAssignedGroup
+									}
+								});
+							} else {
+								throw new Error('Could not fetch current stage data');
+							}
+						} catch (refreshError) {
+							console.log('Could not refresh stage data, trying minimal update...');
+							// Last resort: minimal update without assignedGroup
+							await defHttp.put({
+								url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stage.id}`,
+								data: {
+									name: stage.name,
+									description: stage.description,
+									order: stage.order,
+									estimatedDuration: stage.estimatedDuration
+								}
+							});
+						}
+					} else {
+						throw stageError;
+					}
+				}
+			}
+		}
+
+		ElMessage.success('Workflow changes saved successfully');
+		
+		// Add success message
+		const successMessage: ChatMessage = {
+			id: Date.now().toString(),
+			type: 'ai',
+			content: `Changes to workflow "${messageData.workflow.name}" have been saved successfully!`,
+			timestamp: new Date()
+		};
+		chatMessages.value.push(successMessage);
+		await scrollToBottom();
+		saveChatSession();
+
+	} catch (error) {
+		console.error('Error saving workflow changes:', error);
+		
+		// Provide more specific error messages
+		if (error.response?.status === 400) {
+			const errorMessage = error.response?.data?.message || error.response?.data?.msg || 'Bad request';
+			if (errorMessage.includes('Foreign key constraint')) {
+				ElMessage.error('Failed to save changes: Data integrity issue. Please refresh and try again.');
+			} else {
+				ElMessage.error(`Failed to save changes: ${errorMessage}`);
+			}
+		} else if (error.response?.status === 404) {
+			ElMessage.error('Failed to save changes: Workflow or stage not found. Please refresh the page.');
+		} else if (error.response?.status === 500) {
+			ElMessage.error('Failed to save changes: Server error. Please try again later.');
+		} else {
+			ElMessage.error('Failed to save changes. Please check your connection and try again.');
+		}
+	} finally {
+		applying.value = false;
+	}
 };
 
 const formatRelativeTime = (timestamp: Date) => {
@@ -1368,7 +1924,6 @@ const togglePinSession = (sessionId: string) => {
 	if (session) {
 		session.isPinned = !session.isPinned;
 		saveChatHistoryToStorage();
-		filterChatHistory();
 	}
 };
 
@@ -1405,7 +1960,6 @@ const deleteSession = (sessionId: string) => {
 		if (index >= 0) {
 			chatHistory.value.splice(index, 1);
 			saveChatHistoryToStorage();
-			filterChatHistory();
 			
 			// If deleted session was current, clear chat
 			if (currentSessionId.value === sessionId) {
@@ -1464,7 +2018,6 @@ const clearAllHistory = () => {
 		}
 	).then(() => {
 		chatHistory.value = [];
-		filteredHistory.value = [];
 		saveChatHistoryToStorage();
 		clearChat();
 		ElMessage.success('All chat history cleared');
@@ -1501,18 +2054,18 @@ const handleFileAnalyzed = (content: string, fileName: string) => {
 	ElMessage.success(`File "${fileName}" has been analyzed and content extracted`);
 };
 
-// 用于跟踪当前AI响应消息的ID
+// Track current AI response message ID
 let currentAIMessageId = '';
 
 const handleAnalysisStarted = (fileName: string) => {
 	console.log('Analysis started for file:', fileName);
 	
-	// 创建一个新的AI消息用于显示流式响应
+	// Create a new AI message for streaming response
 	currentAIMessageId = (Date.now() + 1).toString();
 	const aiMessage: ChatMessage = {
 		id: currentAIMessageId,
 		type: 'ai',
-		content: '', // 开始时内容为空，会通过流式响应填充
+		content: '', // Start with empty content, will be filled by streaming response
 		timestamp: new Date()
 	};
 	
@@ -1522,7 +2075,7 @@ const handleAnalysisStarted = (fileName: string) => {
 };
 
 const handleStreamChunk = (chunk: string) => {
-	// 找到当前AI消息并更新内容
+	// Find current AI message and update content
 	const messageIndex = chatMessages.value.findIndex(msg => msg.id === currentAIMessageId);
 	if (messageIndex !== -1) {
 		chatMessages.value[messageIndex].content += chunk;
@@ -1533,7 +2086,7 @@ const handleStreamChunk = (chunk: string) => {
 const handleAnalysisComplete = (result: any) => {
 	console.log('Analysis complete:', result);
 	
-	// 保存会话
+	// Save session
 	saveChatSession();
 };
 
@@ -1637,9 +2190,6 @@ onMounted(async () => {
 		};
 		chatMessages.value.push(initialMessage);
 	}
-	
-	// Initialize filtered history
-	filterChatHistory();
 });
 </script>
 
@@ -1697,6 +2247,7 @@ onMounted(async () => {
 .assistant-container {
 	display: flex;
 	gap: 1rem;
+	height: 700px;
 }
 
 .chat-area {
@@ -1717,7 +2268,7 @@ onMounted(async () => {
 	max-height: 600px;
 }
 
-/* 自定义滚动条样式 */
+/* Custom scrollbar styles */
 .chat-messages::-webkit-scrollbar {
 	width: 8px;
 }
@@ -1870,7 +2421,7 @@ onMounted(async () => {
 .workflow-info h5 {
 	margin: 0 0 0.5rem 0;
   color: #374151;
-  font-size: 16px;
+  font-size: 1px;
 	font-weight: 600;
 }
 
@@ -1895,7 +2446,7 @@ onMounted(async () => {
 
 .stages-grid {
   display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	grid-template-columns: repeat(3, 1fr);
 	gap: 1rem;
 	margin-bottom: 1rem;
 }
@@ -2001,40 +2552,7 @@ onMounted(async () => {
 	width: 100%;
 }
 
-.required-fields-compact {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
 
-.fields-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-}
-
-.fields-label {
-	font-size: 12px;
-	font-weight: 600;
-	color: #64748b;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-}
-
-.add-field-btn {
-	width: 24px;
-	height: 24px;
-}
-
-.fields-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-
-.field-tag {
-	font-size: 12px;
-}
 
 .add-stage-btn {
 	align-self: flex-start;
@@ -2306,7 +2824,6 @@ onMounted(async () => {
 	border-left: 1px solid #e5e7eb;
 	display: flex;
 	flex-direction: column;
-	height: 600px;
 	transition: width 0.3s ease;
 	background: #f8fafc;
 }
@@ -2338,7 +2855,7 @@ onMounted(async () => {
 .header-title-section h4 {
 	margin: 0;
 	color: #374151;
-	font-size: 16px;
+	font-size: 15px;
 	font-weight: 600;
 }
 
@@ -2404,7 +2921,6 @@ onMounted(async () => {
 	flex: 1;
 	overflow-y: auto;
 	padding: 0.5rem;
-	max-height: 400px;
 }
 
 .section-header {
@@ -2592,7 +3108,7 @@ onMounted(async () => {
   margin-right: 4px;
 }
 
-/* 聊天历史区域滚动条样式 */
+/* Chat history area scrollbar styles */
 .history-list::-webkit-scrollbar {
 	width: 6px;
 }
@@ -2632,6 +3148,303 @@ onMounted(async () => {
 	.user-message .message-content,
 	.ai-message .message-content {
 		max-width: 85%;
+	}
+}
+
+/* Workflow Modification Styles */
+.workflow-modification {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+
+.workflow-modification .message-avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.workflow-modification .message-content {
+	flex: 1;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	padding: 1rem;
+}
+
+.workflow-header h4 {
+	margin: 0 0 1rem 0;
+	color: #1e293b;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.workflow-info-card {
+	background: white;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 1rem;
+	margin-bottom: 1rem;
+}
+
+.workflow-details h5 {
+	margin: 0 0 0.5rem 0;
+	color: #1e293b;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.workflow-details p {
+	margin: 0 0 0.75rem 0;
+	color: #64748b;
+	line-height: 1.5;
+}
+
+.workflow-meta {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+}
+
+.workflow-meta .status {
+	padding: 0.25rem 0.75rem;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 500;
+	background: #f1f5f9;
+	color: #64748b;
+}
+
+.workflow-meta .status.active {
+	background: #dcfce7;
+	color: #166534;
+}
+
+.stage-count {
+	font-size: 12px;
+	color: #64748b;
+	background: #f1f5f9;
+	padding: 0.25rem 0.75rem;
+	border-radius: 12px;
+}
+
+.stages-list h6 {
+	margin: 0 0 1rem 0;
+	color: #1e293b;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.stages-container {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 1rem;
+	margin-bottom: 1rem;
+	width: 100%;
+}
+
+.stage-card.editable {
+	background: white;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 1rem;
+	transition: all 0.2s ease;
+	min-height: 200px;
+	display: flex;
+	flex-direction: column;
+}
+
+.stage-card.editable:hover {
+	border-color: #3b82f6;
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.stage-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.stage-number {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: #3b82f6;
+	color: white;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.stage-name-input {
+	flex: 1;
+}
+
+.stage-description-input {
+	margin-bottom: 0.75rem;
+	flex: 1;
+}
+
+.stage-details {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.75rem;
+	margin-top: auto;
+}
+
+.stage-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.stage-field label {
+	font-size: 12px;
+	font-weight: 500;
+	color: #374151;
+}
+
+
+
+.save-section {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid #e2e8f0;
+}
+
+/* Workflow Selection Styles */
+.workflow-selection {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+
+.workflow-selection .message-avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.workflow-selection .message-content {
+	flex: 1;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	padding: 1rem;
+}
+
+.selection-header h4 {
+	margin: 0 0 1rem 0;
+	color: #1e293b;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.workflows-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.workflow-option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: white;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 1rem;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.workflow-option:hover {
+	border-color: #3b82f6;
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.workflow-option-content {
+	flex: 1;
+}
+
+.workflow-option-content h5 {
+	margin: 0 0 0.5rem 0;
+	color: #1e293b;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.workflow-option-content p {
+	margin: 0 0 0.5rem 0;
+	color: #64748b;
+	line-height: 1.4;
+}
+
+.workflow-option-meta {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+}
+
+.created-date {
+	font-size: 12px;
+	color: #9ca3af;
+}
+
+.select-icon {
+	color: #3b82f6;
+	font-size: 18px;
+}
+
+@media (max-width: 768px) {
+	.stages-container {
+		grid-template-columns: 1fr;
+	}
+	
+	.stages-grid {
+		grid-template-columns: 1fr;
+	}
+	
+	.stage-details {
+		grid-template-columns: 1fr;
+	}
+	
+	.workflow-option-meta {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.25rem;
+	}
+}
+
+@media (max-width: 1200px) and (min-width: 769px) {
+	.stages-container {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	
+	.stages-grid {
+		grid-template-columns: repeat(2, 1fr);
 	}
 }
 </style> 
