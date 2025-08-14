@@ -778,11 +778,7 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 		} else if (ans.type === 'linear_scale' || ans.type === 'rating') {
 			// 确保数字类型的答案保持为数字
 			const numValue = Number(ans.answer);
-			formData.value[ans.questionId] = isNaN(numValue)
-				? ans.type === 'linear_scale'
-					? 1
-					: 0
-				: numValue;
+			formData.value[ans.questionId] = isNaN(numValue) ? 0 : numValue;
 		} else {
 			formData.value[ans.questionId] = ans.answer;
 		}
