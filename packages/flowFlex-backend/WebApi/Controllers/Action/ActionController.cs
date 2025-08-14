@@ -97,8 +97,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <summary>
         /// Create new action definition
         /// </summary>
-        /// <param name="dto">Create action definition DTO</param>
-        /// <returns>Created action definition</returns>
+        /// <param name="dto">Create action definition DTO. 
+        /// Optional parameters (WorkflowId, TriggerSourceId, TriggerType) can be provided to simultaneously create an Action Trigger Mapping.</param>
+        /// <returns>Created action definition with trigger mapping creation status</returns>
         [HttpPost("definitions")]
         [ProducesResponseType<SuccessResponse<ActionDefinitionDto>>((int)HttpStatusCode.Created)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
