@@ -50,10 +50,10 @@ namespace FlowFlex.Application.Services.AI
             {
                 _logger.LogInformation("Generating workflow from natural language with enhanced context");
                 _logger.LogInformation("Description length: {DescriptionLength} characters", input.Description?.Length ?? 0);
-                _logger.LogInformation("AI Model: {Provider} {Model} (ID: {ModelId})", 
+                _logger.LogInformation("AI Model: {Provider} {Model} (ID: {ModelId})",
                     input.ModelProvider, input.ModelName, input.ModelId);
                 _logger.LogInformation("Session ID: {SessionId}", input.SessionId);
-                _logger.LogInformation("Conversation History: {MessageCount} messages", 
+                _logger.LogInformation("Conversation History: {MessageCount} messages",
                     input.ConversationHistory?.Count ?? 0);
 
                 // Store enhanced context in MCP for future reference
@@ -68,7 +68,7 @@ namespace FlowFlex.Application.Services.AI
                     { "modelName", input.ModelName ?? "" },
                     { "conversationMessageCount", input.ConversationHistory?.Count ?? 0 }
                 };
-                
+
                 if (input.ConversationMetadata != null)
                 {
                     contextMetadata.Add("conversationMode", input.ConversationMetadata.ConversationMode ?? "");
@@ -209,7 +209,7 @@ namespace FlowFlex.Application.Services.AI
             var prompt = BuildWorkflowGenerationPrompt(input);
             var streamingContent = new StringBuilder();
             var hasReceivedContent = false;
-            
+
             // 构建聊天消息格式
             var messages = new List<object>
             {
@@ -229,7 +229,7 @@ namespace FlowFlex.Application.Services.AI
             {
                 var progressSent = false;
                 var streamStartTime = DateTime.UtcNow;
-                
+
                 // 发送初始进度消息
                 yield return new AIWorkflowStreamResult
                 {
@@ -239,15 +239,15 @@ namespace FlowFlex.Application.Services.AI
                 };
                 progressSent = true;
                 _logger.LogInformation("✅ Initial progress message sent");
-                
+
                 // 根据模型类型选择处理方式
                 if (userConfig.Provider?.ToLower() == "openai")
                 {
                     _logger.LogInformation("🚀 Using OpenAI TRUE streaming - real-time progress updates");
-                    
+
                     var lastProgressLength = 0;
                     var lastProgressTime = DateTime.UtcNow;
-                    
+
                     // 真正的流式处理：实时输出有意义的进度更新
                     await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
                     {
@@ -255,41 +255,41 @@ namespace FlowFlex.Application.Services.AI
                         {
                             streamingContent.Append(chunk);
                             hasReceivedContent = true;
-                            
+
                             var now = DateTime.UtcNow;
                             var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
                             var lengthDifference = streamingContent.Length - lastProgressLength;
-                            
+
                             // 条件：每收集50个字符或每2秒更新一次进度
                             if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
                             {
                                 yield return new AIWorkflowStreamResult
                                 {
                                     Type = "progress",
-                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress/1000:F1}s)",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
                                     IsComplete = false
                                 };
-                                
+
                                 lastProgressLength = streamingContent.Length;
                                 lastProgressTime = now;
-                                
-                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last", 
+
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
                                     streamingContent.Length, timeSinceLastProgress);
                             }
                         }
                     }
-                    
+
                     var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
-                    _logger.LogInformation("🏁 OpenAI TRUE stream completed: {Length} chars in {Duration}ms", 
+                    _logger.LogInformation("🏁 OpenAI TRUE stream completed: {Length} chars in {Duration}ms",
                         streamingContent.Length, totalDuration);
                 }
                 else if (userConfig.Provider?.ToLower() == "deepseek")
                 {
                     _logger.LogInformation("🚀 Using DeepSeek TRUE streaming - real-time progress updates");
-                    
+
                     var lastProgressLength = 0;
                     var lastProgressTime = DateTime.UtcNow;
-                    
+
                     // 真正的流式处理：实时输出有意义的进度更新
                     await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
                     {
@@ -297,42 +297,42 @@ namespace FlowFlex.Application.Services.AI
                         {
                             streamingContent.Append(chunk);
                             hasReceivedContent = true;
-                            
+
                             var now = DateTime.UtcNow;
                             var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
                             var lengthDifference = streamingContent.Length - lastProgressLength;
-                            
+
                             // 条件：每收集50个字符或每2秒更新一次进度
                             if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
                             {
                                 yield return new AIWorkflowStreamResult
                                 {
                                     Type = "progress",
-                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress/1000:F1}s)",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
                                     IsComplete = false
                                 };
-                                
+
                                 lastProgressLength = streamingContent.Length;
                                 lastProgressTime = now;
-                                
-                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last", 
+
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
                                     streamingContent.Length, timeSinceLastProgress);
                             }
                         }
                     }
-                    
+
                     var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
-                    _logger.LogInformation("🏁 DeepSeek TRUE stream completed: {Length} chars in {Duration}ms", 
+                    _logger.LogInformation("🏁 DeepSeek TRUE stream completed: {Length} chars in {Duration}ms",
                         streamingContent.Length, totalDuration);
                 }
                 else
                 {
                     // 其他模型使用真正的流式处理
                     _logger.LogInformation("🚀 Using {Provider} TRUE streaming - real-time progress updates", userConfig.Provider);
-                    
+
                     var lastProgressLength = 0;
                     var lastProgressTime = DateTime.UtcNow;
-                    
+
                     // 真正的流式处理：实时输出有意义的进度更新
                     await foreach (var chunk in CallAIProviderForStreamChatAsync(messages, userConfig))
                     {
@@ -340,44 +340,44 @@ namespace FlowFlex.Application.Services.AI
                         {
                             streamingContent.Append(chunk);
                             hasReceivedContent = true;
-                            
+
                             var now = DateTime.UtcNow;
                             var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
                             var lengthDifference = streamingContent.Length - lastProgressLength;
-                            
+
                             // 条件：每收集50个字符或每2秒更新一次进度
                             if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
                             {
-            yield return new AIWorkflowStreamResult
-            {
-                Type = "progress",
-                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress/1000:F1}s)",
-                IsComplete = false
-            };
+                                yield return new AIWorkflowStreamResult
+                                {
+                                    Type = "progress",
+                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
+                                    IsComplete = false
+                                };
 
                                 lastProgressLength = streamingContent.Length;
                                 lastProgressTime = now;
-                                
-                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last", 
+
+                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
                                     streamingContent.Length, timeSinceLastProgress);
                             }
                         }
                     }
-                    
+
                     var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
-                    _logger.LogInformation("🏁 {Provider} TRUE stream completed: {Length} chars in {Duration}ms", 
+                    _logger.LogInformation("🏁 {Provider} TRUE stream completed: {Length} chars in {Duration}ms",
                         userConfig.Provider, streamingContent.Length, totalDuration);
                 }
-                
+
                 // 流式完成后立即开始解析
                 if (hasReceivedContent)
                 {
-            yield return new AIWorkflowStreamResult
-            {
-                Type = "progress",
+                    yield return new AIWorkflowStreamResult
+                    {
+                        Type = "progress",
                         Message = "Parsing workflow structure...",
-                IsComplete = false
-            };
+                        IsComplete = false
+                    };
 
                     // 解析AI响应
                     _logger.LogInformation("🔍 Starting to parse AI response, content length: {Length}", streamingContent.Length);
@@ -389,7 +389,7 @@ namespace FlowFlex.Application.Services.AI
                     if (streamResult?.GeneratedWorkflow != null)
                     {
                         _logger.LogInformation("🎯 About to yield workflow and {Count} stages", streamResult.Stages?.Count ?? 0);
-                        
+
                         yield return new AIWorkflowStreamResult
                         {
                             Type = "workflow",
@@ -410,7 +410,7 @@ namespace FlowFlex.Application.Services.AI
                                 IsComplete = false
                             };
                             stageCount++;
-                            
+
                             // 每处理10个stage记录一次
                             if (stageCount % 10 == 0)
                             {
@@ -430,19 +430,19 @@ namespace FlowFlex.Application.Services.AI
                         };
                         var completeEndTime = DateTime.UtcNow;
                         _logger.LogInformation("🏁 Complete message yielded in {Duration}ms", (completeEndTime - completeStartTime).TotalMilliseconds);
-                        
+
                         _logger.LogInformation("🎉 StreamGenerateWorkflowAsync about to exit successfully");
                         yield break;
                     }
                     else
-            {
-                yield return new AIWorkflowStreamResult
-                {
-                    Type = "error",
+                    {
+                        yield return new AIWorkflowStreamResult
+                        {
+                            Type = "error",
                             Message = "Unable to parse AI-generated workflow structure",
-                    IsComplete = true
-                };
-                yield break;
+                            IsComplete = true
+                        };
+                        yield break;
                     }
                 }
             }
@@ -548,7 +548,7 @@ namespace FlowFlex.Application.Services.AI
             {
                 prompt = BuildQuestionnaireGenerationPrompt(input);
                 aiResponse = await CallAIProviderAsync(prompt);
-                
+
                 if (aiResponse.Success)
                 {
                     result = ParseQuestionnaireGenerationResponse(aiResponse.Content);
@@ -631,7 +631,7 @@ namespace FlowFlex.Application.Services.AI
             {
                 prompt = BuildChecklistGenerationPrompt(input);
                 aiResponse = await CallAIProviderAsync(prompt);
-                
+
                 if (aiResponse.Success)
                 {
                     result = ParseChecklistGenerationResponse(aiResponse.Content);
@@ -969,7 +969,7 @@ namespace FlowFlex.Application.Services.AI
 
                 // Fallback to app settings if still missing
                 var provider = (effectiveProvider ?? _aiOptions.Provider).ToLower();
-                
+
                 _logger.LogInformation("Using AI provider: {Provider}, Model: {ModelName} (ID: {ModelId})",
                     provider, effectiveModelName, effectiveModelId);
 
@@ -1052,7 +1052,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     apiUrl = $"{apiUrl}/chat/completions";
                 }
-                
+
                 // Build request with HTTP/1.1 and per-call timeout
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
                 {
@@ -1064,18 +1064,18 @@ namespace FlowFlex.Application.Services.AI
                 var response = await _httpClient.SendAsync(request, cts.Token);
                 var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogError("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
-                return new AIProviderResponse
+                if (!response.IsSuccessStatusCode)
                 {
-                    Success = false,
-                    ErrorMessage = $"ZhipuAI API error: {response.StatusCode}"
-                };
-            }
+                    _logger.LogError("ZhipuAI API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"ZhipuAI API error: {response.StatusCode}"
+                    };
+                }
 
-            var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-            var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+                var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
 
                 return new AIProviderResponse
                 {
@@ -1109,10 +1109,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get OpenAI configuration for ID: {ConfigId}", configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved OpenAI configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved OpenAI configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -1126,7 +1126,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No OpenAI configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
-                    
+
                     // Try to fallback to ZhipuAI if OpenAI config is not available
                     try
                     {
@@ -1192,12 +1192,12 @@ namespace FlowFlex.Application.Services.AI
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                
+
                 // Parse OpenAI response format
                 if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                 {
                     var firstChoice = choices[0];
-                    if (firstChoice.TryGetProperty("message", out var message) && 
+                    if (firstChoice.TryGetProperty("message", out var message) &&
                         message.TryGetProperty("content", out var messageContent))
                     {
                         var content_str = messageContent.GetString();
@@ -1237,10 +1237,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get Claude configuration for ID: {ConfigId}", configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved Claude configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved Claude configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -1253,7 +1253,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No Claude configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
-                    
+
                     // Try to fallback to ZhipuAI if Claude config is not available
                     try
                     {
@@ -1318,7 +1318,7 @@ namespace FlowFlex.Application.Services.AI
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                
+
                 // Parse Claude response format
                 if (responseData.TryGetProperty("content", out var content_array) && content_array.GetArrayLength() > 0)
                 {
@@ -1362,10 +1362,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get DeepSeek configuration for ID: {ConfigId}", configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved DeepSeek configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved DeepSeek configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -1378,7 +1378,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No DeepSeek configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", modelId);
-                    
+
                     // Try to fallback to ZhipuAI if DeepSeek config is not available
                     try
                     {
@@ -1452,12 +1452,12 @@ namespace FlowFlex.Application.Services.AI
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                
+
                 // Parse OpenAI-compatible response format
                 if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                 {
                     var firstChoice = choices[0];
-                    if (firstChoice.TryGetProperty("message", out var message) && 
+                    if (firstChoice.TryGetProperty("message", out var message) &&
                         message.TryGetProperty("content", out var messageContent))
                     {
                         var content_str = messageContent.GetString();
@@ -1497,10 +1497,10 @@ namespace FlowFlex.Application.Services.AI
                 {
                     _logger.LogInformation("Attempting to get {Provider} configuration for ID: {ConfigId}", providerName, configId);
                     userConfig = await _configService.GetConfigByIdAsync(configId);
-                    
+
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Successfully retrieved {Provider} configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}", 
+                        _logger.LogInformation("Successfully retrieved {Provider} configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
                             providerName, configId, userConfig.Provider, userConfig.ModelName);
                     }
                     else
@@ -1513,7 +1513,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No {Provider} configuration found for model ID: {ModelId}. Attempting to use ZhipuAI as fallback.", providerName, modelId);
-                    
+
                     // Try to fallback to ZhipuAI if config is not available
                     try
                     {
@@ -1580,12 +1580,12 @@ namespace FlowFlex.Application.Services.AI
                         if (response.IsSuccessStatusCode)
                         {
                             var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                            
+
                             // Parse OpenAI-compatible response format
                             if (responseData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                             {
                                 var firstChoice = choices[0];
-                                if (firstChoice.TryGetProperty("message", out var message) && 
+                                if (firstChoice.TryGetProperty("message", out var message) &&
                                     message.TryGetProperty("content", out var messageContent))
                                 {
                                     var content_str = messageContent.GetString();
@@ -1606,7 +1606,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                         else
                         {
-                            _logger.LogWarning("{Provider} API call failed with endpoint {Endpoint}: {StatusCode} - {Content}", 
+                            _logger.LogWarning("{Provider} API call failed with endpoint {Endpoint}: {StatusCode} - {Content}",
                                 providerName, endpoint, response.StatusCode, responseContent);
                             lastResponse = new AIProviderResponse
                             {
@@ -1649,14 +1649,14 @@ namespace FlowFlex.Application.Services.AI
             promptBuilder.AppendLine($"{_aiOptions.Prompts.WorkflowSystem}");
             promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
-            
+
             // Check if this is a conversation-based workflow generation
             if (input.ConversationHistory != null && input.ConversationHistory.Any())
             {
                 promptBuilder.AppendLine("=== Generate Workflow Based on Detailed Conversation ===");
                 promptBuilder.AppendLine("Below is the complete conversation history with the user. Please generate an accurate workflow based on these detailed information:");
                 promptBuilder.AppendLine();
-                
+
                 // Add conversation context
                 if (input.ConversationMetadata != null)
                 {
@@ -1666,7 +1666,7 @@ namespace FlowFlex.Application.Services.AI
                     promptBuilder.AppendLine($"- Conversation Mode: {input.ConversationMetadata.ConversationMode}");
                     promptBuilder.AppendLine();
                 }
-                
+
                 // Add full conversation history
                 promptBuilder.AppendLine("Complete Conversation Content:");
                 foreach (var message in input.ConversationHistory)
@@ -1676,7 +1676,7 @@ namespace FlowFlex.Application.Services.AI
                     promptBuilder.AppendLine(message.Content);
                     promptBuilder.AppendLine();
                 }
-                
+
                 promptBuilder.AppendLine("Please pay special attention to:");
                 promptBuilder.AppendLine("1. Extract all key requirements and details from the conversation");
                 promptBuilder.AppendLine("2. Use the specific suggestions and detailed information provided by the AI assistant in the conversation");
@@ -1690,13 +1690,13 @@ namespace FlowFlex.Application.Services.AI
                 promptBuilder.AppendLine("Please generate a complete workflow definition based on the following requirements:");
                 promptBuilder.AppendLine($"Description: {input.Description}");
             }
-            
+
             if (!string.IsNullOrEmpty(input.Context))
                 promptBuilder.AppendLine($"Context: {input.Context}");
-            
+
             if (!string.IsNullOrEmpty(input.Industry))
                 promptBuilder.AppendLine($"Industry: {input.Industry}");
-            
+
             if (!string.IsNullOrEmpty(input.ProcessType))
                 promptBuilder.AppendLine($"Process Type: {input.ProcessType}");
 
@@ -1798,7 +1798,7 @@ namespace FlowFlex.Application.Services.AI
         {
             _logger.LogInformation("🔍 ParseWorkflowGenerationResponse started, response length: {Length}", aiResponse.Length);
             var methodStartTime = DateTime.UtcNow;
-            
+
             try
             {
                 // Try to parse JSON response from AI
@@ -1808,10 +1808,10 @@ namespace FlowFlex.Application.Services.AI
                     var jsonStart = aiResponse.IndexOf('{');
                     var jsonEnd = aiResponse.LastIndexOf('}') + 1;
                     var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
-                    
+
                     _logger.LogInformation("🔧 Deserializing JSON, content length: {Length}", jsonContent.Length);
                     var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
-                    
+
                     var workflow = new WorkflowInputDto
                     {
                         Name = parsed.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : "AI Generated Workflow",
@@ -1860,17 +1860,17 @@ namespace FlowFlex.Application.Services.AI
             var result = GenerateFallbackWorkflow(aiResponse);
             var fallbackEndTime = DateTime.UtcNow;
             _logger.LogInformation("✅ Fallback completed in {Duration}ms", (fallbackEndTime - fallbackStartTime).TotalMilliseconds);
-            
+
             var methodEndTime = DateTime.UtcNow;
             _logger.LogInformation("🏁 ParseWorkflowGenerationResponse completed in {Duration}ms", (methodEndTime - methodStartTime).TotalMilliseconds);
-            
+
             return result;
         }
 
         private AIWorkflowGenerationResult GenerateFallbackWorkflow(string aiResponse)
         {
             _logger.LogInformation("🔄 GenerateFallbackWorkflow started, response length: {Length}", aiResponse.Length);
-            
+
             var workflow = new WorkflowInputDto
             {
                 Name = "AI Generated Workflow",
@@ -1883,9 +1883,9 @@ namespace FlowFlex.Application.Services.AI
             var extractStartTime = DateTime.UtcNow;
             var stages = ExtractStagesFromText(aiResponse);
             var extractEndTime = DateTime.UtcNow;
-            _logger.LogInformation("✅ Stage extraction completed in {Duration}ms, found {Count} stages", 
+            _logger.LogInformation("✅ Stage extraction completed in {Duration}ms, found {Count} stages",
                 (extractEndTime - extractStartTime).TotalMilliseconds, stages.Count);
-            
+
             // If no stages extracted, create default stages
             if (!stages.Any())
             {
@@ -1939,7 +1939,7 @@ namespace FlowFlex.Application.Services.AI
         private List<AIStageGenerationResult> ExtractStagesFromText(string text)
         {
             _logger.LogInformation("🔍 ExtractStagesFromText started, text length: {Length}", text.Length);
-            
+
             var stages = new List<AIStageGenerationResult>();
             var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             var order = 1;
@@ -1949,9 +1949,9 @@ namespace FlowFlex.Application.Services.AI
             foreach (var line in lines)
             {
                 var trimmedLine = line.Trim();
-                
+
                 // Find possible stage identifiers
-                if (trimmedLine.Contains("阶段") || trimmedLine.Contains("步骤") || 
+                if (trimmedLine.Contains("阶段") || trimmedLine.Contains("步骤") ||
                     trimmedLine.Contains("Stage") || trimmedLine.Contains("Step") ||
                     trimmedLine.StartsWith("-") || trimmedLine.StartsWith("*") ||
                     Regex.IsMatch(trimmedLine, @"^\d+\."))
@@ -1962,9 +1962,9 @@ namespace FlowFlex.Application.Services.AI
                         stages.Add(new AIStageGenerationResult
                         {
                             Name = stageName,
-                                                            Description = $"AI-generated {stageName}",
-                                Order = order++,
-                                AssignedGroup = "Execution Team",
+                            Description = $"AI-generated {stageName}",
+                            Order = order++,
+                            AssignedGroup = "Execution Team",
                             EstimatedDuration = 2
                         });
                     }
@@ -1981,13 +1981,13 @@ namespace FlowFlex.Application.Services.AI
                 .Replace("-", "")
                 .Replace("*", "")
                 .Replace("•", "");
-            
+
             // Remove numeric prefixes (e.g., "1. ", "2. ")
             cleaned = Regex.Replace(cleaned, @"^\d+\.\s*", "");
-            
+
             // Remove parentheses content
             cleaned = Regex.Replace(cleaned, @"\([^)]*\)", "");
-            
+
             return cleaned.Trim();
         }
 
@@ -2033,7 +2033,7 @@ namespace FlowFlex.Application.Services.AI
 
             if (!string.IsNullOrEmpty(workflow.Name)) score += 0.2;
             if (!string.IsNullOrEmpty(workflow.Description)) score += 0.2;
-            
+
             return Math.Min(score, 1.0);
         }
 
@@ -2056,7 +2056,7 @@ namespace FlowFlex.Application.Services.AI
         private double CalculateWorkflowQualityScore(WorkflowInputDto workflow, List<AIValidationIssue> issues)
         {
             double score = 1.0;
-            
+
             foreach (var issue in issues)
             {
                 switch (issue.Severity)
@@ -2080,66 +2080,66 @@ namespace FlowFlex.Application.Services.AI
 
             try
             {
-                _logger.LogInformation("Modifying workflow {WorkflowId}: {Description}", 
+                _logger.LogInformation("Modifying workflow {WorkflowId}: {Description}",
                     input.WorkflowId, input.Description);
 
                 // Get detailed information of existing workflow
                 _logger.LogInformation("Fetching existing workflow with ID: {WorkflowId}", input.WorkflowId);
                 var existingWorkflowInfo = await GetExistingWorkflowAsync(input.WorkflowId);
-                _logger.LogInformation("Retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}", 
+                _logger.LogInformation("Retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}",
                     existingWorkflowInfo.Name, existingWorkflowInfo.Description, existingWorkflowInfo.Stages.Count);
-                
+
                 // Record detailed information of existing stages
                 for (int i = 0; i < existingWorkflowInfo.Stages.Count; i++)
                 {
                     var stage = existingWorkflowInfo.Stages[i];
-                    _logger.LogInformation("Stage {Index}: Name='{Name}', Description='{Description}', Duration={Duration}, Team='{Team}'", 
+                    _logger.LogInformation("Stage {Index}: Name='{Name}', Description='{Description}', Duration={Duration}, Team='{Team}'",
                         i + 1, stage.Name, stage.Description, stage.EstimatedDuration, stage.AssignedGroup);
                 }
-                
+
                 // Build modification prompt
                 var prompt = await BuildWorkflowModificationPromptAsync(input, existingWorkflowInfo);
-                
+
                 // Debug log: output complete prompt
                 _logger.LogInformation("AI Modification Prompt: {Prompt}", prompt);
-                
+
                 // Call AI for workflow modification
                 var aiResponse = await CallAIProviderAsync(prompt);
-                
+
                 // Debug log: output AI response
-                _logger.LogInformation("AI Modification Response: Success={Success}, Content={Content}", 
+                _logger.LogInformation("AI Modification Response: Success={Success}, Content={Content}",
                     aiResponse.Success, aiResponse.Content);
-                
+
                 if (!aiResponse.Success)
                 {
                     result.Success = false;
                     result.Message = aiResponse.ErrorMessage;
                     return GenerateFallbackWorkflow($"Error modifying workflow {input.WorkflowId}");
                 }
-                
+
                 // Parse AI response
                 var modificationResult = ParseWorkflowGenerationResponse(aiResponse.Content);
-                
+
                 if (modificationResult.Stages == null || !modificationResult.Stages.Any())
                 {
                     modificationResult = GenerateFallbackWorkflow($"Modified workflow for ID: {input.WorkflowId}");
                 }
 
                 // Force ensure workflow name is correct (prevent AI from not following instructions)
-                _logger.LogInformation("Checking workflow name correction: AI returned '{AIName}', expected '{ExpectedName}'", 
+                _logger.LogInformation("Checking workflow name correction: AI returned '{AIName}', expected '{ExpectedName}'",
                     modificationResult.GeneratedWorkflow?.Name ?? "NULL", existingWorkflowInfo.Name);
-                
-                if (modificationResult.GeneratedWorkflow != null && 
+
+                if (modificationResult.GeneratedWorkflow != null &&
                     modificationResult.GeneratedWorkflow.Name != existingWorkflowInfo.Name)
                 {
-                    _logger.LogWarning("AI returned incorrect workflow name '{AIName}', forcing to correct name '{CorrectName}'", 
+                    _logger.LogWarning("AI returned incorrect workflow name '{AIName}', forcing to correct name '{CorrectName}'",
                         modificationResult.GeneratedWorkflow.Name, existingWorkflowInfo.Name);
-                    
+
                     var originalName = modificationResult.GeneratedWorkflow.Name;
                     modificationResult.GeneratedWorkflow.Name = existingWorkflowInfo.Name;
                     modificationResult.GeneratedWorkflow.Description = existingWorkflowInfo.Description + " - Modified based on user requirements";
-                    
-                    _logger.LogInformation("Name correction applied: '{OriginalName}' -> '{CorrectedName}'", 
+
+                    _logger.LogInformation("Name correction applied: '{OriginalName}' -> '{CorrectedName}'",
                         originalName, modificationResult.GeneratedWorkflow.Name);
                 }
                 else
@@ -2149,7 +2149,7 @@ namespace FlowFlex.Application.Services.AI
 
                 result = modificationResult;
                 result.Message = "Workflow modified successfully";
-                
+
                 _logger.LogInformation("Workflow modification completed successfully for ID: {WorkflowId}", input.WorkflowId);
             }
             catch (Exception ex)
@@ -2166,7 +2166,7 @@ namespace FlowFlex.Application.Services.AI
         private Task<string> BuildWorkflowModificationPromptAsync(AIWorkflowModificationInput input, MockWorkflowInfo existingWorkflowInfo)
         {
             var systemPrompt = _aiOptions.Prompts.WorkflowSystem;
-            var modificationContext = input.PreserveExisting ? 
+            var modificationContext = input.PreserveExisting ?
                 "Please modify based on maintaining the core structure and existing stages of the current workflow. Only add, modify, or delete stages according to specific requirements." :
                 "If needed, you can completely redesign the workflow.";
 
@@ -2183,7 +2183,7 @@ EXISTING WORKFLOW TO MODIFY:
 Name: {existingWorkflowInfo.Name}
 Description: {existingWorkflowInfo.Description}
 Current Stages:
-{string.Join("\n", existingWorkflowInfo.Stages.Select((stage, index) => 
+{string.Join("\n", existingWorkflowInfo.Stages.Select((stage, index) =>
     $"{index + 1}. {stage.Name} - {stage.Description} (Duration: {stage.EstimatedDuration} days, Team: {stage.AssignedGroup})"))}
 
 USER MODIFICATION REQUEST: {input.Description}
@@ -2194,7 +2194,7 @@ REQUIRED OUTPUT FORMAT - Use EXACT name ""{existingWorkflowInfo.Name}"":
     ""description"": ""{existingWorkflowInfo.Description} - Modified based on user requirements"",
     ""isActive"": true,
     ""stages"": [
-{string.Join(",\n", existingWorkflowInfo.Stages.Select((stage, index) => 
+{string.Join(",\n", existingWorkflowInfo.Stages.Select((stage, index) =>
     $@"        {{
             ""name"": ""{stage.Name}"",
             ""description"": ""{stage.Description}"",
@@ -2222,12 +2222,12 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             {
                 _logger.LogInformation("Attempting to fetch workflow with ID: {WorkflowId}", workflowId);
                 var workflow = await _workflowService.GetByIdAsync(workflowId);
-                
+
                 if (workflow != null)
                 {
-                    _logger.LogInformation("Successfully retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}", 
+                    _logger.LogInformation("Successfully retrieved workflow: Name={Name}, Description={Description}, StageCount={StageCount}",
                         workflow.Name, workflow.Description, workflow.Stages?.Count ?? 0);
-                    
+
                     var mockInfo = new MockWorkflowInfo
                     {
                         Name = workflow.Name,
@@ -2240,10 +2240,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                             AssignedGroup = s.DefaultAssignedGroup ?? "Default Team"
                         }).ToList() ?? new List<MockStageInfo>()
                     };
-                    
-                    _logger.LogInformation("Converted to MockWorkflowInfo: Name={Name}, StageCount={StageCount}", 
+
+                    _logger.LogInformation("Converted to MockWorkflowInfo: Name={Name}, StageCount={StageCount}",
                         mockInfo.Name, mockInfo.Stages.Count);
-                    
+
                     return mockInfo;
                 }
                 else
@@ -2312,7 +2312,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 if (response.Success)
                 {
                     var chatResponse = ParseChatResponse(response.Content, input);
-                    
+
                     _logger.LogInformation("AI chat response generated successfully for session: {SessionId}", input.SessionId);
                     return chatResponse;
                 }
@@ -2335,7 +2335,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         public async IAsyncEnumerable<AIChatStreamResult> StreamChatAsync(AIChatInput input)
         {
             var sessionId = input.SessionId;
-            
+
             yield return new AIChatStreamResult
             {
                 Type = "start",
@@ -2345,24 +2345,24 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             };
 
             // 实时流式传输每个数据块
-                await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
-                {
+            await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
+            {
                 yield return new AIChatStreamResult
-                    {
-                        Type = "delta",
-                        Content = chunk,
-                        IsComplete = false,
-                        SessionId = sessionId
+                {
+                    Type = "delta",
+                    Content = chunk,
+                    IsComplete = false,
+                    SessionId = sessionId
                 };
-                }
+            }
 
             // 发送完成信号
             yield return new AIChatStreamResult
-                {
-                    Type = "complete",
-                    Content = "",
-                    IsComplete = true,
-                    SessionId = sessionId
+            {
+                Type = "complete",
+                Content = "",
+                IsComplete = true,
+                SessionId = sessionId
             };
         }
 
@@ -2372,10 +2372,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             {
                 // Build message array, directly use conversation history
                 var messages = new List<object>();
-                
+
                 // Add system prompt
-                messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode) });
-                
+                messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode, input.Messages.LastOrDefault()?.Content ?? "") });
+
                 // Add conversation history (last 5 messages to reduce token usage)
                 foreach (var message in input.Messages.TakeLast(5))
                 {
@@ -2384,7 +2384,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
                 // Get user configuration
                 AIModelConfig userConfig = null;
-                
+
                 // If model ID is specified, use that configuration
                 if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
                 {
@@ -2392,33 +2392,33 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     userConfig = await _configService.GetConfigByIdAsync(modelId);
                     if (userConfig != null)
                     {
-                        _logger.LogInformation("Using specified model config: {Provider} - {ModelName} for session: {SessionId}", 
+                        _logger.LogInformation("Using specified model config: {Provider} - {ModelName} for session: {SessionId}",
                             userConfig.Provider, userConfig.ModelName, input.SessionId);
                     }
                 }
-                
+
                 // Try primary model first
                 AIProviderResponse response = null;
-                
+
                 if (userConfig != null)
                 {
-                // Call corresponding API based on provider
+                    // Call corresponding API based on provider
                     response = userConfig.Provider?.ToLower() switch
-                {
-                    "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
-                    "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
-                    "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
-                    "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
-                    _ => await CallZhipuAIAsync(messages) // Default to ZhipuAI
-                };
-                    
+                    {
+                        "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
+                        "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
+                        "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
+                        "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
+                        _ => await CallZhipuAIAsync(messages) // Default to ZhipuAI
+                    };
+
                     // Check if it's a rate limit error and try fallback
-                    if (!response.Success && (response.ErrorMessage?.Contains("rate_limit_exceeded") == true || 
+                    if (!response.Success && (response.ErrorMessage?.Contains("rate_limit_exceeded") == true ||
                                             response.ErrorMessage?.Contains("Rate limit reached") == true ||
                                             response.ErrorMessage?.Contains("429") == true))
                     {
                         _logger.LogWarning("Primary model hit rate limit, attempting fallback to ZhipuAI for session: {SessionId}", input.SessionId);
-                        
+
                         try
                         {
                             var fallbackResponse = await CallZhipuAIAsync(messages);
@@ -2475,7 +2475,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             var apiUrl = $"{_aiOptions.ZhipuAI.BaseUrl}/chat/completions";
             _logger.LogInformation("Calling ZhipuAI API: {Url} with {MessageCount} messages", apiUrl, messages.Count);
-            
+
             using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
                 Version = new Version(1, 1),
@@ -2538,7 +2538,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
+
             // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/chat/completions"))
             {
@@ -2549,9 +2549,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 // Otherwise add endpoint path
                 apiUrl = $"{baseUrl}/chat/completions";
             }
-            
+
             _logger.LogInformation("Calling ZhipuAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2616,7 +2616,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 apiUrl = $"{baseUrl}/v1/chat/completions";
             }
             _logger.LogInformation("Calling OpenAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2652,10 +2652,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         private async Task<AIProviderResponse> CallClaudeWithConfigAsync(List<object> messages, AIModelConfig config)
         {
             // Claude API format is slightly different
-            var claudeMessages = messages.Skip(1).Select(m => new 
-            { 
-                role = ((dynamic)m).role == "assistant" ? "assistant" : "user", 
-                content = ((dynamic)m).content 
+            var claudeMessages = messages.Skip(1).Select(m => new
+            {
+                role = ((dynamic)m).role == "assistant" ? "assistant" : "user",
+                content = ((dynamic)m).content
             }).ToArray();
 
             var requestBody = new
@@ -2676,7 +2676,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
+
             // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/messages"))
             {
@@ -2687,9 +2687,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 // Otherwise add endpoint path，Claude使用/v1/messages
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/messages" : $"{baseUrl}/v1/messages";
             }
-            
+
             _logger.LogInformation("Calling Claude API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2740,7 +2740,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
+
             // If BaseUrl already contains the complete endpoint path, use directly
             if (baseUrl.Contains("/chat/completions"))
             {
@@ -2751,9 +2751,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 // Otherwise add endpoint path，DeepSeek通常需要v1版本
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
             }
-            
+
             _logger.LogInformation("Calling DeepSeek API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             var response = await _httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
@@ -2789,7 +2789,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             if (userConfig != null)
             {
                 var provider = userConfig.Provider?.ToLower();
-                
+
                 if (provider == "deepseek")
                 {
                     await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
@@ -2837,7 +2837,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     yield break;
                 }
             }
-            
+
             // Fallback to error message
             yield return "I apologize, but I'm having trouble processing your request right now. ";
             yield return "Please try again in a moment.";
@@ -2847,10 +2847,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         {
             // Build message array, directly use conversation history
             var messages = new List<object>();
-            
+
             // Add system prompt
-            messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode) });
-            
+            messages.Add(new { role = "system", content = GetChatSystemPrompt(input.Mode, input.Messages.LastOrDefault()?.Content ?? "") });
+
             // Add conversation history (last 5 messages to reduce token usage)
             foreach (var message in input.Messages.TakeLast(5))
             {
@@ -2859,18 +2859,18 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             // Get user configuration
             AIModelConfig userConfig = null;
-            
+
             // If model ID is specified, use that configuration
             if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
             {
                 userConfig = await _configService.GetConfigByIdAsync(modelId);
             }
-            
+
             // Try to use real streaming API if available
             if (userConfig != null)
             {
                 var provider = userConfig.Provider?.ToLower();
-                
+
                 if (provider == "deepseek")
                 {
                     await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
@@ -2888,10 +2888,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     yield break;
                 }
             }
-            
+
             // Fallback to non-streaming response with simulated streaming
             var response = await CallAIProviderForChatAsync(input);
-            
+
             if (response.Success && !string.IsNullOrEmpty(response.Content))
             {
                 var words = response.Content.Split(' ');
@@ -2904,7 +2904,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             else
             {
                 // Check if it's a rate limit error
-                if (response.ErrorMessage?.Contains("rate_limit_exceeded") == true || 
+                if (response.ErrorMessage?.Contains("rate_limit_exceeded") == true ||
                     response.ErrorMessage?.Contains("Rate limit reached") == true)
                 {
                     yield return "I'm currently experiencing high demand and have reached the API rate limit. ";
@@ -2940,7 +2940,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             // Intelligently handle API endpoints
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
+
             if (baseUrl.Contains("/chat/completions"))
             {
                 apiUrl = baseUrl;
@@ -2949,9 +2949,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             {
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
             }
-            
+
             _logger.LogInformation("Calling DeepSeek Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
                 Content = httpContent
@@ -2960,7 +2960,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             request.Headers.Add("Accept", "text/event-stream");
 
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -2971,10 +2971,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
-            
+
             string line;
             var lineTimeout = TimeSpan.FromSeconds(5); // 每行最多等待5秒
-            
+
             while (true)
             {
                 // 将try-catch移出yield return
@@ -2982,7 +2982,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 bool shouldBreak = false;
                 bool shouldContinue = false;
                 string contentToYield = null;
-                
+
                 var readStartTime = DateTime.UtcNow;
                 try
                 {
@@ -3009,31 +3009,31 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     _logger.LogWarning(ex, "❌ Error reading DeepSeek stream line after {Duration}ms, breaking stream", readDuration);
                     shouldBreak = true;
                 }
-                
+
                 if (shouldBreak)
                     break;
-                    
+
                 if (readLine == null)
                     break;
-                    
+
                 if (readLine.StartsWith("data: "))
                 {
                     var data = readLine.Substring(6).Trim();
-                    
+
                     if (data == "[DONE]")
                         break;
-                        
+
                     if (string.IsNullOrEmpty(data))
                         continue;
 
                     try
                     {
                         var jsonData = JsonSerializer.Deserialize<JsonElement>(data);
-                        
+
                         if (jsonData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                         {
                             var choice = choices[0];
-                            if (choice.TryGetProperty("delta", out var delta) && 
+                            if (choice.TryGetProperty("delta", out var delta) &&
                                 delta.TryGetProperty("content", out var contentProp))
                             {
                                 var content = contentProp.GetString();
@@ -3050,7 +3050,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                         continue;
                     }
                 }
-                
+
                 // yield return在try-catch外部
                 if (!string.IsNullOrEmpty(contentToYield))
                 {
@@ -3078,7 +3078,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
-            
+
             if (baseUrl.Contains("/chat/completions"))
             {
                 apiUrl = baseUrl;
@@ -3087,9 +3087,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             {
                 apiUrl = baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
             }
-            
+
             _logger.LogInformation("Calling OpenAI Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
-            
+
             using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
                 Content = httpContent
@@ -3098,44 +3098,44 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             request.Headers.Add("Accept", "text/event-stream");
 
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning("OpenAI Stream API failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
-                
+
                 // Check for rate limit and throw exception to trigger fallback
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                 {
                     throw new HttpRequestException($"Rate limit exceeded: {errorContent}");
                 }
-                
+
                 yield return "I'm having trouble connecting to the AI service. Please try again.";
                 yield break;
             }
 
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
-            
+
             string line;
             while ((line = await reader.ReadLineAsync()) != null)
             {
                 if (line.StartsWith("data: "))
                 {
                     var data = line.Substring(6).Trim();
-                    
+
                     if (data == "[DONE]")
                         break;
-                        
+
                     if (string.IsNullOrEmpty(data))
                         continue;
 
                     var jsonData = JsonSerializer.Deserialize<JsonElement>(data);
-                    
+
                     if (jsonData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                     {
                         var choice = choices[0];
-                        if (choice.TryGetProperty("delta", out var delta) && 
+                        if (choice.TryGetProperty("delta", out var delta) &&
                             delta.TryGetProperty("content", out var contentProp))
                         {
                             var content = contentProp.GetString();
@@ -3152,7 +3152,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         private string BuildChatPrompt(AIChatInput input)
         {
             var prompt = new StringBuilder();
-            
+
             if (input.Mode == "workflow_planning")
             {
                 prompt.AppendLine("You are an AI Workflow Assistant helping users design business workflows.");
@@ -3178,7 +3178,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             return prompt.ToString();
         }
 
-        private string GetChatSystemPrompt(string mode)
+        private string GetChatSystemPrompt(string mode, string input)
         {
             return mode switch
             {
@@ -3206,6 +3206,8 @@ Guidelines:
 
 Remember: Your goal is to collect enough detailed information to create a comprehensive, practical workflow that meets the user's specific needs.",
 
+                "generate_code" => GetGenerateCodePrompt(input),
+
                 _ => @"You are a helpful, knowledgeable AI assistant. Output the result according to the language input by the user. Provide clear, accurate, and helpful responses to user questions. Be conversational, friendly, and thorough in your explanations."
             };
         }
@@ -3214,7 +3216,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
         {
             // Analyze the response to determine if conversation is complete
             var isComplete = DetermineChatCompletion(content, input);
-            
+
             return new AIChatResponse
             {
                 Success = true,
@@ -3235,8 +3237,8 @@ Remember: Your goal is to collect enough detailed information to create a compre
             // Simple heuristics to determine if conversation is complete
             var completionKeywords = new[] { "enough information", "ready to create", "comprehensive workflow", "proceed with generation" };
             var lowerContent = content.ToLower();
-            
-            return completionKeywords.Any(keyword => lowerContent.Contains(keyword)) || 
+
+            return completionKeywords.Any(keyword => lowerContent.Contains(keyword)) ||
                    input.Messages.Count(m => m.Role == "user") >= 4;
         }
 
@@ -3244,12 +3246,12 @@ Remember: Your goal is to collect enough detailed information to create a compre
         {
             // Extract suggestions from AI response (simple implementation)
             var suggestions = new List<string>();
-            
+
             if (content.Contains("consider", StringComparison.OrdinalIgnoreCase))
             {
                 suggestions.Add("Consider the suggestions mentioned in the response");
             }
-            
+
             return suggestions;
         }
 
@@ -3258,7 +3260,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
             // Extract questions from AI response
             var questions = new List<string>();
             var sentences = content.Split('.', '?', '!');
-            
+
             foreach (var sentence in sentences)
             {
                 if (sentence.Trim().Contains('?'))
@@ -3266,14 +3268,14 @@ Remember: Your goal is to collect enough detailed information to create a compre
                     questions.Add(sentence.Trim() + "?");
                 }
             }
-            
+
             return questions.Take(2).ToList(); // Limit to 2 questions
         }
 
         private AIChatResponse GenerateFallbackChatResponse(AIChatInput input)
         {
             var userMessageCount = input.Messages.Count(m => m.Role == "user");
-            
+
             string fallbackContent = userMessageCount switch
             {
                 1 => "I'm currently experiencing some technical issues with the AI service. However, I'd be happy to help you with your workflow! Could you tell me more about the teams or people who will be involved in this process?",
@@ -3316,16 +3318,16 @@ Remember: Your goal is to collect enough detailed information to create a compre
         {
             var isModelNotFoundError = errorMessage.Contains("model_not_found") || errorMessage.Contains("does not exist");
             var isAuthError = errorMessage.Contains("Unauthorized") || errorMessage.Contains("authentication");
-            
+
             string errorContent;
             List<string> errorSuggestions;
-            
+
             if (isModelNotFoundError)
             {
                 errorContent = "I'm having trouble accessing the specified AI model. This might be because the model doesn't exist or your API key doesn't have access to it. I'll try to help you with an alternative approach.";
-                errorSuggestions = new List<string> 
-                { 
-                    "Check your AI model configuration", 
+                errorSuggestions = new List<string>
+                {
+                    "Check your AI model configuration",
                     "Verify your API key permissions",
                     "Try using a different model (e.g., gpt-3.5-turbo)",
                     "Continue with manual workflow creation"
@@ -3334,9 +3336,9 @@ Remember: Your goal is to collect enough detailed information to create a compre
             else if (isAuthError)
             {
                 errorContent = "There seems to be an authentication issue with the AI service. Please check your API configuration.";
-                errorSuggestions = new List<string> 
-                { 
-                    "Verify your API key is correct", 
+                errorSuggestions = new List<string>
+                {
+                    "Verify your API key is correct",
                     "Check if your API key has expired",
                     "Ensure your account has sufficient credits"
                 };
@@ -3344,9 +3346,9 @@ Remember: Your goal is to collect enough detailed information to create a compre
             else
             {
                 errorContent = "I'm experiencing technical difficulties right now. Let me try to assist you manually while we resolve this issue.";
-                errorSuggestions = new List<string> 
-                { 
-                    "Try again in a few moments", 
+                errorSuggestions = new List<string>
+                {
+                    "Try again in a few moments",
                     "Continue describing your workflow manually",
                     "Check system status and try again"
                 };
@@ -3361,14 +3363,87 @@ Remember: Your goal is to collect enough detailed information to create a compre
                     Content = errorContent,
                     IsComplete = false,
                     Suggestions = errorSuggestions,
-                    NextQuestions = new List<string> 
-                    { 
-                        "Would you like to continue manually?", 
-                        "Should I help you configure a different AI model?" 
+                    NextQuestions = new List<string>
+                    {
+                        "Would you like to continue manually?",
+                        "Should I help you configure a different AI model?"
                     }
                 },
                 SessionId = input.SessionId
             };
+        }
+
+        private string GetGenerateCodePrompt(string instruction, string codeLanguage = "python")
+        {
+            var promptBuilder = new StringBuilder();
+
+            promptBuilder.AppendLine("You are an expert programmer. Generate code based on the following instructions:");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Instructions: {{INSTRUCTION}}");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("Write the code in {{CODE_LANGUAGE}}.");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Please ensure that you meet the following requirements:");
+            promptBuilder.AppendLine("1. Define a function named 'main'.");
+            promptBuilder.AppendLine("2. The 'main' function must return a dictionary (dict).");
+            promptBuilder.AppendLine("3. You may modify the arguments of the 'main' function, but include appropriate type hints.");
+            promptBuilder.AppendLine("4. The returned dictionary should contain at least one key-value pair.");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("5. You may ONLY use the following libraries in your code:");
+            var allowedLibraries = new[]
+            {
+                "json", "datetime", "math", "random", "re", "string", "sys", "time", "traceback",
+                "uuid", "os", "base64", "hashlib", "hmac", "binascii", "collections", "functools", "operator", "itertools"
+            };
+
+            foreach (var library in allowedLibraries)
+            {
+                promptBuilder.AppendLine($"- {library}");
+            }
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Example:");
+            promptBuilder.AppendLine("def main(arg1: str, arg2: int) -> dict:");
+            promptBuilder.AppendLine("    return {");
+            promptBuilder.AppendLine("        \"result\": arg1 * arg2,");
+            promptBuilder.AppendLine("    }");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("IMPORTANT:");
+            promptBuilder.AppendLine("- Provide ONLY the code without any additional explanations, comments, or markdown formatting.");
+            promptBuilder.AppendLine("- DO NOT use markdown code blocks (``` or ``` python). Return the raw code directly.");
+            promptBuilder.AppendLine("- The code should start immediately after this instruction, without any preceding newlines or spaces.");
+            promptBuilder.AppendLine("- The code should be complete, functional, and follow best practices for {{CODE_LANGUAGE}}.");
+            promptBuilder.AppendLine("- Always use the format return {'result': ...} for the output.");
+            promptBuilder.AppendLine();
+
+            promptBuilder.AppendLine("Generated Code:");
+
+            return ProcessTemplateVariables(promptBuilder.ToString(), instruction, codeLanguage);
+        }
+
+        private string ProcessTemplateVariables(string template, string instruction, string codeLanguage)
+        {
+            if (string.IsNullOrEmpty(template))
+                return template;
+
+            var result = template;
+
+            var variableMappings = new Dictionary<string, string>
+            {
+                { "{{INSTRUCTION}}", instruction },
+                { "{{CODE_LANGUAGE}}", codeLanguage }
+            };
+
+            foreach (var mapping in variableMappings)
+            {
+                result = result.Replace(mapping.Key, mapping.Value);
+            }
+
+            return result;
         }
 
         #endregion
@@ -3384,4 +3459,4 @@ Remember: Your goal is to collect enough detailed information to create a compre
     }
 
     #endregion
-} 
+}
