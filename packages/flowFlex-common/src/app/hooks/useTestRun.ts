@@ -1,6 +1,6 @@
 import { ElMessageBox } from 'element-plus';
-import type { TestResult } from '../apis/action';
-import { testAction } from '../apis/action';
+import type { TestResult } from '@/apis/action';
+import { testAction } from '@/apis/action';
 
 export interface TestRunOptions {
 	actionId?: string;

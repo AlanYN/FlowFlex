@@ -2,11 +2,10 @@
 	<div
 		class="action-item border border-gray-200 dark:border-gray-700 rounded-lg p-4 transition-all duration-200"
 		:class="{
-			'border-primary-500': isSelected,
 			'action-dragging': isDragging,
 		}"
 	>
-		<div class="flex items-center justify-between mb-3">
+		<div class="flex items-center justify-between mb-2">
 			<div class="flex items-center space-x-3">
 				<!-- Drag Handle -->
 				<el-button
@@ -18,49 +17,44 @@
 					title="Drag to reorder"
 				/>
 				<el-icon class="text-primary-500" size="20">
-					<component :is="getActionIcon(action.type)" />
+					<component :is="getActionIcon(action?.actionType)" />
 				</el-icon>
 				<div>
 					<h4 class="font-medium text-gray-800 dark:text-white">
 						{{ action.name || 'Untitled Action' }}
 					</h4>
 					<p class="text-sm text-gray-500 dark:text-gray-400">
-						{{ getActionTypeLabel(action.type) }}
+						{{ ACTION_TYPE_MAPPING?.[action?.actionType] || defaultStr }}
 					</p>
 				</div>
 			</div>
 			<div class="flex items-center space-x-2">
-				<el-button size="small" @click="onEdit" :type="isSelected ? 'primary' : 'default'">
+				<el-button
+					size="small"
+					@click="onEdit"
+					:type="isSelected ? 'primary' : 'default'"
+					link
+				>
 					{{ isSelected ? 'Editing' : 'Edit' }}
 				</el-button>
-				<el-button size="small" type="danger" @click="onDelete" :icon="Delete" />
+				<el-button size="small" link type="danger" @click="onDelete" :icon="Delete" />
 			</div>
 		</div>
 
-		<p v-if="action.description" class="text-sm text-gray-600 dark:text-gray-300 mb-2">
+		<p v-if="action.description" class="text-sm text-gray-600 dark:text-gray-300">
 			{{ action.description }}
 		</p>
-
-		<!-- Order Indicator -->
-		<div class="order-indicator">
-			<span class="text-xs text-gray-400 dark:text-gray-500">Order: {{ index + 1 }}</span>
-		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { Grid, Delete, Operation, Connection, Document } from '@element-plus/icons-vue';
-
-interface ActionItem {
-	id: string;
-	name: string;
-	type: 'python' | 'http';
-	description: string;
-	config: any;
-}
+import { ActionType, ACTION_TYPE_MAPPING } from '@/apis/action';
+import { ActionListItem } from '#/action';
+import { defaultStr } from '@/settings/projectSetting';
 
 interface Props {
-	action: ActionItem;
+	action: ActionListItem;
 	index: number;
 	isSelected?: boolean;
 	isDragging?: boolean;
@@ -76,25 +70,15 @@ const emit = defineEmits<{
 	delete: [index: number];
 }>();
 
-const actionTypes = [
-	{ label: 'Python Script', value: 'python', icon: 'Operation' },
-	{ label: 'HTTP API', value: 'http', icon: 'Connection' },
-];
-
-const getActionIcon = (type: string) => {
+const getActionIcon = (type: number) => {
 	switch (type) {
-		case 'python':
+		case ActionType.PYTHON_SCRIPT:
 			return Operation;
-		case 'http':
+		case ActionType.HTTP_API:
 			return Connection;
 		default:
 			return Document;
 	}
-};
-
-const getActionTypeLabel = (type: string) => {
-	const actionType = actionTypes.find((t) => t.value === type);
-	return actionType?.label || 'Unknown';
 };
 
 const onEdit = () => {

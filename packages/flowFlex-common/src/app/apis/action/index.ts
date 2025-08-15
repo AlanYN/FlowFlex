@@ -1,4 +1,8 @@
 import { defHttp } from '@/apis/axios';
+import { ActionDefinition, ActionQueryRequest } from '#/action';
+import { useGlobSetting } from '@/settings';
+
+const globSetting = useGlobSetting();
 
 // Action Type Enum
 export enum ActionType {
@@ -21,61 +25,23 @@ export const FRONTEND_TO_BACKEND_TYPE_MAPPING = {
 	email: 'SendEmail',
 } as const;
 
-export interface ActionDefinition {
-	id: string;
-	actionCode: string;
-	name: string;
-	description: string;
-	actionType: number;
-	actionConfig: string;
-	isEnabled: boolean;
-	createdAt: string;
-	updatedAt: string;
-	triggerMappings: TriggerMapping[];
-}
+const Api = () => {
+	return {
+		action: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionDetail: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionDelete: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionExport: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionTest: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionUpdate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionCreate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+	};
+};
 
-export interface TriggerMapping {
-	id: string;
-	triggerType: string;
-	triggerSourceId: string;
-	triggerSourceName: string;
-	workFlowId: string;
-	workFlowName: string;
-	stageId: string;
-	stageName: string;
-	triggerEvent: string;
-	isEnabled: boolean;
-	executionOrder: number;
-	description: string;
-	lastApplied: string;
-}
-
-export interface ActionQueryRequest {
-	search?: string;
-	actionType?: string;
-	isAssignmentWorkflow?: boolean;
-	isAssignmentStage?: boolean;
-	isAssignmentChecklist?: boolean;
-	isAssignmentQuestionnaire?: boolean;
-	pageIndex?: number;
-	pageSize?: number;
-}
-
-export interface ActionQueryResponse {
-	totalPage: number;
-	pageCount: number;
-	pageIndex: number;
-	pageSize: number;
-	total: number;
-	dataCount: number;
-	data: ActionDefinition[];
-}
-
-export interface ApiResponse<T> {
-	data: T;
-	success: boolean;
-	msg: string;
-	code: string;
+export function addAction(data: ActionDefinition) {
+	return defHttp.post({
+		url: Api().action,
+		data,
+	});
 }
 
 /**
@@ -83,7 +49,7 @@ export interface ApiResponse<T> {
  */
 export function getActionDefinitions(params: ActionQueryRequest) {
 	return defHttp.get({
-		url: '/api/action/v1/definitions',
+		url: Api().action,
 		params,
 	});
 }
@@ -93,7 +59,7 @@ export function getActionDefinitions(params: ActionQueryRequest) {
  */
 export function deleteAction(id: string) {
 	return defHttp.delete({
-		url: `/api/action/v1/definitions/${id}`,
+		url: `${Api().action}/${id}`,
 	});
 }
 
@@ -102,7 +68,7 @@ export function deleteAction(id: string) {
  */
 export function exportActions(params: ActionQueryRequest) {
 	return defHttp.get({
-		url: '/api/action/v1/definitions/export',
+		url: `${Api().action}/export`,
 		params,
 		responseType: 'blob',
 	});
@@ -113,7 +79,7 @@ export function exportActions(params: ActionQueryRequest) {
  */
 export function getActionDetail(id: string) {
 	return defHttp.get({
-		url: `/api/action/v1/definitions/${id}`,
+		url: `${Api().action}/${id}`,
 	});
 }
 
@@ -122,7 +88,7 @@ export function getActionDetail(id: string) {
  */
 export function updateAction(id: string, data: Partial<ActionDefinition>) {
 	return defHttp.put({
-		url: `/api/action/v1/definitions/${id}`,
+		url: `${Api().action}/${id}`,
 		data,
 	});
 }
@@ -132,7 +98,7 @@ export function updateAction(id: string, data: Partial<ActionDefinition>) {
  */
 export function testAction(id: string) {
 	return defHttp.post({
-		url: `/api/action/v1/definitions/${id}/test`,
+		url: `${Api().action}/${id}/test`,
 	});
 }
 

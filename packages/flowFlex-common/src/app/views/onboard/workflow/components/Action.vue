@@ -6,7 +6,7 @@
 				<h3 class="text-lg font-semibold text-gray-800 dark:text-white">
 					Configure Actions
 				</h3>
-				<el-button type="primary" :icon="Plus" @click="addAction" size="small">
+				<el-button type="primary" :icon="Plus" @click="addAction" link>
 					Add Action
 				</el-button>
 			</div>
@@ -16,29 +16,8 @@
 		</div>
 
 		<!-- Draggable Actions List -->
-		<DraggableList
-			v-model="actions"
-			item-key="id"
-			drag-handle=".drag-handle"
-			ghost-class="ghost-action"
-			:selected-index="selectedActionIndex"
-			empty-title="No Actions Configured"
-			empty-description="Add actions to automate workflows when this stage is completed."
-			success-message="Action order updated successfully"
-			@item-moved="onActionMoved"
-			@drag-end="onDragEnd"
-		>
-			<template #default="{ item: action, index, isDragging }">
-				<ActionItem
-					:action="action"
-					:index="index"
-					:is-selected="selectedActionIndex === index"
-					:is-dragging="isDragging"
-					@edit="editAction"
-					@delete="removeAction"
-				/>
-			</template>
-			<template #empty>
+		<div v-loading="actionListLoading" class="actions-container">
+			<div v-if="actions.length === 0" class="empty-state">
 				<div class="text-center py-12">
 					<el-icon class="text-gray-300 dark:text-gray-600 mb-4" size="48">
 						<Document />
@@ -53,8 +32,29 @@
 						Add Your First Action
 					</el-button>
 				</div>
-			</template>
-		</DraggableList>
+			</div>
+
+			<draggable
+				v-else
+				v-model="actions"
+				item-key="id"
+				handle=".drag-handle"
+				ghost-class="ghost-action"
+				@end="onDragEnd"
+				class="flex flex-col gap-2"
+				:animation="300"
+			>
+				<template #item="{ element: action, index }">
+					<ActionItem
+						:action="action"
+						:index="index"
+						:is-selected="selectedActionIndex === index"
+						@edit="editAction"
+						@delete="removeAction"
+					/>
+				</template>
+			</draggable>
+		</div>
 
 		<!-- Action Configuration Dialog -->
 		<ActionConfigDialog
@@ -62,6 +62,7 @@
 			:action="currentActionForEdit"
 			:is-editing="editingIndex !== -1"
 			:stage-id="stageId"
+			:workflow-id="workflowId"
 			@save="onActionSave"
 			@cancel="onActionCancel"
 		/>
@@ -69,56 +70,50 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Document } from '@element-plus/icons-vue';
-import DraggableList from '@/components/DraggableList/index.vue';
+import draggable from 'vuedraggable';
 import ActionItem from './ActionItem.vue';
 import ActionConfigDialog from './ActionConfigDialog.vue';
+import { getActionDefinitions, deleteAction } from '@/apis/action';
+import { useI18n } from 'vue-i18n';
+import { ActionListItem } from '#/action';
 
-// Types
-interface ActionConfig {
-	sourceCode?: string;
-	url?: string;
-	method?: string;
-	headers?: string;
-	timeout?: number;
-	[key: string]: any;
-}
-
-interface ActionItemType {
-	id: string;
-	name: string;
-	type: 'python' | 'http';
-	description: string;
-	config: ActionConfig;
-}
+const { t } = useI18n();
 
 // Props
 const props = defineProps<{
 	stageId?: string;
-	modelValue?: ActionItemType[];
-}>();
-
-// Emits
-const emit = defineEmits<{
-	'update:modelValue': [value: ActionItemType[]];
+	workflowId?: string;
 }>();
 
 // State
 const selectedActionIndex = ref(-1);
 const editingIndex = ref(-1);
 const showActionDialog = ref(false);
-const currentActionForEdit = ref<ActionItemType | null>(null);
+const currentActionForEdit = ref<any>(null);
 
-// Computed two-way binding for actions
-const actions = computed({
-	get: () => props.modelValue || [],
-	set: (newValue: ActionItemType[]) => {
-		emit('update:modelValue', [...newValue]);
-	},
-});
-
+const actions = ref<ActionListItem[]>([]);
+const actionListLoading = ref(false);
+const getActionList = async () => {
+	if (!props.stageId || !props.workflowId) return;
+	try {
+		actionListLoading.value = true;
+		const res = await getActionDefinitions({
+			pageSize: 100,
+			pageIndex: 1,
+		});
+		if (res.code === '200') {
+			actions.value = res.data.data.map((item) => ({
+				...item,
+				actionConfig: JSON.parse(item.actionConfig),
+			}));
+		}
+	} finally {
+		actionListLoading.value = false;
+	}
+};
 // Action management methods
 const addAction = () => {
 	currentActionForEdit.value = null;
@@ -129,42 +124,67 @@ const addAction = () => {
 
 const editAction = (index: number) => {
 	const action = actions.value[index];
-	currentActionForEdit.value = { ...action };
+	// Convert ActionListItem to ActionItem by adding required type field
+	currentActionForEdit.value = {
+		...action,
+		type: action.actionType === 1 ? 'python' : 'http',
+	};
 	editingIndex.value = index;
 	selectedActionIndex.value = index;
-	showActionDialog.value = true;
+	nextTick(() => {
+		showActionDialog.value = true;
+	});
 };
 
 const removeAction = async (index: number) => {
 	try {
-		await ElMessageBox.confirm(
+		ElMessageBox.confirm(
 			'This will permanently delete the action. Continue?',
 			'Delete Action',
 			{
 				confirmButtonText: 'Delete',
 				cancelButtonText: 'Cancel',
 				type: 'warning',
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						// 显示loading状态
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Activating...';
+
+						try {
+							// 调用激活工作流API
+							const res = await deleteAction(actions.value[index].id);
+
+							if (res.code === '200') {
+								ElMessage.success(t('sys.api.operationSuccess'));
+								// 更新本地状态
+								getActionList();
+								done(); // 关闭对话框
+							} else {
+								ElMessage.error(res.msg || t('sys.api.operationFailed'));
+								// 恢复按钮状态
+								instance.confirmButtonLoading = false;
+								instance.confirmButtonText = 'Delete';
+							}
+						} catch (error) {
+							ElMessage.error(t('sys.api.operationFailed'));
+							// 恢复按钮状态
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete';
+						}
+					} else {
+						done(); // 取消或关闭时直接关闭对话框
+					}
+				},
 			}
 		);
-
-		const updatedActions = [...actions.value];
-		updatedActions.splice(index, 1);
-		actions.value = updatedActions;
-
-		if (selectedActionIndex.value === index) {
-			selectedActionIndex.value = -1;
-		} else if (selectedActionIndex.value > index) {
-			selectedActionIndex.value--;
-		}
-
-		ElMessage.success('Action deleted successfully');
 	} catch {
 		// User cancelled
 	}
 };
 
 // Dialog event handlers
-const onActionSave = (action: ActionItemType) => {
+const onActionSave = (action: ActionListItem) => {
 	const updatedActions = [...actions.value];
 
 	if (editingIndex.value !== -1) {
@@ -187,29 +207,20 @@ const onActionCancel = () => {
 	resetEditingState();
 };
 
-const onActionMoved = (fromIndex: number, toIndex: number) => {
-	// The DraggableList component already handles the array reordering through v-model
-	// We just need to adjust the selectedActionIndex if necessary
-	if (selectedActionIndex.value === fromIndex) {
-		selectedActionIndex.value = toIndex;
-	} else if (selectedActionIndex.value > fromIndex && selectedActionIndex.value <= toIndex) {
-		selectedActionIndex.value--;
-	} else if (selectedActionIndex.value < fromIndex && selectedActionIndex.value >= toIndex) {
-		selectedActionIndex.value++;
-	}
-};
-
 const onDragEnd = () => {
-	// Ensure the parent component is notified of the final state
-	// The computed setter will automatically emit the update:modelValue event
-	// This is just to ensure any additional logic can be performed
-	console.log('Action drag ended, current actions:', actions.value);
+	// Reset selection after drag
+	selectedActionIndex.value = -1;
+	ElMessage.success('Action order updated successfully');
 };
 
 const resetEditingState = () => {
 	editingIndex.value = -1;
 	currentActionForEdit.value = null;
 };
+
+defineExpose({
+	getActionList,
+});
 </script>
 
 <style scoped lang="scss">
@@ -221,15 +232,18 @@ const resetEditingState = () => {
 	@apply flex-shrink-0;
 }
 
-// Custom ghost class for actions
-:global(.ghost-action) {
-	@apply opacity-50 bg-primary-50 dark:bg-primary-900 border-primary-300 dark:border-primary-600;
-	transform: rotate(5deg);
+.actions-container {
+	@apply flex-1 min-h-0;
 }
 
-.dark {
-	:global(.ghost-action) {
-		@apply bg-primary-900 border-primary-600;
-	}
+.empty-state {
+	@apply flex-1 flex items-center justify-center;
+}
+
+// Custom ghost class for actions
+.ghost-action {
+	opacity: 0.6;
+	background: var(--primary-50, #f0f7ff);
+	border: 1px dashed var(--primary-500, #2468f2);
 }
 </style>

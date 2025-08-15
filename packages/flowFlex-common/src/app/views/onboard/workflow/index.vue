@@ -108,7 +108,12 @@
 											</div>
 										</div>
 										<div class="flex items-center gap-1">
-																					<span v-if="workflowItem.isAIGenerated" class="ai-dropdown-sparkles">✨</span>
+											<span
+												v-if="workflowItem.isAIGenerated"
+												class="ai-dropdown-sparkles"
+											>
+												✨
+											</span>
 											<div v-if="workflowItem.isDefault">⭐</div>
 											<el-icon
 												v-if="workflowItem.status === 'inactive'"
@@ -419,6 +424,7 @@
 				:loading="isEditingStage ? loading.updateStage : loading.createStage"
 				:checklists="checklists"
 				:questionnaires="questionnaires"
+				:workflow-id="workflow?.id || ''"
 				@submit="submitStage"
 				@cancel="dialogVisible.stageForm = false"
 			/>
@@ -1592,7 +1598,8 @@ const resetCombineStagesForm = () => {
 }
 
 @keyframes sparkle {
-	0%, 100% {
+	0%,
+	100% {
 		transform: scale(1) rotate(0deg);
 		opacity: 1;
 	}

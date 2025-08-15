@@ -59,7 +59,7 @@
 						<!-- Python Script Configuration -->
 						<PythonConfig
 							v-if="formData.type === 'python'"
-							v-model="formData.config"
+							v-model="formData.actionConfig"
 							@test="onTest"
 							:testing="testing"
 							:test-result="testResult"
@@ -68,7 +68,7 @@
 						<!-- HTTP API Configuration -->
 						<HttpConfig
 							v-else-if="formData.type === 'http'"
-							v-model="formData.config"
+							v-model="formData.actionConfig"
 							@test="onTest"
 							:testing="testing"
 							:test-result="testResult"
@@ -97,28 +97,16 @@ import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
 
-interface ActionConfig {
-	sourceCode?: string;
-	url?: string;
-	method?: string;
-	headers?: string;
-	timeout?: number;
-	[key: string]: any;
-}
-
-interface ActionItem {
-	id: string;
-	name: string;
-	type: 'python' | 'http';
-	description: string;
-	config: ActionConfig;
-}
+import { addAction, ActionType } from '@/apis/action';
+import { TriggerTypeEnum } from '@/enums/appEnum';
+import { ActionItem } from '#/action';
 
 interface Props {
 	modelValue?: boolean;
 	action?: ActionItem | null;
 	isEditing?: boolean;
 	stageId?: string;
+	workflowId?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -126,11 +114,12 @@ const props = withDefaults(defineProps<Props>(), {
 	action: null,
 	isEditing: false,
 	stageId: '',
+	workflowId: '',
 });
 
 const emit = defineEmits<{
 	'update:modelValue': [value: boolean];
-	save: [action: ActionItem];
+	save: [action: any];
 	cancel: [];
 }>();
 
@@ -145,7 +134,7 @@ const formData = reactive<ActionItem>({
 	name: '',
 	type: 'python',
 	description: '',
-	config: {},
+	actionConfig: {},
 });
 
 // Computed
@@ -180,46 +169,62 @@ const rules = {
 	type: [{ required: true, message: 'Please select action type', trigger: 'change' }],
 };
 
-const generateId = () => {
-	return 'action_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-};
-
 const getDefaultConfig = (type: string) => {
 	if (type === 'python') {
 		return {
-			sourceCode: `# Welcome to Python Action Script
-# Available variables:
-# - onboarding: Contains onboarding data
-# - stage: Contains stage data  
-# - questionnaire_responses: Contains form responses
-
-def main():
+			sourceCode: `def main(context):
     """
-    Main function that will be executed when the stage is completed.
+    Main function executed when the stage is completed.
+    The context parameter contains all event and questionnaire data.
     """
-    print(f"Processing onboarding: {onboarding.get('customerName', 'Unknown')}")
-    print(f"Stage completed: {stage.get('name', 'Unknown')}")
+    # Access event data
+    event = context.get('event', {})
+    print(f"Processing event: {event.get('eventId', '')}")
+    print(f"Onboarding ID: {event.get('onboardingId', '')}")
+    print(f"Workflow: {event.get('workflowName', '')}")
+    print(f"Completed Stage: {event.get('completedStageName', '')}")
+    print(f"Next Stage: {event.get('nextStageName', '')}")
+    print(f"Completion Rate: {event.get('completionRate', 0)}%")
+    print(f"Final Stage: {event.get('isFinalStage', False)}")
+    
+    # Access business context
+    business_context = event.get('businessContext', {})
+    completion_method = business_context.get('CompletionMethod', '')
+    completion_notes = business_context.get('CompletionNotes', '')
+    print(f"Completion Method: {completion_method}")
+    print(f"Notes: {completion_notes}")
     
     # Process questionnaire responses
-    for response in questionnaire_responses:
-        print(f"Question: {response['question']}")
-        print(f"Answer: {response['answer']}")
+    questionnaire_data = context.get('questionnaire_responses', {})
+    responses = questionnaire_data.get('responses', [])
+    print(f"Processing {len(responses)} questionnaire responses")
+    
+    for response in responses:
+        question = response.get('question', '')
+        answer = response.get('answer', '')
+        response_type = response.get('type', '')
+        print(f"Q ({response_type}): {question}")
+        print(f"A: {answer}")
     
     # Your custom logic here
-    return {"status": "success", "message": "Action completed successfully"}
-
-# Execute main function
-if __name__ == "__main__":
-    result = main()
-    print(result)`,
+    return {
+        "status": "success", 
+        "message": "Action completed successfully",
+        "processed_event": event.get('eventId', ''),
+        "stage_completed": event.get('completedStageName', ''),
+        "responses_count": len(responses)
+    }`,
 		};
 	} else if (type === 'http') {
 		return {
 			url: '',
-			method: 'POST',
-			headers: '{"Content-Type": "application/json"}',
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+			},
 			body: '',
 			timeout: 30,
+			followRedirects: true,
 		};
 	}
 	return {};
@@ -227,11 +232,11 @@ if __name__ == "__main__":
 
 // Methods
 const resetForm = () => {
-	formData.id = generateId();
+	formData.id = '';
 	formData.name = '';
 	formData.type = 'python';
 	formData.description = '';
-	formData.config = getDefaultConfig('python');
+	formData.actionConfig = getDefaultConfig('python');
 };
 
 // Watch for action prop changes
@@ -248,7 +253,7 @@ watch(
 );
 
 const handleActionTypeChange = (type: string) => {
-	formData.config = getDefaultConfig(type);
+	formData.actionConfig = getDefaultConfig(type);
 };
 
 const onTest = async () => {
@@ -271,8 +276,8 @@ Execution time: 0.123 seconds`;
 			testResult.value = `HTTP API test completed successfully!
 
 Request:
-${formData.config.method} ${formData.config.url}
-Headers: ${formData.config.headers}
+${formData.actionConfig.method} ${formData.actionConfig.url}
+Headers: ${formData.actionConfig.headers}
 
 Response:
 Status: 200 OK
@@ -298,21 +303,55 @@ const onSave = async () => {
 		saving.value = true;
 
 		// Validate based on action type
-		if (formData.type === 'python' && !formData.config.sourceCode) {
+		if (formData.type === 'python' && !formData.actionConfig.sourceCode) {
 			ElMessage.error('Please enter Python script code');
 			return;
 		}
 
-		if (formData.type === 'http' && !formData.config.url) {
+		if (formData.type === 'http' && !formData.actionConfig.url) {
 			ElMessage.error('Please enter HTTP API URL');
 			return;
 		}
-		console.log('formData:', formData);
-		// Simulate API call
-		emit('save', { ...formData });
-		visible.value = false;
-	} catch (error) {
-		console.error('Validation failed:', error);
+
+		// 根据 action type 准备不同的 actionConfig
+		let cleanActionConfig: any = {};
+
+		if (formData.type === 'python') {
+			// Python 类型只需要 sourceCode
+			cleanActionConfig = {
+				sourceCode: formData.actionConfig.sourceCode,
+			};
+		} else if (formData.type === 'http') {
+			// HTTP 类型需要符合 HttpApiConfigDto 的字段
+			cleanActionConfig = {
+				url: formData.actionConfig.url || '',
+				method: formData.actionConfig.method || 'GET',
+				headers: formData.actionConfig.headers || {},
+				body: formData.actionConfig.body || '',
+				timeout: formData.actionConfig.timeout || 30,
+				followRedirects: formData.actionConfig.followRedirects !== false, // 默认为 true
+			};
+		}
+
+		const res = await addAction({
+			...formData,
+			actionConfig: JSON.stringify(cleanActionConfig),
+			workflowId: props?.workflowId || '',
+			actionType: formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
+			triggerSourceId: props.stageId,
+			triggerType: TriggerTypeEnum.Stage,
+		});
+		console.log('res:', res);
+		if (res.code == '200') {
+			ElMessage.success('Action added successfully');
+			emit('save', {
+				...formData,
+				actionConfig: cleanActionConfig,
+			});
+			visible.value = false;
+		} else {
+			res?.msg && ElMessage.error(res?.msg);
+		}
 	} finally {
 		saving.value = false;
 	}
@@ -320,30 +359,12 @@ const onSave = async () => {
 
 const onCancel = () => {
 	visible.value = false;
+	resetForm();
 	emit('cancel');
 };
-
-// Initialize form when dialog opens
-watch(visible, (newVisible) => {
-	if (newVisible && !props.action) {
-		resetForm();
-	}
-});
 </script>
 
 <style scoped lang="scss">
-// 抽屉样式优化
-:deep(.el-drawer) {
-	.el-drawer__header {
-		@apply px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800;
-		margin-bottom: 0;
-	}
-
-	.el-drawer__body {
-		@apply p-0 bg-gray-50 dark:bg-gray-900;
-	}
-}
-
 .action-config-scrollbar {
 	@apply h-full;
 
@@ -382,20 +403,6 @@ watch(visible, (newVisible) => {
 
 .action-config-section {
 	@apply space-y-4;
-}
-
-// 优化表单间距
-:deep(.el-form-item) {
-	@apply mb-5;
-}
-
-:deep(.el-form-item__label) {
-	@apply font-medium text-gray-700 dark:text-gray-300 text-sm;
-	line-height: 1.5;
-}
-
-:deep(.el-select) {
-	@apply w-full;
 }
 
 // 抽屉footer样式

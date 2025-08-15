@@ -77,6 +77,68 @@ const initEditor = async () => {
 			},
 		});
 
+		// Configure Python language features
+		if (props.language === 'python') {
+			// Enhanced Python syntax validation
+			monaco.languages.registerDocumentFormattingEditProvider('python', {
+				provideDocumentFormattingEdits(model) {
+					// Basic Python formatting rules
+					const value = model.getValue();
+					const lines = value.split('\n');
+					const formattedLines = lines.map((line) => {
+						// Remove trailing whitespace
+						return line.trimEnd();
+					});
+
+					return [
+						{
+							range: model.getFullModelRange(),
+							text: formattedLines.join('\n'),
+						},
+					];
+				},
+			});
+
+			// Basic Python syntax validation
+			monaco.languages.registerHoverProvider('python', {
+				provideHover(model, position) {
+					const word = model.getWordAtPosition(position);
+					if (word) {
+						// Provide basic Python keyword information
+						const pythonKeywords = {
+							def: 'Defines a function',
+							class: 'Defines a class',
+							import: 'Imports a module',
+							from: 'Imports from a module',
+							if: 'Conditional statement',
+							elif: 'Else if condition',
+							else: 'Else condition',
+							for: 'For loop',
+							while: 'While loop',
+							try: 'Try block for error handling',
+							except: 'Exception handling',
+							finally: 'Finally block',
+							return: 'Returns a value from function',
+							yield: 'Yields a value from generator',
+						};
+
+						if (pythonKeywords[word.word]) {
+							return {
+								range: new monaco.Range(
+									position.lineNumber,
+									word.startColumn,
+									position.lineNumber,
+									word.endColumn
+								),
+								contents: [{ value: pythonKeywords[word.word] }],
+							};
+						}
+					}
+					return null;
+				},
+			});
+		}
+
 		// Create editor instance
 		editor = monaco.editor.create(editorContainer.value, {
 			value: props.modelValue,
@@ -100,18 +162,35 @@ const initEditor = async () => {
 			trimAutoWhitespace: true,
 			largeFileOptimizations: true,
 			contextmenu: true,
-			quickSuggestions: true,
+			quickSuggestions: {
+				other: true,
+				comments: false,
+				strings: false,
+			},
 			suggestOnTriggerCharacters: true,
 			acceptSuggestionOnEnter: 'on',
 			wordBasedSuggestions: 'allDocuments',
 			parameterHints: {
 				enabled: true,
+				cycle: true,
 			},
 			hover: {
 				enabled: true,
+				delay: 300,
 			},
 			formatOnPaste: true,
 			formatOnType: true,
+			// Enhanced validation features
+			validate: true,
+			renderValidationDecorations: 'on',
+			// Better bracket matching
+			bracketPairColorization: {
+				enabled: true,
+			},
+			guides: {
+				bracketPairs: true,
+				indentation: true,
+			},
 		});
 
 		// Listen for content changes
@@ -183,6 +262,30 @@ watch(() => props.modelValue, updateEditorValue);
 watch(() => props.language, updateEditorLanguage);
 watch(() => props.readOnly, updateReadOnly);
 
+// Format code method
+const formatCode = async () => {
+	if (editor && monaco) {
+		await editor.getAction('editor.action.formatDocument')?.run();
+	}
+};
+
+// Validate code method
+const validateCode = () => {
+	if (editor && monaco) {
+		const model = editor.getModel();
+		if (model) {
+			// Get current markers (errors/warnings)
+			const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+			return {
+				isValid: markers.length === 0,
+				errors: markers.filter((m) => m.severity === monaco.MarkerSeverity.Error),
+				warnings: markers.filter((m) => m.severity === monaco.MarkerSeverity.Warning),
+			};
+		}
+	}
+	return { isValid: true, errors: [], warnings: [] };
+};
+
 // Expose methods
 defineExpose({
 	getValue: () => editor?.getValue() || '',
@@ -190,6 +293,10 @@ defineExpose({
 	focus: () => editor?.focus(),
 	dispose: () => editor?.dispose(),
 	isLoading: () => loading.value,
+	formatCode,
+	validateCode,
+	getEditor: () => editor,
+	getMonaco: () => monaco,
 });
 </script>
 

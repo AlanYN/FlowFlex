@@ -262,13 +262,12 @@ import {
 	getActionDetail,
 	updateAction,
 	deleteAction,
-	type ActionDefinition,
-	type TriggerMapping,
 	ActionType,
 	ACTION_TYPE_MAPPING,
 } from '@/apis/action';
 import { PythonScriptConfig, HttpApiConfig, SendEmailConfig } from '@/components/action-config';
 import { useTestRun } from '@/hooks/useTestRun';
+import { ActionDefinition, TriggerMapping } from '#/action';
 
 // Router
 const router = useRouter();

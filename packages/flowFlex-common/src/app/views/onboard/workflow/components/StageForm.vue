@@ -5,6 +5,7 @@
 			:tabs="tabsConfig"
 			class="editor-tabs"
 			content-class="editor-content"
+			@tab-change="onTabChange"
 		>
 			<TabPane value="basicInfo">
 				<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
@@ -110,7 +111,7 @@
 				/>
 			</TabPane>
 			<TabPane value="actions">
-				<Action :stage-id="formData.id" v-model="formData.actions" />
+				<Action ref="actionRef" :stage-id="formData.id" :workflow-id="workflowId" />
 			</TabPane>
 		</PrototypeTabs>
 
@@ -165,24 +166,41 @@ const props = defineProps({
 		type: Array as PropType<Questionnaire[]>,
 		default: () => [],
 	},
+	workflowId: {
+		type: String,
+		default: '',
+	},
 });
 
 // Tab配置
 const currentTab = ref('basicInfo');
-const tabsConfig = [
-	{
-		value: 'basicInfo',
-		label: 'Basic Info',
-	},
-	{
-		value: 'components',
-		label: 'Components',
-	},
-	{
-		value: 'actions',
-		label: 'Actions',
-	},
-];
+const tabsConfig = computed(() => {
+	return props?.stage?.id
+		? [
+				{
+					value: 'basicInfo',
+					label: 'Basic Info',
+				},
+				{
+					value: 'components',
+					label: 'Components',
+				},
+				{
+					value: 'actions',
+					label: 'Actions',
+				},
+		  ]
+		: [
+				{
+					value: 'basicInfo',
+					label: 'Basic Info',
+				},
+				{
+					value: 'components',
+					label: 'Components',
+				},
+		  ];
+});
 
 // 表单数据
 const formData = ref({
@@ -198,7 +216,6 @@ const formData = ref({
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 	attachmentManagementNeeded: false,
-	actions: [] as any[],
 });
 
 // 表单验证规则
@@ -226,6 +243,14 @@ const isFormValid = computed(() => {
 
 // 表单引用
 const formRef = ref<FormInstance>();
+const actionRef = ref<InstanceType<typeof Action>>();
+
+const onTabChange = (tab: string) => {
+	currentTab.value = tab;
+	if (tab === 'actions') {
+		actionRef.value?.getActionList();
+	}
+};
 
 // AI Summary computed fields (readonly display)
 const aiSummary = computed(() => (props.stage as any)?.aiSummary || '');

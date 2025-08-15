@@ -465,6 +465,7 @@ export interface Workflow {
 	status?: string;
 	modifyBy: string;
 	modifyDate: string;
+	isAIGenerated: boolean;
 }
 
 export interface SectionAnswer {
