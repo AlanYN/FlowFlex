@@ -428,7 +428,8 @@
 	}
 
 	.el-select__wrapper {
-		@apply mx-[1px];
+		box-shadow: none !important;
+		@apply mx-[1px] ;
 	}
 
 	.el-date-table td.end-date .el-date-table-cell__text,

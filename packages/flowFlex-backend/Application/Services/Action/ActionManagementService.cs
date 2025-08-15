@@ -116,7 +116,35 @@ namespace FlowFlex.Application.Services.Action
             await _actionDefinitionRepository.InsertAsync(entity);
             _logger.LogInformation("Created action definition: {ActionId}", entity.Id);
 
-            return _mapper.Map<ActionDefinitionDto>(entity);
+            var resultDto = _mapper.Map<ActionDefinitionDto>(entity);
+
+            if (dto.WorkflowId.HasValue && dto.TriggerSourceId.HasValue && dto.TriggerType.HasValue)
+            {
+                try
+                {
+                    var mappingDto = new CreateActionTriggerMappingDto
+                    {
+                        ActionDefinitionId = entity.Id,
+                        WorkFlowId = dto.WorkflowId.Value,
+                        TriggerSourceId = dto.TriggerSourceId.Value,
+                        TriggerType = dto.TriggerType.ToString() ?? "",
+                        StageId = 0,
+                        TriggerEvent = "Completed",
+                        ExecutionOrder = 1,
+                        IsEnabled = true
+                    };
+
+                    await CreateActionTriggerMappingAsync(mappingDto);
+                    _logger.LogInformation("Created action trigger mapping for action: {ActionId}, WorkflowId: {WorkflowId}, TriggerType: {TriggerType}",
+                        entity.Id, dto.WorkflowId.Value, dto.TriggerType);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create action trigger mapping for action: {ActionId}", entity.Id);
+                }
+            }
+
+            return resultDto;
         }
 
         public async Task<ActionDefinitionDto> UpdateActionDefinitionAsync(long id, UpdateActionDefinitionDto dto)

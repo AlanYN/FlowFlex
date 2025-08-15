@@ -19,7 +19,7 @@
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="flex justify-between items-center">			
+		<div class="flex justify-between items-center">
 			<el-button type="primary" @click="handleAddButtonClick">
 				<el-icon>
 					<Plus />
@@ -346,7 +346,7 @@ const handleViewInvitationLink = async (user: PortalUser) => {
 			try {
 				const url = new URL(invitationUrl);
 				const localInvitationUrl = `${url.pathname}${url.search}`;
-				
+
 				// 显示邀请链接对话框
 				currentInvitationUser.value = user;
 				currentInvitationUrl.value = localInvitationUrl;

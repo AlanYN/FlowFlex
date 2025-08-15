@@ -79,26 +79,26 @@ export async function streamGenerateAIWorkflowNative(
 ) {
 	const { apiProName, apiVersion } = useGlobSetting();
 	const url = `${apiProName}/ai/workflows/${apiVersion}/generate/stream`;
-	
+
 	console.log('🌐 Making stream request to:', url);
 	console.log('📤 Request params:', params);
-	
+
 	// 获取认证信息
 	const tokenObj = getTokenobj();
 	const userStore = useUserStoreWithOut();
 	const userInfo = userStore.getUserInfo;
-	
+
 	console.log('🔍 Debug - tokenObj:', tokenObj);
 	console.log('🔍 Debug - userInfo:', userInfo);
-	
+
 	// 构建请求头
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
-		'Accept': 'text/event-stream',
+		Accept: 'text/event-stream',
 		'Time-Zone': getTimeZoneInfo().timeZone,
 		'Application-code': globSetting.ssoCode || '',
 	};
-	
+
 	// 添加认证头
 	if (tokenObj?.accessToken?.token) {
 		const token = tokenObj.accessToken.token;
@@ -108,7 +108,7 @@ export async function streamGenerateAIWorkflowNative(
 	} else {
 		console.warn('❌ No token found in tokenObj');
 	}
-	
+
 	// 添加用户相关头信息
 	if (userInfo?.appCode) {
 		headers['X-App-Code'] = userInfo.appCode;
@@ -118,9 +118,9 @@ export async function streamGenerateAIWorkflowNative(
 		headers['X-Tenant-Id'] = userInfo.tenantId;
 		console.log('✅ Added X-Tenant-Id:', userInfo.tenantId);
 	}
-	
+
 	console.log('🔑 Final request headers:', headers);
-	
+
 	try {
 		const response = await fetch(url, {
 			method: 'POST',
@@ -128,7 +128,7 @@ export async function streamGenerateAIWorkflowNative(
 			body: JSON.stringify(params),
 			signal: abortController?.signal,
 		});
-		
+
 		console.log('📥 Stream response status:', response.status, response.statusText);
 
 		if (!response.ok) {
@@ -144,12 +144,12 @@ export async function streamGenerateAIWorkflowNative(
 		let buffer = '';
 		let finalData: any = null;
 		let workflowData: any = null;
-		let stagesData: any[] = [];
+		const stagesData: any[] = [];
 
 		try {
 			while (true) {
 				const { done, value } = await reader.read();
-				
+
 				if (done) {
 					break;
 				}
@@ -165,7 +165,7 @@ export async function streamGenerateAIWorkflowNative(
 				for (const line of lines) {
 					if (line.startsWith('data: ')) {
 						const data = line.slice(6); // 移除 'data: ' 前缀
-						
+
 						if (data === '[DONE]') {
 							// 流式传输完成，构建最终数据
 							if (finalData) {
@@ -177,10 +177,16 @@ export async function streamGenerateAIWorkflowNative(
 									message: 'Workflow generated successfully',
 									generatedWorkflow: workflowData,
 									stages: stagesData,
-									suggestions: ['Consider adding approval stages', 'Review stage assignments'],
-									confidenceScore: 0.8
+									suggestions: [
+										'Consider adding approval stages',
+										'Review stage assignments',
+									],
+									confidenceScore: 0.8,
 								};
-								console.log('🔧 Constructed final data from stream:', constructedData);
+								console.log(
+									'🔧 Constructed final data from stream:',
+									constructedData
+								);
 								onComplete(constructedData);
 							}
 							return;
@@ -189,7 +195,7 @@ export async function streamGenerateAIWorkflowNative(
 						try {
 							const parsed = JSON.parse(data);
 							const messageType = parsed.Type || parsed.type; // 支持大小写
-							
+
 							if (messageType === 'start' || messageType === 'progress') {
 								// 开始和进度消息
 								onChunk(parsed.Message || parsed.message || '');
@@ -206,7 +212,10 @@ export async function streamGenerateAIWorkflowNative(
 								const stageData = parsed.Data || parsed.data;
 								if (stageData) {
 									stagesData.push(stageData);
-									console.log(`📊 Collected stage ${stagesData.length}:`, stageData.Name);
+									console.log(
+										`📊 Collected stage ${stagesData.length}:`,
+										stageData.Name
+									);
 								}
 								const message = parsed.Message || parsed.message || '';
 								if (message) {
@@ -214,14 +223,22 @@ export async function streamGenerateAIWorkflowNative(
 								}
 							} else if (messageType === 'chunk' || messageType === 'delta') {
 								// 流式数据块
-								onChunk(parsed.Content || parsed.content || parsed.Message || parsed.message || '');
+								onChunk(
+									parsed.Content ||
+										parsed.content ||
+										parsed.Message ||
+										parsed.message ||
+										''
+								);
 							} else if (messageType === 'complete') {
 								// 最终结果
 								finalData = parsed.Data || parsed.data || parsed;
 								console.log('✅ Received complete data:', finalData);
 							} else if (messageType === 'error') {
 								// 错误信息
-								onError(new Error(parsed.Message || parsed.message || 'Stream error'));
+								onError(
+									new Error(parsed.Message || parsed.message || 'Stream error')
+								);
 								return;
 							}
 						} catch (parseError) {
@@ -243,7 +260,7 @@ export async function streamGenerateAIWorkflowNative(
 					generatedWorkflow: workflowData,
 					stages: stagesData,
 					suggestions: ['Consider adding approval stages', 'Review stage assignments'],
-					confidenceScore: 0.8
+					confidenceScore: 0.8,
 				};
 				console.log('🔧 Fallback: Constructed final data from stream:', constructedData);
 				onComplete(constructedData);
@@ -284,7 +301,10 @@ export function validateAIWorkflow(workflow: any) {
  * @param naturalLanguage 自然语言描述
  * @returns 结构化需求
  */
-export function parseAIRequirements(naturalLanguage: string, opts?: { modelProvider?: string; modelName?: string; modelId?: string }) {
+export function parseAIRequirements(
+	naturalLanguage: string,
+	opts?: { modelProvider?: string; modelName?: string; modelId?: string }
+) {
 	return defHttp.post({
 		url: Api().aiWorkflowParseRequirements,
 		params: { naturalLanguage, ...(opts || {}) },
@@ -303,14 +323,18 @@ export function getAIWorkflowStatus() {
  * 获取当前租户可用的AI模型配置列表
  */
 export function getAIModels() {
-  return defHttp.get({ url: `${globSetting.apiProName}/ai/config/${globSetting.apiVersion}/models` });
+	return defHttp.get({
+		url: `${globSetting.apiProName}/ai/config/${globSetting.apiVersion}/models`,
+	});
 }
 
 /**
  * 获取默认AI模型配置
  */
 export function getDefaultAIModel() {
-  return defHttp.get({ url: `${globSetting.apiProName}/ai/config/${globSetting.apiVersion}/models/default` });
+	return defHttp.get({
+		url: `${globSetting.apiProName}/ai/config/${globSetting.apiVersion}/models/default`,
+	});
 }
 
 /**
@@ -348,7 +372,7 @@ export interface AIChatInput {
 	messages: AIChatMessage[];
 	context?: string;
 	sessionId?: string;
-	mode?: 'workflow_planning' | 'general';
+	mode?: 'workflow_planning' | 'general' | 'generate_code';
 	// 添加模型相关字段
 	modelId?: string;
 	modelProvider?: string;
@@ -423,26 +447,26 @@ export async function streamAIChatMessageNative(
 ) {
 	const { apiProName, apiVersion } = useGlobSetting();
 	const url = `${apiProName}/ai/chat/${apiVersion}/conversation/stream`;
-	
+
 	console.log('💬 Making stream chat request to:', url);
 	console.log('📤 Chat params:', params);
-	
+
 	// 获取认证信息
 	const tokenObj = getTokenobj();
 	const userStore = useUserStoreWithOut();
 	const userInfo = userStore.getUserInfo;
-	
+
 	console.log('🔍 Debug - tokenObj:', tokenObj);
 	console.log('🔍 Debug - userInfo:', userInfo);
-	
+
 	// 构建请求头
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
-		'Accept': 'text/event-stream',
+		Accept: 'text/event-stream',
 		'Time-Zone': getTimeZoneInfo().timeZone,
 		'Application-code': globSetting.ssoCode || '',
 	};
-	
+
 	// 添加认证头
 	if (tokenObj?.accessToken?.token) {
 		const token = tokenObj.accessToken.token;
@@ -452,7 +476,7 @@ export async function streamAIChatMessageNative(
 	} else {
 		console.warn('❌ No token found in tokenObj');
 	}
-	
+
 	// 添加用户相关头信息
 	if (userInfo?.appCode) {
 		headers['X-App-Code'] = userInfo.appCode;
@@ -462,9 +486,9 @@ export async function streamAIChatMessageNative(
 		headers['X-Tenant-Id'] = userInfo.tenantId;
 		console.log('✅ Added X-Tenant-Id:', userInfo.tenantId);
 	}
-	
+
 	console.log('🔑 Final chat request headers:', headers);
-	
+
 	try {
 		const response = await fetch(url, {
 			method: 'POST',
@@ -472,7 +496,7 @@ export async function streamAIChatMessageNative(
 			body: JSON.stringify(params),
 			signal: abortController?.signal,
 		});
-		
+
 		console.log('📥 Stream chat response status:', response.status, response.statusText);
 
 		if (!response.ok) {
@@ -491,7 +515,7 @@ export async function streamAIChatMessageNative(
 		try {
 			while (true) {
 				const { done, value } = await reader.read();
-				
+
 				if (done) {
 					break;
 				}
@@ -507,7 +531,7 @@ export async function streamAIChatMessageNative(
 				for (const line of lines) {
 					if (line.startsWith('data: ')) {
 						const data = line.slice(6); // 移除 'data: ' 前缀
-						
+
 						if (data === '[DONE]') {
 							// 流式传输完成
 							if (finalData) {
@@ -518,8 +542,12 @@ export async function streamAIChatMessageNative(
 
 						try {
 							const parsed = JSON.parse(data);
-							
-							if (parsed.type === 'chunk' || parsed.type === 'content' || parsed.type === 'delta') {
+
+							if (
+								parsed.type === 'chunk' ||
+								parsed.type === 'content' ||
+								parsed.type === 'delta'
+							) {
 								// 流式数据块
 								onChunk(parsed.content || parsed.message || '');
 							} else if (parsed.type === 'complete') {

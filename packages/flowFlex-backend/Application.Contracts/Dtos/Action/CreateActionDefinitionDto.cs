@@ -37,5 +37,20 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Whether the action is enabled
         /// </summary>
         public bool IsEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Workflow ID (optional - for creating trigger mapping)
+        /// </summary>
+        public long? WorkflowId { get; set; }
+
+        /// <summary>
+        /// Trigger source ID (optional - for creating trigger mapping)
+        /// </summary>
+        public long? TriggerSourceId { get; set; }
+
+        /// <summary>
+        /// Trigger type (optional - for creating trigger mapping)
+        /// </summary>
+        public TriggerTypeEnum? TriggerType { get; set; }
     }
 }
