@@ -347,6 +347,12 @@ namespace FlowFlex.Application.Services.Action
             return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
         }
 
+        public async Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByTriggerSourceIdAsync(long triggerSourceId)
+        {
+            var entities = await _actionTriggerMappingRepository.GetListAsync(m => m.TriggerSourceId == triggerSourceId && m.IsValid, m => m.ExecutionOrder);
+            return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
+        }
+
         public async Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto)
         {
             // Check if mapping already exists
