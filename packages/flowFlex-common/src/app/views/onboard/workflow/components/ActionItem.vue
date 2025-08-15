@@ -9,13 +9,13 @@
 			<div class="flex items-center space-x-3">
 				<!-- Drag Handle -->
 				<el-button
-					size="small"
-					text
 					circle
-					:icon="Grid"
 					class="cursor-move drag-handle text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
 					title="Drag to reorder"
-				/>
+					type="primary"
+				>
+					{{ index + 1 }}
+				</el-button>
 				<el-icon class="text-primary-500" size="20">
 					<component :is="getActionIcon(action?.actionType)" />
 				</el-icon>
@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { Grid, Delete, Operation, Connection, Document } from '@element-plus/icons-vue';
+import { Delete, Operation, Connection, Document } from '@element-plus/icons-vue';
 import { ActionType, ACTION_TYPE_MAPPING } from '@/apis/action';
 import { ActionListItem } from '#/action';
 import { defaultStr } from '@/settings/projectSetting';

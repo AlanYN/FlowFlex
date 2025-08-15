@@ -119,7 +119,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
 	'update:modelValue': [value: boolean];
-	save: [action: any];
+	saveSuccess;
 	cancel: [];
 }>();
 
@@ -344,10 +344,7 @@ const onSave = async () => {
 		console.log('res:', res);
 		if (res.code == '200') {
 			ElMessage.success('Action added successfully');
-			emit('save', {
-				...formData,
-				actionConfig: cleanActionConfig,
-			});
+			emit('saveSuccess');
 			visible.value = false;
 		} else {
 			res?.msg && ElMessage.error(res?.msg);

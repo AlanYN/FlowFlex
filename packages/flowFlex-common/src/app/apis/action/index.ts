@@ -34,6 +34,9 @@ const Api = () => {
 		actionTest: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
 		actionUpdate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
 		actionCreate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+
+		actionList: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings/action`,
+		stageAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings/trigger-source`,
 	};
 };
 
@@ -99,6 +102,18 @@ export function updateAction(id: string, data: Partial<ActionDefinition>) {
 export function testAction(id: string) {
 	return defHttp.post({
 		url: `${Api().action}/${id}/test`,
+	});
+}
+
+export function getActionList(stageId: string) {
+	return defHttp.get({
+		url: `${Api().actionList}/${stageId}`,
+	});
+}
+
+export function getStageAction(stageId: string) {
+	return defHttp.get({
+		url: `${Api().stageAction}/${stageId}`,
 	});
 }
 
