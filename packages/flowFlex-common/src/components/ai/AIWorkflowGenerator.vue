@@ -558,11 +558,17 @@
 							<!-- Uploaded File Display -->
 							<div v-if="uploadedFile" class="uploaded-file-display">
 								<div class="file-info">
-									<el-icon class="file-icon">
+									<el-icon class="file-icon" :class="{
+										'pdf-icon': isPDFFile(uploadedFile),
+										'word-icon': isWordFile(uploadedFile),
+										'image-icon': isImageFile(uploadedFile)
+									}">
 										<Picture v-if="isImageFile(uploadedFile)" />
 										<Document v-else />
 									</el-icon>
 									<span class="file-name">{{ uploadedFile.name }}</span>
+									<span class="file-type-badge" v-if="isPDFFile(uploadedFile)">PDF</span>
+									<span class="file-type-badge word" v-else-if="isWordFile(uploadedFile)">WORD</span>
         <el-button 
 										size="small" 
 										type="text" 
@@ -572,13 +578,58 @@
 										<el-icon><Close /></el-icon>
         </el-button>
 								</div>
-								<!-- Image Preview -->
-								<div v-if="isImageFile(uploadedFile)" class="image-preview">
-									<img 
-										:src="getFilePreviewUrl(uploadedFile)" 
-										:alt="uploadedFile.name"
-										class="preview-image"
-									/>
+								<!-- File Preview -->
+								<div v-if="uploadedFile" class="file-preview">
+									<!-- Image Preview -->
+									<div v-if="isImageFile(uploadedFile)" class="image-preview">
+										<img 
+											:src="getFilePreviewUrl(uploadedFile)" 
+											:alt="uploadedFile.name"
+											class="preview-image"
+										/>
+									</div>
+									
+									<!-- PDF Preview -->
+									<div v-else-if="isPDFFile(uploadedFile)" class="document-preview pdf-preview">
+										<div class="preview-header">
+											<el-icon class="preview-icon"><Document /></el-icon>
+											<div class="preview-info">
+												<span class="preview-title">PDF Document</span>
+												<span class="preview-subtitle">{{ formatFileSize(uploadedFile.size) }}</span>
+											</div>
+										</div>
+										<div class="preview-description">
+											Click "Send to AI Chat" to analyze this PDF document
+										</div>
+									</div>
+									
+									<!-- Word Preview -->
+									<div v-else-if="isWordFile(uploadedFile)" class="document-preview word-preview">
+										<div class="preview-header">
+											<el-icon class="preview-icon"><Document /></el-icon>
+											<div class="preview-info">
+												<span class="preview-title">Word Document</span>
+												<span class="preview-subtitle">{{ formatFileSize(uploadedFile.size) }}</span>
+											</div>
+										</div>
+										<div class="preview-description">
+											Click "Send to AI Chat" to analyze this Word document
+										</div>
+									</div>
+									
+									<!-- Other File Preview -->
+									<div v-else class="document-preview generic-preview">
+										<div class="preview-header">
+											<el-icon class="preview-icon"><Document /></el-icon>
+											<div class="preview-info">
+												<span class="preview-title">{{ getFileTypeName(uploadedFile) }}</span>
+												<span class="preview-subtitle">{{ formatFileSize(uploadedFile.size) }}</span>
+											</div>
+										</div>
+										<div class="preview-description">
+											Click "Send to AI Chat" to analyze this document
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -855,8 +906,6 @@ import {
 	Edit
 } from '@element-plus/icons-vue';
 import { createWorkflow } from '@/apis/ow';
-import { createChecklist } from '@/apis/ow/checklist';
-import { createQuestionnaire } from '@/apis/ow/questionnaire';
 import { defHttp } from '../../app/apis/axios';
 import { useGlobSetting } from '../../app/settings';
 import { sendAIChatMessage, streamAIChatMessageNative, type AIChatMessage } from '../../app/apis/ai/workflow';
@@ -1900,11 +1949,49 @@ const isImageFile = (file: File) => {
 	return imageTypes.includes(file.type);
 };
 
+const isPDFFile = (file: File) => {
+	return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+};
+
+const isWordFile = (file: File) => {
+	const wordTypes = [
+		'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+		'application/msword' // .doc
+	];
+	return wordTypes.includes(file.type) || 
+		   file.name.toLowerCase().endsWith('.docx') || 
+		   file.name.toLowerCase().endsWith('.doc');
+};
+
+// 文件图标获取函数（暂时保留以备将来使用）
+// const getFileIcon = (file: File) => {
+// 	if (isImageFile(file)) return 'Picture';
+// 	if (isPDFFile(file)) return 'Document';
+// 	if (isWordFile(file)) return 'Document';
+// 	return 'Document';
+// };
+
 const getFilePreviewUrl = (file: File): string | undefined => {
 	if (isImageFile(file)) {
 		return URL.createObjectURL(file);
 	}
 	return undefined;
+};
+
+const getFileTypeName = (file: File): string => {
+	const extension = file.name.split('.').pop()?.toUpperCase();
+	if (isPDFFile(file)) return 'PDF Document';
+	if (isWordFile(file)) return 'Word Document';
+	if (isImageFile(file)) return 'Image File';
+	return extension ? `${extension} File` : 'Document';
+};
+
+const formatFileSize = (bytes: number): string => {
+	if (bytes === 0) return '0 Bytes';
+	const k = 1024;
+	const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
 
@@ -3267,6 +3354,32 @@ onMounted(async () => {
 	font-weight: 500;
 }
 
+.file-type-badge {
+	font-size: 10px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: #3b82f6;
+	color: white;
+	font-weight: 600;
+	margin-left: 8px;
+}
+
+.file-type-badge.word {
+	background: #2563eb;
+}
+
+.file-icon.pdf-icon {
+	color: #dc2626;
+}
+
+.file-icon.word-icon {
+	color: #2563eb;
+}
+
+.file-icon.image-icon {
+	color: #059669;
+}
+
 .remove-file-btn {
 	color: #64748b;
 	padding: 2px;
@@ -3277,8 +3390,11 @@ onMounted(async () => {
 	color: #ef4444;
 }
 
-.image-preview {
+.file-preview {
 	margin-top: 8px;
+}
+
+.image-preview {
 	border-radius: 6px;
 	overflow: hidden;
 	border: 1px solid #e5e7eb;
@@ -3290,6 +3406,66 @@ onMounted(async () => {
 	max-height: 150px;
 	object-fit: cover;
 	display: block;
+}
+
+.document-preview {
+	padding: 12px;
+	border-radius: 8px;
+	border: 1px solid #e5e7eb;
+	background: #f8fafc;
+}
+
+.document-preview.pdf-preview {
+	border-color: #fecaca;
+	background: #fef2f2;
+}
+
+.document-preview.word-preview {
+	border-color: #bfdbfe;
+	background: #eff6ff;
+}
+
+.preview-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.preview-icon {
+	font-size: 24px;
+	color: #6b7280;
+}
+
+.pdf-preview .preview-icon {
+	color: #dc2626;
+}
+
+.word-preview .preview-icon {
+	color: #2563eb;
+}
+
+.preview-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.preview-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: #374151;
+}
+
+.preview-subtitle {
+	font-size: 12px;
+	color: #6b7280;
+}
+
+.preview-description {
+	font-size: 12px;
+	color: #6b7280;
+	font-style: italic;
 }
 
 .text-input-section {

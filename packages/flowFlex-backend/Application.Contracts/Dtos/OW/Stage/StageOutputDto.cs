@@ -138,5 +138,30 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// Modifier user ID
         /// </summary>
         public long ModifyUserId { get; set; }
+
+        /// <summary>
+        /// AI Generated Summary
+        /// </summary>
+        public string AiSummary { get; set; }
+
+        /// <summary>
+        /// AI Summary Generation Date
+        /// </summary>
+        public DateTime? AiSummaryGeneratedAt { get; set; }
+
+        /// <summary>
+        /// AI Summary Confidence Score (0-1)
+        /// </summary>
+        public decimal? AiSummaryConfidence { get; set; }
+
+        /// <summary>
+        /// AI Model Used for Summary Generation
+        /// </summary>
+        public string AiSummaryModel { get; set; }
+
+        /// <summary>
+        /// AI Summary Detailed Data (JSON)
+        /// </summary>
+        public string AiSummaryData { get; set; }
     }
 }

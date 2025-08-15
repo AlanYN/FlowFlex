@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
 
@@ -154,6 +155,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="noteId">Note ID</param>
         /// <returns>Delete result</returns>
         Task<bool> DeleteStageNoteAsync(long stageId, long onboardingId, long noteId);
+
+        /// <summary>
+        /// Generate AI summary for stage based on its content
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional, for specific onboarding context)</param>
+        /// <param name="summaryOptions">Summary generation options</param>
+        /// <returns>Generated AI summary</returns>
+        Task<FlowFlex.Application.Contracts.IServices.AIStageSummaryResult> GenerateAISummaryAsync(long stageId, long? onboardingId = null, StageSummaryOptions summaryOptions = null);
     }
 
     /// <summary>
@@ -192,5 +202,61 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Completion percentage
         /// </summary>
         public decimal CompletionPercentage { get; set; }
+    }
+
+    /// <summary>
+    /// Stage AI summary generation options
+    /// </summary>
+    public class StageSummaryOptions
+    {
+        /// <summary>
+        /// Summary language preference (zh-CN, en-US, etc.)
+        /// </summary>
+        public string Language { get; set; } = "zh-CN";
+
+        /// <summary>
+        /// Summary length preference (short, medium, detailed)
+        /// </summary>
+        public string SummaryLength { get; set; } = "medium";
+
+        /// <summary>
+        /// Additional context to include in summary
+        /// </summary>
+        public string AdditionalContext { get; set; } = string.Empty;
+
+        /// <summary>
+        /// AI Model configuration ID
+        /// </summary>
+        public string ModelId { get; set; }
+
+        /// <summary>
+        /// AI Model provider (openai, zhipuai, anthropic, etc.)
+        /// </summary>
+        public string ModelProvider { get; set; }
+
+        /// <summary>
+        /// AI Model name
+        /// </summary>
+        public string ModelName { get; set; }
+
+        /// <summary>
+        /// Whether to include detailed task analysis
+        /// </summary>
+        public bool IncludeTaskAnalysis { get; set; } = true;
+
+        /// <summary>
+        /// Whether to include questionnaire insights
+        /// </summary>
+        public bool IncludeQuestionnaireInsights { get; set; } = true;
+
+        /// <summary>
+        /// Whether to include risk assessment
+        /// </summary>
+        public bool IncludeRiskAssessment { get; set; } = true;
+
+        /// <summary>
+        /// Whether to include recommendations
+        /// </summary>
+        public bool IncludeRecommendations { get; set; } = true;
     }
 }

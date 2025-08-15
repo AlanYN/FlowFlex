@@ -117,13 +117,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { List, Refresh, Setting } from '@element-plus/icons-vue';
+import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 // Components
-import AIWorkflowGenerator from '../../../../components/ai/AIWorkflowGenerator.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import AIWorkflowGenerator from '../../../../components/ai/AIWorkflowGenerator.vue';
 import AIModelConfig from './ai-config.vue';
 
 // APIs
@@ -862,13 +862,30 @@ onMounted(() => {
 
 /* AI Tag Styles */
 .ai-tag {
-	background: linear-gradient(to right, var(--el-color-primary), var(--el-color-primary-light-3));
+	background: #753bbd;
+	background-color: #753bbd;
 	color: white;
 	border-color: transparent;
 	padding: 2px 6px;
 	font-size: 10px;
 	display: inline-flex;
 	align-items: center;
+}
+
+/* Increase specificity to override Element Plus tag presets */
+.ai-tag.el-tag,
+.ai-tag.el-tag--primary,
+.ai-tag.is-light,
+.ai-tag.el-tag.el-tag--primary,
+.el-tag.ai-tag,
+.el-tag--primary.ai-tag,
+.el-tag--primary.is-light.ai-tag {
+	background: #753bbd !important;
+	background-color: #753bbd !important;
+	background-image: none !important;
+	color: #ffffff !important;
+	border-color: transparent !important;
+	--el-tag-text-color: #ffffff !important;
 }
 
 .ai-sparkles {
@@ -878,7 +895,8 @@ onMounted(() => {
 }
 
 @keyframes sparkle {
-	0%, 100% {
+	0%,
+	100% {
 		transform: scale(1) rotate(0deg);
 		opacity: 1;
 	}

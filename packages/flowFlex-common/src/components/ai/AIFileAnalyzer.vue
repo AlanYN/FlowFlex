@@ -103,6 +103,66 @@ import * as XLSX from 'xlsx-js-style';
 import { streamAIChatMessageNative, type AIChatMessage } from '../../app/apis/ai/workflow';
 import { getDefaultAIModel, type AIModelConfig } from '../../app/apis/ai/config';
 
+// External library loaders (CDN-based to avoid local dependency issues)
+const PDF_JS_VERSION = '3.11.174';
+const MAMMOTH_VERSION = '1.6.0';
+
+let pdfJsLoadingPromise: Promise<any> | null = null;
+let mammothLoadingPromise: Promise<any> | null = null;
+
+const loadScriptOnce = (src: string): Promise<void> => {
+	return new Promise((resolve, reject) => {
+		const existing = Array.from(document.getElementsByTagName('script')).find(s => s.src === src);
+		if (existing) {
+			if ((existing as any)._loaded) {
+				resolve();
+			} else {
+				existing.addEventListener('load', () => resolve());
+				existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
+			}
+			return;
+		}
+		const script = document.createElement('script');
+		script.src = src;
+		script.async = true;
+		script.addEventListener('load', () => {
+			(script as any)._loaded = true;
+			resolve();
+		});
+		script.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
+		document.head.appendChild(script);
+	});
+};
+
+const loadPdfJs = async () => {
+	if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
+	if (!pdfJsLoadingPromise) {
+		pdfJsLoadingPromise = (async () => {
+			const url = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.min.js`;
+			await loadScriptOnce(url);
+			const pdfjsLib = (window as any).pdfjsLib;
+			if (!pdfjsLib) throw new Error('pdfjsLib not available after loading');
+			pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.worker.min.js`;
+			return pdfjsLib;
+		})();
+	}
+	return pdfJsLoadingPromise;
+};
+
+const loadMammoth = async () => {
+	if ((window as any).mammoth) return (window as any).mammoth;
+	if (!mammothLoadingPromise) {
+		mammothLoadingPromise = (async () => {
+			const url = `https://cdnjs.cloudflare.com/ajax/libs/mammoth/${MAMMOTH_VERSION}/mammoth.browser.min.js`;
+			await loadScriptOnce(url);
+			const mammoth = (window as any).mammoth;
+			if (!mammoth) throw new Error('mammoth not available after loading');
+			return mammoth;
+		})();
+	}
+	return mammothLoadingPromise;
+};
+
 // Props & Emits
 const emit = defineEmits<{
 	fileAnalyzed: [content: string, fileName: string];
@@ -285,15 +345,47 @@ const readExcelFile = (file: File): Promise<string> => {
 };
 
 const readPDFFile = async (file: File): Promise<string> => {
-	// For PDF files, we'll need a PDF parsing library
-	// For now, return a placeholder message
-	throw new Error('PDF parsing is not yet implemented. Please use other file formats.');
+	try {
+		const pdfjsLib = await loadPdfJs();
+		const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(new Error('Failed to read PDF file'));
+			reader.readAsArrayBuffer(file);
+		});
+		const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+		let fullText = '';
+		for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+			const page = await pdf.getPage(pageNum);
+			const textContent = await page.getTextContent();
+			const pageText = textContent.items.map((item: any) => item.str).join(' ');
+			fullText += `Page ${pageNum}:\n${pageText}\n\n`;
+		}
+		return fullText.trim();
+	} catch (error) {
+		console.error('PDF parsing error:', error);
+		throw new Error('Failed to parse PDF file. Please ensure the file is not corrupted.');
+	}
 };
 
 const readDocxFile = async (file: File): Promise<string> => {
-	// For DOCX files, we'll need a DOCX parsing library
-	// For now, return a placeholder message
-	throw new Error('DOCX parsing is not yet implemented. Please use other file formats.');
+	try {
+		const mammoth = await loadMammoth();
+		const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(new Error('Failed to read DOCX file'));
+			reader.readAsArrayBuffer(file);
+		});
+		const result = await mammoth.extractRawText({ arrayBuffer });
+		if (result.messages && result.messages.length > 0) {
+			console.warn('DOCX parsing warnings:', result.messages);
+		}
+		return result.value || '';
+	} catch (error) {
+		console.error('DOCX parsing error:', error);
+		throw new Error('Failed to parse DOCX file. Please ensure the file is not corrupted.');
+	}
 };
 
 const sendToAI = async () => {

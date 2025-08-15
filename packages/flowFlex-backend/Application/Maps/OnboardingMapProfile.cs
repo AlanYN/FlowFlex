@@ -39,7 +39,13 @@ namespace FlowFlex.Application.Maps
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
-                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)));
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
+                // AI summary fields
+                .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
+                .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
+                .ForMember(dest => dest.AiSummaryConfidence, opt => opt.MapFrom(src => src.AiSummaryConfidence))
+                .ForMember(dest => dest.AiSummaryModel, opt => opt.MapFrom(src => src.AiSummaryModel))
+                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()

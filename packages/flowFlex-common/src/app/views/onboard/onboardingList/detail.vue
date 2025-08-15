@@ -77,6 +77,27 @@
 							</div>
 						</div>
 
+						<!-- AI Summary 展示（当前阶段） -->
+						<div
+							v-if="onboardingActiveStageInfo?.aiSummary"
+							class="bg-white dark:bg-black-300 rounded-md p-4"
+						>
+							<div class="mb-2 text-sm text-gray-500">AI Summary</div>
+							<p
+								class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200"
+							>
+								{{ onboardingActiveStageInfo.aiSummary }}
+							</p>
+							<div class="mt-1 text-xs text-gray-400">
+								<span v-if="onboardingActiveStageInfo?.aiSummaryGeneratedAt">
+									Generated at:
+									{{
+										formatUsDate(onboardingActiveStageInfo.aiSummaryGeneratedAt)
+									}}
+								</span>
+							</div>
+						</div>
+
 						<!-- 根据Stage Components动态渲染 -->
 						<template v-if="!stageDataLoading && onboardingActiveStageInfo?.components">
 							<div
@@ -835,6 +856,24 @@ const changeLogRef = ref<InstanceType<typeof ChangeLog>>();
 const refreshChangeLog = () => {
 	if (!changeLogRef.value) return;
 	changeLogRef.value.loadChangeLogs();
+};
+
+const formatUsDate = (value?: string | Date) => {
+	if (!value) return '';
+	try {
+		const d = typeof value === 'string' ? new Date(value) : value;
+		return new Intl.DateTimeFormat('en-US', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
+		}).format(d);
+	} catch {
+		return String(value);
+	}
 };
 
 // 生命周期

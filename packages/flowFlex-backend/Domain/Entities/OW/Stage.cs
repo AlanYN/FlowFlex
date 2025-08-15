@@ -112,7 +112,37 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "components_json", ColumnDataType = "jsonb", IsJson = true)]
         public string ComponentsJson { get; set; }
 
+        /// <summary>
+        /// AI Generated Summary
+        /// </summary>
+        [StringLength(2000)]
+        [SugarColumn(ColumnName = "ai_summary")]
+        public string AiSummary { get; set; }
 
+        /// <summary>
+        /// AI Summary Generation Date
+        /// </summary>
+        [SugarColumn(ColumnName = "ai_summary_generated_at")]
+        public DateTime? AiSummaryGeneratedAt { get; set; }
+
+        /// <summary>
+        /// AI Summary Confidence Score (0-1)
+        /// </summary>
+        [SugarColumn(ColumnName = "ai_summary_confidence")]
+        public decimal? AiSummaryConfidence { get; set; }
+
+        /// <summary>
+        /// AI Model Used for Summary Generation
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "ai_summary_model")]
+        public string AiSummaryModel { get; set; }
+
+        /// <summary>
+        /// AI Summary Detailed Data (JSONB)
+        /// </summary>
+        [SugarColumn(ColumnName = "ai_summary_data", ColumnDataType = "jsonb", IsJson = true)]
+        public string AiSummaryData { get; set; }
 
         /// <summary>
         /// Stage Components List (not mapped to database)

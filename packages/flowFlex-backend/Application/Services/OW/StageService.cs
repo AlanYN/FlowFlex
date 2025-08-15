@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 
@@ -35,12 +36,13 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageAssignmentSyncService _syncService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
+        private readonly IAIService _aiService;
         private readonly UserContext _userContext;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, UserContext userContext)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IAIService aiService, UserContext userContext)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -49,6 +51,7 @@ namespace FlowFlex.Application.Service.OW
             _syncService = syncService;
             _checklistService = checklistService;
             _questionnaireService = questionnaireService;
+            _aiService = aiService;
             _userContext = userContext;
         }
 
@@ -171,6 +174,13 @@ namespace FlowFlex.Application.Service.OW
                 // Check if there are actual changes to sync
                 var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
                 var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
+
+                // Trigger async AI summary generation if components changed
+                if (hasChecklistChanges || hasQuestionnaireChanges)
+                {
+                    // Fire and forget - generate AI summary asynchronously
+                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                }
 
                 if (hasChecklistChanges || hasQuestionnaireChanges)
                 {
@@ -672,8 +682,8 @@ namespace FlowFlex.Application.Service.OW
                 .Distinct()
                 .ToList();
 
-            // Update components JSON
-            entity.ComponentsJson = JsonSerializer.Serialize(input.Components);
+            // Update components
+            // ComponentsJson 将由 AutoMapper 的 SerializeComponents 统一生成，避免重复/多层序列化
             entity.Components = input.Components;
             entity.InitUpdateInfo(_userContext);
 
@@ -681,6 +691,9 @@ namespace FlowFlex.Application.Service.OW
 
             if (result)
             {
+                // Trigger async AI summary generation for component updates
+                _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+
                 // Sync assignments with checklists and questionnaires
                 try
                 {
@@ -770,7 +783,7 @@ namespace FlowFlex.Application.Service.OW
                     // Update the entity with filled names for future use
                     try
                     {
-                        entity.ComponentsJson = JsonSerializer.Serialize(components);
+                        // ComponentsJson 由映射层统一生成，避免重复序列化
                         entity.Components = components;
                         await _stageRepository.UpdateAsync(entity);
                     }
@@ -936,5 +949,550 @@ namespace FlowFlex.Application.Service.OW
         }
 
         // Cache cleanup methods have been removed
+
+        /// <summary>
+        /// Generate AI summary for stage based on its content
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional, for specific onboarding context)</param>
+        /// <param name="summaryOptions">Summary generation options</param>
+        /// <returns>Generated AI summary</returns>
+        public async Task<AIStageSummaryResult> GenerateAISummaryAsync(long stageId, long? onboardingId = null, StageSummaryOptions summaryOptions = null)
+        {
+            try
+            {
+                // Get stage information
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null)
+                {
+                    return new AIStageSummaryResult
+                    {
+                        Success = false,
+                        Message = "Stage not found"
+                    };
+                }
+
+                // Set default options if not provided
+                summaryOptions ??= new StageSummaryOptions();
+
+                // Get stage content for analysis
+                StageContentDto stageContent = null;
+                if (onboardingId.HasValue)
+                {
+                    stageContent = await GetStageContentAsync(stageId, onboardingId.Value);
+                }
+
+                // Prepare AI summary input
+                var aiInput = new AIStageSummaryInput
+                {
+                    StageId = stageId,
+                    StageName = stage.Name,
+                    StageDescription = stage.Description ?? "",
+                    Language = summaryOptions.Language,
+                    SummaryLength = summaryOptions.SummaryLength,
+                    AdditionalContext = summaryOptions.AdditionalContext,
+                    ModelId = summaryOptions.ModelId,
+                    ModelProvider = summaryOptions.ModelProvider,
+                    ModelName = summaryOptions.ModelName
+                };
+
+                // Extract checklist tasks information
+                if (summaryOptions.IncludeTaskAnalysis && stageContent?.Checklist != null)
+                {
+                    aiInput.ChecklistTasks = stageContent.Checklist.Tasks?.Select(task => new AISummaryTaskInfo
+                    {
+                        TaskId = task.TaskId,
+                        TaskName = task.TaskName ?? "",
+                        Description = task.Description ?? "",
+                        IsRequired = task.IsRequired,
+                        IsCompleted = task.IsCompleted,
+                        CompletionNotes = task.CompletionNotes ?? "",
+                        Category = "Checklist Task"
+                    }).ToList() ?? new List<AISummaryTaskInfo>();
+                }
+
+                // Extract questionnaire questions information
+                if (summaryOptions.IncludeQuestionnaireInsights && stageContent?.Questionnaire != null)
+                {
+                    aiInput.QuestionnaireQuestions = stageContent.Questionnaire.Questions?.Select(question => new AISummaryQuestionInfo
+                    {
+                        QuestionId = question.QuestionId,
+                        QuestionText = question.QuestionText ?? "",
+                        QuestionType = question.QuestionType ?? "",
+                        IsRequired = question.IsRequired,
+                        IsAnswered = question.IsAnswered,
+                        Answer = question.Answer?.ToString(),
+                        Category = "Questionnaire Question"
+                    }).ToList() ?? new List<AISummaryQuestionInfo>();
+                }
+
+                // If no onboarding context, try to get general stage component information
+                if (!onboardingId.HasValue)
+                {
+                    await PopulateStageComponentsForSummary(stageId, aiInput, summaryOptions);
+                }
+
+                // Generate AI summary
+                var result = await _aiService.GenerateStageSummaryAsync(aiInput);
+
+                // Log the operation
+                await _operationLogService.LogOperationAsync(
+                    OperationTypeEnum.OnboardingStatusChange,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null,
+                    null,
+                    "AI Summary Generated",
+                    $"AI summary generated for stage '{stage.Name}' with {aiInput.ChecklistTasks.Count} tasks and {aiInput.QuestionnaireQuestions.Count} questions",
+                    null,
+                    JsonSerializer.Serialize(new { stageId, onboardingId, summaryLength = summaryOptions.SummaryLength }),
+                    new List<string> { "AISummary", "StageAnalysis" },
+                    null,
+                    result.Success ? OperationStatusEnum.Success : OperationStatusEnum.Failed
+                );
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                await _operationLogService.LogOperationAsync(
+                    OperationTypeEnum.OnboardingStatusChange,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null,
+                    null,
+                    "AI Summary Generation Failed",
+                    $"Failed to generate AI summary: {ex.Message}",
+                    null,
+                    JsonSerializer.Serialize(new { stageId, onboardingId, error = ex.Message }),
+                    new List<string> { "AISummary", "Error" },
+                    null,
+                    OperationStatusEnum.Failed
+                );
+
+                return new AIStageSummaryResult
+                {
+                    Success = false,
+                    Message = $"Failed to generate AI summary: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Generate AI summary in background without blocking the main operation
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="trigger">What triggered the summary generation</param>
+        private async Task GenerateAISummaryInBackgroundAsync(long stageId, string trigger)
+        {
+            try
+            {
+                // Use default summary options for background generation
+                var summaryOptions = new StageSummaryOptions
+                {
+                    // Use auto language detection to follow user's input language
+                    Language = "auto",
+                    SummaryLength = "short", // Use shorter summary for better performance
+                    AdditionalContext = $"Auto-generated summary triggered by: {trigger}",
+                    IncludeTaskAnalysis = true,
+                    IncludeQuestionnaireInsights = true,
+                    IncludeRiskAssessment = false, // Disable to reduce complexity
+                    IncludeRecommendations = false // Disable to reduce complexity
+                };
+
+                // Generate AI summary with retry mechanism
+                var result = await GenerateAISummaryWithRetryAsync(stageId, summaryOptions);
+
+                if (result.Success)
+                {
+                    // Store the summary result (you might want to save this to database)
+                    await StoreStageSummaryAsync(stageId, result, trigger);
+                    
+                    // Log successful background generation
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        stageId,
+                        null,
+                        null,
+                        "Background AI Summary Generated",
+                        $"AI summary successfully generated in background. Trigger: {trigger}",
+                        null,
+                        JsonSerializer.Serialize(new { 
+                            stageId, 
+                            trigger, 
+                            summaryLength = result.Summary?.Length ?? 0,
+                            confidenceScore = result.ConfidenceScore 
+                        }),
+                        new List<string> { "BackgroundAISummary", "Success" },
+                        null,
+                        OperationStatusEnum.Success
+                    );
+                }
+                else
+                {
+                    // Log failed background generation
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        stageId,
+                        null,
+                        null,
+                        "Background AI Summary Failed",
+                        $"Failed to generate AI summary in background. Trigger: {trigger}. Error: {result.Message}",
+                        null,
+                        JsonSerializer.Serialize(new { stageId, trigger, error = result.Message }),
+                        new List<string> { "BackgroundAISummary", "Failed" },
+                        null,
+                        OperationStatusEnum.Failed
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log exception in background generation - don't let it bubble up
+                try
+                {
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        stageId,
+                        null,
+                        null,
+                        "Background AI Summary Exception",
+                        $"Exception occurred during background AI summary generation. Trigger: {trigger}. Exception: {ex.Message}",
+                        null,
+                        JsonSerializer.Serialize(new { stageId, trigger, exception = ex.ToString() }),
+                        new List<string> { "BackgroundAISummary", "Exception" },
+                        null,
+                        OperationStatusEnum.Failed
+                    );
+                }
+                catch
+                {
+                    // If logging fails, just ignore - we don't want to crash the background task
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generate AI summary with retry mechanism for better reliability
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="summaryOptions">Summary options</param>
+        /// <returns>AI summary result</returns>
+        private async Task<AIStageSummaryResult> GenerateAISummaryWithRetryAsync(long stageId, StageSummaryOptions summaryOptions)
+        {
+            const int maxRetries = 2;
+            var delays = new[] { TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15) };
+
+            for (int attempt = 0; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    // Add timeout for each attempt
+                    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1)); // 1 minute timeout per attempt
+                    
+                    var result = await GenerateAISummaryAsync(stageId, null, summaryOptions);
+                    
+                    if (result.Success)
+                    {
+                        return result;
+                    }
+
+                    // If not successful and we have retries left, log and continue
+                    if (attempt < maxRetries)
+                    {
+                        await _operationLogService.LogOperationAsync(
+                            OperationTypeEnum.OnboardingStatusChange,
+                            BusinessModuleEnum.Stage,
+                            stageId,
+                            null,
+                            null,
+                            "AI Summary Retry",
+                            $"Attempt {attempt + 1} failed: {result.Message}. Retrying in {delays[attempt].TotalSeconds} seconds.",
+                            null,
+                            JsonSerializer.Serialize(new { attempt = attempt + 1, error = result.Message }),
+                            new List<string> { "AISummaryRetry" },
+                            null,
+                            OperationStatusEnum.Failed
+                        );
+
+                        await Task.Delay(delays[attempt]);
+                    }
+                    else
+                    {
+                        return result; // Return the last failed result
+                    }
+                }
+                catch (TaskCanceledException ex)
+                {
+                    var errorMessage = $"AI summary generation timed out on attempt {attempt + 1}";
+                    
+                    if (attempt < maxRetries)
+                    {
+                        await _operationLogService.LogOperationAsync(
+                            OperationTypeEnum.OnboardingStatusChange,
+                            BusinessModuleEnum.Stage,
+                            stageId,
+                            null,
+                            null,
+                            "AI Summary Timeout Retry",
+                            $"{errorMessage}. Retrying in {delays[attempt].TotalSeconds} seconds.",
+                            null,
+                            JsonSerializer.Serialize(new { attempt = attempt + 1, timeout = true }),
+                            new List<string> { "AISummaryTimeout" },
+                            null,
+                            OperationStatusEnum.Failed
+                        );
+
+                        await Task.Delay(delays[attempt]);
+                    }
+                    else
+                    {
+                        return new AIStageSummaryResult
+                        {
+                            Success = false,
+                            Message = $"{errorMessage}. All retry attempts exhausted."
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var errorMessage = $"AI summary generation failed on attempt {attempt + 1}: {ex.Message}";
+                    
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(delays[attempt]);
+                    }
+                    else
+                    {
+                        return new AIStageSummaryResult
+                        {
+                            Success = false,
+                            Message = $"{errorMessage}. All retry attempts exhausted."
+                        };
+                    }
+                }
+            }
+
+            // This should never be reached, but just in case
+            return new AIStageSummaryResult
+            {
+                Success = false,
+                Message = "Unexpected error in retry mechanism"
+            };
+        }
+
+        /// <summary>
+        /// Store the generated AI summary (placeholder for future database storage)
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="summaryResult">AI summary result</param>
+        /// <param name="trigger">What triggered the summary</param>
+        private async Task StoreStageSummaryAsync(long stageId, AIStageSummaryResult summaryResult, string trigger)
+        {
+            try
+            {
+                // Update Stage entity with AI summary data
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage != null)
+                {
+                    // Update AI summary fields
+                    stage.AiSummary = summaryResult.Summary;
+                    stage.AiSummaryGeneratedAt = DateTime.UtcNow;
+                    stage.AiSummaryConfidence = (decimal?)summaryResult.ConfidenceScore;
+                    stage.AiSummaryModel = summaryResult.ModelUsed;
+                    
+                    // Store detailed AI summary data as JSON
+                    var detailedData = new
+                    {
+                        breakdown = summaryResult.Breakdown,
+                        keyInsights = summaryResult.KeyInsights,
+                        recommendations = summaryResult.Recommendations,
+                        completionStatus = summaryResult.CompletionStatus,
+                        trigger = trigger,
+                        generatedAt = DateTime.UtcNow
+                    };
+                    stage.AiSummaryData = JsonSerializer.Serialize(detailedData);
+
+                    // Save to database
+                    await _stageRepository.UpdateAsync(stage);
+
+                    // Log successful storage
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        stageId,
+                        null,
+                        null,
+                        "AI Summary Stored",
+                        $"AI summary successfully stored in database. Trigger: {trigger}",
+                        null,
+                        JsonSerializer.Serialize(new {
+                            stageId,
+                            trigger,
+                            summaryLength = summaryResult.Summary?.Length ?? 0,
+                            confidenceScore = summaryResult.ConfidenceScore,
+                            modelUsed = summaryResult.ModelUsed,
+                            hasBreakdown = summaryResult.Breakdown != null,
+                            keyInsightsCount = summaryResult.KeyInsights?.Count ?? 0,
+                            recommendationsCount = summaryResult.Recommendations?.Count ?? 0,
+                            storedAt = DateTime.UtcNow
+                        }),
+                        new List<string> { "AISummaryStorage", "DatabaseUpdate" },
+                        null,
+                        OperationStatusEnum.Success
+                    );
+                }
+                else
+                {
+                    // Stage not found - log error
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        stageId,
+                        null,
+                        null,
+                        "AI Summary Storage Failed",
+                        $"Stage with ID {stageId} not found when trying to store AI summary",
+                        null,
+                        JsonSerializer.Serialize(new { stageId, trigger, error = "Stage not found" }),
+                        new List<string> { "AISummaryStorage", "Error" },
+                        null,
+                        OperationStatusEnum.Failed
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log storage failure but don't crash the background task
+                try
+                {
+                    await _operationLogService.LogOperationAsync(
+                        OperationTypeEnum.OnboardingStatusChange,
+                        BusinessModuleEnum.Stage,
+                        stageId,
+                        null,
+                        null,
+                        "AI Summary Storage Error",
+                        $"Failed to store AI summary in database: {ex.Message}",
+                        null,
+                        JsonSerializer.Serialize(new { 
+                            stageId, 
+                            trigger, 
+                            error = ex.Message,
+                            stackTrace = ex.StackTrace 
+                        }),
+                        new List<string> { "AISummaryStorage", "Exception" },
+                        null,
+                        OperationStatusEnum.Failed
+                    );
+                }
+                catch
+                {
+                    // If even logging fails, just ignore to prevent infinite loops
+                }
+            }
+        }
+
+        /// <summary>
+        /// Populate stage components information for AI summary when no specific onboarding context is available
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiInput">AI input to populate</param>
+        /// <param name="summaryOptions">Summary options</param>
+        private async Task PopulateStageComponentsForSummary(long stageId, AIStageSummaryInput aiInput, StageSummaryOptions summaryOptions)
+        {
+            try
+            {
+                // Get stage components
+                var components = await GetComponentsAsync(stageId);
+                
+                if (summaryOptions.IncludeTaskAnalysis)
+                {
+                    // Get checklist information from components
+                    var checklistIds = components
+                        .Where(c => c.Key == "checklist")
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    foreach (var checklistId in checklistIds)
+                    {
+                        try
+                        {
+                            var checklist = await _checklistService.GetByIdAsync(checklistId);
+                            if (checklist?.Tasks != null)
+                            {
+                                var taskInfos = checklist.Tasks.Select(task => new AISummaryTaskInfo
+                                {
+                                    TaskId = task.Id,
+                                    TaskName = task.Name ?? "",
+                                    Description = task.Description ?? "",
+                                    IsRequired = task.IsRequired,
+                                    IsCompleted = false, // No completion status without onboarding context
+                                    CompletionNotes = "",
+                                    Category = checklist.Name ?? "Checklist"
+                                }).ToList();
+
+                                aiInput.ChecklistTasks.AddRange(taskInfos);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log but continue with other checklists
+                            Console.WriteLine($"Error loading checklist {checklistId}: {ex.Message}");
+                        }
+                    }
+                }
+
+                if (summaryOptions.IncludeQuestionnaireInsights)
+                {
+                    // Get questionnaire information from components
+                    var questionnaireIds = components
+                        .Where(c => c.Key == "questionnaires")
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    foreach (var questionnaireId in questionnaireIds)
+                    {
+                        try
+                        {
+                            var questionnaire = await _questionnaireService.GetByIdAsync(questionnaireId);
+                            if (questionnaire?.Sections != null)
+                            {
+                                var questionInfos = questionnaire.Sections
+                                    .SelectMany(section => section.Questions)
+                                    .Select(question => new AISummaryQuestionInfo
+                                {
+                                    QuestionId = long.TryParse(question.Id, out var qId) ? qId : 0,
+                                    QuestionText = question.Text ?? "",
+                                    QuestionType = question.Type ?? "",
+                                    IsRequired = question.IsRequired,
+                                    IsAnswered = false, // No answer status without onboarding context
+                                    Answer = null,
+                                    Category = questionnaire.Name ?? "Questionnaire"
+                                }).ToList();
+
+                                aiInput.QuestionnaireQuestions.AddRange(questionInfos);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log but continue with other questionnaires
+                            Console.WriteLine($"Error loading questionnaire {questionnaireId}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the entire operation
+                Console.WriteLine($"Error populating stage components for summary: {ex.Message}");
+            }
+        }
     }
 }

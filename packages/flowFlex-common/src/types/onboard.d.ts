@@ -334,6 +334,12 @@ export interface Stage {
 	selected?: boolean;
 	color?: string;
 	components: ComponentData[];
+	// AI summary fields (optional)
+	aiSummary?: string;
+	aiSummaryGeneratedAt?: string;
+	aiSummaryConfidence?: number;
+	aiSummaryModel?: string;
+	aiSummaryData?: any;
 }
 
 // 检查清单任务完成记录相关类型定义

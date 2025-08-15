@@ -123,6 +123,31 @@ namespace FlowFlex.Domain.Entities.OW
         [JsonIgnore]
         public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
 
+        /// <summary>
+        /// AI Generated Summary (per onboarding). Stored in JSON.
+        /// </summary>
+        public string AiSummary { get; set; }
+
+        /// <summary>
+        /// AI Summary Generation Time (per onboarding). Stored in JSON.
+        /// </summary>
+        public DateTime? AiSummaryGeneratedAt { get; set; }
+
+        /// <summary>
+        /// AI Summary Confidence (per onboarding). Stored in JSON.
+        /// </summary>
+        public decimal? AiSummaryConfidence { get; set; }
+
+        /// <summary>
+        /// AI Summary Model (per onboarding). Stored in JSON.
+        /// </summary>
+        public string AiSummaryModel { get; set; }
+
+        /// <summary>
+        /// AI Summary Detailed Data (per onboarding). Stored in JSON.
+        /// </summary>
+        public string AiSummaryData { get; set; }
+
         // === Legacy fields for backward compatibility - will be removed in future versions ===
         
         /// <summary>

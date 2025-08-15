@@ -25,7 +25,7 @@ namespace FlowFlex.Application.Services.AI
     {
         private readonly AIOptions _aiOptions;
         private readonly ILogger<AIService> _logger;
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMCPService _mcpService;
         private readonly IWorkflowService _workflowService;
         private readonly IAIModelConfigService _configService;
@@ -38,7 +38,7 @@ namespace FlowFlex.Application.Services.AI
         public AIService(
             IOptions<AIOptions> aiOptions,
             ILogger<AIService> logger,
-            HttpClient httpClient,
+            IHttpClientFactory httpClientFactory,
             IMCPService mcpService,
             IWorkflowService workflowService,
             IAIModelConfigService configService,
@@ -50,7 +50,7 @@ namespace FlowFlex.Application.Services.AI
         {
             _aiOptions = aiOptions.Value;
             _logger = logger;
-            _httpClient = httpClient;
+            _httpClientFactory = httpClientFactory;
             _mcpService = mcpService;
             _workflowService = workflowService;
             _configService = configService;
@@ -1060,9 +1060,6 @@ namespace FlowFlex.Application.Services.AI
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
                 // Construct the API URL, avoiding duplication if baseUrl already contains the endpoint
                 var apiUrl = baseUrl.TrimEnd('/');
                 if (!apiUrl.EndsWith("/chat/completions"))
@@ -1071,14 +1068,17 @@ namespace FlowFlex.Application.Services.AI
                 }
 
                 // Build request with HTTP/1.1 and per-call timeout
+                using var httpClient = _httpClientFactory.CreateClient();
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
                 {
                     Version = new Version(1, 1),
                     Content = content,
                 };
+                request.Headers.Add("Authorization", $"Bearer {apiKey}");
+                
                 var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-                var response = await _httpClient.SendAsync(request, cts.Token);
+                var response = await httpClient.SendAsync(request, cts.Token);
                 var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
@@ -1185,9 +1185,6 @@ namespace FlowFlex.Application.Services.AI
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
                 // Construct the API URL for OpenAI, avoiding duplication if baseUrl already contains the endpoint
                 var apiUrl = baseUrl.TrimEnd('/');
                 if (!apiUrl.EndsWith("/v1/chat/completions") && !apiUrl.EndsWith("/chat/completions"))
@@ -1195,7 +1192,9 @@ namespace FlowFlex.Application.Services.AI
                     apiUrl = $"{apiUrl}/v1/chat/completions";
                 }
 
-                var response = await _httpClient.PostAsync(apiUrl, content);
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                var response = await httpClient.PostAsync(apiUrl, content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -1310,18 +1309,18 @@ namespace FlowFlex.Application.Services.AI
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
-                _httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-
+                using var httpClient = _httpClientFactory.CreateClient();
                 using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/v1/messages")
                 {
                     Version = new Version(1, 1),
                     Content = content,
                 };
+                request.Headers.Add("x-api-key", apiKey);
+                request.Headers.Add("anthropic-version", "2023-06-01");
+                
                 var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-                var response = await _httpClient.SendAsync(request, cts.Token);
+                var response = await httpClient.SendAsync(request, cts.Token);
                 var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
@@ -1438,9 +1437,6 @@ namespace FlowFlex.Application.Services.AI
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
                 // Construct the API URL for DeepSeek, avoiding duplication if baseUrl already contains the endpoint
                 var apiUrl = baseUrl.TrimEnd('/');
                 if (!apiUrl.EndsWith("/v1/chat/completions") && !apiUrl.EndsWith("/chat/completions"))
@@ -1448,14 +1444,17 @@ namespace FlowFlex.Application.Services.AI
                     apiUrl = $"{apiUrl}/v1/chat/completions";
                 }
 
+                using var httpClient = _httpClientFactory.CreateClient();
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
                 {
                     Version = new Version(1, 1),
                     Content = content,
                 };
+                request.Headers.Add("Authorization", $"Bearer {apiKey}");
+                
                 var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-                var response = await _httpClient.SendAsync(request, cts.Token);
+                var response = await httpClient.SendAsync(request, cts.Token);
                 var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
@@ -1573,9 +1572,6 @@ namespace FlowFlex.Application.Services.AI
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
                 // Try both common endpoints
                 var endpoints = new[] { "/v1/chat/completions", "/chat/completions" };
                 AIProviderResponse? lastResponse = null;
@@ -1584,14 +1580,17 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
+                        using var httpClient = _httpClientFactory.CreateClient();
                         using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}{endpoint}")
                         {
                             Version = new Version(1, 1),
                             Content = content,
                         };
+                        request.Headers.Add("Authorization", $"Bearer {apiKey}");
+                        
                         var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-                        var response = await _httpClient.SendAsync(request, cts.Token);
+                        var response = await httpClient.SendAsync(request, cts.Token);
                         var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
                         if (response.IsSuccessStatusCode)
@@ -2505,20 +2504,20 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_aiOptions.ZhipuAI.ApiKey}");
-
             var apiUrl = $"{_aiOptions.ZhipuAI.BaseUrl}/chat/completions";
             _logger.LogInformation("Calling ZhipuAI API: {Url} with {MessageCount} messages", apiUrl, messages.Count);
 
+            using var httpClient = _httpClientFactory.CreateClient();
             using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
                 Version = new Version(1, 1),
                 Content = content,
             };
+            request.Headers.Add("Authorization", $"Bearer {_aiOptions.ZhipuAI.ApiKey}");
+            
             var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-            var response = await _httpClient.SendAsync(request, cts.Token);
+            var response = await httpClient.SendAsync(request, cts.Token);
             var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
 
             _logger.LogInformation("ZhipuAI API Response: {StatusCode} - {Content}", response.StatusCode, responseContent);
@@ -2567,9 +2566,6 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
-
             // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
@@ -2587,7 +2583,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             _logger.LogInformation("Calling ZhipuAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
-            var response = await _httpClient.PostAsync(apiUrl, content);
+            using var httpClient = _httpClientFactory.CreateClient();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+            var response = await httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
@@ -2632,9 +2630,6 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
-
             // Ensure OpenAI API endpoint contains correct version path, avoid duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
@@ -2652,7 +2647,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             }
             _logger.LogInformation("Calling OpenAI API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
-            var response = await _httpClient.PostAsync(apiUrl, content);
+            using var httpClient = _httpClientFactory.CreateClient();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+            var response = await httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
@@ -2704,10 +2701,6 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("x-api-key", config.ApiKey);
-            _httpClient.DefaultRequestHeaders.Add("anthropic-version", config.ApiVersion ?? "2023-06-01");
-
             // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
@@ -2725,7 +2718,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             _logger.LogInformation("Calling Claude API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
-            var response = await _httpClient.PostAsync(apiUrl, content);
+            using var httpClient = _httpClientFactory.CreateClient();
+            httpClient.DefaultRequestHeaders.Add("x-api-key", config.ApiKey);
+            httpClient.DefaultRequestHeaders.Add("anthropic-version", config.ApiVersion ?? "2023-06-01");
+            var response = await httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
@@ -2769,9 +2765,6 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
-
             // Intelligently handle API endpoints, avoid path duplication
             var baseUrl = config.BaseUrl.TrimEnd('/');
             string apiUrl;
@@ -2789,7 +2782,9 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             _logger.LogInformation("Calling DeepSeek API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
-            var response = await _httpClient.PostAsync(apiUrl, content);
+            using var httpClient = _httpClientFactory.CreateClient();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+            var response = await httpClient.PostAsync(apiUrl, content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
@@ -2987,6 +2982,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             _logger.LogInformation("Calling DeepSeek Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
+            using var httpClient = _httpClientFactory.CreateClient();
             using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
                 Content = httpContent
@@ -2994,7 +2990,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
             request.Headers.Add("Accept", "text/event-stream");
 
-            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -3125,6 +3121,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             _logger.LogInformation("Calling OpenAI Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
+            using var httpClient = _httpClientFactory.CreateClient();
             using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
                 Content = httpContent
@@ -3132,7 +3129,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
             request.Headers.Add("Accept", "text/event-stream");
 
-            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -3997,6 +3994,485 @@ Remember: Your goal is to collect enough detailed information to create a compre
                     // If there's an error checking, use timestamp as fallback
                     return $"{originalName} {DateTime.Now:yyyyMMdd-HHmmss}";
                 }
+            }
+        }
+
+        #endregion
+
+        #region Stage Summary Generation
+
+        /// <summary>
+        /// Generate AI summary for stage based on checklist tasks and questionnaire questions
+        /// </summary>
+        /// <param name="input">Stage summary generation input</param>
+        /// <returns>Generated stage summary</returns>
+        public async Task<AIStageSummaryResult> GenerateStageSummaryAsync(AIStageSummaryInput input)
+        {
+            try
+            {
+                _logger.LogInformation("Generating AI summary for stage {StageId}: {StageName}", input.StageId, input.StageName);
+
+                // Build the summary generation prompt
+                var prompt = BuildStageSummaryPrompt(input);
+
+                // Try AI providers with fallback strategy
+                var aiResponse = await CallAIProviderWithFallbackForSummaryAsync(prompt, input.ModelId);
+
+                if (!aiResponse.Success)
+                {
+                    _logger.LogError("All AI providers failed for stage summary: {Error}", aiResponse.ErrorMessage);
+                    return new AIStageSummaryResult
+                    {
+                        Success = false,
+                        Message = $"AI service error: {aiResponse.ErrorMessage}"
+                    };
+                }
+
+                // Parse the AI response and create structured summary
+                var summaryResult = ParseStageSummaryResponse(aiResponse.Content, input);
+
+                _logger.LogInformation("Successfully generated AI summary for stage {StageId}", input.StageId);
+                return summaryResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating AI summary for stage {StageId}: {Error}", input.StageId, ex.Message);
+                return new AIStageSummaryResult
+                {
+                    Success = false,
+                    Message = $"Failed to generate stage summary: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Call AI provider with automatic fallback to available configurations
+        /// </summary>
+        /// <param name="prompt">The prompt to send to AI</param>
+        /// <param name="preferredModelId">Preferred model ID (optional)</param>
+        /// <returns>AI response</returns>
+        private async Task<AIProviderResponse> CallAIProviderWithFallbackForSummaryAsync(string prompt, string? preferredModelId)
+        {
+            try
+            {
+                // Step 1: Try preferred model if specified
+                if (!string.IsNullOrEmpty(preferredModelId) && long.TryParse(preferredModelId, out var modelId))
+                {
+                    var preferredConfig = await _configService.GetConfigByIdAsync(modelId);
+                    if (preferredConfig != null)
+                    {
+                        _logger.LogInformation("Trying preferred AI model: {Provider} - {ModelName} (ID: {ModelId})", 
+                            preferredConfig.Provider, preferredConfig.ModelName, modelId);
+                        
+                        var response = await CallAIProviderAsync(prompt, preferredModelId, preferredConfig.Provider, preferredConfig.ModelName);
+                        if (response.Success)
+                        {
+                            _logger.LogInformation("Successfully used preferred AI model for summary generation");
+                            return response;
+                        }
+                        
+                        _logger.LogWarning("Preferred AI model failed: {Error}. Trying fallback options...", response.ErrorMessage);
+                    }
+                }
+
+                // Step 2: Try user's default configuration
+                try
+                {
+                    var defaultConfig = await _configService.GetUserDefaultConfigAsync(0);
+                    if (defaultConfig != null && defaultConfig.Id.ToString() != preferredModelId)
+                    {
+                        _logger.LogInformation("Trying user default AI model: {Provider} - {ModelName} (ID: {ModelId})", 
+                            defaultConfig.Provider, defaultConfig.ModelName, defaultConfig.Id);
+                        
+                        var response = await CallAIProviderAsync(prompt, defaultConfig.Id.ToString(), defaultConfig.Provider, defaultConfig.ModelName);
+                        if (response.Success)
+                        {
+                            _logger.LogInformation("Successfully used user default AI model for summary generation");
+                            return response;
+                        }
+                        
+                        _logger.LogWarning("User default AI model failed: {Error}. Trying other available models...", response.ErrorMessage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to get user default AI config, continuing with other options");
+                }
+
+                // Step 3: Try all available user configurations
+                try
+                {
+                    var allConfigs = await _configService.GetUserAIModelConfigsAsync(0);
+                    var availableConfigs = allConfigs.Where(c => 
+                        c.Id.ToString() != preferredModelId && 
+                        !string.IsNullOrEmpty(c.Provider) && 
+                        !string.IsNullOrEmpty(c.ApiKey)).ToList();
+
+                    foreach (var config in availableConfigs)
+                    {
+                        _logger.LogInformation("Trying available AI model: {Provider} - {ModelName} (ID: {ModelId})", 
+                            config.Provider, config.ModelName, config.Id);
+                        
+                        var response = await CallAIProviderAsync(prompt, config.Id.ToString(), config.Provider, config.ModelName);
+                        if (response.Success)
+                        {
+                            _logger.LogInformation("Successfully used fallback AI model: {Provider} - {ModelName}", 
+                                config.Provider, config.ModelName);
+                            return response;
+                        }
+                        
+                        _logger.LogWarning("AI model {Provider} - {ModelName} failed: {Error}", 
+                            config.Provider, config.ModelName, response.ErrorMessage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to get user AI configs, trying system defaults");
+                }
+
+                // Step 4: Fallback to system default (ZhipuAI)
+                _logger.LogInformation("Trying system default ZhipuAI configuration");
+                var systemResponse = await CallZhipuAIAsync(prompt);
+                if (systemResponse.Success)
+                {
+                    _logger.LogInformation("Successfully used system default ZhipuAI for summary generation");
+                    return systemResponse;
+                }
+
+                // All options exhausted
+                _logger.LogError("All AI providers failed for summary generation");
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = "All available AI providers failed. Please check your AI model configurations and try again."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in AI provider fallback strategy: {Error}", ex.Message);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"AI provider fallback failed: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Build the prompt for stage summary generation
+        /// </summary>
+        /// <param name="input">Stage summary input</param>
+        /// <returns>Generated prompt</returns>
+        private string BuildStageSummaryPrompt(AIStageSummaryInput input)
+        {
+            var promptBuilder = new StringBuilder();
+
+            // Determine effective language: explicit -> auto-detect from input content
+            var effectiveLanguage = DetermineEffectiveLanguage(input);
+
+            // Set language instruction and universal rule
+            if (effectiveLanguage == "zh-CN")
+            {
+                promptBuilder.AppendLine("请用中文生成阶段总结。");
+                promptBuilder.AppendLine("请严格按照用户输入内容的语言输出结果（Output the result according to the language input by the user.）。");
+            }
+            else
+            {
+                promptBuilder.AppendLine("Please generate the stage summary in English.");
+                promptBuilder.AppendLine("Output the result according to the language input by the user.");
+            }
+
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("=== Stage Summary Generation Task ===");
+            promptBuilder.AppendLine($"Stage Name: {input.StageName}");
+            promptBuilder.AppendLine($"Stage Description: {input.StageDescription}");
+            
+            if (!string.IsNullOrEmpty(input.AdditionalContext))
+            {
+                promptBuilder.AppendLine($"Additional Context: {input.AdditionalContext}");
+            }
+
+            promptBuilder.AppendLine();
+
+            // Add checklist tasks information
+            if (input.ChecklistTasks.Any())
+            {
+                promptBuilder.AppendLine("=== Checklist Tasks Analysis ===");
+                var completedTasks = input.ChecklistTasks.Count(t => t.IsCompleted);
+                var totalTasks = input.ChecklistTasks.Count;
+                var requiredTasks = input.ChecklistTasks.Count(t => t.IsRequired);
+                var completedRequiredTasks = input.ChecklistTasks.Count(t => t.IsRequired && t.IsCompleted);
+
+                promptBuilder.AppendLine($"Total Tasks: {totalTasks}");
+                promptBuilder.AppendLine($"Completed Tasks: {completedTasks}");
+                promptBuilder.AppendLine($"Required Tasks: {requiredTasks}");
+                promptBuilder.AppendLine($"Completed Required Tasks: {completedRequiredTasks}");
+                promptBuilder.AppendLine($"Completion Rate: {(totalTasks > 0 ? (decimal)completedTasks / totalTasks * 100 : 0):F1}%");
+                promptBuilder.AppendLine();
+
+                promptBuilder.AppendLine("Task Details:");
+                foreach (var task in input.ChecklistTasks)
+                {
+                    promptBuilder.AppendLine($"- [{(task.IsCompleted ? "✓" : "○")}] {task.TaskName} {(task.IsRequired ? "(Required)" : "(Optional)")}");
+                    if (!string.IsNullOrEmpty(task.Description))
+                    {
+                        promptBuilder.AppendLine($"  Description: {task.Description}");
+                    }
+                    if (task.IsCompleted && !string.IsNullOrEmpty(task.CompletionNotes))
+                    {
+                        promptBuilder.AppendLine($"  Completion Notes: {task.CompletionNotes}");
+                    }
+                    if (!string.IsNullOrEmpty(task.Category))
+                    {
+                        promptBuilder.AppendLine($"  Category: {task.Category}");
+                    }
+                }
+                promptBuilder.AppendLine();
+            }
+
+            // Add questionnaire information
+            if (input.QuestionnaireQuestions.Any())
+            {
+                promptBuilder.AppendLine("=== Questionnaire Analysis ===");
+                var answeredQuestions = input.QuestionnaireQuestions.Count(q => q.IsAnswered);
+                var totalQuestions = input.QuestionnaireQuestions.Count;
+                var requiredQuestions = input.QuestionnaireQuestions.Count(q => q.IsRequired);
+                var answeredRequiredQuestions = input.QuestionnaireQuestions.Count(q => q.IsRequired && q.IsAnswered);
+
+                promptBuilder.AppendLine($"Total Questions: {totalQuestions}");
+                promptBuilder.AppendLine($"Answered Questions: {answeredQuestions}");
+                promptBuilder.AppendLine($"Required Questions: {requiredQuestions}");
+                promptBuilder.AppendLine($"Answered Required Questions: {answeredRequiredQuestions}");
+                promptBuilder.AppendLine($"Completion Rate: {(totalQuestions > 0 ? (decimal)answeredQuestions / totalQuestions * 100 : 0):F1}%");
+                promptBuilder.AppendLine();
+
+                promptBuilder.AppendLine("Question Details:");
+                foreach (var question in input.QuestionnaireQuestions)
+                {
+                    promptBuilder.AppendLine($"- [{(question.IsAnswered ? "✓" : "○")}] {question.QuestionText} {(question.IsRequired ? "(Required)" : "(Optional)")}");
+                    promptBuilder.AppendLine($"  Type: {question.QuestionType}");
+                    if (question.IsAnswered && question.Answer != null)
+                    {
+                        promptBuilder.AppendLine($"  Answer: {question.Answer}");
+                    }
+                    if (!string.IsNullOrEmpty(question.Category))
+                    {
+                        promptBuilder.AppendLine($"  Category: {question.Category}");
+                    }
+                }
+                promptBuilder.AppendLine();
+            }
+
+            // Add summary requirements based on length preference
+            promptBuilder.AppendLine("=== Summary Requirements ===");
+            switch (input.SummaryLength.ToLower())
+            {
+                case "short":
+                    promptBuilder.AppendLine("Generate a concise summary (1-2 paragraphs) focusing on key achievements and critical issues.");
+                    break;
+                case "detailed":
+                    promptBuilder.AppendLine("Generate a comprehensive summary (4-5 paragraphs) with detailed analysis of all aspects.");
+                    break;
+                default: // medium
+                    promptBuilder.AppendLine("Generate a balanced summary (2-3 paragraphs) covering main points and important details.");
+                    break;
+            }
+
+            promptBuilder.AppendLine();
+            
+            // Simplified requirements for better performance
+            if (input.SummaryLength.ToLower() == "short")
+            {
+                promptBuilder.AppendLine("Please provide a brief summary focusing on:");
+                promptBuilder.AppendLine("1. Current completion status");
+                promptBuilder.AppendLine("2. Key findings or issues");
+                promptBuilder.AppendLine("3. Next steps needed");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("Format as simple JSON:");
+                promptBuilder.AppendLine(@"{
+  ""summary"": ""Brief summary text"",
+  ""completionRate"": 75.5,
+  ""keyFindings"": [""finding1"", ""finding2""],
+  ""nextSteps"": [""step1"", ""step2""]
+}");
+            }
+            else
+            {
+                promptBuilder.AppendLine("Please provide a structured summary that includes:");
+                promptBuilder.AppendLine("1. **Overall Overview**: General status and progress");
+                promptBuilder.AppendLine("2. **Task Analysis**: Summary of task completion");
+                promptBuilder.AppendLine("3. **Key Insights**: Important findings");
+                promptBuilder.AppendLine("4. **Recommendations**: Next steps");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("Format the response as JSON:");
+                promptBuilder.AppendLine(@"{
+  ""summary"": ""Main summary text"",
+  ""breakdown"": {
+    ""overview"": ""Overall stage overview"",
+    ""taskAnalysis"": ""Task completion summary"",
+    ""progressAnalysis"": ""Progress analysis""
+  },
+  ""keyInsights"": [""insight1"", ""insight2""],
+  ""recommendations"": [""recommendation1"", ""recommendation2""],
+  ""completionStatus"": {
+    ""overallCompletionRate"": 75.5,
+    ""estimatedTimeToCompletion"": ""2-3 days""
+  }
+}");
+            }
+
+            return promptBuilder.ToString();
+        }
+
+        /// <summary>
+        /// Determine effective language for stage summary.
+        /// If input.Language is null/empty or equals to "auto", detect from content; otherwise return input.Language.
+        /// </summary>
+        private static string DetermineEffectiveLanguage(AIStageSummaryInput input)
+        {
+            var lang = input.Language?.Trim();
+            if (!string.IsNullOrWhiteSpace(lang) && !string.Equals(lang, "auto", StringComparison.OrdinalIgnoreCase))
+            {
+                return lang;
+            }
+
+            // Collect text content for heuristic detection
+            var sb = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(input.StageName)) sb.Append(input.StageName);
+            if (!string.IsNullOrWhiteSpace(input.StageDescription)) sb.Append(input.StageDescription);
+            if (input.ChecklistTasks != null)
+            {
+                foreach (var t in input.ChecklistTasks)
+                {
+                    if (!string.IsNullOrWhiteSpace(t.TaskName)) sb.Append(t.TaskName);
+                    if (!string.IsNullOrWhiteSpace(t.Description)) sb.Append(t.Description);
+                    if (!string.IsNullOrWhiteSpace(t.CompletionNotes)) sb.Append(t.CompletionNotes);
+                }
+            }
+            if (input.QuestionnaireQuestions != null)
+            {
+                foreach (var q in input.QuestionnaireQuestions)
+                {
+                    if (!string.IsNullOrWhiteSpace(q.QuestionText)) sb.Append(q.QuestionText);
+                    if (q.Answer != null) sb.Append(q.Answer?.ToString());
+                }
+            }
+
+            var combined = sb.ToString();
+            return ContainsCjk(combined) ? "zh-CN" : "en-US";
+        }
+
+        /// <summary>
+        /// Detect if a string contains CJK (Chinese) characters.
+        /// </summary>
+        private static bool ContainsCjk(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            // Basic CJK Unified Ideographs range
+            return Regex.IsMatch(text, "[\\u4e00-\\u9fff]");
+        }
+
+        /// <summary>
+        /// Parse AI response and create structured summary result
+        /// </summary>
+        /// <param name="aiResponse">Raw AI response</param>
+        /// <param name="input">Original input for context</param>
+        /// <returns>Structured summary result</returns>
+        private AIStageSummaryResult ParseStageSummaryResponse(string aiResponse, AIStageSummaryInput input)
+        {
+            try
+            {
+                // Try to extract JSON from the response
+                var jsonMatch = Regex.Match(aiResponse, @"\{.*\}", RegexOptions.Singleline);
+                if (jsonMatch.Success)
+                {
+                    var jsonContent = jsonMatch.Value;
+                    var summaryData = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+
+                    var result = new AIStageSummaryResult
+                    {
+                        Success = true,
+                        Message = "Summary generated successfully",
+                        ConfidenceScore = 0.85 // Default confidence score
+                    };
+
+                    // Extract main summary
+                    if (summaryData.TryGetProperty("summary", out var summaryElement))
+                    {
+                        result.Summary = summaryElement.GetString() ?? "";
+                    }
+
+                    // Extract breakdown
+                    if (summaryData.TryGetProperty("breakdown", out var breakdownElement))
+                    {
+                        result.Breakdown = new AIStageSummaryBreakdown
+                        {
+                            Overview = breakdownElement.TryGetProperty("overview", out var overviewEl) ? overviewEl.GetString() ?? "" : "",
+                            ChecklistSummary = breakdownElement.TryGetProperty("checklistSummary", out var checklistEl) ? checklistEl.GetString() ?? "" : "",
+                            QuestionnaireSummary = breakdownElement.TryGetProperty("questionnaireSummary", out var questionnaireEl) ? questionnaireEl.GetString() ?? "" : "",
+                            ProgressAnalysis = breakdownElement.TryGetProperty("progressAnalysis", out var progressEl) ? progressEl.GetString() ?? "" : "",
+                            RiskAssessment = breakdownElement.TryGetProperty("riskAssessment", out var riskEl) ? riskEl.GetString() ?? "" : ""
+                        };
+                    }
+
+                    // Extract key insights
+                    if (summaryData.TryGetProperty("keyInsights", out var insightsElement) && insightsElement.ValueKind == JsonValueKind.Array)
+                    {
+                        result.KeyInsights = insightsElement.EnumerateArray()
+                            .Select(item => item.GetString() ?? "")
+                            .Where(s => !string.IsNullOrEmpty(s))
+                            .ToList();
+                    }
+
+                    // Extract recommendations
+                    if (summaryData.TryGetProperty("recommendations", out var recommendationsElement) && recommendationsElement.ValueKind == JsonValueKind.Array)
+                    {
+                        result.Recommendations = recommendationsElement.EnumerateArray()
+                            .Select(item => item.GetString() ?? "")
+                            .Where(s => !string.IsNullOrEmpty(s))
+                            .ToList();
+                    }
+
+                    // Extract completion status
+                    if (summaryData.TryGetProperty("completionStatus", out var statusElement))
+                    {
+                        result.CompletionStatus = new AISummaryCompletionStatus
+                        {
+                            OverallCompletionRate = statusElement.TryGetProperty("overallCompletionRate", out var overallEl) ? (double)overallEl.GetDecimal() : 0,
+                            ChecklistCompletionRate = statusElement.TryGetProperty("checklistCompletionRate", out var checklistRateEl) ? (double)checklistRateEl.GetDecimal() : 0,
+                            QuestionnaireCompletionRate = statusElement.TryGetProperty("questionnaireCompletionRate", out var questionnaireRateEl) ? (double)questionnaireRateEl.GetDecimal() : 0,
+                            CriticalTasksCompleted = statusElement.TryGetProperty("criticalTasksCompleted", out var criticalEl) && criticalEl.GetBoolean(),
+                            RequiredQuestionsAnswered = statusElement.TryGetProperty("requiredQuestionsAnswered", out var requiredEl) && requiredEl.GetBoolean(),
+                            EstimatedTimeToCompletion = statusElement.TryGetProperty("estimatedTimeToCompletion", out var timeEl) ? timeEl.GetString() ?? "" : ""
+                        };
+                    }
+
+                    return result;
+                }
+                else
+                {
+                    // Fallback: use the entire response as summary
+                    return new AIStageSummaryResult
+                    {
+                        Success = true,
+                        Message = "Summary generated successfully (fallback format)",
+                        Summary = aiResponse,
+                        ConfidenceScore = 0.6
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing AI summary response: {Error}", ex.Message);
+                
+                // Fallback: return the raw response
+                return new AIStageSummaryResult
+                {
+                    Success = true,
+                    Message = "Summary generated with parsing issues",
+                    Summary = aiResponse,
+                    ConfidenceScore = 0.4
+                };
             }
         }
 

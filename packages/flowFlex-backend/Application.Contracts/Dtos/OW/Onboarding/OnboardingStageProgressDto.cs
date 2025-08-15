@@ -93,5 +93,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 定义Stage包含的组件及其顺序
         /// </summary>
         public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
+
+        // === AI Summary fields for display ===
+        public string AiSummary { get; set; }
+        public DateTime? AiSummaryGeneratedAt { get; set; }
+        public decimal? AiSummaryConfidence { get; set; }
+        public string AiSummaryModel { get; set; }
+        public string AiSummaryData { get; set; }
     }
 }

@@ -37,6 +37,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly IMediator _mediator;
+        private readonly IStageService _stageService;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -50,7 +51,8 @@ namespace FlowFlex.Application.Services.OW
 
             IMapper mapper,
             UserContext userContext,
-            IMediator mediator)
+            IMediator mediator,
+            IStageService stageService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -60,6 +62,7 @@ namespace FlowFlex.Application.Services.OW
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+            _stageService = stageService ?? throw new ArgumentNullException(nameof(stageService));
         }
 
         /// <summary>
@@ -1604,6 +1607,33 @@ namespace FlowFlex.Application.Services.OW
                     await PublishStageCompletionEventForCurrentStageAsync(entity, currentStage, isLastStage);
                 }
 
+                // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
+                try
+                {
+                    var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+                    _ = Task.Run(async () =>
+                    {
+                        var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
+                        if (ai != null && ai.Success)
+                        {
+                            LoadStagesProgressFromJson(entity);
+                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                            if (sp != null)
+                            {
+                                sp.AiSummary = ai.Summary;
+                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                sp.AiSummaryModel = ai.ModelUsed;
+                                var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                await SafeUpdateOnboardingAsync(entity);
+                            }
+                        }
+                    });
+                }
+                catch { /* fire-and-forget */ }
+
                 return result;
             }
             else
@@ -1620,6 +1650,33 @@ namespace FlowFlex.Application.Services.OW
                 await UpdateStagesProgressAsync(entity, currentStage.Id, GetCurrentUserName(), GetCurrentUserId(), "Stage completed via customer portal");
                 LoadStagesProgressFromJson(entity);
                 entity.CompletionRate = CalculateCompletionRateByStageOrder(entity.StagesProgress);
+
+                // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
+                try
+                {
+                    var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+                    _ = Task.Run(async () =>
+                    {
+                        var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
+                        if (ai != null && ai.Success)
+                        {
+                            LoadStagesProgressFromJson(entity);
+                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                            if (sp != null)
+                            {
+                                sp.AiSummary = ai.Summary;
+                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                sp.AiSummaryModel = ai.ModelUsed;
+                                var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                await SafeUpdateOnboardingAsync(entity);
+                            }
+                        }
+                    });
+                }
+                catch { /* fire-and-forget */ }
 
                 // Log stage completion to Change Log
                 await LogStageCompletionForCurrentStageAsync(entity, currentStage, GetCurrentUserName(), GetCurrentUserId(), "Stage completed via customer portal");
@@ -1747,6 +1804,75 @@ namespace FlowFlex.Application.Services.OW
             // Update stages progress for the completed stage (non-sequential completion)
             // Debug logging handled by structured logging
             await UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
+
+            // After updating progress, synchronously generate AI summary so client can fetch it right after completion
+            try
+            {
+                var lang = string.IsNullOrWhiteSpace(input.Language) ? "auto" : input.Language;
+                var opts = new StageSummaryOptions { Language = lang, SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+                // Try multiple attempts synchronously before falling back to placeholder
+                var ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+                if (ai == null || !ai.Success)
+                {
+                    try { await Task.Delay(1500); } catch {}
+                    ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+                }
+                LoadStagesProgressFromJson(entity);
+                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
+                if (sp != null)
+                {
+                    if (ai != null && ai.Success)
+                    {
+                        sp.AiSummary = ai.Summary;
+                        sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                        sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                        sp.AiSummaryModel = ai.ModelUsed;
+                        var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                        sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                    }
+                    else
+                    {
+                        // Fallback placeholder to ensure frontend sees a value immediately; schedule retry in background
+                        sp.AiSummary = "AI summary is being generated...";
+                        sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                        sp.AiSummaryConfidence = null;
+                        sp.AiSummaryModel = null;
+                        sp.AiSummaryData = null;
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+                                if (retry == null || !retry.Success)
+                                {
+                                    try { await Task.Delay(3000); } catch {}
+                                    retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+                                }
+                                if (retry != null && retry.Success)
+                                {
+                                    LoadStagesProgressFromJson(entity);
+                                    var sp2 = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
+                                    if (sp2 != null)
+                                    {
+                                        sp2.AiSummary = retry.Summary;
+                                        sp2.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                        sp2.AiSummaryConfidence = (decimal?)Convert.ToDecimal(retry.ConfidenceScore);
+                                        sp2.AiSummaryModel = retry.ModelUsed;
+                                        var dd = new { retry.Breakdown, retry.KeyInsights, retry.Recommendations, retry.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                        sp2.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(dd);
+                                        entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                        await SafeUpdateOnboardingAsync(entity);
+                                    }
+                                }
+                            }
+                            catch { }
+                        });
+                    }
+                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                    await SafeUpdateOnboardingAsync(entity);
+                }
+            }
+            catch { /* keep non-blocking if AI fails */ }
 
             // Calculate new completion rate based on completed stages
             entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
@@ -3744,6 +3870,94 @@ namespace FlowFlex.Application.Services.OW
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
                         stageProgress.ComponentsJson = stage.ComponentsJson;
                         stageProgress.Components = stage.Components;
+                        // AI Summary 回填策略：仅当 Onboarding 的该阶段为空时，采用 Stage 的AI字段做一次性填充，不覆盖已有值
+                        if (string.IsNullOrWhiteSpace(stageProgress.AiSummary) && !string.IsNullOrWhiteSpace(stage.AiSummary))
+                        {
+                            stageProgress.AiSummary = stage.AiSummary;
+                            stageProgress.AiSummaryGeneratedAt = stage.AiSummaryGeneratedAt;
+                            stageProgress.AiSummaryConfidence = stage.AiSummaryConfidence;
+                            stageProgress.AiSummaryModel = stage.AiSummaryModel;
+                            stageProgress.AiSummaryData = stage.AiSummaryData;
+                        }
+
+                        // Backfill: If stage is completed but Onboarding's AI Summary is still empty, trigger async generation once
+                        if (stageProgress.IsCompleted && string.IsNullOrWhiteSpace(stageProgress.AiSummary))
+                        {
+                            try
+                            {
+                                var opts = new StageSummaryOptions
+                                {
+                                    Language = "auto",
+                                    SummaryLength = "short",
+                                    IncludeTaskAnalysis = true,
+                                    IncludeQuestionnaireInsights = true
+                                };
+                                _ = Task.Run(async () =>
+                                {
+                                    var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
+                                    if (ai != null && ai.Success)
+                                    {
+                                        LoadStagesProgressFromJson(entity);
+                                        var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageProgress.StageId);
+                                        if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
+                                        {
+                                            sp.AiSummary = ai.Summary;
+                                            sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                            sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                            sp.AiSummaryModel = ai.ModelUsed;
+                                            var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                            sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                                            entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                            await SafeUpdateOnboardingAsync(entity);
+                                        }
+                                    }
+                                });
+                            }
+                            catch { /* fire-and-forget */ }
+                        }
+
+                        // Retry: If placeholder exists for a while, attempt regeneration in background
+                        if (stageProgress.IsCompleted &&
+                            !string.IsNullOrWhiteSpace(stageProgress.AiSummary) &&
+                            stageProgress.AiSummary.StartsWith("AI summary is being generated", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var shouldRetry = !stageProgress.AiSummaryGeneratedAt.HasValue ||
+                                              (DateTime.UtcNow - stageProgress.AiSummaryGeneratedAt.Value).TotalMinutes >= 1;
+                            if (shouldRetry)
+                            {
+                                try
+                                {
+                                    var opts = new StageSummaryOptions
+                                    {
+                                        Language = "auto",
+                                        SummaryLength = "short",
+                                        IncludeTaskAnalysis = true,
+                                        IncludeQuestionnaireInsights = true
+                                    };
+                                    _ = Task.Run(async () =>
+                                    {
+                                        var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
+                                        if (ai != null && ai.Success)
+                                        {
+                                            LoadStagesProgressFromJson(entity);
+                                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageProgress.StageId);
+                                            if (sp != null && sp.AiSummary != null && sp.AiSummary.StartsWith("AI summary is being generated", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                sp.AiSummary = ai.Summary;
+                                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                                sp.AiSummaryModel = ai.ModelUsed;
+                                                var dd = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(dd);
+                                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                                await SafeUpdateOnboardingAsync(entity);
+                                            }
+                                        }
+                                    });
+                                }
+                                catch { /* fire-and-forget */ }
+                            }
+                        }
                     }
                 }
 
