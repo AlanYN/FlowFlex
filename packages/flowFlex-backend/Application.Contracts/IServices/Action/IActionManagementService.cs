@@ -115,7 +115,7 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// </summary>
         /// <param name="actionDefinitionId">Action definition ID</param>
         /// <returns>List of action trigger mapping DTOs</returns>
-        Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByActionIdAsync(long actionDefinitionId);
+        Task<List<ActionTriggerMappingInfo>> GetActionTriggerMappingsByActionIdAsync(long actionDefinitionId);
 
         /// <summary>
         /// Get action trigger mappings by trigger type

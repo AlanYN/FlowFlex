@@ -10,6 +10,7 @@ using Newtonsoft.Json.Serialization;
 using FlowFlex.Domain.Shared.Models;
 using Application.Contracts.IServices.Action;
 using Item.Excel.Lib;
+using System.Text.RegularExpressions;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -214,7 +215,28 @@ namespace FlowFlex.Application.Services.Action
                 throw new ArgumentException("Python script source code is required");
             }
 
+            if (!ValidateMainFunction(config.SourceCode))
+            {
+                throw new ArgumentException("Source code must contain a 'main' function definition");
+            }
+
             _logger.LogInformation("Python action configuration validated successfully");
+        }
+
+        /// <summary>
+        /// Validate that source code contains a main function
+        /// </summary>
+        /// <param name="sourceCode">Python source code</param>
+        /// <returns>True if main function exists, false otherwise</returns>
+        private bool ValidateMainFunction(string sourceCode)
+        {
+            if (string.IsNullOrWhiteSpace(sourceCode))
+                return false;
+
+            var mainPattern = @"def\s+main\s*\([^)]*\)\s*:";
+            var match = Regex.Match(sourceCode, mainPattern, RegexOptions.IgnoreCase);
+
+            return match.Success;
         }
 
         private void ValidateHttpApiConfig(JToken actionConfig)
@@ -313,10 +335,10 @@ namespace FlowFlex.Application.Services.Action
             return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
         }
 
-        public async Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByActionIdAsync(long actionDefinitionId)
+        public async Task<List<ActionTriggerMappingInfo>> GetActionTriggerMappingsByActionIdAsync(long actionDefinitionId)
         {
-            var entities = await _actionTriggerMappingRepository.GetByActionDefinitionIdAsync(actionDefinitionId);
-            return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
+            var entities = await _actionDefinitionRepository.GetTriggerMappingsWithDetailsByActionIdsAsync([actionDefinitionId]);
+            return _mapper.Map<List<ActionTriggerMappingInfo>>(entities);
         }
 
         public async Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByTriggerTypeAsync(string triggerType)
