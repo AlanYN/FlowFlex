@@ -66,3 +66,16 @@ export interface ActionItem {
 	description: string;
 	actionConfig: ActionConfig;
 }
+
+export interface ActionListItem {
+	actionCode: string;
+	actionConfig: ActionConfig;
+	actionType: number;
+	createdAt: string;
+	description: string;
+	id: string;
+	isEnabled: boolean;
+	name: string;
+	triggerMappings: [];
+	updatedAt: string;
+}

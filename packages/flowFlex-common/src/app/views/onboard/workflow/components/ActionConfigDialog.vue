@@ -119,7 +119,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
 	'update:modelValue': [value: boolean];
-	save: [action: ActionItem];
+	save: [action: any];
 	cancel: [];
 }>();
 
@@ -213,11 +213,7 @@ const getDefaultConfig = (type: string) => {
         "processed_event": event.get('eventId', ''),
         "stage_completed": event.get('completedStageName', ''),
         "responses_count": len(responses)
-    }
-
-if __name__ == "__main__":
-    result = main(context)
-    print(result)`,
+    }`,
 		};
 	} else if (type === 'http') {
 		return {
