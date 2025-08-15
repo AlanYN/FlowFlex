@@ -229,12 +229,10 @@ import {
 	getActionDefinitions,
 	deleteAction,
 	exportActions,
-	type ActionDefinition,
-	type ActionQueryRequest,
-	type TriggerMapping,
 	ActionType,
 	ACTION_TYPE_MAPPING,
-} from '../../apis/action';
+} from '@/apis/action';
+import { ActionDefinition, TriggerMapping, ActionQueryRequest } from '#/action';
 
 // Router
 const router = useRouter();
@@ -400,7 +398,7 @@ const handleDelete = async (row: ActionDefinition) => {
 		);
 
 		loading.value = true;
-		const response = await deleteAction(row.id);
+		const response = await deleteAction(row?.id || '');
 
 		if (response.code === '200' && response.success) {
 			ElMessage.success('Action deleted successfully');

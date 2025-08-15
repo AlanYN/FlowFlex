@@ -62,6 +62,7 @@
 			:action="currentActionForEdit"
 			:is-editing="editingIndex !== -1"
 			:stage-id="stageId"
+			:workflow-id="workflowId"
 			@save="onActionSave"
 			@cancel="onActionCancel"
 		/>
@@ -76,27 +77,12 @@ import DraggableList from '@/components/DraggableList/index.vue';
 import ActionItem from './ActionItem.vue';
 import ActionConfigDialog from './ActionConfigDialog.vue';
 
-// Types
-interface ActionConfig {
-	sourceCode?: string;
-	url?: string;
-	method?: string;
-	headers?: string;
-	timeout?: number;
-	[key: string]: any;
-}
-
-interface ActionItemType {
-	id: string;
-	name: string;
-	type: 'python' | 'http';
-	description: string;
-	config: ActionConfig;
-}
+import { ActionItem as ActionItemType } from '#/action';
 
 // Props
 const props = defineProps<{
 	stageId?: string;
+	workflowId?: string;
 	modelValue?: ActionItemType[];
 }>();
 

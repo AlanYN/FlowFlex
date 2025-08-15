@@ -95,7 +95,11 @@
 				/>
 			</TabPane>
 			<TabPane value="actions">
-				<Action :stage-id="formData.id" v-model="formData.actions" />
+				<Action
+					:stage-id="formData.id"
+					:workflow-id="workflowId"
+					v-model="formData.actions"
+				/>
 			</TabPane>
 		</PrototypeTabs>
 
@@ -150,24 +154,41 @@ const props = defineProps({
 		type: Array as PropType<Questionnaire[]>,
 		default: () => [],
 	},
+	workflowId: {
+		type: String,
+		default: '',
+	},
 });
 
 // Tab配置
 const currentTab = ref('basicInfo');
-const tabsConfig = [
-	{
-		value: 'basicInfo',
-		label: 'Basic Info',
-	},
-	{
-		value: 'components',
-		label: 'Components',
-	},
-	{
-		value: 'actions',
-		label: 'Actions',
-	},
-];
+const tabsConfig = computed(() => {
+	return props?.stage?.id
+		? [
+				{
+					value: 'basicInfo',
+					label: 'Basic Info',
+				},
+				{
+					value: 'components',
+					label: 'Components',
+				},
+				{
+					value: 'actions',
+					label: 'Actions',
+				},
+		  ]
+		: [
+				{
+					value: 'basicInfo',
+					label: 'Basic Info',
+				},
+				{
+					value: 'components',
+					label: 'Components',
+				},
+		  ];
+});
 
 // 表单数据
 const formData = ref({
