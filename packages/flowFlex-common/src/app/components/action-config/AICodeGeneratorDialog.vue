@@ -27,13 +27,15 @@
 				<!-- Left: Instructions -->
 				<div class="flex-1 flex flex-col h-80 lg:h-auto">
 					<div class="font-medium text-gray-900 mb-2">Instructions</div>
-					<el-input
-						v-model="aiInstructions"
-						type="textarea"
-						:rows="10"
-						placeholder="Please enter a detailed description of the code you want to generate."
-						class="flex-1"
-					/>
+					<div class="flex-1 border-gray-200 rounded overflow-hidden">
+						<el-input
+							v-model="aiInstructions"
+							type="textarea"
+							:rows="10"
+							placeholder="Please enter a detailed description of the code you want to generate."
+							class="h-full instructions-textarea"
+						/>
+					</div>
 				</div>
 
 				<!-- Right: Preview -->
@@ -145,3 +147,12 @@ const getModelDisplayName = (model: any) => {
 	return `${model.name} (${model.provider})`;
 };
 </script>
+
+<style scoped lang="scss">
+.instructions-textarea {
+	:deep(.el-textarea__inner) {
+		height: 100% !important;
+		min-height: 100% !important;
+	}
+}
+</style>

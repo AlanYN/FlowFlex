@@ -162,5 +162,16 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         Task<bool> BatchUpdateActionTriggerMappingStatusAsync(List<long> mappingIds, bool isEnabled);
 
         #endregion
+
+        #region Action Configuration Validation
+
+        /// <summary>
+        /// Validate action configuration
+        /// </summary>
+        /// <param name="actionType">Action type</param>
+        /// <param name="actionConfig">Action configuration JSON string</param>
+        void ValidateActionConfig(ActionTypeEnum actionType, string actionConfig);
+
+        #endregion
     }
 }

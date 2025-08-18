@@ -16,17 +16,20 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly IActionExecutionRepository _actionExecutionRepository;
         private readonly IActionExecutionFactory _actionExecutorFactory;
+        private readonly IActionManagementService _actionManagementService;
         private readonly ILogger<ActionExecutionService> _logger;
 
         public ActionExecutionService(
             IActionDefinitionRepository actionDefinitionRepository,
             IActionExecutionRepository actionExecutionRepository,
             IActionExecutionFactory actionExecutorFactory,
+            IActionManagementService actionManagementService,
             ILogger<ActionExecutionService> logger)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionExecutionRepository = actionExecutionRepository;
             _actionExecutorFactory = actionExecutorFactory;
+            _actionManagementService = actionManagementService;
             _logger = logger;
         }
 
@@ -97,6 +100,32 @@ namespace FlowFlex.Application.Services.Action
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in ExecuteActionAsync: ActionId={ActionId}", actionDefinitionId);
+                throw;
+            }
+        }
+
+        public async Task<object> ExecuteActionDirectlyAsync(
+            ActionTypeEnum actionType,
+            string actionConfig,
+            object contextData = null)
+        {
+            try
+            {
+                _logger.LogInformation("Executing action directly: ActionType={ActionType}", actionType);
+
+                // Validate action config using ActionManagementService
+                _actionManagementService.ValidateActionConfig(actionType, actionConfig);
+
+                // Create executor and execute
+                var executor = _actionExecutorFactory.CreateExecutor(actionType);
+                var result = await executor.ExecuteAsync(actionConfig, contextData);
+
+                _logger.LogInformation("Action executed successfully: ActionType={ActionType}", actionType);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in ExecuteActionDirectlyAsync: ActionType={ActionType}", actionType);
                 throw;
             }
         }

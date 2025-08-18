@@ -14,7 +14,7 @@
 		</div>
 
 		<!-- Test Run Section -->
-		<div class="test-section" v-if="idEditing">
+		<div class="test-section">
 			<div class="flex items-center justify-between mb-3">
 				<h5 class="font-medium text-gray-700 dark:text-gray-300">Test Script</h5>
 				<div class="button-group">
@@ -42,7 +42,7 @@
 				<div class="bg-gray-50 dark:bg-gray-800 rounded p-3">
 					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
 					<pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{
-						testResult
+						testResult.stdout || testResult
 					}}</pre>
 				</div>
 			</div>
@@ -75,14 +75,22 @@ import { useAICodeGenerator } from '@/hooks/useAICodeGenerator';
 interface Props {
 	modelValue?: any;
 	testing?: boolean;
-	testResult?: string;
+	testResult?: {
+		executionTime: string;
+		memoryUsage: number;
+		message: string;
+		status: string;
+		stdout: string;
+		success: boolean;
+		timestamp: string;
+		token: string;
+	};
 	idEditing?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	modelValue: () => ({}),
 	testing: false,
-	testResult: '',
 });
 
 const emit = defineEmits<{
