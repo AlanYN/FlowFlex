@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Services.Action.Executors
 {
@@ -43,7 +45,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                     return CreateErrorResult("URL is required");
                 }
 
-                var result = await ExecuteHttpRequestAsync(configData);
+                var result = await ExecuteHttpRequestAsync(configData, triggerContext);
                 return result;
             }
             catch (Exception ex)
@@ -66,7 +68,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             }
         }
 
-        private async Task<object> ExecuteHttpRequestAsync(HttpApiConfigDto config)
+        private async Task<object> ExecuteHttpRequestAsync(HttpApiConfigDto config, object triggerContext)
         {
             using var client = _httpClientFactory.CreateClient("HttpApiExecutor");
 
@@ -76,21 +78,25 @@ namespace FlowFlex.Application.Services.Action.Executors
                 client.Timeout = TimeSpan.FromSeconds(config.Timeout);
             }
 
-            var request = new HttpRequestMessage(GetHttpMethod(config.Method), config.Url);
+            // Replace placeholders in URL
+            var processedUrl = ReplacePlaceholders(config.Url, triggerContext);
+            var request = new HttpRequestMessage(GetHttpMethod(config.Method), processedUrl);
 
-            // Add headers
+            // Add headers with placeholder replacement
             foreach (var header in config.Headers)
             {
                 if (!request.Headers.Contains(header.Key))
                 {
-                    request.Headers.Add(header.Key, header.Value);
+                    var processedValue = ReplacePlaceholders(header.Value, triggerContext);
+                    request.Headers.Add(header.Key, processedValue);
                 }
             }
 
-            // Add body
+            // Add body with placeholder replacement
             if (!string.IsNullOrEmpty(config.Body))
             {
-                request.Content = new StringContent(config.Body, System.Text.Encoding.UTF8, "application/json");
+                var processedBody = ReplacePlaceholders(config.Body, triggerContext);
+                request.Content = new StringContent(processedBody, System.Text.Encoding.UTF8, "application/json");
             }
 
             try
@@ -100,7 +106,7 @@ namespace FlowFlex.Application.Services.Action.Executors
 
                 _logger.LogInformation(
                     "HTTP API request completed: {Method} {Url} - Status: {StatusCode}",
-                    config.Method, config.Url, (int)response.StatusCode);
+                    config.Method, processedUrl, (int)response.StatusCode);
 
                 return CreateSuccessResult(response, content);
             }
@@ -108,9 +114,119 @@ namespace FlowFlex.Application.Services.Action.Executors
             {
                 _logger.LogError(ex,
                     "HTTP API request failed: {Method} {Url}",
-                    config.Method, config.Url);
+                    config.Method, processedUrl);
 
                 return CreateErrorResult($"HTTP request failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Replace placeholders like {{ stageId }} with values from triggerContext
+        /// </summary>
+        /// <param name="input">Input string containing placeholders</param>
+        /// <param name="triggerContext">Context object containing values</param>
+        /// <returns>String with placeholders replaced</returns>
+        private string ReplacePlaceholders(string input, object triggerContext)
+        {
+            if (string.IsNullOrEmpty(input) || triggerContext == null)
+                return input;
+
+            try
+            {
+                // Use regex to find all placeholders like {{stageId}}
+                var placeholderPattern = @"\{\{(\w+)\}\}";
+                var result = Regex.Replace(input, placeholderPattern, match =>
+                {
+                    var placeholderName = match.Groups[1].Value.Trim();
+                    var value = ExtractValueFromContext(triggerContext, placeholderName);
+                    return value?.ToString() ?? match.Value; // Return original placeholder if value not found
+                });
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to replace placeholders in string: {Input}", input);
+                return input;
+            }
+        }
+
+        /// <summary>
+        /// Extract value from triggerContext by property name
+        /// </summary>
+        /// <param name="triggerContext">Context object</param>
+        /// <param name="propertyName">Property name to extract</param>
+        /// <returns>Property value or null if not found</returns>
+        private object? ExtractValueFromContext(object triggerContext, string propertyName)
+        {
+            if (triggerContext == null)
+                return null;
+
+            try
+            {
+                // Handle JToken/JObject
+                if (triggerContext is JToken jToken)
+                {
+                    var token = jToken[propertyName];
+                    if (token != null && token.Type != JTokenType.Null)
+                    {
+                        return token.ToObject<object>();
+                    }
+                    return null;
+                }
+
+                // Handle JObject
+                if (triggerContext is JObject jObject)
+                {
+                    var token = jObject[propertyName];
+                    if (token != null && token.Type != JTokenType.Null)
+                    {
+                        return token.ToObject<object>();
+                    }
+                    return null;
+                }
+
+                // Handle IDictionary
+                if (triggerContext is System.Collections.IDictionary dict)
+                {
+                    if (dict.Contains(propertyName))
+                    {
+                        return dict[propertyName];
+                    }
+                    return null;
+                }
+
+                // Handle generic Dictionary
+                if (triggerContext is IDictionary<string, object> genericDict)
+                {
+                    if (genericDict.TryGetValue(propertyName, out var value))
+                    {
+                        return value;
+                    }
+                    return null;
+                }
+
+                // Handle object properties via reflection
+                var property = triggerContext.GetType().GetProperty(propertyName);
+                if (property != null)
+                {
+                    return property.GetValue(triggerContext);
+                }
+
+                // Try case-insensitive property search
+                property = triggerContext.GetType().GetProperties()
+                    .FirstOrDefault(p => p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase));
+                if (property != null)
+                {
+                    return property.GetValue(triggerContext);
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract property '{PropertyName}' from triggerContext", propertyName);
+                return null;
             }
         }
 

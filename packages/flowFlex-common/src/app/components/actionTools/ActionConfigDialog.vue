@@ -1,7 +1,7 @@
 <template>
 	<el-drawer v-model="visible" :title="dialogTitle" :size="600" direction="rtl" @close="onCancel">
 		<el-scrollbar class="action-config-scrollbar" max-height="calc(100vh - 140px)">
-			<div class="action-config-container pr-4">
+			<div class="action-config-container pr-4" v-loading="loading">
 				<el-form
 					ref="formRef"
 					:model="formData"
@@ -30,6 +30,7 @@
 								:key="type.value"
 								:value="type.value"
 								class="action-type-option"
+								:disabled="isEditing"
 							>
 								<div class="flex items-center space-x-3">
 									<div
@@ -49,11 +50,6 @@
 						</el-radio-group>
 					</el-form-item>
 
-					<!-- Variables Panel (shared across all action types) -->
-					<div v-if="formData.type" class="variables-section mb-6">
-						<VariablesPanel :stage-id="stageId" :action-type="formData.type" />
-					</div>
-
 					<!-- Action Configuration -->
 					<div v-if="formData.type" class="action-config-section">
 						<!-- Python Script Configuration -->
@@ -63,6 +59,8 @@
 							@test="onTest"
 							:testing="testing"
 							:test-result="testResult"
+							ref="pythonConfigRef"
+							:id-editing="isEditing"
 						/>
 
 						<!-- HTTP API Configuration -->
@@ -71,8 +69,14 @@
 							v-model="formData.actionConfig"
 							@test="onTest"
 							:testing="testing"
-							:test-result="testResult"
+							ref="httpConfigRef"
+							:id-editing="isEditing"
 						/>
+					</div>
+
+					<!-- Variables Panel (shared across all action types) -->
+					<div v-if="formData.type" class="variables-section mt-6">
+						<VariablesPanel :stage-id="stageId" :action-type="formData.type" />
 					</div>
 				</el-form>
 			</div>
@@ -90,16 +94,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Operation, Connection } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
 
-import { addAction, ActionType } from '@/apis/action';
+import { addAction, ActionType, updateAction } from '@/apis/action';
 import { TriggerTypeEnum } from '@/enums/appEnum';
 import { ActionItem } from '#/action';
+import { useTestRun } from '@/hooks/useTestRun';
 
 interface Props {
 	modelValue?: boolean;
@@ -107,6 +112,7 @@ interface Props {
 	isEditing?: boolean;
 	stageId?: string;
 	workflowId?: string;
+	loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -123,11 +129,16 @@ const emit = defineEmits<{
 	cancel: [];
 }>();
 
+// Use Test Run Hook
+const { handleComponentTest, executeTest } = useTestRun();
+
 // Form data
 const formRef = ref();
 const saving = ref(false);
 const testing = ref(false);
 const testResult = ref('');
+const pythonConfigRef = ref(); // For getting Python config component reference
+const httpConfigRef = ref(); // For getting HTTP config component reference
 
 const formData = reactive<ActionItem>({
 	id: '',
@@ -172,48 +183,49 @@ const rules = {
 const getDefaultConfig = (type: string) => {
 	if (type === 'python') {
 		return {
-			sourceCode: `def main(context):
+			sourceCode: `from datetime import datetime
+
+def main():
     """
     Main function executed when the stage is completed.
-    The context parameter contains all event and questionnaire data.
+    Access trigger context data through global variables or specific parameters.
     """
-    # Access event data
-    event = context.get('event', {})
-    print(f"Processing event: {event.get('eventId', '')}")
-    print(f"Onboarding ID: {event.get('onboardingId', '')}")
-    print(f"Workflow: {event.get('workflowName', '')}")
-    print(f"Completed Stage: {event.get('completedStageName', '')}")
-    print(f"Next Stage: {event.get('nextStageName', '')}")
-    print(f"Completion Rate: {event.get('completionRate', 0)}%")
-    print(f"Final Stage: {event.get('isFinalStage', False)}")
+    # Example: Access data from trigger context
+    # The actual parameter names depend on your backend implementation
     
-    # Access business context
-    business_context = event.get('businessContext', {})
-    completion_method = business_context.get('CompletionMethod', '')
-    completion_notes = business_context.get('CompletionNotes', '')
-    print(f"Completion Method: {completion_method}")
-    print(f"Notes: {completion_notes}")
-    
-    # Process questionnaire responses
-    questionnaire_data = context.get('questionnaire_responses', {})
-    responses = questionnaire_data.get('responses', [])
-    print(f"Processing {len(responses)} questionnaire responses")
-    
-    for response in responses:
-        question = response.get('question', '')
-        answer = response.get('answer', '')
-        response_type = response.get('type', '')
-        print(f"Q ({response_type}): {question}")
-        print(f"A: {answer}")
-    
-    # Your custom logic here
-    return {
-        "status": "success", 
-        "message": "Action completed successfully",
-        "processed_event": event.get('eventId', ''),
-        "stage_completed": event.get('completedStageName', ''),
-        "responses_count": len(responses)
-    }`,
+    try:
+        # Print available variables for debugging
+        print("=== Action Execution Started ===")
+        
+        # Access event data (adjust parameter names as needed)
+        # Common patterns:
+        # - event_data = triggerContext.get('event', {})
+        # - onboarding_data = triggerContext.get('onboarding', {})
+        # - questionnaire_data = triggerContext.get('questionnaire', {})
+        
+        print("Processing action execution...")
+        
+        # Your custom logic here
+        # Example operations:
+        # 1. Process event data
+        # 2. Send notifications
+        # 3. Update external systems
+        # 4. Log information
+        
+        print("Action completed successfully")
+        
+        return {
+            "status": "success", 
+            "message": "Action completed successfully",
+            "timestamp": str(datetime.now().isoformat())
+        }
+        
+    except Exception as e:
+        print(f"Error in action execution: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Action failed: {str(e)}"
+        }`,
 		};
 	} else if (type === 'http') {
 		return {
@@ -256,42 +268,75 @@ const handleActionTypeChange = (type: string) => {
 	formData.actionConfig = getDefaultConfig(type);
 };
 
-const onTest = async () => {
-	testing.value = true;
-	try {
-		await new Promise((resolve) => setTimeout(resolve, 2000));
+// Handle test result - 参考 detail.vue 的 handleTestResult 逻辑
+const onTest = async (result: any) => {
+	// Force get current config values from components
+	let currentActionConfig = { ...formData.actionConfig };
 
-		if (formData.type === 'python') {
-			testResult.value = `Test execution completed successfully!
-
-Output:
-Processing onboarding: John Doe
-Stage completed: Document Collection
-Question: What is your company name?
-Answer: Example Corp
-{'status': 'success', 'message': 'Action completed successfully'}
-
-Execution time: 0.123 seconds`;
-		} else if (formData.type === 'http') {
-			testResult.value = `HTTP API test completed successfully!
-
-Request:
-${formData.actionConfig.method} ${formData.actionConfig.url}
-Headers: ${formData.actionConfig.headers}
-
-Response:
-Status: 200 OK
-Body: {"status": "success", "message": "API call successful"}
-
-Response time: 234ms`;
+	// If current type is Python Script, try to get latest value from PythonConfig component
+	if (formData.type === 'python' && pythonConfigRef.value) {
+		// Get latest config through exposed method if available
+		if (typeof pythonConfigRef.value.getCurrentConfig === 'function') {
+			const currentConfig = pythonConfigRef.value.getCurrentConfig();
+			currentActionConfig = currentConfig;
 		}
+	} else if (formData.type === 'http' && httpConfigRef.value) {
+		// Get latest config from HTTP component if available
+		if (typeof httpConfigRef.value.getCurrentConfig === 'function') {
+			const currentConfig = httpConfigRef.value.getCurrentConfig();
+			currentActionConfig = currentConfig;
+		}
+	}
 
-		ElMessage.success('Test completed successfully');
-	} catch (error) {
-		testResult.value = `Error: ${error}`;
-		ElMessage.error('Test failed');
-	} finally {
-		testing.value = false;
+	const canTest = await handleComponentTest(result, {
+		actionId: formData.id || 'temp-action-id', // Use temp ID for new actions
+		currentData: {
+			...formData,
+			actionConfig: currentActionConfig,
+		},
+		originalData: null, // New action, no original data
+		silentSave: false, // For new actions, we might not need to save first
+		onSave: async () => {
+			// For new actions in dialog, we don't pre-save, just validate
+			try {
+				if (!formRef.value) return false;
+				await formRef.value.validate();
+
+				// Validate based on action type
+				if (formData.type === 'python' && !currentActionConfig.sourceCode) {
+					ElMessage.error('Please enter Python script code');
+					return false;
+				}
+
+				if (formData.type === 'http' && !currentActionConfig.url) {
+					ElMessage.error('Please enter HTTP API URL');
+					return false;
+				}
+
+				return true; // Validation passed
+			} catch (error) {
+				return false;
+			}
+		},
+	});
+
+	if (canTest) {
+		try {
+			testing.value = true;
+			await nextTick();
+
+			// Execute test
+			const testOutput = await executeTest(
+				formData.id || 'temp-action-id',
+				formData.type === 'python' ? 'Python Script' : 'HTTP API'
+			);
+
+			if (testOutput) {
+				testResult.value = testOutput;
+			}
+		} finally {
+			testing.value = false;
+		}
 	}
 };
 
@@ -324,23 +369,36 @@ const onSave = async () => {
 		} else if (formData.type === 'http') {
 			// HTTP 类型需要符合 HttpApiConfigDto 的字段
 			cleanActionConfig = {
+				...formData.actionConfig,
 				url: formData.actionConfig.url || '',
 				method: formData.actionConfig.method || 'GET',
 				headers: formData.actionConfig.headers || {},
+				params: formData.actionConfig.params || {},
 				body: formData.actionConfig.body || '',
 				timeout: formData.actionConfig.timeout || 30,
 				followRedirects: formData.actionConfig.followRedirects !== false, // 默认为 true
 			};
 		}
 
-		const res = await addAction({
-			...formData,
-			actionConfig: JSON.stringify(cleanActionConfig),
-			workflowId: props?.workflowId || '',
-			actionType: formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
-			triggerSourceId: props.stageId,
-			triggerType: TriggerTypeEnum.Stage,
-		});
+		const res: any = formData.id
+			? await updateAction(formData.id, {
+					...formData,
+					actionConfig: JSON.stringify(cleanActionConfig),
+					workflowId: props?.workflowId || '',
+					actionType:
+						formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
+					triggerSourceId: props.stageId,
+					triggerType: TriggerTypeEnum.Stage,
+			  })
+			: await addAction({
+					...formData,
+					actionConfig: JSON.stringify(cleanActionConfig),
+					workflowId: props?.workflowId || '',
+					actionType:
+						formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
+					triggerSourceId: props.stageId,
+					triggerType: TriggerTypeEnum.Stage,
+			  });
 		console.log('res:', res);
 		if (res.code == '200') {
 			ElMessage.success('Action added successfully');
@@ -392,10 +450,6 @@ const onCancel = () => {
 
 .section-header {
 	@apply border-b border-gray-200 dark:border-gray-700 pb-3 mb-4;
-}
-
-.variables-section {
-	@apply mb-6;
 }
 
 .action-config-section {

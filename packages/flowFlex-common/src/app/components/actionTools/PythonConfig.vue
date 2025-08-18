@@ -1,19 +1,5 @@
 <template>
 	<div>
-		<!-- Context Parameter Documentation -->
-		<div class="context-doc-section">
-			<div class="context-structure">
-				<div
-					class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
-				>
-					<pre
-						class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono"
-						>{{ contextStructure }}</pre
-					>
-				</div>
-			</div>
-		</div>
-
 		<!-- Python Script Editor -->
 		<div>
 			<CodeEditor
@@ -22,13 +8,13 @@
 				v-model="sourceCode"
 				language="python"
 				title="Python Script"
-				description="Write your Python code here. The context parameter structure is shown above."
+				description="Write your Python code here. Check the 'Context Structure' tab in Variables Panel above for the complete context parameter definition."
 				height="400px"
 			/>
 		</div>
 
 		<!-- Test Run Section -->
-		<div class="test-section">
+		<div class="test-section" v-if="idEditing">
 			<div class="flex items-center justify-between mb-3">
 				<h5 class="font-medium text-gray-700 dark:text-gray-300">Test Script</h5>
 				<div class="button-group">
@@ -90,6 +76,7 @@ interface Props {
 	modelValue?: any;
 	testing?: boolean;
 	testResult?: string;
+	idEditing?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -137,51 +124,6 @@ const isCodeEditorLoading = computed(() => {
 	return codeEditorRef.value?.isLoading?.() || false;
 });
 
-// Context parameter structure documentation
-const contextStructure = computed(() => {
-	return `context = {
-    "event": {
-        "eventId": "string",
-        "timestamp": "string", 
-        "tenantId": "string",
-        "onboardingId": "string",
-        "leadId": "string",
-        "workflowId": "string",
-        "workflowName": "string",
-        "completionRate": "number",
-        "isFinalStage": "boolean",
-        "responsibleTeam": "string",
-        "assigneeId": "string",
-        "assigneeName": "string",
-        "completedStageId": "string",
-        "completedStageName": "string",
-        "stageCategory": "string",
-        "nextStageId": "string",
-        "nextStageName": "string",
-        "businessContext": {
-            "CompletionMethod": "string",
-            "AutoMoveToNext": "boolean",
-            "CompletionNotes": "string"
-        }
-    },
-    "questionnaire_responses": {
-        "questionnaireId": "string",
-        "stageId": "string", 
-        "responses": [
-            {
-                "questionId": "string",
-                "question": "string",
-                "answer": "string",
-                "type": "string",
-                "responseText": "string",
-                "lastModifiedAt": "string",
-                "lastModifiedBy": "string"
-            }
-        ]
-    }
-}`;
-});
-
 // Create apply function for AI generator
 const applyGeneratedCode = createApplyGeneratedCode((code: string) => {
 	sourceCode.value = code;
@@ -212,18 +154,6 @@ const handleTest = () => {
 
 	pre {
 		@apply max-h-40 overflow-y-auto;
-	}
-}
-
-.context-doc-section {
-	@apply border-b border-gray-200 dark:border-gray-700 pb-4;
-}
-
-.context-structure {
-	@apply mt-3;
-
-	pre {
-		@apply max-h-60 overflow-y-auto text-xs leading-relaxed;
 	}
 }
 

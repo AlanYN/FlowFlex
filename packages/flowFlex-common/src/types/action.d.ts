@@ -70,7 +70,7 @@ export interface ActionItem {
 export interface ActionListItem {
 	actionCode: string;
 	actionConfig: ActionConfig;
-	actionType: number;
+	actionType: number | string;
 	createdAt: string;
 	description: string;
 	id: string;
@@ -79,4 +79,5 @@ export interface ActionListItem {
 	triggerMappings: [];
 	updatedAt: string;
 	actionName?: string;
+	actionDefinitionId?: string;
 }

@@ -64,6 +64,7 @@
 			:is-editing="editingIndex !== -1"
 			:stage-id="stageId"
 			:workflow-id="workflowId"
+			:loading="editLoading"
 			@save-success="onActionSave"
 			@cancel="onActionCancel"
 		/>
@@ -77,7 +78,7 @@ import { Plus, Document } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 import ActionItem from './ActionItem.vue';
 import ActionConfigDialog from './ActionConfigDialog.vue';
-import { getStageAction, deleteAction } from '@/apis/action';
+import { getStageAction, deleteAction, getActionDetail } from '@/apis/action';
 import { useI18n } from 'vue-i18n';
 import { ActionListItem } from '#/action';
 
@@ -117,17 +118,27 @@ const addAction = () => {
 	showActionDialog.value = true;
 };
 
-const editAction = (index: number) => {
-	const action = actions.value[index];
-	// Convert ActionListItem to ActionItem by adding required type field
-	currentActionForEdit.value = {
-		...action,
-		type: action.actionType === 1 ? 'python' : 'http',
-	};
-	editingIndex.value = index;
-	selectedActionIndex.value = index;
-	nextTick(() => {
-		showActionDialog.value = true;
+const editLoading = ref(false);
+const editAction = async (index: number) => {
+	showActionDialog.value = true;
+	nextTick(async () => {
+		try {
+			editLoading.value = true;
+			const action = actions.value[index];
+			const res = await getActionDetail(action?.actionDefinitionId || '');
+			if (res.code === '200' && res?.data) {
+				currentActionForEdit.value = {
+					...res?.data,
+					actionConfig: JSON.parse(res?.data?.actionConfig || '{}'),
+					type: res?.data?.actionType === 1 ? 'python' : 'http',
+				};
+			}
+
+			editingIndex.value = index;
+			selectedActionIndex.value = index;
+		} finally {
+			editLoading.value = false;
+		}
 	});
 };
 

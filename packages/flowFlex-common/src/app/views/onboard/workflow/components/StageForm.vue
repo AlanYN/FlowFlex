@@ -121,7 +121,7 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 import StageComponentsSelector from './StageComponentsSelector.vue';
-import Action from './Action.vue';
+import Action from '@/components/actionTools/Action.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentData } from '#/onboard';
