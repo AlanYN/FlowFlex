@@ -5,12 +5,17 @@
 			<el-form :model="formConfig" label-width="120px" class="space-y-6" label-position="top">
 				<el-form-item label="Request URL" required class="request-url-input">
 					<el-input
-						v-model="formConfig.url"
+						:model-value="formConfig.url"
+						@update:model-value="setUrl"
 						placeholder="Enter URL, type '/' to insert variables"
 						class="w-full"
 					>
 						<template #prepend>
-							<el-select v-model="formConfig.method" style="width: 115px">
+							<el-select
+								:model-value="formConfig.method"
+								@update:model-value="setMethod"
+								style="width: 115px"
+							>
 								<el-option label="GET" value="GET" />
 								<el-option label="POST" value="POST" />
 								<el-option label="PUT" value="PUT" />
@@ -107,7 +112,11 @@
 				<el-form-item label="BODY">
 					<div class="body-section">
 						<!-- Body Type Selection -->
-						<el-radio-group v-model="formConfig.bodyType" class="body-type-group">
+						<el-radio-group
+							:model-value="formConfig.bodyType"
+							@update:model-value="setBodyType"
+							class="body-type-group"
+						>
 							<el-radio value="none">none</el-radio>
 							<el-radio value="form-data">form-data</el-radio>
 							<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
@@ -209,7 +218,8 @@
 							<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
 								<div class="raw-header">
 									<el-select
-										v-model="formConfig.rawFormat"
+										:model-value="formConfig.rawFormat"
+										@update:model-value="setRawFormat"
 										class="raw-format-select"
 									>
 										<el-option label="JSON" value="json" />
@@ -220,7 +230,8 @@
 									</el-select>
 								</div>
 								<variable-auto-complete
-									v-model="formConfig.rawBody"
+									:model-value="formConfig.rawBody"
+									@update:model-value="setRawBody"
 									type="textarea"
 									:rows="8"
 									placeholder="Enter your content here, type '/' to insert variables..."
@@ -234,7 +245,7 @@
 		</div>
 
 		<!-- Test Run Section -->
-		<div class="test-section" v-if="idEditing">
+		<div class="test-section">
 			<div class="flex items-center justify-between mb-3">
 				<h5 class="font-medium text-gray-700 dark:text-gray-300">Test API Call</h5>
 				<el-button
@@ -252,7 +263,7 @@
 				<div class="bg-gray-50 dark:bg-gray-800 rounded p-3">
 					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
 					<pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{
-						testResult
+						testResult.stdout || testResult
 					}}</pre>
 				</div>
 			</div>
@@ -291,7 +302,16 @@ interface Props {
 		urlEncodedList?: KeyValueItem[];
 	};
 	testing?: boolean;
-	testResult?: string;
+	testResult?: {
+		executionTime: string;
+		memoryUsage: number;
+		message: string;
+		status: string;
+		stdout: string;
+		success: boolean;
+		timestamp: string;
+		token: string;
+	};
 	idEditing?: boolean;
 }
 
@@ -315,7 +335,6 @@ const props = withDefaults(defineProps<Props>(), {
 		urlEncodedList: [],
 	}),
 	testing: false,
-	testResult: '',
 });
 
 const emit = defineEmits<{
@@ -434,7 +453,6 @@ const formConfig = computed({
 				}
 			});
 		}
-
 		// 保留列表字段到上层 modelValue，以维持 UI 的重复 key 与顺序
 		emit('update:modelValue', {
 			...value,
@@ -445,6 +463,27 @@ const formConfig = computed({
 		});
 	},
 });
+
+// Controlled setters to trigger computed.set via whole-object assignment
+const setUrl = (val: string) => {
+	formConfig.value = { ...formConfig.value, url: val } as any;
+};
+
+const setMethod = (val: string) => {
+	formConfig.value = { ...formConfig.value, method: val } as any;
+};
+
+const setBodyType = (val: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw') => {
+	formConfig.value = { ...formConfig.value, bodyType: val } as any;
+};
+
+const setRawFormat = (val: string) => {
+	formConfig.value = { ...formConfig.value, rawFormat: val } as any;
+};
+
+const setRawBody = (val: string) => {
+	formConfig.value = { ...formConfig.value, rawBody: val } as any;
+};
 
 // 在每次更新后，确保末尾存在一行空白输入
 const ensureTrailingEmptyRow = (
@@ -560,7 +599,7 @@ const handleTest = () => {
 
 <style scoped lang="scss">
 .http-form {
-	@apply border border-gray-200 dark:border-gray-700 rounded-lg p-2;
+	@apply dark:border-gray-700 rounded-lg;
 }
 
 // Params Section Styles

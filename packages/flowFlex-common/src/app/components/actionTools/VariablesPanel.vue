@@ -9,13 +9,6 @@
 					</el-icon>
 					<h4 class="font-medium text-gray-800 dark:text-white">Available Variables</h4>
 				</div>
-				<el-button
-					size="small"
-					:type="showVariables ? 'primary' : 'info'"
-					@click="showVariables = !showVariables"
-				>
-					{{ showVariables ? 'Hide' : 'Show' }} Variables
-				</el-button>
 			</div>
 			<p class="text-sm text-gray-600 dark:text-gray-400">
 				Click on any variable to copy it to clipboard, then paste into your code or
@@ -23,12 +16,69 @@
 			</p>
 		</div>
 
-		<div v-if="showVariables" class="variables-content">
+		<div class="variables-content">
 			<!-- Variables and Examples Section -->
 			<div class="variables-tabs-wrapper">
-				<el-tabs v-model="activeTab" class="variables-tabs">
+				<el-tabs v-model="activeTab" type="border-card">
+					<el-tab-pane label="All" name="all">
+						<el-scrollbar
+							max-height="calc(100vh - 435px)"
+							class="tab-content-scrollbar"
+						>
+							<div class="context-structure-section">
+								<div class="context-toggle-header">
+									<div
+										class="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+									>
+										<div class="flex items-center space-x-2">
+											<el-icon class="text-blue-500" size="18">
+												<Operation />
+											</el-icon>
+											<h5 class="font-semibold text-gray-800 dark:text-white">
+												Context Parameter Structure
+											</h5>
+										</div>
+										<div class="flex items-center space-x-2">
+											<el-button
+												size="small"
+												type="primary"
+												:icon="DocumentCopy"
+												@click.stop="copyStructure(contextStructure)"
+												class="mr-2"
+											>
+												Copy Structure
+											</el-button>
+										</div>
+									</div>
+								</div>
+
+								<el-collapse-transition>
+									<div class="context-content">
+										<div
+											class="p-4 border-t border-gray-200 dark:border-gray-700"
+										>
+											<p
+												class="text-sm text-gray-600 dark:text-gray-400 mb-3"
+											>
+												Complete structure of the context parameter passed
+												to your Python main() function
+											</p>
+											<div class="context-code-block">
+												<pre class="context-structure-pre">{{
+													contextStructure
+												}}</pre>
+											</div>
+										</div>
+									</div>
+								</el-collapse-transition>
+							</div>
+						</el-scrollbar>
+					</el-tab-pane>
 					<el-tab-pane label="Event Variables" name="context">
-						<el-scrollbar max-height="400px" class="tab-content-scrollbar">
+						<el-scrollbar
+							max-height="calc(100vh - 435px)"
+							class="tab-content-scrollbar"
+						>
 							<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pr-4">
 								<!-- Basic Event Data -->
 								<div class="variable-category">
@@ -174,7 +224,10 @@
 					</el-tab-pane>
 
 					<el-tab-pane label="Components" name="components">
-						<el-scrollbar max-height="400px" class="tab-content-scrollbar">
+						<el-scrollbar
+							max-height="calc(100vh - 435px)"
+							class="tab-content-scrollbar"
+						>
 							<div class="grid grid-cols-1 gap-6 pr-4">
 								<!-- Checklists -->
 								<div class="variable-category">
@@ -245,45 +298,50 @@
 										</div>
 									</div>
 								</div>
-							</div>
-						</el-scrollbar>
-					</el-tab-pane>
 
-					<el-tab-pane label="Form Responses" name="responses">
-						<el-scrollbar max-height="400px" class="tab-content-scrollbar">
-							<div class="questionnaire-section">
-								<div class="section-header mb-4">
-									<el-icon class="text-purple-500" size="16">
-										<Document />
-									</el-icon>
-									<h5 class="font-medium text-gray-700 dark:text-gray-300">
-										Questionnaire Response Structure
-									</h5>
-								</div>
-								<div class="response-preview">
-									<div class="preview-header">
-										<span class="text-sm text-gray-600 dark:text-gray-400">
-											Example JSON structure of form responses:
-										</span>
-										<el-button
-											size="small"
-											text
-											:icon="DocumentCopy"
-											@click="copyVariable('questionnaire_responses')"
-										>
-											Copy Variable Name
-										</el-button>
+								<!-- Form Responses (copyable fields) -->
+								<div class="variable-category">
+									<div class="category-header">
+										<el-icon class="text-purple-500" size="16">
+											<Document />
+										</el-icon>
+										<h5 class="font-medium text-gray-700 dark:text-gray-300">
+											Form Responses
+										</h5>
 									</div>
-									<pre class="json-preview">{{
-										questionnaireStructurePreview
-									}}</pre>
+									<div class="variable-list">
+										<div
+											v-for="variable in formResponseVariables"
+											:key="variable.name"
+											class="variable-item group"
+											@click="copyVariable(variable.name)"
+										>
+											<div class="variable-info">
+												<code class="variable-name">
+													{{ variable.name }}
+												</code>
+												<div class="variable-description truncate">
+													{{ variable.description }}
+												</div>
+											</div>
+											<el-button
+												size="small"
+												text
+												:icon="DocumentCopy"
+												class="copy-btn"
+											/>
+										</div>
+									</div>
 								</div>
 							</div>
 						</el-scrollbar>
 					</el-tab-pane>
 
 					<el-tab-pane label="Examples" name="examples">
-						<el-scrollbar max-height="400px" class="tab-content-scrollbar">
+						<el-scrollbar
+							max-height="calc(100vh - 435px)"
+							class="tab-content-scrollbar"
+						>
 							<div class="examples-section">
 								<div
 									class="example-category"
@@ -310,60 +368,6 @@
 					</el-tab-pane>
 				</el-tabs>
 			</div>
-
-			<!-- Context Structure Section (Collapsible) -->
-			<div class="context-structure-section">
-				<div
-					class="context-toggle-header"
-					@click="showContextStructure = !showContextStructure"
-				>
-					<div
-						class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-					>
-						<div class="flex items-center space-x-2">
-							<el-icon class="text-blue-500" size="18">
-								<Operation />
-							</el-icon>
-							<h5 class="font-semibold text-gray-800 dark:text-white">
-								Context Parameter Structure
-							</h5>
-						</div>
-						<div class="flex items-center space-x-2">
-							<el-button
-								size="small"
-								type="primary"
-								:icon="DocumentCopy"
-								@click.stop="copyStructure(contextStructure)"
-								class="mr-2"
-							>
-								Copy Structure
-							</el-button>
-							<el-icon
-								class="text-gray-500 transform transition-transform duration-200"
-								:class="{ 'rotate-180': showContextStructure }"
-							>
-								<ArrowDown />
-							</el-icon>
-						</div>
-					</div>
-				</div>
-
-				<el-collapse-transition>
-					<div v-show="showContextStructure" class="context-content">
-						<div class="p-4 border-t border-gray-200 dark:border-gray-700">
-							<p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-								Complete structure of the context parameter passed to your Python
-								main() function
-							</p>
-							<div class="context-code-block">
-								<el-scrollbar max-height="400px">
-									<pre class="context-structure-pre">{{ contextStructure }}</pre>
-								</el-scrollbar>
-							</div>
-						</div>
-					</div>
-				</el-collapse-transition>
-			</div>
 		</div>
 	</div>
 </template>
@@ -371,7 +375,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { ElMessage, ElCollapseTransition } from 'element-plus';
-import { Operation, User, Flag, Document, DocumentCopy, ArrowDown } from '@element-plus/icons-vue';
+import { Operation, User, Flag, Document, DocumentCopy } from '@element-plus/icons-vue';
 
 interface Variable {
 	name: string;
@@ -390,15 +394,11 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // State
-const showVariables = ref(false);
-const activeTab = ref('context');
-const showContextStructure = ref(false);
+const activeTab = ref('all');
 
 // Variables categorized by type
 const basicEventVariables: Variable[] = [
-	{ name: 'context.eventId', description: 'Unique event identifier' },
 	{ name: 'context.timestamp', description: 'Event timestamp' },
-	{ name: 'context.version', description: 'Event version' },
 	{ name: 'context.tenantId', description: 'Tenant identifier' },
 	{ name: 'context.onboardingId', description: 'Onboarding identifier' },
 	{ name: 'context.leadId', description: 'Lead identifier' },
@@ -497,173 +497,187 @@ const requiredFieldVariables: Variable[] = [
 	},
 ];
 
+const formResponseVariables: Variable[] = [
+	{
+		name: 'context.components.questionnaireAnswers',
+		description: 'Array of questionnaire answer records',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answerId',
+		description: 'Answer record identifier',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].questionnaireId',
+		description: 'Related questionnaire ID',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].questionId',
+		description: 'Question identifier',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].questionText',
+		description: 'Question text',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].questionType',
+		description: 'Question type',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].isRequired',
+		description: 'Whether question is required',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].status',
+		description: 'Answer status (Draft/Submitted)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answerTime',
+		description: 'Answer submission time',
+	},
+	// Answer JSON (as string) and common nested fields in the JSON structure
+	{
+		name: 'context.components.questionnaireAnswers[i].answer',
+		description: 'JSON string containing responses array',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses',
+		description: 'Array of response items (in answer JSON)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses[i].question',
+		description: 'Response question text (in answer JSON)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses[i].answer',
+		description: 'Response value (in answer JSON)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses[i].type',
+		description: 'Response question type (in answer JSON)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses[i].responseText',
+		description: 'Additional response text (in answer JSON)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses[i].changeHistory',
+		description: 'Change history array (in answer JSON)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses[i].lastModifiedBy',
+		description: 'Last modified by (in answer JSON)',
+	},
+	{
+		name: 'context.components.questionnaireAnswers[i].answer.responses[i].lastModifiedAt',
+		description: 'Last modified timestamp (in answer JSON)',
+	},
+];
+
 // Context parameter structure for Python scripts
 const contextStructure = computed(() => {
 	return `context = {
-    "eventId": "782d6ea0-a8d8-4c15-afb7-e2a7d3d92c45",
-    "timestamp": "2025-08-18T02:55:11.0739053+00:00",
-    "version": "1.0",
-    "tenantId": "DEFAULT",
-    "onboardingId": 1956197932571168769,
-    "leadId": "Tech Company",
-    "workflowId": 1956187014160322560,
-    "workflowName": "Recruitment Workflow for a Tech Company",
-    "completedStageId": 1956187014630084608,
-    "completedStageName": "Job Posting & Sourcing",
-    "stageCategory": "Job Posting & Sourcing",
-    "nextStageId": 1956187014919491584,
-    "nextStageName": "Interviews & Assessments",
-    "completionRate": 50.0,
-    "isFinalStage": false,
-    "responsibleTeam": "Default",
-    "assigneeId": null,
-    "assigneeName": "System",
+    "eventId": <string>,
+    "timestamp": <string>,
+    "version": <string>,
+    "tenantId": <string>,
+    "onboardingId": <string>,
+    "leadId": <string>,
+    "workflowId": <string>,
+    "workflowName": <string>,
+    "completedStageId": <string>,
+    "completedStageName": <string>,
+    "stageCategory": <string>,
+    "nextStageId": <string>,
+    "nextStageName": <string>,
+    "completionRate": <number>,
+    "isFinalStage": <boolean>,
+    "responsibleTeam": <string>,
+    "assigneeId": <string>,
+    "assigneeName": <string>,
     "businessContext": {
-        "CompletionMethod": "CompleteCurrentStage",
-        "AutoMoveToNext": true,
-        "CompletionNotes": "Stage completed via CompleteCurrentStageAsync",
-        "Components.ChecklistsCount": 1,
-        "Components.QuestionnairesCount": 1,
-        "Components.TaskCompletionsCount": 2,
-        "Components.RequiredFieldsCount": 3
+        "CompletionMethod": <string>,
+        "AutoMoveToNext": <boolean>,
+        "CompletionNotes": <string>,
+        "Components.ChecklistsCount": <number>,
+        "Components.QuestionnairesCount": <number>,
+        "Components.TaskCompletionsCount": <number>,
+        "Components.RequiredFieldsCount": <number>
     },
-    "routingTags": ["onboarding", "stage-completion", "customer-portal", "auto-progression"],
-    "priority": "High",
-    "source": "CustomerPortal",
-    "relatedEntity": null,
-    "description": "Stage 'Job Posting & Sourcing' completed for Onboarding 1956197932571168769 via CompleteCurrentStageAsync",
-    "tags": ["onboarding", "stage-completion", "auto-progression"],
+    "routingTags": <array>,
+    "priority": <string>,
+    "source": <string>,
+    "relatedEntity": <string>,
+    "description": <string>,
+    "tags": <array>,
     "components": {
         "checklists": [{
-            "checklistId": 1956187020887986176,
-            "checklistName": "Job Posting & Sourcing Checklist",
-            "description": "Essential tasks to complete during the Job Posting & Sourcing stage",
-            "team": "Default Team",
-            "type": "Template",
-            "status": "Active",
-            "isTemplate": true,
-            "completionRate": 0,
-            "totalTasks": 4,
-            "completedTasks": 0,
-            "isActive": true,
+            "checklistId": <string>,
+            "checklistName": <string>,
+            "description": <string>,
+            "team": <string>,
+            "type": <string>,
+            "status": <string>,
+            "isTemplate": <boolean>,
+            "completionRate": <number>,
+            "totalTasks": <number>,
+            "completedTasks": <number>,
+            "isActive": <boolean>,
             "tasks": [{
-                "id": 1956187021609406464,
-                "checklistId": 1956187020887986176,
-                "name": "Plan Tasks",
-                "description": "Plan all tasks for Job Posting & Sourcing",
-                "orderIndex": 1,
-                "taskType": "",
-                "isRequired": true,
-                "estimatedHours": 0,
-                "priority": "Medium",
-                "isCompleted": false,
-                "status": "Pending",
-                "isActive": true
-            }, {
-                "id": 1956187022041419776,
-                "checklistId": 1956187020887986176,
-                "name": "Allocate Resources",
-                "description": "Ensure necessary resources are allocated",
-                "orderIndex": 2,
-                "taskType": "",
-                "isRequired": true,
-                "estimatedHours": 0,
-                "priority": "Medium",
-                "isCompleted": false,
-                "status": "Pending",
-                "isActive": true
-            }, {
-                "id": 1956187022473433088,
-                "checklistId": 1956187020887986176,
-                "name": "Monitor Progress",
-                "description": "Track and monitor stage progress",
-                "orderIndex": 3,
-                "taskType": "",
-                "isRequired": true,
-                "estimatedHours": 0,
-                "priority": "Medium",
-                "isCompleted": false,
-                "status": "Pending",
-                "isActive": true
-            }, {
-                "id": 1956187022905446400,
-                "checklistId": 1956187020887986176,
-                "name": "Complete Deliverables",
-                "description": "Finish all stage deliverables",
-                "orderIndex": 4,
-                "taskType": "",
-                "isRequired": true,
-                "estimatedHours": 0,
-                "priority": "Medium",
-                "isCompleted": false,
-                "status": "Pending",
-                "isActive": true
+                "id": <string>,
+                "checklistId": <string>,
+                "name": <string>,
+                "description": <string>,
+                "orderIndex": <number>,
+                "taskType": <string>,
+                "isRequired": <boolean>,
+                "estimatedHours": <number>,
+                "priority": <string>,
+                "isCompleted": <boolean>,
+                "status": <string>,
+                "isActive": <boolean>
             }]
         }],
         "taskCompletions": [{
-            "checklistId": 1956187020887986176,
-            "taskId": 1956187021609406464,
-            "isCompleted": true,
-            "completionNotes": "",
-            "completedBy": "",
-            "completedTime": "2025-08-15T14:16:47.796071+08:00"
-        }, {
-            "checklistId": 1956187020887986176,
-            "taskId": 1956187022041419776,
-            "isCompleted": true,
-            "completionNotes": "",
-            "completedBy": "",
-            "completedTime": "2025-08-15T14:16:49.125102+08:00"
+            "checklistId": <string>,
+            "taskId": <string>,
+            "isCompleted": <boolean>,
+            "completionNotes": <string>,
+            "completedBy": <string>,
+            "completedTime": <string>
         }],
         "questionnaires": [{
-            "questionnaireId": 1956187036725678080,
-            "questionnaireName": "Job Posting & Sourcing Questionnaire",
-            "description": "Key questions to gather information for the Job Posting & Sourcing stage",
-            "status": "Draft",
-            "version": 1,
-            "category": "General",
-            "totalQuestions": 4,
-            "requiredQuestions": 2,
-            "allowDraft": true,
-            "allowMultipleSubmissions": false,
-            "isActive": true,
-            "structureJson": "<JSON string containing sections array with order, title, questions fields>"
+            "questionnaireId": <string>,
+            "questionnaireName": <string>,
+            "description": <string>,
+            "status": <string>,
+            "version": <number>,
+            "category": <string>,
+            "totalQuestions": <number>,
+            "requiredQuestions": <number>,
+            "allowDraft": <boolean>,
+            "allowMultipleSubmissions": <boolean>,
+            "isActive": <boolean>,
+            "structureJson": <string>
         }],
         "questionnaireAnswers": [{
-            "answerId": 1956202363115147264,
-            "questionnaireId": 1956187036725678080,
-            "questionId": 0,
-            "questionText": "",
-            "questionType": "",
-            "isRequired": false,
-            "answer": "<JSON string containing responses array with questionId, question, answer, type, responseText, changeHistory, lastModifiedBy, lastModifiedAt fields>",
-            "answerTime": null,
-            "status": "Draft"
+            "answerId": <string>,
+            "questionnaireId": <string>,
+            "questionId": <string>,
+            "questionText": <string>,
+            "questionType": <string>,
+            "isRequired": <boolean>,
+            "answer": <string>,
+            "answerTime": <string>,
+            "status": <string>
         }],
         "requiredFields": [{
-            "fieldName": "CONTACTEMAIL",
-            "displayName": null,
-            "fieldType": "email",
-            "isRequired": false,
-            "fieldValue": "deng.wang@item.com3",
-            "validationStatus": "Pending",
-            "validationErrors": []
-        }, {
-            "fieldName": "CUSTOMERNAME",
-            "displayName": null,
-            "fieldType": "",
-            "isRequired": true,
-            "fieldValue": null,
-            "validationStatus": "Pending",
-            "validationErrors": []
-        }, {
-            "fieldName": "CONTACTNAME",
-            "displayName": null,
-            "fieldType": "",
-            "isRequired": true,
-            "fieldValue": null,
-            "validationStatus": "Pending",
-            "validationErrors": []
+            "fieldName": <string>,
+            "displayName": <string>,
+            "fieldType": <string>,
+            "isRequired": <boolean>,
+            "fieldValue": <string>,
+            "validationStatus": <string>,
+            "validationErrors": <array>
         }]
     }
 }`;
@@ -676,267 +690,28 @@ const variableExamples = computed(() => {
 			{
 				title: 'Access Basic Event Information',
 				description: 'Get event details from stage completion data',
-				code: `# Access basic event information
-event_id = context.get('eventId', '')
-onboarding_id = context.get('onboardingId', '')
-workflow_name = context.get('workflowName', '')
-tenant_id = context.get('tenantId', '')
-priority = context.get('priority', '')
-source = context.get('source', '')
-
-print(f"Processing event {event_id} for onboarding {onboarding_id}")
-print(f"Workflow: {workflow_name} (Tenant: {tenant_id})")
-print(f"Priority: {priority}, Source: {source}")`,
+				code: `event_id = context.get('eventId', '')\nworkflow_name = context.get('workflowName', '')\nprint(event_id, workflow_name)`,
 			},
 			{
-				title: 'Stage Completion & Business Context',
-				description: 'Access completed stage and business context information',
-				code: `# Get stage information
-completed_stage = context.get('completedStageName', '')
-next_stage = context.get('nextStageName', '')
-completion_rate = context.get('completionRate', 0)
-is_final = context.get('isFinalStage', False)
-
-# Access business context
-business_context = context.get('businessContext', {})
-completion_method = business_context.get('CompletionMethod', '')
-auto_move = business_context.get('AutoMoveToNext', False)
-completion_notes = business_context.get('CompletionNotes', '')
-
-print(f"Completed: {completed_stage} -> Next: {next_stage}")
-print(f"Progress: {completion_rate}% (Final: {is_final})")
-print(f"Method: {completion_method}, Auto Move: {auto_move}")`,
-			},
-			{
-				title: 'Process Questionnaire Responses',
-				description: 'Parse and iterate through questionnaire answers',
-				code: `import json
-
-# Get questionnaire answers
-components = context.get('components', {})
-questionnaire_answers = components.get('questionnaireAnswers', [])
-
-for answer_record in questionnaire_answers:
-    # Parse the JSON answer string
-    answer_json = answer_record.get('answer', '{}')
-    parsed_data = json.loads(answer_json)
-    
-    # Access individual responses
-    responses = parsed_data.get('responses', [])
-    for response in responses:
-        question = response.get('question', '')
-        answer = response.get('answer', '')
-        question_type = response.get('type', '')
-        print(f"Q ({question_type}): {question}")
-        print(f"A: {answer}")`,
-			},
-			{
-				title: 'Process Checklists and Tasks',
-				description: 'Access checklist and task completion data',
-				code: `# Get checklist data
-components = context.get('components', {})
-checklists = components.get('checklists', [])
-task_completions = components.get('taskCompletions', [])
-
-for checklist in checklists:
-    checklist_name = checklist.get('checklistName', '')
-    completion_rate = checklist.get('completionRate', 0)
-    total_tasks = checklist.get('totalTasks', 0)
-    completed_tasks = checklist.get('completedTasks', 0)
-    
-    print(f"Checklist: {checklist_name}")
-    print(f"Progress: {completed_tasks}/{total_tasks} ({completion_rate}%)")
-    
-    # Process individual tasks
-    tasks = checklist.get('tasks', [])
-    for task in tasks:
-        task_name = task.get('name', '')
-        is_completed = task.get('isCompleted', False)
-        priority = task.get('priority', '')
-        print(f"  - {task_name} ({priority}): {'✓' if is_completed else '○'}")`,
-			},
-			{
-				title: 'Validate Required Fields',
-				description: 'Check required field validation status',
-				code: `# Get required fields
-components = context.get('components', {})
-required_fields = components.get('requiredFields', [])
-
-for field in required_fields:
-    field_name = field.get('fieldName', '')
-    field_value = field.get('fieldValue', None)
-    is_required = field.get('isRequired', False)
-    validation_status = field.get('validationStatus', '')
-    validation_errors = field.get('validationErrors', [])
-    
-    print(f"Field: {field_name}")
-    print(f"Value: {field_value}")
-    print(f"Required: {is_required}, Status: {validation_status}")
-    
-    if validation_errors:
-        print(f"Errors: {validation_errors}")`,
+				title: 'Read Questionnaire Answers',
+				description: 'Parse responses array from answer JSON',
+				code: `import json\nanswers = context.get('components', {}).get('questionnaireAnswers', [])\nfor a in answers:\n    data = json.loads(a.get('answer', '{}'))\n    for r in data.get('responses', []):\n        print(r.get('question'), r.get('answer'))`,
 			},
 		];
 	} else {
 		return [
 			{
-				title: 'Dynamic URL with Event Variables',
-				description: 'Use event variables in API endpoint URLs',
-				code: `https://api.example.com/onboarding/{{context.onboardingId}}/stages/{{context.completedStageId}}?source={{context.source}}&priority={{context.priority}}`,
+				title: 'Dynamic URL',
+				description: 'Compose URL with variables',
+				code: `https://api.example.com/onboarding/{{context.onboardingId}}/stages/{{context.completedStageId}}`,
 			},
 			{
-				title: 'Request Body with Complete Event Data',
-				description: 'Include comprehensive event data in JSON payload',
-				code: `{
-  "event_id": "{{context.eventId}}",
-  "timestamp": "{{context.timestamp}}",
-  "version": "{{context.version}}",
-  "tenant_id": "{{context.tenantId}}",
-  "onboarding_id": "{{context.onboardingId}}",
-  "lead_id": "{{context.leadId}}",
-  "workflow": {
-    "id": "{{context.workflowId}}",
-    "name": "{{context.workflowName}}",
-    "completed_stage": "{{context.completedStageName}}",
-    "next_stage": "{{context.nextStageName}}",
-    "completion_rate": {{context.completionRate}},
-    "is_final_stage": {{context.isFinalStage}}
-  },
-  "assignment": {
-    "responsible_team": "{{context.responsibleTeam}}",
-    "assignee_id": "{{context.assigneeId}}",
-    "assignee_name": "{{context.assigneeName}}"
-  },
-  "business_context": {
-    "completion_method": "{{context.businessContext.CompletionMethod}}",
-    "auto_move_to_next": {{context.businessContext.AutoMoveToNext}},
-    "completion_notes": "{{context.businessContext.CompletionNotes}}",
-    "components_count": {
-      "checklists": {{context.businessContext["Components.ChecklistsCount"]}},
-      "questionnaires": {{context.businessContext["Components.QuestionnairesCount"]}},
-      "task_completions": {{context.businessContext["Components.TaskCompletionsCount"]}},
-      "required_fields": {{context.businessContext["Components.RequiredFieldsCount"]}}
-    }
-  },
-  "metadata": {
-    "priority": "{{context.priority}}",
-    "source": "{{context.source}}",
-    "description": "{{context.description}}",
-    "routing_tags": {{context.routingTags}},
-    "tags": {{context.tags}}
-  }
-}`,
-			},
-			{
-				title: 'Headers with Event Values',
-				description: 'Use event variables in request headers',
-				code: `{
-  "Content-Type": "application/json",
-  "X-Event-ID": "{{context.eventId}}",
-  "X-Event-Version": "{{context.version}}",
-  "X-Onboarding-ID": "{{context.onboardingId}}",
-  "X-Workflow-ID": "{{context.workflowId}}",
-  "X-Stage-ID": "{{context.completedStageId}}",
-  "X-Tenant-ID": "{{context.tenantId}}",
-  "X-Priority": "{{context.priority}}",
-  "X-Source": "{{context.source}}",
-  "Authorization": "Bearer YOUR_API_TOKEN"
-}`,
-			},
-			{
-				title: 'Webhook with Component Data',
-				description: 'Send component completion data to external webhook',
-				code: `{
-  "webhook_type": "stage_completion",
-  "event_id": "{{context.eventId}}",
-  "onboarding_id": "{{context.onboardingId}}",
-  "stage_name": "{{context.completedStageName}}",
-  "completion_summary": {
-    "checklists_completed": "{{context.businessContext[\\"Components.ChecklistsCount\\"]}}",
-    "questionnaires_submitted": "{{context.businessContext[\\"Components.QuestionnairesCount\\"]}}",
-    "tasks_completed": "{{context.businessContext[\\"Components.TaskCompletionsCount\\"]}}",
-    "required_fields_validated": "{{context.businessContext[\\"Components.RequiredFieldsCount\\"]}}",
-    "overall_completion_rate": {{context.completionRate}}
-  },
-  "next_stage": "{{context.nextStageName}}",
-  "auto_progression": {{context.businessContext.AutoMoveToNext}},
-  "timestamp": "{{context.timestamp}}"
-}`,
+				title: 'Minimal JSON Body',
+				description: 'Include key event fields',
+				code: `{"event_id":"{{context.eventId}}","workflow":"{{context.workflowName}}"}`,
 			},
 		];
 	}
-});
-
-// Computed
-const questionnaireStructurePreview = computed(() => {
-	return JSON.stringify(
-		{
-			// Access questionnaire data from components
-			questionnaires: 'event.components.questionnaires[i]',
-			questionnaireAnswers: 'event.components.questionnaireAnswers[i]',
-
-			// Questionnaire structure
-			questionnaireInfo: {
-				questionnaireId: '<string>',
-				questionnaireName: '<string>',
-				description: '<string>',
-				status: '<string>',
-				version: '<number>',
-				category: '<string>',
-				totalQuestions: '<number>',
-				requiredQuestions: '<number>',
-				allowDraft: '<boolean>',
-				allowMultipleSubmissions: '<boolean>',
-				isActive: '<boolean>',
-				structureJson: '<JSON string with questions structure>',
-			},
-
-			// Answer structure (answer field is JSON string)
-			answerStructure: {
-				answerId: '<string>',
-				questionnaireId: '<string>',
-				questionId: '<number>',
-				questionText: '<string>',
-				questionType: '<string>',
-				isRequired: '<boolean>',
-				answer: '<JSON string containing responses>',
-				answerTime: '<string|null>',
-				status: '<string>',
-			},
-
-			// Parsed responses from answer JSON string
-			parsedResponses: {
-				responses: [
-					{
-						questionId: '<string>',
-						question: '<string>',
-						answer: '<string>',
-						type: '<string>',
-						responseText: '<string>',
-						changeHistory: '<array>',
-						lastModifiedBy: '<string>',
-						lastModifiedAt: '<string>',
-					},
-				],
-			},
-
-			note: [
-				'To access questionnaire responses in Python:',
-				'1. Get questionnaire answers: answers = event["components"]["questionnaireAnswers"]',
-				'2. Parse the answer JSON: import json; responses = json.loads(answer["answer"])',
-				'3. Access individual responses: responses["responses"]',
-				'',
-				'Answer formats by question type:',
-				'- text/paragraph: answer = "text content"',
-				'- multiple_choice: answer = "selected_option"',
-				'- checkboxes: answer = "option1,option2,option3"',
-				'- rating/linear_scale: answer = "5"',
-				'- file: answer = "file1.pdf,file2.doc"',
-			],
-		},
-		null,
-		2
-	);
 });
 
 // Methods
@@ -995,15 +770,11 @@ const copyToClipboard = async (text: string) => {
 }
 
 .context-structure-section {
-	@apply border-t border-gray-200 dark:border-gray-700;
+	@apply border-gray-200 dark:border-gray-700;
 }
 
 .context-toggle-header {
-	@apply border-b border-gray-200 dark:border-gray-700;
-
-	&:hover {
-		@apply bg-gray-50 dark:bg-gray-800;
-	}
+	@apply border-gray-200 dark:border-gray-700;
 }
 
 .context-content {
@@ -1011,32 +782,10 @@ const copyToClipboard = async (text: string) => {
 }
 
 .tab-content-scrollbar {
-	@apply w-full;
+	@apply w-full mt-4;
 
 	:deep(.el-scrollbar__view) {
 		@apply p-1;
-	}
-}
-
-.variables-tabs {
-	:deep(.el-tabs__header) {
-		@apply mb-4;
-	}
-
-	:deep(.el-tabs__nav-wrap) {
-		@apply bg-gray-50 dark:bg-gray-700 rounded-lg p-1;
-	}
-
-	:deep(.el-tabs__active-bar) {
-		@apply bg-primary-500;
-	}
-
-	:deep(.el-tabs__item) {
-		@apply rounded-md transition-all;
-
-		&.is-active {
-			@apply bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm;
-		}
 	}
 }
 
@@ -1149,7 +898,6 @@ const copyToClipboard = async (text: string) => {
 
 .context-structure-pre {
 	@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-auto border border-gray-200 dark:border-gray-600 font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap;
-	max-height: 400px;
 }
 
 // Dark mode

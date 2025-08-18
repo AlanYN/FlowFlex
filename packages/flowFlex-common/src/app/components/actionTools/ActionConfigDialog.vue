@@ -1,84 +1,93 @@
 <template>
-	<el-drawer v-model="visible" :title="dialogTitle" :size="600" direction="rtl" @close="onCancel">
-		<el-scrollbar class="action-config-scrollbar" max-height="calc(100vh - 140px)">
-			<div class="action-config-container pr-4" v-loading="loading">
-				<el-form
-					ref="formRef"
-					:model="formData"
-					:rules="rules"
-					label-position="top"
-					label-width="120px"
-				>
-					<!-- Basic Info -->
-					<el-form-item label="Action Name" prop="name">
-						<el-input v-model="formData.name" placeholder="Enter action name" />
-					</el-form-item>
+	<el-drawer v-model="visible" :title="dialogTitle" size="80%" direction="rtl" @close="onCancel">
+		<el-scrollbar class="action-config-scrollbar">
+			<!-- Variables Panel (shared across all action types) -->
+			<div class="flex gap-4 w-full">
+				<div class="variables-section mt-6 flex-1 min-w-0">
+					<VariablesPanel :stage-id="stageId" :action-type="formData.type" />
+				</div>
+				<div class="action-config-container pr-4 flex-1 min-w-0" v-loading="loading">
+					<el-scrollbar ref="scrollbarRef">
+						<el-form
+							ref="formRef"
+							:model="formData"
+							:rules="rules"
+							label-position="top"
+							label-width="120px"
+						>
+							<!-- Basic Info -->
+							<el-form-item label="Action Name" prop="name">
+								<el-input v-model="formData.name" placeholder="Enter action name" />
+							</el-form-item>
 
-					<el-form-item label="Description" prop="description">
-						<el-input
-							v-model="formData.description"
-							type="textarea"
-							:rows="3"
-							placeholder="Enter action description"
-						/>
-					</el-form-item>
+							<el-form-item label="Description" prop="description">
+								<el-input
+									v-model="formData.description"
+									type="textarea"
+									:rows="3"
+									placeholder="Enter action description"
+								/>
+							</el-form-item>
 
-					<el-form-item label="Action Type" prop="type">
-						<el-radio-group v-model="formData.type" @change="handleActionTypeChange">
-							<el-radio
-								v-for="type in actionTypes"
-								:key="type.value"
-								:value="type.value"
-								class="action-type-option"
-								:disabled="isEditing"
-							>
-								<div class="flex items-center space-x-3">
-									<div
-										class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
+							<el-form-item label="Action Type" prop="type">
+								<el-radio-group
+									v-model="formData.type"
+									@change="handleActionTypeChange"
+								>
+									<el-radio
+										v-for="type in actionTypes"
+										:key="type.value"
+										:value="type.value"
+										class="action-type-option"
+										:disabled="isEditing"
 									>
-										<el-icon class="text-primary-500" size="20">
-											<component :is="type.icon" />
-										</el-icon>
-									</div>
-									<div class="flex">
-										<span class="font-medium text-gray-900 dark:text-white">
-											{{ type.label }}
-										</span>
-									</div>
-								</div>
-							</el-radio>
-						</el-radio-group>
-					</el-form-item>
+										<div class="flex items-center space-x-3">
+											<div
+												class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
+											>
+												<el-icon class="text-primary-500" size="20">
+													<component :is="type.icon" />
+												</el-icon>
+											</div>
+											<div class="flex">
+												<span
+													class="font-medium text-gray-900 dark:text-white"
+												>
+													{{ type.label }}
+												</span>
+											</div>
+										</div>
+									</el-radio>
+								</el-radio-group>
+							</el-form-item>
 
-					<!-- Action Configuration -->
-					<div v-if="formData.type" class="action-config-section">
-						<!-- Python Script Configuration -->
-						<PythonConfig
-							v-if="formData.type === 'python'"
-							v-model="formData.actionConfig"
-							@test="onTest"
-							:testing="testing"
-							:test-result="testResult"
-							ref="pythonConfigRef"
-							:id-editing="isEditing"
-						/>
+							<!-- Action Configuration -->
+							<div v-if="formData.type" class="action-config-section">
+								<!-- Python Script Configuration -->
+								<PythonConfig
+									v-if="formData.type === 'python'"
+									v-model="formData.actionConfig"
+									@test="onTest"
+									:testing="testing"
+									:test-result="testResult"
+									ref="pythonConfigRef"
+									:id-editing="isEditing"
+								/>
 
-						<!-- HTTP API Configuration -->
-						<HttpConfig
-							v-else-if="formData.type === 'http'"
-							v-model="formData.actionConfig"
-							@test="onTest"
-							:testing="testing"
-							ref="httpConfigRef"
-							:id-editing="isEditing"
-						/>
-					</div>
-
-					<!-- Variables Panel (shared across all action types) -->
-					<div v-if="formData.type" class="variables-section mt-6">
-						<VariablesPanel :stage-id="stageId" :action-type="formData.type" />
-					</div>
-				</el-form>
+								<!-- HTTP API Configuration -->
+								<HttpConfig
+									v-else-if="formData.type === 'http'"
+									v-model="formData.actionConfig"
+									@test="onTest"
+									:testing="testing"
+									:test-result="testResult"
+									ref="httpConfigRef"
+									:id-editing="isEditing"
+								/>
+							</div>
+						</el-form>
+					</el-scrollbar>
+				</div>
 			</div>
 		</el-scrollbar>
 
@@ -94,17 +103,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Operation, Connection } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
+import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 
-import { addAction, ActionType, updateAction } from '@/apis/action';
+import { addAction, ActionType, updateAction, testRunActionNoId } from '@/apis/action';
 import { TriggerTypeEnum } from '@/enums/appEnum';
 import { ActionItem } from '#/action';
-import { useTestRun } from '@/hooks/useTestRun';
+
+const { scrollbarRef } = useAdaptiveScrollbar(110);
 
 interface Props {
 	modelValue?: boolean;
@@ -129,14 +140,11 @@ const emit = defineEmits<{
 	cancel: [];
 }>();
 
-// Use Test Run Hook
-const { handleComponentTest, executeTest } = useTestRun();
-
 // Form data
 const formRef = ref();
 const saving = ref(false);
 const testing = ref(false);
-const testResult = ref('');
+const testResult = ref(null);
 const pythonConfigRef = ref(); // For getting Python config component reference
 const httpConfigRef = ref(); // For getting HTTP config component reference
 
@@ -249,6 +257,7 @@ const resetForm = () => {
 	formData.type = 'python';
 	formData.description = '';
 	formData.actionConfig = getDefaultConfig('python');
+	testResult.value = null;
 };
 
 // Watch for action prop changes
@@ -271,72 +280,21 @@ const handleActionTypeChange = (type: string) => {
 // Handle test result - 参考 detail.vue 的 handleTestResult 逻辑
 const onTest = async (result: any) => {
 	// Force get current config values from components
-	let currentActionConfig = { ...formData.actionConfig };
 
-	// If current type is Python Script, try to get latest value from PythonConfig component
-	if (formData.type === 'python' && pythonConfigRef.value) {
-		// Get latest config through exposed method if available
-		if (typeof pythonConfigRef.value.getCurrentConfig === 'function') {
-			const currentConfig = pythonConfigRef.value.getCurrentConfig();
-			currentActionConfig = currentConfig;
+	try {
+		testing.value = true;
+		testResult.value = null;
+		// Execute test
+		const testOutput = await testRunActionNoId({
+			actionType: formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
+			actionConfig: JSON.stringify(formData.actionConfig),
+		});
+
+		if (testOutput.code == '200') {
+			testResult.value = testOutput.data;
 		}
-	} else if (formData.type === 'http' && httpConfigRef.value) {
-		// Get latest config from HTTP component if available
-		if (typeof httpConfigRef.value.getCurrentConfig === 'function') {
-			const currentConfig = httpConfigRef.value.getCurrentConfig();
-			currentActionConfig = currentConfig;
-		}
-	}
-
-	const canTest = await handleComponentTest(result, {
-		actionId: formData.id || 'temp-action-id', // Use temp ID for new actions
-		currentData: {
-			...formData,
-			actionConfig: currentActionConfig,
-		},
-		originalData: null, // New action, no original data
-		silentSave: false, // For new actions, we might not need to save first
-		onSave: async () => {
-			// For new actions in dialog, we don't pre-save, just validate
-			try {
-				if (!formRef.value) return false;
-				await formRef.value.validate();
-
-				// Validate based on action type
-				if (formData.type === 'python' && !currentActionConfig.sourceCode) {
-					ElMessage.error('Please enter Python script code');
-					return false;
-				}
-
-				if (formData.type === 'http' && !currentActionConfig.url) {
-					ElMessage.error('Please enter HTTP API URL');
-					return false;
-				}
-
-				return true; // Validation passed
-			} catch (error) {
-				return false;
-			}
-		},
-	});
-
-	if (canTest) {
-		try {
-			testing.value = true;
-			await nextTick();
-
-			// Execute test
-			const testOutput = await executeTest(
-				formData.id || 'temp-action-id',
-				formData.type === 'python' ? 'Python Script' : 'HTTP API'
-			);
-
-			if (testOutput) {
-				testResult.value = testOutput;
-			}
-		} finally {
-			testing.value = false;
-		}
+	} finally {
+		testing.value = false;
 	}
 };
 
