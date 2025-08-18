@@ -232,7 +232,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="actionDefinitionId">Action definition ID</param>
         /// <returns>List of action trigger mappings</returns>
         [HttpGet("mappings/action/{actionDefinitionId}")]
-        [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingInfo>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetActionTriggerMappingsByActionId(long actionDefinitionId)
         {
             var result = await _actionManagementService.GetActionTriggerMappingsByActionIdAsync(actionDefinitionId);
@@ -249,6 +249,19 @@ namespace FlowFlex.WebApi.Controllers.Action
         public async Task<IActionResult> GetActionTriggerMappingsByTriggerType(string triggerType)
         {
             var result = await _actionManagementService.GetActionTriggerMappingsByTriggerTypeAsync(triggerType);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get action trigger mappings by trigger source id
+        /// </summary>
+        /// <param name="triggerSourceId"></param>
+        /// <returns></returns>
+        [HttpGet("mappings/trigger-source/{triggerSourceId}")]
+        [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingWithActionInfo>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetActionTriggerMappingsByTriggerSourceId(long triggerSourceId)
+        {
+            var result = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(triggerSourceId);
             return Success(result);
         }
 

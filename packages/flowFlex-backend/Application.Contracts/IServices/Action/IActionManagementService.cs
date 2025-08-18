@@ -115,7 +115,7 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// </summary>
         /// <param name="actionDefinitionId">Action definition ID</param>
         /// <returns>List of action trigger mapping DTOs</returns>
-        Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByActionIdAsync(long actionDefinitionId);
+        Task<List<ActionTriggerMappingInfo>> GetActionTriggerMappingsByActionIdAsync(long actionDefinitionId);
 
         /// <summary>
         /// Get action trigger mappings by trigger type
@@ -123,6 +123,13 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// <param name="triggerType">Trigger type</param>
         /// <returns>List of action trigger mapping DTOs</returns>
         Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByTriggerTypeAsync(string triggerType);
+
+        /// <summary>
+        /// Get action trigger mappings by trigger source id
+        /// </summary>
+        /// <param name="triggerSourceId"></param>
+        /// <returns></returns>
+        Task<List<ActionTriggerMappingWithActionInfo>> GetActionTriggerMappingsByTriggerSourceIdAsync(long triggerSourceId);
 
         /// <summary>
         /// Create new action trigger mapping

@@ -9,22 +9,22 @@
 			<div class="flex items-center space-x-3">
 				<!-- Drag Handle -->
 				<el-button
-					size="small"
-					text
 					circle
-					:icon="Grid"
 					class="cursor-move drag-handle text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
 					title="Drag to reorder"
-				/>
+					type="primary"
+				>
+					{{ index + 1 }}
+				</el-button>
 				<el-icon class="text-primary-500" size="20">
 					<component :is="getActionIcon(action?.actionType)" />
 				</el-icon>
 				<div>
 					<h4 class="font-medium text-gray-800 dark:text-white">
-						{{ action.name || 'Untitled Action' }}
+						{{ action?.actionName || defaultStr }}
 					</h4>
 					<p class="text-sm text-gray-500 dark:text-gray-400">
-						{{ ACTION_TYPE_MAPPING?.[action?.actionType] || defaultStr }}
+						{{ action?.actionType || defaultStr }}
 					</p>
 				</div>
 			</div>
@@ -48,8 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { Grid, Delete, Operation, Connection, Document } from '@element-plus/icons-vue';
-import { ActionType, ACTION_TYPE_MAPPING } from '@/apis/action';
+import { Delete, Operation, Connection, Document } from '@element-plus/icons-vue';
 import { ActionListItem } from '#/action';
 import { defaultStr } from '@/settings/projectSetting';
 
@@ -70,11 +69,11 @@ const emit = defineEmits<{
 	delete: [index: number];
 }>();
 
-const getActionIcon = (type: number) => {
+const getActionIcon = (type: string | number) => {
 	switch (type) {
-		case ActionType.PYTHON_SCRIPT:
+		case 'Python':
 			return Operation;
-		case ActionType.HTTP_API:
+		case 'HttpApi':
 			return Connection;
 		default:
 			return Document;

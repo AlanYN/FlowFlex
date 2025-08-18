@@ -52,6 +52,9 @@ namespace FlowFlex.Application.Maps
 
             // ActionTriggerMappingWithDetails to ActionTriggerMappingInfo mapping
             CreateMap<ActionTriggerMappingWithDetails, ActionTriggerMappingInfo>();
+
+            // ActionTriggerMappingWithActionDetails to ActionTriggerMappingWithActionInfo mapping
+            CreateMap<ActionTriggerMappingWithActionDetails, ActionTriggerMappingWithActionInfo>();
         }
     }
 }

@@ -78,4 +78,5 @@ export interface ActionListItem {
 	name: string;
 	triggerMappings: [];
 	updatedAt: string;
+	actionName?: string;
 }
