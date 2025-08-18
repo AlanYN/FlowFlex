@@ -43,7 +43,14 @@
 							</div>
 
 							<!-- AI Message -->
-							<div v-else-if="message.type === 'ai'" class="ai-message">
+							<div
+								v-else-if="
+									message.type === 'ai' &&
+									message.content &&
+									message.content.trim()
+								"
+								class="ai-message"
+							>
 								<div class="message-avatar">
 									<el-icon><Star /></el-icon>
 								</div>
@@ -745,7 +752,7 @@
 						</div>
 
 						<!-- Streaming Message -->
-						<div v-if="streamingMessage || isStreaming" class="ai-message streaming">
+						<div v-if="shouldShowStreamingMessage" class="ai-message streaming">
 							<div class="message-avatar">
 								<el-icon><Star /></el-icon>
 							</div>
@@ -753,6 +760,9 @@
 								<div class="message-text">
 									{{ streamingMessage || 'Processing...' }}
 									<span class="typing-indicator">|</span>
+								</div>
+								<div class="message-time">
+									{{ formatTime(new Date()) }}
 								</div>
 							</div>
 						</div>
@@ -1096,10 +1106,6 @@
 										</el-button>
 										<template #dropdown>
 											<el-dropdown-menu>
-												<el-dropdown-item :command="`pin-${session.id}`">
-													<el-icon><Star /></el-icon>
-													{{ session.isPinned ? 'Unpin' : 'Pin' }}
-												</el-dropdown-item>
 												<el-dropdown-item :command="`rename-${session.id}`">
 													<el-icon><Edit /></el-icon>
 													Rename
@@ -1247,12 +1253,33 @@ interface ChecklistItem {
 interface QuestionnaireQuestion {
 	id: string;
 	question: string;
-	type: 'text' | 'select' | 'multiselect' | 'number' | 'date' | 'boolean';
+	type:
+		| 'short_answer'
+		| 'paragraph'
+		| 'multiple_choice'
+		| 'checkboxes'
+		| 'dropdown'
+		| 'file_upload'
+		| 'linear_scale'
+		| 'rating'
+		| 'multiple_choice_grid'
+		| 'checkbox_grid'
+		| 'date'
+		| 'time'
+		| 'short_answer_grid';
 	options?: string[];
 	isRequired: boolean;
 	answer?: any;
 	category?: string;
 	helpText?: string;
+	description?: string;
+	min?: number;
+	max?: number;
+	minLabel?: string;
+	maxLabel?: string;
+	rows?: Array<{ id: string; label: string }>;
+	columns?: Array<{ id: string; label: string }>;
+	requireOneResponsePerRow?: boolean;
 }
 
 interface QuestionnaireItem {
@@ -1308,6 +1335,7 @@ const currentInput = ref('');
 const generating = ref(false);
 const applying = ref(false);
 const streamingMessage = ref('');
+const isChatStreaming = ref(false);
 const chatMessages = ref<ChatMessage[]>([]);
 const chatHistory = ref<ChatSession[]>([]);
 const currentSessionId = ref<string>('');
@@ -1349,6 +1377,41 @@ const collapsedQuestionnaireQuestions = ref<Set<number>>(new Set());
 
 // Stream AI Hook
 const { isStreaming, startStreaming, streamFileAnalysis, stopStreaming } = useStreamAIWorkflow();
+
+// Computed properties for streaming display
+const shouldShowStreamingMessage = computed(() => {
+	const isWorkflowStreaming = isStreaming.value;
+	const isChatStreamingValue = isChatStreaming.value;
+
+	// For workflow streaming, show if there's streaming message content
+	if (isWorkflowStreaming && streamingMessage.value) {
+		console.log('Showing workflow streaming message');
+		return true;
+	}
+
+	// For chat streaming, check only the latest AI message
+	if (isChatStreamingValue) {
+		const aiMessages = chatMessages.value.filter((msg) => msg.type === 'ai');
+		const latestAIMessage = aiMessages[aiMessages.length - 1];
+
+		// Show streaming message only if the latest AI message is empty or doesn't exist
+		const hasLatestContent =
+			latestAIMessage && latestAIMessage.content && latestAIMessage.content.trim();
+
+		console.log('Chat streaming debug:', {
+			isChatStreamingValue,
+			aiMessagesCount: aiMessages.length,
+			latestAIContent: latestAIMessage?.content || 'none',
+			hasLatestContent,
+			shouldShow: !hasLatestContent,
+		});
+
+		return !hasLatestContent;
+	}
+
+	console.log('Not showing streaming message');
+	return false;
+});
 
 // Computed properties
 const canGenerate = computed(() => {
@@ -1871,26 +1934,26 @@ const generateWorkflow = async () => {
 					{
 						id: 'project-scope',
 						question: 'What is the scope of this project?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'success-criteria',
 						question: 'What are the success criteria?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'budget-range',
 						question: 'What is the budget range?',
-						type: 'select',
+						type: 'dropdown',
 						options: ['< $10K', '$10K - $50K', '$50K - $100K', '> $100K'],
 						isRequired: true,
 					},
 					{
 						id: 'timeline-preference',
 						question: 'What is your preferred timeline?',
-						type: 'select',
+						type: 'multiple_choice',
 						options: ['1-2 weeks', '1 month', '2-3 months', '6+ months'],
 						isRequired: true,
 					},
@@ -1901,26 +1964,29 @@ const generateWorkflow = async () => {
 					{
 						id: 'team-size',
 						question: 'How many team members are needed?',
-						type: 'number',
+						type: 'short_answer',
 						isRequired: true,
 					},
 					{
 						id: 'key-milestones',
 						question: 'What are the key milestones?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'risk-tolerance',
 						question: 'What is your risk tolerance level?',
-						type: 'select',
-						options: ['Low', 'Medium', 'High'],
+						type: 'linear_scale',
+						min: 1,
+						max: 5,
+						minLabel: 'Low Risk',
+						maxLabel: 'High Risk',
 						isRequired: true,
 					},
 					{
 						id: 'communication-frequency',
 						question: 'How often should progress be reported?',
-						type: 'select',
+						type: 'dropdown',
 						options: ['Daily', 'Weekly', 'Bi-weekly', 'Monthly'],
 						isRequired: false,
 					},
@@ -1931,26 +1997,27 @@ const generateWorkflow = async () => {
 					{
 						id: 'design-style',
 						question: 'What design style do you prefer?',
-						type: 'select',
+						type: 'multiple_choice',
 						options: ['Modern', 'Classic', 'Minimalist', 'Bold'],
 						isRequired: true,
 					},
 					{
 						id: 'target-audience',
 						question: 'Who is the target audience?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'brand-guidelines',
 						question: 'Are there existing brand guidelines?',
-						type: 'boolean',
+						type: 'multiple_choice',
+						options: ['Yes', 'No', 'Partially'],
 						isRequired: true,
 					},
 					{
 						id: 'accessibility-requirements',
 						question: 'Are there accessibility requirements?',
-						type: 'multiselect',
+						type: 'checkboxes',
 						options: [
 							'WCAG 2.1 AA',
 							'Screen Reader Support',
@@ -1966,27 +2033,27 @@ const generateWorkflow = async () => {
 					{
 						id: 'tech-stack',
 						question: 'What technology stack should be used?',
-						type: 'multiselect',
+						type: 'checkboxes',
 						options: ['React', 'Vue', 'Angular', 'Node.js', 'Python', 'Java', '.NET'],
 						isRequired: true,
 					},
 					{
 						id: 'performance-requirements',
 						question: 'What are the performance requirements?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'security-level',
 						question: 'What security level is required?',
-						type: 'select',
+						type: 'multiple_choice',
 						options: ['Basic', 'Standard', 'High', 'Enterprise'],
 						isRequired: true,
 					},
 					{
 						id: 'integration-needs',
 						question: 'What systems need integration?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: false,
 					},
 				],
@@ -1996,7 +2063,7 @@ const generateWorkflow = async () => {
 					{
 						id: 'test-types',
 						question: 'What types of testing are required?',
-						type: 'multiselect',
+						type: 'checkboxes',
 						options: [
 							'Unit Testing',
 							'Integration Testing',
@@ -2009,20 +2076,21 @@ const generateWorkflow = async () => {
 					{
 						id: 'test-environment',
 						question: 'What test environment is available?',
-						type: 'select',
+						type: 'multiple_choice',
 						options: ['Development', 'Staging', 'Production-like', 'Cloud-based'],
 						isRequired: true,
 					},
 					{
 						id: 'acceptance-criteria',
 						question: 'What are the acceptance criteria?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'test-data',
 						question: 'Is test data available?',
-						type: 'boolean',
+						type: 'multiple_choice',
+						options: ['Yes', 'No', 'Partially'],
 						isRequired: true,
 					},
 				],
@@ -2032,25 +2100,25 @@ const generateWorkflow = async () => {
 					{
 						id: 'review-criteria',
 						question: 'What are the review criteria?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'reviewers',
 						question: 'Who are the key reviewers?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'approval-process',
 						question: 'What is the approval process?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'feedback-timeline',
 						question: 'What is the feedback timeline?',
-						type: 'select',
+						type: 'multiple_choice',
 						options: ['24 hours', '2-3 days', '1 week', '2 weeks'],
 						isRequired: true,
 					},
@@ -2061,20 +2129,21 @@ const generateWorkflow = async () => {
 					{
 						id: 'deployment-strategy',
 						question: 'What deployment strategy should be used?',
-						type: 'select',
+						type: 'multiple_choice',
 						options: ['Blue-Green', 'Rolling', 'Canary', 'Big Bang'],
 						isRequired: true,
 					},
 					{
 						id: 'rollback-plan',
 						question: 'Is there a rollback plan?',
-						type: 'boolean',
+						type: 'multiple_choice',
+						options: ['Yes', 'No', 'In Development'],
 						isRequired: true,
 					},
 					{
 						id: 'monitoring-setup',
 						question: 'What monitoring is needed?',
-						type: 'multiselect',
+						type: 'checkboxes',
 						options: [
 							'Performance Monitoring',
 							'Error Tracking',
@@ -2084,9 +2153,15 @@ const generateWorkflow = async () => {
 						isRequired: true,
 					},
 					{
-						id: 'maintenance-window',
-						question: 'When is the maintenance window?',
-						type: 'text',
+						id: 'maintenance-window-date',
+						question: 'What date is the maintenance window?',
+						type: 'date',
+						isRequired: false,
+					},
+					{
+						id: 'maintenance-window-time',
+						question: 'What time is the maintenance window?',
+						type: 'time',
 						isRequired: false,
 					},
 				],
@@ -2096,27 +2171,27 @@ const generateWorkflow = async () => {
 					{
 						id: 'training-format',
 						question: 'What training format is preferred?',
-						type: 'select',
+						type: 'multiple_choice',
 						options: ['In-person', 'Virtual', 'Self-paced', 'Hybrid'],
 						isRequired: true,
 					},
 					{
 						id: 'audience-size',
 						question: 'How many people need training?',
-						type: 'number',
+						type: 'short_answer',
 						isRequired: true,
 					},
 					{
 						id: 'skill-level',
-						question: 'What is the current skill level?',
-						type: 'select',
-						options: ['Beginner', 'Intermediate', 'Advanced', 'Mixed'],
+						question: 'Rate the current skill level of the team',
+						type: 'rating',
+						max: 5,
 						isRequired: true,
 					},
 					{
 						id: 'training-materials',
 						question: 'What training materials are needed?',
-						type: 'multiselect',
+						type: 'checkboxes',
 						options: [
 							'User Manual',
 							'Video Tutorials',
@@ -2132,25 +2207,25 @@ const generateWorkflow = async () => {
 					{
 						id: 'stage-objectives',
 						question: `What are the main objectives for ${stage.name}?`,
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'success-metrics',
 						question: 'How will success be measured?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: true,
 					},
 					{
 						id: 'dependencies',
 						question: 'Are there any dependencies?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: false,
 					},
 					{
 						id: 'special-requirements',
 						question: 'Are there any special requirements?',
-						type: 'text',
+						type: 'paragraph',
 						isRequired: false,
 					},
 				],
@@ -2472,6 +2547,7 @@ const sendMessage = async () => {
 		// Try streaming chat first
 		try {
 			console.log('💬 Attempting to use native stream chat API');
+			isChatStreaming.value = true;
 			await streamAIChatMessageNative(
 				chatRequest,
 				(chunk: string) => {
@@ -2486,6 +2562,7 @@ const sendMessage = async () => {
 				},
 				(data: any) => {
 					console.log('Stream chat completed:', data);
+					isChatStreaming.value = false;
 					if (data?.sessionId) {
 						conversationId.value = data.sessionId;
 					}
@@ -2494,6 +2571,7 @@ const sendMessage = async () => {
 				},
 				(error: any) => {
 					console.warn('Native stream chat failed:', error);
+					isChatStreaming.value = false;
 					throw error;
 				}
 			);
@@ -2503,6 +2581,7 @@ const sendMessage = async () => {
 			return;
 		} catch (streamError) {
 			console.warn('Stream chat failed, falling back to regular API:', streamError);
+			isChatStreaming.value = false;
 		}
 
 		// Fallback to regular API if streaming fails
@@ -2528,6 +2607,7 @@ const sendMessage = async () => {
 		}
 	} catch (error) {
 		console.error('Chat error:', error);
+		isChatStreaming.value = false;
 		// Update AI message with fallback response
 		const messageIndex = chatMessages.value.findIndex((msg) => msg.id === aiMessageId);
 		if (messageIndex !== -1) {
@@ -3723,6 +3803,23 @@ onMounted(async () => {
 .message-time {
 	font-size: 12px;
 	opacity: 0.7;
+}
+
+.thinking-indicator {
+	color: #f59e0b;
+	font-weight: 500;
+	margin-right: 8px;
+	animation: fadeInOut 2s infinite;
+}
+
+@keyframes fadeInOut {
+	0%,
+	100% {
+		opacity: 0.5;
+	}
+	50% {
+		opacity: 1;
+	}
 }
 
 .generation-complete {
@@ -5178,10 +5275,6 @@ onMounted(async () => {
 	gap: 0.5rem;
 }
 
-.task-title.required {
-	color: #dc2626;
-}
-
 .task-description {
 	margin: 0 0 0.5rem 0;
 	font-size: 13px;
@@ -5277,10 +5370,6 @@ onMounted(async () => {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-}
-
-.question-text.required {
-	color: #dc2626;
 }
 
 .question-options {

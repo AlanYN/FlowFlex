@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
-using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Common
 {
@@ -19,7 +18,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Common
         /// Stage ID (can be null or 0 for empty stage)
         /// </summary>
         [JsonPropertyName("stageId")]
-        [JsonConverter(typeof(NullableLongConverter))]
         public long? StageId { get; set; }
     }
 }

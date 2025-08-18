@@ -978,7 +978,7 @@ const refreshAISummary = async () => {
 		// 构建请求头
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
-			Accept: 'text/event-stream',
+			Accept: 'text/plain',
 			'Time-Zone': getTimeZoneInfo().timeZone,
 			'Application-code': globSetting?.ssoCode || '',
 		};
@@ -1016,91 +1016,40 @@ const refreshAISummary = async () => {
 			throw new Error('Response body is not readable');
 		}
 
+		// 直接处理纯文本流式响应
 		while (true) {
 			const { value, done } = await reader.read();
 			if (done) break;
 
 			const chunk = decoder.decode(value, { stream: true });
-			const lines = chunk.split('\n');
 
-			for (const line of lines) {
-				if (line.startsWith('data: ')) {
-					const data = line.slice(6); // Remove 'data: ' prefix
-
-					if (data === '[DONE]') {
-						// 流结束，但不需要重置loading状态，因为success case已经处理了
-						return;
-					}
-
-					try {
-						const parsedData = JSON.parse(data);
-
-						switch (parsedData.type) {
-							case 'start':
-								aiSummaryLoadingText.value =
-									parsedData.message || 'Starting AI summary generation...';
-								console.log('▶️ [AI Summary] Start:', aiSummaryLoadingText.value);
-								break;
-							case 'progress':
-								aiSummaryLoadingText.value =
-									parsedData.message || 'Generating summary...';
-								console.log(
-									'⏳ [AI Summary] Progress:',
-									aiSummaryLoadingText.value
-								);
-								break;
-							case 'chunk':
-								// 流式内容更新 - 逐步添加内容
-								if (parsedData.content) {
-									currentAISummary.value += parsedData.content;
-									console.log(
-										'📝 [AI Summary] Chunk received:',
-										parsedData.content.length,
-										'chars'
-									);
-								}
-								break;
-							case 'success':
-								console.log(
-									'✅ [AI Summary] Success received:',
-									parsedData.content?.substring(0, 50) + '...'
-								);
-								// 如果success包含完整内容，设置它；否则保持当前累积的内容
-								if (parsedData.content && !currentAISummary.value) {
-									currentAISummary.value = parsedData.content;
-								}
-								currentAISummaryGeneratedAt.value =
-									parsedData.generatedAt || new Date().toISOString();
-								aiSummaryLoading.value = false;
-								console.log(
-									'🔄 [AI Summary] Loading set to false, current loading =',
-									aiSummaryLoading.value
-								);
-								ElMessage.success('AI summary generated successfully');
-
-								// 更新本地stage信息
-								if (onboardingActiveStageInfo.value) {
-									onboardingActiveStageInfo.value.aiSummary =
-										currentAISummary.value;
-									onboardingActiveStageInfo.value.aiSummaryGeneratedAt =
-										parsedData.generatedAt;
-									console.log('📝 [AI Summary] Updated stage info');
-								}
-								break;
-							case 'error':
-								console.error(
-									'❌ [AI Summary] Error received:',
-									parsedData.message
-								);
-								throw new Error(
-									parsedData.message || 'Failed to generate AI summary'
-								);
-						}
-					} catch (parseError) {
-						console.error('Error parsing stream data:', parseError);
-					}
-				}
+			// 检查是否是错误信息
+			if (chunk.startsWith('Error:')) {
+				console.error('❌ [AI Summary] Server error:', chunk);
+				ElMessage.error(chunk.replace('Error: ', '') || 'Failed to generate AI summary');
+				aiSummaryLoading.value = false;
+				return;
 			}
+
+			// 直接将文本内容添加到AI Summary中
+			if (chunk.trim()) {
+				currentAISummary.value += chunk;
+				console.log('📝 [AI Summary] Text chunk received:', chunk.length, 'chars');
+			}
+		}
+
+		// 流结束，设置状态
+		console.log('✅ [AI Summary] Stream completed');
+		currentAISummaryGeneratedAt.value = new Date().toISOString();
+		aiSummaryLoading.value = false;
+		ElMessage.success('AI Summary generated successfully');
+
+		// 更新本地stage信息
+		if (onboardingActiveStageInfo.value) {
+			onboardingActiveStageInfo.value.aiSummary = currentAISummary.value;
+			onboardingActiveStageInfo.value.aiSummaryGeneratedAt =
+				currentAISummaryGeneratedAt.value;
+			console.log('📝 [AI Summary] Updated stage info');
 		}
 	} catch (error) {
 		console.error('Error generating AI summary:', error);

@@ -350,8 +350,10 @@ namespace FlowFlex.Application.Services.AI
                     var lastProgressLength = 0;
                     var lastProgressTime = DateTime.UtcNow;
 
-                    // 真正的流式处理：实时输出有意义的进度更新
-                    await foreach (var chunk in CallAIProviderForStreamChatAsync(messages, userConfig))
+                    // 真正的流式处理：实时输出有意义的进度更新，45秒超时+重试
+                    using var streamTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+
+                    await foreach (var chunk in CallAIProviderForStreamChatAsync(messages, userConfig).WithCancellation(streamTimeoutCts.Token))
                     {
                         if (!string.IsNullOrEmpty(chunk))
                         {
@@ -437,12 +439,96 @@ namespace FlowFlex.Application.Services.AI
                         var stageEndTime = DateTime.UtcNow;
                         _logger.LogInformation("✅ All {Count} stages yielded in {Duration}ms", stageCount, (stageEndTime - stageStartTime).TotalMilliseconds);
 
+                        // AI生成质量分析 - 优化后的统计逻辑
+                        var checklistCount = streamResult.Checklists?.Count ?? 0;
+                        var questionnaireCount = streamResult.Questionnaires?.Count ?? 0;
+                        stageCount = streamResult.Stages.Count;
+
+                        // 快速质量评估：计算有效组件比例
+                        var effectiveChecklists = streamResult.Checklists?.Count(c => c?.Tasks?.Count > 0) ?? 0;
+                        var effectiveQuestionnaires = streamResult.Questionnaires?.Count(q => q?.Questions?.Count > 0) ?? 0;
+                        var qualityScore = stageCount > 0 ? ((effectiveChecklists + effectiveQuestionnaires) * 50.0) / stageCount : 0;
+
+                        _logger.LogInformation("📈 AI生成质量: {QualityScore:F1}% - 有效组件 {EffectiveChecklists}/{ChecklistCount} checklists, {EffectiveQuestionnaires}/{QuestionnaireCount} questionnaires",
+                            qualityScore, effectiveChecklists, checklistCount, effectiveQuestionnaires, questionnaireCount);
+
+                        // 确保每个stage都有完整的checklist和questionnaire
+                        streamResult.Checklists ??= new List<AIChecklistGenerationResult>();
+                        streamResult.Questionnaires ??= new List<AIQuestionnaireGenerationResult>();
+
+                        var supplementStartTime = DateTime.UtcNow;
+                        var supplementCount = 0;
+
+                        // 智能补充缺失的组件 - 优化性能，减少不必要的fallback创建
+                        stageCount = streamResult.Stages.Count;
+                        checklistCount = streamResult.Checklists?.Count ?? 0;
+                        questionnaireCount = streamResult.Questionnaires?.Count ?? 0;
+
+                        // 快速检查：如果AI完整生成了所有组件，跳过补充逻辑
+                        var hasCompleteGeneration = checklistCount >= stageCount && questionnaireCount >= stageCount &&
+                            streamResult.Checklists.Take(stageCount).All(c => c?.Tasks?.Count > 0) &&
+                            streamResult.Questionnaires.Take(stageCount).All(q => q?.Questions?.Count > 0);
+
+                        if (hasCompleteGeneration)
+                        {
+                            _logger.LogInformation("🎯 AI完整生成所有组件，跳过补充逻辑 - {ChecklistCount} checklists, {QuestionnaireCount} questionnaires",
+                                checklistCount, questionnaireCount);
+                        }
+                        else
+                        {
+                            // 只有在确实缺失组件时才进行补充
+                            _logger.LogInformation("🔧 检测到组件缺失，开始智能补充 - 现有: {ChecklistCount}/{StageCount} checklists, {QuestionnaireCount}/{StageCount} questionnaires",
+                                checklistCount, stageCount, questionnaireCount, stageCount);
+
+                            for (int i = 0; i < stageCount; i++)
+                            {
+                                var stage = streamResult.Stages[i];
+
+                                // 智能检查checklist: 确保索引范围内且有有效任务
+                                if (i >= checklistCount || streamResult.Checklists[i]?.Tasks?.Count == 0)
+                                {
+                                    // 只在完全缺失时创建空结构，避免覆盖有效的AI生成内容
+                                    if (i >= checklistCount)
+                                    {
+                                        streamResult.Checklists.Add(GenerateFallbackChecklist(stage));
+                                        supplementCount++;
+                                        _logger.LogDebug("➕ 为stage {StageIndex}-{StageName} 添加空checklist", i, stage.Name);
+                                    }
+                                }
+
+                                // 智能检查questionnaire: 确保索引范围内且有有效问题
+                                if (i >= questionnaireCount || streamResult.Questionnaires[i]?.Questions?.Count == 0)
+                                {
+                                    // 只在完全缺失时创建空结构
+                                    if (i >= questionnaireCount)
+                                    {
+                                        streamResult.Questionnaires.Add(GenerateFallbackQuestionnaire(stage));
+                                        supplementCount++;
+                                        _logger.LogDebug("➕ 为stage {StageIndex}-{StageName} 添加空questionnaire", i, stage.Name);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (supplementCount > 0)
+                        {
+                            _logger.LogWarning("⚠️ AI生成不完整，补充了{SupplementCount}个空结构 ({Duration:F1}ms) - 最终{ChecklistCount} checklists + {QuestionnaireCount} questionnaires",
+                                supplementCount,
+                                (DateTime.UtcNow - supplementStartTime).TotalMilliseconds,
+                                streamResult.Checklists.Count,
+                                streamResult.Questionnaires.Count);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("🎯 AI生成完美：无需补充任何组件");
+                        }
+
                         var completeStartTime = DateTime.UtcNow;
                         yield return new AIWorkflowStreamResult
                         {
                             Type = "complete",
                             Data = streamResult,
-                            Message = "Workflow generation completed",
+                            Message = "Workflow generation completed with AI-powered components",
                             IsComplete = true
                         };
                         var completeEndTime = DateTime.UtcNow;
@@ -453,10 +539,54 @@ namespace FlowFlex.Application.Services.AI
                     }
                     else
                     {
+                        // AI解析失败，先尝试修复JSON，再使用快速fallback生成
+                        _logger.LogWarning("AI response parsing failed, attempting JSON repair and fallback generation");
+
+                        var fallbackStartTime = DateTime.UtcNow;
+                        var fallbackResult = TryRepairAndParseWorkflow(streamingContent.ToString());
+
+                        if (fallbackResult == null)
+                        {
+                            fallbackResult = GenerateFallbackWorkflow(streamingContent.ToString());
+                        }
+
+                        if (fallbackResult?.Stages?.Any() == true)
+                        {
+                            _logger.LogInformation("🔄 Fallback workflow generated with {Count} stages", fallbackResult.Stages.Count);
+
+                            yield return new AIWorkflowStreamResult
+                            {
+                                Type = "workflow",
+                                Data = fallbackResult.GeneratedWorkflow,
+                                Message = "Workflow generated using optimized fallback",
+                                IsComplete = false
+                            };
+
+                            foreach (var stage in fallbackResult.Stages)
+                            {
+                                yield return new AIWorkflowStreamResult
+                                {
+                                    Type = "stage",
+                                    Data = stage,
+                                    Message = $"Stage '{stage.Name}' generated",
+                                    IsComplete = false
+                                };
+                            }
+
+                            yield return new AIWorkflowStreamResult
+                            {
+                                Type = "complete",
+                                Data = fallbackResult,
+                                Message = $"Workflow generation completed in {(DateTime.UtcNow - fallbackStartTime).TotalMilliseconds}ms",
+                                IsComplete = true
+                            };
+                            yield break;
+                        }
+
                         yield return new AIWorkflowStreamResult
                         {
                             Type = "error",
-                            Message = "Unable to parse AI-generated workflow structure",
+                            Message = "AI generation failed and fallback unsuccessful",
                             IsComplete = true
                         };
                         yield break;
@@ -1075,7 +1205,7 @@ namespace FlowFlex.Application.Services.AI
                     Content = content,
                 };
                 request.Headers.Add("Authorization", $"Bearer {apiKey}");
-                
+
                 var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
                 var response = await httpClient.SendAsync(request, cts.Token);
@@ -1317,7 +1447,7 @@ namespace FlowFlex.Application.Services.AI
                 };
                 request.Headers.Add("x-api-key", apiKey);
                 request.Headers.Add("anthropic-version", "2023-06-01");
-                
+
                 var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
                 var response = await httpClient.SendAsync(request, cts.Token);
@@ -1451,7 +1581,7 @@ namespace FlowFlex.Application.Services.AI
                     Content = content,
                 };
                 request.Headers.Add("Authorization", $"Bearer {apiKey}");
-                
+
                 var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
                 var response = await httpClient.SendAsync(request, cts.Token);
@@ -1587,7 +1717,7 @@ namespace FlowFlex.Application.Services.AI
                             Content = content,
                         };
                         request.Headers.Add("Authorization", $"Bearer {apiKey}");
-                        
+
                         var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
                         var response = await httpClient.SendAsync(request, cts.Token);
@@ -1733,7 +1863,7 @@ namespace FlowFlex.Application.Services.AI
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("Please return the response strictly in the following JSON format, without any other text:");
+            promptBuilder.AppendLine("Generate complete workflow, must include checklist and questionnaire for each stage. Each stage should have 0-3 tasks and 0-3 questions:");
             promptBuilder.AppendLine(@"{
   ""name"": ""Workflow Name"",
   ""description"": ""Workflow Description"",
@@ -1741,11 +1871,25 @@ namespace FlowFlex.Application.Services.AI
     {
       ""name"": ""Stage Name"",
       ""description"": ""Stage Description"",
-      ""assignedGroup"": ""Responsible Team"",
-      ""estimatedDuration"": 1
+      ""assignedGroup"": ""Assigned Team"",
+      ""estimatedDuration"": 1,
+      ""checklist"": {
+        ""name"": ""Task List"",
+        ""tasks"": [
+          { ""title"": ""Task Name"", ""description"": ""Description"", ""isRequired"": true, ""estimatedMinutes"": 60, ""category"": ""Execution"" }
+        ]
+      },
+      ""questionnaire"": {
+        ""name"": ""Information Collection"",
+        ""questions"": [
+          { ""question"": ""Key Question?"", ""type"": ""text"", ""isRequired"": true, ""category"": ""Requirements"" },
+          { ""question"": ""Priority?"", ""type"": ""select"", ""isRequired"": true, ""options"": [""High"", ""Medium"", ""Low""] }
+        ]
+      }
     }
   ]
-}");
+}
+IMPORTANT: Each stage must contain both checklist and questionnaire fields!");
 
             return promptBuilder.ToString();
         }
@@ -1825,7 +1969,9 @@ namespace FlowFlex.Application.Services.AI
                     var jsonEnd = aiResponse.LastIndexOf('}') + 1;
                     var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
 
-                    _logger.LogInformation("🔧 Deserializing JSON, content length: {Length}", jsonContent.Length);
+                    _logger.LogDebug("🔧 Deserializing JSON, content length: {Length}", jsonContent.Length);
+                    _logger.LogDebug("🔍 JSON Preview: {JsonPreview}",
+                        jsonContent.Length > 300 ? jsonContent.Substring(0, 300) + "..." : jsonContent);
                     var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
 
                     var workflow = new WorkflowInputDto
@@ -1837,31 +1983,80 @@ namespace FlowFlex.Application.Services.AI
                     };
 
                     var stages = new List<AIStageGenerationResult>();
+                    var checklists = new List<AIChecklistGenerationResult>();
+                    var questionnaires = new List<AIQuestionnaireGenerationResult>();
+
                     if (parsed.TryGetProperty("stages", out var stagesEl) && stagesEl.ValueKind == JsonValueKind.Array)
                     {
                         var order = 1;
                         foreach (var stageEl in stagesEl.EnumerateArray())
                         {
-                            stages.Add(new AIStageGenerationResult
+                            var stage = new AIStageGenerationResult
                             {
                                 Name = stageEl.TryGetProperty("name", out var sNameEl) ? sNameEl.GetString() : $"Stage {order}",
                                 Description = stageEl.TryGetProperty("description", out var sDescEl) ? sDescEl.GetString() : "",
-                                Order = order++,
+                                Order = order,
                                 AssignedGroup = stageEl.TryGetProperty("assignedGroup", out var sGroupEl) ? sGroupEl.GetString() : "General",
                                 EstimatedDuration = stageEl.TryGetProperty("estimatedDuration", out var sDurEl) && sDurEl.TryGetInt32(out var dur) ? dur : 1
-                            });
+                            };
+                            stages.Add(stage);
+
+                            // 解析embedded checklist
+                            if (stageEl.TryGetProperty("checklist", out var checklistEl))
+                            {
+                                var checklist = ParseEmbeddedChecklist(checklistEl, stage, order - 1);
+                                if (checklist != null)
+                                {
+                                    _logger.LogDebug("✅ Parsed checklist: {TaskCount} tasks for {StageName}",
+                                        checklist.Tasks?.Count ?? 0, stage.Name);
+                                    checklists.Add(checklist);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("❌ Failed to parse embedded checklist for stage {StageName}", stage.Name);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ No embedded checklist found for stage {StageName}", stage.Name);
+                            }
+
+                            // 解析embedded questionnaire
+                            if (stageEl.TryGetProperty("questionnaire", out var questionnaireEl))
+                            {
+                                var questionnaire = ParseEmbeddedQuestionnaire(questionnaireEl, stage, order - 1);
+                                if (questionnaire != null)
+                                {
+                                    _logger.LogDebug("✅ Parsed questionnaire: {QuestionCount} questions for {StageName}",
+                                        questionnaire.Questions?.Count ?? 0, stage.Name);
+                                    questionnaires.Add(questionnaire);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("❌ Failed to parse embedded questionnaire for stage {StageName}", stage.Name);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ No embedded questionnaire found for stage {StageName}", stage.Name);
+                            }
+
+                            order++;
                         }
                     }
 
                     var jsonEndTime = DateTime.UtcNow;
-                    _logger.LogInformation("✅ JSON parsing successful in {Duration}ms", (jsonEndTime - methodStartTime).TotalMilliseconds);
+                    _logger.LogInformation("🎯 JSON解析成功 ({Duration:F1}ms) - 完整度: {StageCount} stages, {ChecklistCount} checklists, {QuestionnaireCount} questionnaires",
+    (jsonEndTime - methodStartTime).TotalMilliseconds, stages.Count, checklists.Count, questionnaires.Count);
 
                     return new AIWorkflowGenerationResult
                     {
                         Success = true,
-                        Message = "Workflow generated successfully",
+                        Message = "Workflow generated successfully with embedded checklists and questionnaires",
                         GeneratedWorkflow = workflow,
                         Stages = stages,
+                        Checklists = checklists,
+                        Questionnaires = questionnaires,
                         Suggestions = new List<string> { "Consider adding approval stages", "Review stage assignments" }
                     };
                 }
@@ -1944,7 +2139,7 @@ namespace FlowFlex.Application.Services.AI
                 };
             }
 
-            // Generate checklists and questionnaires for each stage (metadata only for now)
+            // Generate checklists and questionnaires for each stage (using fallback methods for synchronous context)
             _logger.LogInformation("🔍 Generating checklists and questionnaires metadata for {Count} stages...", stages.Count);
             var checklistsStartTime = DateTime.UtcNow;
             var checklists = GenerateChecklistsForStages(stages);
@@ -2514,7 +2709,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 Content = content,
             };
             request.Headers.Add("Authorization", $"Bearer {_aiOptions.ZhipuAI.ApiKey}");
-            
+
             var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
             var response = await httpClient.SendAsync(request, cts.Token);
@@ -3477,60 +3672,1002 @@ Remember: Your goal is to collect enough detailed information to create a compre
 
             return result;
         }
-        private List<AIChecklistGenerationResult> GenerateChecklistsForStages(List<AIStageGenerationResult> stages)
+
+        private string BuildChecklistGenerationPrompt(AIStageGenerationResult stage, string originalDescription)
+        {
+            return $@"
+Based on the following stage information and original project description, generate a comprehensive checklist with specific tasks.
+
+Original Project Description: {originalDescription}
+
+Stage Information:
+- Name: {stage.Name}
+- Description: {stage.Description}
+- Assigned Group: {stage.AssignedGroup}
+- Estimated Duration: {stage.EstimatedDuration} days
+
+Please provide a JSON response with the following structure:
+{{
+    ""name"": ""Specific checklist name"",
+    ""description"": ""Detailed description of what this checklist covers"",
+    ""tasks"": [
+        {{
+            ""title"": ""Task title"",
+            ""description"": ""Detailed task description"",
+            ""isRequired"": true/false,
+            ""estimatedMinutes"": number,
+            ""category"": ""Task category""
+        }}
+    ]
+}}
+
+Generate 3-6 specific, actionable tasks that are directly relevant to this stage and the overall project description.
+Focus on concrete deliverables and ensure tasks are specific to the project context.
+";
+        }
+
+        private string BuildQuestionnaireGenerationPrompt(AIStageGenerationResult stage, string originalDescription)
+        {
+            return $@"
+Based on the following stage information and original project description, generate relevant questions to gather information needed for this stage.
+
+Original Project Description: {originalDescription}
+
+Stage Information:
+- Name: {stage.Name}
+- Description: {stage.Description}
+- Assigned Group: {stage.AssignedGroup}
+- Estimated Duration: {stage.EstimatedDuration} days
+
+Please provide a JSON response with the following structure:
+{{
+    ""name"": ""Specific questionnaire name"",
+    ""description"": ""Description of information this questionnaire gathers"",
+    ""questions"": [
+        {{
+            ""question"": ""Question text"",
+            ""type"": ""text"" | ""select"" | ""multiselect"" | ""boolean"" | ""number"",
+            ""isRequired"": true/false,
+            ""category"": ""Question category"",
+            ""options"": [""option1"", ""option2""] // only for select/multiselect types
+        }}
+    ]
+}}
+
+Generate 3-8 relevant questions that help gather the information needed to successfully complete this stage.
+Focus on questions that are specific to the project context and this particular stage's requirements.
+";
+        }
+
+        private string BuildBatchChecklistGenerationPrompt(List<AIStageGenerationResult> stages, string originalDescription)
+        {
+            var stagesInfo = string.Join("\n\n", stages.Select((stage, index) => $@"
+Stage {index + 1}:
+- Name: {stage.Name}
+- Description: {stage.Description}
+- Assigned Group: {stage.AssignedGroup}
+- Estimated Duration: {stage.EstimatedDuration} days"));
+
+            return $@"
+You are a project management expert. Generate comprehensive checklists for the project stages described below.
+
+Project: {originalDescription}
+
+Stages:
+{stagesInfo}
+
+IMPORTANT: Respond ONLY with valid JSON in the exact format below, no additional text:
+
+{{
+    ""checklists"": [
+        {{
+            ""stageIndex"": 0,
+            ""name"": ""Checklist for {stages.FirstOrDefault()?.Name ?? "Stage 1"}"",
+            ""description"": ""Tasks for {stages.FirstOrDefault()?.Name ?? "Stage 1"}"",
+            ""tasks"": [
+                {{
+                    ""title"": ""Sample task title"",
+                    ""description"": ""Detailed task description"",
+                    ""isRequired"": true,
+                    ""estimatedMinutes"": 120,
+                    ""category"": ""Planning""
+                }}
+            ]
+        }}
+    ]
+}}
+
+Create {stages.Count} checklist entries (stageIndex 0 to {stages.Count - 1}), each with 3-5 specific tasks.
+Make tasks relevant to the project context and stage purpose.
+Use realistic time estimates (30-480 minutes per task).";
+        }
+
+        private string BuildBatchQuestionnaireGenerationPrompt(List<AIStageGenerationResult> stages, string originalDescription)
+        {
+            var stagesInfo = string.Join("\n\n", stages.Select((stage, index) => $@"
+Stage {index + 1}:
+- Name: {stage.Name}
+- Description: {stage.Description}
+- Assigned Group: {stage.AssignedGroup}
+- Estimated Duration: {stage.EstimatedDuration} days"));
+
+            return $@"
+You are a business analyst expert. Generate relevant questionnaires for the project stages described below.
+
+Project: {originalDescription}
+
+Stages:
+{stagesInfo}
+
+IMPORTANT: Respond ONLY with valid JSON in the exact format below, no additional text:
+
+{{
+    ""questionnaires"": [
+        {{
+            ""stageIndex"": 0,
+            ""name"": ""Questionnaire for {stages.FirstOrDefault()?.Name ?? "Stage 1"}"",
+            ""description"": ""Information gathering for {stages.FirstOrDefault()?.Name ?? "Stage 1"}"",
+            ""questions"": [
+                {{
+                    ""question"": ""Sample question about the stage requirements?"",
+                    ""type"": ""text"",
+                    ""isRequired"": true,
+                    ""category"": ""Requirements""
+                }}
+            ]
+        }}
+    ]
+}}
+
+Create {stages.Count} questionnaire entries (stageIndex 0 to {stages.Count - 1}), each with 3-6 specific questions.
+Use question types: text, select, multiselect, boolean, number.
+Include ""options"" array only for select/multiselect types.
+Make questions relevant to the project context and stage objectives.";
+        }
+
+        private async Task<List<AIChecklistGenerationResult>> GenerateChecklistsForStagesAsync(List<AIStageGenerationResult> stages, string originalDescription)
         {
             var checklists = new List<AIChecklistGenerationResult>();
 
+            // 预先获取AI配置，避免重复查询
+            var defaultConfig = await _configService.GetUserDefaultConfigAsync(0);
+            _logger.LogInformation("🔧 Pre-cached AI config for batch generation: {Provider} - {Model}",
+                defaultConfig?.Provider, defaultConfig?.ModelName);
+
+            try
+            {
+                // 批量生成 - 构建包含所有stages的单个prompt，设置35秒超时
+                using var batchCts = new CancellationTokenSource(TimeSpan.FromSeconds(35));
+                var batchPrompt = BuildBatchChecklistGenerationPrompt(stages, originalDescription);
+
+                // 加入重试机制，减少重试次数但更快失败转移
+                var aiResponse = await CallAIProviderWithRetryAsync(batchPrompt, maxRetries: 1);
+
+                if (aiResponse.Success && !string.IsNullOrEmpty(aiResponse.Content))
+                {
+                    // 添加调试日志查看AI响应
+                    _logger.LogInformation("🔍 AI Checklist Response Preview: {Preview}",
+                        aiResponse.Content.Length > 500 ? aiResponse.Content.Substring(0, 500) + "..." : aiResponse.Content);
+
+                    var batchChecklists = ParseBatchChecklistResponse(aiResponse.Content, stages);
+                    if (batchChecklists != null && batchChecklists.Count > 0)
+                    {
+                        _logger.LogInformation("✅ Successfully generated {Count} checklists in batch", batchChecklists.Count);
+                        return batchChecklists;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("❌ Batch checklist parsing failed - no valid results extracted");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("❌ AI checklist call failed: Success={Success}, ErrorMessage={Error}",
+                        aiResponse.Success, aiResponse.ErrorMessage);
+                }
+
+                _logger.LogWarning("Batch checklist generation failed, falling back to individual generation");
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.LogWarning("Batch checklist generation timeout, falling back to individual generation");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Batch checklist generation error, falling back to individual generation");
+            }
+
+            // 回退到并行个别生成，增加超时控制
+            var parallelTasks = stages.Select(async stage =>
+            {
+                try
+                {
+                    // 为每个个别生成设置20秒超时，无重试（并行已提供冗余）
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                    var checklistPrompt = BuildChecklistGenerationPrompt(stage, originalDescription);
+                    var aiResponse = await CallAIProviderAsync(checklistPrompt);
+
+                    if (aiResponse.Success && !string.IsNullOrEmpty(aiResponse.Content))
+                    {
+                        return ParseAIChecklistResponse(aiResponse.Content, stage);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("AI checklist generation failed for stage {StageName}, using fallback", stage.Name);
+                        return GenerateFallbackChecklist(stage);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogWarning("AI checklist generation timeout for stage {StageName}, using fallback", stage.Name);
+                    return GenerateFallbackChecklist(stage);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to generate AI checklist for stage {StageName}, using fallback", stage.Name);
+                    return GenerateFallbackChecklist(stage);
+                }
+            });
+
+            var results = await Task.WhenAll(parallelTasks);
+            return results.ToList();
+        }
+
+        private List<AIChecklistGenerationResult> GenerateChecklistsForStages(List<AIStageGenerationResult> stages)
+        {
+            // 保留同步版本作为回退
+            var checklists = new List<AIChecklistGenerationResult>();
+            var random = new Random();
+
             foreach (var stage in stages)
             {
-                var checklist = new AIChecklistGenerationResult
-                {
-                    Success = true,
-                    Message = $"Checklist generated for {stage.Name}",
-                    GeneratedChecklist = new ChecklistInputDto
-                    {
-                        Name = $"{stage.Name} Checklist",
-                        Description = $"Essential tasks to complete during the {stage.Name} stage",
-                        Team = stage.AssignedGroup,
-                        IsActive = true
-                    },
-                    Tasks = GenerateTasksForStage(stage),
-                    ConfidenceScore = 0.85
-                };
+                // Determine the number of checklists for this stage based on complexity and characteristics
+                var checklistCount = DetermineChecklistCount(stage, random);
 
-                checklists.Add(checklist);
+                for (int i = 0; i < checklistCount; i++)
+                {
+                    var checklistName = GenerateChecklistName(stage, i, checklistCount);
+                    var checklistDescription = GenerateChecklistDescription(stage, i, checklistCount);
+
+                    var checklist = new AIChecklistGenerationResult
+                    {
+                        Success = true,
+                        Message = $"Checklist generated for {stage.Name}",
+                        GeneratedChecklist = new ChecklistInputDto
+                        {
+                            Name = checklistName,
+                            Description = checklistDescription,
+                            Team = stage.AssignedGroup,
+                            IsActive = true
+                        },
+                        Tasks = GenerateTasksForStage(stage, i, checklistCount, random),
+                        ConfidenceScore = 0.85
+                    };
+
+                    checklists.Add(checklist);
+                }
             }
 
             return checklists;
         }
 
-        private List<AIQuestionnaireGenerationResult> GenerateQuestionnairesForStages(List<AIStageGenerationResult> stages)
+        private async Task<List<AIQuestionnaireGenerationResult>> GenerateQuestionnairesForStagesAsync(List<AIStageGenerationResult> stages, string originalDescription)
         {
             var questionnaires = new List<AIQuestionnaireGenerationResult>();
 
+            // 预先获取AI配置，避免重复查询
+            var defaultConfig = await _configService.GetUserDefaultConfigAsync(0);
+            _logger.LogInformation("🔧 Pre-cached AI config for batch generation: {Provider} - {Model}",
+                defaultConfig?.Provider, defaultConfig?.ModelName);
+
+            try
+            {
+                // 批量生成 - 构建包含所有stages的单个prompt，设置35秒超时
+                using var batchCts = new CancellationTokenSource(TimeSpan.FromSeconds(35));
+                var batchPrompt = BuildBatchQuestionnaireGenerationPrompt(stages, originalDescription);
+
+                // 加入重试机制，减少重试次数但更快失败转移
+                var aiResponse = await CallAIProviderWithRetryAsync(batchPrompt, maxRetries: 1);
+
+                if (aiResponse.Success && !string.IsNullOrEmpty(aiResponse.Content))
+                {
+                    // 添加调试日志查看AI响应
+                    _logger.LogInformation("🔍 AI Questionnaire Response Preview: {Preview}",
+                        aiResponse.Content.Length > 500 ? aiResponse.Content.Substring(0, 500) + "..." : aiResponse.Content);
+
+                    var batchQuestionnaires = ParseBatchQuestionnaireResponse(aiResponse.Content, stages);
+                    if (batchQuestionnaires != null && batchQuestionnaires.Count > 0)
+                    {
+                        _logger.LogInformation("✅ Successfully generated {Count} questionnaires in batch", batchQuestionnaires.Count);
+                        return batchQuestionnaires;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("❌ Batch questionnaire parsing failed - no valid results extracted");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("❌ AI questionnaire call failed: Success={Success}, ErrorMessage={Error}",
+                        aiResponse.Success, aiResponse.ErrorMessage);
+                }
+
+                _logger.LogWarning("Batch questionnaire generation failed, falling back to individual generation");
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.LogWarning("Batch questionnaire generation timeout, falling back to individual generation");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Batch questionnaire generation error, falling back to individual generation");
+            }
+
+            // 回退到并行个别生成，增加超时控制
+            var parallelTasks = stages.Select(async stage =>
+            {
+                try
+                {
+                    // 为每个个别生成设置20秒超时，无重试（并行已提供冗余）
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                    var questionnairePrompt = BuildQuestionnaireGenerationPrompt(stage, originalDescription);
+                    var aiResponse = await CallAIProviderAsync(questionnairePrompt);
+
+                    if (aiResponse.Success && !string.IsNullOrEmpty(aiResponse.Content))
+                    {
+                        return ParseAIQuestionnaireResponse(aiResponse.Content, stage);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("AI questionnaire generation failed for stage {StageName}, using fallback", stage.Name);
+                        return GenerateFallbackQuestionnaire(stage);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogWarning("AI questionnaire generation timeout for stage {StageName}, using fallback", stage.Name);
+                    return GenerateFallbackQuestionnaire(stage);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to generate AI questionnaire for stage {StageName}, using fallback", stage.Name);
+                    return GenerateFallbackQuestionnaire(stage);
+                }
+            });
+
+            var results = await Task.WhenAll(parallelTasks);
+            return results.ToList();
+        }
+
+        private List<AIQuestionnaireGenerationResult> GenerateQuestionnairesForStages(List<AIStageGenerationResult> stages)
+        {
+            // 保留同步版本作为回退
+            var questionnaires = new List<AIQuestionnaireGenerationResult>();
+            var random = new Random();
+
             foreach (var stage in stages)
             {
-                var questionnaire = new AIQuestionnaireGenerationResult
-                {
-                    Success = true,
-                    Message = $"Questionnaire generated for {stage.Name}",
-                    GeneratedQuestionnaire = new QuestionnaireInputDto
-                    {
-                        Name = $"{stage.Name} Questionnaire",
-                        Description = $"Key questions to gather information for the {stage.Name} stage",
-                        IsActive = true
-                    },
-                    Questions = GenerateQuestionsForStage(stage),
-                    ConfidenceScore = 0.85
-                };
+                // Determine the number of questionnaires for this stage based on complexity and characteristics
+                var questionnaireCount = DetermineQuestionnaireCount(stage, random);
 
-                questionnaires.Add(questionnaire);
+                for (int i = 0; i < questionnaireCount; i++)
+                {
+                    var questionnaireName = GenerateQuestionnaireName(stage, i, questionnaireCount);
+                    var questionnaireDescription = GenerateQuestionnaireDescription(stage, i, questionnaireCount);
+
+                    var questionnaire = new AIQuestionnaireGenerationResult
+                    {
+                        Success = true,
+                        Message = $"Questionnaire generated for {stage.Name}",
+                        GeneratedQuestionnaire = new QuestionnaireInputDto
+                        {
+                            Name = questionnaireName,
+                            Description = questionnaireDescription,
+                            IsActive = true
+                        },
+                        Questions = GenerateQuestionsForStage(stage, i, questionnaireCount, random),
+                        ConfidenceScore = 0.85
+                    };
+
+                    questionnaires.Add(questionnaire);
+                }
             }
 
             return questionnaires;
         }
 
-        private List<AITaskGenerationResult> GenerateTasksForStage(AIStageGenerationResult stage)
+        private AIChecklistGenerationResult ParseAIChecklistResponse(string aiResponse, AIStageGenerationResult stage)
+        {
+            try
+            {
+                // 尝试解析JSON响应
+                if (aiResponse.Contains("{") && aiResponse.Contains("}"))
+                {
+                    var jsonStart = aiResponse.IndexOf('{');
+                    var jsonEnd = aiResponse.LastIndexOf('}') + 1;
+                    var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
+
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+
+                    var tasks = new List<AITaskGenerationResult>();
+                    if (parsed.TryGetProperty("tasks", out var tasksEl) && tasksEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var taskEl in tasksEl.EnumerateArray())
+                        {
+                            tasks.Add(new AITaskGenerationResult
+                            {
+                                Title = taskEl.TryGetProperty("title", out var titleEl) ? titleEl.GetString() : "Task",
+                                Description = taskEl.TryGetProperty("description", out var taskDescEl) ? taskDescEl.GetString() : "",
+                                IsRequired = taskEl.TryGetProperty("isRequired", out var reqEl) && reqEl.GetBoolean(),
+                                EstimatedMinutes = taskEl.TryGetProperty("estimatedMinutes", out var timeEl) && timeEl.TryGetInt32(out var minutes) ? minutes : 60,
+                                Category = taskEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : "General"
+                            });
+                        }
+                    }
+
+                    return new AIChecklistGenerationResult
+                    {
+                        Success = true,
+                        Message = $"AI-generated checklist for {stage.Name}",
+                        GeneratedChecklist = new ChecklistInputDto
+                        {
+                            Name = parsed.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"{stage.Name} Checklist",
+                            Description = parsed.TryGetProperty("description", out var descEl) ? descEl.GetString() : $"AI-generated checklist for {stage.Name}",
+                            Team = stage.AssignedGroup,
+                            IsActive = true
+                        },
+                        Tasks = tasks,
+                        ConfidenceScore = 0.9
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse AI checklist response for stage {StageName}", stage.Name);
+            }
+
+            // 回退到默认生成
+            return GenerateFallbackChecklist(stage);
+        }
+
+        private AIQuestionnaireGenerationResult ParseAIQuestionnaireResponse(string aiResponse, AIStageGenerationResult stage)
+        {
+            try
+            {
+                // 尝试解析JSON响应
+                if (aiResponse.Contains("{") && aiResponse.Contains("}"))
+                {
+                    var jsonStart = aiResponse.IndexOf('{');
+                    var jsonEnd = aiResponse.LastIndexOf('}') + 1;
+                    var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
+
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+
+                    var questions = new List<AIQuestionGenerationResult>();
+                    if (parsed.TryGetProperty("questions", out var questionsEl) && questionsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var questionEl in questionsEl.EnumerateArray())
+                        {
+                            var options = new List<string>();
+                            if (questionEl.TryGetProperty("options", out var optionsEl) && optionsEl.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var optionEl in optionsEl.EnumerateArray())
+                                {
+                                    if (optionEl.ValueKind == JsonValueKind.String)
+                                    {
+                                        options.Add(optionEl.GetString());
+                                    }
+                                }
+                            }
+
+                            questions.Add(new AIQuestionGenerationResult
+                            {
+                                Question = questionEl.TryGetProperty("question", out var qEl) ? qEl.GetString() : "Question",
+                                Type = questionEl.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "text",
+                                IsRequired = questionEl.TryGetProperty("isRequired", out var reqEl) && reqEl.GetBoolean(),
+                                Category = questionEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : "General",
+                                Options = options
+                            });
+                        }
+                    }
+
+                    return new AIQuestionnaireGenerationResult
+                    {
+                        Success = true,
+                        Message = $"AI-generated questionnaire for {stage.Name}",
+                        GeneratedQuestionnaire = new QuestionnaireInputDto
+                        {
+                            Name = parsed.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"{stage.Name} Questionnaire",
+                            Description = parsed.TryGetProperty("description", out var descEl) ? descEl.GetString() : $"AI-generated questionnaire for {stage.Name}",
+                            IsActive = true
+                        },
+                        Questions = questions,
+                        ConfidenceScore = 0.9
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse AI questionnaire response for stage {StageName}", stage.Name);
+            }
+
+            // 回退到默认生成
+            return GenerateFallbackQuestionnaire(stage);
+        }
+
+        private List<AIChecklistGenerationResult> ParseBatchChecklistResponse(string aiResponse, List<AIStageGenerationResult> stages)
+        {
+            try
+            {
+                _logger.LogInformation("🔍 Parsing batch checklist response, length: {Length}", aiResponse.Length);
+
+                // 尝试解析JSON响应
+                if (aiResponse.Contains("{") && aiResponse.Contains("}"))
+                {
+                    var jsonStart = aiResponse.IndexOf('{');
+                    var jsonEnd = aiResponse.LastIndexOf('}') + 1;
+                    var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
+
+                    _logger.LogInformation("🔍 Extracted JSON content: {JsonContent}",
+                        jsonContent.Length > 1000 ? jsonContent.Substring(0, 1000) + "..." : jsonContent);
+
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+                    var results = new List<AIChecklistGenerationResult>();
+
+                    if (parsed.TryGetProperty("checklists", out var checklistsEl) && checklistsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var checklistEl in checklistsEl.EnumerateArray())
+                        {
+                            if (checklistEl.TryGetProperty("stageIndex", out var indexEl) && indexEl.TryGetInt32(out var stageIndex)
+                                && stageIndex >= 0 && stageIndex < stages.Count)
+                            {
+                                var stage = stages[stageIndex];
+                                var tasks = new List<AITaskGenerationResult>();
+
+                                if (checklistEl.TryGetProperty("tasks", out var tasksEl) && tasksEl.ValueKind == JsonValueKind.Array)
+                                {
+                                    foreach (var taskEl in tasksEl.EnumerateArray())
+                                    {
+                                        tasks.Add(new AITaskGenerationResult
+                                        {
+                                            Title = taskEl.TryGetProperty("title", out var titleEl) ? titleEl.GetString() : "Task",
+                                            Description = taskEl.TryGetProperty("description", out var taskDescEl) ? taskDescEl.GetString() : "",
+                                            IsRequired = taskEl.TryGetProperty("isRequired", out var reqEl) && reqEl.GetBoolean(),
+                                            EstimatedMinutes = taskEl.TryGetProperty("estimatedMinutes", out var timeEl) && timeEl.TryGetInt32(out var minutes) ? minutes : 60,
+                                            Category = taskEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : "General"
+                                        });
+                                    }
+                                }
+
+                                results.Add(new AIChecklistGenerationResult
+                                {
+                                    Success = true,
+                                    Message = $"Batch AI-generated checklist for {stage.Name}",
+                                    GeneratedChecklist = new ChecklistInputDto
+                                    {
+                                        Name = checklistEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"{stage.Name} Checklist",
+                                        Description = checklistEl.TryGetProperty("description", out var descEl) ? descEl.GetString() : $"AI-generated checklist for {stage.Name}",
+                                        Team = stage.AssignedGroup,
+                                        IsActive = true
+                                    },
+                                    Tasks = tasks,
+                                    ConfidenceScore = 0.95 // Higher confidence for batch generation
+                                });
+                            }
+                        }
+                    }
+
+                    // 确保返回结果数量与stages匹配，缺失的用fallback填充
+                    while (results.Count < stages.Count)
+                    {
+                        var missingStage = stages[results.Count];
+                        results.Add(GenerateFallbackChecklist(missingStage));
+                    }
+
+                    return results;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse batch checklist response");
+            }
+
+            return null;
+        }
+
+        private List<AIQuestionnaireGenerationResult> ParseBatchQuestionnaireResponse(string aiResponse, List<AIStageGenerationResult> stages)
+        {
+            try
+            {
+                // 尝试解析JSON响应
+                if (aiResponse.Contains("{") && aiResponse.Contains("}"))
+                {
+                    var jsonStart = aiResponse.IndexOf('{');
+                    var jsonEnd = aiResponse.LastIndexOf('}') + 1;
+                    var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
+
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+                    var results = new List<AIQuestionnaireGenerationResult>();
+
+                    if (parsed.TryGetProperty("questionnaires", out var questionnairesEl) && questionnairesEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var questionnaireEl in questionnairesEl.EnumerateArray())
+                        {
+                            if (questionnaireEl.TryGetProperty("stageIndex", out var indexEl) && indexEl.TryGetInt32(out var stageIndex)
+                                && stageIndex >= 0 && stageIndex < stages.Count)
+                            {
+                                var stage = stages[stageIndex];
+                                var questions = new List<AIQuestionGenerationResult>();
+
+                                if (questionnaireEl.TryGetProperty("questions", out var questionsEl) && questionsEl.ValueKind == JsonValueKind.Array)
+                                {
+                                    foreach (var questionEl in questionsEl.EnumerateArray())
+                                    {
+                                        var options = new List<string>();
+                                        if (questionEl.TryGetProperty("options", out var optionsEl) && optionsEl.ValueKind == JsonValueKind.Array)
+                                        {
+                                            foreach (var optionEl in optionsEl.EnumerateArray())
+                                            {
+                                                if (optionEl.ValueKind == JsonValueKind.String)
+                                                {
+                                                    options.Add(optionEl.GetString());
+                                                }
+                                            }
+                                        }
+
+                                        questions.Add(new AIQuestionGenerationResult
+                                        {
+                                            Question = questionEl.TryGetProperty("question", out var qEl) ? qEl.GetString() : "Question",
+                                            Type = questionEl.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "text",
+                                            IsRequired = questionEl.TryGetProperty("isRequired", out var reqEl) && reqEl.GetBoolean(),
+                                            Category = questionEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : "General",
+                                            Options = options
+                                        });
+                                    }
+                                }
+
+                                results.Add(new AIQuestionnaireGenerationResult
+                                {
+                                    Success = true,
+                                    Message = $"Batch AI-generated questionnaire for {stage.Name}",
+                                    GeneratedQuestionnaire = new QuestionnaireInputDto
+                                    {
+                                        Name = questionnaireEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"{stage.Name} Questionnaire",
+                                        Description = questionnaireEl.TryGetProperty("description", out var descEl) ? descEl.GetString() : $"AI-generated questionnaire for {stage.Name}",
+                                        IsActive = true
+                                    },
+                                    Questions = questions,
+                                    ConfidenceScore = 0.95 // Higher confidence for batch generation
+                                });
+                            }
+                        }
+                    }
+
+                    // 确保返回结果数量与stages匹配，缺失的用fallback填充
+                    while (results.Count < stages.Count)
+                    {
+                        var missingStage = stages[results.Count];
+                        results.Add(GenerateFallbackQuestionnaire(missingStage));
+                    }
+
+                    return results;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse batch questionnaire response");
+            }
+
+            return null;
+        }
+
+        private List<AIChecklistGenerationResult> GenerateFallbackChecklists(List<AIStageGenerationResult> stages)
+        {
+            return stages.Select(stage => GenerateFallbackChecklist(stage)).ToList();
+        }
+
+        private List<AIQuestionnaireGenerationResult> GenerateFallbackQuestionnaires(List<AIStageGenerationResult> stages)
+        {
+            return stages.Select(stage => GenerateFallbackQuestionnaire(stage)).ToList();
+        }
+
+        /// <summary>
+        /// 尝试修复AI生成的损坏JSON并解析
+        /// </summary>
+        private AIWorkflowGenerationResult TryRepairAndParseWorkflow(string aiResponse)
+        {
+            try
+            {
+                _logger.LogInformation("🔧 Attempting to repair potentially corrupted JSON...");
+
+                // 移除可能的markdown格式
+                var cleaned = aiResponse
+                    .Replace("```json", "")
+                    .Replace("```", "")
+                    .Trim();
+
+                // 寻找JSON开始和结束
+                var jsonStart = cleaned.IndexOf('{');
+                var jsonEnd = cleaned.LastIndexOf('}');
+
+                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                {
+                    var jsonContent = cleaned.Substring(jsonStart, jsonEnd - jsonStart + 1);
+
+                    // 尝试解析
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+
+                    // 如果解析成功，走正常流程
+                    return ParseWorkflowFromJsonElement(parsed);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "JSON repair attempt failed");
+            }
+
+            return null;
+        }
+
+        private AIWorkflowGenerationResult ParseWorkflowFromJsonElement(JsonElement parsed)
+        {
+            var workflow = new WorkflowInputDto
+            {
+                Name = parsed.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : "AI Generated Workflow",
+                Description = parsed.TryGetProperty("description", out var descEl) ? descEl.GetString() : "Generated by AI",
+                IsActive = true,
+                IsAIGenerated = true
+            };
+
+            var stages = new List<AIStageGenerationResult>();
+            var checklists = new List<AIChecklistGenerationResult>();
+            var questionnaires = new List<AIQuestionnaireGenerationResult>();
+
+            if (parsed.TryGetProperty("stages", out var stagesEl) && stagesEl.ValueKind == JsonValueKind.Array)
+            {
+                var order = 1;
+                foreach (var stageEl in stagesEl.EnumerateArray())
+                {
+                    var stage = new AIStageGenerationResult
+                    {
+                        Name = stageEl.TryGetProperty("name", out var sNameEl) ? sNameEl.GetString() : $"Stage {order}",
+                        Description = stageEl.TryGetProperty("description", out var sDescEl) ? sDescEl.GetString() : "",
+                        Order = order,
+                        AssignedGroup = stageEl.TryGetProperty("assignedGroup", out var sGroupEl) ? sGroupEl.GetString() : "General",
+                        EstimatedDuration = stageEl.TryGetProperty("estimatedDuration", out var sDurEl) && sDurEl.TryGetInt32(out var dur) ? dur : 1
+                    };
+                    stages.Add(stage);
+
+                    // 解析embedded checklist
+                    if (stageEl.TryGetProperty("checklist", out var checklistEl))
+                    {
+                        var checklist = ParseEmbeddedChecklist(checklistEl, stage, order - 1);
+                        if (checklist != null)
+                        {
+                            checklists.Add(checklist);
+                        }
+                    }
+
+                    // 解析embedded questionnaire
+                    if (stageEl.TryGetProperty("questionnaire", out var questionnaireEl))
+                    {
+                        var questionnaire = ParseEmbeddedQuestionnaire(questionnaireEl, stage, order - 1);
+                        if (questionnaire != null)
+                        {
+                            questionnaires.Add(questionnaire);
+                        }
+                    }
+
+                    order++;
+                }
+            }
+
+            return new AIWorkflowGenerationResult
+            {
+                Success = true,
+                Message = "Workflow generated successfully after JSON repair",
+                GeneratedWorkflow = workflow,
+                Stages = stages,
+                Checklists = checklists,
+                Questionnaires = questionnaires,
+                Suggestions = new List<string> { "Consider adding approval stages", "Review stage assignments" }
+            };
+        }
+
+        /// <summary>
+        /// 解析嵌入在stage中的checklist
+        /// </summary>
+        private AIChecklistGenerationResult ParseEmbeddedChecklist(JsonElement checklistEl, AIStageGenerationResult stage, int stageIndex)
+        {
+            try
+            {
+                var tasks = new List<AITaskGenerationResult>();
+
+                if (checklistEl.TryGetProperty("tasks", out var tasksEl) && tasksEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var taskEl in tasksEl.EnumerateArray())
+                    {
+                        var task = new AITaskGenerationResult
+                        {
+                            Title = taskEl.TryGetProperty("title", out var titleEl) ? titleEl.GetString() : "Task",
+                            Description = taskEl.TryGetProperty("description", out var taskDescEl) ? taskDescEl.GetString() : "",
+                            IsRequired = taskEl.TryGetProperty("isRequired", out var reqEl) && reqEl.GetBoolean(),
+                            EstimatedMinutes = taskEl.TryGetProperty("estimatedMinutes", out var minEl) && minEl.TryGetInt32(out var minutes) ? minutes : 60,
+                            Category = taskEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : "General"
+                        };
+                        tasks.Add(task);
+                    }
+                }
+
+                return new AIChecklistGenerationResult
+                {
+                    Success = true,
+                    Message = "Checklist generated successfully",
+                    GeneratedChecklist = new ChecklistInputDto
+                    {
+                        Name = checklistEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"Checklist for {stage.Name}",
+                        Description = checklistEl.TryGetProperty("description", out var checklistDescEl) ? checklistDescEl.GetString() : $"Tasks for {stage.Name}"
+                    },
+                    Tasks = tasks
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse embedded checklist for stage {StageName}", stage.Name);
+                return GenerateFallbackChecklist(stage);
+            }
+        }
+
+        /// <summary>
+        /// 解析嵌入在stage中的questionnaire
+        /// </summary>
+        private AIQuestionnaireGenerationResult ParseEmbeddedQuestionnaire(JsonElement questionnaireEl, AIStageGenerationResult stage, int stageIndex)
+        {
+            try
+            {
+                var questions = new List<AIQuestionGenerationResult>();
+
+                if (questionnaireEl.TryGetProperty("questions", out var questionsEl) && questionsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var questionEl in questionsEl.EnumerateArray())
+                    {
+                        var question = new AIQuestionGenerationResult
+                        {
+                            Question = questionEl.TryGetProperty("question", out var qEl) ? qEl.GetString() : "Question",
+                            Type = questionEl.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "text",
+                            IsRequired = questionEl.TryGetProperty("isRequired", out var reqEl) && reqEl.GetBoolean(),
+                            Category = questionEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : "General"
+                        };
+
+                        // 处理select和multiselect的options
+                        if ((question.Type == "select" || question.Type == "multiselect") &&
+                            questionEl.TryGetProperty("options", out var optionsEl) && optionsEl.ValueKind == JsonValueKind.Array)
+                        {
+                            var options = new List<string>();
+                            foreach (var optionEl in optionsEl.EnumerateArray())
+                            {
+                                if (optionEl.ValueKind == JsonValueKind.String)
+                                {
+                                    options.Add(optionEl.GetString());
+                                }
+                            }
+                            question.Options = options;
+                        }
+
+                        questions.Add(question);
+                    }
+                }
+
+                return new AIQuestionnaireGenerationResult
+                {
+                    Success = true,
+                    Message = "Questionnaire generated successfully",
+                    GeneratedQuestionnaire = new QuestionnaireInputDto
+                    {
+                        Name = questionnaireEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"Questionnaire for {stage.Name}",
+                        Description = questionnaireEl.TryGetProperty("description", out var questionnaireDescEl) ? questionnaireDescEl.GetString() : $"Information gathering for {stage.Name}"
+                    },
+                    Questions = questions
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse embedded questionnaire for stage {StageName}", stage.Name);
+                return GenerateFallbackQuestionnaire(stage);
+            }
+        }
+
+        /// <summary>
+        /// AI调用重试机制
+        /// </summary>
+        private async Task<AIProviderResponse> CallAIProviderWithRetryAsync(string prompt, int maxRetries = 2)
+        {
+            for (int attempt = 0; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    if (attempt > 0)
+                    {
+                        // 快速重试: 2秒, 5秒 - 适合网络不稳定情况
+                        var delay = TimeSpan.FromSeconds(attempt == 1 ? 2 : 5);
+                        _logger.LogWarning("🔄 AI call retry #{Attempt} after {Delay}ms delay", attempt, delay.TotalMilliseconds);
+                        await Task.Delay(delay);
+                    }
+
+                    var response = await CallAIProviderAsync(prompt);
+
+                    if (response.Success)
+                    {
+                        if (attempt > 0)
+                        {
+                            _logger.LogInformation("✅ AI call succeeded on retry #{Attempt}", attempt);
+                        }
+                        return response;
+                    }
+                    else if (attempt == maxRetries)
+                    {
+                        // 最后一次尝试失败
+                        _logger.LogWarning("❌ AI call failed after {MaxRetries} retries: {Error}", maxRetries, response.ErrorMessage);
+                        return response;
+                    }
+                }
+                catch (TaskCanceledException) when (attempt < maxRetries)
+                {
+                    _logger.LogWarning("⏰ AI call timeout on attempt #{Attempt}, retrying...", attempt + 1);
+                    continue;
+                }
+                catch (Exception ex) when (attempt < maxRetries)
+                {
+                    _logger.LogWarning(ex, "⚠️ AI call error on attempt #{Attempt}, retrying...", attempt + 1);
+                    continue;
+                }
+            }
+
+            // 如果所有重试都失败，返回错误响应
+            return new AIProviderResponse
+            {
+                Success = false,
+                ErrorMessage = $"AI call failed after {maxRetries} retries",
+                Content = string.Empty
+            };
+        }
+
+        private AIChecklistGenerationResult GenerateFallbackChecklist(AIStageGenerationResult stage)
+        {
+            return new AIChecklistGenerationResult
+            {
+                Success = true,
+                Message = $"Empty checklist for {stage.Name} - no AI tasks generated",
+                GeneratedChecklist = new ChecklistInputDto
+                {
+                    Name = $"{stage.Name} Checklist",
+                    Description = $"Tasks for {stage.Name}",
+                    Team = stage.AssignedGroup,
+                    IsActive = true
+                },
+                Tasks = new List<AITaskGenerationResult>(), // 空列表，不生成模板任务
+                ConfidenceScore = 0.0
+            };
+        }
+
+        private AIQuestionnaireGenerationResult GenerateFallbackQuestionnaire(AIStageGenerationResult stage)
+        {
+            return new AIQuestionnaireGenerationResult
+            {
+                Success = true,
+                Message = $"Empty questionnaire for {stage.Name} - no AI questions generated",
+                GeneratedQuestionnaire = new QuestionnaireInputDto
+                {
+                    Name = $"{stage.Name} Questionnaire",
+                    Description = $"Information gathering for {stage.Name}",
+                    IsActive = true
+                },
+                Questions = new List<AIQuestionGenerationResult>(), // 空列表，不生成模板问题
+                ConfidenceScore = 0.0
+            };
+        }
+
+        private List<AITaskGenerationResult> GenerateTasksForStage(AIStageGenerationResult stage, int checklistIndex = 0, int totalChecklists = 1, Random random = null)
         {
             var stageName = stage.Name.ToLower();
             var stageDesc = stage.Description.ToLower();
@@ -3605,6 +4742,8 @@ Remember: Your goal is to collect enough detailed information to create a compre
                 new AITaskGenerationResult { Id = "deliverable-complete", Title = "Complete Deliverables", Description = "Finish all stage deliverables", IsRequired = true, EstimatedMinutes = 120, Category = "Execution" }
             };
 
+            random = random ?? new Random();
+
             // Determine which template to use
             List<AITaskGenerationResult> selectedTasks = defaultTasks;
 
@@ -3625,10 +4764,27 @@ Remember: Your goal is to collect enough detailed information to create a compre
             else if (stageName.Contains("training") || stageName.Contains("onboard") || stageDesc.Contains("training"))
                 selectedTasks = taskTemplates["training"];
 
-            // Add unique IDs with stage prefix
-            return selectedTasks.Select((task, index) => new AITaskGenerationResult
+            // Determine the number of tasks for this checklist (2-6 tasks, weighted towards 3-4)
+            var taskCount = DetermineTaskCount(selectedTasks.Count, checklistIndex, totalChecklists, random);
+
+            // Shuffle and select random subset of tasks
+            var shuffledTasks = selectedTasks.OrderBy(x => random.Next()).ToList();
+            var finalTasks = shuffledTasks.Take(taskCount).ToList();
+
+            // Ensure at least one required task
+            if (!finalTasks.Any(t => t.IsRequired))
             {
-                Id = $"{stage.Name.ToLower().Replace(" ", "-")}-{task.Id}-{index}",
+                var requiredTasks = selectedTasks.Where(t => t.IsRequired).ToList();
+                if (requiredTasks.Any())
+                {
+                    finalTasks[0] = requiredTasks[random.Next(requiredTasks.Count)];
+                }
+            }
+
+            // Add unique IDs with stage and checklist prefix
+            return finalTasks.Select((task, index) => new AITaskGenerationResult
+            {
+                Id = $"{stage.Name.ToLower().Replace(" ", "-")}-c{checklistIndex}-{task.Id}-{index}",
                 Title = task.Title,
                 Description = task.Description,
                 IsRequired = task.IsRequired,
@@ -3639,7 +4795,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
             }).ToList();
         }
 
-        private List<AIQuestionGenerationResult> GenerateQuestionsForStage(AIStageGenerationResult stage)
+        private List<AIQuestionGenerationResult> GenerateQuestionsForStage(AIStageGenerationResult stage, int questionnaireIndex = 0, int totalQuestionnaires = 1, Random random = null)
         {
             var stageName = stage.Name.ToLower();
             var stageDesc = stage.Description.ToLower();
@@ -3714,6 +4870,8 @@ Remember: Your goal is to collect enough detailed information to create a compre
                 new AIQuestionGenerationResult { Id = "special-requirements", Question = "Are there any special requirements?", Type = "text", IsRequired = false, Category = "Requirements" }
             };
 
+            random = random ?? new Random();
+
             // Determine which template to use
             List<AIQuestionGenerationResult> selectedQuestions = defaultQuestions;
 
@@ -3734,10 +4892,27 @@ Remember: Your goal is to collect enough detailed information to create a compre
             else if (stageName.Contains("training") || stageName.Contains("onboard"))
                 selectedQuestions = questionTemplates["training"];
 
-            // Add unique IDs with stage prefix
-            return selectedQuestions.Select((question, index) => new AIQuestionGenerationResult
+            // Determine the number of questions for this questionnaire (2-8 questions, weighted towards 4-6)
+            var questionCount = DetermineQuestionCount(selectedQuestions.Count, questionnaireIndex, totalQuestionnaires, random);
+
+            // Shuffle and select random subset of questions
+            var shuffledQuestions = selectedQuestions.OrderBy(x => random.Next()).ToList();
+            var finalQuestions = shuffledQuestions.Take(questionCount).ToList();
+
+            // Ensure at least one required question
+            if (!finalQuestions.Any(q => q.IsRequired))
             {
-                Id = $"{stage.Name.ToLower().Replace(" ", "-")}-{question.Id}-{index}",
+                var requiredQuestions = selectedQuestions.Where(q => q.IsRequired).ToList();
+                if (requiredQuestions.Any())
+                {
+                    finalQuestions[0] = requiredQuestions[random.Next(requiredQuestions.Count)];
+                }
+            }
+
+            // Add unique IDs with stage and questionnaire prefix
+            return finalQuestions.Select((question, index) => new AIQuestionGenerationResult
+            {
+                Id = $"{stage.Name.ToLower().Replace(" ", "-")}-q{questionnaireIndex}-{question.Id}-{index}",
                 Question = question.Question,
                 Type = question.Type,
                 Options = question.Options,
@@ -4061,16 +5236,16 @@ Remember: Your goal is to collect enough detailed information to create a compre
                     var preferredConfig = await _configService.GetConfigByIdAsync(modelId);
                     if (preferredConfig != null)
                     {
-                        _logger.LogInformation("Trying preferred AI model: {Provider} - {ModelName} (ID: {ModelId})", 
+                        _logger.LogInformation("Trying preferred AI model: {Provider} - {ModelName} (ID: {ModelId})",
                             preferredConfig.Provider, preferredConfig.ModelName, modelId);
-                        
+
                         var response = await CallAIProviderAsync(prompt, preferredModelId, preferredConfig.Provider, preferredConfig.ModelName);
                         if (response.Success)
                         {
                             _logger.LogInformation("Successfully used preferred AI model for summary generation");
                             return response;
                         }
-                        
+
                         _logger.LogWarning("Preferred AI model failed: {Error}. Trying fallback options...", response.ErrorMessage);
                     }
                 }
@@ -4081,16 +5256,16 @@ Remember: Your goal is to collect enough detailed information to create a compre
                     var defaultConfig = await _configService.GetUserDefaultConfigAsync(0);
                     if (defaultConfig != null && defaultConfig.Id.ToString() != preferredModelId)
                     {
-                        _logger.LogInformation("Trying user default AI model: {Provider} - {ModelName} (ID: {ModelId})", 
+                        _logger.LogInformation("Trying user default AI model: {Provider} - {ModelName} (ID: {ModelId})",
                             defaultConfig.Provider, defaultConfig.ModelName, defaultConfig.Id);
-                        
+
                         var response = await CallAIProviderAsync(prompt, defaultConfig.Id.ToString(), defaultConfig.Provider, defaultConfig.ModelName);
                         if (response.Success)
                         {
                             _logger.LogInformation("Successfully used user default AI model for summary generation");
                             return response;
                         }
-                        
+
                         _logger.LogWarning("User default AI model failed: {Error}. Trying other available models...", response.ErrorMessage);
                     }
                 }
@@ -4103,25 +5278,25 @@ Remember: Your goal is to collect enough detailed information to create a compre
                 try
                 {
                     var allConfigs = await _configService.GetUserAIModelConfigsAsync(0);
-                    var availableConfigs = allConfigs.Where(c => 
-                        c.Id.ToString() != preferredModelId && 
-                        !string.IsNullOrEmpty(c.Provider) && 
+                    var availableConfigs = allConfigs.Where(c =>
+                        c.Id.ToString() != preferredModelId &&
+                        !string.IsNullOrEmpty(c.Provider) &&
                         !string.IsNullOrEmpty(c.ApiKey)).ToList();
 
                     foreach (var config in availableConfigs)
                     {
-                        _logger.LogInformation("Trying available AI model: {Provider} - {ModelName} (ID: {ModelId})", 
+                        _logger.LogInformation("Trying available AI model: {Provider} - {ModelName} (ID: {ModelId})",
                             config.Provider, config.ModelName, config.Id);
-                        
+
                         var response = await CallAIProviderAsync(prompt, config.Id.ToString(), config.Provider, config.ModelName);
                         if (response.Success)
                         {
-                            _logger.LogInformation("Successfully used fallback AI model: {Provider} - {ModelName}", 
+                            _logger.LogInformation("Successfully used fallback AI model: {Provider} - {ModelName}",
                                 config.Provider, config.ModelName);
                             return response;
                         }
-                        
-                        _logger.LogWarning("AI model {Provider} - {ModelName} failed: {Error}", 
+
+                        _logger.LogWarning("AI model {Provider} - {ModelName} failed: {Error}",
                             config.Provider, config.ModelName, response.ErrorMessage);
                     }
                 }
@@ -4186,7 +5361,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
             promptBuilder.AppendLine("=== Stage Summary Generation Task ===");
             promptBuilder.AppendLine($"Stage Name: {input.StageName}");
             promptBuilder.AppendLine($"Stage Description: {input.StageDescription}");
-            
+
             if (!string.IsNullOrEmpty(input.AdditionalContext))
             {
                 promptBuilder.AppendLine($"Additional Context: {input.AdditionalContext}");
@@ -4279,7 +5454,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
             }
 
             promptBuilder.AppendLine();
-            
+
             // Simplified requirements for better performance
             if (input.SummaryLength.ToLower() == "short")
             {
@@ -4464,7 +5639,7 @@ Remember: Your goal is to collect enough detailed information to create a compre
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error parsing AI summary response: {Error}", ex.Message);
-                
+
                 // Fallback: return the raw response
                 return new AIStageSummaryResult
                 {
@@ -4477,16 +5652,221 @@ Remember: Your goal is to collect enough detailed information to create a compre
         }
 
         #endregion
+
+        #region Flexible Generation Helper Methods
+
+        /// <summary>
+        /// Determine the number of checklists for a stage based on its complexity and characteristics
+        /// </summary>
+        private int DetermineChecklistCount(AIStageGenerationResult stage, Random random)
+        {
+            var stageName = stage.Name.ToLower();
+            var stageDesc = stage.Description.ToLower();
+            var duration = stage.EstimatedDuration;
+
+            // Complex stages get more checklists
+            var baseCount = 1;
+
+            // Increase count for complex/long stages
+            if (duration > 5) baseCount++;
+            if (stageName.Contains("implementation") || stageName.Contains("develop") || stageName.Contains("build")) baseCount++;
+            if (stageName.Contains("testing") || stageName.Contains("qa")) baseCount++;
+            if (stageName.Contains("deployment") || stageName.Contains("launch")) baseCount++;
+
+            // Add randomness (0-2 additional checklists)
+            var randomAddition = random.Next(0, 3);
+
+            // Return between 1-4 checklists, weighted towards 1-2
+            return Math.Min(4, Math.Max(1, baseCount + (randomAddition == 0 ? 0 : randomAddition - 1)));
+        }
+
+        /// <summary>
+        /// Determine the number of questionnaires for a stage based on its complexity and characteristics
+        /// </summary>
+        private int DetermineQuestionnaireCount(AIStageGenerationResult stage, Random random)
+        {
+            var stageName = stage.Name.ToLower();
+            var stageDesc = stage.Description.ToLower();
+            var duration = stage.EstimatedDuration;
+
+            // Information-gathering stages get more questionnaires
+            var baseCount = 1;
+
+            // Increase count for information-heavy stages
+            if (stageName.Contains("initial") || stageName.Contains("assessment") || stageName.Contains("analysis")) baseCount++;
+            if (stageName.Contains("design") || stageName.Contains("planning")) baseCount++;
+            if (stageName.Contains("review") || stageName.Contains("approval")) baseCount++;
+            if (duration > 7) baseCount++;
+
+            // Add randomness (0-1 additional questionnaires, less frequent than checklists)
+            var randomAddition = random.Next(0, 4); // 0, 1, 2, 3 - only add if 3
+
+            // Return between 1-3 questionnaires, weighted towards 1
+            return Math.Min(3, Math.Max(1, baseCount + (randomAddition == 3 ? 1 : 0)));
+        }
+
+        /// <summary>
+        /// Determine the number of tasks for a checklist
+        /// </summary>
+        private int DetermineTaskCount(int availableTasks, int checklistIndex, int totalChecklists, Random random)
+        {
+            // Base count: 2-6 tasks, weighted towards 3-4
+            var weights = new[] { 2, 3, 4, 4, 5, 6 }; // More weight on 3-4 tasks
+            var baseCount = weights[random.Next(weights.Length)];
+
+            // Ensure we don't exceed available tasks
+            var maxCount = Math.Min(availableTasks, 6);
+            var minCount = Math.Min(2, maxCount);
+
+            return Math.Min(maxCount, Math.Max(minCount, baseCount));
+        }
+
+        /// <summary>
+        /// Determine the number of questions for a questionnaire
+        /// </summary>
+        private int DetermineQuestionCount(int availableQuestions, int questionnaireIndex, int totalQuestionnaires, Random random)
+        {
+            // Base count: 2-8 questions, weighted towards 4-6
+            var weights = new[] { 2, 3, 4, 4, 5, 5, 6, 6, 7, 8 }; // More weight on 4-6 questions
+            var baseCount = weights[random.Next(weights.Length)];
+
+            // Ensure we don't exceed available questions
+            var maxCount = Math.Min(availableQuestions, 8);
+            var minCount = Math.Min(2, maxCount);
+
+            return Math.Min(maxCount, Math.Max(minCount, baseCount));
+        }
+
+        /// <summary>
+        /// Generate checklist name based on stage and index
+        /// </summary>
+        private string GenerateChecklistName(AIStageGenerationResult stage, int checklistIndex, int totalChecklists)
+        {
+            if (totalChecklists == 1)
+            {
+                return $"{stage.Name} Checklist";
+            }
+
+            var stageName = stage.Name.ToLower();
+            var suffixes = new[]
+            {
+                "Essential Tasks", "Core Activities", "Key Steps", "Primary Tasks",
+                "Critical Actions", "Important Tasks", "Main Activities", "Required Steps",
+                "Setup Tasks", "Execution Tasks", "Review Tasks", "Completion Tasks",
+                "Pre-work", "Preparation", "Implementation", "Validation", "Follow-up"
+            };
+
+            var categoryNames = new Dictionary<string, string[]>
+            {
+                ["initial"] = new[] { "Assessment", "Requirements", "Planning", "Analysis" },
+                ["planning"] = new[] { "Strategy", "Resource Planning", "Risk Management", "Timeline" },
+                ["design"] = new[] { "Wireframes", "Prototyping", "UI/UX", "Architecture" },
+                ["implementation"] = new[] { "Development", "Coding", "Integration", "Configuration" },
+                ["testing"] = new[] { "Unit Tests", "Integration Tests", "User Testing", "Quality Assurance" },
+                ["deployment"] = new[] { "Preparation", "Execution", "Monitoring", "Rollback" },
+                ["training"] = new[] { "Material Preparation", "Delivery", "Assessment", "Support" }
+            };
+
+            // Try to use category-specific names first
+            foreach (var category in categoryNames)
+            {
+                if (stageName.Contains(category.Key))
+                {
+                    var names = category.Value;
+                    if (checklistIndex < names.Length)
+                    {
+                        return $"{stage.Name} - {names[checklistIndex]}";
+                    }
+                }
+            }
+
+            // Fallback to generic suffixes
+            var suffix = suffixes[checklistIndex % suffixes.Length];
+            return $"{stage.Name} - {suffix}";
+        }
+
+        /// <summary>
+        /// Generate checklist description based on stage and index
+        /// </summary>
+        private string GenerateChecklistDescription(AIStageGenerationResult stage, int checklistIndex, int totalChecklists)
+        {
+            if (totalChecklists == 1)
+            {
+                return $"Essential tasks to complete during the {stage.Name} stage";
+            }
+
+            var descriptions = new[]
+            {
+                $"Critical tasks for {stage.Name} execution",
+                $"Key activities required in {stage.Name}",
+                $"Important steps to ensure {stage.Name} success",
+                $"Essential checklist for {stage.Name} completion",
+                $"Primary tasks to accomplish during {stage.Name}",
+                $"Core activities for effective {stage.Name}",
+                $"Required actions for {stage.Name} stage",
+                $"Key deliverables and tasks for {stage.Name}"
+            };
+
+            return descriptions[checklistIndex % descriptions.Length];
+        }
+
+        /// <summary>
+        /// Generate questionnaire name based on stage and index
+        /// </summary>
+        private string GenerateQuestionnaireName(AIStageGenerationResult stage, int questionnaireIndex, int totalQuestionnaires)
+        {
+            if (totalQuestionnaires == 1)
+            {
+                return $"{stage.Name} Questionnaire";
+            }
+
+            var suffixes = new[]
+            {
+                "Assessment", "Requirements Gathering", "Information Collection", "Evaluation",
+                "Planning Questions", "Feedback Form", "Analysis Questions", "Review Form",
+                "Pre-work Questions", "Preparation Survey", "Execution Questions", "Completion Review"
+            };
+
+            var suffix = suffixes[questionnaireIndex % suffixes.Length];
+            return $"{stage.Name} - {suffix}";
+        }
+
+        /// <summary>
+        /// Generate questionnaire description based on stage and index
+        /// </summary>
+        private string GenerateQuestionnaireDescription(AIStageGenerationResult stage, int questionnaireIndex, int totalQuestionnaires)
+        {
+            if (totalQuestionnaires == 1)
+            {
+                return $"Key questions to gather information for the {stage.Name} stage";
+            }
+
+            var descriptions = new[]
+            {
+                $"Important questions to assess {stage.Name} requirements",
+                $"Information gathering for effective {stage.Name} execution",
+                $"Key questions to ensure {stage.Name} success",
+                $"Assessment questions for {stage.Name} planning",
+                $"Evaluation form for {stage.Name} stage",
+                $"Required information collection for {stage.Name}",
+                $"Planning questionnaire for {stage.Name} activities",
+                $"Feedback and assessment for {stage.Name} completion"
+            };
+
+            return descriptions[questionnaireIndex % descriptions.Length];
+        }
+
+        #endregion
+
+        #region Helper Classes
+
+        public class AIProviderResponse
+        {
+            public bool Success { get; set; }
+            public string Content { get; set; } = string.Empty;
+            public string ErrorMessage { get; set; } = string.Empty;
+        }
+
+        #endregion
     }
-
-    #region Helper Classes
-
-    public class AIProviderResponse
-    {
-        public bool Success { get; set; }
-        public string Content { get; set; } = string.Empty;
-        public string ErrorMessage { get; set; } = string.Empty;
-    }
-
-    #endregion
 }

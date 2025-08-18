@@ -20,6 +20,7 @@ using System.Diagnostics;
 using FlowFlex.Domain.Shared.Models;
 using System.Linq.Expressions;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Utils;
 
 namespace FlowFlex.Application.Services.OW
@@ -43,6 +44,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
+        private readonly IOperatorContextService _operatorContextService;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -62,7 +64,8 @@ namespace FlowFlex.Application.Services.OW
             IQuestionnaireAnswerService questionnaireAnswerService,
             IStaticFieldValueService staticFieldValueService,
             IChecklistService checklistService,
-            IQuestionnaireService questionnaireService)
+            IQuestionnaireService questionnaireService,
+            IOperatorContextService operatorContextService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -78,6 +81,7 @@ namespace FlowFlex.Application.Services.OW
             _staticFieldValueService = staticFieldValueService ?? throw new ArgumentNullException(nameof(staticFieldValueService));
             _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
+            _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
         }
 
         /// <summary>
@@ -250,6 +254,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Initialize create information with proper ID and timestamps
                 entity.InitCreateInfo(_userContext);
+                AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
 
 
                 // Debug logging handled by structured logging
@@ -381,10 +386,10 @@ namespace FlowFlex.Application.Services.OW
                             IsValid = true,
                             CreateDate = DateTimeOffset.UtcNow,
                             ModifyDate = DateTimeOffset.UtcNow,
-                            CreateBy = GetCurrentUserName(),
-                            ModifyBy = GetCurrentUserName(),
-                            CreateUserId = 0L,
-                            ModifyUserId = 0L,
+                            CreateBy = _operatorContextService.GetOperatorDisplayName(),
+                            ModifyBy = _operatorContextService.GetOperatorDisplayName(),
+                            CreateUserId = _operatorContextService.GetOperatorId(),
+                            ModifyUserId = _operatorContextService.GetOperatorId(),
                             WorkflowId = entity.WorkflowId,
                             CurrentStageOrder = entity.CurrentStageOrder,
                             LeadId = entity.LeadId,
@@ -553,8 +558,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update system fields
                 entity.ModifyDate = DateTimeOffset.UtcNow;
-                entity.ModifyBy = GetCurrentUserName();
-                entity.ModifyUserId = GetCurrentUserId() ?? 0; // User context integration
+                entity.ModifyBy = _operatorContextService.GetOperatorDisplayName();
+                entity.ModifyUserId = _operatorContextService.GetOperatorId();
                                                                // Debug logging handled by structured logging
                 var result = await SafeUpdateOnboardingAsync(entity);
 
@@ -572,7 +577,7 @@ namespace FlowFlex.Application.Services.OW
                             input.Notes,
                             input.CustomFieldsJson
                         },
-                        UpdatedBy = GetCurrentUserName(),
+                        UpdatedBy = _operatorContextService.GetOperatorDisplayName(),
                         UpdatedAt = DateTimeOffset.UtcNow
                     });
 
@@ -698,8 +703,8 @@ namespace FlowFlex.Application.Services.OW
             // Use soft delete instead of hard delete
             entity.IsValid = false;
             entity.ModifyDate = DateTimeOffset.UtcNow;
-            entity.ModifyBy = GetCurrentUserName();
-            entity.ModifyUserId = GetCurrentUserId() ?? 0;
+            entity.ModifyBy = _operatorContextService.GetOperatorDisplayName();
+            entity.ModifyUserId = _operatorContextService.GetOperatorId();
 
             // Update only specific columns to avoid JSONB type conversion issues
             bool result;
@@ -2172,8 +2177,8 @@ namespace FlowFlex.Application.Services.OW
             await LogOnboardingActionAsync(entity, "Cancel Onboarding", "onboarding_cancel", true, new
             {
                 CancellationReason = reason,
-                CancelledAt = DateTimeOffset.UtcNow,
-                CancelledBy = GetCurrentUserName()
+                                    CancelledAt = DateTimeOffset.UtcNow,
+                    CancelledBy = _operatorContextService.GetOperatorDisplayName()
             });
 
             return await _onboardingRepository.UpdateStatusAsync(id, "Cancelled");
@@ -2416,11 +2421,10 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task UpdateStageTrackingInfoAsync(Onboarding entity)
         {
-            // Current user context - future enhancement
-            // Use real user information from UserContext
+            // Use OperatorContextService for consistent user information
             entity.StageUpdatedTime = DateTimeOffset.UtcNow;
-            entity.StageUpdatedBy = GetCurrentUserName();
-            entity.StageUpdatedById = GetCurrentUserId() ?? 0;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
             entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
             // Sync isCurrent flag in stagesProgress to match currentStageId
@@ -2757,7 +2761,7 @@ namespace FlowFlex.Application.Services.OW
                     Status = onboarding.Status,
                     Priority = onboarding.Priority,
                     ActionTime = DateTimeOffset.UtcNow,
-                    ActionBy = GetCurrentUserName(),
+                    ActionBy = _operatorContextService.GetOperatorDisplayName(),
                     AdditionalData = additionalData
                 };
 
@@ -2787,7 +2791,7 @@ namespace FlowFlex.Application.Services.OW
                     IsCompleted = isCompleted,
                     CompletionNotes = completionNotes,
                     CompletedTime = DateTimeOffset.UtcNow,
-                    CompletedBy = completedBy ?? GetCurrentUserName(),
+                    CompletedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName(),
                     Action = isCompleted ? "Task Completed" : "Task Marked Incomplete"
                 };
 
@@ -2808,8 +2812,8 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 // Get real user information, use default if parameter not provided
-                var actualCompletedBy = !string.IsNullOrEmpty(completedBy) ? completedBy : GetCurrentUserName();
-                var actualCompletedById = completedById ?? GetCurrentUserId();
+                var actualCompletedBy = !string.IsNullOrEmpty(completedBy) ? completedBy : _operatorContextService.GetOperatorDisplayName();
+                var actualCompletedById = completedById ?? _operatorContextService.GetOperatorId();
 
                 var logData = new
                 {
@@ -2876,7 +2880,7 @@ namespace FlowFlex.Application.Services.OW
                     NextStageName = nextStageName,
                     CompletionRate = onboarding.CompletionRate,
                     IsFinalStage = onboarding.Status == "Completed",
-                    AssigneeName = GetCurrentUserFullName(),
+                    AssigneeName = _operatorContextService.GetOperatorDisplayName(),
                     ResponsibleTeam = onboarding.CurrentTeam ?? "Default",
                     Priority = onboarding.Priority ?? "Medium",
                     Source = "CustomerPortal",
@@ -2950,7 +2954,7 @@ namespace FlowFlex.Application.Services.OW
                     NextStageName = nextStageName,
                     CompletionRate = onboarding.CompletionRate,
                     IsFinalStage = isFinalStage,
-                    AssigneeName = onboarding.CurrentAssigneeName ?? GetCurrentUserFullName(),
+                    AssigneeName = onboarding.CurrentAssigneeName ?? _operatorContextService.GetOperatorDisplayName(),
                     ResponsibleTeam = onboarding.CurrentTeam ?? "Default",
                     Priority = onboarding.Priority ?? "Medium",
                     Source = "CustomerPortal",
@@ -3853,11 +3857,11 @@ namespace FlowFlex.Application.Services.OW
                     completedStage.Status = "Completed";
                     completedStage.IsCompleted = true;
                     completedStage.CompletionTime = currentTime;
-                    completedStage.CompletedBy = completedBy ?? GetCurrentUserName();
-                    completedStage.CompletedById = completedById ?? GetCurrentUserId();
+                    completedStage.CompletedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
+                    completedStage.CompletedById = completedById ?? _operatorContextService.GetOperatorId();
                     completedStage.IsCurrent = false;
                     completedStage.LastUpdatedTime = currentTime;
-                    completedStage.LastUpdatedBy = completedBy ?? GetCurrentUserName();
+                    completedStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
 
                     if (!string.IsNullOrEmpty(notes))
                     {
@@ -3893,7 +3897,7 @@ namespace FlowFlex.Application.Services.OW
                         nextStage.StartTime = currentTime;
                         nextStage.IsCurrent = true;
                         nextStage.LastUpdatedTime = currentTime;
-                        nextStage.LastUpdatedBy = completedBy ?? GetCurrentUserName();
+                        nextStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
 
                         // Debug logging handled by structured logging");
                     }
@@ -3912,7 +3916,7 @@ namespace FlowFlex.Application.Services.OW
                             earlierIncompleteStage.StartTime = currentTime;
                             earlierIncompleteStage.IsCurrent = true;
                             earlierIncompleteStage.LastUpdatedTime = currentTime;
-                            earlierIncompleteStage.LastUpdatedBy = completedBy ?? GetCurrentUserName();
+                            earlierIncompleteStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
 
                             // Debug logging handled by structured logging");
                         }
@@ -4267,48 +4271,42 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get current user name from UserContext
+        /// Get current user name from OperatorContextService
         /// </summary>
         private string GetCurrentUserName()
         {
-            return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+            return _operatorContextService.GetOperatorDisplayName();
         }
 
         /// <summary>
-        /// Get current user email from UserContext
+        /// Get current user email from OperatorContextService 
         /// </summary>
         private string GetCurrentUserEmail()
         {
+            var displayName = _operatorContextService.GetOperatorDisplayName();
+            // If display name looks like an email, return it; otherwise fallback
+            if (!string.IsNullOrEmpty(displayName) && displayName.Contains("@"))
+            {
+                return displayName;
+            }
             return !string.IsNullOrEmpty(_userContext?.Email) ? _userContext.Email : "system@example.com";
         }
 
         /// <summary>
-        /// Get current user ID from UserContext
+        /// Get current user ID from OperatorContextService
         /// </summary>
         private long? GetCurrentUserId()
         {
-            if (long.TryParse(_userContext?.UserId, out long userId))
-            {
-                return userId;
-            }
-            return null;
+            var id = _operatorContextService.GetOperatorId();
+            return id == 0 ? null : id;
         }
 
         /// <summary>
-        /// Get current user full name from UserContext
+        /// Get current user full name from OperatorContextService
         /// </summary>
         private string GetCurrentUserFullName()
         {
-            if (_userContext != null)
-            {
-                var fullName = $"{_userContext.FirstName} {_userContext.LastName}".Trim();
-                if (!string.IsNullOrEmpty(fullName))
-                {
-                    return fullName;
-                }
-                return !string.IsNullOrEmpty(_userContext.UserName) ? _userContext.UserName : "System";
-            }
-            return "System";
+            return _operatorContextService.GetOperatorDisplayName();
         }
 
         /// <summary>

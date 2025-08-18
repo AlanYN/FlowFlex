@@ -511,8 +511,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         [FromQuery] long? onboardingId = null,
         [FromQuery] string? language = null)
     {
-        // 设置流式响应头
-        Response.ContentType = "text/event-stream";
+        // 设置流式响应头 - 纯文本流
+        Response.ContentType = "text/plain; charset=utf-8";
         Response.Headers.Add("Cache-Control", "no-cache");
         Response.Headers.Add("Connection", "keep-alive");
         Response.Headers.Add("Access-Control-Allow-Origin", "*");
@@ -528,28 +528,12 @@ namespace FlowFlex.WebApi.Controllers.OW
                 IncludeQuestionnaireInsights = true
             };
 
-            // 发送开始事件
-            var startData = new { type = "start", message = "Starting AI summary generation..." };
-            await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(startData)}\n\n");
-            await Response.Body.FlushAsync();
-
-            // 短暂延迟以显示开始状态
-            await Task.Delay(500);
-
-            // 发送进度事件
-            var progressData = new { type = "progress", message = "Analyzing stage content...", progress = 30 };
-            await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(progressData)}\n\n");
-            await Response.Body.FlushAsync();
-
-            // 短暂延迟以显示进度状态
-            await Task.Delay(800);
-
             // 调用AI服务生成摘要
             var summaryResult = await _stageService.GenerateAISummaryAsync(stageId, onboardingId, summaryOptions);
 
             if (summaryResult.Success && !string.IsNullOrEmpty(summaryResult.Summary))
             {
-                // 模拟流式发送AI内容
+                // 直接以纯文本形式流式发送AI内容
                 var fullContent = summaryResult.Summary;
                 var chunkSize = Math.Max(5, fullContent.Length / 20); // 将内容分成20个左右的块，每块至少5个字符
                 
@@ -557,33 +541,16 @@ namespace FlowFlex.WebApi.Controllers.OW
                 {
                     var chunk = fullContent.Substring(i, Math.Min(chunkSize, fullContent.Length - i));
                     
-                    // 发送内容块
-                    var chunkData = new 
-                    { 
-                        type = "chunk", 
-                        content = chunk
-                    };
-                    await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(chunkData)}\n\n");
+                    // 直接发送文本内容，不使用JSON格式
+                    await Response.WriteAsync(chunk);
                     await Response.Body.FlushAsync();
                     
                     // 添加小延迟来模拟真实的AI流式响应
                     await Task.Delay(100);
                 }
                 
-                // 发送完成信号
-                var generatedAt = DateTime.UtcNow;
-                var successData = new 
-                { 
-                    type = "success", 
-                    content = "", // 内容已经通过chunks发送了
-                    generatedAt = generatedAt,
-                    confidence = summaryResult.ConfidenceScore,
-                    model = summaryResult.ModelUsed,
-                    progress = 100
-                };
-                await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(successData)}\n\n");
-                
                 // 异步更新数据库 - 不阻塞响应
+                var generatedAt = DateTime.UtcNow;
                 _ = Task.Run(async () =>
                 {
                     try
@@ -599,30 +566,17 @@ namespace FlowFlex.WebApi.Controllers.OW
             }
             else
             {
-                // 发送错误结果
-                var errorData = new 
-                { 
-                    type = "error", 
-                    message = summaryResult?.Message ?? "Failed to generate AI summary"
-                };
-                await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(errorData)}\n\n");
+                // 发送错误信息，以纯文本形式
+                var errorMessage = summaryResult?.Message ?? "Failed to generate AI summary";
+                await Response.WriteAsync($"Error: {errorMessage}");
             }
             
-            await Response.Body.FlushAsync();
-            
-            // 发送完成信号
-            await Response.WriteAsync("data: [DONE]\n\n");
             await Response.Body.FlushAsync();
         }
         catch (Exception ex)
         {
-            var errorData = new 
-            { 
-                type = "error", 
-                message = $"Stream error: {ex.Message}"
-            };
-            
-            await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(errorData)}\n\n");
+            // 发送错误信息，以纯文本形式
+            await Response.WriteAsync($"Error: Stream error: {ex.Message}");
             await Response.Body.FlushAsync();
         }
     }
