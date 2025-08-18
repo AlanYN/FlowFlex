@@ -1,4 +1,5 @@
 using FlowFlex.Domain.Shared.Events;
+using FlowFlex.Domain.Shared.Events.Action;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Domain.Repository.OW;
@@ -16,18 +17,18 @@ namespace FlowFlex.Application.Notification
     public class OnboardingStageCompletedLogHandler : INotificationHandler<OnboardingStageCompletedEvent>
     {
         private readonly ILogger<OnboardingStageCompletedLogHandler> _logger;
-    
+        private readonly IMediator _mediator;
         private readonly IEventRepository _eventRepository;
         private readonly UserContext _userContext;
 
         public OnboardingStageCompletedLogHandler(
             ILogger<OnboardingStageCompletedLogHandler> logger,
-    
+            IMediator mediator,
             IEventRepository eventRepository,
             UserContext userContext)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    
+            _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
         }
@@ -41,7 +42,10 @@ namespace FlowFlex.Application.Notification
                 // 1. 保存到新的事件表 ff_events
                 await SaveToEventTableAsync(notification);
 
-                // 2. 保存到原有的阶段完成日志表 ff_stage_completion_log (保持向后兼容)
+                // 2. 发布 ActionTriggerEvent 
+                await PublishActionTriggerEventAsync(notification);
+
+                // 3. 保存到原有的阶段完成日志表 ff_stage_completion_log (保持向后兼容)
                 // Stage completion log functionality removed
 
                 _logger.LogInformation("成功处理 OnboardingStageCompletedEvent: {EventId}", notification.EventId);
@@ -122,6 +126,61 @@ namespace FlowFlex.Application.Notification
             catch (Exception ex)
             {
                 _logger.LogError(ex, "保存事件到 ff_events 表时发生错误: {EventId}", eventData.EventId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 发布 ActionTriggerEvent 以触发相关动作
+        /// </summary>
+        private async Task PublishActionTriggerEventAsync(OnboardingStageCompletedEvent eventData)
+        {
+            try
+            {
+                // 构建上下文数据
+                var contextData = new
+                {
+                    OnboardingId = eventData.OnboardingId,
+                    LeadId = eventData.LeadId,
+                    WorkflowId = eventData.WorkflowId,
+                    WorkflowName = eventData.WorkflowName,
+                    CompletedStageId = eventData.CompletedStageId,
+                    CompletedStageName = eventData.CompletedStageName,
+                    NextStageId = eventData.NextStageId,
+                    NextStageName = eventData.NextStageName,
+                    CompletionRate = eventData.CompletionRate,
+                    IsFinalStage = eventData.IsFinalStage,
+                    BusinessContext = eventData.BusinessContext,
+                    Components = eventData.Components,
+                    TenantId = eventData.TenantId,
+                    Source = eventData.Source,
+                    Priority = eventData.Priority,
+                    OriginalEventId = eventData.EventId
+                };
+
+                // 获取当前用户ID
+                var currentUserId = GetCurrentUserId();
+
+                // 创建并发布 ActionTriggerEvent
+                var actionTriggerEvent = new ActionTriggerEvent(
+                    triggerSourceType: "Stage",
+                    triggerSourceId: eventData.CompletedStageId,
+                    triggerEventType: "Completed",
+                    contextData: contextData,
+                    userId: currentUserId > 0 ? currentUserId : null
+                );
+
+                await _mediator.Publish(actionTriggerEvent);
+
+                _logger.LogDebug("已发布 ActionTriggerEvent: SourceType={SourceType}, SourceId={SourceId}, EventType={EventType}, OriginalEventId={OriginalEventId}",
+                    actionTriggerEvent.TriggerSourceType,
+                    actionTriggerEvent.TriggerSourceId,
+                    actionTriggerEvent.TriggerEventType,
+                    eventData.EventId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "发布 ActionTriggerEvent 时发生错误: {EventId}", eventData.EventId);
                 throw;
             }
         }

@@ -133,6 +133,11 @@ namespace FlowFlex.Domain.Shared.Events
         /// Event tags
         /// </summary>
         public List<string> Tags { get; set; } = new();
+
+        /// <summary>
+        /// Components payload: checklist, tasks, questionnaires, answers, required fields, etc.
+        /// </summary>
+        public StageCompletionComponents Components { get; set; }
     }
 
     /// <summary>
@@ -164,5 +169,136 @@ namespace FlowFlex.Domain.Shared.Events
         /// Extended properties
         /// </summary>
         public Dictionary<string, object> Properties { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Stage completion components payload
+    /// </summary>
+    public class StageCompletionComponents
+    {
+        /// <summary>
+        /// Checklist component info (selected checklist IDs and names if available)
+        /// </summary>
+        public List<ChecklistComponentInfo> Checklists { get; set; } = new();
+
+        /// <summary>
+        /// Checklist task completion records
+        /// </summary>
+        public List<ChecklistTaskCompletionInfo> TaskCompletions { get; set; } = new();
+
+        /// <summary>
+        /// Questionnaire component info (selected questionnaire IDs and names if available)
+        /// </summary>
+        public List<QuestionnaireComponentInfo> Questionnaires { get; set; } = new();
+
+        /// <summary>
+        /// Questionnaire answers captured at completion time
+        /// </summary>
+        public List<QuestionnaireAnswerInfo> QuestionnaireAnswers { get; set; } = new();
+
+        /// <summary>
+        /// Required static fields and their latest values/status
+        /// </summary>
+        public List<RequiredFieldInfo> RequiredFields { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Checklist component selection
+    /// </summary>
+    public class ChecklistComponentInfo
+    {
+        public long ChecklistId { get; set; }
+        public string ChecklistName { get; set; }
+        public string Description { get; set; }
+        public string Team { get; set; }
+        public string Type { get; set; }
+        public string Status { get; set; }
+        public bool IsTemplate { get; set; }
+        public decimal CompletionRate { get; set; }
+        public int TotalTasks { get; set; }
+        public int CompletedTasks { get; set; }
+        public bool IsActive { get; set; }
+        public List<ChecklistTaskInfo> Tasks { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Checklist task information
+    /// </summary>
+    public class ChecklistTaskInfo
+    {
+        public long Id { get; set; }
+        public long ChecklistId { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public int OrderIndex { get; set; }
+        public string TaskType { get; set; }
+        public bool IsRequired { get; set; }
+        public decimal EstimatedHours { get; set; }
+        public string Priority { get; set; }
+        public bool IsCompleted { get; set; }
+        public string Status { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    /// <summary>
+    /// Simplified task completion snapshot
+    /// </summary>
+    public class ChecklistTaskCompletionInfo
+    {
+        public long ChecklistId { get; set; }
+        public long TaskId { get; set; }
+        public bool IsCompleted { get; set; }
+        public string CompletionNotes { get; set; }
+        public string CompletedBy { get; set; }
+        public DateTimeOffset? CompletedTime { get; set; }
+    }
+
+    /// <summary>
+    /// Questionnaire component selection
+    /// </summary>
+    public class QuestionnaireComponentInfo
+    {
+        public long QuestionnaireId { get; set; }
+        public string QuestionnaireName { get; set; }
+        public string Description { get; set; }
+        public string Status { get; set; }
+        public int Version { get; set; }
+        public string Category { get; set; }
+        public int TotalQuestions { get; set; }
+        public int RequiredQuestions { get; set; }
+        public bool AllowDraft { get; set; }
+        public bool AllowMultipleSubmissions { get; set; }
+        public bool IsActive { get; set; }
+        public string StructureJson { get; set; }
+    }
+
+    /// <summary>
+    /// Simplified questionnaire answer snapshot
+    /// </summary>
+    public class QuestionnaireAnswerInfo
+    {
+        public long AnswerId { get; set; }
+        public long QuestionnaireId { get; set; }
+        public long QuestionId { get; set; }
+        public string QuestionText { get; set; }
+        public string QuestionType { get; set; }
+        public bool IsRequired { get; set; }
+        public object Answer { get; set; }
+        public DateTimeOffset? AnswerTime { get; set; }
+        public string Status { get; set; }
+    }
+
+    /// <summary>
+    /// Required field latest value/status
+    /// </summary>
+    public class RequiredFieldInfo
+    {
+        public string FieldName { get; set; }
+        public string DisplayName { get; set; }
+        public string FieldType { get; set; }
+        public bool IsRequired { get; set; }
+        public object FieldValue { get; set; }
+        public string ValidationStatus { get; set; }
+        public List<string> ValidationErrors { get; set; } = new();
     }
 }

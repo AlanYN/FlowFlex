@@ -38,6 +38,11 @@ namespace FlowFlex.Application.Services.OW
         private readonly UserContext _userContext;
         private readonly IMediator _mediator;
         private readonly IStageService _stageService;
+        private readonly IChecklistTaskCompletionService _checklistTaskCompletionService;
+        private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
+        private readonly IStaticFieldValueService _staticFieldValueService;
+        private readonly IChecklistService _checklistService;
+        private readonly IQuestionnaireService _questionnaireService;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -52,7 +57,12 @@ namespace FlowFlex.Application.Services.OW
             IMapper mapper,
             UserContext userContext,
             IMediator mediator,
-            IStageService stageService)
+            IStageService stageService,
+            IChecklistTaskCompletionService checklistTaskCompletionService,
+            IQuestionnaireAnswerService questionnaireAnswerService,
+            IStaticFieldValueService staticFieldValueService,
+            IChecklistService checklistService,
+            IQuestionnaireService questionnaireService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -63,6 +73,11 @@ namespace FlowFlex.Application.Services.OW
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _stageService = stageService ?? throw new ArgumentNullException(nameof(stageService));
+            _checklistTaskCompletionService = checklistTaskCompletionService ?? throw new ArgumentNullException(nameof(checklistTaskCompletionService));
+            _questionnaireAnswerService = questionnaireAnswerService ?? throw new ArgumentNullException(nameof(questionnaireAnswerService));
+            _staticFieldValueService = staticFieldValueService ?? throw new ArgumentNullException(nameof(staticFieldValueService));
+            _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
+            _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
         }
 
         /// <summary>
@@ -2840,6 +2855,9 @@ namespace FlowFlex.Application.Services.OW
                     nextStageName = nextStage?.Name;
                 }
 
+                // Build components payload
+                var componentsPayload = await BuildStageCompletionComponentsAsync(onboarding.Id, stage.Id, stage.Components, stage.ComponentsJson);
+
                 // Publish the OnboardingStageCompletedEvent for enhanced event handling
                 var onboardingStageCompletedEvent = new OnboardingStageCompletedEvent
                 {
@@ -2871,8 +2889,19 @@ namespace FlowFlex.Application.Services.OW
                     },
                     RoutingTags = new List<string> { "onboarding", "stage-completion", "customer-portal" },
                     Description = $"Stage '{stage.Name}' completed for Onboarding {onboarding.Id}",
-                    Tags = new List<string> { "onboarding", "stage-completion", "unknown" }
+                    Tags = new List<string> { "onboarding", "stage-completion", "unknown" },
+                    Components = componentsPayload
                 };
+
+                // Append lightweight debug metrics into business context for verification
+                try
+                {
+                    onboardingStageCompletedEvent.BusinessContext["Components.ChecklistsCount"] = componentsPayload?.Checklists?.Count ?? 0;
+                    onboardingStageCompletedEvent.BusinessContext["Components.QuestionnairesCount"] = componentsPayload?.Questionnaires?.Count ?? 0;
+                    onboardingStageCompletedEvent.BusinessContext["Components.TaskCompletionsCount"] = componentsPayload?.TaskCompletions?.Count ?? 0;
+                    onboardingStageCompletedEvent.BusinessContext["Components.RequiredFieldsCount"] = componentsPayload?.RequiredFields?.Count ?? 0;
+                }
+                catch { }
 
                 await _mediator.Publish(onboardingStageCompletedEvent);
             }
@@ -2899,6 +2928,9 @@ namespace FlowFlex.Application.Services.OW
                     nextStageName = nextStage?.Name;
                     nextStageId = nextStage?.Id;
                 }
+
+                // Build components payload
+                var componentsPayload2 = await BuildStageCompletionComponentsAsync(onboarding.Id, completedStage.Id, completedStage.Components, completedStage.ComponentsJson);
 
                 // Publish the OnboardingStageCompletedEvent for enhanced event handling
                 var onboardingStageCompletedEvent = new OnboardingStageCompletedEvent
@@ -2930,10 +2962,21 @@ namespace FlowFlex.Application.Services.OW
                     },
                     RoutingTags = new List<string> { "onboarding", "stage-completion", "customer-portal", "auto-progression" },
                     Description = $"Stage '{completedStage.Name}' completed for Onboarding {onboarding.Id} via CompleteCurrentStageAsync",
-                    Tags = new List<string> { "onboarding", "stage-completion", "auto-progression" }
+                    Tags = new List<string> { "onboarding", "stage-completion", "auto-progression" },
+                    Components = componentsPayload2
                 };
+                // Append lightweight debug metrics into business context for verification
+                try
+                {
+                    onboardingStageCompletedEvent.BusinessContext["Components.ChecklistsCount"] = componentsPayload2?.Checklists?.Count ?? 0;
+                    onboardingStageCompletedEvent.BusinessContext["Components.QuestionnairesCount"] = componentsPayload2?.Questionnaires?.Count ?? 0;
+                    onboardingStageCompletedEvent.BusinessContext["Components.TaskCompletionsCount"] = componentsPayload2?.TaskCompletions?.Count ?? 0;
+                    onboardingStageCompletedEvent.BusinessContext["Components.RequiredFieldsCount"] = componentsPayload2?.RequiredFields?.Count ?? 0;
+                }
+                catch { }
                 // Debug logging handled by structured logging
                 await _mediator.Publish(onboardingStageCompletedEvent);
+
                 // Debug logging handled by structured logging
             }
             catch (Exception ex)
@@ -2941,6 +2984,597 @@ namespace FlowFlex.Application.Services.OW
                 // Log error but don't fail the stage completion
                 // Debug logging handled by structured logging
             }
+        }
+
+        /// <summary>
+        /// Build components payload for stage completion event
+        /// </summary>
+        private async Task<StageCompletionComponents> BuildStageCompletionComponentsAsync(long onboardingId, long stageId, List<StageComponent> stageComponents, string componentsJson)
+        {
+            var payload = new StageCompletionComponents();
+
+            Console.WriteLine($"[DEBUG] BuildStageCompletionComponentsAsync - OnboardingId: {onboardingId}, StageId: {stageId}");
+            Console.WriteLine($"[DEBUG] Initial stageComponents count: {stageComponents?.Count ?? 0}");
+            Console.WriteLine($"[DEBUG] Initial componentsJson: {(!string.IsNullOrWhiteSpace(componentsJson) ? "Present" : "Missing")}");
+
+            // Ensure we have componentsJson from DB if missing
+            if (string.IsNullOrWhiteSpace(componentsJson))
+            {
+                try
+                {
+                    var stageEntity = await _stageRepository.GetByIdAsync(stageId);
+                    if (!string.IsNullOrWhiteSpace(stageEntity?.ComponentsJson))
+                    {
+                        componentsJson = stageEntity.ComponentsJson;
+                        Console.WriteLine($"[DEBUG] Retrieved componentsJson from DB: {componentsJson.Substring(0, Math.Min(200, componentsJson.Length))}...");
+                    }
+                }
+                catch (Exception ex) 
+                { 
+                    Console.WriteLine($"[DEBUG] Error retrieving componentsJson from DB: {ex.Message}");
+                }
+            }
+
+            // Ensure we have components from JSON if not provided
+            if ((stageComponents == null || stageComponents.Count == 0) && !string.IsNullOrWhiteSpace(componentsJson))
+            {
+                try
+                {
+                    stageComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson) ?? new List<StageComponent>();
+                    Console.WriteLine($"[DEBUG] Standard JSON deserialization successful, components count: {stageComponents.Count}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DEBUG] Standard JSON deserialization failed: {ex.Message}");
+                    // Fallback: parse components from raw JSON with lenient parsing
+                                            var (parsedComponents, parsedStaticFields) = ParseComponentsFromJson(componentsJson);
+                    stageComponents = parsedComponents;
+                    Console.WriteLine($"[DEBUG] Lenient parsing successful, components count: {stageComponents.Count}");
+                }
+            }
+
+            // Try fetch components from service if still empty
+            if (stageComponents == null || stageComponents.Count == 0)
+            {
+                try
+                {
+                    var comps = await _stageService.GetComponentsAsync(stageId);
+                    if (comps != null && comps.Count > 0)
+                    {
+                        stageComponents = comps;
+                        Console.WriteLine($"[DEBUG] Retrieved components from service, count: {stageComponents.Count}");
+                    }
+                }
+                catch (Exception ex) 
+                { 
+                    Console.WriteLine($"[DEBUG] Error retrieving components from service: {ex.Message}");
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] Final stageComponents count before processing: {stageComponents?.Count ?? 0}");
+
+            // Process components to populate payload
+            await ProcessStageComponentsAsync(onboardingId, stageId, stageComponents, componentsJson, payload);
+
+            Console.WriteLine($"[DEBUG] Final payload counts - Checklists: {payload.Checklists.Count}, Questionnaires: {payload.Questionnaires.Count}, TaskCompletions: {payload.TaskCompletions.Count}, RequiredFields: {payload.RequiredFields.Count}");
+
+            return payload;
+        }
+
+        /// <summary>
+        /// Parse components from JSON with lenient parsing for both camelCase and PascalCase
+        /// </summary>
+        private (List<StageComponent> stageComponents, List<string> staticFieldNames) ParseComponentsFromJson(string componentsJson)
+        {
+            var stageComponents = new List<StageComponent>();
+            var staticFieldNames = new List<string>();
+
+            try
+            {
+                // Recursively unwrap JSON strings until we get to the actual array
+                string currentJson = componentsJson;
+                JsonDocument currentDoc = null;
+                int unwrapCount = 0;
+                
+                while (true)
+                {
+                    currentDoc?.Dispose();
+                    currentDoc = JsonDocument.Parse(currentJson);
+                    Console.WriteLine($"[DEBUG] JSON unwrap #{unwrapCount}: root type = {currentDoc.RootElement.ValueKind}");
+                    
+                    if (currentDoc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        Console.WriteLine($"[DEBUG] Found JSON array after {unwrapCount} unwraps");
+                        break;
+                    }
+                    else if (currentDoc.RootElement.ValueKind == JsonValueKind.String)
+                    {
+                        currentJson = currentDoc.RootElement.GetString();
+                        Console.WriteLine($"[DEBUG] Unwrapped JSON string, length: {currentJson?.Length}");
+                        unwrapCount++;
+                        
+                        if (unwrapCount > 5) // Prevent infinite loop
+                        {
+                            Console.WriteLine($"[ERROR] Too many JSON unwrap levels, stopping at {unwrapCount}");
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ERROR] Unexpected JSON root type: {currentDoc.RootElement.ValueKind}");
+                        break;
+                    }
+                }
+                
+                if (currentDoc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    Console.WriteLine($"[DEBUG] Processing {currentDoc.RootElement.GetArrayLength()} JSON array elements");
+                    int elementIndex = 0;
+                    foreach (var elem in currentDoc.RootElement.EnumerateArray())
+                    {
+                        Console.WriteLine($"[DEBUG] Element {elementIndex}: Type={elem.ValueKind}");
+                        if (elem.ValueKind != JsonValueKind.Object) 
+                        {
+                            elementIndex++;
+                            continue;
+                        }
+                        
+                        // Get key with both camelCase and PascalCase support
+                        string key = GetJsonProperty(elem, "key", "Key");
+                        Console.WriteLine($"[DEBUG] Element {elementIndex} - Raw JSON: {elem.GetRawText()}");
+                        Console.WriteLine($"[DEBUG] Element {elementIndex} - Extracted key: '{key}'");
+                        if (string.IsNullOrWhiteSpace(key)) 
+                        {
+                            elementIndex++;
+                            continue;
+                        }
+
+                        // Create StageComponent for each parsed element
+                        var component = new StageComponent { Key = key };
+
+                        if (string.Equals(key, "checklist", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Populate the StageComponent
+                            component.ChecklistIds = new List<long>();
+                            component.ChecklistNames = new List<string>();
+                            var idArr = GetJsonArrayProperty(elem, "checklistIds", "ChecklistIds");
+                            if (idArr.HasValue)
+                            {
+                                foreach (var idEl in idArr.Value.EnumerateArray())
+                                {
+                                    if (idEl.ValueKind == JsonValueKind.Number && idEl.TryGetInt64(out var lid)) component.ChecklistIds.Add(lid);
+                                    else if (idEl.ValueKind == JsonValueKind.String && long.TryParse(idEl.GetString(), out var lsid)) component.ChecklistIds.Add(lsid);
+                                }
+                            }
+                            var nameArr = GetJsonArrayProperty(elem, "checklistNames", "ChecklistNames");
+                            if (nameArr.HasValue)
+                            {
+                                foreach (var nEl in nameArr.Value.EnumerateArray())
+                                {
+                                    if (nEl.ValueKind == JsonValueKind.String) component.ChecklistNames.Add(nEl.GetString());
+                                }
+                            }
+                        }
+                        else if (string.Equals(key, "questionnaires", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Populate the StageComponent
+                            component.QuestionnaireIds = new List<long>();
+                            component.QuestionnaireNames = new List<string>();
+                            var idArr = GetJsonArrayProperty(elem, "questionnaireIds", "QuestionnaireIds");
+                            if (idArr.HasValue)
+                            {
+                                foreach (var idEl in idArr.Value.EnumerateArray())
+                                {
+                                    if (idEl.ValueKind == JsonValueKind.Number && idEl.TryGetInt64(out var lid)) component.QuestionnaireIds.Add(lid);
+                                    else if (idEl.ValueKind == JsonValueKind.String && long.TryParse(idEl.GetString(), out var lsid)) component.QuestionnaireIds.Add(lsid);
+                                }
+                            }
+                            var nameArr = GetJsonArrayProperty(elem, "questionnaireNames", "QuestionnaireNames");
+                            if (nameArr.HasValue)
+                            {
+                                foreach (var nEl in nameArr.Value.EnumerateArray())
+                                {
+                                    if (nEl.ValueKind == JsonValueKind.String) component.QuestionnaireNames.Add(nEl.GetString());
+                                }
+                            }
+                        }
+                        else if (string.Equals(key, "fields", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Extract static field names
+                            var sfArr = GetJsonArrayProperty(elem, "staticFields", "StaticFields");
+                            if (sfArr.HasValue)
+                            {
+                                foreach (var s in sfArr.Value.EnumerateArray())
+                                {
+                                    if (s.ValueKind == JsonValueKind.String)
+                                    {
+                                        var name = s.GetString();
+                                        if (!string.IsNullOrWhiteSpace(name)) staticFieldNames.Add(name);
+                                    }
+                                }
+                            }
+                            
+                            // Also populate the StageComponent
+                            component.StaticFields = new List<string>(staticFieldNames);
+                        }
+
+                        // Add component to list after processing all types
+                        stageComponents.Add(component);
+                        Console.WriteLine($"[DEBUG] Added component '{key}' to list, total count: {stageComponents.Count}");
+                        elementIndex++;
+                    }
+                }
+                Console.WriteLine($"[DEBUG] ParseComponentsFromJson completed - Components: {stageComponents.Count}, StaticFields: {staticFieldNames.Count}");
+                
+                currentDoc?.Dispose();
+            }
+            catch (Exception ex) 
+            { 
+                Console.WriteLine($"[ERROR] ParseComponentsFromJson failed: {ex.Message}");
+            }
+
+            return (stageComponents, staticFieldNames);
+        }
+
+        /// <summary>
+        /// Get JSON property value with support for both camelCase and PascalCase
+        /// </summary>
+        private string GetJsonProperty(JsonElement elem, string camelCase, string pascalCase)
+        {
+            if (elem.TryGetProperty(camelCase, out var prop)) return prop.GetString();
+            if (elem.TryGetProperty(pascalCase, out var propPascal)) return propPascal.GetString();
+            return null;
+        }
+
+
+
+        /// <summary>
+        /// Get JSON array property with support for both camelCase and PascalCase
+        /// </summary>
+        private JsonElement? GetJsonArrayProperty(JsonElement elem, string camelCase, string pascalCase)
+        {
+            if (elem.TryGetProperty(camelCase, out var arr) && arr.ValueKind == JsonValueKind.Array) return arr;
+            if (elem.TryGetProperty(pascalCase, out var arrPascal) && arrPascal.ValueKind == JsonValueKind.Array) return arrPascal;
+            return null;
+        }
+
+        /// <summary>
+        /// Process stage components to populate the payload
+        /// </summary>
+        private async Task ProcessStageComponentsAsync(long onboardingId, long stageId, List<StageComponent> stageComponents, string componentsJson, StageCompletionComponents payload)
+        {
+            var staticFieldNames = new List<string>();
+
+            // If we need to parse from JSON for static fields, do it once here
+            if ((stageComponents == null || !stageComponents.Any(c => c.Key == "fields")) && !string.IsNullOrWhiteSpace(componentsJson))
+            {
+                var (_, parsedStaticFields) = ParseComponentsFromJson(componentsJson);
+                staticFieldNames.AddRange(parsedStaticFields);
+            }
+
+            // Process checklists
+            await ProcessChecklistsAsync(onboardingId, stageId, stageComponents, componentsJson, payload);
+
+            // Process questionnaires
+            await ProcessQuestionnairesAsync(onboardingId, stageId, stageComponents, componentsJson, payload);
+
+            // Process required fields
+            await ProcessRequiredFieldsAsync(onboardingId, stageId, stageComponents, componentsJson, payload, staticFieldNames);
+        }
+
+        /// <summary>
+        /// Process checklists and task completions
+        /// </summary>
+        private async Task ProcessChecklistsAsync(long onboardingId, long stageId, List<StageComponent> stageComponents, string componentsJson, StageCompletionComponents payload)
+        {
+            try
+            {
+                // Get checklist components - prioritize stageComponents, fallback to JSON parsing
+                var checklistComponents = (stageComponents ?? new List<StageComponent>()).Where(c => c.Key == "checklist").ToList();
+                
+                if (checklistComponents.Count == 0 && !string.IsNullOrWhiteSpace(componentsJson))
+                {
+                    var (parsedComponents, _) = ParseComponentsFromJson(componentsJson);
+                    checklistComponents = parsedComponents.Where(c => c.Key == "checklist").ToList();
+                }
+
+                // Fill checklist selections from components with detailed information
+                foreach (var component in checklistComponents)
+                {
+                    if (component.ChecklistIds != null)
+                    {
+                        for (int i = 0; i < component.ChecklistIds.Count; i++)
+                        {
+                            var checklistId = component.ChecklistIds[i];
+                            var checklistName = (component.ChecklistNames != null && component.ChecklistNames.Count > i)
+                                ? component.ChecklistNames[i]
+                                : $"Checklist {checklistId}";
+                            
+                            // Get detailed checklist information
+                            try
+                            {
+                                var detailedChecklist = await _checklistService.GetByIdAsync(checklistId);
+                                if (detailedChecklist != null)
+                                {
+                                    // Map tasks
+                                    var tasks = new List<ChecklistTaskInfo>();
+                                    if (detailedChecklist.Tasks != null)
+                                    {
+                                        foreach (var task in detailedChecklist.Tasks)
+                                        {
+                                            tasks.Add(new ChecklistTaskInfo
+                                            {
+                                                Id = task.Id,
+                                                ChecklistId = task.ChecklistId,
+                                                Name = task.Name,
+                                                Description = task.Description,
+                                                OrderIndex = task.OrderIndex,
+                                                TaskType = task.TaskType,
+                                                IsRequired = task.IsRequired,
+                                                EstimatedHours = task.EstimatedHours,
+                                                Priority = task.Priority,
+                                                IsCompleted = task.IsCompleted,
+                                                Status = task.Status,
+                                                IsActive = task.IsActive
+                                            });
+                                        }
+                                    }
+
+                                    payload.Checklists.Add(new ChecklistComponentInfo
+                                    {
+                                        ChecklistId = checklistId,
+                                        ChecklistName = detailedChecklist.Name ?? checklistName,
+                                        Description = detailedChecklist.Description,
+                                        Team = detailedChecklist.Team,
+                                        Type = detailedChecklist.Type,
+                                        Status = detailedChecklist.Status,
+                                        IsTemplate = detailedChecklist.IsTemplate,
+                                        CompletionRate = detailedChecklist.CompletionRate,
+                                        TotalTasks = detailedChecklist.TotalTasks,
+                                        CompletedTasks = detailedChecklist.CompletedTasks,
+                                        IsActive = detailedChecklist.IsActive,
+                                        Tasks = tasks
+                                    });
+                                }
+                                else
+                                {
+                                    // Fallback to basic info if detailed info not available
+                                    payload.Checklists.Add(new ChecklistComponentInfo
+                                    {
+                                        ChecklistId = checklistId,
+                                        ChecklistName = checklistName,
+                                        IsActive = true
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[ERROR] Failed to get checklist details for {checklistId}: {ex.Message}");
+                                // Fallback to basic info
+                                payload.Checklists.Add(new ChecklistComponentInfo
+                                {
+                                    ChecklistId = checklistId,
+                                    ChecklistName = checklistName,
+                                    IsActive = true
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Load task completions
+                var completions = await _checklistTaskCompletionService.GetByOnboardingAndStageAsync(onboardingId, stageId);
+                foreach (var c in completions)
+                {
+                    payload.TaskCompletions.Add(new ChecklistTaskCompletionInfo
+                    {
+                        ChecklistId = c.ChecklistId,
+                        TaskId = c.TaskId,
+                        IsCompleted = c.IsCompleted,
+                        CompletionNotes = c.CompletionNotes,
+                        CompletedBy = c.ModifyBy ?? c.CreateBy,
+                        CompletedTime = c.CompletedTime
+                    });
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Process questionnaires and answers
+        /// </summary>
+        private async Task ProcessQuestionnairesAsync(long onboardingId, long stageId, List<StageComponent> stageComponents, string componentsJson, StageCompletionComponents payload)
+        {
+            try
+            {
+                // Get questionnaire components - prioritize stageComponents, fallback to JSON parsing
+                var questionnaireComponents = (stageComponents ?? new List<StageComponent>()).Where(c => c.Key == "questionnaires").ToList();
+                
+                if (questionnaireComponents.Count == 0 && !string.IsNullOrWhiteSpace(componentsJson))
+                {
+                    var (parsedComponents, _) = ParseComponentsFromJson(componentsJson);
+                    questionnaireComponents = parsedComponents.Where(c => c.Key == "questionnaires").ToList();
+                }
+
+                // Fill questionnaire selections from components with detailed information
+                foreach (var component in questionnaireComponents)
+                {
+                    if (component.QuestionnaireIds != null)
+                    {
+                        for (int i = 0; i < component.QuestionnaireIds.Count; i++)
+                        {
+                            var questionnaireId = component.QuestionnaireIds[i];
+                            var questionnaireName = (component.QuestionnaireNames != null && component.QuestionnaireNames.Count > i)
+                                ? component.QuestionnaireNames[i]
+                                : $"Questionnaire {questionnaireId}";
+                            
+                            // Get detailed questionnaire information
+                            try
+                            {
+                                var detailedQuestionnaire = await _questionnaireService.GetByIdAsync(questionnaireId);
+                                if (detailedQuestionnaire != null)
+                                {
+                                    payload.Questionnaires.Add(new QuestionnaireComponentInfo
+                                    {
+                                        QuestionnaireId = questionnaireId,
+                                        QuestionnaireName = detailedQuestionnaire.Name ?? questionnaireName,
+                                        Description = detailedQuestionnaire.Description,
+                                        Status = detailedQuestionnaire.Status,
+                                        Version = detailedQuestionnaire.Version,
+                                        Category = detailedQuestionnaire.Category,
+                                        TotalQuestions = detailedQuestionnaire.TotalQuestions,
+                                        RequiredQuestions = detailedQuestionnaire.RequiredQuestions,
+                                        AllowDraft = detailedQuestionnaire.AllowDraft,
+                                        AllowMultipleSubmissions = detailedQuestionnaire.AllowMultipleSubmissions,
+                                        IsActive = detailedQuestionnaire.IsActive,
+                                        StructureJson = detailedQuestionnaire.StructureJson
+                                    });
+                                }
+                                else
+                                {
+                                    // Fallback to basic info if detailed info not available
+                                    payload.Questionnaires.Add(new QuestionnaireComponentInfo
+                                    {
+                                        QuestionnaireId = questionnaireId,
+                                        QuestionnaireName = questionnaireName,
+                                        IsActive = true
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[ERROR] Failed to get questionnaire details for {questionnaireId}: {ex.Message}");
+                                // Fallback to basic info
+                                payload.Questionnaires.Add(new QuestionnaireComponentInfo
+                                {
+                                    QuestionnaireId = questionnaireId,
+                                    QuestionnaireName = questionnaireName,
+                                    IsActive = true
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Load questionnaire answers
+                var answers = await _questionnaireAnswerService.GetAllAnswersAsync(onboardingId, stageId);
+                foreach (var a in answers)
+                {
+                    payload.QuestionnaireAnswers.Add(new QuestionnaireAnswerInfo
+                    {
+                        AnswerId = a.Id,
+                        QuestionnaireId = a.QuestionnaireId ?? 0,
+                        QuestionId = 0,
+                        QuestionText = string.Empty,
+                        QuestionType = string.Empty,
+                        IsRequired = false,
+                        Answer = a.AnswerJson,
+                        AnswerTime = a.SubmitTime,
+                        Status = a.Status
+                    });
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Process required fields
+        /// </summary>
+        private async Task ProcessRequiredFieldsAsync(long onboardingId, long stageId, List<StageComponent> stageComponents, string componentsJson, StageCompletionComponents payload, List<string> staticFieldNames)
+        {
+            try
+            {
+                // Collect static field names from components
+                foreach (var comp in (stageComponents ?? new List<StageComponent>()).Where(c => c.Key == "fields"))
+                {
+                    if (comp.StaticFields != null)
+                    {
+                        foreach (var name in comp.StaticFields)
+                        {
+                            if (!string.IsNullOrWhiteSpace(name) && !staticFieldNames.Contains(name))
+                            {
+                                staticFieldNames.Add(name);
+                            }
+                        }
+                    }
+                }
+
+                // If no static fields found, parse from JSON
+                if (staticFieldNames.Count == 0 && !string.IsNullOrWhiteSpace(componentsJson))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(componentsJson);
+                        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var elem in doc.RootElement.EnumerateArray())
+                            {
+                                if (elem.ValueKind != JsonValueKind.Object) continue;
+                                
+                                string key = GetJsonProperty(elem, "key", "Key");
+                                if (!string.Equals(key, "fields", StringComparison.OrdinalIgnoreCase)) continue;
+                                
+                                var sfArr = GetJsonArrayProperty(elem, "staticFields", "StaticFields");
+                                if (sfArr.HasValue)
+                                {
+                                    foreach (var s in sfArr.Value.EnumerateArray())
+                                    {
+                                        if (s.ValueKind == JsonValueKind.String)
+                                        {
+                                            var name = s.GetString();
+                                            if (!string.IsNullOrWhiteSpace(name) && !staticFieldNames.Contains(name))
+                                            {
+                                                staticFieldNames.Add(name);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                // Load existing field values
+                var fieldValues = await _staticFieldValueService.GetLatestByOnboardingAndStageAsync(onboardingId, stageId);
+                var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                
+                foreach (var f in fieldValues)
+                {
+                    payload.RequiredFields.Add(new RequiredFieldInfo
+                    {
+                        FieldName = f.FieldName,
+                        DisplayName = f.DisplayName,
+                        FieldType = f.FieldType,
+                        IsRequired = f.IsRequired,
+                        FieldValue = f.FieldValueJson,
+                        ValidationStatus = f.ValidationStatus,
+                        ValidationErrors = string.IsNullOrWhiteSpace(f.ValidationErrors)
+                            ? new List<string>()
+                            : new List<string>(f.ValidationErrors.Split('\n'))
+                    });
+                    existing.Add(f.FieldName ?? string.Empty);
+                }
+
+                // Add placeholder entries for missing required fields
+                foreach (var fieldName in staticFieldNames.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    if (!existing.Contains(fieldName))
+                    {
+                        payload.RequiredFields.Add(new RequiredFieldInfo
+                        {
+                            FieldName = fieldName,
+                            DisplayName = null,
+                            FieldType = string.Empty,
+                            IsRequired = true,
+                            FieldValue = null,
+                            ValidationStatus = "Pending",
+                            ValidationErrors = new List<string>()
+                        });
+                    }
+                }
+            }
+            catch { }
         }
 
         /// <summary>
