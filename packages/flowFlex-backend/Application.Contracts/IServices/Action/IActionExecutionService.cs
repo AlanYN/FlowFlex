@@ -23,6 +23,7 @@ namespace FlowFlex.Application.Contracts.IServices.Action
             long actionDefinitionId,
             object contextData = null,
             long? userId = null,
+            long? triggerMappingId = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>
