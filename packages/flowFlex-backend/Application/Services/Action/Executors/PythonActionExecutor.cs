@@ -276,7 +276,26 @@ namespace FlowFlex.Application.Services.Action.Executors
             if (triggerContext == null)
                 return null;
 
-            if (triggerContext is JToken jToken)
+            object parsedContext = triggerContext;
+            if (triggerContext is string jsonString && !string.IsNullOrWhiteSpace(jsonString))
+            {
+                string trimmed = jsonString.Trim();
+                if ((trimmed.StartsWith("{") && trimmed.EndsWith("}")) ||
+                    (trimmed.StartsWith("[") && trimmed.EndsWith("]")))
+                {
+                    try
+                    {
+                        parsedContext = JToken.Parse(jsonString);
+                    }
+                    catch (JsonException)
+                    {
+                        // If parsing fails, continue with original triggerContext
+                        parsedContext = triggerContext;
+                    }
+                }
+            }
+
+            if (parsedContext is JToken jToken)
             {
                 try
                 {
@@ -294,20 +313,20 @@ namespace FlowFlex.Application.Services.Action.Executors
                 }
             }
 
-            var property = triggerContext.GetType().GetProperty(propertyName);
+            var property = parsedContext.GetType().GetProperty(propertyName);
             if (property != null)
             {
-                return property.GetValue(triggerContext);
+                return property.GetValue(parsedContext);
             }
 
-            property = triggerContext.GetType().GetProperties()
+            property = parsedContext.GetType().GetProperties()
                 .FirstOrDefault(p => p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase));
             if (property != null)
             {
-                return property.GetValue(triggerContext);
+                return property.GetValue(parsedContext);
             }
 
-            if (triggerContext is System.Collections.IDictionary dict)
+            if (parsedContext is System.Collections.IDictionary dict)
             {
                 foreach (System.Collections.DictionaryEntry entry in dict)
                 {
