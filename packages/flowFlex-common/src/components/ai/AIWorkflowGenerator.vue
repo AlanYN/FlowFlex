@@ -1,34 +1,45 @@
 <template>
 	<div class="ai-workflow-assistant">
 		<el-card shadow="hover" class="assistant-card">
-      <template #header>
-        <div class="card-header">
-										<div class="header-left">
+			<template #header>
+				<div class="card-header">
+					<div class="header-left">
 						<span class="assistant-title">AI Workflow Assistant</span>
-          <span class="status-indicator">
-            <span class="pulse-dot"></span>
-							{{ currentAIModel ? `${currentAIModel.provider.toLowerCase()} ${currentAIModel.modelName}` : 'Online' }}
-          </span>
+						<span class="status-indicator">
+							<span class="pulse-dot"></span>
+							{{
+								currentAIModel
+									? `${currentAIModel.provider.toLowerCase()} ${
+											currentAIModel.modelName
+									  }`
+									: 'Online'
+							}}
+						</span>
 					</div>
-					
-        </div>
-      </template>
+				</div>
+			</template>
 
 			<div class="assistant-container">
 				<!-- Chat Area -->
 				<div class="chat-area">
 					<!-- Chat Messages -->
 					<div class="chat-messages" ref="chatMessagesRef">
-						<div v-for="(message, index) in chatMessages" :key="index" class="message-item">
+						<div
+							v-for="(message, index) in chatMessages"
+							:key="index"
+							class="message-item"
+						>
 							<!-- User Message -->
 							<div v-if="message.type === 'user'" class="user-message">
 								<div class="message-content">
 									<div class="message-text">{{ message.content }}</div>
-									<div class="message-time">{{ formatTime(message.timestamp) }}</div>
-            </div>
+									<div class="message-time">
+										{{ formatTime(message.timestamp) }}
+									</div>
+								</div>
 								<div class="message-avatar">
 									<el-icon><User /></el-icon>
-          </div>
+								</div>
 							</div>
 
 							<!-- AI Message -->
@@ -37,20 +48,26 @@
 									<el-icon><Star /></el-icon>
 								</div>
 								<div class="message-content">
-									<div class="message-text" v-html="formatAIMessage(message.content)"></div>
-									<div class="message-time">{{ formatTime(message.timestamp) }}</div>
+									<div
+										class="message-text"
+										v-html="formatAIMessage(message.content)"
+									></div>
+									<div class="message-time">
+										{{ formatTime(message.timestamp) }}
+									</div>
 								</div>
 							</div>
 
-
-
 							<!-- Generation Complete -->
-							<div v-else-if="message.type === 'generation-complete'" class="generation-complete">
+							<div
+								v-else-if="message.type === 'generation-complete'"
+								class="generation-complete"
+							>
 								<div class="complete-header">
 									<el-icon class="success-icon"><CircleCheckFilled /></el-icon>
 									<h4>Generation Complete</h4>
 								</div>
-								
+
 								<!-- Workflow Preview -->
 								<div class="workflow-preview">
 									<div class="workflow-info">
@@ -62,8 +79,17 @@
 												placeholder="Enter workflow name"
 												@blur="onWorkflowUpdated(message.data!)"
 											/>
-											<span class="status" :class="{ active: message.data?.workflow?.isActive }">
-												{{ message.data?.workflow?.isActive ? 'Active' : 'Inactive' }}
+											<span
+												class="status"
+												:class="{
+													active: message.data?.workflow?.isActive,
+												}"
+											>
+												{{
+													message.data?.workflow?.isActive
+														? 'Active'
+														: 'Inactive'
+												}}
 											</span>
 										</div>
 										<el-input
@@ -82,90 +108,105 @@
 											</span>
 											<span class="stat-item">
 												<el-icon><Clock /></el-icon>
-												{{ getTotalDuration(message.data?.stages || []) }} days
+												{{ getTotalDuration(message.data?.stages || []) }}
+												days
 											</span>
 										</div>
 									</div>
 
-																	<!-- Stages Grid -->
-								<div class="stages-grid">
-									<div 
-										v-for="(stage, stageIndex) in message.data?.stages || []" 
-										:key="stageIndex"
-										class="stage-card"
-									>
-										<div class="stage-card-header">
-											<div class="stage-badge">
-												<span class="stage-number">{{ stage.order }}</span>
-											</div>
-											<el-button 
-												size="small" 
-												type="danger" 
-												@click="removeStage(message.data!, stageIndex)"
-												class="remove-stage-btn"
-												circle
-											>
-												<el-icon><Close /></el-icon>
-											</el-button>
-      </div>
-
-										<div class="stage-card-content">
-        <el-input
-												v-model="stage.name" 
-												size="small" 
-												class="stage-title-input"
-												placeholder="Stage name..."
-												@blur="onStageUpdated(message.data!, stageIndex)"
-											/>
-											
-											<el-input
-												v-model="stage.description" 
-          type="textarea"
-												:rows="2" 
-												size="small"
-												placeholder="Stage description..."
-												@blur="onStageUpdated(message.data!, stageIndex)"
-												class="stage-description"
-											/>
-											
-											<div class="stage-meta-compact">
-												<div class="meta-item">
-													<span class="meta-label">Team:</span>
-													<el-select 
-														v-model="stage.assignedGroup" 
-														size="small" 
-														placeholder="Select"
-														class="meta-select"
-													>
-														<el-option label="Sales" value="Sales" />
-														<el-option label="IT" value="IT" />
-														<el-option label="HR" value="HR" />
-														<el-option label="Finance" value="Finance" />
-														<el-option label="Operations" value="Operations" />
-													</el-select>
+									<!-- Stages Grid -->
+									<div class="stages-grid">
+										<div
+											v-for="(stage, stageIndex) in message.data?.stages ||
+											[]"
+											:key="stageIndex"
+											class="stage-card"
+										>
+											<div class="stage-card-header">
+												<div class="stage-badge">
+													<span class="stage-number">
+														{{ stage.order }}
+													</span>
 												</div>
-												<div class="meta-item">
-													<span class="meta-label">Days:</span>
-													<el-input-number 
-														v-model="stage.estimatedDuration" 
-														size="small" 
-														:min="1" 
-														:max="30"
-														controls-position="right"
-														class="meta-number"
-													/>
-        </div>
-      </div>
+												<el-button
+													size="small"
+													type="danger"
+													@click="removeStage(message.data!, stageIndex)"
+													class="remove-stage-btn"
+													circle
+												>
+													<el-icon><Close /></el-icon>
+												</el-button>
+											</div>
 
+											<div class="stage-card-content">
+												<el-input
+													v-model="stage.name"
+													size="small"
+													class="stage-title-input"
+													placeholder="Stage name..."
+													@blur="
+														onStageUpdated(message.data!, stageIndex)
+													"
+												/>
 
+												<el-input
+													v-model="stage.description"
+													type="textarea"
+													:rows="2"
+													size="small"
+													placeholder="Stage description..."
+													@blur="
+														onStageUpdated(message.data!, stageIndex)
+													"
+													class="stage-description"
+												/>
+
+												<div class="stage-meta-compact">
+													<div class="meta-item">
+														<span class="meta-label">Team:</span>
+														<el-select
+															v-model="stage.assignedGroup"
+															size="small"
+															placeholder="Select"
+															class="meta-select"
+														>
+															<el-option
+																label="Sales"
+																value="Sales"
+															/>
+															<el-option label="IT" value="IT" />
+															<el-option label="HR" value="HR" />
+															<el-option
+																label="Finance"
+																value="Finance"
+															/>
+															<el-option
+																label="Operations"
+																value="Operations"
+															/>
+														</el-select>
+													</div>
+													<div class="meta-item">
+														<span class="meta-label">Days:</span>
+														<el-input-number
+															v-model="stage.estimatedDuration"
+															size="small"
+															:min="1"
+															:max="30"
+															controls-position="right"
+															class="meta-number"
+														/>
+													</div>
+												</div>
+											</div>
 										</div>
 									</div>
-								</div>
 
 									<!-- Add Stage Button -->
-									<el-button 
-										@click="addStage(message.data)" 
-										type="default" 
+									<el-button
+										@click="addStage(message.data)"
+										type="default"
 										class="add-stage-btn"
 									>
 										<el-icon><Plus /></el-icon>
@@ -177,8 +218,8 @@
 										<div class="component-section">
 											<div class="section-header">
 												<h6>Checklists</h6>
-												<el-button 
-													size="small" 
+												<el-button
+													size="small"
 													type="text"
 													@click="toggleChecklistsCollapse"
 													class="collapse-toggle"
@@ -187,64 +228,122 @@
 														<ArrowDown v-if="checklistsCollapsed" />
 														<ArrowUp v-else />
 													</el-icon>
-													{{ checklistsCollapsed ? 'Expand' : 'Collapse' }}
+													{{
+														checklistsCollapsed ? 'Expand' : 'Collapse'
+													}}
 												</el-button>
 											</div>
-											
+
 											<el-collapse-transition>
-												<div v-show="!checklistsCollapsed" class="checklists-grid">
-													<div 
-														v-for="(checklist, clIndex) in message.data?.checklists || []"
+												<div
+													v-show="!checklistsCollapsed"
+													class="checklists-grid"
+												>
+													<div
+														v-for="(checklist, clIndex) in message.data
+															?.checklists || []"
 														:key="clIndex"
 														class="checklist-card"
 													>
 														<div class="checklist-header">
 															<h7>{{ checklist.name }}</h7>
 															<div class="card-actions">
-																<el-button 
-																	size="small" 
+																<el-button
+																	size="small"
 																	type="text"
-																	@click="toggleChecklistTasks(clIndex)"
+																	@click="
+																		toggleChecklistTasks(
+																			clIndex
+																		)
+																	"
 																	class="expand-btn"
 																>
 																	<el-icon>
-																		<ArrowDown v-if="isChecklistTasksCollapsed(clIndex)" />
+																		<ArrowDown
+																			v-if="
+																				isChecklistTasksCollapsed(
+																					clIndex
+																				)
+																			"
+																		/>
 																		<ArrowUp v-else />
 																	</el-icon>
 																</el-button>
-																<el-button 
-																	size="small" 
-																	type="danger" 
-																	@click="removeChecklist(message.data, clIndex)"
+																<el-button
+																	size="small"
+																	type="danger"
+																	@click="
+																		removeChecklist(
+																			message.data,
+																			clIndex
+																		)
+																	"
 																	circle
 																>
 																	<el-icon><Close /></el-icon>
 																</el-button>
 															</div>
 														</div>
-														<p class="checklist-description">{{ checklist.description }}</p>
-														
+														<p class="checklist-description">
+															{{ checklist.description }}
+														</p>
+
 														<el-collapse-transition>
-															<div v-show="!isChecklistTasksCollapsed(clIndex)" class="tasks-list">
-																<div 
-																	v-for="task in checklist.tasks || []"
+															<div
+																v-show="
+																	!isChecklistTasksCollapsed(
+																		clIndex
+																	)
+																"
+																class="tasks-list"
+															>
+																<div
+																	v-for="task in checklist.tasks ||
+																	[]"
 																	:key="task.id"
 																	class="task-item"
 																>
 																	<div class="task-header">
-																		<el-checkbox 
+																		<el-checkbox
 																			v-model="task.completed"
 																			:disabled="true"
 																		/>
-																		<span class="task-title" :class="{ required: task.isRequired }">
+																		<span
+																			class="task-title"
+																			:class="{
+																				required:
+																					task.isRequired,
+																			}"
+																		>
 																			{{ task.title }}
-																			<el-tag v-if="task.isRequired" size="small" type="danger">Required</el-tag>
+																			<el-tag
+																				v-if="
+																					task.isRequired
+																				"
+																				size="small"
+																				type="danger"
+																			>
+																				Required
+																			</el-tag>
 																		</span>
 																	</div>
-																	<p class="task-description">{{ task.description }}</p>
+																	<p class="task-description">
+																		{{ task.description }}
+																	</p>
 																	<div class="task-meta">
-																		<el-tag size="small" type="info">{{ task.category }}</el-tag>
-																		<span class="estimated-time">{{ task.estimatedMinutes }}min</span>
+																		<el-tag
+																			size="small"
+																			type="info"
+																		>
+																			{{ task.category }}
+																		</el-tag>
+																		<span
+																			class="estimated-time"
+																		>
+																			{{
+																				task.estimatedMinutes
+																			}}min
+																		</span>
 																	</div>
 																</div>
 															</div>
@@ -252,10 +351,10 @@
 													</div>
 												</div>
 											</el-collapse-transition>
-											
-											<el-button 
-												size="small" 
-												type="default" 
+
+											<el-button
+												size="small"
+												type="default"
 												@click="addChecklist(message.data)"
 											>
 												<el-icon><Plus /></el-icon>
@@ -266,8 +365,8 @@
 										<div class="component-section">
 											<div class="section-header">
 												<h6>Questionnaires</h6>
-												<el-button 
-													size="small" 
+												<el-button
+													size="small"
 													type="text"
 													@click="toggleQuestionnairesCollapse"
 													class="collapse-toggle"
@@ -276,59 +375,118 @@
 														<ArrowDown v-if="questionnairesCollapsed" />
 														<ArrowUp v-else />
 													</el-icon>
-													{{ questionnairesCollapsed ? 'Expand' : 'Collapse' }}
+													{{
+														questionnairesCollapsed
+															? 'Expand'
+															: 'Collapse'
+													}}
 												</el-button>
 											</div>
-											
+
 											<el-collapse-transition>
-												<div v-show="!questionnairesCollapsed" class="questionnaires-grid">
-													<div 
-														v-for="(questionnaire, qIndex) in message.data?.questionnaires || []"
+												<div
+													v-show="!questionnairesCollapsed"
+													class="questionnaires-grid"
+												>
+													<div
+														v-for="(questionnaire, qIndex) in message
+															.data?.questionnaires || []"
 														:key="qIndex"
 														class="questionnaire-card"
 													>
 														<div class="questionnaire-header">
 															<h7>{{ questionnaire.name }}</h7>
 															<div class="card-actions">
-																<el-button 
-																	size="small" 
+																<el-button
+																	size="small"
 																	type="text"
-																	@click="toggleQuestionnaireQuestions(qIndex)"
+																	@click="
+																		toggleQuestionnaireQuestions(
+																			qIndex
+																		)
+																	"
 																	class="expand-btn"
 																>
 																	<el-icon>
-																		<ArrowDown v-if="isQuestionnaireQuestionsCollapsed(qIndex)" />
+																		<ArrowDown
+																			v-if="
+																				isQuestionnaireQuestionsCollapsed(
+																					qIndex
+																				)
+																			"
+																		/>
 																		<ArrowUp v-else />
 																	</el-icon>
 																</el-button>
-																<el-button 
-																	size="small" 
-																	type="danger" 
-																	@click="removeQuestionnaire(message.data, qIndex)"
+																<el-button
+																	size="small"
+																	type="danger"
+																	@click="
+																		removeQuestionnaire(
+																			message.data,
+																			qIndex
+																		)
+																	"
 																	circle
 																>
 																	<el-icon><Close /></el-icon>
 																</el-button>
 															</div>
 														</div>
-														<p class="questionnaire-description">{{ questionnaire.description }}</p>
-														
+														<p class="questionnaire-description">
+															{{ questionnaire.description }}
+														</p>
+
 														<el-collapse-transition>
-															<div v-show="!isQuestionnaireQuestionsCollapsed(qIndex)" class="questions-list">
-																<div 
-																	v-for="question in questionnaire.questions || []"
+															<div
+																v-show="
+																	!isQuestionnaireQuestionsCollapsed(
+																		qIndex
+																	)
+																"
+																class="questions-list"
+															>
+																<div
+																	v-for="question in questionnaire.questions ||
+																	[]"
 																	:key="question.id"
 																	class="question-item"
 																>
 																	<div class="question-header">
-																		<span class="question-text" :class="{ required: question.isRequired }">
+																		<span
+																			class="question-text"
+																			:class="{
+																				required:
+																					question.isRequired,
+																			}"
+																		>
 																			{{ question.question }}
-																			<el-tag v-if="question.isRequired" size="small" type="warning">Required</el-tag>
+																			<el-tag
+																				v-if="
+																					question.isRequired
+																				"
+																				size="small"
+																				type="warning"
+																			>
+																				Required
+																			</el-tag>
 																		</span>
-																		<el-tag size="small" type="info">{{ question.type }}</el-tag>
+																		<el-tag
+																			size="small"
+																			type="info"
+																		>
+																			{{ question.type }}
+																		</el-tag>
 																	</div>
-																	<div v-if="question.options && question.options.length > 0" class="question-options">
-																		<el-tag 
+																	<div
+																		v-if="
+																			question.options &&
+																			question.options
+																				.length > 0
+																		"
+																		class="question-options"
+																	>
+																		<el-tag
 																			v-for="option in question.options"
 																			:key="option"
 																			size="small"
@@ -338,8 +496,18 @@
 																		</el-tag>
 																	</div>
 																	<div class="question-meta">
-																		<el-tag size="small" type="success">{{ question.category }}</el-tag>
-																		<span v-if="question.helpText" class="help-text">{{ question.helpText }}</span>
+																		<el-tag
+																			size="small"
+																			type="success"
+																		>
+																			{{ question.category }}
+																		</el-tag>
+																		<span
+																			v-if="question.helpText"
+																			class="help-text"
+																		>
+																			{{ question.helpText }}
+																		</span>
 																	</div>
 																</div>
 															</div>
@@ -347,10 +515,10 @@
 													</div>
 												</div>
 											</el-collapse-transition>
-											
-											<el-button 
-												size="small" 
-												type="default" 
+
+											<el-button
+												size="small"
+												type="default"
 												@click="addQuestionnaire(message.data)"
 											>
 												<el-icon><Plus /></el-icon>
@@ -361,9 +529,9 @@
 
 									<!-- Apply Button -->
 									<div class="apply-section">
-        <el-button 
-          type="primary" 
-          size="large"
+										<el-button
+											type="primary"
+											size="large"
 											@click="applyWorkflow(message.data!)"
 											:loading="applying"
 											class="apply-btn"
@@ -376,7 +544,10 @@
 							</div>
 
 							<!-- Workflow Modification Message -->
-							<div v-else-if="message.type === 'workflow-modification'" class="workflow-modification">
+							<div
+								v-else-if="message.type === 'workflow-modification'"
+								class="workflow-modification"
+							>
 								<div class="message-avatar">
 									<el-icon><Edit /></el-icon>
 								</div>
@@ -384,79 +555,121 @@
 									<div class="workflow-header">
 										<h4>{{ message.content }}</h4>
 									</div>
-									
+
 									<!-- Workflow Info -->
 									<div class="workflow-info-card">
 										<div class="workflow-details">
 											<h5>{{ message.data?.workflow?.name }}</h5>
 											<p>{{ message.data?.workflow?.description }}</p>
 											<div class="workflow-meta">
-												<span class="status" :class="{ active: message.data?.workflow?.isActive }">
-													{{ message.data?.workflow?.isActive ? 'Active' : 'Inactive' }}
+												<span
+													class="status"
+													:class="{
+														active: message.data?.workflow?.isActive,
+													}"
+												>
+													{{
+														message.data?.workflow?.isActive
+															? 'Active'
+															: 'Inactive'
+													}}
 												</span>
-												<span class="stage-count">{{ message.data?.stages?.length || 0 }} stages</span>
+												<span class="stage-count">
+													{{ message.data?.stages?.length || 0 }} stages
+												</span>
 											</div>
 										</div>
 									</div>
 
 									<!-- Stages List -->
-									<div v-if="message.data?.stages && message.data.stages.length > 0" class="stages-list">
+									<div
+										v-if="
+											message.data?.stages && message.data.stages.length > 0
+										"
+										class="stages-list"
+									>
 										<h6>Workflow Stages:</h6>
 										<div class="stages-container">
-											<div 
-												v-for="(stage, stageIndex) in message.data.stages" 
-												:key="stageIndex" 
+											<div
+												v-for="(stage, stageIndex) in message.data.stages"
+												:key="stageIndex"
 												class="stage-card editable"
 											>
 												<div class="stage-header">
-													<span class="stage-number">{{ stage.order || stageIndex + 1 }}</span>
-													<el-input 
-														v-model="stage.name" 
+													<span class="stage-number">
+														{{ stage.order || stageIndex + 1 }}
+													</span>
+													<el-input
+														v-model="stage.name"
 														size="small"
 														class="stage-name-input"
-														@blur="onStageUpdated(message.data!, stageIndex)"
+														@blur="
+															onStageUpdated(
+																message.data!,
+																stageIndex
+															)
+														"
 													/>
 												</div>
-												<el-input 
-													v-model="stage.description" 
-													type="textarea" 
-													:rows="2" 
+												<el-input
+													v-model="stage.description"
+													type="textarea"
+													:rows="2"
 													size="small"
 													class="stage-description-input"
-													@blur="onStageUpdated(message.data!, stageIndex)"
+													@blur="
+														onStageUpdated(message.data!, stageIndex)
+													"
 												/>
-												
+
 												<div class="stage-details">
 													<div class="stage-field">
 														<label>Assigned Team:</label>
-														<el-select 
-															v-model="stage.assignedGroup" 
+														<el-select
+															v-model="stage.assignedGroup"
 															size="small"
-															@change="onStageUpdated(message.data!, stageIndex)"
+															@change="
+																onStageUpdated(
+																	message.data!,
+																	stageIndex
+																)
+															"
 														>
-															<el-option label="Sales" value="Sales" />
-															<el-option label="Finance" value="Finance" />
-															<el-option label="Operations" value="Operations" />
+															<el-option
+																label="Sales"
+																value="Sales"
+															/>
+															<el-option
+																label="Finance"
+																value="Finance"
+															/>
+															<el-option
+																label="Operations"
+																value="Operations"
+															/>
 														</el-select>
 													</div>
 													<div class="stage-field">
 														<label>Duration (days):</label>
-														<el-input-number 
-															v-model="stage.estimatedDuration" 
-															size="small" 
+														<el-input-number
+															v-model="stage.estimatedDuration"
+															size="small"
 															:min="1"
-															@change="onStageUpdated(message.data!, stageIndex)"
+															@change="
+																onStageUpdated(
+																	message.data!,
+																	stageIndex
+																)
+															"
 														/>
 													</div>
 												</div>
-
-
 											</div>
 										</div>
-										
+
 										<!-- Action Buttons -->
 										<div class="save-section">
-											<el-button 
+											<el-button
 												size="small"
 												@click="refreshWorkflowData(message.data!)"
 												:loading="applying"
@@ -464,8 +677,8 @@
 												<el-icon><Refresh /></el-icon>
 												Refresh Data
 											</el-button>
-											<el-button 
-												type="primary" 
+											<el-button
+												type="primary"
 												@click="saveWorkflowChanges(message.data!)"
 												:loading="applying"
 											>
@@ -478,7 +691,10 @@
 							</div>
 
 							<!-- Workflow Selection Message -->
-							<div v-else-if="message.type === 'workflow-selection'" class="workflow-selection">
+							<div
+								v-else-if="message.type === 'workflow-selection'"
+								class="workflow-selection"
+							>
 								<div class="message-avatar">
 									<el-icon><Search /></el-icon>
 								</div>
@@ -486,10 +702,11 @@
 									<div class="selection-header">
 										<h4>{{ message.content }}</h4>
 									</div>
-									
+
 									<div class="workflows-list">
-										<div 
-											v-for="(workflow, workflowIndex) in message.data?.workflows" 
+										<div
+											v-for="(workflow, workflowIndex) in message.data
+												?.workflows"
 											:key="workflowIndex"
 											class="workflow-option"
 											@click="selectWorkflowForModification(workflow)"
@@ -497,12 +714,26 @@
 											<div class="workflow-option-content">
 												<h5>{{ workflow.name }}</h5>
 												<p>{{ workflow.description }}</p>
-																							<div class="workflow-option-meta">
-												<span class="status" :class="{ active: workflow.isActive }">
-													{{ workflow.isActive ? 'Active' : 'Inactive' }}
-												</span>
+												<div class="workflow-option-meta">
+													<span
+														class="status"
+														:class="{ active: workflow.isActive }"
+													>
+														{{
+															workflow.isActive
+																? 'Active'
+																: 'Inactive'
+														}}
+													</span>
 													<span class="created-date">
-														{{ formatTime(new Date(workflow.createdAt || workflow.createDate)) }}
+														{{
+															formatTime(
+																new Date(
+																	workflow.createdAt ||
+																		workflow.createDate
+																)
+															)
+														}}
 													</span>
 												</div>
 											</div>
@@ -529,21 +760,23 @@
 
 					<!-- Input Area -->
 					<div class="input-area">
-
 						<!-- AI File Analyzer and Generate Button -->
 						<div class="file-upload-section">
 							<div class="file-analyzer-container">
-								<AIFileAnalyzer 
+								<AIFileAnalyzer
 									@file-analyzed="handleFileAnalyzed"
 									@analysis-complete="handleAnalysisComplete"
 									@stream-chunk="handleStreamChunk"
 									@analysis-started="handleAnalysisStarted"
 								/>
-								
+
 								<!-- Generate My Workflow Button (only show when there's chat history) -->
-								<div v-if="shouldShowGenerateButton" class="generate-workflow-right">
-									<el-button 
-										type="primary" 
+								<div
+									v-if="shouldShowGenerateButton"
+									class="generate-workflow-right"
+								>
+									<el-button
+										type="primary"
 										size="default"
 										@click="generateWorkflow"
 										:loading="generating"
@@ -554,76 +787,100 @@
 									</el-button>
 								</div>
 							</div>
-							
+
 							<!-- Uploaded File Display -->
 							<div v-if="uploadedFile" class="uploaded-file-display">
 								<div class="file-info">
-									<el-icon class="file-icon" :class="{
-										'pdf-icon': isPDFFile(uploadedFile),
-										'word-icon': isWordFile(uploadedFile),
-										'image-icon': isImageFile(uploadedFile)
-									}">
+									<el-icon
+										class="file-icon"
+										:class="{
+											'pdf-icon': isPDFFile(uploadedFile),
+											'word-icon': isWordFile(uploadedFile),
+											'image-icon': isImageFile(uploadedFile),
+										}"
+									>
 										<Picture v-if="isImageFile(uploadedFile)" />
 										<Document v-else />
 									</el-icon>
 									<span class="file-name">{{ uploadedFile.name }}</span>
-									<span class="file-type-badge" v-if="isPDFFile(uploadedFile)">PDF</span>
-									<span class="file-type-badge word" v-else-if="isWordFile(uploadedFile)">WORD</span>
-        <el-button 
-										size="small" 
-										type="text" 
+									<span class="file-type-badge" v-if="isPDFFile(uploadedFile)">
+										PDF
+									</span>
+									<span
+										class="file-type-badge word"
+										v-else-if="isWordFile(uploadedFile)"
+									>
+										WORD
+									</span>
+									<el-button
+										size="small"
+										type="text"
 										@click="removeUploadedFile"
 										class="remove-file-btn"
 									>
 										<el-icon><Close /></el-icon>
-        </el-button>
+									</el-button>
 								</div>
 								<!-- File Preview -->
 								<div v-if="uploadedFile" class="file-preview">
 									<!-- Image Preview -->
 									<div v-if="isImageFile(uploadedFile)" class="image-preview">
-										<img 
-											:src="getFilePreviewUrl(uploadedFile)" 
+										<img
+											:src="getFilePreviewUrl(uploadedFile)"
 											:alt="uploadedFile.name"
 											class="preview-image"
 										/>
 									</div>
-									
+
 									<!-- PDF Preview -->
-									<div v-else-if="isPDFFile(uploadedFile)" class="document-preview pdf-preview">
+									<div
+										v-else-if="isPDFFile(uploadedFile)"
+										class="document-preview pdf-preview"
+									>
 										<div class="preview-header">
 											<el-icon class="preview-icon"><Document /></el-icon>
 											<div class="preview-info">
 												<span class="preview-title">PDF Document</span>
-												<span class="preview-subtitle">{{ formatFileSize(uploadedFile.size) }}</span>
+												<span class="preview-subtitle">
+													{{ formatFileSize(uploadedFile.size) }}
+												</span>
 											</div>
 										</div>
 										<div class="preview-description">
 											Click "Send to AI Chat" to analyze this PDF document
 										</div>
 									</div>
-									
+
 									<!-- Word Preview -->
-									<div v-else-if="isWordFile(uploadedFile)" class="document-preview word-preview">
+									<div
+										v-else-if="isWordFile(uploadedFile)"
+										class="document-preview word-preview"
+									>
 										<div class="preview-header">
 											<el-icon class="preview-icon"><Document /></el-icon>
 											<div class="preview-info">
 												<span class="preview-title">Word Document</span>
-												<span class="preview-subtitle">{{ formatFileSize(uploadedFile.size) }}</span>
+												<span class="preview-subtitle">
+													{{ formatFileSize(uploadedFile.size) }}
+												</span>
 											</div>
 										</div>
 										<div class="preview-description">
 											Click "Send to AI Chat" to analyze this Word document
 										</div>
 									</div>
-									
+
 									<!-- Other File Preview -->
 									<div v-else class="document-preview generic-preview">
 										<div class="preview-header">
 											<el-icon class="preview-icon"><Document /></el-icon>
 											<div class="preview-info">
-												<span class="preview-title">{{ getFileTypeName(uploadedFile) }}</span>
-												<span class="preview-subtitle">{{ formatFileSize(uploadedFile.size) }}</span>
+												<span class="preview-title">
+													{{ getFileTypeName(uploadedFile) }}
+												</span>
+												<span class="preview-subtitle">
+													{{ formatFileSize(uploadedFile.size) }}
+												</span>
 											</div>
 										</div>
 										<div class="preview-description">
@@ -646,8 +903,8 @@
 									class="chat-input"
 								/>
 								<div class="input-actions">
-									<el-button 
-										type="primary" 
+									<el-button
+										type="primary"
 										@click="sendMessage"
 										:disabled="!currentInput.trim() && !uploadedFile"
 										size="default"
@@ -681,12 +938,18 @@
 								>
 									<div class="model-option">
 										<div class="model-info">
-											<span class="model-display">{{ model.provider.toLowerCase() }} {{ model.modelName }}</span>
+											<span class="model-display">
+												{{ model.provider.toLowerCase() }}
+												{{ model.modelName }}
+											</span>
 										</div>
 										<div class="model-status">
-											<span 
-												class="status-dot" 
-												:class="{ 'online': model.isAvailable, 'offline': !model.isAvailable }"
+											<span
+												class="status-dot"
+												:class="{
+													online: model.isAvailable,
+													offline: !model.isAvailable,
+												}"
 											></span>
 										</div>
 									</div>
@@ -705,9 +968,9 @@
 								<span class="history-count">{{ chatHistory.length }} sessions</span>
 							</div>
 							<div class="header-actions">
-								<el-button 
+								<el-button
 									v-if="!isHistoryCollapsed"
-									size="small" 
+									size="small"
 									type="primary"
 									@click="startNewChat"
 									class="new-chat-btn"
@@ -715,24 +978,29 @@
 									<el-icon><Plus /></el-icon>
 									New Chat
 								</el-button>
-								<el-dropdown v-if="!isHistoryCollapsed && chatHistory.length > 0" trigger="click" class="history-menu">
+								<el-dropdown
+									v-if="!isHistoryCollapsed && chatHistory.length > 0"
+									trigger="click"
+									class="history-menu"
+								>
 									<el-button size="small" type="text" class="menu-btn">
 										<el-icon><MoreFilled /></el-icon>
 									</el-button>
 									<template #dropdown>
 										<el-dropdown-menu>
-											<el-dropdown-item @click="exportChatHistory">
-												<el-icon><Download /></el-icon>
-												Export History
-											</el-dropdown-item>
-											<el-dropdown-item @click="clearAllHistory" divided>
+											<el-dropdown-item @click="clearAllHistory">
 												<el-icon><Delete /></el-icon>
 												Clear All History
 											</el-dropdown-item>
 										</el-dropdown-menu>
 									</template>
 								</el-dropdown>
-								<el-button size="small" type="text" @click="toggleHistory" class="collapse-btn">
+								<el-button
+									size="small"
+									type="text"
+									@click="toggleHistory"
+									class="collapse-btn"
+								>
 									<el-icon>
 										<ArrowRight v-if="isHistoryCollapsed" />
 										<ArrowLeft v-else />
@@ -740,9 +1008,12 @@
 								</el-button>
 							</div>
 						</div>
-						
+
 						<!-- Search Bar -->
-						<div v-if="!isHistoryCollapsed && chatHistory.length > 0" class="history-search">
+						<div
+							v-if="!isHistoryCollapsed && chatHistory.length > 0"
+							class="history-search"
+						>
 							<el-input
 								v-model="historySearchQuery"
 								placeholder="Search chat history..."
@@ -755,7 +1026,7 @@
 							</el-input>
 						</div>
 					</div>
-					
+
 					<div class="history-list" v-if="!isHistoryCollapsed">
 						<!-- Pinned Sessions -->
 						<div v-if="pinnedSessions.length > 0" class="pinned-section">
@@ -763,18 +1034,26 @@
 								<el-icon><Star /></el-icon>
 								<span>Pinned</span>
 							</div>
-							<div 
-								v-for="session in pinnedSessions" 
+							<div
+								v-for="session in pinnedSessions"
 								:key="session.id"
-								:class="['history-item', 'pinned', { active: currentSessionId === session.id }]"
+								:class="[
+									'history-item',
+									'pinned',
+									{ active: currentSessionId === session.id },
+								]"
 								@click="loadChatSession(session.id)"
 								@contextmenu.prevent="showContextMenu($event, session)"
 							>
 								<div class="item-content">
 									<div class="history-title">{{ session.title }}</div>
 									<div class="history-meta">
-										<span class="history-time">{{ formatRelativeTime(session.timestamp) }}</span>
-										<span class="message-count">{{ session.messages.length }} msgs</span>
+										<span class="history-time">
+											{{ formatRelativeTime(session.timestamp) }}
+										</span>
+										<span class="message-count">
+											{{ session.messages.length }} msgs
+										</span>
 									</div>
 								</div>
 								<div class="item-actions">
@@ -782,25 +1061,32 @@
 								</div>
 							</div>
 						</div>
-						
+
 						<!-- Recent Sessions -->
 						<div v-if="filteredHistory.length > 0" class="recent-section">
 							<div class="section-header" v-if="pinnedSessions.length > 0">
 								<el-icon><Clock /></el-icon>
 								<span>Recent</span>
 							</div>
-							<div 
-								v-for="session in filteredHistory" 
+							<div
+								v-for="session in filteredHistory"
 								:key="session.id"
-								:class="['history-item', { active: currentSessionId === session.id }]"
+								:class="[
+									'history-item',
+									{ active: currentSessionId === session.id },
+								]"
 								@click="loadChatSession(session.id)"
 								@contextmenu.prevent="showContextMenu($event, session)"
 							>
 								<div class="item-content">
 									<div class="history-title">{{ session.title }}</div>
 									<div class="history-meta">
-										<span class="history-time">{{ formatRelativeTime(session.timestamp) }}</span>
-										<span class="message-count">{{ session.messages.length }} msgs</span>
+										<span class="history-time">
+											{{ formatRelativeTime(session.timestamp) }}
+										</span>
+										<span class="message-count">
+											{{ session.messages.length }} msgs
+										</span>
 									</div>
 								</div>
 								<div class="item-actions">
@@ -818,7 +1104,10 @@
 													<el-icon><Edit /></el-icon>
 													Rename
 												</el-dropdown-item>
-												<el-dropdown-item :command="`delete-${session.id}`" divided>
+												<el-dropdown-item
+													:command="`delete-${session.id}`"
+													divided
+												>
 													<el-icon><Delete /></el-icon>
 													Delete
 												</el-dropdown-item>
@@ -828,22 +1117,32 @@
 								</div>
 							</div>
 						</div>
-						
+
 						<!-- Empty State -->
 						<div v-if="chatHistory.length === 0" class="empty-history">
 							<div class="empty-icon">
 								<el-icon><ChatDotRound /></el-icon>
 							</div>
 							<p class="empty-title">No chat history</p>
-							<p class="empty-subtitle">Start a conversation to see your chat history here</p>
-							<el-button size="small" type="primary" @click="startNewChat" class="start-chat-btn">
+							<p class="empty-subtitle">
+								Start a conversation to see your chat history here
+							</p>
+							<el-button
+								size="small"
+								type="primary"
+								@click="startNewChat"
+								class="start-chat-btn"
+							>
 								<el-icon><Plus /></el-icon>
 								Start New Chat
 							</el-button>
 						</div>
-						
+
 						<!-- No Search Results -->
-						<div v-else-if="filteredHistory.length === 0 && historySearchQuery" class="no-results">
+						<div
+							v-else-if="filteredHistory.length === 0 && historySearchQuery"
+							class="no-results"
+						>
 							<div class="empty-icon">
 								<el-icon><Search /></el-icon>
 							</div>
@@ -852,17 +1151,11 @@
 						</div>
 					</div>
 				</div>
-      </div>
-    </el-card>
-
-
+			</div>
+		</el-card>
 
 		<!-- Rename Session Dialog -->
-		<el-dialog
-			v-model="showRenameDialog"
-			title="Rename Chat Session"
-			width="400px"
-		>
+		<el-dialog v-model="showRenameDialog" title="Rename Chat Session" width="400px">
 			<el-input
 				v-model="newSessionTitle"
 				placeholder="Enter new session title..."
@@ -875,14 +1168,14 @@
 				</div>
 			</template>
 		</el-dialog>
-  </div>
+	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { 
-  Star, 
+import {
+	Star,
 	User,
 	CircleCheckFilled,
 	List,
@@ -903,12 +1196,16 @@ import {
 	MoreFilled,
 	Download,
 	Search,
-	Edit
+	Edit,
 } from '@element-plus/icons-vue';
 import { createWorkflow } from '@/apis/ow';
 import { defHttp } from '../../app/apis/axios';
 import { useGlobSetting } from '../../app/settings';
-import { sendAIChatMessage, streamAIChatMessageNative, type AIChatMessage } from '../../app/apis/ai/workflow';
+import {
+	sendAIChatMessage,
+	streamAIChatMessageNative,
+	type AIChatMessage,
+} from '../../app/apis/ai/workflow';
 import { getDefaultAIModel, getUserAIModels, type AIModelConfig } from '../../app/apis/ai/config';
 import { useStreamAIWorkflow } from '../../hooks/useStreamAIWorkflow';
 import AIFileAnalyzer from './AIFileAnalyzer.vue';
@@ -916,21 +1213,19 @@ import AIFileAnalyzer from './AIFileAnalyzer.vue';
 // Types
 interface Workflow {
 	id?: number;
-  name: string;
-  description: string;
-  isActive: boolean;
+	name: string;
+	description: string;
+	isActive: boolean;
 }
 
 interface WorkflowStage {
-  name: string;
-  description: string;
-  order: number;
-  assignedGroup: string;
-  requiredFields: string[];
-  estimatedDuration: number;
+	name: string;
+	description: string;
+	order: number;
+	assignedGroup: string;
+	requiredFields: string[];
+	estimatedDuration: number;
 }
-
-
 
 interface ChecklistTask {
 	id: string;
@@ -969,7 +1264,13 @@ interface QuestionnaireItem {
 
 interface ChatMessage {
 	id: string;
-	type: 'user' | 'ai' | 'system' | 'generation-complete' | 'workflow-modification' | 'workflow-selection';
+	type:
+		| 'user'
+		| 'ai'
+		| 'system'
+		| 'generation-complete'
+		| 'workflow-modification'
+		| 'workflow-selection';
 	content: string;
 	timestamp: Date;
 	data?: {
@@ -992,12 +1293,14 @@ interface ChatSession {
 
 // Emits
 const emit = defineEmits<{
-  workflowGenerated: [data: {
-    generatedWorkflow: Workflow;
-    stages: WorkflowStage[];
-    operationMode: string;
-    selectedWorkflowId?: number;
-  }]
+	workflowGenerated: [
+		data: {
+			generatedWorkflow: Workflow;
+			stages: WorkflowStage[];
+			operationMode: string;
+			selectedWorkflowId?: number;
+		},
+	];
 }>();
 
 // Reactive data
@@ -1025,13 +1328,13 @@ const filteredHistory = computed(() => {
 	if (!historySearchQuery.value.trim()) {
 		return unpinnedSessions.value;
 	}
-	
+
 	const query = historySearchQuery.value.toLowerCase();
-	return unpinnedSessions.value.filter(session => {
-		return session.title.toLowerCase().includes(query) ||
-			session.messages.some(msg => 
-				msg.content.toLowerCase().includes(query)
-			);
+	return unpinnedSessions.value.filter((session) => {
+		return (
+			session.title.toLowerCase().includes(query) ||
+			session.messages.some((msg) => msg.content.toLowerCase().includes(query))
+		);
 	});
 });
 const showRenameDialog = ref(false);
@@ -1051,26 +1354,25 @@ const { isStreaming, startStreaming, streamFileAnalysis, stopStreaming } = useSt
 const canGenerate = computed(() => {
 	const hasInput = currentInput.value.trim();
 	const hasFile = uploadedFile.value;
-	const hasChatHistory = chatMessages.value.some(msg => msg.type === 'user');
+	const hasChatHistory = chatMessages.value.some((msg) => msg.type === 'user');
 	return hasInput || hasFile || hasChatHistory;
 });
 
 // Show Generate button only when there's chat history
 const shouldShowGenerateButton = computed(() => {
-	const hasChatHistory = chatMessages.value.some(msg => msg.type === 'user');
+	const hasChatHistory = chatMessages.value.some((msg) => msg.type === 'user');
 	return hasChatHistory;
 });
 
 const pinnedSessions = computed(() => {
-	return chatHistory.value.filter(session => session.isPinned);
+	return chatHistory.value.filter((session) => session.isPinned);
 });
 
 const unpinnedSessions = computed(() => {
-	return chatHistory.value.filter(session => !session.isPinned);
+	return chatHistory.value.filter((session) => !session.isPinned);
 });
 
 // Dialog states
-
 
 // Refs
 const chatMessagesRef = ref<HTMLElement>();
@@ -1079,32 +1381,34 @@ const chatMessagesRef = ref<HTMLElement>();
 const generateWorkflow = async () => {
 	if (!canGenerate.value) {
 		ElMessage.warning('Please describe your workflow or upload a file');
-    return;
-  }
-	
+		return;
+	}
+
 	// Check input type
 	const hasInput = currentInput.value.trim();
 	const hasFile = uploadedFile.value;
 
-  generating.value = true;
-	
+	generating.value = true;
+
 	// Performance tip for DeepSeek model
 	if (currentAIModel.value?.provider?.toLowerCase() === 'deepseek') {
 		ElMessage({
 			message: '🚀 DeepSeek streaming processing: Real-time progress updates (20-30 seconds)',
 			type: 'info',
 			duration: 5000,
-			showClose: true
-		})
+			showClose: true,
+		});
 	}
-	
+
 	// Only add user message when there's new input
 	if (hasInput || hasFile) {
 		const userMessage: ChatMessage = {
 			id: Date.now().toString(),
 			type: 'user',
-			content: currentInput.value || `Uploaded file "${uploadedFile.value?.name}" for workflow analysis`,
-			timestamp: new Date()
+			content:
+				currentInput.value ||
+				`Uploaded file "${uploadedFile.value?.name}" for workflow analysis`,
+			timestamp: new Date(),
 		};
 		chatMessages.value.push(userMessage);
 	}
@@ -1114,7 +1418,7 @@ const generateWorkflow = async () => {
 		id: (Date.now() + 1).toString(),
 		type: 'system',
 		content: 'AI is generating your workflow in real-time...',
-		timestamp: new Date()
+		timestamp: new Date(),
 	};
 	chatMessages.value.push(systemMessage);
 
@@ -1130,27 +1434,34 @@ const generateWorkflow = async () => {
 			stages: [] as any[],
 			checklists: [] as any[],
 			questionnaires: [] as any[],
-			completeMessageId: ''
+			completeMessageId: '',
 		};
 
 		const onStreamComplete = (data: any) => {
 			// Clear streaming message
 			streamingMessage.value = '';
-			
+
 			console.log('onStreamComplete received data:', data);
 			console.log('data.stages:', data.stages);
-			
-			const aiWorkflow = data.generatedWorkflow || data.GeneratedWorkflow || {
-				name: 'AI Generated Workflow',
-				description: 'Auto-created by AI',
-				isActive: true,
-			};
-			
+
+			const aiWorkflow = data.generatedWorkflow ||
+				data.GeneratedWorkflow || {
+					name: 'AI Generated Workflow',
+					description: 'Auto-created by AI',
+					isActive: true,
+				};
+
 			// Handle workflow field case compatibility
 			if (aiWorkflow && typeof aiWorkflow === 'object') {
 				aiWorkflow.name = aiWorkflow.Name || aiWorkflow.name || 'AI Generated Workflow';
-				aiWorkflow.description = aiWorkflow.Description || aiWorkflow.description || 'Auto-created by AI';
-				aiWorkflow.isActive = aiWorkflow.IsActive !== undefined ? aiWorkflow.IsActive : (aiWorkflow.isActive !== undefined ? aiWorkflow.isActive : true);
+				aiWorkflow.description =
+					aiWorkflow.Description || aiWorkflow.description || 'Auto-created by AI';
+				aiWorkflow.isActive =
+					aiWorkflow.IsActive !== undefined
+						? aiWorkflow.IsActive
+						: aiWorkflow.isActive !== undefined
+						? aiWorkflow.isActive
+						: true;
 			}
 
 			// Initialize streaming workflow data
@@ -1169,8 +1480,8 @@ const generateWorkflow = async () => {
 					workflow: aiWorkflow,
 					stages: [],
 					checklists: [],
-					questionnaires: []
-				}
+					questionnaires: [],
+				},
 			};
 
 			streamingWorkflowData.completeMessageId = completeMessage.id;
@@ -1181,331 +1492,783 @@ const generateWorkflow = async () => {
 			const stages = data.stages || [];
 			processStagesSequentially(stages, 0);
 
-					// Save to history
-		saveChatSession();
-		scrollToBottom();
-	};
-
-	// Process stages sequentially with animation
-	const processStagesSequentially = async (stages: any[], currentIndex: number) => {
-		if (currentIndex >= stages.length) {
-			// All stages processed, now add checklists and questionnaires
-			await addChecklistsAndQuestionnaires();
-			return;
-		}
-
-		// Process current stage
-		const stage = stages[currentIndex];
-		const processedStage = {
-			name: stage?.Name || stage?.name || `Stage ${currentIndex + 1}`,
-			description: stage?.Description || stage?.description || '',
-			order: Number.isFinite(Number(stage?.Order || stage?.order)) ? Math.trunc(Number(stage?.Order || stage?.order)) : currentIndex + 1,
-			assignedGroup: stage?.AssignedGroup || stage?.assignedGroup || 'General',
-			requiredFields: Array.isArray(stage?.RequiredFields || stage?.requiredFields) ? (stage?.RequiredFields || stage?.requiredFields) : [],
-			estimatedDuration: Number(stage?.EstimatedDuration || stage?.estimatedDuration) || 1,
+			// Save to history
+			saveChatSession();
+			scrollToBottom();
 		};
 
-		console.log(`Processing stage ${currentIndex + 1}:`, processedStage);
+		// Process stages sequentially with animation
+		const processStagesSequentially = async (stages: any[], currentIndex: number) => {
+			if (currentIndex >= stages.length) {
+				// All stages processed, now add checklists and questionnaires
+				await addChecklistsAndQuestionnaires();
+				return;
+			}
 
-		// Add stage to streaming data
-		streamingWorkflowData.stages.push(processedStage);
-
-		// Update the generation complete message
-		updateGenerationCompleteMessage();
-
-		// Wait for animation effect
-		await new Promise(resolve => setTimeout(resolve, 800));
-
-		// Process next stage
-		processStagesSequentially(stages, currentIndex + 1);
-	};
-
-	// Generate realistic checklist tasks based on stage name and description
-	const generateChecklistTasks = (stage: WorkflowStage): ChecklistTask[] => {
-		const stageName = stage.name.toLowerCase();
-		const stageDesc = stage.description.toLowerCase();
-		
-		// Common task templates based on stage characteristics
-		const taskTemplates: { [key: string]: ChecklistTask[] } = {
-			// Initial/Assessment stages
-			initial: [
-				{ id: 'req-gather', title: 'Gather Requirements', description: 'Collect and document all necessary requirements', isRequired: true },
-				{ id: 'stakeholder-id', title: 'Identify Stakeholders', description: 'List all key stakeholders and their roles', isRequired: true },
-				{ id: 'timeline-est', title: 'Estimate Timeline', description: 'Create initial timeline estimates', isRequired: false },
-				{ id: 'resource-check', title: 'Check Resource Availability', description: 'Verify required resources are available', isRequired: true }
-			],
-			
-			// Planning stages
-			planning: [
-				{ id: 'plan-create', title: 'Create Detailed Plan', description: 'Develop comprehensive project plan', isRequired: true },
-				{ id: 'risk-assess', title: 'Risk Assessment', description: 'Identify and assess potential risks', isRequired: true },
-				{ id: 'budget-approve', title: 'Budget Approval', description: 'Get budget approval from management', isRequired: true },
-				{ id: 'team-assign', title: 'Assign Team Members', description: 'Assign roles and responsibilities to team members', isRequired: true }
-			],
-			
-			// Design/Development stages
-			design: [
-				{ id: 'wireframe', title: 'Create Wireframes', description: 'Design initial wireframes and mockups', isRequired: true },
-				{ id: 'prototype', title: 'Build Prototype', description: 'Develop working prototype', isRequired: false },
-				{ id: 'design-review', title: 'Design Review', description: 'Conduct design review with stakeholders', isRequired: true },
-				{ id: 'spec-finalize', title: 'Finalize Specifications', description: 'Complete technical specifications', isRequired: true }
-			],
-			
-			// Implementation/Development stages
-			implementation: [
-				{ id: 'env-setup', title: 'Setup Environment', description: 'Configure development/production environment', isRequired: true },
-				{ id: 'code-develop', title: 'Develop Code', description: 'Write and implement code according to specifications', isRequired: true },
-				{ id: 'unit-test', title: 'Unit Testing', description: 'Perform unit testing on developed components', isRequired: true },
-				{ id: 'code-review', title: 'Code Review', description: 'Conduct peer code review', isRequired: true }
-			],
-			
-			// Testing stages
-			testing: [
-				{ id: 'test-plan', title: 'Create Test Plan', description: 'Develop comprehensive test plan', isRequired: true },
-				{ id: 'test-cases', title: 'Write Test Cases', description: 'Create detailed test cases', isRequired: true },
-				{ id: 'execute-tests', title: 'Execute Tests', description: 'Run all test cases and document results', isRequired: true },
-				{ id: 'bug-fix', title: 'Fix Bugs', description: 'Address and fix identified issues', isRequired: true }
-			],
-			
-			// Review/Approval stages
-			review: [
-				{ id: 'quality-check', title: 'Quality Assurance Check', description: 'Perform quality assurance review', isRequired: true },
-				{ id: 'stakeholder-review', title: 'Stakeholder Review', description: 'Present to stakeholders for review', isRequired: true },
-				{ id: 'feedback-collect', title: 'Collect Feedback', description: 'Gather and document feedback', isRequired: true },
-				{ id: 'approval-get', title: 'Get Final Approval', description: 'Obtain final approval to proceed', isRequired: true }
-			],
-			
-			// Deployment/Launch stages
-			deployment: [
-				{ id: 'deploy-prep', title: 'Prepare Deployment', description: 'Prepare all deployment materials', isRequired: true },
-				{ id: 'backup-create', title: 'Create Backup', description: 'Create system backup before deployment', isRequired: true },
-				{ id: 'deploy-execute', title: 'Execute Deployment', description: 'Deploy to production environment', isRequired: true },
-				{ id: 'smoke-test', title: 'Smoke Testing', description: 'Perform post-deployment smoke tests', isRequired: true }
-			],
-			
-			// Training/Onboarding stages
-			training: [
-				{ id: 'material-prep', title: 'Prepare Training Materials', description: 'Create training documentation and materials', isRequired: true },
-				{ id: 'schedule-training', title: 'Schedule Training Sessions', description: 'Organize training sessions with users', isRequired: true },
-				{ id: 'conduct-training', title: 'Conduct Training', description: 'Deliver training to end users', isRequired: true },
-				{ id: 'support-provide', title: 'Provide Support', description: 'Offer ongoing support during transition', isRequired: true }
-			],
-			
-			// Default/Generic tasks
-			default: [
-				{ id: 'task-plan', title: 'Plan Tasks', description: `Plan all tasks for ${stage.name}`, isRequired: true },
-				{ id: 'resource-allocate', title: 'Allocate Resources', description: 'Ensure necessary resources are allocated', isRequired: true },
-				{ id: 'progress-monitor', title: 'Monitor Progress', description: 'Track and monitor stage progress', isRequired: true },
-				{ id: 'deliverable-complete', title: 'Complete Deliverables', description: 'Finish all stage deliverables', isRequired: true }
-			]
-		};
-		
-		// Determine which template to use based on stage name and description
-		let selectedTasks: ChecklistTask[] = [];
-		
-		if (stageName.includes('initial') || stageName.includes('assessment') || stageName.includes('analysis')) {
-			selectedTasks = taskTemplates.initial;
-		} else if (stageName.includes('plan') || stageName.includes('design') || stageDesc.includes('plan')) {
-			selectedTasks = taskTemplates.planning;
-		} else if (stageName.includes('design') || stageName.includes('prototype') || stageDesc.includes('design')) {
-			selectedTasks = taskTemplates.design;
-		} else if (stageName.includes('implement') || stageName.includes('develop') || stageName.includes('build') || stageDesc.includes('develop')) {
-			selectedTasks = taskTemplates.implementation;
-		} else if (stageName.includes('test') || stageName.includes('qa') || stageDesc.includes('test')) {
-			selectedTasks = taskTemplates.testing;
-		} else if (stageName.includes('review') || stageName.includes('approval') || stageDesc.includes('review')) {
-			selectedTasks = taskTemplates.review;
-		} else if (stageName.includes('deploy') || stageName.includes('launch') || stageName.includes('release')) {
-			selectedTasks = taskTemplates.deployment;
-		} else if (stageName.includes('training') || stageName.includes('onboard') || stageDesc.includes('training')) {
-			selectedTasks = taskTemplates.training;
-		} else {
-			selectedTasks = taskTemplates.default;
-		}
-		
-		// Add unique IDs with stage prefix
-		return selectedTasks.map((task, index) => ({
-			...task,
-			id: `${stage.name.toLowerCase().replace(/\s+/g, '-')}-${task.id}-${index}`
-		}));
-	};
-
-	// Generate realistic questionnaire questions based on stage name and description
-	const generateQuestionnaireQuestions = (stage: WorkflowStage): QuestionnaireQuestion[] => {
-		const stageName = stage.name.toLowerCase();
-		const stageDesc = stage.description.toLowerCase();
-		
-		// Question templates based on stage characteristics
-		const questionTemplates: { [key: string]: QuestionnaireQuestion[] } = {
-			// Initial/Assessment stages
-			initial: [
-				{ id: 'project-scope', question: 'What is the scope of this project?', type: 'text', isRequired: true },
-				{ id: 'success-criteria', question: 'What are the success criteria?', type: 'text', isRequired: true },
-				{ id: 'budget-range', question: 'What is the budget range?', type: 'select', options: ['< $10K', '$10K - $50K', '$50K - $100K', '> $100K'], isRequired: true },
-				{ id: 'timeline-preference', question: 'What is your preferred timeline?', type: 'select', options: ['1-2 weeks', '1 month', '2-3 months', '6+ months'], isRequired: true }
-			],
-			
-			// Planning stages
-			planning: [
-				{ id: 'team-size', question: 'How many team members are needed?', type: 'number', isRequired: true },
-				{ id: 'key-milestones', question: 'What are the key milestones?', type: 'text', isRequired: true },
-				{ id: 'risk-tolerance', question: 'What is your risk tolerance level?', type: 'select', options: ['Low', 'Medium', 'High'], isRequired: true },
-				{ id: 'communication-frequency', question: 'How often should progress be reported?', type: 'select', options: ['Daily', 'Weekly', 'Bi-weekly', 'Monthly'], isRequired: false }
-			],
-			
-			// Design stages
-			design: [
-				{ id: 'design-style', question: 'What design style do you prefer?', type: 'select', options: ['Modern', 'Classic', 'Minimalist', 'Bold'], isRequired: true },
-				{ id: 'target-audience', question: 'Who is the target audience?', type: 'text', isRequired: true },
-				{ id: 'brand-guidelines', question: 'Are there existing brand guidelines?', type: 'boolean', isRequired: true },
-				{ id: 'accessibility-requirements', question: 'Are there accessibility requirements?', type: 'multiselect', options: ['WCAG 2.1 AA', 'Screen Reader Support', 'Keyboard Navigation', 'Color Contrast'], isRequired: false }
-			],
-			
-			// Implementation stages
-			implementation: [
-				{ id: 'tech-stack', question: 'What technology stack should be used?', type: 'multiselect', options: ['React', 'Vue', 'Angular', 'Node.js', 'Python', 'Java', '.NET'], isRequired: true },
-				{ id: 'performance-requirements', question: 'What are the performance requirements?', type: 'text', isRequired: true },
-				{ id: 'security-level', question: 'What security level is required?', type: 'select', options: ['Basic', 'Standard', 'High', 'Enterprise'], isRequired: true },
-				{ id: 'integration-needs', question: 'What systems need integration?', type: 'text', isRequired: false }
-			],
-			
-			// Testing stages
-			testing: [
-				{ id: 'test-types', question: 'What types of testing are required?', type: 'multiselect', options: ['Unit Testing', 'Integration Testing', 'Performance Testing', 'Security Testing', 'User Acceptance Testing'], isRequired: true },
-				{ id: 'test-environment', question: 'What test environment is available?', type: 'select', options: ['Development', 'Staging', 'Production-like', 'Cloud-based'], isRequired: true },
-				{ id: 'acceptance-criteria', question: 'What are the acceptance criteria?', type: 'text', isRequired: true },
-				{ id: 'test-data', question: 'Is test data available?', type: 'boolean', isRequired: true }
-			],
-			
-			// Review stages
-			review: [
-				{ id: 'review-criteria', question: 'What are the review criteria?', type: 'text', isRequired: true },
-				{ id: 'reviewers', question: 'Who are the key reviewers?', type: 'text', isRequired: true },
-				{ id: 'approval-process', question: 'What is the approval process?', type: 'text', isRequired: true },
-				{ id: 'feedback-timeline', question: 'What is the feedback timeline?', type: 'select', options: ['24 hours', '2-3 days', '1 week', '2 weeks'], isRequired: true }
-			],
-			
-			// Deployment stages
-			deployment: [
-				{ id: 'deployment-strategy', question: 'What deployment strategy should be used?', type: 'select', options: ['Blue-Green', 'Rolling', 'Canary', 'Big Bang'], isRequired: true },
-				{ id: 'rollback-plan', question: 'Is there a rollback plan?', type: 'boolean', isRequired: true },
-				{ id: 'monitoring-setup', question: 'What monitoring is needed?', type: 'multiselect', options: ['Performance Monitoring', 'Error Tracking', 'User Analytics', 'Security Monitoring'], isRequired: true },
-				{ id: 'maintenance-window', question: 'When is the maintenance window?', type: 'text', isRequired: false }
-			],
-			
-			// Training stages
-			training: [
-				{ id: 'training-format', question: 'What training format is preferred?', type: 'select', options: ['In-person', 'Virtual', 'Self-paced', 'Hybrid'], isRequired: true },
-				{ id: 'audience-size', question: 'How many people need training?', type: 'number', isRequired: true },
-				{ id: 'skill-level', question: 'What is the current skill level?', type: 'select', options: ['Beginner', 'Intermediate', 'Advanced', 'Mixed'], isRequired: true },
-				{ id: 'training-materials', question: 'What training materials are needed?', type: 'multiselect', options: ['User Manual', 'Video Tutorials', 'Interactive Demos', 'Quick Reference'], isRequired: true }
-			],
-			
-			// Default questions
-			default: [
-				{ id: 'stage-objectives', question: `What are the main objectives for ${stage.name}?`, type: 'text', isRequired: true },
-				{ id: 'success-metrics', question: 'How will success be measured?', type: 'text', isRequired: true },
-				{ id: 'dependencies', question: 'Are there any dependencies?', type: 'text', isRequired: false },
-				{ id: 'special-requirements', question: 'Are there any special requirements?', type: 'text', isRequired: false }
-			]
-		};
-		
-		// Determine which template to use
-		let selectedQuestions: QuestionnaireQuestion[] = [];
-		
-		if (stageName.includes('initial') || stageName.includes('assessment') || stageName.includes('analysis')) {
-			selectedQuestions = questionTemplates.initial;
-		} else if (stageName.includes('plan') || stageDesc.includes('plan')) {
-			selectedQuestions = questionTemplates.planning;
-		} else if (stageName.includes('design') || stageDesc.includes('design')) {
-			selectedQuestions = questionTemplates.design;
-		} else if (stageName.includes('implement') || stageName.includes('develop') || stageName.includes('build')) {
-			selectedQuestions = questionTemplates.implementation;
-		} else if (stageName.includes('test') || stageName.includes('qa')) {
-			selectedQuestions = questionTemplates.testing;
-		} else if (stageName.includes('review') || stageName.includes('approval')) {
-			selectedQuestions = questionTemplates.review;
-		} else if (stageName.includes('deploy') || stageName.includes('launch')) {
-			selectedQuestions = questionTemplates.deployment;
-		} else if (stageName.includes('training') || stageName.includes('onboard')) {
-			selectedQuestions = questionTemplates.training;
-		} else {
-			selectedQuestions = questionTemplates.default;
-		}
-		
-		// Add unique IDs with stage prefix
-		return selectedQuestions.map((question, index) => ({
-			...question,
-			id: `${stage.name.toLowerCase().replace(/\s+/g, '-')}-${question.id}-${index}`
-		}));
-	};
-
-	// Add checklists and questionnaires
-	const addChecklistsAndQuestionnaires = async () => {
-		// Generate realistic checklists with tasks
-		streamingWorkflowData.checklists = streamingWorkflowData.stages.map((stage: WorkflowStage) => ({
-			name: `${stage.name} Checklist`,
-			description: `Essential tasks to complete during the ${stage.name} stage`,
-			tasks: generateChecklistTasks(stage)
-		}));
-
-		updateGenerationCompleteMessage();
-		await new Promise(resolve => setTimeout(resolve, 500));
-
-		// Generate realistic questionnaires with questions
-		streamingWorkflowData.questionnaires = streamingWorkflowData.stages.map((stage: WorkflowStage) => ({
-			name: `${stage.name} Questionnaire`,
-			description: `Key questions to gather information for the ${stage.name} stage`,
-			questions: generateQuestionnaireQuestions(stage)
-		}));
-
-		updateGenerationCompleteMessage();
-
-		// Final update - mark as completed
-		const messageIndex = chatMessages.value.findIndex(msg => msg.id === streamingWorkflowData.completeMessageId);
-		if (messageIndex !== -1) {
-			chatMessages.value[messageIndex].content = 'Workflow generation completed successfully!';
-		}
-
-		scrollToBottom();
-		saveChatSession();
-	};
-
-	// Update generation complete message with current data
-	const updateGenerationCompleteMessage = () => {
-		const messageIndex = chatMessages.value.findIndex(msg => msg.id === streamingWorkflowData.completeMessageId);
-		if (messageIndex !== -1) {
-			chatMessages.value[messageIndex].data = {
-				workflow: streamingWorkflowData.workflow,
-				stages: [...streamingWorkflowData.stages],
-				checklists: [...streamingWorkflowData.checklists],
-				questionnaires: [...streamingWorkflowData.questionnaires]
+			// Process current stage
+			const stage = stages[currentIndex];
+			const processedStage = {
+				name: stage?.Name || stage?.name || `Stage ${currentIndex + 1}`,
+				description: stage?.Description || stage?.description || '',
+				order: Number.isFinite(Number(stage?.Order || stage?.order))
+					? Math.trunc(Number(stage?.Order || stage?.order))
+					: currentIndex + 1,
+				assignedGroup: stage?.AssignedGroup || stage?.assignedGroup || 'General',
+				requiredFields: Array.isArray(stage?.RequiredFields || stage?.requiredFields)
+					? stage?.RequiredFields || stage?.requiredFields
+					: [],
+				estimatedDuration:
+					Number(stage?.EstimatedDuration || stage?.estimatedDuration) || 1,
 			};
-		}
-		scrollToBottom();
-	};
+
+			console.log(`Processing stage ${currentIndex + 1}:`, processedStage);
+
+			// Add stage to streaming data
+			streamingWorkflowData.stages.push(processedStage);
+
+			// Update the generation complete message
+			updateGenerationCompleteMessage();
+
+			// Wait for animation effect
+			await new Promise((resolve) => setTimeout(resolve, 800));
+
+			// Process next stage
+			processStagesSequentially(stages, currentIndex + 1);
+		};
+
+		// Generate realistic checklist tasks based on stage name and description
+		const generateChecklistTasks = (stage: WorkflowStage): ChecklistTask[] => {
+			const stageName = stage.name.toLowerCase();
+			const stageDesc = stage.description.toLowerCase();
+
+			// Common task templates based on stage characteristics
+			const taskTemplates: { [key: string]: ChecklistTask[] } = {
+				// Initial/Assessment stages
+				initial: [
+					{
+						id: 'req-gather',
+						title: 'Gather Requirements',
+						description: 'Collect and document all necessary requirements',
+						isRequired: true,
+					},
+					{
+						id: 'stakeholder-id',
+						title: 'Identify Stakeholders',
+						description: 'List all key stakeholders and their roles',
+						isRequired: true,
+					},
+					{
+						id: 'timeline-est',
+						title: 'Estimate Timeline',
+						description: 'Create initial timeline estimates',
+						isRequired: false,
+					},
+					{
+						id: 'resource-check',
+						title: 'Check Resource Availability',
+						description: 'Verify required resources are available',
+						isRequired: true,
+					},
+				],
+
+				// Planning stages
+				planning: [
+					{
+						id: 'plan-create',
+						title: 'Create Detailed Plan',
+						description: 'Develop comprehensive project plan',
+						isRequired: true,
+					},
+					{
+						id: 'risk-assess',
+						title: 'Risk Assessment',
+						description: 'Identify and assess potential risks',
+						isRequired: true,
+					},
+					{
+						id: 'budget-approve',
+						title: 'Budget Approval',
+						description: 'Get budget approval from management',
+						isRequired: true,
+					},
+					{
+						id: 'team-assign',
+						title: 'Assign Team Members',
+						description: 'Assign roles and responsibilities to team members',
+						isRequired: true,
+					},
+				],
+
+				// Design/Development stages
+				design: [
+					{
+						id: 'wireframe',
+						title: 'Create Wireframes',
+						description: 'Design initial wireframes and mockups',
+						isRequired: true,
+					},
+					{
+						id: 'prototype',
+						title: 'Build Prototype',
+						description: 'Develop working prototype',
+						isRequired: false,
+					},
+					{
+						id: 'design-review',
+						title: 'Design Review',
+						description: 'Conduct design review with stakeholders',
+						isRequired: true,
+					},
+					{
+						id: 'spec-finalize',
+						title: 'Finalize Specifications',
+						description: 'Complete technical specifications',
+						isRequired: true,
+					},
+				],
+
+				// Implementation/Development stages
+				implementation: [
+					{
+						id: 'env-setup',
+						title: 'Setup Environment',
+						description: 'Configure development/production environment',
+						isRequired: true,
+					},
+					{
+						id: 'code-develop',
+						title: 'Develop Code',
+						description: 'Write and implement code according to specifications',
+						isRequired: true,
+					},
+					{
+						id: 'unit-test',
+						title: 'Unit Testing',
+						description: 'Perform unit testing on developed components',
+						isRequired: true,
+					},
+					{
+						id: 'code-review',
+						title: 'Code Review',
+						description: 'Conduct peer code review',
+						isRequired: true,
+					},
+				],
+
+				// Testing stages
+				testing: [
+					{
+						id: 'test-plan',
+						title: 'Create Test Plan',
+						description: 'Develop comprehensive test plan',
+						isRequired: true,
+					},
+					{
+						id: 'test-cases',
+						title: 'Write Test Cases',
+						description: 'Create detailed test cases',
+						isRequired: true,
+					},
+					{
+						id: 'execute-tests',
+						title: 'Execute Tests',
+						description: 'Run all test cases and document results',
+						isRequired: true,
+					},
+					{
+						id: 'bug-fix',
+						title: 'Fix Bugs',
+						description: 'Address and fix identified issues',
+						isRequired: true,
+					},
+				],
+
+				// Review/Approval stages
+				review: [
+					{
+						id: 'quality-check',
+						title: 'Quality Assurance Check',
+						description: 'Perform quality assurance review',
+						isRequired: true,
+					},
+					{
+						id: 'stakeholder-review',
+						title: 'Stakeholder Review',
+						description: 'Present to stakeholders for review',
+						isRequired: true,
+					},
+					{
+						id: 'feedback-collect',
+						title: 'Collect Feedback',
+						description: 'Gather and document feedback',
+						isRequired: true,
+					},
+					{
+						id: 'approval-get',
+						title: 'Get Final Approval',
+						description: 'Obtain final approval to proceed',
+						isRequired: true,
+					},
+				],
+
+				// Deployment/Launch stages
+				deployment: [
+					{
+						id: 'deploy-prep',
+						title: 'Prepare Deployment',
+						description: 'Prepare all deployment materials',
+						isRequired: true,
+					},
+					{
+						id: 'backup-create',
+						title: 'Create Backup',
+						description: 'Create system backup before deployment',
+						isRequired: true,
+					},
+					{
+						id: 'deploy-execute',
+						title: 'Execute Deployment',
+						description: 'Deploy to production environment',
+						isRequired: true,
+					},
+					{
+						id: 'smoke-test',
+						title: 'Smoke Testing',
+						description: 'Perform post-deployment smoke tests',
+						isRequired: true,
+					},
+				],
+
+				// Training/Onboarding stages
+				training: [
+					{
+						id: 'material-prep',
+						title: 'Prepare Training Materials',
+						description: 'Create training documentation and materials',
+						isRequired: true,
+					},
+					{
+						id: 'schedule-training',
+						title: 'Schedule Training Sessions',
+						description: 'Organize training sessions with users',
+						isRequired: true,
+					},
+					{
+						id: 'conduct-training',
+						title: 'Conduct Training',
+						description: 'Deliver training to end users',
+						isRequired: true,
+					},
+					{
+						id: 'support-provide',
+						title: 'Provide Support',
+						description: 'Offer ongoing support during transition',
+						isRequired: true,
+					},
+				],
+
+				// Default/Generic tasks
+				default: [
+					{
+						id: 'task-plan',
+						title: 'Plan Tasks',
+						description: `Plan all tasks for ${stage.name}`,
+						isRequired: true,
+					},
+					{
+						id: 'resource-allocate',
+						title: 'Allocate Resources',
+						description: 'Ensure necessary resources are allocated',
+						isRequired: true,
+					},
+					{
+						id: 'progress-monitor',
+						title: 'Monitor Progress',
+						description: 'Track and monitor stage progress',
+						isRequired: true,
+					},
+					{
+						id: 'deliverable-complete',
+						title: 'Complete Deliverables',
+						description: 'Finish all stage deliverables',
+						isRequired: true,
+					},
+				],
+			};
+
+			// Determine which template to use based on stage name and description
+			let selectedTasks: ChecklistTask[] = [];
+
+			if (
+				stageName.includes('initial') ||
+				stageName.includes('assessment') ||
+				stageName.includes('analysis')
+			) {
+				selectedTasks = taskTemplates.initial;
+			} else if (
+				stageName.includes('plan') ||
+				stageName.includes('design') ||
+				stageDesc.includes('plan')
+			) {
+				selectedTasks = taskTemplates.planning;
+			} else if (
+				stageName.includes('design') ||
+				stageName.includes('prototype') ||
+				stageDesc.includes('design')
+			) {
+				selectedTasks = taskTemplates.design;
+			} else if (
+				stageName.includes('implement') ||
+				stageName.includes('develop') ||
+				stageName.includes('build') ||
+				stageDesc.includes('develop')
+			) {
+				selectedTasks = taskTemplates.implementation;
+			} else if (
+				stageName.includes('test') ||
+				stageName.includes('qa') ||
+				stageDesc.includes('test')
+			) {
+				selectedTasks = taskTemplates.testing;
+			} else if (
+				stageName.includes('review') ||
+				stageName.includes('approval') ||
+				stageDesc.includes('review')
+			) {
+				selectedTasks = taskTemplates.review;
+			} else if (
+				stageName.includes('deploy') ||
+				stageName.includes('launch') ||
+				stageName.includes('release')
+			) {
+				selectedTasks = taskTemplates.deployment;
+			} else if (
+				stageName.includes('training') ||
+				stageName.includes('onboard') ||
+				stageDesc.includes('training')
+			) {
+				selectedTasks = taskTemplates.training;
+			} else {
+				selectedTasks = taskTemplates.default;
+			}
+
+			// Add unique IDs with stage prefix
+			return selectedTasks.map((task, index) => ({
+				...task,
+				id: `${stage.name.toLowerCase().replace(/\s+/g, '-')}-${task.id}-${index}`,
+			}));
+		};
+
+		// Generate realistic questionnaire questions based on stage name and description
+		const generateQuestionnaireQuestions = (stage: WorkflowStage): QuestionnaireQuestion[] => {
+			const stageName = stage.name.toLowerCase();
+			const stageDesc = stage.description.toLowerCase();
+
+			// Question templates based on stage characteristics
+			const questionTemplates: { [key: string]: QuestionnaireQuestion[] } = {
+				// Initial/Assessment stages
+				initial: [
+					{
+						id: 'project-scope',
+						question: 'What is the scope of this project?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'success-criteria',
+						question: 'What are the success criteria?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'budget-range',
+						question: 'What is the budget range?',
+						type: 'select',
+						options: ['< $10K', '$10K - $50K', '$50K - $100K', '> $100K'],
+						isRequired: true,
+					},
+					{
+						id: 'timeline-preference',
+						question: 'What is your preferred timeline?',
+						type: 'select',
+						options: ['1-2 weeks', '1 month', '2-3 months', '6+ months'],
+						isRequired: true,
+					},
+				],
+
+				// Planning stages
+				planning: [
+					{
+						id: 'team-size',
+						question: 'How many team members are needed?',
+						type: 'number',
+						isRequired: true,
+					},
+					{
+						id: 'key-milestones',
+						question: 'What are the key milestones?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'risk-tolerance',
+						question: 'What is your risk tolerance level?',
+						type: 'select',
+						options: ['Low', 'Medium', 'High'],
+						isRequired: true,
+					},
+					{
+						id: 'communication-frequency',
+						question: 'How often should progress be reported?',
+						type: 'select',
+						options: ['Daily', 'Weekly', 'Bi-weekly', 'Monthly'],
+						isRequired: false,
+					},
+				],
+
+				// Design stages
+				design: [
+					{
+						id: 'design-style',
+						question: 'What design style do you prefer?',
+						type: 'select',
+						options: ['Modern', 'Classic', 'Minimalist', 'Bold'],
+						isRequired: true,
+					},
+					{
+						id: 'target-audience',
+						question: 'Who is the target audience?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'brand-guidelines',
+						question: 'Are there existing brand guidelines?',
+						type: 'boolean',
+						isRequired: true,
+					},
+					{
+						id: 'accessibility-requirements',
+						question: 'Are there accessibility requirements?',
+						type: 'multiselect',
+						options: [
+							'WCAG 2.1 AA',
+							'Screen Reader Support',
+							'Keyboard Navigation',
+							'Color Contrast',
+						],
+						isRequired: false,
+					},
+				],
+
+				// Implementation stages
+				implementation: [
+					{
+						id: 'tech-stack',
+						question: 'What technology stack should be used?',
+						type: 'multiselect',
+						options: ['React', 'Vue', 'Angular', 'Node.js', 'Python', 'Java', '.NET'],
+						isRequired: true,
+					},
+					{
+						id: 'performance-requirements',
+						question: 'What are the performance requirements?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'security-level',
+						question: 'What security level is required?',
+						type: 'select',
+						options: ['Basic', 'Standard', 'High', 'Enterprise'],
+						isRequired: true,
+					},
+					{
+						id: 'integration-needs',
+						question: 'What systems need integration?',
+						type: 'text',
+						isRequired: false,
+					},
+				],
+
+				// Testing stages
+				testing: [
+					{
+						id: 'test-types',
+						question: 'What types of testing are required?',
+						type: 'multiselect',
+						options: [
+							'Unit Testing',
+							'Integration Testing',
+							'Performance Testing',
+							'Security Testing',
+							'User Acceptance Testing',
+						],
+						isRequired: true,
+					},
+					{
+						id: 'test-environment',
+						question: 'What test environment is available?',
+						type: 'select',
+						options: ['Development', 'Staging', 'Production-like', 'Cloud-based'],
+						isRequired: true,
+					},
+					{
+						id: 'acceptance-criteria',
+						question: 'What are the acceptance criteria?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'test-data',
+						question: 'Is test data available?',
+						type: 'boolean',
+						isRequired: true,
+					},
+				],
+
+				// Review stages
+				review: [
+					{
+						id: 'review-criteria',
+						question: 'What are the review criteria?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'reviewers',
+						question: 'Who are the key reviewers?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'approval-process',
+						question: 'What is the approval process?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'feedback-timeline',
+						question: 'What is the feedback timeline?',
+						type: 'select',
+						options: ['24 hours', '2-3 days', '1 week', '2 weeks'],
+						isRequired: true,
+					},
+				],
+
+				// Deployment stages
+				deployment: [
+					{
+						id: 'deployment-strategy',
+						question: 'What deployment strategy should be used?',
+						type: 'select',
+						options: ['Blue-Green', 'Rolling', 'Canary', 'Big Bang'],
+						isRequired: true,
+					},
+					{
+						id: 'rollback-plan',
+						question: 'Is there a rollback plan?',
+						type: 'boolean',
+						isRequired: true,
+					},
+					{
+						id: 'monitoring-setup',
+						question: 'What monitoring is needed?',
+						type: 'multiselect',
+						options: [
+							'Performance Monitoring',
+							'Error Tracking',
+							'User Analytics',
+							'Security Monitoring',
+						],
+						isRequired: true,
+					},
+					{
+						id: 'maintenance-window',
+						question: 'When is the maintenance window?',
+						type: 'text',
+						isRequired: false,
+					},
+				],
+
+				// Training stages
+				training: [
+					{
+						id: 'training-format',
+						question: 'What training format is preferred?',
+						type: 'select',
+						options: ['In-person', 'Virtual', 'Self-paced', 'Hybrid'],
+						isRequired: true,
+					},
+					{
+						id: 'audience-size',
+						question: 'How many people need training?',
+						type: 'number',
+						isRequired: true,
+					},
+					{
+						id: 'skill-level',
+						question: 'What is the current skill level?',
+						type: 'select',
+						options: ['Beginner', 'Intermediate', 'Advanced', 'Mixed'],
+						isRequired: true,
+					},
+					{
+						id: 'training-materials',
+						question: 'What training materials are needed?',
+						type: 'multiselect',
+						options: [
+							'User Manual',
+							'Video Tutorials',
+							'Interactive Demos',
+							'Quick Reference',
+						],
+						isRequired: true,
+					},
+				],
+
+				// Default questions
+				default: [
+					{
+						id: 'stage-objectives',
+						question: `What are the main objectives for ${stage.name}?`,
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'success-metrics',
+						question: 'How will success be measured?',
+						type: 'text',
+						isRequired: true,
+					},
+					{
+						id: 'dependencies',
+						question: 'Are there any dependencies?',
+						type: 'text',
+						isRequired: false,
+					},
+					{
+						id: 'special-requirements',
+						question: 'Are there any special requirements?',
+						type: 'text',
+						isRequired: false,
+					},
+				],
+			};
+
+			// Determine which template to use
+			let selectedQuestions: QuestionnaireQuestion[] = [];
+
+			if (
+				stageName.includes('initial') ||
+				stageName.includes('assessment') ||
+				stageName.includes('analysis')
+			) {
+				selectedQuestions = questionTemplates.initial;
+			} else if (stageName.includes('plan') || stageDesc.includes('plan')) {
+				selectedQuestions = questionTemplates.planning;
+			} else if (stageName.includes('design') || stageDesc.includes('design')) {
+				selectedQuestions = questionTemplates.design;
+			} else if (
+				stageName.includes('implement') ||
+				stageName.includes('develop') ||
+				stageName.includes('build')
+			) {
+				selectedQuestions = questionTemplates.implementation;
+			} else if (stageName.includes('test') || stageName.includes('qa')) {
+				selectedQuestions = questionTemplates.testing;
+			} else if (stageName.includes('review') || stageName.includes('approval')) {
+				selectedQuestions = questionTemplates.review;
+			} else if (stageName.includes('deploy') || stageName.includes('launch')) {
+				selectedQuestions = questionTemplates.deployment;
+			} else if (stageName.includes('training') || stageName.includes('onboard')) {
+				selectedQuestions = questionTemplates.training;
+			} else {
+				selectedQuestions = questionTemplates.default;
+			}
+
+			// Add unique IDs with stage prefix
+			return selectedQuestions.map((question, index) => ({
+				...question,
+				id: `${stage.name.toLowerCase().replace(/\s+/g, '-')}-${question.id}-${index}`,
+			}));
+		};
+
+		// Add checklists and questionnaires
+		const addChecklistsAndQuestionnaires = async () => {
+			// Generate realistic checklists with tasks
+			streamingWorkflowData.checklists = streamingWorkflowData.stages.map(
+				(stage: WorkflowStage) => ({
+					name: `${stage.name} Checklist`,
+					description: `Essential tasks to complete during the ${stage.name} stage`,
+					tasks: generateChecklistTasks(stage),
+				})
+			);
+
+			updateGenerationCompleteMessage();
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			// Generate realistic questionnaires with questions
+			streamingWorkflowData.questionnaires = streamingWorkflowData.stages.map(
+				(stage: WorkflowStage) => ({
+					name: `${stage.name} Questionnaire`,
+					description: `Key questions to gather information for the ${stage.name} stage`,
+					questions: generateQuestionnaireQuestions(stage),
+				})
+			);
+
+			updateGenerationCompleteMessage();
+
+			// Final update - mark as completed
+			const messageIndex = chatMessages.value.findIndex(
+				(msg) => msg.id === streamingWorkflowData.completeMessageId
+			);
+			if (messageIndex !== -1) {
+				chatMessages.value[messageIndex].content =
+					'Workflow generation completed successfully!';
+			}
+
+			scrollToBottom();
+			saveChatSession();
+		};
+
+		// Update generation complete message with current data
+		const updateGenerationCompleteMessage = () => {
+			const messageIndex = chatMessages.value.findIndex(
+				(msg) => msg.id === streamingWorkflowData.completeMessageId
+			);
+			if (messageIndex !== -1) {
+				chatMessages.value[messageIndex].data = {
+					workflow: streamingWorkflowData.workflow,
+					stages: [...streamingWorkflowData.stages],
+					checklists: [...streamingWorkflowData.checklists],
+					questionnaires: [...streamingWorkflowData.questionnaires],
+				};
+			}
+			scrollToBottom();
+		};
 
 		// Use stream response based on input type
 		if (uploadedFile.value) {
 			await streamFileAnalysis(uploadedFile.value, onStreamChunk, onStreamComplete, {
 				id: currentAIModel.value?.id?.toString(),
 				provider: currentAIModel.value?.provider,
-				modelName: currentAIModel.value?.modelName
+				modelName: currentAIModel.value?.modelName,
 			});
 		} else {
 			// Build comprehensive description from entire chat history
 			let workflowDescription = '';
-			
+
 			// Include current input if available
 			if (currentInput.value.trim()) {
 				workflowDescription = currentInput.value;
 			}
-			
+
 			// Always include chat history context
 			if (chatMessages.value.length > 0) {
 				const chatContext = chatMessages.value
-					.filter(msg => msg.type === 'user' || msg.type === 'ai')
-					.map(msg => {
+					.filter((msg) => msg.type === 'user' || msg.type === 'ai')
+					.map((msg) => {
 						if (msg.type === 'user') {
 							return `User: ${msg.content}`;
 						} else {
@@ -1513,54 +2276,52 @@ const generateWorkflow = async () => {
 						}
 					})
 					.join('\n');
-				
+
 				if (workflowDescription) {
 					workflowDescription = `${workflowDescription}\n\nChat History:\n${chatContext}`;
 				} else {
 					workflowDescription = `Chat History:\n${chatContext}`;
 				}
 			}
-			
+
 			// If still no description, use a default
 			if (!workflowDescription.trim()) {
 				workflowDescription = 'Generate a workflow based on our conversation';
 			}
-			
+
 			console.log('Final workflow description:', workflowDescription);
-			
+
 			await startStreaming(workflowDescription, onStreamChunk, onStreamComplete, {
 				id: currentAIModel.value?.id?.toString(),
 				provider: currentAIModel.value?.provider,
-				modelName: currentAIModel.value?.modelName
+				modelName: currentAIModel.value?.modelName,
 			});
 		}
-
-  } catch (error) {
-    console.error('Generation error:', error);
-    ElMessage.error('Failed to generate workflow');
+	} catch (error) {
+		console.error('Generation error:', error);
+		ElMessage.error('Failed to generate workflow');
 		// Remove system message on error
-		chatMessages.value = chatMessages.value.filter(msg => msg.type !== 'system');
+		chatMessages.value = chatMessages.value.filter((msg) => msg.type !== 'system');
 		streamingMessage.value = '';
-  } finally {
-    generating.value = false;
+	} finally {
+		generating.value = false;
 		currentInput.value = '';
 		uploadedFile.value = null;
 		await scrollToBottom();
 	}
 };
 
-
-
 const sendMessage = async () => {
 	if (!currentInput.value.trim() && !uploadedFile.value) return;
 
-			const messageContent = currentInput.value || `Uploaded file "${uploadedFile.value?.name}" for workflow analysis`;
-	
+	const messageContent =
+		currentInput.value || `Uploaded file "${uploadedFile.value?.name}" for workflow analysis`;
+
 	const userMessage: ChatMessage = {
 		id: Date.now().toString(),
 		type: 'user',
 		content: messageContent,
-		timestamp: new Date()
+		timestamp: new Date(),
 	};
 	chatMessages.value.push(userMessage);
 
@@ -1568,26 +2329,26 @@ const sendMessage = async () => {
 	currentInput.value = '';
 	uploadedFile.value = null;
 	await scrollToBottom();
-	
+
 	console.log('User message added, current messages:', chatMessages.value.length);
 
 	// Check for workflow modification intent
 	const modificationIntent = detectWorkflowModificationIntent(messageContent);
 	if (modificationIntent.isModification && modificationIntent.keywords.length > 0) {
 		console.log('Detected workflow modification intent:', modificationIntent);
-		
+
 		// Search for workflows based on keywords
 		for (const keyword of modificationIntent.keywords) {
 			const workflows = await searchWorkflows(keyword);
 			if (workflows.length > 0) {
 				searchedWorkflows.value = workflows;
-				
+
 				// If only one workflow found, automatically select it and show stages
 				if (workflows.length === 1) {
 					const workflowWithStages = await getWorkflowWithStages(workflows[0].id);
 					if (workflowWithStages) {
 						selectedWorkflow.value = workflowWithStages;
-						
+
 						// Add a special message showing the workflow and stages
 						const workflowMessage: ChatMessage = {
 							id: (Date.now() + 2).toString(),
@@ -1596,8 +2357,8 @@ const sendMessage = async () => {
 							timestamp: new Date(),
 							data: {
 								workflow: workflowWithStages,
-								stages: workflowWithStages.stages || []
-							}
+								stages: workflowWithStages.stages || [],
+							},
 						};
 						chatMessages.value.push(workflowMessage);
 						await scrollToBottom();
@@ -1612,8 +2373,8 @@ const sendMessage = async () => {
 						content: `Found ${workflows.length} related workflows, please select the workflow to modify:`,
 						timestamp: new Date(),
 						data: {
-							workflows: workflows
-						}
+							workflows: workflows,
+						},
 					};
 					chatMessages.value.push(selectionMessage);
 					await scrollToBottom();
@@ -1623,14 +2384,14 @@ const sendMessage = async () => {
 				break;
 			}
 		}
-		
+
 		// If no workflows found
 		if (searchedWorkflows.value.length === 0) {
 			const noResultMessage: ChatMessage = {
 				id: (Date.now() + 2).toString(),
 				type: 'ai',
 				content: `No matching workflows found. Please check your keywords or create a new workflow.`,
-				timestamp: new Date()
+				timestamp: new Date(),
 			};
 			chatMessages.value.push(noResultMessage);
 			await scrollToBottom();
@@ -1645,10 +2406,10 @@ const sendMessage = async () => {
 		id: aiMessageId,
 		type: 'ai',
 		content: '',
-		timestamp: new Date()
+		timestamp: new Date(),
 	};
 	chatMessages.value.push(aiMessage);
-	
+
 	// Save session immediately after adding AI message placeholder
 	console.log('💾 Saving session after adding AI message placeholder');
 	saveChatSession();
@@ -1668,29 +2429,30 @@ const sendMessage = async () => {
 
 		// Prepare chat messages for API with system prompt
 		const apiMessages: AIChatMessage[] = [];
-		
+
 		// Add system prompt to establish context
 		apiMessages.push({
 			role: 'system',
-			content: 'You are an AI Workflow Assistant specialized in helping users create business workflows. Your role is to understand their business processes and help them design structured workflows with clear stages, responsibilities, and requirements. Always focus on workflow planning, process optimization, and business automation. Ask relevant questions about process steps, stakeholders, timelines, and requirements.',
-			timestamp: new Date().toISOString()
+			content:
+				'You are an AI Workflow Assistant specialized in helping users create business workflows. Your role is to understand their business processes and help them design structured workflows with clear stages, responsibilities, and requirements. Always focus on workflow planning, process optimization, and business automation. Ask relevant questions about process steps, stakeholders, timelines, and requirements.',
+			timestamp: new Date().toISOString(),
 		});
-		
+
 		// Add existing chat history
 		const historyMessages = chatMessages.value
-			.filter(msg => msg.type === 'user' || msg.type === 'ai')
-			.map(msg => ({
+			.filter((msg) => msg.type === 'user' || msg.type === 'ai')
+			.map((msg) => ({
 				role: (msg.type === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
 				content: msg.content,
-				timestamp: msg.timestamp.toISOString()
+				timestamp: msg.timestamp.toISOString(),
 			}));
 		apiMessages.push(...historyMessages);
-		
+
 		// Add current message
 		apiMessages.push({
 			role: 'user',
 			content: messageContent,
-			timestamp: new Date().toISOString()
+			timestamp: new Date().toISOString(),
 		});
 
 		// Prepare chat request with model configuration
@@ -1703,8 +2465,8 @@ const sendMessage = async () => {
 			...(currentAIModel.value && {
 				modelId: currentAIModel.value.id.toString(),
 				modelProvider: currentAIModel.value.provider,
-				modelName: currentAIModel.value.modelName
-			})
+				modelName: currentAIModel.value.modelName,
+			}),
 		};
 
 		// Try streaming chat first
@@ -1714,7 +2476,9 @@ const sendMessage = async () => {
 				chatRequest,
 				(chunk: string) => {
 					// Update the AI message content with streaming chunks
-					const messageIndex = chatMessages.value.findIndex(msg => msg.id === aiMessageId);
+					const messageIndex = chatMessages.value.findIndex(
+						(msg) => msg.id === aiMessageId
+					);
 					if (messageIndex !== -1) {
 						chatMessages.value[messageIndex].content += chunk;
 						scrollToBottom();
@@ -1733,7 +2497,7 @@ const sendMessage = async () => {
 					throw error;
 				}
 			);
-			
+
 			// If we reach here, streaming was successful
 			console.log('Stream completed successfully');
 			return;
@@ -1744,39 +2508,38 @@ const sendMessage = async () => {
 		// Fallback to regular API if streaming fails
 		const response = await sendAIChatMessage(chatRequest);
 		console.log('📡 Frontend: Received response:', response);
-		
+
 		// Handle both wrapped and unwrapped response formats
 		const actualResponse = (response as any).data || response;
-		
+
 		if (actualResponse.success && actualResponse.response) {
 			if (actualResponse.sessionId) {
 				conversationId.value = actualResponse.sessionId;
 			}
-			
+
 			// Update AI message with complete response
-			const messageIndex = chatMessages.value.findIndex(msg => msg.id === aiMessageId);
+			const messageIndex = chatMessages.value.findIndex((msg) => msg.id === aiMessageId);
 			if (messageIndex !== -1) {
 				chatMessages.value[messageIndex].content = actualResponse.response.content;
 			}
 			console.log('📡 Frontend: Added AI message:', actualResponse.response.content);
-			
-
 		} else {
 			throw new Error(actualResponse.message || response.message || 'AI response failed');
 		}
 	} catch (error) {
 		console.error('Chat error:', error);
 		// Update AI message with fallback response
-		const messageIndex = chatMessages.value.findIndex(msg => msg.id === aiMessageId);
+		const messageIndex = chatMessages.value.findIndex((msg) => msg.id === aiMessageId);
 		if (messageIndex !== -1) {
-			chatMessages.value[messageIndex].content = 'I understand you want to create a workflow. To help you design the most effective process, could you tell me more details about:\n\n1. What are the main steps involved in this process?\n2. Who are the key stakeholders or team members that need to be involved?\n3. What are the expected outcomes or deliverables?\n4. Are there any specific requirements or constraints I should consider?\n\nThis information will help me create a structured workflow tailored to your needs.';
+			chatMessages.value[messageIndex].content =
+				'I understand you want to create a workflow. To help you design the most effective process, could you tell me more details about:\n\n1. What are the main steps involved in this process?\n2. Who are the key stakeholders or team members that need to be involved?\n3. What are the expected outcomes or deliverables?\n4. Are there any specific requirements or constraints I should consider?\n\nThis information will help me create a structured workflow tailored to your needs.';
 		}
-		
+
 		ElMessage.warning('AI service temporarily unavailable, using fallback response');
 	}
-	
+
 	await scrollToBottom();
-	
+
 	// Save the current chat session to history
 	saveChatSession();
 };
@@ -1813,9 +2576,9 @@ const applyWorkflow = async (data: any) => {
 		// Create checklists and questionnaires using the new backend method
 		try {
 			const { apiVersion } = useGlobSetting();
-			
+
 			// Transform checklists to the expected backend format
-			const transformedChecklists = data.checklists.map(checklist => ({
+			const transformedChecklists = data.checklists.map((checklist) => ({
 				Success: true,
 				Message: `Checklist generated for ${checklist.name}`,
 				GeneratedChecklist: {
@@ -1823,14 +2586,14 @@ const applyWorkflow = async (data: any) => {
 					Description: checklist.description,
 					Team: checklist.team || 'Default Team',
 					IsActive: true,
-					Assignments: [] // Will be set by backend
+					Assignments: [], // Will be set by backend
 				},
 				Tasks: checklist.tasks || [],
-				ConfidenceScore: 0.85
+				ConfidenceScore: 0.85,
 			}));
 
 			// Transform questionnaires to the expected backend format
-			const transformedQuestionnaires = data.questionnaires.map(questionnaire => ({
+			const transformedQuestionnaires = data.questionnaires.map((questionnaire) => ({
 				Success: true,
 				Message: `Questionnaire generated for ${questionnaire.name}`,
 				GeneratedQuestionnaire: {
@@ -1838,10 +2601,10 @@ const applyWorkflow = async (data: any) => {
 					Description: questionnaire.description,
 					Category: questionnaire.category || 'General',
 					IsActive: true,
-					Assignments: [] // Will be set by backend
+					Assignments: [], // Will be set by backend
 				},
 				Questions: questionnaire.questions || [],
-				ConfidenceScore: 0.85
+				ConfidenceScore: 0.85,
 			}));
 
 			const createComponentsResponse = await defHttp.post({
@@ -1850,32 +2613,34 @@ const applyWorkflow = async (data: any) => {
 					workflowId: workflowId,
 					stages: data.stages,
 					checklists: transformedChecklists,
-					questionnaires: transformedQuestionnaires
-				}
+					questionnaires: transformedQuestionnaires,
+				},
 			});
 
 			if (createComponentsResponse.success) {
 				console.log('✅ Stage components created successfully');
 			} else {
-				console.warn('⚠️ Failed to create stage components:', createComponentsResponse.message);
+				console.warn(
+					'⚠️ Failed to create stage components:',
+					createComponentsResponse.message
+				);
 			}
 		} catch (e) {
 			console.warn('⚠️ Failed to create stage components:', e);
 		}
 
 		ElMessage.success('Workflow applied successfully!');
-		
+
 		// Emit for parent component navigation
 		emit('workflowGenerated', {
 			generatedWorkflow: data.workflow,
 			stages: data.stages,
-			operationMode: 'create'
+			operationMode: 'create',
 		});
-
-  } catch (error) {
+	} catch (error) {
 		console.error('Apply workflow error:', error);
 		ElMessage.error('Failed to apply workflow');
-  } finally {
+	} finally {
 		applying.value = false;
 	}
 };
@@ -1901,14 +2666,12 @@ const removeStage = (data: any, index: number) => {
 	});
 };
 
-
-
 // Checklist management
 const addChecklist = (data: any) => {
 	if (!data.checklists) data.checklists = [];
 	data.checklists.push({
 		name: `New Checklist ${data.checklists.length + 1}`,
-		description: 'New checklist description'
+		description: 'New checklist description',
 	});
 };
 
@@ -1921,7 +2684,7 @@ const addQuestionnaire = (data: any) => {
 	if (!data.questionnaires) data.questionnaires = [];
 	data.questionnaires.push({
 		name: `New Questionnaire ${data.questionnaires.length + 1}`,
-		description: 'New questionnaire description'
+		description: 'New questionnaire description',
 	});
 };
 
@@ -1932,20 +2695,28 @@ const removeQuestionnaire = (data: any, index: number) => {
 // File handling (legacy - now handled by AIFileAnalyzer)
 
 const removeUploadedFile = () => {
-			// Clean up URL object for image files to avoid memory leaks
+	// Clean up URL object for image files to avoid memory leaks
 	if (uploadedFile.value && isImageFile(uploadedFile.value)) {
 		const previewUrl = getFilePreviewUrl(uploadedFile.value);
 		if (previewUrl) {
 			URL.revokeObjectURL(previewUrl);
 		}
 	}
-	
+
 	uploadedFile.value = null;
 	ElMessage.info('File removed');
 };
 
 const isImageFile = (file: File) => {
-	const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+	const imageTypes = [
+		'image/jpeg',
+		'image/jpg',
+		'image/png',
+		'image/gif',
+		'image/bmp',
+		'image/webp',
+		'image/svg+xml',
+	];
 	return imageTypes.includes(file.type);
 };
 
@@ -1956,11 +2727,13 @@ const isPDFFile = (file: File) => {
 const isWordFile = (file: File) => {
 	const wordTypes = [
 		'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-		'application/msword' // .doc
+		'application/msword', // .doc
 	];
-	return wordTypes.includes(file.type) || 
-		   file.name.toLowerCase().endsWith('.docx') || 
-		   file.name.toLowerCase().endsWith('.doc');
+	return (
+		wordTypes.includes(file.type) ||
+		file.name.toLowerCase().endsWith('.docx') ||
+		file.name.toLowerCase().endsWith('.doc')
+	);
 };
 
 // 文件图标获取函数（暂时保留以备将来使用）
@@ -1994,8 +2767,6 @@ const formatFileSize = (bytes: number): string => {
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-
-
 // Chat history management
 const saveChatSession = () => {
 	console.log('saveChatSession called, chatMessages length:', chatMessages.value.length);
@@ -2005,19 +2776,25 @@ const saveChatSession = () => {
 	}
 
 	const sessionId = currentSessionId.value || Date.now().toString();
-	const userMessage = chatMessages.value.find(msg => msg.type === 'user');
-	const title = userMessage ? (userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? '...' : '')) : 'New Chat';
-	
-	console.log('💾 Creating session:', { sessionId, title, messageCount: chatMessages.value.length });
-	
+	const userMessage = chatMessages.value.find((msg) => msg.type === 'user');
+	const title = userMessage
+		? userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? '...' : '')
+		: 'New Chat';
+
+	console.log('💾 Creating session:', {
+		sessionId,
+		title,
+		messageCount: chatMessages.value.length,
+	});
+
 	const session: ChatSession = {
 		id: sessionId,
 		title,
 		timestamp: new Date(),
-		messages: [...chatMessages.value]
+		messages: [...chatMessages.value],
 	};
 
-	const existingIndex = chatHistory.value.findIndex(s => s.id === sessionId);
+	const existingIndex = chatHistory.value.findIndex((s) => s.id === sessionId);
 	if (existingIndex >= 0) {
 		console.log('Updating existing session at index:', existingIndex);
 		chatHistory.value[existingIndex] = session;
@@ -2027,15 +2804,15 @@ const saveChatSession = () => {
 	}
 
 	currentSessionId.value = sessionId;
-	
+
 	console.log('💾 Chat history now has', chatHistory.value.length, 'sessions');
-	
+
 	// Save to localStorage
 	saveChatHistoryToStorage();
 };
 
 const loadChatSession = (sessionId: string) => {
-	const session = chatHistory.value.find(s => s.id === sessionId);
+	const session = chatHistory.value.find((s) => s.id === sessionId);
 	if (session) {
 		chatMessages.value = [...session.messages];
 		currentSessionId.value = sessionId;
@@ -2053,7 +2830,7 @@ const clearChat = () => {
 	currentInput.value = '';
 	uploadedFile.value = null;
 	streamingMessage.value = '';
-    generating.value = false;
+	generating.value = false;
 };
 
 const toggleHistory = () => {
@@ -2075,17 +2852,17 @@ const globSetting = useGlobSetting();
 const searchWorkflows = async (query: string): Promise<any[]> => {
 	try {
 		isSearchingWorkflows.value = true;
-		
+
 		const response = await defHttp.post({
 			url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/query`,
 			data: {
 				PageIndex: 1,
 				PageSize: 10,
 				Name: query,
-				IsActive: true
-			}
+				IsActive: true,
+			},
 		});
-		
+
 		if (response.success && response.data?.items) {
 			return response.data.items;
 		}
@@ -2102,19 +2879,19 @@ const searchWorkflows = async (query: string): Promise<any[]> => {
 const getWorkflowWithStages = async (workflowId: number): Promise<any | null> => {
 	try {
 		const response = await defHttp.get({
-			url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}`
+			url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}`,
 		});
-		
+
 		if (response.success && response.data) {
 			// Get stages for this workflow
 			const stagesResponse = await defHttp.get({
-				url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}/stages`
+				url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${workflowId}/stages`,
 			});
-			
+
 			if (stagesResponse.success && stagesResponse.data) {
 				response.data.stages = stagesResponse.data;
 			}
-			
+
 			return response.data;
 		}
 		return null;
@@ -2125,26 +2902,29 @@ const getWorkflowWithStages = async (workflowId: number): Promise<any | null> =>
 	}
 };
 
-const detectWorkflowModificationIntent = (message: string): { isModification: boolean; keywords: string[] } => {
+const detectWorkflowModificationIntent = (
+	message: string
+): { isModification: boolean; keywords: string[] } => {
 	const modificationKeywords = ['modify', 'edit', 'update', 'change', 'adjust', 'optimize'];
 	const workflowKeywords = ['workflow', 'process', 'flow'];
-	
+
 	const lowerMessage = message.toLowerCase();
-	const isModification = modificationKeywords.some(keyword => lowerMessage.includes(keyword));
-	const hasWorkflow = workflowKeywords.some(keyword => lowerMessage.includes(keyword));
-	
+	const isModification = modificationKeywords.some((keyword) => lowerMessage.includes(keyword));
+	const hasWorkflow = workflowKeywords.some((keyword) => lowerMessage.includes(keyword));
+
 	if (isModification && hasWorkflow) {
 		// Extract potential workflow names (simple extraction)
 		const words = message.split(/\s+|，|。|、/);
-		const keywords = words.filter(word => 
-			word.length > 1 && 
-			!modificationKeywords.includes(word) && 
-			!workflowKeywords.includes(word)
+		const keywords = words.filter(
+			(word) =>
+				word.length > 1 &&
+				!modificationKeywords.includes(word) &&
+				!workflowKeywords.includes(word)
 		);
-		
+
 		return { isModification: true, keywords };
 	}
-	
+
 	return { isModification: false, keywords: [] };
 };
 
@@ -2153,7 +2933,7 @@ const selectWorkflowForModification = async (workflow: any) => {
 		const workflowWithStages = await getWorkflowWithStages(workflow.id);
 		if (workflowWithStages) {
 			selectedWorkflow.value = workflowWithStages;
-			
+
 			// Add a workflow modification message
 			const workflowMessage: ChatMessage = {
 				id: Date.now().toString(),
@@ -2162,8 +2942,8 @@ const selectWorkflowForModification = async (workflow: any) => {
 				timestamp: new Date(),
 				data: {
 					workflow: workflowWithStages,
-					stages: workflowWithStages.stages || []
-				}
+					stages: workflowWithStages.stages || [],
+				},
 			};
 			chatMessages.value.push(workflowMessage);
 			await scrollToBottom();
@@ -2197,17 +2977,17 @@ const validateWorkflowData = (messageData: any): boolean => {
 		ElMessage.error('Workflow data is missing');
 		return false;
 	}
-	
+
 	if (!messageData.workflow.id) {
 		ElMessage.error('Workflow ID is missing');
 		return false;
 	}
-	
+
 	if (!messageData.stages || !Array.isArray(messageData.stages)) {
 		ElMessage.error('Stage data is missing or invalid');
 		return false;
 	}
-	
+
 	// Check if all stages have required fields
 	for (const stage of messageData.stages) {
 		if (!stage.name || !stage.name.trim()) {
@@ -2219,7 +2999,7 @@ const validateWorkflowData = (messageData: any): boolean => {
 			return false;
 		}
 	}
-	
+
 	return true;
 };
 
@@ -2232,15 +3012,15 @@ const refreshWorkflowData = async (messageData: any) => {
 
 	try {
 		applying.value = true;
-		
+
 		// Fetch fresh workflow data
 		const workflowWithStages = await getWorkflowWithStages(messageData.workflow.id);
-		
+
 		if (workflowWithStages) {
 			// Update the message data with fresh server data
 			messageData.workflow = workflowWithStages;
 			messageData.stages = workflowWithStages.stages || [];
-			
+
 			ElMessage.success('Workflow data refreshed successfully');
 			console.log('Refreshed workflow data:', workflowWithStages);
 		} else {
@@ -2261,15 +3041,15 @@ const saveWorkflowChanges = async (messageData: any) => {
 
 	try {
 		applying.value = true;
-		
+
 		// Update workflow first
 		const workflowResponse = await defHttp.put({
 			url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${messageData.workflow.id}`,
 			data: {
 				name: messageData.workflow.name,
 				description: messageData.workflow.description,
-				isActive: messageData.workflow.isActive
-			}
+				isActive: messageData.workflow.isActive,
+			},
 		});
 
 		if (!workflowResponse.success) {
@@ -2287,30 +3067,33 @@ const saveWorkflowChanges = async (messageData: any) => {
 						order: stage.order,
 						workflowId: messageData.workflow.id, // Explicitly include workflow ID
 						defaultAssignedGroup: stage.assignedGroup || stage.defaultAssignedGroup,
-						estimatedDuration: stage.estimatedDuration
+						estimatedDuration: stage.estimatedDuration,
 					};
 
 					console.log('Updating stage:', stage.id, 'with data:', stageUpdateData);
 
 					await defHttp.put({
 						url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stage.id}`,
-						data: stageUpdateData
+						data: stageUpdateData,
 					});
 				} catch (stageError) {
 					console.error(`Error updating stage ${stage.id}:`, stageError);
-					
+
 					// If it's a foreign key constraint error, try different approaches
-					if (stageError.response?.status === 400 && 
-						stageError.response?.data?.message?.includes('Foreign key constraint')) {
-						
-						console.log('Foreign key constraint detected. Trying alternative approaches...');
-						
+					if (
+						stageError.response?.status === 400 &&
+						stageError.response?.data?.message?.includes('Foreign key constraint')
+					) {
+						console.log(
+							'Foreign key constraint detected. Trying alternative approaches...'
+						);
+
 						// First, try to refresh the stage data from server
 						try {
 							const currentStageResponse = await defHttp.get({
-								url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stage.id}`
+								url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stage.id}`,
 							});
-							
+
 							if (currentStageResponse.success && currentStageResponse.data) {
 								// Use the current server data as base and only update what we need
 								const serverStageData = currentStageResponse.data;
@@ -2323,10 +3106,12 @@ const saveWorkflowChanges = async (messageData: any) => {
 										order: stage.order,
 										estimatedDuration: stage.estimatedDuration,
 										// Only update assignedGroup if it's different from server
-										defaultAssignedGroup: stage.assignedGroup !== serverStageData.defaultAssignedGroup 
-											? stage.assignedGroup 
-											: serverStageData.defaultAssignedGroup
-									}
+										defaultAssignedGroup:
+											stage.assignedGroup !==
+											serverStageData.defaultAssignedGroup
+												? stage.assignedGroup
+												: serverStageData.defaultAssignedGroup,
+									},
 								});
 							} else {
 								throw new Error('Could not fetch current stage data');
@@ -2340,8 +3125,8 @@ const saveWorkflowChanges = async (messageData: any) => {
 									name: stage.name,
 									description: stage.description,
 									order: stage.order,
-									estimatedDuration: stage.estimatedDuration
-								}
+									estimatedDuration: stage.estimatedDuration,
+								},
 							});
 						}
 					} else {
@@ -2352,31 +3137,35 @@ const saveWorkflowChanges = async (messageData: any) => {
 		}
 
 		ElMessage.success('Workflow changes saved successfully');
-		
+
 		// Add success message
 		const successMessage: ChatMessage = {
 			id: Date.now().toString(),
 			type: 'ai',
 			content: `Changes to workflow "${messageData.workflow.name}" have been saved successfully!`,
-			timestamp: new Date()
+			timestamp: new Date(),
 		};
 		chatMessages.value.push(successMessage);
 		await scrollToBottom();
 		saveChatSession();
-
 	} catch (error) {
 		console.error('Error saving workflow changes:', error);
-		
+
 		// Provide more specific error messages
 		if (error.response?.status === 400) {
-			const errorMessage = error.response?.data?.message || error.response?.data?.msg || 'Bad request';
+			const errorMessage =
+				error.response?.data?.message || error.response?.data?.msg || 'Bad request';
 			if (errorMessage.includes('Foreign key constraint')) {
-				ElMessage.error('Failed to save changes: Data integrity issue. Please refresh and try again.');
+				ElMessage.error(
+					'Failed to save changes: Data integrity issue. Please refresh and try again.'
+				);
 			} else {
 				ElMessage.error(`Failed to save changes: ${errorMessage}`);
 			}
 		} else if (error.response?.status === 404) {
-			ElMessage.error('Failed to save changes: Workflow or stage not found. Please refresh the page.');
+			ElMessage.error(
+				'Failed to save changes: Workflow or stage not found. Please refresh the page.'
+			);
 		} else if (error.response?.status === 500) {
 			ElMessage.error('Failed to save changes: Server error. Please try again later.');
 		} else {
@@ -2393,7 +3182,7 @@ const formatRelativeTime = (timestamp: Date) => {
 	const minutes = Math.floor(diff / (1000 * 60));
 	const hours = Math.floor(diff / (1000 * 60 * 60));
 	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-	
+
 	if (minutes < 1) return 'Just now';
 	if (minutes < 60) return `${minutes}m ago`;
 	if (hours < 24) return `${hours}h ago`;
@@ -2403,10 +3192,10 @@ const formatRelativeTime = (timestamp: Date) => {
 
 const handleSessionAction = (command: string) => {
 	const [action, sessionId] = command.split('-');
-	const session = chatHistory.value.find(s => s.id === sessionId);
-	
+	const session = chatHistory.value.find((s) => s.id === sessionId);
+
 	if (!session) return;
-	
+
 	switch (action) {
 		case 'pin':
 			togglePinSession(sessionId);
@@ -2421,7 +3210,7 @@ const handleSessionAction = (command: string) => {
 };
 
 const togglePinSession = (sessionId: string) => {
-	const session = chatHistory.value.find(s => s.id === sessionId);
+	const session = chatHistory.value.find((s) => s.id === sessionId);
 	if (session) {
 		session.isPinned = !session.isPinned;
 		saveChatHistoryToStorage();
@@ -2429,7 +3218,7 @@ const togglePinSession = (sessionId: string) => {
 };
 
 const startRenameSession = (sessionId: string) => {
-	const session = chatHistory.value.find(s => s.id === sessionId);
+	const session = chatHistory.value.find((s) => s.id === sessionId);
 	if (session) {
 		renameSessionId.value = sessionId;
 		newSessionTitle.value = session.title;
@@ -2438,7 +3227,7 @@ const startRenameSession = (sessionId: string) => {
 };
 
 const confirmRenameSession = () => {
-	const session = chatHistory.value.find(s => s.id === renameSessionId.value);
+	const session = chatHistory.value.find((s) => s.id === renameSessionId.value);
 	if (session && newSessionTitle.value.trim()) {
 		session.title = newSessionTitle.value.trim();
 		saveChatHistoryToStorage();
@@ -2456,42 +3245,44 @@ const deleteSession = (sessionId: string) => {
 			cancelButtonText: 'Cancel',
 			type: 'warning',
 		}
-	).then(() => {
-		const index = chatHistory.value.findIndex(s => s.id === sessionId);
-		if (index >= 0) {
-			chatHistory.value.splice(index, 1);
-			saveChatHistoryToStorage();
-			
-			// If deleted session was current, clear chat
-			if (currentSessionId.value === sessionId) {
-				clearChat();
+	)
+		.then(() => {
+			const index = chatHistory.value.findIndex((s) => s.id === sessionId);
+			if (index >= 0) {
+				chatHistory.value.splice(index, 1);
+				saveChatHistoryToStorage();
+
+				// If deleted session was current, clear chat
+				if (currentSessionId.value === sessionId) {
+					clearChat();
+				}
+
+				ElMessage.success('Chat session deleted');
 			}
-			
-			ElMessage.success('Chat session deleted');
-		}
-	}).catch(() => {
-		// User cancelled
-	});
+		})
+		.catch(() => {
+			// User cancelled
+		});
 };
 
 const exportChatHistory = () => {
 	try {
 		const exportData = {
 			exportDate: new Date().toISOString(),
-			sessions: chatHistory.value.map(session => ({
+			sessions: chatHistory.value.map((session) => ({
 				...session,
 				timestamp: session.timestamp.toISOString(),
-				messages: session.messages.map(msg => ({
+				messages: session.messages.map((msg) => ({
 					...msg,
-					timestamp: msg.timestamp.toISOString()
-				}))
-			}))
+					timestamp: msg.timestamp.toISOString(),
+				})),
+			})),
 		};
-		
+
 		const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-			type: 'application/json'
+			type: 'application/json',
 		});
-		
+
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -2500,7 +3291,7 @@ const exportChatHistory = () => {
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
-		
+
 		ElMessage.success('Chat history exported successfully');
 	} catch (error) {
 		console.error('Export failed:', error);
@@ -2517,14 +3308,16 @@ const clearAllHistory = () => {
 			cancelButtonText: 'Cancel',
 			type: 'warning',
 		}
-	).then(() => {
-		chatHistory.value = [];
-		saveChatHistoryToStorage();
-		clearChat();
-		ElMessage.success('All chat history cleared');
-	}).catch(() => {
-		// User cancelled
-	});
+	)
+		.then(() => {
+			chatHistory.value = [];
+			saveChatHistoryToStorage();
+			clearChat();
+			ElMessage.success('All chat history cleared');
+		})
+		.catch(() => {
+			// User cancelled
+		});
 };
 
 const showContextMenu = (event: MouseEvent, session: ChatSession) => {
@@ -2539,19 +3332,21 @@ const saveChatHistoryToStorage = () => {
 // File Analysis Handlers
 const handleFileAnalyzed = (content: string, fileName: string) => {
 	console.log('File analyzed:', fileName, 'Content length:', content.length);
-	
+
 	// Add a user message showing the file was uploaded
 	const fileMessage: ChatMessage = {
 		id: Date.now().toString(),
 		type: 'user',
-		content: `📎 Uploaded file: ${fileName}\n\nContent preview:\n${content.substring(0, 500)}${content.length > 500 ? '...' : ''}`,
-		timestamp: new Date()
+		content: `📎 Uploaded file: ${fileName}\n\nContent preview:\n${content.substring(0, 500)}${
+			content.length > 500 ? '...' : ''
+		}`,
+		timestamp: new Date(),
 	};
-	
+
 	chatMessages.value.push(fileMessage);
 	saveChatSession();
 	scrollToBottom();
-	
+
 	ElMessage.success(`File "${fileName}" has been analyzed and content extracted`);
 };
 
@@ -2560,16 +3355,16 @@ let currentAIMessageId = '';
 
 const handleAnalysisStarted = (fileName: string) => {
 	console.log('Analysis started for file:', fileName);
-	
+
 	// Create a new AI message for streaming response
 	currentAIMessageId = (Date.now() + 1).toString();
 	const aiMessage: ChatMessage = {
 		id: currentAIMessageId,
 		type: 'ai',
 		content: '', // Start with empty content, will be filled by streaming response
-		timestamp: new Date()
+		timestamp: new Date(),
 	};
-	
+
 	chatMessages.value.push(aiMessage);
 	saveChatSession();
 	scrollToBottom();
@@ -2577,7 +3372,7 @@ const handleAnalysisStarted = (fileName: string) => {
 
 const handleStreamChunk = (chunk: string) => {
 	// Find current AI message and update content
-	const messageIndex = chatMessages.value.findIndex(msg => msg.id === currentAIMessageId);
+	const messageIndex = chatMessages.value.findIndex((msg) => msg.id === currentAIMessageId);
 	if (messageIndex !== -1) {
 		chatMessages.value[messageIndex].content += chunk;
 		scrollToBottom();
@@ -2586,20 +3381,18 @@ const handleStreamChunk = (chunk: string) => {
 
 const handleAnalysisComplete = (result: any) => {
 	console.log('Analysis complete:', result);
-	
+
 	// Save session
 	saveChatSession();
 };
 
 // Utility functions
 const formatTime = (timestamp: Date) => {
-	return timestamp.toLocaleTimeString('en-US', { 
-		hour: '2-digit', 
-		minute: '2-digit' 
+	return timestamp.toLocaleTimeString('en-US', {
+		hour: '2-digit',
+		minute: '2-digit',
 	});
 };
-
-
 
 const formatAIMessage = (content: string) => {
 	return content.replace(/\n/g, '<br>');
@@ -2706,8 +3499,8 @@ onMounted(async () => {
 				timestamp: new Date(session.timestamp),
 				messages: session.messages.map((msg: any) => ({
 					...msg,
-					timestamp: new Date(msg.timestamp)
-				}))
+					timestamp: new Date(msg.timestamp),
+				})),
 			}));
 		} catch (e) {
 			console.warn('Failed to load chat history:', e);
@@ -2719,8 +3512,9 @@ onMounted(async () => {
 		const initialMessage: ChatMessage = {
 			id: 'initial',
 			type: 'ai',
-			content: 'Hello! I\'m your AI Workflow Assistant. I\'m here to help you create the perfect workflow by understanding your specific business needs and requirements.\n\nTo get started, could you tell me what type of process or workflow you\'re looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind.',
-			timestamp: new Date()
+			content:
+				"Hello! I'm your AI Workflow Assistant. I'm here to help you create the perfect workflow by understanding your specific business needs and requirements.\n\nTo get started, could you tell me what type of process or workflow you're looking to create? For example, it could be employee onboarding, customer support, project approval, or any other business process you have in mind.",
+			timestamp: new Date(),
 		};
 		chatMessages.value.push(initialMessage);
 	}
@@ -2729,7 +3523,7 @@ onMounted(async () => {
 
 <style scoped>
 .ai-workflow-assistant {
-  width: 100%;
+	width: 100%;
 }
 
 .assistant-card {
@@ -2738,10 +3532,10 @@ onMounted(async () => {
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-weight: 600;
 }
 
 .header-left {
@@ -2757,25 +3551,31 @@ onMounted(async () => {
 }
 
 .status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #10b981;
-  font-size: 14px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: #10b981;
+	font-size: 14px;
 }
 
 .pulse-dot {
-  width: 8px;
-  height: 8px;
-  background: #10b981;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
+	width: 8px;
+	height: 8px;
+	background: #10b981;
+	border-radius: 50%;
+	animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
-  0% { opacity: 0.5; }
-  50% { opacity: 1; }
-  100% { opacity: 0.5; }
+	0% {
+		opacity: 0.5;
+	}
+	50% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.5;
+	}
 }
 
 .assistant-container {
@@ -2789,8 +3589,6 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 }
-
-
 
 .chat-messages {
 	flex: 1;
@@ -2856,8 +3654,8 @@ onMounted(async () => {
 	height: 32px;
 	background: #4f46e5;
 	border-radius: 50%;
-  display: flex;
-  align-items: center;
+	display: flex;
+	align-items: center;
 	justify-content: center;
 	color: white;
 	font-size: 16px;
@@ -2894,8 +3692,12 @@ onMounted(async () => {
 }
 
 @keyframes shimmer {
-	0% { background-position: -200% 0; }
-	100% { background-position: 200% 0; }
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
 }
 
 .typing-indicator {
@@ -2903,11 +3705,15 @@ onMounted(async () => {
 }
 
 @keyframes blink {
-	0%, 50% { opacity: 1; }
-	51%, 100% { opacity: 0; }
+	0%,
+	50% {
+		opacity: 1;
+	}
+	51%,
+	100% {
+		opacity: 0;
+	}
 }
-
-
 
 .message-text {
 	margin-bottom: 0.25rem;
@@ -2936,7 +3742,7 @@ onMounted(async () => {
 
 .success-icon {
 	color: #10b981;
-  font-size: 24px;
+	font-size: 24px;
 }
 
 .complete-header h4 {
@@ -3036,7 +3842,7 @@ onMounted(async () => {
 }
 
 .stages-grid {
-  display: grid;
+	display: grid;
 	grid-template-columns: repeat(3, 1fr);
 	gap: 1rem;
 	margin-bottom: 1rem;
@@ -3045,12 +3851,12 @@ onMounted(async () => {
 .stage-card {
 	background: white;
 	border: 1px solid #e5e7eb;
-  border-radius: 12px;
+	border-radius: 12px;
 	padding: 1rem;
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
-  transition: all 0.2s ease;
+	transition: all 0.2s ease;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -3060,8 +3866,8 @@ onMounted(async () => {
 }
 
 .stage-card-header {
-  display: flex;
-  align-items: center;
+	display: flex;
+	align-items: center;
 	justify-content: space-between;
 	margin-bottom: 0.5rem;
 }
@@ -3116,7 +3922,7 @@ onMounted(async () => {
 	grid-template-columns: 1fr 1fr;
 	gap: 0.75rem;
 	padding: 0.75rem;
-  background: #f8fafc;
+	background: #f8fafc;
 	border-radius: 8px;
 	border: 1px solid #e2e8f0;
 }
@@ -3143,8 +3949,6 @@ onMounted(async () => {
 	width: 100%;
 }
 
-
-
 .add-stage-btn {
 	align-self: flex-start;
 	border: 2px dashed #d1d5db;
@@ -3157,7 +3961,7 @@ onMounted(async () => {
 
 .add-stage-btn:hover {
 	border-color: #4f46e5;
-  color: #4f46e5;
+	color: #4f46e5;
 	background: #f8fafc;
 }
 
@@ -3170,7 +3974,7 @@ onMounted(async () => {
 
 .component-section h6 {
 	margin: 0 0 0.5rem 0;
-  color: #374151;
+	color: #374151;
 	font-size: 14px;
 	font-weight: 600;
 }
@@ -3200,7 +4004,7 @@ onMounted(async () => {
 .apply-btn {
 	min-width: 200px;
 	height: 48px;
-  font-size: 16px;
+	font-size: 16px;
 	font-weight: 600;
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 	border: none;
@@ -3234,7 +4038,7 @@ onMounted(async () => {
 .model-selector-label {
 	font-size: 0.875rem;
 	font-weight: 500;
-  color: #374151;
+	color: #374151;
 	min-width: 50px;
 	flex-shrink: 0;
 }
@@ -3319,7 +4123,7 @@ onMounted(async () => {
 }
 
 .file-upload .el-button {
-  color: #6b7280;
+	color: #6b7280;
 	border: none;
 	background: none;
 	padding: 0;
@@ -3341,7 +4145,7 @@ onMounted(async () => {
 	background: #f0f9ff;
 	border: 1px solid #bae6fd;
 	border-radius: 6px;
-  font-size: 12px;
+	font-size: 12px;
 	color: #0369a1;
 }
 
@@ -3469,12 +4273,10 @@ onMounted(async () => {
 }
 
 .text-input-section {
-  display: flex;
+	display: flex;
 	flex-direction: column;
 	gap: 0.5rem;
 }
-
-
 
 .input-with-button {
 	display: flex;
@@ -3489,7 +4291,7 @@ onMounted(async () => {
 .input-actions {
 	display: flex;
 	align-items: center;
-  justify-content: center;
+	justify-content: center;
 }
 
 .send-button {
@@ -3582,7 +4384,8 @@ onMounted(async () => {
 	background: linear-gradient(135deg, #5b52e8 0%, #4c44cd 100%);
 }
 
-.menu-btn, .collapse-btn {
+.menu-btn,
+.collapse-btn {
 	padding: 6px;
 	min-width: 32px;
 	height: 32px;
@@ -3591,7 +4394,8 @@ onMounted(async () => {
 	border: 1px solid transparent;
 }
 
-.menu-btn:hover, .collapse-btn:hover {
+.menu-btn:hover,
+.collapse-btn:hover {
 	background: #f1f5f9;
 	border-color: #e2e8f0;
 	transform: scale(1.05);
@@ -3655,7 +4459,8 @@ onMounted(async () => {
 	border-radius: 0 2px 2px 0;
 }
 
-.pinned-section, .recent-section {
+.pinned-section,
+.recent-section {
 	margin-bottom: 1.5rem;
 }
 
@@ -3805,7 +4610,8 @@ onMounted(async () => {
 	transform: scale(1.1);
 }
 
-.empty-history, .no-results {
+.empty-history,
+.no-results {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -3873,7 +4679,7 @@ onMounted(async () => {
 }
 
 .mr-1 {
-  margin-right: 4px;
+	margin-right: 4px;
 }
 
 /* Chat history area scrollbar styles */
@@ -3904,7 +4710,7 @@ onMounted(async () => {
 	.assistant-container {
 		flex-direction: column;
 	}
-	
+
 	.chat-history {
 		width: 100%;
 		border: 1px solid #e2e8f0;
@@ -3913,28 +4719,28 @@ onMounted(async () => {
 		max-height: 350px;
 		box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
 	}
-	
+
 	.chat-history.collapsed {
 		width: 100%;
 		height: 60px;
 		max-height: 60px;
 		border-radius: 16px 16px 0 0;
 	}
-	
+
 	.additional-components {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.user-message .message-content,
 	.ai-message .message-content {
 		max-width: 85%;
 	}
-	
+
 	.history-item {
 		padding: 0.75rem;
 		margin-bottom: 0.5rem;
 	}
-	
+
 	.section-header {
 		padding: 0.5rem 0.75rem;
 	}
@@ -4105,8 +4911,6 @@ onMounted(async () => {
 	color: #374151;
 }
 
-
-
 .save-section {
 	display: flex;
 	justify-content: flex-end;
@@ -4211,15 +5015,15 @@ onMounted(async () => {
 	.stages-container {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.stages-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.stage-details {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.workflow-option-meta {
 		flex-direction: column;
 		align-items: flex-start;
@@ -4231,7 +5035,7 @@ onMounted(async () => {
 	.stages-container {
 		grid-template-columns: repeat(2, 1fr);
 	}
-	
+
 	.stages-grid {
 		grid-template-columns: repeat(2, 1fr);
 	}
@@ -4513,14 +5317,14 @@ onMounted(async () => {
 	.questionnaires-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.task-header,
 	.question-header {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 0.5rem;
 	}
-	
+
 	.task-description {
 		padding-left: 0;
 	}
@@ -4532,4 +5336,4 @@ onMounted(async () => {
 		grid-template-columns: repeat(2, 1fr);
 	}
 }
-</style> 
+</style>

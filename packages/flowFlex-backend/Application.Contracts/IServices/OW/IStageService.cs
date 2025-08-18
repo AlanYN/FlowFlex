@@ -164,6 +164,17 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="summaryOptions">Summary generation options</param>
         /// <returns>Generated AI summary</returns>
         Task<FlowFlex.Application.Contracts.IServices.AIStageSummaryResult> GenerateAISummaryAsync(long stageId, long? onboardingId = null, StageSummaryOptions summaryOptions = null);
+
+        /// <summary>
+        /// Update Stage AI Summary if it's currently empty (backfill only)
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiSummary">AI Summary content</param>
+        /// <param name="generatedAt">Generated timestamp</param>
+        /// <param name="confidence">Confidence score</param>
+        /// <param name="modelUsed">AI model used</param>
+        /// <returns>Success status</returns>
+        Task<bool> UpdateStageAISummaryIfEmptyAsync(long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed);
     }
 
     /// <summary>

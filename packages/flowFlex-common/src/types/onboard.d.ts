@@ -240,6 +240,11 @@ export interface StageInfo {
 	startTime: string;
 	status: string;
 	components: ComponentData[];
+	aiSummary?: string;
+	aiSummaryGeneratedAt?: string;
+	aiSummaryConfidence?: number;
+	aiSummaryModel?: string;
+	aiSummaryData?: string;
 }
 
 export interface ComponentsData {

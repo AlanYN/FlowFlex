@@ -22,21 +22,6 @@
 						/>
 					</el-form-item>
 
-					<!-- AI Summary (readonly) -->
-					<el-form-item v-if="isEditing && aiSummary" label="AI Summary">
-						<p
-							class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200"
-						>
-							{{ aiSummary }}
-						</p>
-						<div class="text-xs text-muted mt-1" v-if="aiSummaryMetaAvailable">
-							<span v-if="aiSummaryGeneratedAt">
-								Generated at: {{ formatUsDate(aiSummaryGeneratedAt) }}
-							</span>
-							<span v-if="aiSummaryModel">| Model: {{ aiSummaryModel }}</span>
-						</div>
-					</el-form-item>
-
 					<!-- Visible in Customer Portal -->
 					<el-form-item label="Available in Customer Portal" prop="visibleInPortal">
 						<el-switch

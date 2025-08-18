@@ -1821,73 +1821,73 @@ namespace FlowFlex.Application.Services.OW
             await UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
 
             // After updating progress, synchronously generate AI summary so client can fetch it right after completion
-            try
-            {
-                var lang = string.IsNullOrWhiteSpace(input.Language) ? "auto" : input.Language;
-                var opts = new StageSummaryOptions { Language = lang, SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                // Try multiple attempts synchronously before falling back to placeholder
-                var ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-                if (ai == null || !ai.Success)
-                {
-                    try { await Task.Delay(1500); } catch {}
-                    ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-                }
-                LoadStagesProgressFromJson(entity);
-                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
-                if (sp != null)
-                {
-                    if (ai != null && ai.Success)
-                    {
-                        sp.AiSummary = ai.Summary;
-                        sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                        sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                        sp.AiSummaryModel = ai.ModelUsed;
-                        var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                        sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                    }
-                    else
-                    {
-                        // Fallback placeholder to ensure frontend sees a value immediately; schedule retry in background
-                        sp.AiSummary = "AI summary is being generated...";
-                        sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                        sp.AiSummaryConfidence = null;
-                        sp.AiSummaryModel = null;
-                        sp.AiSummaryData = null;
-                        _ = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                var retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-                                if (retry == null || !retry.Success)
-                                {
-                                    try { await Task.Delay(3000); } catch {}
-                                    retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-                                }
-                                if (retry != null && retry.Success)
-                                {
-                                    LoadStagesProgressFromJson(entity);
-                                    var sp2 = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
-                                    if (sp2 != null)
-                                    {
-                                        sp2.AiSummary = retry.Summary;
-                                        sp2.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                        sp2.AiSummaryConfidence = (decimal?)Convert.ToDecimal(retry.ConfidenceScore);
-                                        sp2.AiSummaryModel = retry.ModelUsed;
-                                        var dd = new { retry.Breakdown, retry.KeyInsights, retry.Recommendations, retry.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                        sp2.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(dd);
-                                        entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                        await SafeUpdateOnboardingAsync(entity);
-                                    }
-                                }
-                            }
-                            catch { }
-                        });
-                    }
-                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                    await SafeUpdateOnboardingAsync(entity);
-                }
-            }
-            catch { /* keep non-blocking if AI fails */ }
+            //try
+            //{
+            //    var lang = string.IsNullOrWhiteSpace(input.Language) ? "auto" : input.Language;
+            //    var opts = new StageSummaryOptions { Language = lang, SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+            //    // Try multiple attempts synchronously before falling back to placeholder
+            //    var ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+            //    if (ai == null || !ai.Success)
+            //    {
+            //        try { await Task.Delay(1500); } catch {}
+            //        ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+            //    }
+            //    LoadStagesProgressFromJson(entity);
+            //    var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
+            //    if (sp != null)
+            //    {
+            //        if (ai != null && ai.Success)
+            //        {
+            //            sp.AiSummary = ai.Summary;
+            //            sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+            //            sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+            //            sp.AiSummaryModel = ai.ModelUsed;
+            //            var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+            //            sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+            //        }
+            //        else
+            //        {
+            //            // Fallback placeholder to ensure frontend sees a value immediately; schedule retry in background
+            //            sp.AiSummary = "AI summary is being generated...";
+            //            sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+            //            sp.AiSummaryConfidence = null;
+            //            sp.AiSummaryModel = null;
+            //            sp.AiSummaryData = null;
+            //            _ = Task.Run(async () =>
+            //            {
+            //                try
+            //                {
+            //                    var retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+            //                    if (retry == null || !retry.Success)
+            //                    {
+            //                        try { await Task.Delay(3000); } catch {}
+            //                        retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
+            //                    }
+            //                    if (retry != null && retry.Success)
+            //                    {
+            //                        LoadStagesProgressFromJson(entity);
+            //                        var sp2 = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
+            //                        if (sp2 != null)
+            //                        {
+            //                            sp2.AiSummary = retry.Summary;
+            //                            sp2.AiSummaryGeneratedAt = DateTime.UtcNow;
+            //                            sp2.AiSummaryConfidence = (decimal?)Convert.ToDecimal(retry.ConfidenceScore);
+            //                            sp2.AiSummaryModel = retry.ModelUsed;
+            //                            var dd = new { retry.Breakdown, retry.KeyInsights, retry.Recommendations, retry.CompletionStatus, generatedAt = DateTime.UtcNow };
+            //                            sp2.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(dd);
+            //                            entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+            //                            await SafeUpdateOnboardingAsync(entity);
+            //                        }
+            //                    }
+            //                }
+            //                catch { }
+            //            });
+            //        }
+            //        entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+            //        await SafeUpdateOnboardingAsync(entity);
+            //    }
+            //}
+            //catch { /* keep non-blocking if AI fails */ }
 
             // Calculate new completion rate based on completed stages
             entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
@@ -5095,6 +5095,69 @@ namespace FlowFlex.Application.Services.OW
 
             // Generate the short URL format: {baseUrl}/portal/{tenantId}/{appCode}/invite/{shortUrlId}
             return $"{effectiveBaseUrl.TrimEnd('/')}/portal/{tenantId}/{appCode}/invite/{shortUrlId}";
+        }
+
+        /// <summary>
+        /// Update AI Summary for a specific stage in onboarding's stagesProgress
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiSummary">AI Summary content</param>
+        /// <param name="generatedAt">Generated timestamp</param>
+        /// <param name="confidence">Confidence score</param>
+        /// <param name="modelUsed">AI model used</param>
+        /// <returns>Success status</returns>
+        public async Task<bool> UpdateOnboardingStageAISummaryAsync(long onboardingId, long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed)
+        {
+            try
+            {
+                // Get current onboarding
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    Console.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
+                    return false;
+                }
+
+                // Load stages progress from JSON
+                LoadStagesProgressFromJson(onboarding);
+
+                // Find the stage progress entry
+                var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+                if (stageProgress == null)
+                {
+                    Console.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId}");
+                    return false;
+                }
+
+                // Update AI summary fields - always overwrite for Onboarding-specific summaries
+                stageProgress.AiSummary = aiSummary;
+                stageProgress.AiSummaryGeneratedAt = generatedAt;
+                stageProgress.AiSummaryConfidence = (decimal?)confidence;
+                stageProgress.AiSummaryModel = modelUsed;
+                stageProgress.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    trigger = "Stream API onboarding update",
+                    generatedAt = generatedAt,
+                    confidence = confidence,
+                    model = modelUsed,
+                    onboardingSpecific = true
+                });
+
+                // Save stages progress back to JSON
+                onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
+
+                // Update in database
+                var result = await SafeUpdateOnboardingAsync(onboarding);
+                Console.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
+                return false;
+            }
         }
     }
 }

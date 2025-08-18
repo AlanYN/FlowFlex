@@ -62,6 +62,75 @@
 				</div>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
 					<div class="space-y-6 mt-4">
+						<!-- AI Summary 展示（当前阶段） -->
+						<div
+							v-if="showAISummarySection"
+							class="bg-white dark:bg-black-300 rounded-md p-4"
+						>
+							<div class="flex justify-between items-center mb-2">
+								<div class="text-sm text-gray-500">AI Summary</div>
+								<el-button
+									:icon="Refresh"
+									size="small"
+									circle
+									:loading="aiSummaryLoading"
+									@click="refreshAISummary"
+									title="Refresh AI Summary"
+								/>
+							</div>
+
+							<!-- AI Summary content (always visible if exists) -->
+							<div v-if="currentAISummary" class="ai-summary-content">
+								<p
+									class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200"
+									:class="{ streaming: aiSummaryLoading }"
+								>
+									{{ currentAISummary }}
+									<span v-if="aiSummaryLoading" class="typing-indicator">|</span>
+								</p>
+							</div>
+
+							<!-- Loading state (only when no content yet) -->
+							<div
+								v-else-if="aiSummaryLoading"
+								class="flex items-center space-x-2 py-4"
+							>
+								<el-icon class="is-loading text-lg text-primary-500">
+									<Loading />
+								</el-icon>
+								<span class="text-sm text-gray-500">
+									{{ aiSummaryLoadingText }}
+								</span>
+							</div>
+
+							<!-- Empty state -->
+							<div v-else class="text-sm text-gray-400 italic py-2">
+								No AI summary available. Click refresh to generate.
+							</div>
+
+							<!-- Loading indicator when streaming content -->
+							<div
+								v-if="aiSummaryLoading && currentAISummary"
+								class="flex items-center space-x-2 py-2 mt-2"
+							>
+								<el-icon class="is-loading text-sm text-primary-500">
+									<Loading />
+								</el-icon>
+								<span class="text-xs text-gray-500">
+									{{ aiSummaryLoadingText }}
+								</span>
+							</div>
+
+							<div
+								v-if="currentAISummaryGeneratedAt"
+								class="mt-1 text-xs text-gray-400"
+							>
+								<span>
+									Generated at: {{ formatUsDate(currentAISummaryGeneratedAt) }}
+								</span>
+							</div>
+						</div>
+
 						<!-- Stage Details 加载状态 -->
 						<div
 							v-if="stageDataLoading"
@@ -74,27 +143,6 @@
 								<p class="text-gray-500 dark:text-gray-400">
 									Loading stage details...
 								</p>
-							</div>
-						</div>
-
-						<!-- AI Summary 展示（当前阶段） -->
-						<div
-							v-if="onboardingActiveStageInfo?.aiSummary"
-							class="bg-white dark:bg-black-300 rounded-md p-4"
-						>
-							<div class="mb-2 text-sm text-gray-500">AI Summary</div>
-							<p
-								class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200"
-							>
-								{{ onboardingActiveStageInfo.aiSummary }}
-							</p>
-							<div class="mt-1 text-xs text-gray-400">
-								<span v-if="onboardingActiveStageInfo?.aiSummaryGeneratedAt">
-									Generated at:
-									{{
-										formatUsDate(onboardingActiveStageInfo.aiSummaryGeneratedAt)
-									}}
-								</span>
 							</div>
 						</div>
 
@@ -230,7 +278,10 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Loading, User, Document } from '@element-plus/icons-vue';
+import { ArrowLeft, Loading, User, Document, Refresh, Check } from '@element-plus/icons-vue';
+import { getTokenobj } from '@/utils/auth';
+import { getTimeZoneInfo } from '@/hooks/time';
+import { useGlobSetting } from '@/settings';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
@@ -259,6 +310,7 @@ import PortalAccessContent from './components/PortalAccessContent.vue';
 
 const { t } = useI18n();
 const userStore = useUserStore();
+const globSetting = useGlobSetting();
 
 // 常量定义
 const router = useRouter();
@@ -280,6 +332,13 @@ const questionnaireAnswersMap = ref<SectionAnswer[]>([]);
 // Loading状态管理
 const stageDataLoading = ref(false); // 初始加载和阶段完成后的数据加载状态
 const initialLoading = ref(true); // 初始页面加载状态
+
+// AI Summary相关状态
+const aiSummaryLoading = ref(false);
+const aiSummaryLoadingText = ref('Generating AI summary...');
+const currentAISummary = ref('');
+const currentAISummaryGeneratedAt = ref('');
+const showAISummarySection = ref(true);
 
 // 使用自适应滚动条 hook
 const { scrollbarRef: leftScrollbarRef } = useAdaptiveScrollbar(100);
@@ -389,6 +448,9 @@ const processOnboardingData = (responseData: any) => {
 		(stage) => stage.stageId === newStageId
 	);
 
+	// 更新AI Summary显示
+	updateAISummaryFromStageInfo();
+
 	return newStageId;
 };
 
@@ -416,6 +478,8 @@ const loadOnboardingDetail = async () => {
 				activeStage.value = newStageId;
 				// 设置 activeStage 后，加载当前阶段的基础数据
 				await loadCurrentStageData();
+				// 检查并自动生成AI Summary
+				await checkAndGenerateAISummary();
 			}
 		}
 	} finally {
@@ -649,9 +713,15 @@ const setActiveStage = async (stageId: string) => {
 		(stage) => stage.stageId === stageId
 	);
 
+	// 更新AI Summary显示
+	updateAISummaryFromStageInfo();
+
 	// 重新加载依赖stageId的数据
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues(); // 添加加载字段值的调用
+
+	// 检查并自动生成AI Summary
+	await checkAndGenerateAISummary();
 };
 
 const handleNoteAdded = () => {
@@ -876,6 +946,176 @@ const formatUsDate = (value?: string | Date) => {
 	}
 };
 
+// AI Summary相关方法
+const updateAISummaryFromStageInfo = () => {
+	if (onboardingActiveStageInfo.value?.aiSummary) {
+		currentAISummary.value = onboardingActiveStageInfo.value.aiSummary;
+		currentAISummaryGeneratedAt.value =
+			onboardingActiveStageInfo.value.aiSummaryGeneratedAt || '';
+	} else {
+		currentAISummary.value = '';
+		currentAISummaryGeneratedAt.value = '';
+	}
+};
+
+const refreshAISummary = async () => {
+	if (!activeStage.value) {
+		ElMessage.error('No active stage selected');
+		return;
+	}
+
+	// 重置状态，开始流式生成
+	aiSummaryLoading.value = true;
+	aiSummaryLoadingText.value = 'Starting AI summary generation...';
+	currentAISummary.value = ''; // 清空现有内容，准备流式显示
+	console.log('🔄 [AI Summary] Starting generation, loading =', aiSummaryLoading.value);
+
+	try {
+		// 获取认证信息
+		const tokenObj = getTokenobj();
+		const userInfo = userStore.getUserInfo;
+
+		// 构建请求头
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+			Accept: 'text/event-stream',
+			'Time-Zone': getTimeZoneInfo().timeZone,
+			'Application-code': globSetting?.ssoCode || '',
+		};
+
+		// 添加认证头
+		if (tokenObj?.accessToken?.token) {
+			const token = tokenObj.accessToken.token;
+			const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
+			headers.Authorization = `${tokenType} ${token}`;
+		}
+
+		// 添加用户相关头信息
+		if (userInfo?.appCode) {
+			headers['X-App-Code'] = String(userInfo.appCode);
+		}
+		if (userInfo?.tenantId) {
+			headers['X-Tenant-Id'] = String(userInfo.tenantId);
+		}
+
+		// 使用fetch进行POST流式请求
+		const url = `/api/ow/stages/v1/${activeStage.value}/ai-summary/stream?onboardingId=${onboardingId.value}`;
+		const response = await fetch(url, {
+			method: 'POST',
+			headers,
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const reader = response.body?.getReader();
+		const decoder = new TextDecoder();
+
+		if (!reader) {
+			throw new Error('Response body is not readable');
+		}
+
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) break;
+
+			const chunk = decoder.decode(value, { stream: true });
+			const lines = chunk.split('\n');
+
+			for (const line of lines) {
+				if (line.startsWith('data: ')) {
+					const data = line.slice(6); // Remove 'data: ' prefix
+
+					if (data === '[DONE]') {
+						// 流结束，但不需要重置loading状态，因为success case已经处理了
+						return;
+					}
+
+					try {
+						const parsedData = JSON.parse(data);
+
+						switch (parsedData.type) {
+							case 'start':
+								aiSummaryLoadingText.value =
+									parsedData.message || 'Starting AI summary generation...';
+								console.log('▶️ [AI Summary] Start:', aiSummaryLoadingText.value);
+								break;
+							case 'progress':
+								aiSummaryLoadingText.value =
+									parsedData.message || 'Generating summary...';
+								console.log(
+									'⏳ [AI Summary] Progress:',
+									aiSummaryLoadingText.value
+								);
+								break;
+							case 'chunk':
+								// 流式内容更新 - 逐步添加内容
+								if (parsedData.content) {
+									currentAISummary.value += parsedData.content;
+									console.log(
+										'📝 [AI Summary] Chunk received:',
+										parsedData.content.length,
+										'chars'
+									);
+								}
+								break;
+							case 'success':
+								console.log(
+									'✅ [AI Summary] Success received:',
+									parsedData.content?.substring(0, 50) + '...'
+								);
+								// 如果success包含完整内容，设置它；否则保持当前累积的内容
+								if (parsedData.content && !currentAISummary.value) {
+									currentAISummary.value = parsedData.content;
+								}
+								currentAISummaryGeneratedAt.value =
+									parsedData.generatedAt || new Date().toISOString();
+								aiSummaryLoading.value = false;
+								console.log(
+									'🔄 [AI Summary] Loading set to false, current loading =',
+									aiSummaryLoading.value
+								);
+								ElMessage.success('AI summary generated successfully');
+
+								// 更新本地stage信息
+								if (onboardingActiveStageInfo.value) {
+									onboardingActiveStageInfo.value.aiSummary =
+										currentAISummary.value;
+									onboardingActiveStageInfo.value.aiSummaryGeneratedAt =
+										parsedData.generatedAt;
+									console.log('📝 [AI Summary] Updated stage info');
+								}
+								break;
+							case 'error':
+								console.error(
+									'❌ [AI Summary] Error received:',
+									parsedData.message
+								);
+								throw new Error(
+									parsedData.message || 'Failed to generate AI summary'
+								);
+						}
+					} catch (parseError) {
+						console.error('Error parsing stream data:', parseError);
+					}
+				}
+			}
+		}
+	} catch (error) {
+		console.error('Error generating AI summary:', error);
+		aiSummaryLoading.value = false;
+		ElMessage.error('Failed to generate AI summary');
+	}
+};
+
+const checkAndGenerateAISummary = async () => {
+	// 检查当前阶段是否有AI Summary，如果没有则自动生成
+	if (!onboardingActiveStageInfo.value?.aiSummary && !aiSummaryLoading.value) {
+		await refreshAISummary();
+	}
+};
+
 // 生命周期
 onMounted(async () => {
 	// 检查是否有有效的 onboarding ID
@@ -891,6 +1131,46 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
+/* AI Summary Streaming Styles */
+.ai-summary-content .streaming {
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(59, 130, 246, 0.1) 50%,
+		transparent 100%
+	);
+	background-size: 200% 100%;
+	animation: shimmer 2s infinite;
+	padding: 8px;
+	border-radius: 4px;
+}
+
+@keyframes shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+.typing-indicator {
+	animation: blink 1s infinite;
+	color: #3b82f6;
+	font-weight: bold;
+}
+
+@keyframes blink {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	51%,
+	100% {
+		opacity: 0;
+	}
+}
+
 /* 滚动条样式 */
 :deep(.el-scrollbar__view) {
 	padding: 0;

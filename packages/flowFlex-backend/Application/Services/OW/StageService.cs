@@ -976,11 +976,9 @@ namespace FlowFlex.Application.Service.OW
                 summaryOptions ??= new StageSummaryOptions();
 
                 // Get stage content for analysis
+                // Note: GetStageContentAsync is not implemented yet, 
+                // so we'll use PopulateStageComponentsForSummary instead
                 StageContentDto stageContent = null;
-                if (onboardingId.HasValue)
-                {
-                    stageContent = await GetStageContentAsync(stageId, onboardingId.Value);
-                }
 
                 // Prepare AI summary input
                 var aiInput = new AIStageSummaryInput
@@ -1026,11 +1024,9 @@ namespace FlowFlex.Application.Service.OW
                     }).ToList() ?? new List<AISummaryQuestionInfo>();
                 }
 
-                // If no onboarding context, try to get general stage component information
-                if (!onboardingId.HasValue)
-                {
-                    await PopulateStageComponentsForSummary(stageId, aiInput, summaryOptions);
-                }
+                // Get general stage component information
+                // Since GetStageContentAsync is not implemented yet, we always use this approach
+                await PopulateStageComponentsForSummary(stageId, aiInput, summaryOptions);
 
                 // Generate AI summary
                 var result = await _aiService.GenerateStageSummaryAsync(aiInput);
@@ -1492,6 +1488,60 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Log error but don't fail the entire operation
                 Console.WriteLine($"Error populating stage components for summary: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Update Stage AI Summary if it's currently empty (backfill only)
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiSummary">AI Summary content</param>
+        /// <param name="generatedAt">Generated timestamp</param>
+        /// <param name="confidence">Confidence score</param>
+        /// <param name="modelUsed">AI model used</param>
+        /// <returns>Success status</returns>
+        public async Task<bool> UpdateStageAISummaryIfEmptyAsync(long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed)
+        {
+            try
+            {
+                // Get current stage
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null)
+                {
+                    Console.WriteLine($"Stage {stageId} not found for AI summary update");
+                    return false;
+                }
+
+                // Only update if AI summary is currently empty (backfill only)
+                if (!string.IsNullOrWhiteSpace(stage.AiSummary))
+                {
+                    Console.WriteLine($"Stage {stageId} already has AI summary, skipping backfill");
+                    return true; // Return true since it's not an error
+                }
+
+                // Update AI summary fields
+                stage.AiSummary = aiSummary;
+                stage.AiSummaryGeneratedAt = generatedAt;
+                stage.AiSummaryConfidence = (decimal?)confidence;
+                stage.AiSummaryModel = modelUsed;
+                stage.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    trigger = "Stream API backfill",
+                    generatedAt = generatedAt,
+                    confidence = confidence,
+                    model = modelUsed
+                });
+
+                // Save to database
+                var result = await _stageRepository.UpdateAsync(stage);
+                Console.WriteLine($"✅ Successfully backfilled AI summary for stage {stageId}");
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Failed to update AI summary for stage {stageId}: {ex.Message}");
+                return false;
             }
         }
     }

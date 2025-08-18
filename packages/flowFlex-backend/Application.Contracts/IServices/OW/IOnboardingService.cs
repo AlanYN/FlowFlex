@@ -193,5 +193,17 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Query onboardings by specific stage ID using JSONB operators
         /// </summary>
         Task<List<OnboardingOutputDto>> QueryByStageIdAsync(long stageId);
+
+        /// <summary>
+        /// Update AI Summary for a specific stage in onboarding's stagesProgress
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiSummary">AI Summary content</param>
+        /// <param name="generatedAt">Generated timestamp</param>
+        /// <param name="confidence">Confidence score</param>
+        /// <param name="modelUsed">AI model used</param>
+        /// <returns>Success status</returns>
+        Task<bool> UpdateOnboardingStageAISummaryAsync(long onboardingId, long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed);
     }
 }
