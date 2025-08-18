@@ -21,10 +21,10 @@
 				</el-icon>
 				<div>
 					<h4 class="font-medium text-gray-800 dark:text-white">
-						{{ action.name || 'Untitled Action' }}
+						{{ action?.actionName || defaultStr }}
 					</h4>
 					<p class="text-sm text-gray-500 dark:text-gray-400">
-						{{ ACTION_TYPE_MAPPING?.[action?.actionType] || defaultStr }}
+						{{ action?.actionType || defaultStr }}
 					</p>
 				</div>
 			</div>
@@ -49,7 +49,6 @@
 
 <script setup lang="ts">
 import { Delete, Operation, Connection, Document } from '@element-plus/icons-vue';
-import { ActionType, ACTION_TYPE_MAPPING } from '@/apis/action';
 import { ActionListItem } from '#/action';
 import { defaultStr } from '@/settings/projectSetting';
 
@@ -70,11 +69,11 @@ const emit = defineEmits<{
 	delete: [index: number];
 }>();
 
-const getActionIcon = (type: number) => {
+const getActionIcon = (type: string | number) => {
 	switch (type) {
-		case ActionType.PYTHON_SCRIPT:
+		case 'Python':
 			return Operation;
-		case ActionType.HTTP_API:
+		case 'HttpApi':
 			return Connection;
 		default:
 			return Document;
