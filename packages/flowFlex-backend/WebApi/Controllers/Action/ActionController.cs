@@ -389,5 +389,28 @@ namespace FlowFlex.WebApi.Controllers.Action
         }
 
         #endregion
+
+        #region Action Execution History
+
+        /// <summary>
+        /// Get executions by trigger source ID with action information
+        /// </summary>
+        /// <param name="triggerSourceId">Trigger source ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated executions with action information</returns>
+        [HttpGet("executions/trigger-source/{triggerSourceId}")]
+        [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetExecutionsByTriggerSourceId(
+            long triggerSourceId,
+            int pageIndex = 1,
+            int pageSize = 10)
+        {
+            var result = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                triggerSourceId, pageIndex, pageSize);
+            return Success(result);
+        }
+
+        #endregion
     }
 }

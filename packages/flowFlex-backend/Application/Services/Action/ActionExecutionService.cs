@@ -1,10 +1,13 @@
 ﻿using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
+using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using AutoMapper;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -18,12 +21,14 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionExecutionFactory _actionExecutorFactory;
         private readonly IActionManagementService _actionManagementService;
         private readonly ILogger<ActionExecutionService> _logger;
+        private readonly IMapper _mapper;
 
         public ActionExecutionService(
             IActionDefinitionRepository actionDefinitionRepository,
             IActionExecutionRepository actionExecutionRepository,
             IActionExecutionFactory actionExecutorFactory,
             IActionManagementService actionManagementService,
+            IMapper mapper,
             ILogger<ActionExecutionService> logger)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
@@ -31,6 +36,7 @@ namespace FlowFlex.Application.Services.Action
             _actionExecutorFactory = actionExecutorFactory;
             _actionManagementService = actionManagementService;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<JToken?> ExecuteActionAsync(
@@ -129,5 +135,30 @@ namespace FlowFlex.Application.Services.Action
                 throw;
             }
         }
+
+        #region Execution History
+
+        public async Task<PageModelDto<ActionExecutionWithActionInfoDto>> GetExecutionsByTriggerSourceIdAsync(
+            long triggerSourceId,
+            int pageIndex = 1,
+            int pageSize = 10)
+        {
+            try
+            {
+                var (data, totalCount) = await _actionExecutionRepository.GetByTriggerSourceIdWithActionInfoAsync(
+                    triggerSourceId, pageIndex, pageSize);
+
+                var dtoList = _mapper.Map<List<ActionExecutionWithActionInfoDto>>(data);
+
+                return new PageModelDto<ActionExecutionWithActionInfoDto>(pageIndex, pageSize, dtoList, totalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetExecutionsByTriggerSourceIdAsync: TriggerSourceId={TriggerSourceId}", triggerSourceId);
+                throw;
+            }
+        }
+
+        #endregion
     }
 }

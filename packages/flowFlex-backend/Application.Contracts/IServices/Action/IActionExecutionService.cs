@@ -1,6 +1,8 @@
 ﻿using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.Action;
 using Newtonsoft.Json.Linq;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Contracts.IServices.Action
 {
@@ -34,5 +36,21 @@ namespace FlowFlex.Application.Contracts.IServices.Action
             ActionTypeEnum actionType,
             string actionConfig,
             object contextData = null);
+
+        #region Execution History
+
+        /// <summary>
+        /// Get executions by trigger source ID with action information
+        /// </summary>
+        /// <param name="triggerSourceId">Trigger source ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated executions with action information</returns>
+        Task<PageModelDto<ActionExecutionWithActionInfoDto>> GetExecutionsByTriggerSourceIdAsync(
+            long triggerSourceId,
+            int pageIndex = 1,
+            int pageSize = 10);
+
+        #endregion
     }
 }
