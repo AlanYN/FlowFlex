@@ -1,4 +1,5 @@
 ﻿using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Enums.Action;
 using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Contracts.IServices.Action
@@ -21,5 +22,17 @@ namespace FlowFlex.Application.Contracts.IServices.Action
             object contextData = null,
             long? userId = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Execute action directly without saving ActionDefinition
+        /// </summary>
+        /// <param name="actionType">Action type (Python, HttpApi, SendEmail)</param>
+        /// <param name="actionConfig">Action configuration JSON string</param>
+        /// <param name="contextData">Context data for execution</param>
+        /// <returns>Execution result</returns>
+        Task<object> ExecuteActionDirectlyAsync(
+            ActionTypeEnum actionType,
+            string actionConfig,
+            object contextData = null);
     }
 }

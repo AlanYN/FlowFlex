@@ -349,6 +349,45 @@ namespace FlowFlex.WebApi.Controllers.Action
             }
         }
 
+        /// <summary>
+        /// Test execute action directly without saving ActionDefinition
+        /// </summary>
+        /// <param name="request">Direct execution request</param>
+        /// <returns>Execution result</returns>
+        [HttpPost("test/direct")]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        public async Task<IActionResult> TestActionDirectly([FromBody] DirectActionExecutionRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return BadRequest("Request body cannot be null");
+                }
+
+                if (string.IsNullOrWhiteSpace(request.ActionConfig))
+                {
+                    return BadRequest("Action configuration cannot be empty");
+                }
+
+                var result = await _actionExecutionService.ExecuteActionDirectlyAsync(
+                    request.ActionType,
+                    request.ActionConfig,
+                    request.ContextData);
+
+                return Success(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Execution failed: {ex.Message}");
+            }
+        }
+
         #endregion
     }
 }

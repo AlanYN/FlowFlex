@@ -166,7 +166,7 @@ namespace FlowFlex.Application.Services.Action
             return _mapper.Map<ActionDefinitionDto>(entity);
         }
 
-        private void ValidateActionConfig(ActionTypeEnum actionType, string actionConfig)
+        public void ValidateActionConfig(ActionTypeEnum actionType, string actionConfig)
         {
             if (string.IsNullOrWhiteSpace(actionConfig))
             {
