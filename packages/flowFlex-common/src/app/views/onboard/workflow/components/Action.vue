@@ -34,26 +34,27 @@
 				</div>
 			</div>
 
-			<draggable
-				v-else
-				v-model="actions"
-				item-key="id"
-				handle=".drag-handle"
-				ghost-class="ghost-action"
-				@end="onDragEnd"
-				class="flex flex-col gap-2"
-				:animation="300"
-			>
-				<template #item="{ element: action, index }">
-					<ActionItem
-						:action="action"
-						:index="index"
-						:is-selected="selectedActionIndex === index"
-						@edit="editAction"
-						@delete="removeAction"
-					/>
-				</template>
-			</draggable>
+			<el-scrollbar v-else class="actions-scrollbar" max-height="400px">
+				<draggable
+					v-model="actions"
+					item-key="id"
+					handle=".drag-handle"
+					ghost-class="ghost-action"
+					@end="onDragEnd"
+					class="flex flex-col gap-2 p-2"
+					:animation="300"
+				>
+					<template #item="{ element: action, index }">
+						<ActionItem
+							:action="action"
+							:index="index"
+							:is-selected="selectedActionIndex === index"
+							@edit="editAction"
+							@delete="removeAction"
+						/>
+					</template>
+				</draggable>
+			</el-scrollbar>
 		</div>
 
 		<!-- Action Configuration Dialog -->
@@ -63,7 +64,7 @@
 			:is-editing="editingIndex !== -1"
 			:stage-id="stageId"
 			:workflow-id="workflowId"
-			@save="onActionSave"
+			@save-success="onActionSave"
 			@cancel="onActionCancel"
 		/>
 	</div>
@@ -76,7 +77,7 @@ import { Plus, Document } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 import ActionItem from './ActionItem.vue';
 import ActionConfigDialog from './ActionConfigDialog.vue';
-import { getActionDefinitions, deleteAction } from '@/apis/action';
+import { getStageAction, deleteAction } from '@/apis/action';
 import { useI18n } from 'vue-i18n';
 import { ActionListItem } from '#/action';
 
@@ -100,15 +101,9 @@ const getActionList = async () => {
 	if (!props.stageId || !props.workflowId) return;
 	try {
 		actionListLoading.value = true;
-		const res = await getActionDefinitions({
-			pageSize: 100,
-			pageIndex: 1,
-		});
-		if (res.code === '200') {
-			actions.value = res.data.data.map((item) => ({
-				...item,
-				actionConfig: JSON.parse(item.actionConfig),
-			}));
+		const res = await getStageAction(props.stageId);
+		if (res.code === '200' && res?.data) {
+			actions.value = res?.data;
 		}
 	} finally {
 		actionListLoading.value = false;
@@ -184,21 +179,8 @@ const removeAction = async (index: number) => {
 };
 
 // Dialog event handlers
-const onActionSave = (action: ActionListItem) => {
-	const updatedActions = [...actions.value];
-
-	if (editingIndex.value !== -1) {
-		// Update existing action
-		updatedActions[editingIndex.value] = { ...action };
-		ElMessage.success('Action updated successfully');
-	} else {
-		// Add new action
-		updatedActions.push({ ...action });
-		ElMessage.success('Action added successfully');
-	}
-
-	actions.value = updatedActions;
-	selectedActionIndex.value = -1;
+const onActionSave = () => {
+	getActionList();
 	resetEditingState();
 };
 
@@ -233,11 +215,15 @@ defineExpose({
 }
 
 .actions-container {
-	@apply flex-1 min-h-0;
+	@apply flex-1 min-h-0 flex flex-col;
 }
 
 .empty-state {
 	@apply flex-1 flex items-center justify-center;
+}
+
+.actions-scrollbar {
+	@apply flex-1;
 }
 
 // Custom ghost class for actions
