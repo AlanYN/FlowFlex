@@ -1,5 +1,6 @@
 ﻿using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
+using FlowFlex.Domain.Shared.Models;
 using SqlSugar;
 
 namespace FlowFlex.SqlSugarDB.Repositories.Action
@@ -161,6 +162,52 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                 .ExecuteCommandAsync();
 
             return affectedRows;
+        }
+
+        /// <summary>
+        /// Get executions by trigger source ID with action information
+        /// </summary>
+        public async Task<(List<ActionExecutionWithActionInfo> Data, int TotalCount)> GetByTriggerSourceIdWithActionInfoAsync(
+            long triggerSourceId,
+            int pageIndex = 1,
+            int pageSize = 10)
+        {
+            // Then query executions with action information
+            var query = db.Queryable<ActionExecution>()
+                .InnerJoin<ActionTriggerMapping>((e, m) => e.ActionTriggerMappingId == m.Id)
+                .InnerJoin<ActionDefinition>((e, m, a) => m.ActionDefinitionId == a.Id && e.ActionDefinitionId == a.Id)
+                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId)
+                .OrderByDescending((e, m, a) => e.CreateDate)
+                .Select((e, m, a) => new ActionExecutionWithActionInfo
+                {
+                    Id = e.Id,
+                    ActionDefinitionId = e.ActionDefinitionId,
+                    ActionCode = a.ActionCode,
+                    ExecutionId = e.ExecutionId,
+                    ActionTriggerMappingId = e.ActionTriggerMappingId,
+                    ActionName = e.ActionName,
+                    ActionType = e.ActionType,
+                    TriggerContext = e.TriggerContext,
+                    ExecutionStatus = e.ExecutionStatus,
+                    StartedAt = e.StartedAt,
+                    CompletedAt = e.CompletedAt,
+                    DurationMs = e.DurationMs,
+                    ExecutionInput = e.ExecutionInput,
+                    ExecutionOutput = e.ExecutionOutput,
+                    ErrorMessage = e.ErrorMessage,
+                    ErrorStackTrace = e.ErrorStackTrace,
+                    ExecutorInfo = e.ExecutorInfo,
+                    CreatedAt = e.CreateDate,
+                    CreatedBy = e.CreateBy
+                });
+
+            // Get total count
+            var totalCount = await query.CountAsync();
+
+            // Get paged data
+            var data = await query.ToPageListAsync(pageIndex, pageSize);
+
+            return (data, totalCount);
         }
     }
 }

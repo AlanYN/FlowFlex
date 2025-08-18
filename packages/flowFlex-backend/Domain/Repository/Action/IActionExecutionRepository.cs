@@ -1,5 +1,6 @@
 ﻿using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Domain.Repository.Action
 {
@@ -77,5 +78,17 @@ namespace FlowFlex.Domain.Repository.Action
         /// <param name="keepDays">Keep records for how many days</param>
         /// <returns>Number of deleted records</returns>
         Task<int> CleanupOldExecutionsAsync(int keepDays = 90);
+
+        /// <summary>
+        /// Get executions by trigger source ID with action information
+        /// </summary>
+        /// <param name="triggerSourceId">Trigger source ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated executions with action information</returns>
+        Task<(List<ActionExecutionWithActionInfo> Data, int TotalCount)> GetByTriggerSourceIdWithActionInfoAsync(
+            long triggerSourceId,
+            int pageIndex = 1,
+            int pageSize = 10);
     }
 }

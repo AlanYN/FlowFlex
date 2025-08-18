@@ -164,8 +164,27 @@ namespace FlowFlex.Application.Services.Action.Executors
 
             try
             {
+                object parsedContext = triggerContext;
+                if (triggerContext is string jsonString && !string.IsNullOrWhiteSpace(jsonString))
+                {
+                    string trimmed = jsonString.Trim();
+                    if ((trimmed.StartsWith("{") && trimmed.EndsWith("}")) ||
+                        (trimmed.StartsWith("[") && trimmed.EndsWith("]")))
+                    {
+                        try
+                        {
+                            parsedContext = JToken.Parse(jsonString);
+                        }
+                        catch (JsonException)
+                        {
+                            // If parsing fails, continue with original triggerContext
+                            parsedContext = triggerContext;
+                        }
+                    }
+                }
+
                 // Handle JToken/JObject
-                if (triggerContext is JToken jToken)
+                if (parsedContext is JToken jToken)
                 {
                     var token = jToken[propertyName];
                     if (token != null && token.Type != JTokenType.Null)
@@ -176,7 +195,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                 }
 
                 // Handle JObject
-                if (triggerContext is JObject jObject)
+                if (parsedContext is JObject jObject)
                 {
                     var token = jObject[propertyName];
                     if (token != null && token.Type != JTokenType.Null)
@@ -187,7 +206,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                 }
 
                 // Handle IDictionary
-                if (triggerContext is System.Collections.IDictionary dict)
+                if (parsedContext is System.Collections.IDictionary dict)
                 {
                     if (dict.Contains(propertyName))
                     {
@@ -197,7 +216,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                 }
 
                 // Handle generic Dictionary
-                if (triggerContext is IDictionary<string, object> genericDict)
+                if (parsedContext is IDictionary<string, object> genericDict)
                 {
                     if (genericDict.TryGetValue(propertyName, out var value))
                     {
@@ -207,18 +226,18 @@ namespace FlowFlex.Application.Services.Action.Executors
                 }
 
                 // Handle object properties via reflection
-                var property = triggerContext.GetType().GetProperty(propertyName);
+                var property = parsedContext.GetType().GetProperty(propertyName);
                 if (property != null)
                 {
-                    return property.GetValue(triggerContext);
+                    return property.GetValue(parsedContext);
                 }
 
                 // Try case-insensitive property search
-                property = triggerContext.GetType().GetProperties()
+                property = parsedContext.GetType().GetProperties()
                     .FirstOrDefault(p => p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase));
                 if (property != null)
                 {
-                    return property.GetValue(triggerContext);
+                    return property.GetValue(parsedContext);
                 }
 
                 return null;
