@@ -2,15 +2,15 @@
 	<div class="http-config space-y-6">
 		<!-- HTTP Configuration Form -->
 		<div class="http-form">
-			<el-form :model="config" label-width="120px" class="space-y-6" label-position="top">
+			<el-form :model="formConfig" label-width="120px" class="space-y-6" label-position="top">
 				<el-form-item label="Request URL" required class="request-url-input">
 					<el-input
-						v-model="url"
+						v-model="formConfig.url"
 						placeholder="Enter URL, type '/' to insert variables"
 						class="w-full"
 					>
 						<template #prepend>
-							<el-select v-model="method" style="width: 115px">
+							<el-select v-model="formConfig.method" style="width: 115px">
 								<el-option label="GET" value="GET" />
 								<el-option label="POST" value="POST" />
 								<el-option label="PUT" value="PUT" />
@@ -35,21 +35,21 @@
 						</div>
 						<div class="params-body">
 							<div
-								v-for="(header, index) in config.headers"
+								v-for="(header, index) in formConfig.headersList"
 								:key="index"
 								class="param-row"
 							>
-								<el-input
+								<variable-auto-complete
 									v-model="header.key"
 									placeholder="Type '/' to insert variables"
 									class="param-input"
-									@input="checkAddNewHeaderRow(index)"
+									@update:model-value="updateHeaderKey(index, $event)"
 								/>
-								<el-input
+								<variable-auto-complete
 									v-model="header.value"
 									placeholder="Type '/' to insert variables"
 									class="param-input"
-									@input="checkAddNewHeaderRow(index)"
+									@update:model-value="updateHeaderValue(index, $event)"
 								/>
 								<el-button
 									type="danger"
@@ -74,21 +74,21 @@
 						</div>
 						<div class="params-body">
 							<div
-								v-for="(param, index) in config.params"
+								v-for="(param, index) in formConfig.paramsList"
 								:key="index"
 								class="param-row"
 							>
-								<el-input
+								<variable-auto-complete
 									v-model="param.key"
-									placeholder="/"
+									placeholder="Type '/' to insert variables"
 									class="param-input"
-									@input="checkAddNewParamRow(index)"
+									@update:model-value="updateParamKey(index, $event)"
 								/>
-								<el-input
+								<variable-auto-complete
 									v-model="param.value"
-									placeholder="/"
+									placeholder="Type '/' to insert variables"
 									class="param-input"
-									@input="checkAddNewParamRow(index)"
+									@update:model-value="updateParamValue(index, $event)"
 								/>
 								<el-button
 									type="danger"
@@ -107,62 +107,23 @@
 				<el-form-item label="BODY">
 					<div class="body-section">
 						<!-- Body Type Selection -->
-						<el-radio-group v-model="bodyType" class="body-type-group">
+						<el-radio-group v-model="formConfig.bodyType" class="body-type-group">
 							<el-radio value="none">none</el-radio>
 							<el-radio value="form-data">form-data</el-radio>
 							<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
 							<el-radio value="raw">raw</el-radio>
-							<el-radio value="binary">binary</el-radio>
 						</el-radio-group>
 
 						<!-- Body Content based on type -->
 						<div class="body-content">
 							<!-- None - No content -->
-							<div v-if="config.bodyType === 'none'" class="body-none">
+							<div v-if="formConfig.bodyType === 'none'" class="body-none">
 								<p class="text-gray-500 text-sm">This request has no body</p>
 							</div>
 
 							<!-- Form Data -->
-							<div v-else-if="config.bodyType === 'form-data'" class="params-section">
-								<div class="params-header">
-									<div class="param-col">Key</div>
-									<div class="param-col">Value</div>
-									<div class="param-actions">Actions</div>
-								</div>
-								<div class="params-body">
-									<div
-										v-for="(item, index) in config.formData"
-										:key="index"
-										class="param-row"
-									>
-										<el-input
-											v-model="item.key"
-											placeholder="/"
-											class="param-input"
-											@input="checkAddNewFormDataRow(index)"
-										/>
-										<el-input
-											v-model="item.value"
-											placeholder="/"
-											class="param-input"
-											@input="checkAddNewFormDataRow(index)"
-										/>
-										<el-button
-											type="danger"
-											text
-											@click="removeFormData(index)"
-											class="param-delete"
-											v-if="config.formData.length > 1"
-										>
-											<el-icon><Delete /></el-icon>
-										</el-button>
-									</div>
-								</div>
-							</div>
-
-							<!-- URL Encoded -->
 							<div
-								v-else-if="config.bodyType === 'x-www-form-urlencoded'"
+								v-else-if="formConfig.bodyType === 'form-data'"
 								class="params-section"
 							>
 								<div class="params-header">
@@ -172,28 +133,71 @@
 								</div>
 								<div class="params-body">
 									<div
-										v-for="(item, index) in config.urlEncoded"
+										v-for="(item, index) in formConfig.formDataList"
 										:key="index"
 										class="param-row"
 									>
-										<el-input
+										<variable-auto-complete
 											v-model="item.key"
-											placeholder="/"
+											placeholder="Type '/' to insert variables"
 											class="param-input"
-											@input="checkAddNewUrlEncodedRow(index)"
+											@update:model-value="updateFormDataKey(index, $event)"
 										/>
-										<el-input
+										<variable-auto-complete
 											v-model="item.value"
-											placeholder="/"
+											placeholder="Type '/' to insert variables"
 											class="param-input"
-											@input="checkAddNewUrlEncodedRow(index)"
+											@update:model-value="updateFormDataValue(index, $event)"
+										/>
+										<el-button
+											type="danger"
+											text
+											@click="removeFormData(index)"
+											class="param-delete"
+											v-if="formConfig.formDataList.length > 1"
+										>
+											<el-icon><Delete /></el-icon>
+										</el-button>
+									</div>
+								</div>
+							</div>
+
+							<!-- URL Encoded -->
+							<div
+								v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
+								class="params-section"
+							>
+								<div class="params-header">
+									<div class="param-col">Key</div>
+									<div class="param-col">Value</div>
+									<div class="param-actions">Actions</div>
+								</div>
+								<div class="params-body">
+									<div
+										v-for="(item, index) in formConfig.urlEncodedList"
+										:key="index"
+										class="param-row"
+									>
+										<variable-auto-complete
+											v-model="item.key"
+											placeholder="Type '/' to insert variables"
+											class="param-input"
+											@update:model-value="updateUrlEncodedKey(index, $event)"
+										/>
+										<variable-auto-complete
+											v-model="item.value"
+											placeholder="Type '/' to insert variables"
+											class="param-input"
+											@update:model-value="
+												updateUrlEncodedValue(index, $event)
+											"
 										/>
 										<el-button
 											type="danger"
 											text
 											@click="removeUrlEncoded(index)"
 											class="param-delete"
-											v-if="config.urlEncoded.length > 1"
+											v-if="formConfig.urlEncodedList.length > 1"
 										>
 											<el-icon><Delete /></el-icon>
 										</el-button>
@@ -202,9 +206,12 @@
 							</div>
 
 							<!-- Raw - with format selection -->
-							<div v-else-if="config.bodyType === 'raw'" class="raw-section">
+							<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
 								<div class="raw-header">
-									<el-select v-model="rawFormat" class="raw-format-select">
+									<el-select
+										v-model="formConfig.rawFormat"
+										class="raw-format-select"
+									>
 										<el-option label="JSON" value="json" />
 										<el-option label="Text" value="text" />
 										<el-option label="JavaScript" value="javascript" />
@@ -212,28 +219,13 @@
 										<el-option label="XML" value="xml" />
 									</el-select>
 								</div>
-								<el-input
-									v-model="rawBody"
+								<variable-auto-complete
+									v-model="formConfig.rawBody"
 									type="textarea"
 									:rows="8"
 									placeholder="Enter your content here, type '/' to insert variables..."
 									class="font-mono text-sm raw-textarea"
 								/>
-							</div>
-
-							<!-- Binary -->
-							<div v-else-if="config.bodyType === 'binary'" class="binary-section">
-								<el-upload
-									drag
-									:auto-upload="false"
-									:show-file-list="true"
-									class="binary-upload"
-								>
-									<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
-									<div class="el-upload__text">
-										Drop file here or click to select
-									</div>
-								</el-upload>
 							</div>
 						</div>
 					</div>
@@ -242,7 +234,7 @@
 		</div>
 
 		<!-- Test Run Section -->
-		<div class="test-section">
+		<div class="test-section" v-if="idEditing">
 			<div class="flex items-center justify-between mb-3">
 				<h5 class="font-medium text-gray-700 dark:text-gray-300">Test API Call</h5>
 				<el-button
@@ -250,7 +242,7 @@
 					size="small"
 					@click="handleTest"
 					:loading="testing"
-					:disabled="!config.url"
+					:disabled="!formConfig.url"
 				>
 					Test Request
 				</el-button>
@@ -269,22 +261,59 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed } from 'vue';
-import { Delete, Upload } from '@element-plus/icons-vue';
+import { computed } from 'vue';
+import { Delete } from '@element-plus/icons-vue';
+import VariableAutoComplete from './VariableAutoComplete.vue';
 
-interface KeyValuePair {
+interface KeyValueItem {
 	key: string;
 	value: string;
 }
 
 interface Props {
-	modelValue?: any;
+	modelValue?: {
+		url?: string;
+		method?: string;
+		headers?: Record<string, string>;
+		params?: Record<string, string>;
+		bodyType?: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw';
+		formData?: Record<string, string>;
+		urlEncoded?: Record<string, string>;
+		rawFormat?: string;
+		rawBody?: string;
+		body?: string;
+		timeout?: number;
+		followRedirects?: boolean;
+		// Prefer lists to preserve order and duplicates in UI
+		headersList?: KeyValueItem[];
+		paramsList?: KeyValueItem[];
+		formDataList?: KeyValueItem[];
+		urlEncodedList?: KeyValueItem[];
+	};
 	testing?: boolean;
 	testResult?: string;
+	idEditing?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-	modelValue: () => ({}),
+	modelValue: () => ({
+		url: '',
+		method: 'GET',
+		headers: {},
+		params: {},
+		bodyType: 'none',
+		formData: {},
+		urlEncoded: {},
+		rawFormat: 'json',
+		rawBody: '',
+		body: '',
+		timeout: 30,
+		followRedirects: true,
+		headersList: [],
+		paramsList: [],
+		formDataList: [],
+		urlEncodedList: [],
+	}),
 	testing: false,
 	testResult: '',
 });
@@ -294,173 +323,233 @@ const emit = defineEmits<{
 	test: [];
 }>();
 
-// Local reactive config for internal use
-const localConfig = reactive({
-	url: '',
-	method: 'GET',
-	headers: [{ key: '', value: '' }] as KeyValuePair[],
-	params: [{ key: '', value: '' }] as KeyValuePair[],
-	bodyType: 'none' as 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw' | 'binary',
-	formData: [{ key: '', value: '' }] as KeyValuePair[],
-	urlEncoded: [{ key: '', value: '' }] as KeyValuePair[],
-	rawFormat: 'json',
-	rawBody: '',
-});
+// 主要的配置对象，在computed中处理所有数据格式转换
+const formConfig = computed({
+	get() {
+		const data = props.modelValue || ({} as NonNullable<Props['modelValue']>);
 
-// Helper function to emit changes
-const emitChanges = () => {
-	const exportValue = {
-		...localConfig,
-		// Convert headers back to string format for compatibility
-		headers: Array.isArray(localConfig.headers)
-			? localConfig.headers.reduce(
-					(acc, { key, value }) => {
-						if (key && value) acc[key] = value;
-						return acc;
-					},
-					{} as Record<string, string>
-			  )
-			: {},
-	};
-	emit('update:modelValue', exportValue);
-};
-
-// Initialize localConfig from props
-if (props.modelValue) {
-	if (typeof props.modelValue.headers === 'string') {
-		try {
-			const headerObj = JSON.parse(props.modelValue.headers);
-			localConfig.headers = Object.entries(headerObj).map(([key, value]) => ({
-				key,
-				value: String(value),
-			}));
-		} catch {
-			localConfig.headers = [{ key: '', value: '' }];
+		// headers：优先使用外部传入的列表以保留重复与顺序
+		let headersList: KeyValueItem[] = Array.isArray(data.headersList)
+			? [...(data.headersList as KeyValueItem[])]
+			: Object.entries(data.headers || {}).map(([key, value]) => ({ key, value }));
+		if (
+			headersList.length === 0 ||
+			String(headersList[headersList.length - 1]?.key || '').trim() ||
+			String(headersList[headersList.length - 1]?.value || '').trim()
+		) {
+			headersList.push({ key: '', value: '' });
 		}
+
+		// params：同样优先使用列表
+		let paramsList: KeyValueItem[] = Array.isArray(data.paramsList)
+			? [...(data.paramsList as KeyValueItem[])]
+			: Object.entries(data.params || {}).map(([key, value]) => ({ key, value }));
+		if (
+			paramsList.length === 0 ||
+			String(paramsList[paramsList.length - 1]?.key || '').trim() ||
+			String(paramsList[paramsList.length - 1]?.value || '').trim()
+		) {
+			paramsList.push({ key: '', value: '' });
+		}
+
+		// formData：优先列表
+		let formDataList: KeyValueItem[] = Array.isArray(data.formDataList)
+			? [...(data.formDataList as KeyValueItem[])]
+			: Object.entries(data.formData || {}).map(([key, value]) => ({ key, value }));
+		if (
+			formDataList.length === 0 ||
+			String(formDataList[formDataList.length - 1]?.key || '').trim() ||
+			String(formDataList[formDataList.length - 1]?.value || '').trim()
+		) {
+			formDataList.push({ key: '', value: '' });
+		}
+
+		// urlEncoded：优先列表
+		let urlEncodedList: KeyValueItem[] = Array.isArray(data.urlEncodedList)
+			? [...(data.urlEncodedList as KeyValueItem[])]
+			: Object.entries(data.urlEncoded || {}).map(([key, value]) => ({ key, value }));
+		if (
+			urlEncodedList.length === 0 ||
+			String(urlEncodedList[urlEncodedList.length - 1]?.key || '').trim() ||
+			String(urlEncodedList[urlEncodedList.length - 1]?.value || '').trim()
+		) {
+			urlEncodedList.push({ key: '', value: '' });
+		}
+
+		return {
+			...data,
+			url: data.url || '',
+			method: data.method || 'GET',
+			bodyType: data.bodyType || 'none',
+			rawFormat: data.rawFormat || 'json',
+			rawBody: data.rawBody || '',
+			body: data.body || '',
+			timeout: data.timeout || 30,
+			followRedirects: data.followRedirects !== undefined ? data.followRedirects : true,
+			// 转换后的数组格式，用于模板显示（保留到 modelValue）
+			headersList,
+			paramsList,
+			formDataList,
+			urlEncodedList,
+		};
+	},
+	set(value) {
+		// 将数组格式转换回对象格式（对象只用于请求执行；UI 仍依赖列表以保留重复与顺序）
+		const headers: Record<string, string> = {};
+		if (value.headersList) {
+			value.headersList.forEach(({ key, value: val }: { key: string; value: string }) => {
+				const k = String(key || '').trim();
+				if (k) {
+					headers[k] = val; // last-wins
+				}
+			});
+		}
+
+		const params: Record<string, string> = {};
+		if (value.paramsList) {
+			value.paramsList.forEach(({ key, value: val }: { key: string; value: string }) => {
+				const k = String(key || '').trim();
+				if (k) {
+					params[k] = val; // last-wins
+				}
+			});
+		}
+
+		const formData: Record<string, string> = {};
+		if (value.formDataList) {
+			value.formDataList.forEach(({ key, value: val }: { key: string; value: string }) => {
+				const k = String(key || '').trim();
+				if (k) {
+					formData[k] = val; // last-wins
+				}
+			});
+		}
+
+		const urlEncoded: Record<string, string> = {};
+		if (value.urlEncodedList) {
+			value.urlEncodedList.forEach(({ key, value: val }: { key: string; value: string }) => {
+				const k = String(key || '').trim();
+				if (k) {
+					urlEncoded[k] = val; // last-wins
+				}
+			});
+		}
+
+		// 保留列表字段到上层 modelValue，以维持 UI 的重复 key 与顺序
+		emit('update:modelValue', {
+			...value,
+			headers,
+			params,
+			formData,
+			urlEncoded,
+		});
+	},
+});
+
+// 在每次更新后，确保末尾存在一行空白输入
+const ensureTrailingEmptyRow = (
+	listName: 'headersList' | 'paramsList' | 'formDataList' | 'urlEncodedList'
+) => {
+	const currentList = [...(formConfig.value as any)[listName]] as Array<{
+		key: unknown;
+		value: unknown;
+	}>;
+	const last = currentList[currentList.length - 1];
+	const lastKeyFilled = String((last?.key as any) ?? '').trim();
+	const lastValueFilled = String((last?.value as any) ?? '').trim();
+	if (last && (lastKeyFilled || lastValueFilled)) {
+		currentList.push({ key: '', value: '' });
+		(formConfig.value as any) = { ...(formConfig.value as any), [listName]: currentList };
 	}
-	Object.assign(localConfig, {
-		...props.modelValue,
-		headers: localConfig.headers, // Keep the converted headers
-	});
-}
+};
 
-// Individual computed properties for form fields
-const url = computed({
-	get: () => localConfig.url,
-	set: (value) => {
-		localConfig.url = value;
-		emitChanges();
-	},
-});
+// 更新函数 - 简化为直接触发computed的set
+const updateHeaderKey = (index: number, newKey: string) => {
+	const newHeadersList = [...formConfig.value.headersList];
+	newHeadersList[index] = { ...newHeadersList[index], key: newKey };
+	formConfig.value = { ...formConfig.value, headersList: newHeadersList };
+	ensureTrailingEmptyRow('headersList');
+};
 
-const method = computed({
-	get: () => localConfig.method,
-	set: (value) => {
-		localConfig.method = value;
-		emitChanges();
-	},
-});
+const updateHeaderValue = (index: number, newValue: string) => {
+	const newHeadersList = [...formConfig.value.headersList];
+	newHeadersList[index] = { ...newHeadersList[index], value: newValue };
+	formConfig.value = { ...formConfig.value, headersList: newHeadersList };
+	ensureTrailingEmptyRow('headersList');
+};
 
-const bodyType = computed({
-	get: () => localConfig.bodyType,
-	set: (value) => {
-		localConfig.bodyType = value;
-		emitChanges();
-	},
-});
+const updateParamKey = (index: number, newKey: string) => {
+	const newParamsList = [...formConfig.value.paramsList];
+	newParamsList[index] = { ...newParamsList[index], key: newKey };
+	formConfig.value = { ...formConfig.value, paramsList: newParamsList };
+	ensureTrailingEmptyRow('paramsList');
+};
 
-const rawFormat = computed({
-	get: () => localConfig.rawFormat,
-	set: (value) => {
-		localConfig.rawFormat = value;
-		emitChanges();
-	},
-});
+const updateParamValue = (index: number, newValue: string) => {
+	const newParamsList = [...formConfig.value.paramsList];
+	newParamsList[index] = { ...newParamsList[index], value: newValue };
+	formConfig.value = { ...formConfig.value, paramsList: newParamsList };
+	ensureTrailingEmptyRow('paramsList');
+};
 
-const rawBody = computed({
-	get: () => localConfig.rawBody,
-	set: (value) => {
-		localConfig.rawBody = value;
-		emitChanges();
-	},
-});
+const updateFormDataKey = (index: number, newKey: string) => {
+	const newFormDataList = [...formConfig.value.formDataList];
+	newFormDataList[index] = { ...newFormDataList[index], key: newKey };
+	formConfig.value = { ...formConfig.value, formDataList: newFormDataList };
+	ensureTrailingEmptyRow('formDataList');
+};
 
-// Computed for accessing arrays (read-only in template, modified via functions)
-const config = computed(() => localConfig);
+const updateFormDataValue = (index: number, newValue: string) => {
+	const newFormDataList = [...formConfig.value.formDataList];
+	newFormDataList[index] = { ...newFormDataList[index], value: newValue };
+	formConfig.value = { ...formConfig.value, formDataList: newFormDataList };
+	ensureTrailingEmptyRow('formDataList');
+};
 
-// Header management
+const updateUrlEncodedKey = (index: number, newKey: string) => {
+	const newUrlEncodedList = [...formConfig.value.urlEncodedList];
+	newUrlEncodedList[index] = { ...newUrlEncodedList[index], key: newKey };
+	formConfig.value = { ...formConfig.value, urlEncodedList: newUrlEncodedList };
+	ensureTrailingEmptyRow('urlEncodedList');
+};
+
+const updateUrlEncodedValue = (index: number, newValue: string) => {
+	const newUrlEncodedList = [...formConfig.value.urlEncodedList];
+	newUrlEncodedList[index] = { ...newUrlEncodedList[index], value: newValue };
+	formConfig.value = { ...formConfig.value, urlEncodedList: newUrlEncodedList };
+	ensureTrailingEmptyRow('urlEncodedList');
+};
+
+// 删除函数
 const removeHeader = (index: number) => {
-	if (localConfig.headers.length > 1) {
-		localConfig.headers.splice(index, 1);
-		emitChanges();
+	const newHeadersList = [...formConfig.value.headersList];
+	if (newHeadersList.length > 1) {
+		newHeadersList.splice(index, 1);
+		formConfig.value = { ...formConfig.value, headersList: newHeadersList };
 	}
 };
 
-const checkAddNewHeaderRow = (index: number) => {
-	const header = localConfig.headers[index];
-	const isLastRow = index === localConfig.headers.length - 1;
-	const hasContent = header.key.trim() || header.value.trim();
-
-	if (isLastRow && hasContent) {
-		localConfig.headers.push({ key: '', value: '' });
-		emitChanges();
-	}
-};
-
-// Params management
 const removeParam = (index: number) => {
-	if (localConfig.params.length > 1) {
-		localConfig.params.splice(index, 1);
-		emitChanges();
+	const newParamsList = [...formConfig.value.paramsList];
+	if (newParamsList.length > 1) {
+		newParamsList.splice(index, 1);
+		formConfig.value = { ...formConfig.value, paramsList: newParamsList };
 	}
 };
 
-const checkAddNewParamRow = (index: number) => {
-	const param = localConfig.params[index];
-	const isLastRow = index === localConfig.params.length - 1;
-	const hasContent = param.key.trim() || param.value.trim();
-
-	if (isLastRow && hasContent) {
-		localConfig.params.push({ key: '', value: '' });
-		emitChanges();
-	}
-};
-
-// Form data management
 const removeFormData = (index: number) => {
-	if (localConfig.formData.length > 1) {
-		localConfig.formData.splice(index, 1);
-		emitChanges();
+	const newFormDataList = [...formConfig.value.formDataList];
+	if (newFormDataList.length > 1) {
+		newFormDataList.splice(index, 1);
+		formConfig.value = { ...formConfig.value, formDataList: newFormDataList };
 	}
 };
 
-const checkAddNewFormDataRow = (index: number) => {
-	const item = localConfig.formData[index];
-	const isLastRow = index === localConfig.formData.length - 1;
-	const hasContent = item.key.trim() || item.value.trim();
-
-	if (isLastRow && hasContent) {
-		localConfig.formData.push({ key: '', value: '' });
-		emitChanges();
-	}
-};
-
-// URL encoded management
 const removeUrlEncoded = (index: number) => {
-	if (localConfig.urlEncoded.length > 1) {
-		localConfig.urlEncoded.splice(index, 1);
-		emitChanges();
-	}
-};
-
-const checkAddNewUrlEncodedRow = (index: number) => {
-	const item = localConfig.urlEncoded[index];
-	const isLastRow = index === localConfig.urlEncoded.length - 1;
-	const hasContent = item.key.trim() || item.value.trim();
-
-	if (isLastRow && hasContent) {
-		localConfig.urlEncoded.push({ key: '', value: '' });
-		emitChanges();
+	const newUrlEncodedList = [...formConfig.value.urlEncodedList];
+	if (newUrlEncodedList.length > 1) {
+		newUrlEncodedList.splice(index, 1);
+		formConfig.value = { ...formConfig.value, urlEncodedList: newUrlEncodedList };
 	}
 };
 
@@ -471,7 +560,7 @@ const handleTest = () => {
 
 <style scoped lang="scss">
 .http-form {
-	@apply border border-gray-200 dark:border-gray-700 rounded-lg p-6;
+	@apply border border-gray-200 dark:border-gray-700 rounded-lg p-2;
 }
 
 // Params Section Styles
@@ -548,12 +637,9 @@ const handleTest = () => {
 	@apply font-mono;
 }
 
-.binary-section {
-	@apply space-y-3;
-}
-
-.binary-upload {
-	@apply w-full;
+// Options Section
+.options-section {
+	@apply border border-gray-200 dark:border-gray-700 rounded-lg p-4;
 }
 
 .test-section {

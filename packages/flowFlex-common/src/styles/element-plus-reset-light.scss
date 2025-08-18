@@ -427,10 +427,6 @@
 		box-shadow: 0 0 0 1px var(--primary-500);
 	}
 
-	.el-select__wrapper {
-		@apply mx-[1px] ;
-	}
-
 	.el-date-table td.end-date .el-date-table-cell__text,
 	.el-date-table td.start-date .el-date-table-cell__text {
 		@apply bg-primary-500;
