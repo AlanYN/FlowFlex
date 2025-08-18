@@ -66,6 +66,7 @@ namespace FlowFlex.Application.Services.Action
                             mapping.ActionDefinitionId,
                             contextData,
                             userId,
+                            mapping.Id,
                             cancellationToken);
                     }
                     catch (Exception ex)

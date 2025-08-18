@@ -43,6 +43,7 @@ namespace FlowFlex.Application.Services.Action
             long actionDefinitionId,
             object contextData = null,
             long? userId = null,
+            long? triggerMappingId = null,
             CancellationToken cancellationToken = default)
         {
             try
@@ -64,7 +65,8 @@ namespace FlowFlex.Application.Services.Action
                     TriggerContext = contextData != null ? JToken.FromObject(contextData) : new JObject(),
                     CreateBy = userId.ToString() ?? "",
                     ExecutionId = SnowFlakeSingle.Instance.NextId().ToString(),
-                    CreateDate = DateTimeOffset.UtcNow
+                    CreateDate = DateTimeOffset.UtcNow,
+                    ActionTriggerMappingId = triggerMappingId
                 };
 
                 await _actionExecutionRepository.InsertAsync(execution, cancellationToken);
