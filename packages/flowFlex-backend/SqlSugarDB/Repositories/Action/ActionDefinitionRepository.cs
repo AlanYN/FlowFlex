@@ -256,5 +256,36 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
 
             return await db.UnionAll(workflowQuery, stageQuery, taskQuery, questionQuery).ToListAsync();
         }
+
+        /// <summary>
+        /// Get trigger mappings with action details by trigger source id
+        /// </summary>
+        public async Task<List<ActionTriggerMappingWithActionDetails>> GetMappingsWithActionDetailsByTriggerSourceIdAsync(long triggerSourceId)
+        {
+            var query = db.Queryable<ActionTriggerMapping>()
+                .InnerJoin<ActionDefinition>((m, a) => m.ActionDefinitionId == a.Id)
+                .Where((m, a) => m.TriggerSourceId == triggerSourceId &&
+                                   m.IsValid &&
+                                   a.IsValid)
+                .Select((m, a) => new ActionTriggerMappingWithActionDetails
+                {
+                    Id = m.Id,
+                    ActionDefinitionId = m.ActionDefinitionId,
+                    ActionCode = a.ActionCode,
+                    ActionName = a.ActionName,
+                    ActionType = a.ActionType,
+                    ActionDescription = a.Description,
+                    ActionIsEnabled = a.IsEnabled,
+                    TriggerType = m.TriggerType,
+                    TriggerSourceId = m.TriggerSourceId,
+                    TriggerEvent = m.TriggerEvent,
+                    IsEnabled = m.IsEnabled,
+                    ExecutionOrder = m.ExecutionOrder,
+                    Description = m.Description,
+                    LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
+                });
+
+            return await query.ToListAsync();
+        }
     }
 }

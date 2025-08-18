@@ -258,7 +258,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="triggerSourceId"></param>
         /// <returns></returns>
         [HttpGet("mappings/trigger-source/{triggerSourceId}")]
-        [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingWithActionInfo>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetActionTriggerMappingsByTriggerSourceId(long triggerSourceId)
         {
             var result = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(triggerSourceId);

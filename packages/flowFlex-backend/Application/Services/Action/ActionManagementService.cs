@@ -347,10 +347,10 @@ namespace FlowFlex.Application.Services.Action
             return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
         }
 
-        public async Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByTriggerSourceIdAsync(long triggerSourceId)
+        public async Task<List<ActionTriggerMappingWithActionInfo>> GetActionTriggerMappingsByTriggerSourceIdAsync(long triggerSourceId)
         {
-            var entities = await _actionTriggerMappingRepository.GetListAsync(m => m.TriggerSourceId == triggerSourceId && m.IsValid, m => m.ExecutionOrder);
-            return _mapper.Map<List<ActionTriggerMappingDto>>(entities);
+            var entities = await _actionDefinitionRepository.GetMappingsWithActionDetailsByTriggerSourceIdAsync(triggerSourceId);
+            return _mapper.Map<List<ActionTriggerMappingWithActionInfo>>(entities);
         }
 
         public async Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto)

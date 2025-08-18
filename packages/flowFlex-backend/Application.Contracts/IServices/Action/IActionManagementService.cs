@@ -129,7 +129,7 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// </summary>
         /// <param name="triggerSourceId"></param>
         /// <returns></returns>
-        Task<List<ActionTriggerMappingDto>> GetActionTriggerMappingsByTriggerSourceIdAsync(long triggerSourceId);
+        Task<List<ActionTriggerMappingWithActionInfo>> GetActionTriggerMappingsByTriggerSourceIdAsync(long triggerSourceId);
 
         /// <summary>
         /// Create new action trigger mapping
