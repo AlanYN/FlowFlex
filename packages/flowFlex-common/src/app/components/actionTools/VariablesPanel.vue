@@ -21,350 +21,326 @@
 			<div class="variables-tabs-wrapper">
 				<el-tabs v-model="activeTab" type="border-card">
 					<el-tab-pane label="All" name="all">
-						<el-scrollbar
-							max-height="calc(100vh - 435px)"
-							class="tab-content-scrollbar"
-						>
-							<div class="context-structure-section">
-								<div class="context-toggle-header">
-									<div
-										class="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-									>
-										<div class="flex items-center space-x-2">
-											<el-icon class="text-blue-500" size="18">
-												<Operation />
-											</el-icon>
-											<h5 class="font-semibold text-gray-800 dark:text-white">
-												Context Parameter Structure
-											</h5>
-										</div>
-										<div class="flex items-center space-x-2">
-											<el-button
-												size="small"
-												type="primary"
-												:icon="DocumentCopy"
-												@click.stop="copyStructure(contextStructure)"
-												class="mr-2"
-											>
-												Copy Structure
-											</el-button>
-										</div>
-									</div>
-								</div>
-
-								<el-collapse-transition>
-									<div class="context-content">
-										<div
-											class="p-4 border-t border-gray-200 dark:border-gray-700"
-										>
-											<p
-												class="text-sm text-gray-600 dark:text-gray-400 mb-3"
-											>
-												Complete structure of the context parameter passed
-												to your Python main() function
-											</p>
-											<div class="context-code-block">
-												<pre class="context-structure-pre">{{
-													contextStructure
-												}}</pre>
-											</div>
-										</div>
-									</div>
-								</el-collapse-transition>
-							</div>
-						</el-scrollbar>
-					</el-tab-pane>
-					<el-tab-pane label="Event Variables" name="context">
-						<el-scrollbar
-							max-height="calc(100vh - 435px)"
-							class="tab-content-scrollbar"
-						>
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pr-4">
-								<!-- Basic Event Data -->
-								<div class="variable-category">
-									<div class="category-header">
-										<el-icon class="text-blue-500" size="16">
-											<User />
-										</el-icon>
-										<h5 class="font-medium text-gray-700 dark:text-gray-300">
-											Basic Event Data
-										</h5>
-									</div>
-									<div class="variable-list">
-										<div
-											v-for="variable in basicEventVariables"
-											:key="variable.name"
-											class="variable-item group"
-											@click="copyVariable(variable.name)"
-										>
-											<div class="variable-info">
-												<code class="variable-name">
-													{{ variable.name }}
-												</code>
-												<div class="variable-description truncate">
-													{{ variable.description }}
-												</div>
-											</div>
-											<el-button
-												size="small"
-												text
-												:icon="DocumentCopy"
-												class="copy-btn"
-											/>
-										</div>
-									</div>
-								</div>
-
-								<!-- Workflow Data -->
-								<div class="variable-category">
-									<div class="category-header">
-										<el-icon class="text-green-500" size="16">
-											<Flag />
-										</el-icon>
-										<h5 class="font-medium text-gray-700 dark:text-gray-300">
-											Workflow & Stage Data
-										</h5>
-									</div>
-									<div class="variable-list">
-										<div
-											v-for="variable in workflowVariables"
-											:key="variable.name"
-											class="variable-item group"
-											@click="copyVariable(variable.name)"
-										>
-											<div class="variable-info">
-												<code class="variable-name truncate">
-													{{ variable.name }}
-												</code>
-												<span class="variable-description truncate">
-													{{ variable.description }}
-												</span>
-											</div>
-											<el-button
-												size="small"
-												text
-												:icon="DocumentCopy"
-												class="copy-btn"
-											/>
-										</div>
-									</div>
-								</div>
-
-								<!-- Business Context -->
-								<div class="variable-category">
-									<div class="category-header">
-										<el-icon class="text-purple-500" size="16">
+						<div class="context-structure-section p-4">
+							<div class="context-toggle-header">
+								<div
+									class="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+								>
+									<div class="flex items-center space-x-2">
+										<el-icon class="text-blue-500" size="18">
 											<Operation />
 										</el-icon>
-										<h5 class="font-medium text-gray-700 dark:text-gray-300">
-											Business Context
+										<h5 class="font-semibold text-gray-800 dark:text-white">
+											Context Parameter Structure
 										</h5>
 									</div>
-									<div class="variable-list">
-										<div
-											v-for="variable in businessContextVariables"
-											:key="variable.name"
-											class="variable-item group"
-											@click="copyVariable(variable.name)"
-										>
-											<div class="variable-info">
-												<code class="variable-name truncate">
-													{{ variable.name }}
-												</code>
-												<span class="variable-description truncate">
-													{{ variable.description }}
-												</span>
-											</div>
-											<el-button
-												size="small"
-												text
-												:icon="DocumentCopy"
-												class="copy-btn"
-											/>
-										</div>
-									</div>
-								</div>
-
-								<!-- Metadata -->
-								<div class="variable-category">
-									<div class="category-header">
-										<el-icon class="text-orange-500" size="16">
-											<Document />
-										</el-icon>
-										<h5 class="font-medium text-gray-700 dark:text-gray-300">
-											Metadata & Tags
-										</h5>
-									</div>
-									<div class="variable-list">
-										<div
-											v-for="variable in metadataVariables"
-											:key="variable.name"
-											class="variable-item group"
-											@click="copyVariable(variable.name)"
-										>
-											<div class="variable-info">
-												<code class="variable-name truncate">
-													{{ variable.name }}
-												</code>
-												<span class="variable-description truncate">
-													{{ variable.description }}
-												</span>
-											</div>
-											<el-button
-												size="small"
-												text
-												:icon="DocumentCopy"
-												class="copy-btn"
-											/>
-										</div>
-									</div>
-								</div>
-							</div>
-						</el-scrollbar>
-					</el-tab-pane>
-
-					<el-tab-pane label="Components" name="components">
-						<el-scrollbar
-							max-height="calc(100vh - 435px)"
-							class="tab-content-scrollbar"
-						>
-							<div class="grid grid-cols-1 gap-6 pr-4">
-								<!-- Checklists -->
-								<div class="variable-category">
-									<div class="category-header">
-										<el-icon class="text-blue-600" size="16">
-											<Document />
-										</el-icon>
-										<h5 class="font-medium text-gray-700 dark:text-gray-300">
-											Checklists & Tasks
-										</h5>
-									</div>
-									<div class="variable-list">
-										<div
-											v-for="variable in checklistVariables"
-											:key="variable.name"
-											class="variable-item group"
-											@click="copyVariable(variable.name)"
-										>
-											<div class="variable-info">
-												<code class="variable-name">
-													{{ variable.name }}
-												</code>
-												<div class="variable-description truncate">
-													{{ variable.description }}
-												</div>
-											</div>
-											<el-button
-												size="small"
-												text
-												:icon="DocumentCopy"
-												class="copy-btn"
-											/>
-										</div>
-									</div>
-								</div>
-
-								<!-- Required Fields -->
-								<div class="variable-category">
-									<div class="category-header">
-										<el-icon class="text-red-500" size="16">
-											<Flag />
-										</el-icon>
-										<h5 class="font-medium text-gray-700 dark:text-gray-300">
-											Required Fields
-										</h5>
-									</div>
-									<div class="variable-list">
-										<div
-											v-for="variable in requiredFieldVariables"
-											:key="variable.name"
-											class="variable-item group"
-											@click="copyVariable(variable.name)"
-										>
-											<div class="variable-info">
-												<code class="variable-name">
-													{{ variable.name }}
-												</code>
-												<div class="variable-description truncate">
-													{{ variable.description }}
-												</div>
-											</div>
-											<el-button
-												size="small"
-												text
-												:icon="DocumentCopy"
-												class="copy-btn"
-											/>
-										</div>
-									</div>
-								</div>
-
-								<!-- Form Responses (copyable fields) -->
-								<div class="variable-category">
-									<div class="category-header">
-										<el-icon class="text-purple-500" size="16">
-											<Document />
-										</el-icon>
-										<h5 class="font-medium text-gray-700 dark:text-gray-300">
-											Form Responses
-										</h5>
-									</div>
-									<div class="variable-list">
-										<div
-											v-for="variable in formResponseVariables"
-											:key="variable.name"
-											class="variable-item group"
-											@click="copyVariable(variable.name)"
-										>
-											<div class="variable-info">
-												<code class="variable-name">
-													{{ variable.name }}
-												</code>
-												<div class="variable-description truncate">
-													{{ variable.description }}
-												</div>
-											</div>
-											<el-button
-												size="small"
-												text
-												:icon="DocumentCopy"
-												class="copy-btn"
-											/>
-										</div>
-									</div>
-								</div>
-							</div>
-						</el-scrollbar>
-					</el-tab-pane>
-
-					<el-tab-pane label="Examples" name="examples">
-						<el-scrollbar
-							max-height="calc(100vh - 435px)"
-							class="tab-content-scrollbar"
-						>
-							<div class="examples-section">
-								<div
-									class="example-category"
-									v-for="example in variableExamples"
-									:key="example.title"
-								>
-									<h5 class="example-title">{{ example.title }}</h5>
-									<p class="example-description">{{ example.description }}</p>
-									<div class="example-code">
-										<pre>{{ example.code }}</pre>
+									<div class="flex items-center space-x-2">
 										<el-button
 											size="small"
-											text
+											type="primary"
 											:icon="DocumentCopy"
-											@click="copyToClipboard(example.code)"
-											class="copy-example-btn"
+											@click.stop="copyStructure(contextStructure)"
+											class="mr-2"
 										>
-											Copy
+											Copy Structure
 										</el-button>
 									</div>
 								</div>
 							</div>
-						</el-scrollbar>
+
+							<el-collapse-transition>
+								<div class="context-content">
+									<div class="p-4 border-t border-gray-200 dark:border-gray-700">
+										<p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+											Complete structure of the context parameter passed to
+											your Python main() function
+										</p>
+										<div class="context-code-block">
+											<pre class="context-structure-pre">{{
+												contextStructure
+											}}</pre>
+										</div>
+									</div>
+								</div>
+							</el-collapse-transition>
+						</div>
+					</el-tab-pane>
+					<el-tab-pane label="Workflow" name="context">
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p p-4">
+							<!-- Basic Event Data -->
+							<div class="variable-category">
+								<div class="category-header">
+									<el-icon class="text-blue-500" size="16">
+										<User />
+									</el-icon>
+									<h5 class="font-medium text-gray-700 dark:text-gray-300">
+										Basic Event Data
+									</h5>
+								</div>
+								<div class="variable-list">
+									<div
+										v-for="variable in basicEventVariables"
+										:key="variable.name"
+										class="variable-item group"
+										@click="copyVariable(variable.name)"
+									>
+										<div class="variable-info">
+											<code class="variable-name">
+												{{ variable.name }}
+											</code>
+											<div class="variable-description truncate">
+												{{ variable.description }}
+											</div>
+										</div>
+										<el-button
+											size="small"
+											text
+											:icon="DocumentCopy"
+											class="copy-btn"
+										/>
+									</div>
+								</div>
+							</div>
+
+							<!-- Workflow Data -->
+							<div class="variable-category">
+								<div class="category-header">
+									<el-icon class="text-green-500" size="16">
+										<Flag />
+									</el-icon>
+									<h5 class="font-medium text-gray-700 dark:text-gray-300">
+										Workflow & Stage Data
+									</h5>
+								</div>
+								<div class="variable-list">
+									<div
+										v-for="variable in workflowVariables"
+										:key="variable.name"
+										class="variable-item group"
+										@click="copyVariable(variable.name)"
+									>
+										<div class="variable-info">
+											<code class="variable-name truncate">
+												{{ variable.name }}
+											</code>
+											<span class="variable-description truncate">
+												{{ variable.description }}
+											</span>
+										</div>
+										<el-button
+											size="small"
+											text
+											:icon="DocumentCopy"
+											class="copy-btn"
+										/>
+									</div>
+								</div>
+							</div>
+
+							<!-- Business Context -->
+							<div class="variable-category">
+								<div class="category-header">
+									<el-icon class="text-purple-500" size="16">
+										<Operation />
+									</el-icon>
+									<h5 class="font-medium text-gray-700 dark:text-gray-300">
+										Business Context
+									</h5>
+								</div>
+								<div class="variable-list">
+									<div
+										v-for="variable in businessContextVariables"
+										:key="variable.name"
+										class="variable-item group"
+										@click="copyVariable(variable.name)"
+									>
+										<div class="variable-info">
+											<code class="variable-name truncate">
+												{{ variable.name }}
+											</code>
+											<span class="variable-description truncate">
+												{{ variable.description }}
+											</span>
+										</div>
+										<el-button
+											size="small"
+											text
+											:icon="DocumentCopy"
+											class="copy-btn"
+										/>
+									</div>
+								</div>
+							</div>
+
+							<!-- Metadata -->
+							<div class="variable-category">
+								<div class="category-header">
+									<el-icon class="text-orange-500" size="16">
+										<Document />
+									</el-icon>
+									<h5 class="font-medium text-gray-700 dark:text-gray-300">
+										Metadata & Tags
+									</h5>
+								</div>
+								<div class="variable-list">
+									<div
+										v-for="variable in metadataVariables"
+										:key="variable.name"
+										class="variable-item group"
+										@click="copyVariable(variable.name)"
+									>
+										<div class="variable-info">
+											<code class="variable-name truncate">
+												{{ variable.name }}
+											</code>
+											<span class="variable-description truncate">
+												{{ variable.description }}
+											</span>
+										</div>
+										<el-button
+											size="small"
+											text
+											:icon="DocumentCopy"
+											class="copy-btn"
+										/>
+									</div>
+								</div>
+							</div>
+						</div>
+					</el-tab-pane>
+
+					<el-tab-pane label="Components" name="components">
+						<div class="grid grid-cols-1 gap-6 p-4">
+							<!-- Checklists -->
+							<div class="variable-category">
+								<div class="category-header">
+									<el-icon class="text-blue-600" size="16">
+										<Document />
+									</el-icon>
+									<h5 class="font-medium text-gray-700 dark:text-gray-300">
+										Checklists & Tasks
+									</h5>
+								</div>
+								<div class="variable-list">
+									<div
+										v-for="variable in checklistVariables"
+										:key="variable.name"
+										class="variable-item group"
+										@click="copyVariable(variable.name)"
+									>
+										<div class="variable-info">
+											<code class="variable-name">
+												{{ variable.name }}
+											</code>
+											<div class="variable-description truncate">
+												{{ variable.description }}
+											</div>
+										</div>
+										<el-button
+											size="small"
+											text
+											:icon="DocumentCopy"
+											class="copy-btn"
+										/>
+									</div>
+								</div>
+							</div>
+
+							<!-- Required Fields -->
+							<div class="variable-category">
+								<div class="category-header">
+									<el-icon class="text-red-500" size="16">
+										<Flag />
+									</el-icon>
+									<h5 class="font-medium text-gray-700 dark:text-gray-300">
+										Required Fields
+									</h5>
+								</div>
+								<div class="variable-list">
+									<div
+										v-for="variable in requiredFieldVariables"
+										:key="variable.name"
+										class="variable-item group"
+										@click="copyVariable(variable.name)"
+									>
+										<div class="variable-info">
+											<code class="variable-name">
+												{{ variable.name }}
+											</code>
+											<div class="variable-description truncate">
+												{{ variable.description }}
+											</div>
+										</div>
+										<el-button
+											size="small"
+											text
+											:icon="DocumentCopy"
+											class="copy-btn"
+										/>
+									</div>
+								</div>
+							</div>
+
+							<!-- Form Responses (copyable fields) -->
+							<div class="variable-category">
+								<div class="category-header">
+									<el-icon class="text-purple-500" size="16">
+										<Document />
+									</el-icon>
+									<h5 class="font-medium text-gray-700 dark:text-gray-300">
+										Form Responses
+									</h5>
+								</div>
+								<div class="variable-list">
+									<div
+										v-for="variable in formResponseVariables"
+										:key="variable.name"
+										class="variable-item group"
+										@click="copyVariable(variable.name)"
+									>
+										<div class="variable-info">
+											<code class="variable-name">
+												{{ variable.name }}
+											</code>
+											<div class="variable-description truncate">
+												{{ variable.description }}
+											</div>
+										</div>
+										<el-button
+											size="small"
+											text
+											:icon="DocumentCopy"
+											class="copy-btn"
+										/>
+									</div>
+								</div>
+							</div>
+						</div>
+					</el-tab-pane>
+
+					<el-tab-pane label="Examples" name="examples">
+						<div class="examples-section p-4">
+							<div
+								class="example-category"
+								v-for="example in variableExamples"
+								:key="example.title"
+							>
+								<h5 class="example-title">{{ example.title }}</h5>
+								<p class="example-description">{{ example.description }}</p>
+								<div class="example-code">
+									<pre>{{ example.code }}</pre>
+									<el-button
+										size="small"
+										text
+										:icon="DocumentCopy"
+										@click="copyToClipboard(example.code)"
+										class="copy-example-btn"
+									>
+										Copy
+									</el-button>
+								</div>
+							</div>
+						</div>
 					</el-tab-pane>
 				</el-tabs>
 			</div>
@@ -779,14 +755,6 @@ const copyToClipboard = async (text: string) => {
 
 .context-content {
 	@apply bg-gray-50 dark:bg-gray-800;
-}
-
-.tab-content-scrollbar {
-	@apply w-full mt-4;
-
-	:deep(.el-scrollbar__view) {
-		@apply p-1;
-	}
 }
 
 .variable-category {
