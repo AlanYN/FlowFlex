@@ -219,6 +219,14 @@ defineExpose({
 <style scoped lang="scss">
 .action-container {
 	@apply min-h-0 flex flex-col;
+
+	:deep(.el-drawer__header) {
+		margin-bottom: 0;
+	}
+
+	:deep(.el-drawer__title) {
+		@apply font-bold text-lg;
+	}
 }
 
 .action-header {
