@@ -59,6 +59,7 @@
 
 		<!-- Action Configuration Dialog -->
 		<ActionConfigDialog
+			ref="actionConfigDialogRef"
 			v-model="showActionDialog"
 			:action="currentActionForEdit"
 			:is-editing="editingIndex !== -1"
@@ -110,12 +111,17 @@ const getActionList = async () => {
 		actionListLoading.value = false;
 	}
 };
+
+const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
 // Action management methods
 const addAction = () => {
 	currentActionForEdit.value = null;
 	editingIndex.value = -1;
 	selectedActionIndex.value = -1;
 	showActionDialog.value = true;
+	nextTick(() => {
+		actionConfigDialogRef.value?.resetScrollbarHeight();
+	});
 };
 
 const editLoading = ref(false);
@@ -133,7 +139,9 @@ const editAction = async (index: number) => {
 					type: res?.data?.actionType === 1 ? 'python' : 'http',
 				};
 			}
-
+			nextTick(() => {
+				actionConfigDialogRef.value?.resetScrollbarHeight();
+			});
 			editingIndex.value = index;
 			selectedActionIndex.value = index;
 		} finally {
@@ -159,7 +167,9 @@ const removeAction = async (index: number) => {
 
 						try {
 							// 调用激活工作流API
-							const res = await deleteAction(actions.value[index].id);
+							const res = await deleteAction(
+								actions.value[index].actionDefinitionId || ''
+							);
 
 							if (res.code === '200') {
 								ElMessage.success(t('sys.api.operationSuccess'));
