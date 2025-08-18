@@ -275,7 +275,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, Loading, User, Document, Refresh, Check } from '@element-plus/icons-vue';
@@ -359,16 +359,22 @@ const staticFormRefs = ref<any[]>([]);
 const onboardingActiveStageInfo = ref<StageInfo | null>(null);
 const documentsRef = ref<any[]>([]);
 
-// 函数式ref，用于收集StaticForm组件实例
+// 在组件更新前重置 refs，避免多次渲染导致重复收集
+onBeforeUpdate(() => {
+	staticFormRefs.value = [];
+	questionnaireDetailsRefs.value = [];
+});
+
+// 函数式ref，用于收集StaticForm组件实例（去重）
 const setStaticFormRef = (el: any) => {
-	if (el) {
+	if (el && !staticFormRefs.value.includes(el)) {
 		staticFormRefs.value.push(el);
 	}
 };
 
-// 函数式ref，用于收集QuestionnaireDetails组件实例
+// 函数式ref，用于收集QuestionnaireDetails组件实例（去重）
 const setQuestionnaireDetailsRef = (el: any) => {
-	if (el) {
+	if (el && !questionnaireDetailsRefs.value.includes(el)) {
 		questionnaireDetailsRefs.value.push(el);
 	}
 };
@@ -1017,8 +1023,9 @@ const refreshAISummary = async () => {
 		}
 
 		// 直接处理纯文本流式响应
-		while (true) {
-			const { value, done } = await reader.read();
+		for (let done = false; !done; ) {
+			const { value, done: isDone } = await reader.read();
+			done = isDone;
 			if (done) break;
 
 			const chunk = decoder.decode(value, { stream: true });

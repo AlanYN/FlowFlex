@@ -149,6 +149,30 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Partial success
         /// </summary>
         [Description("Partial")]
-        Partial = 3
+        Partial = 3,
+
+        /// <summary>
+        /// Pending
+        /// </summary>
+        [Description("Pending")]
+        Pending = 4,
+
+        /// <summary>
+        /// In Progress
+        /// </summary>
+        [Description("InProgress")]
+        InProgress = 5,
+
+        /// <summary>
+        /// Cancelled
+        /// </summary>
+        [Description("Cancelled")]
+        Cancelled = 6,
+
+        /// <summary>
+        /// Unknown
+        /// </summary>
+        [Description("Unknown")]
+        Unknown = 7
     }
 }

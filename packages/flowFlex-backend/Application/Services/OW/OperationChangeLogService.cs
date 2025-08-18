@@ -14,6 +14,8 @@ using System.Reflection;
 using SqlSugar;
 using FlowFlex.Application.Services.OW.Extensions;
 using System.Security.Claims;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.Action;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -23,6 +25,7 @@ namespace FlowFlex.Application.Services.OW
     public class OperationChangeLogService : IOperationChangeLogService, IScopedService
     {
         private readonly IOperationChangeLogRepository _operationChangeLogRepository;
+        private readonly IActionExecutionService _actionExecutionService;
         private readonly ILogger<OperationChangeLogService> _logger;
         private readonly UserContext _userContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -30,12 +33,14 @@ namespace FlowFlex.Application.Services.OW
 
         public OperationChangeLogService(
             IOperationChangeLogRepository operationChangeLogRepository,
+            IActionExecutionService actionExecutionService,
             ILogger<OperationChangeLogService> logger,
             UserContext userContext,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper)
         {
             _operationChangeLogRepository = operationChangeLogRepository;
+            _actionExecutionService = actionExecutionService;
             _logger = logger;
             _userContext = userContext;
             _httpContextAccessor = httpContextAccessor;
@@ -517,10 +522,13 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// 获取操作日志列表
         /// </summary>
-        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20)
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
         {
             try
             {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs
                 List<OperationChangeLog> logs;
 
                 // 优先处理同时提供 onboardingId 和 stageId 的情况
@@ -557,19 +565,46 @@ namespace FlowFlex.Application.Services.OW
                     logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
                 }
 
-                // 分页
-                int totalCount = logs.Count;
-                var pagedLogs = logs
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Get action execution logs if requested and stageId is provided
+                if (includeActionExecutions && stageId.HasValue)
+                {
+                    try
+                    {
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            stageId.Value, 1, 1000); // Get more records for merging
+
+                        // Convert action executions to change log DTOs
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(MapActionExecutionToChangeLogDto)
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        _logger.LogInformation($"Integrated {actionExecutionDtos.Count} action executions for stageId {stageId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for stageId {StageId}, continuing without action logs", stageId);
+                        // Continue without action executions rather than failing the entire request
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
                     .Skip((pageIndex - 1) * pageSize)
                     .Take(pageSize)
                     .ToList();
 
-                // 转换为输出DTO
-                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
-
                 return new PagedResult<OperationChangeLogOutputDto>
                 {
-                    Items = outputDtos,
+                    Items = pagedLogs,
                     TotalCount = totalCount,
                     PageIndex = pageIndex,
                     PageSize = pageSize
@@ -1075,6 +1110,268 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return dto;
+        }
+
+        /// <summary>
+        /// Convert ActionExecutionWithActionInfoDto to OperationChangeLogOutputDto
+        /// </summary>
+        private OperationChangeLogOutputDto MapActionExecutionToChangeLogDto(ActionExecutionWithActionInfoDto actionExecution)
+        {
+            // Calculate duration if not available
+            var duration = actionExecution.DurationMs;
+            if (!duration.HasValue && actionExecution.StartedAt.HasValue && actionExecution.CompletedAt.HasValue)
+            {
+                duration = (long)(actionExecution.CompletedAt.Value - actionExecution.StartedAt.Value).TotalMilliseconds;
+            }
+
+            // Extract action name and type, fallback to defaults if empty
+            var actionName = !string.IsNullOrEmpty(actionExecution.ActionName) 
+                ? actionExecution.ActionName 
+                : $"Action-{actionExecution.ActionCode}";
+            var actionType = !string.IsNullOrEmpty(actionExecution.ActionType) 
+                ? actionExecution.ActionType 
+                : "Python";
+
+            // Generate title and description
+            var operationTitle = $"Action Executed: {actionName}";
+            var operationDescription = GenerateActionDescription(actionExecution, actionType, duration);
+
+            // Generate operation type based on execution status
+            var operationType = GetActionExecutionOperationType(actionExecution.ExecutionStatus);
+            var operationTypeDisplayName = GetActionExecutionTypeDisplayName(actionExecution.ExecutionStatus);
+
+            // Extract context summary
+            var extendedData = GetActionContextSummary(actionExecution.TriggerContext);
+
+            return new OperationChangeLogOutputDto
+            {
+                Id = actionExecution.Id,
+                OperationType = operationType,
+                OperationTypeDisplayName = operationTypeDisplayName,
+                BusinessModule = "ActionExecution",
+                BusinessId = actionExecution.Id,
+                OperationTitle = operationTitle,
+                OperationDescription = operationDescription,
+                BeforeData = null, // Action executions don't have before/after data
+                AfterData = null,
+                ChangedFields = new List<string>(),
+                ExtendedData = extendedData,
+                OperationStatus = GetActionExecutionOperationStatus(actionExecution.ExecutionStatus),
+                OperationStatusDisplayName = GetActionExecutionStatusDisplayName(actionExecution.ExecutionStatus),
+                ErrorMessage = actionExecution.ErrorMessage,
+                OperationTime = actionExecution.StartedAt ?? actionExecution.CreatedAt,
+                OperatorName = actionExecution.CreatedBy,
+                CreateDate = actionExecution.CreatedAt,
+                ModifyDate = actionExecution.CompletedAt ?? actionExecution.CreatedAt,
+                CreateBy = actionExecution.CreatedBy,
+                ModifyBy = actionExecution.CreatedBy,
+                CreateUserId = 0, // ActionExecution doesn't have UserId fields
+                ModifyUserId = 0
+            };
+        }
+
+        /// <summary>
+        /// Generate action execution description with rich information
+        /// </summary>
+        private string GenerateActionDescription(ActionExecutionWithActionInfoDto execution, string actionType, long? duration)
+        {
+            var status = execution.ExecutionStatus?.ToLower();
+            var durationText = duration.HasValue ? $" (Duration: {duration}ms)" : "";
+
+            var description = status switch
+            {
+                "success" or "completed" => $"{actionType} action completed successfully{durationText}",
+                "failed" => $"{actionType} action failed: {GetActionErrorMessage(execution)}",
+                "running" => $"{actionType} action is currently running",
+                "pending" => $"{actionType} action is pending execution",
+                "cancelled" => $"{actionType} action was cancelled",
+                _ => $"{actionType} action status: {execution.ExecutionStatus}"
+            };
+
+            // Add output summary for successful executions
+            if ((status == "success" || status == "completed") && execution.ExecutionOutput != null)
+            {
+                var outputSummary = GetActionOutputSummary(execution.ExecutionOutput);
+                if (!string.IsNullOrEmpty(outputSummary))
+                {
+                    description += $" - {outputSummary}";
+                }
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Get action execution operation type
+        /// </summary>
+        private string GetActionExecutionOperationType(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "ActionExecutionSuccess",
+                "failed" => "ActionExecutionFailed",
+                "running" => "ActionExecutionRunning",
+                "pending" => "ActionExecutionPending",
+                "cancelled" => "ActionExecutionCancelled",
+                _ => "ActionExecution"
+            };
+        }
+
+        /// <summary>
+        /// Get action execution type display name
+        /// </summary>
+        private string GetActionExecutionTypeDisplayName(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "Action Execution Success",
+                "failed" => "Action Execution Failed",
+                "running" => "Action Execution Running",
+                "pending" => "Action Execution Pending",
+                "cancelled" => "Action Execution Cancelled",
+                _ => "Action Execution"
+            };
+        }
+
+        /// <summary>
+        /// Get action execution operation status
+        /// </summary>
+        private string GetActionExecutionOperationStatus(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => OperationStatusEnum.Success.ToString(),
+                "failed" => OperationStatusEnum.Failed.ToString(),
+                "running" => OperationStatusEnum.InProgress.ToString(),
+                "pending" => OperationStatusEnum.Pending.ToString(),
+                "cancelled" => OperationStatusEnum.Cancelled.ToString(),
+                _ => OperationStatusEnum.Unknown.ToString()
+            };
+        }
+
+        /// <summary>
+        /// Get action execution status display name
+        /// </summary>
+        private string GetActionExecutionStatusDisplayName(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "Completed Successfully",
+                "failed" => "Failed",
+                "running" => "In Progress",
+                "pending" => "Pending",
+                "cancelled" => "Cancelled",
+                _ => "Unknown"
+            };
+        }
+
+        /// <summary>
+        /// Get error message from action execution
+        /// </summary>
+        private string GetActionErrorMessage(ActionExecutionWithActionInfoDto execution)
+        {
+            if (!string.IsNullOrEmpty(execution.ErrorMessage))
+                return execution.ErrorMessage;
+
+            try
+            {
+                if (execution.ExecutionOutput?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                {
+                    var output = execution.ExecutionOutput as Newtonsoft.Json.Linq.JObject;
+                    if (output?.TryGetValue("message", out var message) == true)
+                    {
+                        return message.ToString();
+                    }
+                    if (output?.TryGetValue("errorDetails", out var errorDetails) == true)
+                    {
+                        return errorDetails.ToString();
+                    }
+                }
+            }
+            catch { }
+
+            return "Unknown error";
+        }
+
+        /// <summary>
+        /// Get action output summary
+        /// </summary>
+        private string GetActionOutputSummary(Newtonsoft.Json.Linq.JToken executionOutput)
+        {
+            try
+            {
+                if (executionOutput?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                {
+                    var output = executionOutput as Newtonsoft.Json.Linq.JObject;
+                    if (output == null) return "";
+
+                    var summaryParts = new List<string>();
+
+                    // Check for stdout content
+                    if (output.TryGetValue("stdout", out var stdout) && !string.IsNullOrWhiteSpace(stdout.ToString()))
+                    {
+                        var stdoutText = stdout.ToString().Trim();
+                        if (stdoutText.Length > 50)
+                            stdoutText = stdoutText.Substring(0, 50) + "...";
+                        summaryParts.Add($"Output: {stdoutText}");
+                    }
+
+                    // Check for memory usage
+                    if (output.TryGetValue("memoryUsage", out var memory) && long.TryParse(memory.ToString(), out var memoryBytes))
+                    {
+                        var memoryKB = memoryBytes / 1024.0;
+                        summaryParts.Add($"Memory: {memoryKB:F1}KB");
+                    }
+
+                    // Check for execution status/token
+                    if (output.TryGetValue("status", out var statusToken))
+                    {
+                        summaryParts.Add($"Status: {statusToken}");
+                    }
+
+                    return string.Join(", ", summaryParts);
+                }
+            }
+            catch { }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Get action context summary
+        /// </summary>
+        private string GetActionContextSummary(Newtonsoft.Json.Linq.JToken triggerContext)
+        {
+            try
+            {
+                if (triggerContext?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                {
+                    var context = triggerContext as Newtonsoft.Json.Linq.JObject;
+                    if (context == null) return "";
+
+                    var summaryParts = new List<string>();
+
+                    // Extract key information from trigger context
+                    foreach (var prop in context.Properties())
+                    {
+                        if (prop.Name.ToLower() == "workflowid")
+                        {
+                            summaryParts.Add($"Workflow: {prop.Value}");
+                        }
+                        else if (!prop.Name.ToLower().Contains("id") && 
+                                 !prop.Name.ToLower().Contains("event") && 
+                                 !prop.Name.ToLower().Contains("source"))
+                        {
+                            summaryParts.Add($"{prop.Name}: {prop.Value}");
+                        }
+                    }
+
+                    return string.Join(", ", summaryParts);
+                }
+            }
+            catch { }
+
+            return "";
         }
 
         #endregion

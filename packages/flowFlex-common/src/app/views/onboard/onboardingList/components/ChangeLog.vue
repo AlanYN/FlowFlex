@@ -158,6 +158,84 @@
 								</div>
 							</div>
 
+							<!-- Action Execution 详情 -->
+							<div
+								v-else-if="
+									(row.type === 'Action Success' ||
+										row.type === 'Action Failed' ||
+										row.type === 'Action Running' ||
+										row.type === 'Action Pending' ||
+										row.type === 'Action Cancelled') &&
+									row.actionInfo
+								"
+							>
+								<div
+									:class="getActionExecutionBgClass(row.type)"
+									class="p-3 rounded-md border-l-4"
+								>
+									<div class="text-sm">
+										<div
+											class="font-semibold mb-2 flex items-center justify-between"
+										>
+											<span class="text-gray-800 dark:text-gray-200">
+												{{ row.actionInfo.actionName }}
+											</span>
+											<span
+												:class="getActionExecutionStatusClass(row.type)"
+												class="px-2 py-1 rounded text-xs font-medium"
+											>
+												{{ getActionExecutionStatusText(row.type) }}
+											</span>
+										</div>
+										<div class="space-y-1 text-xs">
+											<div class="flex items-center">
+												<span class="text-gray-500 mr-2">Type:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ row.actionInfo.actionType }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.duration"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Duration:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ formatDuration(row.actionInfo.duration) }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.executionId"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">
+													Execution ID:
+												</span>
+												<span
+													class="text-gray-700 dark:text-gray-300 font-mono text-xs"
+												>
+													{{ row.actionInfo.executionId }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.triggerContext"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Context:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ row.actionInfo.triggerContext }}
+												</span>
+											</div>
+											<div v-if="row.actionInfo.errorMessage" class="mt-2">
+												<div class="text-red-600 dark:text-red-400 text-xs">
+													<span class="font-medium">Error:</span>
+													{{ row.actionInfo.errorMessage }}
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
 							<!-- 默认显示（简化的标题） -->
 							<div v-else class="text-gray-700 dark:text-gray-300">
 								{{ getSimplifiedTitle(row) }}
@@ -267,6 +345,7 @@ interface ProcessedChange extends ChangeLogItem {
 	}>;
 	taskInfo?: any;
 	fileInfo?: any;
+	actionInfo?: any;
 }
 
 const processedChanges = ref<ProcessedChange[]>([]); // 修正类型
@@ -349,6 +428,8 @@ const processChangesData = async () => {
 
 		// 根据类型解析不同的变更信息
 		const operationType = change.type;
+		let actionInfo: any = null;
+
 		switch (operationType) {
 			case 'Answer Update':
 			case 'QuestionnaireAnswerUpdate':
@@ -394,6 +475,14 @@ const processChangesData = async () => {
 				fileInfo = extractFileInfo(change.extendedInfo);
 				break;
 
+			case 'Action Success':
+			case 'Action Failed':
+			case 'Action Running':
+			case 'Action Pending':
+			case 'Action Cancelled':
+				actionInfo = extractActionInfo(change);
+				break;
+
 			case 'Completion':
 			case 'Update':
 			case 'StageTransition':
@@ -415,6 +504,7 @@ const processChangesData = async () => {
 			fieldChanges,
 			taskInfo,
 			fileInfo,
+			actionInfo,
 		});
 	}
 
@@ -1234,12 +1324,20 @@ const getTagType = (type: string): string => {
 		case 'File Upload':
 			return 'info';
 		case 'Task Complete':
+		case 'Action Success':
 			return 'success';
 		case 'Task Incomplete':
 		case 'ChecklistTaskUncomplete':
 			return 'warning';
 		case 'Field Change':
 		case 'StaticFieldValueChange':
+			return 'warning';
+		case 'Action Failed':
+			return 'danger';
+		case 'Action Running':
+		case 'Action Pending':
+			return 'info';
+		case 'Action Cancelled':
 			return 'warning';
 		default:
 			return 'info';
@@ -1266,6 +1364,153 @@ const getSimplifiedTitle = (row: any): string => {
 	}
 
 	return row.type || 'Change';
+};
+
+// ActionExecution 相关辅助函数
+const extractActionInfo = (change: any): any => {
+	// 从 extendedData 或 change 对象中提取 Action 执行信息
+	try {
+		// 尝试从 operationTitle 和 operationDescription 中提取信息
+		const actionName = extractActionNameFromTitle(change.operationTitle || change.details);
+		const actionType = extractActionTypeFromDescription(
+			change.operationDescription || change.details
+		);
+
+		return {
+			actionName: actionName || 'Unknown Action',
+			actionType: actionType || 'Unknown',
+			executionId: extractExecutionId(change.extendedData),
+			duration: extractDuration(change.extendedData),
+			triggerContext: change.extendedData || '',
+			errorMessage: extractErrorMessage(change),
+		};
+	} catch (error) {
+		console.warn('Failed to extract action info:', error);
+		return {
+			actionName: 'Unknown Action',
+			actionType: 'Unknown',
+			executionId: '',
+			duration: null,
+			triggerContext: '',
+			errorMessage: '',
+		};
+	}
+};
+
+const extractActionNameFromTitle = (title: string): string => {
+	if (!title) return '';
+
+	// 匹配 "Action Executed: ActionName" 或 "Action Failed: ActionName" 等格式
+	const match = title.match(/Action\s+(?:Executed|Failed|Running|Pending|Cancelled):\s*(.+)/i);
+	return match ? match[1].trim() : title;
+};
+
+const extractActionTypeFromDescription = (description: string): string => {
+	if (!description) return '';
+
+	// 匹配描述中的 Action 类型，如 "Python action completed successfully"
+	const match = description.match(/(\w+)\s+action/i);
+	return match ? match[1] : '';
+};
+
+const extractExecutionId = (extendedData: string): string => {
+	if (!extendedData) return '';
+
+	// 尝试提取执行ID
+	try {
+		// 如果是 JSON 字符串，解析并查找 executionId
+		if (extendedData.includes('{')) {
+			const data = JSON.parse(extendedData);
+			return data.executionId || data.ExecutionId || '';
+		}
+
+		// 如果是简单字符串，查找包含ID的部分
+		const match = extendedData.match(/execution[_\s]*id[:\s]*([^\s,]+)/i);
+		return match ? match[1] : '';
+	} catch {
+		return '';
+	}
+};
+
+const extractDuration = (extendedData: string): number | null => {
+	if (!extendedData) return null;
+
+	// 查找持续时间信息
+	const match = extendedData.match(/duration[:\s]*(\d+)/i);
+	return match ? parseInt(match[1], 10) : null;
+};
+
+const extractErrorMessage = (change: any): string => {
+	// 从多个可能的位置提取错误信息
+	return (
+		change.errorMessage ||
+		change.error_message ||
+		(change.details && change.details.includes('failed') ? change.details : '') ||
+		''
+	);
+};
+
+const formatDuration = (durationMs: number): string => {
+	if (durationMs < 1000) {
+		return `${durationMs}ms`;
+	} else if (durationMs < 60000) {
+		return `${(durationMs / 1000).toFixed(1)}s`;
+	} else {
+		const minutes = Math.floor(durationMs / 60000);
+		const seconds = Math.floor((durationMs % 60000) / 1000);
+		return `${minutes}m ${seconds}s`;
+	}
+};
+
+const getActionExecutionBgClass = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
+		case 'Action Failed':
+			return 'bg-red-50 dark:bg-red-900/20 border-red-400';
+		case 'Action Running':
+			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
+		case 'Action Pending':
+			return 'bg-orange-50 dark:bg-orange-900/20 border-orange-400';
+		case 'Action Cancelled':
+			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
+		default:
+			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
+	}
+};
+
+const getActionExecutionStatusClass = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'Action Failed':
+			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
+		case 'Action Running':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'Action Pending':
+			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
+		case 'Action Cancelled':
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+		default:
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	}
+};
+
+const getActionExecutionStatusText = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+			return 'Success';
+		case 'Action Failed':
+			return 'Failed';
+		case 'Action Running':
+			return 'Running';
+		case 'Action Pending':
+			return 'Pending';
+		case 'Action Cancelled':
+			return 'Cancelled';
+		default:
+			return 'Unknown';
+	}
 };
 
 // 监听属性变化并加载数据

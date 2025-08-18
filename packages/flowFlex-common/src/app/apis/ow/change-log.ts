@@ -23,6 +23,7 @@ export interface ChangeLogQueryParams {
 	endDate?: string; // 结束时间
 	pageIndex?: number; // 页码
 	pageSize?: number; // 页大小
+	includeActionExecutions?: boolean; // 是否包含 Action 执行记录
 }
 
 // ========================= Change Log 数据接口 =========================
@@ -466,6 +467,13 @@ export function getOperationTypeInfo(operationType: string) {
 		StaticFieldValueChange: { label: 'Field Change', icon: '🔧', color: 'yellow' },
 		StageTransition: { label: 'Stage Move', icon: '🔄', color: 'blue' },
 		PriorityChange: { label: 'Priority', icon: '⚡', color: 'red' },
+		// Action Execution 相关类型
+		ActionExecutionSuccess: { label: 'Action Success', icon: '🎯', color: 'green' },
+		ActionExecutionFailed: { label: 'Action Failed', icon: '❌', color: 'red' },
+		ActionExecutionRunning: { label: 'Action Running', icon: '⏳', color: 'blue' },
+		ActionExecutionPending: { label: 'Action Pending', icon: '⏱️', color: 'orange' },
+		ActionExecutionCancelled: { label: 'Action Cancelled', icon: '🚫', color: 'gray' },
+		ActionExecution: { label: 'Action Execution', icon: '🎯', color: 'blue' },
 	};
 
 	return typeMap[operationType] || { label: operationType, icon: '📋', color: 'gray' };
