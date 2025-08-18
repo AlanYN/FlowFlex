@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Operation, Connection } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
@@ -120,9 +120,11 @@ import { addAction, ActionType, updateAction, testRunActionNoId } from '@/apis/a
 import { TriggerTypeEnum } from '@/enums/appEnum';
 import { ActionItem } from '#/action';
 
-const { scrollbarRef: scrollbarRefLeft } = useAdaptiveScrollbar(110);
+const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
+	useAdaptiveScrollbar(110);
 
-const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(110);
+const { scrollbarRef: scrollbarRefRight, updateScrollbarHeight: updateScrollbarHeightRight } =
+	useAdaptiveScrollbar(110);
 
 interface Props {
 	modelValue?: boolean;
@@ -382,6 +384,17 @@ const onCancel = () => {
 	resetForm();
 	emit('cancel');
 };
+
+const resetScrollbarHeight = () => {
+	nextTick(() => {
+		updateScrollbarHeightLeft();
+		updateScrollbarHeightRight();
+	});
+};
+
+defineExpose({
+	resetScrollbarHeight,
+});
 </script>
 
 <style scoped lang="scss">
