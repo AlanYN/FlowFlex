@@ -6,6 +6,11 @@
     public class JsonQueryCondition
     {
         /// <summary>
+        /// JSON field name (e.g., "TriggerContext", "ExecutionOutput")
+        /// </summary>
+        public string FieldName { get; set; } = "TriggerContext";
+
+        /// <summary>
         /// JSON path (e.g., "OnboardingId", "data.user.id")
         /// </summary>
         public string JsonPath { get; set; } = string.Empty;
