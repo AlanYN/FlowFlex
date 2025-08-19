@@ -967,7 +967,11 @@ const validateForm = (presentQuestionIndex?: number) => {
 						}
 					} else if (question.type == 'linear_scale') {
 						const value = formData.value[question.id];
-						if ((typeof value === 'number' && value <= question.min) || !value) {
+						if (
+							(typeof value === 'number' && value <= question.min) ||
+							value == null ||
+							value == undefined
+						) {
 							isValid = false;
 							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
 								qIdx + 1
@@ -1319,7 +1323,7 @@ onMounted(async () => {
 						} else if (question.type === 'linear_scale') {
 							// 线性量表：初始化为最小值（数字类型）
 							if (!(question.id in formData.value)) {
-								formData.value[question.id] = question.min || 1;
+								formData.value[question.id] = question.min;
 							}
 						} else if (question.type === 'rating') {
 							// 评分：初始化为0（数字类型）

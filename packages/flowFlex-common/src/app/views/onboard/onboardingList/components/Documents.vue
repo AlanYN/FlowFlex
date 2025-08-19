@@ -1,7 +1,10 @@
 <template>
 	<div class="customer-block">
 		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-semibold">Documents</h2>
+			<h2 class="text-lg font-semibold text-center flex">
+				Documents
+				<div v-if="props?.component?.isEnabled" class="text-red-500 ml-1">*</div>
+			</h2>
 			<el-button :icon="Upload" @click="triggerUpload">Upload Files</el-button>
 		</div>
 		<el-divider />

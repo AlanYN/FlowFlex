@@ -2,12 +2,17 @@
 	<el-drawer v-model="visible" :title="dialogTitle" size="80%" direction="rtl" @close="onCancel">
 		<el-scrollbar class="action-config-scrollbar">
 			<!-- Variables Panel (shared across all action types) -->
-			<div class="flex gap-4 w-full">
-				<div class="variables-section mt-6 flex-1 min-w-0">
-					<VariablesPanel :stage-id="stageId" :action-type="formData.type" />
+			<div class="flex gap-4 w-full h-full min-h-0">
+				<div class="variables-section mt-6 flex-1 min-w-0 min-h-0 flex flex-col">
+					<el-scrollbar ref="scrollbarRefLeft" class="h-full">
+						<VariablesPanel :stage-id="stageId" :action-type="formData.type" />
+					</el-scrollbar>
 				</div>
-				<div class="action-config-container pr-4 flex-1 min-w-0" v-loading="loading">
-					<el-scrollbar ref="scrollbarRef">
+				<div
+					class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
+					v-loading="loading"
+				>
+					<el-scrollbar ref="scrollbarRefRight" class="h-full">
 						<el-form
 							ref="formRef"
 							:model="formData"
@@ -103,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Operation, Connection } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
@@ -115,7 +120,11 @@ import { addAction, ActionType, updateAction, testRunActionNoId } from '@/apis/a
 import { TriggerTypeEnum } from '@/enums/appEnum';
 import { ActionItem } from '#/action';
 
-const { scrollbarRef } = useAdaptiveScrollbar(110);
+const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
+	useAdaptiveScrollbar(110);
+
+const { scrollbarRef: scrollbarRefRight, updateScrollbarHeight: updateScrollbarHeightRight } =
+	useAdaptiveScrollbar(110);
 
 interface Props {
 	modelValue?: boolean;
@@ -375,14 +384,33 @@ const onCancel = () => {
 	resetForm();
 	emit('cancel');
 };
+
+const resetScrollbarHeight = () => {
+	nextTick(() => {
+		updateScrollbarHeightLeft();
+		updateScrollbarHeightRight();
+	});
+};
+
+defineExpose({
+	resetScrollbarHeight,
+});
 </script>
 
 <style scoped lang="scss">
 .action-config-scrollbar {
 	@apply h-full;
+	max-height: calc(100vh - 120px);
+
+	:deep(.el-scrollbar__view) {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
 
 	:deep(.el-scrollbar__wrap) {
-		overflow-x: hidden;
+		/* avoid nested scrollbars fighting */
+		max-height: 100%;
 	}
 
 	:deep(.el-scrollbar__bar.is-vertical > div) {
