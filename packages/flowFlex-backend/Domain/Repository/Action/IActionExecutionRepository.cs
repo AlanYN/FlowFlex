@@ -85,10 +85,12 @@ namespace FlowFlex.Domain.Repository.Action
         /// <param name="triggerSourceId">Trigger source ID</param>
         /// <param name="pageIndex">Page index</param>
         /// <param name="pageSize">Page size</param>
+        /// <param name="triggerContextWhere"></param>
         /// <returns>Paginated executions with action information</returns>
         Task<(List<ActionExecutionWithActionInfo> Data, int TotalCount)> GetByTriggerSourceIdWithActionInfoAsync(
             long triggerSourceId,
             int pageIndex = 1,
-            int pageSize = 10);
+            int pageSize = 10,
+            List<JsonQueryCondition>? jsonConditions = null);
     }
 }

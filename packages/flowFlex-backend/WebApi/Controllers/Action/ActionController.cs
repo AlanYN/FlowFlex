@@ -1,4 +1,5 @@
-﻿using FlowFlex.Application.Contracts.Dtos.Action;
+﻿
+using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Models;
@@ -393,11 +394,11 @@ namespace FlowFlex.WebApi.Controllers.Action
         #region Action Execution History
 
         /// <summary>
-        /// Get executions by trigger source ID with action information
+        /// Get executions by trigger source ID (simple GET)
         /// </summary>
         /// <param name="triggerSourceId">Trigger source ID</param>
-        /// <param name="pageIndex">Page index</param>
-        /// <param name="pageSize">Page size</param>
+        /// <param name="pageIndex">Page index (default: 1)</param>
+        /// <param name="pageSize">Page size (default: 10)</param>
         /// <returns>Paginated executions with action information</returns>
         [HttpGet("executions/trigger-source/{triggerSourceId}")]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
@@ -408,6 +409,23 @@ namespace FlowFlex.WebApi.Controllers.Action
         {
             var result = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
                 triggerSourceId, pageIndex, pageSize);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get executions by trigger source ID with JSON conditions
+        /// </summary>
+        /// <param name="triggerSourceId">Trigger source ID</param>
+        /// <param name="request">Search request with JSON conditions</param>
+        /// <returns>Paginated executions with action information</returns>
+        [HttpPost("executions/trigger-source/{triggerSourceId}/search")]
+        [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetExecutionsByTriggerSourceIdWithConditions(
+            [FromRoute] long triggerSourceId,
+            [FromBody] GetExecutionsByTriggerSourceIdRequest request)
+        {
+            var result = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                triggerSourceId, request.PageIndex, request.PageSize, request.JsonConditions);
             return Success(result);
         }
 
