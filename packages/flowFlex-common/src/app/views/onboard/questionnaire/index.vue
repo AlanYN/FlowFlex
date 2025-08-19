@@ -114,7 +114,7 @@
 										@command="(cmd) => handleCommand(cmd, questionnaire)"
 										class="flex-shrink-0"
 									>
-										<el-button text class="card-more-btn">
+										<el-button text class="card-more-btn" link>
 											<el-icon class="h-4 w-4"><More /></el-icon>
 										</el-button>
 										<template #dropdown>
