@@ -16,6 +16,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using System.Security.Claims;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -1189,12 +1190,20 @@ namespace FlowFlex.Application.Services.OW
             };
 
             // Add output summary for successful executions
-            if ((status == "success" || status == "completed") && execution.ExecutionOutput != null)
+            if ((status == "success" || status == "completed") && !string.IsNullOrEmpty(execution.ExecutionOutput))
             {
-                var outputSummary = GetActionOutputSummary(execution.ExecutionOutput);
-                if (!string.IsNullOrEmpty(outputSummary))
+                try
                 {
-                    description += $" - {outputSummary}";
+                    var executionOutputToken = JToken.Parse(execution.ExecutionOutput);
+                    var outputSummary = GetActionOutputSummary(executionOutputToken);
+                    if (!string.IsNullOrEmpty(outputSummary))
+                    {
+                        description += $" - {outputSummary}";
+                    }
+                }
+                catch
+                {
+                    // Ignore JSON parsing errors
                 }
             }
 
@@ -1275,16 +1284,20 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                if (execution.ExecutionOutput?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                if (!string.IsNullOrEmpty(execution.ExecutionOutput))
                 {
-                    var output = execution.ExecutionOutput as Newtonsoft.Json.Linq.JObject;
-                    if (output?.TryGetValue("message", out var message) == true)
+                    var output = JToken.Parse(execution.ExecutionOutput);
+                    if (output.Type == JTokenType.Object)
                     {
-                        return message.ToString();
-                    }
-                    if (output?.TryGetValue("errorDetails", out var errorDetails) == true)
-                    {
-                        return errorDetails.ToString();
+                        var outputObj = output as JObject;
+                        if (outputObj?.TryGetValue("message", out var message) == true)
+                        {
+                            return message.ToString();
+                        }
+                        if (outputObj?.TryGetValue("errorDetails", out var errorDetails) == true)
+                        {
+                            return errorDetails.ToString();
+                        }
                     }
                 }
             }

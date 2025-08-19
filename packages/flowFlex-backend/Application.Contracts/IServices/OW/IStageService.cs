@@ -108,16 +108,6 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> CompleteStageAsync(long stageId, long onboardingId, string completionNotes = null);
 
         /// <summary>
-        /// Get Stage operation logs
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="onboardingId">Onboarding ID</param>
-        /// <param name="pageIndex">Page index</param>
-        /// <param name="pageSize">Page size</param>
-        /// <returns>Operation logs</returns>
-        Task<StageLogsDto> GetStageLogsAsync(long stageId, long onboardingId, int pageIndex = 1, int pageSize = 20);
-
-        /// <summary>
         /// Add Stage note
         /// </summary>
         /// <param name="stageId">Stage ID</param>

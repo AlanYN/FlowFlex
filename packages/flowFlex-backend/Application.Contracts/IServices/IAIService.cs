@@ -616,6 +616,11 @@ namespace FlowFlex.Application.Contracts.IServices
         /// Include recommendations in summary
         /// </summary>
         public bool IncludeRecommendations { get; set; } = true;
+
+        /// <summary>
+        /// Static fields information
+        /// </summary>
+        public List<AISummaryFieldInfo> StaticFields { get; set; } = new();
     }
 
     /// <summary>
@@ -721,6 +726,42 @@ namespace FlowFlex.Application.Contracts.IServices
         /// Question category
         /// </summary>
         public string Category { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Static field information for AI summary
+    /// </summary>
+    public class AISummaryFieldInfo
+    {
+        /// <summary>
+        /// Field name
+        /// </summary>
+        public string FieldName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Field display name
+        /// </summary>
+        public string DisplayName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Field type
+        /// </summary>
+        public string FieldType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Is field required
+        /// </summary>
+        public bool IsRequired { get; set; }
+
+        /// <summary>
+        /// Field description
+        /// </summary>
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Field category
+        /// </summary>
+        public string Category { get; set; } = "Static Field";
     }
 
     /// <summary>

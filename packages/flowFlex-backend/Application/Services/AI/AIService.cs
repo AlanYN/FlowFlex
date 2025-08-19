@@ -5378,12 +5378,12 @@ Make questions relevant to the project context and stage objectives.";
                 var requiredTasks = input.ChecklistTasks.Count(t => t.IsRequired);
                 var completedRequiredTasks = input.ChecklistTasks.Count(t => t.IsRequired && t.IsCompleted);
 
-                promptBuilder.AppendLine($"Total Tasks: {totalTasks}");
-                promptBuilder.AppendLine($"Completed Tasks: {completedTasks}");
-                promptBuilder.AppendLine($"Required Tasks: {requiredTasks}");
-                promptBuilder.AppendLine($"Completed Required Tasks: {completedRequiredTasks}");
-                promptBuilder.AppendLine($"Completion Rate: {(totalTasks > 0 ? (decimal)completedTasks / totalTasks * 100 : 0):F1}%");
-                promptBuilder.AppendLine();
+                //promptBuilder.AppendLine($"Total Tasks: {totalTasks}");
+                //promptBuilder.AppendLine($"Completed Tasks: {completedTasks}");
+                //promptBuilder.AppendLine($"Required Tasks: {requiredTasks}");
+                //promptBuilder.AppendLine($"Completed Required Tasks: {completedRequiredTasks}");
+                //promptBuilder.AppendLine($"Completion Rate: {(totalTasks > 0 ? (decimal)completedTasks / totalTasks * 100 : 0):F1}%");
+                //promptBuilder.AppendLine();
 
                 promptBuilder.AppendLine("Task Details:");
                 foreach (var task in input.ChecklistTasks)
@@ -5414,12 +5414,12 @@ Make questions relevant to the project context and stage objectives.";
                 var requiredQuestions = input.QuestionnaireQuestions.Count(q => q.IsRequired);
                 var answeredRequiredQuestions = input.QuestionnaireQuestions.Count(q => q.IsRequired && q.IsAnswered);
 
-                promptBuilder.AppendLine($"Total Questions: {totalQuestions}");
-                promptBuilder.AppendLine($"Answered Questions: {answeredQuestions}");
-                promptBuilder.AppendLine($"Required Questions: {requiredQuestions}");
-                promptBuilder.AppendLine($"Answered Required Questions: {answeredRequiredQuestions}");
-                promptBuilder.AppendLine($"Completion Rate: {(totalQuestions > 0 ? (decimal)answeredQuestions / totalQuestions * 100 : 0):F1}%");
-                promptBuilder.AppendLine();
+                //promptBuilder.AppendLine($"Total Questions: {totalQuestions}");
+                //promptBuilder.AppendLine($"Answered Questions: {answeredQuestions}");
+                //promptBuilder.AppendLine($"Required Questions: {requiredQuestions}");
+                //promptBuilder.AppendLine($"Answered Required Questions: {answeredRequiredQuestions}");
+                //promptBuilder.AppendLine($"Completion Rate: {(totalQuestions > 0 ? (decimal)answeredQuestions / totalQuestions * 100 : 0):F1}%");
+                //promptBuilder.AppendLine();
 
                 promptBuilder.AppendLine("Question Details:");
                 foreach (var question in input.QuestionnaireQuestions)
@@ -5438,63 +5438,50 @@ Make questions relevant to the project context and stage objectives.";
                 promptBuilder.AppendLine();
             }
 
-            // Add summary requirements based on length preference
+            // Add static fields information
+            if (input.StaticFields.Any())
+            {
+                promptBuilder.AppendLine("=== Static Fields Information ===");
+                promptBuilder.AppendLine($"Total Fields: {input.StaticFields.Count}");
+                promptBuilder.AppendLine();
+
+                promptBuilder.AppendLine("Field Details:");
+                foreach (var field in input.StaticFields)
+                {
+                    promptBuilder.AppendLine($"- {field.FieldName}");
+                    if (!string.IsNullOrEmpty(field.DisplayName) && field.DisplayName != field.FieldName)
+                    {
+                        promptBuilder.AppendLine($"  Display Name: {field.DisplayName}");
+                    }
+                    if (!string.IsNullOrEmpty(field.FieldType))
+                    {
+                        promptBuilder.AppendLine($"  Type: {field.FieldType}");
+                    }
+                    if (field.IsRequired)
+                    {
+                        promptBuilder.AppendLine($"  Required: Yes");
+                    }
+                    if (!string.IsNullOrEmpty(field.Description))
+                    {
+                        promptBuilder.AppendLine($"  Description: {field.Description}");
+                    }
+                }
+                promptBuilder.AppendLine();
+            }
+
+            // Simple summary requirements (pure text, <= 600 words)
             promptBuilder.AppendLine("=== Summary Requirements ===");
-            switch (input.SummaryLength.ToLower())
-            {
-                case "short":
-                    promptBuilder.AppendLine("Generate a concise summary (1-2 paragraphs) focusing on key achievements and critical issues.");
-                    break;
-                case "detailed":
-                    promptBuilder.AppendLine("Generate a comprehensive summary (4-5 paragraphs) with detailed analysis of all aspects.");
-                    break;
-                default: // medium
-                    promptBuilder.AppendLine("Generate a balanced summary (2-3 paragraphs) covering main points and important details.");
-                    break;
-            }
-
+            promptBuilder.AppendLine("Please provide a concise, pure text summary (no JSON/Markdown/code blocks), up to 600 English words, that covers:");
+            promptBuilder.AppendLine("1. Stage Overview");
+            promptBuilder.AppendLine("2. Checklist Summary");
+            promptBuilder.AppendLine("3. Questionnaire Summary");
+            promptBuilder.AppendLine("4. Fields Summary");
             promptBuilder.AppendLine();
-
-            // Simplified requirements for better performance
-            if (input.SummaryLength.ToLower() == "short")
-            {
-                promptBuilder.AppendLine("Please provide a brief summary focusing on:");
-                promptBuilder.AppendLine("1. Current completion status");
-                promptBuilder.AppendLine("2. Key findings or issues");
-                promptBuilder.AppendLine("3. Next steps needed");
-                promptBuilder.AppendLine();
-                promptBuilder.AppendLine("Format as simple JSON:");
-                promptBuilder.AppendLine(@"{
-  ""summary"": ""Brief summary text"",
-  ""completionRate"": 75.5,
-  ""keyFindings"": [""finding1"", ""finding2""],
-  ""nextSteps"": [""step1"", ""step2""]
-}");
-            }
-            else
-            {
-                promptBuilder.AppendLine("Please provide a structured summary that includes:");
-                promptBuilder.AppendLine("1. **Overall Overview**: General status and progress");
-                promptBuilder.AppendLine("2. **Task Analysis**: Summary of task completion");
-                promptBuilder.AppendLine("3. **Key Insights**: Important findings");
-                promptBuilder.AppendLine("4. **Recommendations**: Next steps");
-                promptBuilder.AppendLine();
-                promptBuilder.AppendLine("Format the response as JSON:");
-                promptBuilder.AppendLine(@"{
-  ""summary"": ""Main summary text"",
-  ""breakdown"": {
-    ""overview"": ""Overall stage overview"",
-    ""taskAnalysis"": ""Task completion summary"",
-    ""progressAnalysis"": ""Progress analysis""
-  },
-  ""keyInsights"": [""insight1"", ""insight2""],
-  ""recommendations"": [""recommendation1"", ""recommendation2""],
-  ""completionStatus"": {
-    ""overallCompletionRate"": 75.5,
-    ""estimatedTimeToCompletion"": ""2-3 days""
-  }
-}");
-            }
+            promptBuilder.AppendLine("Rules:");
+            promptBuilder.AppendLine("- Output must be plain text only");
+            promptBuilder.AppendLine("- Do not return JSON or any structured data format");
+            promptBuilder.AppendLine("- Do not include Markdown headings or lists");
+            promptBuilder.AppendLine("- Keep the length within 300 words");
 
             return promptBuilder.ToString();
         }
@@ -5577,50 +5564,23 @@ Make questions relevant to the project context and stage objectives.";
                         result.Summary = summaryElement.GetString() ?? "";
                     }
 
-                    // Extract breakdown
+                    // Extract breakdown with new structure
                     if (summaryData.TryGetProperty("breakdown", out var breakdownElement))
                     {
                         result.Breakdown = new AIStageSummaryBreakdown
                         {
-                            Overview = breakdownElement.TryGetProperty("overview", out var overviewEl) ? overviewEl.GetString() ?? "" : "",
+                            Overview = breakdownElement.TryGetProperty("stageOverview", out var stageOverviewEl) ? stageOverviewEl.GetString() ?? "" : "",
                             ChecklistSummary = breakdownElement.TryGetProperty("checklistSummary", out var checklistEl) ? checklistEl.GetString() ?? "" : "",
                             QuestionnaireSummary = breakdownElement.TryGetProperty("questionnaireSummary", out var questionnaireEl) ? questionnaireEl.GetString() ?? "" : "",
-                            ProgressAnalysis = breakdownElement.TryGetProperty("progressAnalysis", out var progressEl) ? progressEl.GetString() ?? "" : "",
-                            RiskAssessment = breakdownElement.TryGetProperty("riskAssessment", out var riskEl) ? riskEl.GetString() ?? "" : ""
+                            ProgressAnalysis = breakdownElement.TryGetProperty("fieldsSummary", out var fieldsEl) ? fieldsEl.GetString() ?? "" : "",
+                            RiskAssessment = "" // Not used anymore
                         };
                     }
 
-                    // Extract key insights
-                    if (summaryData.TryGetProperty("keyInsights", out var insightsElement) && insightsElement.ValueKind == JsonValueKind.Array)
-                    {
-                        result.KeyInsights = insightsElement.EnumerateArray()
-                            .Select(item => item.GetString() ?? "")
-                            .Where(s => !string.IsNullOrEmpty(s))
-                            .ToList();
-                    }
-
-                    // Extract recommendations
-                    if (summaryData.TryGetProperty("recommendations", out var recommendationsElement) && recommendationsElement.ValueKind == JsonValueKind.Array)
-                    {
-                        result.Recommendations = recommendationsElement.EnumerateArray()
-                            .Select(item => item.GetString() ?? "")
-                            .Where(s => !string.IsNullOrEmpty(s))
-                            .ToList();
-                    }
-
-                    // Extract completion status
-                    if (summaryData.TryGetProperty("completionStatus", out var statusElement))
-                    {
-                        result.CompletionStatus = new AISummaryCompletionStatus
-                        {
-                            OverallCompletionRate = statusElement.TryGetProperty("overallCompletionRate", out var overallEl) ? (double)overallEl.GetDecimal() : 0,
-                            ChecklistCompletionRate = statusElement.TryGetProperty("checklistCompletionRate", out var checklistRateEl) ? (double)checklistRateEl.GetDecimal() : 0,
-                            QuestionnaireCompletionRate = statusElement.TryGetProperty("questionnaireCompletionRate", out var questionnaireRateEl) ? (double)questionnaireRateEl.GetDecimal() : 0,
-                            CriticalTasksCompleted = statusElement.TryGetProperty("criticalTasksCompleted", out var criticalEl) && criticalEl.GetBoolean(),
-                            RequiredQuestionsAnswered = statusElement.TryGetProperty("requiredQuestionsAnswered", out var requiredEl) && requiredEl.GetBoolean(),
-                            EstimatedTimeToCompletion = statusElement.TryGetProperty("estimatedTimeToCompletion", out var timeEl) ? timeEl.GetString() ?? "" : ""
-                        };
-                    }
+                    // Initialize empty collections for removed features
+                    result.KeyInsights = new List<string>();
+                    result.Recommendations = new List<string>();
+                    result.CompletionStatus = null;
 
                     return result;
                 }
