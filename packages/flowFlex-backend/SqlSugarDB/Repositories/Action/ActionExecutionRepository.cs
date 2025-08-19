@@ -177,7 +177,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             var query = db.Queryable<ActionExecution>()
                 .InnerJoin<ActionTriggerMapping>((e, m) => e.ActionTriggerMappingId == m.Id)
                 .InnerJoin<ActionDefinition>((e, m, a) => m.ActionDefinitionId == a.Id && e.ActionDefinitionId == a.Id)
-                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId);
+                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId && e.IsValid);
 
             // Apply JSON conditions if provided
             if (jsonConditions != null && jsonConditions.Count != 0)
