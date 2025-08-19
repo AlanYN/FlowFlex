@@ -39,6 +39,8 @@ const Api = () => {
 
 		actionList: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings/action`,
 		stageAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings/trigger-source`,
+
+		mappingAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings`,
 	};
 };
 
@@ -127,6 +129,12 @@ export function getActionList(stageId: string) {
 export function getStageAction(stageId: string) {
 	return defHttp.get({
 		url: `${Api().stageAction}/${stageId}`,
+	});
+}
+
+export function deleteMappingAction(id: string) {
+	return defHttp.delete({
+		url: `${Api().mappingAction}/${id}`,
 	});
 }
 

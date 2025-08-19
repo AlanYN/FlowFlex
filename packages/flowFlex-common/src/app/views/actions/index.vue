@@ -20,18 +20,18 @@
 		</div>
 
 		<!-- Search and Filter Area -->
-		<el-card class="mb-6 rounded-md">
+		<el-card class="mb-6 rounded-md filter_card">
 			<template #default>
-				<div class="pt-6">
+				<div class="">
 					<el-form
 						ref="searchFormRef"
 						:model="searchForm"
 						@submit.prevent="handleSearch"
-						class="onboardSearch-form"
+						class="actionsSearch-form"
 					>
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
+								<label class="text-sm font-medium text-primary-500">
 									Action ID or Action Name
 								</label>
 								<el-input
@@ -49,7 +49,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">Type</label>
+								<label class="text-sm font-medium text-primary-500">Type</label>
 								<el-select
 									v-model="searchForm.type"
 									placeholder="Select Type"
@@ -66,7 +66,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
+								<label class="text-sm font-medium text-primary-500">
 									Assignment - Workflow
 								</label>
 								<el-select
@@ -82,9 +82,9 @@
 							</div>
 						</div>
 
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
+								<label class="text-sm font-medium text-primary-500">
 									Assignment - Stage
 								</label>
 								<el-select
@@ -100,7 +100,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
+								<label class="text-sm font-medium text-primary-500">
 									Assignment - Checklist
 								</label>
 								<el-select
@@ -116,7 +116,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<label class="text-sm font-medium text-gray-700">
+								<label class="text-sm font-medium text-primary-500">
 									Assignment - Questionnaire
 								</label>
 								<el-select
@@ -132,7 +132,7 @@
 							</div>
 						</div>
 
-						<div class="flex justify-end space-x-2">
+						<div class="flex justify-end space-x-2 mt-4">
 							<el-button type="primary" @click="handleSearch">
 								<el-icon>
 									<Search />
@@ -151,6 +151,7 @@
 				:data="actionsList"
 				style="width: 100%"
 				@selection-change="handleSelectionChange"
+				:max-height="tableMaxHeight"
 				v-loading="loading"
 			>
 				<el-table-column type="selection" width="55" />
@@ -233,6 +234,7 @@ import {
 	ACTION_TYPE_MAPPING,
 } from '@/apis/action';
 import { ActionDefinition, TriggerMapping, ActionQueryRequest } from '#/action';
+import { tableMaxHeight } from '@/settings/projectSetting';
 
 // Router
 const router = useRouter();
@@ -561,5 +563,109 @@ onMounted(() => {
 	padding: 4px 12px !important;
 	font-size: 12px !important;
 	font-weight: 500 !important;
+}
+
+.filter_card {
+	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
+}
+
+/* 搜索表单样式 */
+.actionsSearch-form :deep(.el-form-item) {
+	margin-bottom: 0;
+}
+
+.actionsSearch-form :deep(.el-input__wrapper) {
+	transition: all 0.2s;
+}
+
+.actionsSearch-form :deep(.el-input__wrapper:hover) {
+	border-color: #9ca3af;
+}
+
+.actionsSearch-form :deep(.el-input__wrapper.is-focus) {
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.actionsSearch-form :deep(.el-select__wrapper) {
+	transition: all 0.2s;
+}
+
+.actionsSearch-form :deep(.el-select__wrapper:hover) {
+	border-color: #9ca3af;
+}
+
+.actionsSearch-form :deep(.el-select__wrapper.is-focused) {
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 暗色主题样式 */
+html.dark {
+	/* 卡片和容器背景 */
+	.filter_card {
+		background: linear-gradient(to right, var(--primary-900), var(--primary-800)) !important;
+	}
+
+	.rounded-md {
+		background-color: var(--black-400) !important;
+		border: 1px solid var(--black-200) !important;
+	}
+
+	/* 搜索表单暗色主题 */
+	.actionsSearch-form :deep(.el-input__wrapper) {
+		background-color: #2d3748 !important;
+		border: 1px solid var(--black-200) !important;
+	}
+
+	.actionsSearch-form :deep(.el-input__wrapper:hover) {
+		border-color: var(--black-100) !important;
+	}
+
+	.actionsSearch-form :deep(.el-input__wrapper.is-focus) {
+		border-color: var(--primary-500);
+		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
+	}
+
+	.actionsSearch-form :deep(.el-input__inner) {
+		@apply text-white-100;
+	}
+
+	/* Select 暗色主题 */
+	.actionsSearch-form :deep(.el-select__wrapper) {
+		background-color: #2d3748 !important;
+		border: 1px solid var(--black-200) !important;
+	}
+
+	.actionsSearch-form :deep(.el-select__wrapper:hover) {
+		border-color: var(--black-100) !important;
+	}
+
+	.actionsSearch-form :deep(.el-select__wrapper.is-focused) {
+		border-color: var(--primary-500);
+		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
+	}
+
+	.actionsSearch-form :deep(.el-select__selection) {
+		@apply text-white-100;
+	}
+
+	.actionsSearch-form :deep(.el-select__placeholder) {
+		color: var(--el-text-color-placeholder, #a8abb2);
+	}
+
+	/* 表格和分页暗色适配 */
+	.customer-block {
+		background-color: var(--black-400) !important;
+	}
+
+	/* 标签样式在暗色主题下的适配 */
+	.assignments-list .assignment-item .assignment-name {
+		color: var(--white-100) !important;
+	}
+
+	.assignments-list .assignment-item .assignment-date {
+		color: var(--gray-300) !important;
+	}
 }
 </style>

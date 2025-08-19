@@ -228,43 +228,64 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             ISugarQueryable<ActionExecution, ActionTriggerMapping, ActionDefinition> query,
             JsonQueryCondition condition)
         {
-            var jsonPathParts = condition.JsonPath.Split('.');
+            var fieldName = condition.FieldName.ToLower();
+            var jsonPath = condition.JsonPath;
+            var value = condition.Value;
+            var operatorType = condition.Operator.ToLower();
 
-            switch (condition.Operator.ToLower())
+            var jsonPathExpression = BuildJsonPathExpression(jsonPath);
+
+            var dbField = fieldName switch
             {
-                case "=":
-                    return query.WhereIF(jsonPathParts.Length == 1, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0]) == condition.Value)
-                        .WhereIF(jsonPathParts.Length == 2, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1]) == condition.Value)
-                        .WhereIF(jsonPathParts.Length == 3, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2]) == condition.Value)
-                        .WhereIF(jsonPathParts.Length == 4, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2], jsonPathParts[3]) == condition.Value);
+                "triggercontext" => "e.trigger_context",
+                "executioninput" => "e.execution_input",
+                "executionoutput" => "e.execution_output",
+                "executorinfo" => "e.executor_info",
+                _ => "e.trigger_context"
+            };
 
-                case "!=":
-                    return query.WhereIF(jsonPathParts.Length == 1, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0]) != condition.Value)
-                        .WhereIF(jsonPathParts.Length == 2, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1]) != condition.Value)
-                        .WhereIF(jsonPathParts.Length == 3, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2]) != condition.Value)
-                        .WhereIF(jsonPathParts.Length == 4, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2], jsonPathParts[3]) != condition.Value);
+            var sqlCondition = operatorType switch
+            {
+                "=" => $"{dbField}->{jsonPathExpression} = '{value}'",
+                "!=" => $"{dbField}->{jsonPathExpression} != '{value}'",
+                "contains" => $"{dbField}->{jsonPathExpression}::text LIKE '%{value}%'",
+                ">" => $"{dbField}->{jsonPathExpression} > '{value}'",
+                "<" => $"{dbField}->{jsonPathExpression} < '{value}'",
+                ">=" => $"{dbField}->{jsonPathExpression} >= '{value}'",
+                "<=" => $"{dbField}->{jsonPathExpression} <= '{value}'",
+                _ => $"{dbField}->{jsonPathExpression} = '{value}'"
+            };
 
-                case "contains":
-                    return query.WhereIF(jsonPathParts.Length == 1, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0]).Contains(condition.Value))
-                        .WhereIF(jsonPathParts.Length == 2, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1]).Contains(condition.Value))
-                        .WhereIF(jsonPathParts.Length == 3, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2]).Contains(condition.Value))
-                        .WhereIF(jsonPathParts.Length == 4, (e, m, a) =>
-                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2], jsonPathParts[3]).Contains(condition.Value));
+            return query.Where(sqlCondition);
+        }
 
-                default:
-                    return query;
+        /// <summary>
+        /// Build JSON path expression from dot-separated path
+        /// </summary>
+        private string BuildJsonPathExpression(string jsonPath)
+        {
+            if (string.IsNullOrEmpty(jsonPath))
+                return string.Empty;
+
+            if (jsonPath.Contains("->"))
+                return jsonPath;
+
+            var parts = jsonPath.Split('.');
+            var pathParts = new List<string>();
+
+            foreach (var part in parts)
+            {
+                if (int.TryParse(part, out _))
+                {
+                    pathParts.Add(part);
+                }
+                else
+                {
+                    pathParts.Add($"'{part}'");
+                }
             }
+
+            return string.Join("->", pathParts);
         }
     }
 }

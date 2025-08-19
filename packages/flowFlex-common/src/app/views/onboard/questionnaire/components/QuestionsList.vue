@@ -54,7 +54,7 @@
 											item.type != 'page_break'
 										"
 									>
-										<el-button :icon="More" link />
+										<el-button :icon="MoreFilled" link />
 										<template #dropdown>
 											<el-dropdown-menu>
 												<el-dropdown-item
@@ -226,7 +226,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Delete, Document, Edit, More } from '@element-plus/icons-vue';
+import { Delete, Document, Edit, MoreFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import draggable from 'vuedraggable';
 import DragIcon from '@assets/svg/publicPage/drag.svg';

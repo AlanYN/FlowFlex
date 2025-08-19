@@ -63,7 +63,7 @@
 			v-model="showActionDialog"
 			:action="currentActionForEdit"
 			:is-editing="editingIndex !== -1"
-			:stage-id="stageId"
+			:triggerSourceId="stageId"
 			:workflow-id="workflowId"
 			:loading="editLoading"
 			@save-success="onActionSave"
@@ -79,7 +79,7 @@ import { Plus, Document } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 import ActionItem from './ActionItem.vue';
 import ActionConfigDialog from './ActionConfigDialog.vue';
-import { getStageAction, deleteAction, getActionDetail } from '@/apis/action';
+import { getStageAction, deleteMappingAction, getActionDetail } from '@/apis/action';
 import { useI18n } from 'vue-i18n';
 import { ActionListItem } from '#/action';
 
@@ -167,9 +167,7 @@ const removeAction = async (index: number) => {
 
 						try {
 							// 调用激活工作流API
-							const res = await deleteAction(
-								actions.value[index].actionDefinitionId || ''
-							);
+							const res = await deleteMappingAction(actions.value[index]?.id || '');
 
 							if (res.code === '200') {
 								ElMessage.success(t('sys.api.operationSuccess'));
