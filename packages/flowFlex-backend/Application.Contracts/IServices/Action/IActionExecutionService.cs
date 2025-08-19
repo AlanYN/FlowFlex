@@ -50,7 +50,8 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         Task<PageModelDto<ActionExecutionWithActionInfoDto>> GetExecutionsByTriggerSourceIdAsync(
             long triggerSourceId,
             int pageIndex = 1,
-            int pageSize = 10);
+            int pageSize = 10,
+            List<JsonQueryCondition>? jsonConditions = null);
 
         #endregion
     }

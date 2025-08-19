@@ -117,6 +117,7 @@ namespace FlowFlex.WebApi.Extensions
                                 Console.WriteLine($"[Parameters] {string.Join(", ", pars.Select(p => $"{p.ParameterName}={p.Value}"))}");
                             }
                         }
+                        var finalSql = UtilMethods.GetSqlString(DbType.PostgreSQL, sql, pars);
                     };
 
                     provider.Aop.OnError = (exp) =>

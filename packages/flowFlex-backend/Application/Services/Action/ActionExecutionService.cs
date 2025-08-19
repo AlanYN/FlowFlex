@@ -143,12 +143,13 @@ namespace FlowFlex.Application.Services.Action
         public async Task<PageModelDto<ActionExecutionWithActionInfoDto>> GetExecutionsByTriggerSourceIdAsync(
             long triggerSourceId,
             int pageIndex = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            List<JsonQueryCondition>? jsonConditions = null)
         {
             try
             {
                 var (data, totalCount) = await _actionExecutionRepository.GetByTriggerSourceIdWithActionInfoAsync(
-                    triggerSourceId, pageIndex, pageSize);
+                    triggerSourceId, pageIndex, pageSize, jsonConditions);
 
                 var dtoList = _mapper.Map<List<ActionExecutionWithActionInfoDto>>(data);
 

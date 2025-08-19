@@ -50,7 +50,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// <summary>
         /// Trigger context data (JSON format, contains relevant data at trigger time)
         /// </summary>
-        public JToken TriggerContext { get; set; } = new JObject();
+        public string TriggerContext { get; set; }
 
         /// <summary>
         /// Execution status (Pending, Running, Success, Failed, Cancelled)
@@ -75,12 +75,12 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// <summary>
         /// Execution input parameters (JSON format)
         /// </summary>
-        public JToken ExecutionInput { get; set; } = new JObject();
+        public string ExecutionInput { get; set; }
 
         /// <summary>
         /// Execution output result (JSON format)
         /// </summary>
-        public JToken ExecutionOutput { get; set; } = new JObject();
+        public string ExecutionOutput { get; set; }
 
         /// <summary>
         /// Error message
@@ -95,7 +95,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// <summary>
         /// Executor instance information (JSON format, records executor related information)
         /// </summary>
-        public JToken ExecutorInfo { get; set; } = new JObject();
+        public string ExecutorInfo { get; set; }
 
         /// <summary>
         /// Creation time
