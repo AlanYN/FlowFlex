@@ -4,9 +4,7 @@
 		<div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
 			<div class="flex items-center justify-between mb-3">
 				<div class="flex items-center space-x-2">
-					<el-icon class="text-primary-500" size="20">
-						<Operation />
-					</el-icon>
+					<icon icon="tabler:variable-plus" class="text-primary-500" />
 					<h4 class="font-medium text-gray-800 dark:text-white">Available Variables</h4>
 				</div>
 			</div>
@@ -26,9 +24,7 @@
 								class="flex items-center justify-between cursor-pointer transition-colors"
 							>
 								<div class="flex items-center space-x-2">
-									<el-icon class="text-blue-500" size="18">
-										<Operation />
-									</el-icon>
+									<icon icon="tabler:variable-plus" class="text-primary-500" />
 									<h5 class="font-semibold text-gray-800 dark:text-white">
 										Context Parameter Structure
 									</h5>
@@ -131,9 +127,7 @@
 						<!-- Business Context -->
 						<div class="variable-category">
 							<div class="category-header">
-								<el-icon class="text-purple-500" size="16">
-									<Operation />
-								</el-icon>
+								<icon icon="tabler:variable-plus" class="text-primary-500" />
 								<h5 class="font-medium text-gray-700 dark:text-gray-300">
 									Business Context
 								</h5>
@@ -341,7 +335,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Operation, User, Flag, Document, DocumentCopy } from '@element-plus/icons-vue';
+import { User, Flag, Document, DocumentCopy } from '@element-plus/icons-vue';
 
 interface Variable {
 	name: string;

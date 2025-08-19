@@ -3,17 +3,10 @@
 	<div class="action-config-drawer">
 		<Teleport to="body">
 			<div v-if="visible" class="variables-toggle-external" @click="showVariablesPanel">
-				<el-tooltip
-					:content="leftPanelVisible ? 'Hide Variables Panel' : 'Show Variables Panel'"
-					placement="left"
-				>
-					<div class="external-toggle-button">
-						<el-icon size="16">
-							<ArrowLeft v-if="leftPanelVisible" />
-							<ArrowRight v-else />
-						</el-icon>
-					</div>
-				</el-tooltip>
+				<div class="external-toggle-button">
+					<icon icon="tabler:variable-plus" class="text-primary-500" />
+					<div class="variables-toggle-text">Available Variables</div>
+				</div>
 			</div>
 		</Teleport>
 
@@ -141,7 +134,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Operation, Connection, ArrowRight, ArrowLeft } from '@element-plus/icons-vue';
+import { Operation, Connection } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
@@ -501,36 +494,49 @@ defineExpose({
 .variables-toggle-external {
 	position: fixed;
 	left: v-bind(buttonLeftPosition);
-	top: 5vh;
+	top: 10vh;
 	transform: translateY(-50%);
 	z-index: 9999;
 	transition: left 0.3s ease;
+	animation: delayedFadeIn 0.6s ease-out;
+}
 
-	.external-toggle-button {
-		@apply flex items-center justify-center cursor-pointer transition-all duration-300 rounded-l-lg bg-white;
-		width: 20px;
-		height: 40px;
+@keyframes delayedFadeIn {
+	0%,
+	50% {
+		opacity: 0;
+		transform: translateY(-50%) translateX(20px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(-50%) translateX(0);
+	}
+}
+
+.external-toggle-button {
+	@apply border-l-2 border-primary-500 rounded-s-md cursor-pointer transition-all duration-300 bg-white flex flex-col items-center justify-center gap-2;
+	width: 20px;
+	height: 200px;
+
+	&:hover {
+		background-color: #f8fafc;
+		border-color: #3b82f6;
+		transform: scale(1.05);
+		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+	}
+
+	.dark & {
+		background-color: #374151;
+		border-color: #4b5563;
 
 		&:hover {
-			background-color: #f8fafc;
+			background-color: #4b5563;
 			border-color: #3b82f6;
-			transform: scale(1.05);
-			box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
 		}
+	}
 
-		.dark & {
-			background-color: #374151;
-			border-color: #4b5563;
-
-			&:hover {
-				background-color: #4b5563;
-				border-color: #3b82f6;
-			}
-		}
-
-		.el-icon {
-			@apply text-gray-600 dark:text-gray-300 transition-colors duration-200;
-		}
+	.variables-toggle-text {
+		writing-mode: vertical-rl;
 	}
 }
 
