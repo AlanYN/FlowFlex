@@ -115,7 +115,7 @@
 										class="flex-shrink-0"
 									>
 										<el-button text class="card-more-btn" link>
-											<el-icon class="h-4 w-4"><More /></el-icon>
+											<el-icon class="h-4 w-4"><MoreFilled /></el-icon>
 										</el-button>
 										<template #dropdown>
 											<el-dropdown-menu>
@@ -382,7 +382,7 @@ import {
 	CopyDocument,
 	Delete,
 	Document,
-	More,
+	MoreFilled,
 	View,
 	Loading,
 } from '@element-plus/icons-vue';

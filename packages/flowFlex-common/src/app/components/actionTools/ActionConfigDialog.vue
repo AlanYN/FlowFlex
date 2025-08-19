@@ -1,116 +1,147 @@
 <template>
-	<el-drawer v-model="visible" :title="dialogTitle" size="80%" direction="rtl" @close="onCancel">
-		<el-scrollbar class="action-config-scrollbar">
-			<!-- Variables Panel (shared across all action types) -->
-			<div class="flex gap-4 w-full h-full min-h-0">
-				<div class="variables-section mt-6 flex-1 min-w-0 min-h-0 flex flex-col">
-					<el-scrollbar ref="scrollbarRefLeft" class="h-full">
-						<VariablesPanel :stage-id="stageId" :action-type="formData.type" />
-					</el-scrollbar>
-				</div>
-				<div
-					class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
-					v-loading="loading"
+	<!-- External toggle button for variables panel -->
+	<div class="action-config-drawer">
+		<Teleport to="body">
+			<div v-if="visible" class="variables-toggle-external" @click="showVariablesPanel">
+				<el-tooltip
+					:content="leftPanelVisible ? 'Hide Variables Panel' : 'Show Variables Panel'"
+					placement="left"
 				>
-					<el-scrollbar ref="scrollbarRefRight" class="h-full">
-						<el-form
-							ref="formRef"
-							:model="formData"
-							:rules="rules"
-							label-position="top"
-							label-width="120px"
-						>
-							<!-- Basic Info -->
-							<el-form-item label="Action Name" prop="name">
-								<el-input v-model="formData.name" placeholder="Enter action name" />
-							</el-form-item>
+					<div class="external-toggle-button">
+						<el-icon size="16">
+							<ArrowLeft v-if="leftPanelVisible" />
+							<ArrowRight v-else />
+						</el-icon>
+					</div>
+				</el-tooltip>
+			</div>
+		</Teleport>
 
-							<el-form-item label="Description" prop="description">
-								<el-input
-									v-model="formData.description"
-									type="textarea"
-									:rows="3"
-									placeholder="Enter action description"
-								/>
-							</el-form-item>
+		<el-drawer
+			v-model="visible"
+			:title="dialogTitle"
+			:size="drawerSize"
+			direction="rtl"
+			@close="onCancel"
+		>
+			<el-scrollbar class="action-config-scrollbar">
+				<div class="flex gap-4 w-full h-full min-h-0">
+					<div v-if="leftPanelVisible" class="flex-1 min-w-0 min-h-0 flex flex-col">
+						<el-scrollbar ref="scrollbarRefLeft" class="h-full">
+							<VariablesPanel
+								:stage-id="triggerSourceId"
+								:action-type="formData.type"
+							/>
+						</el-scrollbar>
+					</div>
 
-							<el-form-item label="Action Type" prop="type">
-								<el-radio-group
-									v-model="formData.type"
-									@change="handleActionTypeChange"
-								>
-									<el-radio
-										v-for="type in actionTypes"
-										:key="type.value"
-										:value="type.value"
-										class="action-type-option"
-										:disabled="isEditing"
+					<div
+						class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
+						v-loading="loading"
+					>
+						<el-scrollbar ref="scrollbarRefRight" class="h-full">
+							<el-form
+								ref="formRef"
+								:model="formData"
+								:rules="rules"
+								label-position="top"
+								label-width="120px"
+							>
+								<!-- Basic Info -->
+								<el-form-item label="Action Name" prop="name">
+									<el-input
+										v-model="formData.name"
+										placeholder="Enter action name"
+									/>
+								</el-form-item>
+
+								<el-form-item label="Description" prop="description">
+									<el-input
+										v-model="formData.description"
+										type="textarea"
+										:rows="3"
+										placeholder="Enter action description"
+									/>
+								</el-form-item>
+
+								<el-form-item label="Action Type" prop="type">
+									<el-radio-group
+										v-model="formData.type"
+										@change="handleActionTypeChange"
 									>
-										<div class="flex items-center space-x-3">
-											<div
-												class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
-											>
-												<el-icon class="text-primary-500" size="20">
-													<component :is="type.icon" />
-												</el-icon>
-											</div>
-											<div class="flex">
-												<span
-													class="font-medium text-gray-900 dark:text-white"
+										<el-radio
+											v-for="type in actionTypes"
+											:key="type.value"
+											:value="type.value"
+											class="action-type-option"
+											:disabled="isEditing"
+										>
+											<div class="flex items-center space-x-3">
+												<div
+													class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
 												>
-													{{ type.label }}
-												</span>
+													<el-icon class="text-primary-500" size="20">
+														<component :is="type.icon" />
+													</el-icon>
+												</div>
+												<div class="flex">
+													<span
+														class="font-medium text-gray-900 dark:text-white"
+													>
+														{{ type.label }}
+													</span>
+												</div>
 											</div>
-										</div>
-									</el-radio>
-								</el-radio-group>
-							</el-form-item>
+										</el-radio>
+									</el-radio-group>
+								</el-form-item>
 
-							<!-- Action Configuration -->
-							<div v-if="formData.type" class="action-config-section">
-								<!-- Python Script Configuration -->
-								<PythonConfig
-									v-if="formData.type === 'python'"
-									v-model="formData.actionConfig"
-									@test="onTest"
-									:testing="testing"
-									:test-result="testResult"
-									ref="pythonConfigRef"
-									:id-editing="isEditing"
-								/>
+								<!-- Action Configuration -->
+								<div v-if="formData.type" class="action-config-section">
+									<!-- Python Script Configuration -->
+									<PythonConfig
+										v-if="formData.type === 'python'"
+										v-model="formData.actionConfig"
+										@test="onTest"
+										:testing="testing"
+										:test-result="testResult"
+										ref="pythonConfigRef"
+										:id-editing="isEditing"
+									/>
 
-								<!-- HTTP API Configuration -->
-								<HttpConfig
-									v-else-if="formData.type === 'http'"
-									v-model="formData.actionConfig"
-									@test="onTest"
-									:testing="testing"
-									:test-result="testResult"
-									ref="httpConfigRef"
-									:id-editing="isEditing"
-								/>
-							</div>
-						</el-form>
-					</el-scrollbar>
+									<!-- HTTP API Configuration -->
+									<HttpConfig
+										v-else-if="formData.type === 'http'"
+										v-model="formData.actionConfig"
+										@test="onTest"
+										:testing="testing"
+										:test-result="testResult"
+										ref="httpConfigRef"
+										:id-editing="isEditing"
+									/>
+								</div>
+							</el-form>
+						</el-scrollbar>
+					</div>
 				</div>
-			</div>
-		</el-scrollbar>
+			</el-scrollbar>
 
-		<template #footer>
-			<div class="dialog-footer">
-				<el-button @click="onCancel">Cancel</el-button>
-				<el-button type="primary" @click="onSave" :loading="saving">
-					{{ isEditing ? 'Update' : 'Add' }} Action
-				</el-button>
-			</div>
-		</template>
-	</el-drawer>
+			<template #footer>
+				<div class="dialog-footer">
+					<el-button @click="onCancel">Cancel</el-button>
+					<el-button type="primary" @click="onSave" :loading="saving">
+						{{ isEditing ? 'Update' : 'Add' }} Action
+					</el-button>
+				</div>
+			</template>
+		</el-drawer>
+	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Operation, Connection } from '@element-plus/icons-vue';
+import { Operation, Connection, ArrowRight, ArrowLeft } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
@@ -121,16 +152,16 @@ import { TriggerTypeEnum } from '@/enums/appEnum';
 import { ActionItem } from '#/action';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
-	useAdaptiveScrollbar(110);
+	useAdaptiveScrollbar(80);
 
 const { scrollbarRef: scrollbarRefRight, updateScrollbarHeight: updateScrollbarHeightRight } =
-	useAdaptiveScrollbar(110);
+	useAdaptiveScrollbar(80);
 
 interface Props {
 	modelValue?: boolean;
 	action?: ActionItem | null;
 	isEditing?: boolean;
-	stageId?: string;
+	triggerSourceId?: string;
 	workflowId?: string;
 	loading?: boolean;
 }
@@ -139,7 +170,7 @@ const props = withDefaults(defineProps<Props>(), {
 	modelValue: false,
 	action: null,
 	isEditing: false,
-	stageId: '',
+	triggerSourceId: '',
 	workflowId: '',
 });
 
@@ -156,6 +187,7 @@ const testing = ref(false);
 const testResult = ref(null);
 const pythonConfigRef = ref(); // For getting Python config component reference
 const httpConfigRef = ref(); // For getting HTTP config component reference
+const leftPanelVisible = ref(false); // Controls the visibility of the left variables panel
 
 const formData = reactive<ActionItem>({
 	id: '',
@@ -174,6 +206,22 @@ const visible = computed({
 const dialogTitle = computed(() => {
 	return props.isEditing ? 'Edit Action' : 'Add New Action';
 });
+
+const drawerSize = computed(() => {
+	return leftPanelVisible.value ? '80%' : '40%';
+});
+
+const buttonLeftPosition = computed(() => {
+	const drawerWidth = leftPanelVisible.value ? 0.8 : 0.4;
+	return `calc(100vw - ${drawerWidth * 100}vw - 20px)`;
+});
+
+const showVariablesPanel = () => {
+	leftPanelVisible.value = !leftPanelVisible.value;
+	nextTick(() => {
+		updateScrollbarHeightLeft();
+	});
+};
 
 // Action Types
 const actionTypes = [
@@ -354,7 +402,7 @@ const onSave = async () => {
 					workflowId: props?.workflowId || '',
 					actionType:
 						formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
-					triggerSourceId: props.stageId,
+					triggerSourceId: props.triggerSourceId,
 					triggerType: TriggerTypeEnum.Stage,
 			  })
 			: await addAction({
@@ -363,7 +411,7 @@ const onSave = async () => {
 					workflowId: props?.workflowId || '',
 					actionType:
 						formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
-					triggerSourceId: props.stageId,
+					triggerSourceId: props.triggerSourceId,
 					triggerType: TriggerTypeEnum.Stage,
 			  });
 		console.log('res:', res);
@@ -450,14 +498,61 @@ defineExpose({
 	margin-top: auto;
 }
 
-// Variables Panel 在抽屉中的样式调整
-.variables-section {
-	:deep(.variables-panel) {
-		@apply border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm;
-	}
+.variables-toggle-external {
+	position: fixed;
+	left: v-bind(buttonLeftPosition);
+	top: 5vh;
+	transform: translateY(-50%);
+	z-index: 9999;
+	transition: left 0.3s ease;
 
-	:deep(.variables-header) {
-		@apply bg-gray-50 dark:bg-gray-800;
+	.external-toggle-button {
+		@apply flex items-center justify-center cursor-pointer transition-all duration-300 rounded-l-lg bg-white;
+		width: 20px;
+		height: 40px;
+
+		&:hover {
+			background-color: #f8fafc;
+			border-color: #3b82f6;
+			transform: scale(1.05);
+			box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+		}
+
+		.dark & {
+			background-color: #374151;
+			border-color: #4b5563;
+
+			&:hover {
+				background-color: #4b5563;
+				border-color: #3b82f6;
+			}
+		}
+
+		.el-icon {
+			@apply text-gray-600 dark:text-gray-300 transition-colors duration-200;
+		}
+	}
+}
+
+.variables-panel-container {
+	@apply flex-1 min-w-0 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-800;
+	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+
+	.dark & {
+		border-color: #4b5563;
+	}
+}
+
+.variables-panel-header {
+	@apply flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800;
+	border-top-left-radius: 8px;
+	border-top-right-radius: 8px;
+}
+
+.action-config-drawer {
+	:deep(.el-drawer__footer) {
+		@apply p-0;
 	}
 }
 </style>

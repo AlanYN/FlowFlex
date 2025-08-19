@@ -608,14 +608,6 @@
 						/>
 					</el-select>
 				</el-form-item>
-
-				<!-- Workflow & Stage Assignments -->
-				<WorkflowAssignments
-					ref="workflowAssignmentsRef"
-					:assignments="initialAssignments"
-					:workflows="workflows"
-					:stages="stages"
-				/>
 			</el-form>
 
 			<template #footer>
@@ -654,7 +646,6 @@ import { getWorkflows, getStagesByWorkflow, getAllStages } from '@/apis/ow';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ChecklistLoading from './checklist-loading.vue';
-import WorkflowAssignments from './components/WorkflowAssignments.vue';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 import draggable from 'vuedraggable';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
@@ -735,12 +726,6 @@ const formData = ref({
 	stage: '',
 	assignments: [],
 });
-
-// 组件引用
-const workflowAssignmentsRef = ref(null);
-
-// 工作流分配数据（用于初始化子组件）
-const initialAssignments = ref([]);
 
 // Loading 状态管理
 const createLoading = ref(false);
@@ -1314,9 +1299,6 @@ const editChecklist = async (checklist) => {
 			(checklist.assignments || []).length
 		} total assignments`
 	);
-
-	// 设置初始化数据给 WorkflowAssignments 组件
-	initialAssignments.value = assignments;
 
 	formData.value = {
 		name: checklist.name,
@@ -2071,9 +2053,6 @@ const openCreateDialog = async () => {
 	editingChecklist.value = null;
 	showDialog.value = true;
 
-	// 重置初始化数据
-	initialAssignments.value = [];
-
 	// 重置表单数据
 	formData.value = {
 		name: '',
@@ -2086,11 +2065,6 @@ const openCreateDialog = async () => {
 
 	// 等待下一个 tick，确保 WorkflowAssignments 组件已经渲染
 	await nextTick();
-
-	// 清空 WorkflowAssignments 组件的数据
-	if (workflowAssignmentsRef.value?.clearAssignments) {
-		workflowAssignmentsRef.value.clearAssignments();
-	}
 
 	// 设置默认workflow（只在活跃的workflow中查找）
 	const defaultWorkflow = filteredWorkflows.value.find((w) => w.isDefault);
@@ -2105,12 +2079,6 @@ const openCreateDialog = async () => {
 const closeDialog = () => {
 	showDialog.value = false;
 	editingChecklist.value = null;
-	initialAssignments.value = [];
-
-	// 清空 WorkflowAssignments 组件的数据
-	if (workflowAssignmentsRef.value?.clearAssignments) {
-		workflowAssignmentsRef.value.clearAssignments();
-	}
 
 	formData.value = {
 		name: '',
@@ -2137,9 +2105,6 @@ const submitDialog = async () => {
 	try {
 		console.log(`${isEdit ? 'Updating' : 'Creating'} checklist with data:`, formData.value);
 
-		// 从 WorkflowAssignments 组件获取 assignments 数据
-		const assignments = workflowAssignmentsRef.value?.getAssignments() || [];
-
 		const checklistData = {
 			name: formData.value.name.trim(),
 			description: formData.value.description || '',
@@ -2148,7 +2113,6 @@ const submitDialog = async () => {
 			status: isEdit ? editingChecklist.value?.status || 'Active' : 'Active',
 			isTemplate: isEdit ? editingChecklist.value?.isTemplate || false : false,
 			isActive: isEdit ? editingChecklist.value?.isActive !== false : true,
-			assignments: assignments,
 		};
 
 		if (isEdit) {

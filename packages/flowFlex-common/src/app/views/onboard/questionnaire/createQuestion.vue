@@ -41,15 +41,6 @@
 
 							<el-divider />
 
-							<!-- 工作流阶段分配 -->
-							<WorkflowAssignments
-								ref="workflowAssignmentsRef"
-								:assignments="initialAssignments"
-								:workflows="workflows"
-							/>
-
-							<el-divider />
-
 							<!-- 分区管理 -->
 							<SectionManager
 								:sections="questionnaire.sections"
@@ -114,7 +105,7 @@
 											/>
 										</div>
 										<el-dropdown placement="bottom" @command="handleAddContent">
-											<el-button :icon="More" link />
+											<el-button :icon="MoreFilled" link />
 											<template #dropdown>
 												<el-dropdown-menu>
 													<el-dropdown-item command="page-break">
@@ -213,14 +204,13 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit, More } from '@element-plus/icons-vue';
+import { Edit, MoreFilled } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import QuestionnaireHeader from './components/QuestionnaireHeader.vue';
 import QuestionnaireBasicInfo from './components/QuestionnaireBasicInfo.vue';
-import WorkflowAssignments from './components/WorkflowAssignments.vue';
 import SectionManager from './components/SectionManager.vue';
 import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
 import QuestionEditor from './components/QuestionEditor.vue';
@@ -277,7 +267,6 @@ const loadQuestionnaireData = async () => {
 			questionnaire.description = data.description || '';
 			questionnaire.isActive = data.isActive ?? true;
 
-			initialAssignments.value = data.assignments || [];
 			// 填充问卷结构 - 适配API返回的数据结构
 			if (structure?.sections && Array.isArray(structure.sections)) {
 				questionnaire.sections = structure.sections.map((section: any) => ({
@@ -359,12 +348,7 @@ const updateBasicInfo = (basicInfo: { name: string; description: string }) => {
 	questionnaire.description = basicInfo.description;
 };
 
-// 子组件引用
-const workflowAssignmentsRef = ref<any>(null);
 const questionEditorRef = ref<any>(null);
-
-// 工作流分配数据（用于初始化子组件）
-const initialAssignments = ref<Array<{ workflowId: string; stageId: string }>>([]);
 
 // 问题类型定义
 const questionTypes = [
@@ -543,8 +527,6 @@ const previewData = computed(() => {
 		isActive: true,
 		createBy: 'Current User',
 		createDate: new Date().toISOString(),
-		// 添加工作流阶段分配信息
-		assignments: workflowAssignmentsRef.value?.getAssignments() || [],
 	};
 });
 
@@ -690,9 +672,6 @@ const handleSaveQuestionnaire = async () => {
 	try {
 		saving.value = true;
 
-		// 从子组件获取工作流分配数据
-		const assignments = workflowAssignmentsRef.value?.getAssignments() || [];
-
 		// 构建问卷结构JSON - 适配API期望的数据结构
 		const structureJson = JSON.stringify({
 			sections: questionnaire.sections.map((section) => ({
@@ -747,7 +726,6 @@ const handleSaveQuestionnaire = async () => {
 			estimatedMinutes: Math.max(1, Math.ceil(totalQuestions * 0.5)),
 			category: 'custom',
 			type: 'questionnaire',
-			assignments: assignments.filter((assignment) => assignment.workflowId),
 		};
 
 		let result;
