@@ -170,14 +170,25 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<(List<ActionExecutionWithActionInfo> Data, int TotalCount)> GetByTriggerSourceIdWithActionInfoAsync(
             long triggerSourceId,
             int pageIndex = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            List<JsonQueryCondition>? jsonConditions = null)
         {
             // Then query executions with action information
             var query = db.Queryable<ActionExecution>()
                 .InnerJoin<ActionTriggerMapping>((e, m) => e.ActionTriggerMappingId == m.Id)
                 .InnerJoin<ActionDefinition>((e, m, a) => m.ActionDefinitionId == a.Id && e.ActionDefinitionId == a.Id)
-                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId)
-                .OrderByDescending((e, m, a) => e.CreateDate)
+                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId && e.IsValid);
+
+            // Apply JSON conditions if provided
+            if (jsonConditions != null && jsonConditions.Count != 0)
+            {
+                foreach (var condition in jsonConditions)
+                {
+                    query = ApplyJsonCondition(query, condition);
+                }
+            }
+
+            var finalQuery = query.OrderByDescending((e, m, a) => e.CreateDate)
                 .Select((e, m, a) => new ActionExecutionWithActionInfo
                 {
                     Id = e.Id,
@@ -187,27 +198,73 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                     ActionTriggerMappingId = e.ActionTriggerMappingId,
                     ActionName = e.ActionName,
                     ActionType = e.ActionType,
-                    TriggerContext = e.TriggerContext,
+                    TriggerContext = SqlFunc.JsonParse(e.TriggerContext),
                     ExecutionStatus = e.ExecutionStatus,
                     StartedAt = e.StartedAt,
                     CompletedAt = e.CompletedAt,
                     DurationMs = e.DurationMs,
-                    ExecutionInput = e.ExecutionInput,
-                    ExecutionOutput = e.ExecutionOutput,
+                    ExecutionInput = SqlFunc.JsonParse(e.ExecutionInput),
+                    ExecutionOutput = SqlFunc.JsonParse(e.ExecutionOutput),
                     ErrorMessage = e.ErrorMessage,
                     ErrorStackTrace = e.ErrorStackTrace,
-                    ExecutorInfo = e.ExecutorInfo,
+                    ExecutorInfo = SqlFunc.JsonParse(e.ExecutorInfo),
                     CreatedAt = e.CreateDate,
                     CreatedBy = e.CreateBy
                 });
 
             // Get total count
-            var totalCount = await query.CountAsync();
+            var totalCount = await finalQuery.CountAsync();
 
             // Get paged data
-            var data = await query.ToPageListAsync(pageIndex, pageSize);
+            var data = await finalQuery.ToPageListAsync(pageIndex, pageSize);
 
             return (data, totalCount);
+        }
+
+        /// <summary>
+        /// Apply JSON condition to query
+        /// </summary>
+        private ISugarQueryable<ActionExecution, ActionTriggerMapping, ActionDefinition> ApplyJsonCondition(
+            ISugarQueryable<ActionExecution, ActionTriggerMapping, ActionDefinition> query,
+            JsonQueryCondition condition)
+        {
+            var jsonPathParts = condition.JsonPath.Split('.');
+
+            switch (condition.Operator.ToLower())
+            {
+                case "=":
+                    return query.WhereIF(jsonPathParts.Length == 1, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0]) == condition.Value)
+                        .WhereIF(jsonPathParts.Length == 2, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1]) == condition.Value)
+                        .WhereIF(jsonPathParts.Length == 3, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2]) == condition.Value)
+                        .WhereIF(jsonPathParts.Length == 4, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2], jsonPathParts[3]) == condition.Value);
+
+                case "!=":
+                    return query.WhereIF(jsonPathParts.Length == 1, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0]) != condition.Value)
+                        .WhereIF(jsonPathParts.Length == 2, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1]) != condition.Value)
+                        .WhereIF(jsonPathParts.Length == 3, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2]) != condition.Value)
+                        .WhereIF(jsonPathParts.Length == 4, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2], jsonPathParts[3]) != condition.Value);
+
+                case "contains":
+                    return query.WhereIF(jsonPathParts.Length == 1, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0]).Contains(condition.Value))
+                        .WhereIF(jsonPathParts.Length == 2, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1]).Contains(condition.Value))
+                        .WhereIF(jsonPathParts.Length == 3, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2]).Contains(condition.Value))
+                        .WhereIF(jsonPathParts.Length == 4, (e, m, a) =>
+                        SqlFunc.JsonField(e.TriggerContext, jsonPathParts[0], jsonPathParts[1], jsonPathParts[2], jsonPathParts[3]).Contains(condition.Value));
+
+                default:
+                    return query;
+            }
         }
     }
 }

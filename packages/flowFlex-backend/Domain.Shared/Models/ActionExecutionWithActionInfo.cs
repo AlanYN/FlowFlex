@@ -1,6 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-
-namespace FlowFlex.Domain.Shared.Models
+﻿namespace FlowFlex.Domain.Shared.Models
 {
     /// <summary>
     /// Action execution with action information
@@ -45,7 +43,7 @@ namespace FlowFlex.Domain.Shared.Models
         /// <summary>
         /// Trigger context data (JSON format, contains relevant data at trigger time)
         /// </summary>
-        public JToken TriggerContext { get; set; } = new JObject();
+        public string TriggerContext { get; set; }
 
         /// <summary>
         /// Execution status (Pending, Running, Success, Failed, Cancelled)
@@ -70,12 +68,12 @@ namespace FlowFlex.Domain.Shared.Models
         /// <summary>
         /// Execution input parameters (JSON format)
         /// </summary>
-        public JToken ExecutionInput { get; set; } = new JObject();
+        public string ExecutionInput { get; set; }
 
         /// <summary>
         /// Execution output result (JSON format)
         /// </summary>
-        public JToken ExecutionOutput { get; set; } = new JObject();
+        public string ExecutionOutput { get; set; }
 
         /// <summary>
         /// Error message
@@ -90,7 +88,7 @@ namespace FlowFlex.Domain.Shared.Models
         /// <summary>
         /// Executor instance information (JSON format, records executor related information)
         /// </summary>
-        public JToken ExecutorInfo { get; set; } = new JObject();
+        public string ExecutorInfo { get; set; }
 
         /// <summary>
         /// Creation time
