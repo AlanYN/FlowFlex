@@ -232,8 +232,8 @@ namespace FlowFlex.Application.Services.Action
         {
             if (string.IsNullOrWhiteSpace(sourceCode))
                 return false;
-
-            var mainPattern = @"def\s+main\s*\([^)]*\)\s*:";
+                
+            var mainPattern = @"def\s+main\s*\(([^)]*)\)(?:\s*->\s*[^:]*)?\s*:";
             var match = Regex.Match(sourceCode, mainPattern, RegexOptions.IgnoreCase);
 
             return match.Success;
@@ -384,6 +384,16 @@ namespace FlowFlex.Application.Services.Action
             entity.ModifyDate = DateTimeOffset.UtcNow;
 
             await _actionTriggerMappingRepository.UpdateAsync(entity);
+
+            var mappingCount = await _actionTriggerMappingRepository.CountAsync(m => m.ActionDefinitionId == entity.ActionDefinitionId && m.IsValid);
+            if (mappingCount == 0)
+            {
+                await _actionDefinitionRepository.UpdateSetColumnsTrueAsync(m => new ActionDefinition
+                {
+                    IsEnabled = false,
+                    ModifyDate = DateTimeOffset.UtcNow
+                }, d => d.Id == entity.ActionDefinitionId);
+            }
             _logger.LogInformation("Deleted action trigger mapping: {MappingId}", id);
 
             return true;
