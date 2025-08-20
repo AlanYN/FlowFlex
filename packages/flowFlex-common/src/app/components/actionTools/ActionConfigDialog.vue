@@ -177,7 +177,7 @@ const emit = defineEmits<{
 const formRef = ref();
 const saving = ref(false);
 const testing = ref(false);
-const testResult = ref(null);
+const testResult = ref<any>(null);
 const pythonConfigRef = ref(); // For getting Python config component reference
 const httpConfigRef = ref(); // For getting HTTP config component reference
 const leftPanelVisible = ref(false); // Controls the visibility of the left variables panel
@@ -328,7 +328,7 @@ const handleActionTypeChange = (type: string) => {
 };
 
 // Handle test result - 参考 detail.vue 的 handleTestResult 逻辑
-const onTest = async (result: any) => {
+const onTest = async () => {
 	// Force get current config values from components
 
 	try {

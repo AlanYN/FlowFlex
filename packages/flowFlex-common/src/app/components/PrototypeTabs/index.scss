@@ -69,7 +69,7 @@
 		justify-content: flex-start;
 		height: auto;
 		min-height: 2.5rem;
-		background-color: #f1f5f9;
+		background-color: #fff;
 		border-color: #e2e8f0;
 		border-radius: var(--el-border-radius-base);
 
@@ -260,13 +260,13 @@
 
 	/* Adaptive 类型的 Active 样式 */
 	.tabs-list--adaptive &--active {
-		color: var(--el-text-color-primary);
-		background: transparent;
+		color: var(--primary-600);
+		background: var(--primary-50);
 		font-weight: 500;
 		z-index: 2;
 
 		:root.dark & {
-			color: #f7fafc;
+			color: var(--primary-600);
 		}
 
 		.tab-icon {

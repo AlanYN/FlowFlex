@@ -33,7 +33,9 @@
 		}
 
 		th.el-table__cell {
-			@apply bg-black-400;
+			background-color: #003c76 !important; /* 使用项目的 sea-700 深蓝色 */
+			border-bottom: 1px solid #00509d !important; /* 使用项目的 sea-600 */
+			color: #cce8d0 !important; /* 使用项目的浅色文字 */
 		}
 
 		th.el-table__cell.is-leaf {
@@ -50,14 +52,6 @@
 				@apply text-white-100;
 			}
 		}
-	}
-
-	.el-table th.el-table__cell {
-		@apply bg-black-200;
-	}
-
-	.el-table tr {
-		@apply bg-black-400;
 	}
 
 	// 弹窗
@@ -102,39 +96,6 @@
 			@apply text-gray-100;
 		}
 	}
-
-	.el-date-table td.end-date .el-date-table-cell__text,
-	.el-date-table td.start-date .el-date-table-cell__text {
-		@apply bg-primary-500;
-	}
-
-	.el-date-table td.current:not(.disabled) .el-date-table-cell__text {
-		@apply text-white;
-	}
-
-	.el-date-table td.current:not(.disabled) .el-date-table-cell__text {
-		@apply text-white;
-	}
-
-	.el-date-picker__header-label:hover {
-		@apply text-primary-500;
-	}
-
-	.el-year-table td.current:not(.disabled) .cell {
-		@apply bg-primary-500;
-	}
-	.el-month-table td.current:not(.disabled) .cell {
-		@apply bg-primary-500 text-white;
-	}
-
-	.el-year-table td .cell:hover {
-		@apply text-primary-500;
-	}
-
-	.el-month-table td .cell:hover {
-		@apply text-primary-500;
-	}
-
 	.el-time-panel__btn.confirm {
 		@apply text-primary-500;
 	}
@@ -205,10 +166,10 @@
 	}
 
 	.el-button--default {
-		@apply  border-gray-500 ;
+		@apply border-gray-500;
 		&:hover,
 		&:focus {
-			@apply bg-primary-600 border-primary-600 ;
+			@apply bg-primary-600 border-primary-600;
 		}
 	}
 
@@ -369,21 +330,23 @@
 		@apply border-primary-500;
 	}
 
-	.el-loading-mask{
+	.el-loading-mask {
 		background-color: rgba(0, 0, 0, 0.9);
 	}
 
-	.customer-block{
-		transition: box-shadow 0.3s ease, background-color 0.3s ease;
+	.customer-block {
+		transition:
+			box-shadow 0.3s ease,
+			background-color 0.3s ease;
 		@apply bg-black-400 p-4 rounded-xl ml-2 box-border;
 		&:hover {
-			box-shadow:0px 0px 12px rgba(225,225,225,0.12);
+			box-shadow: 0px 0px 12px rgba(225, 225, 225, 0.12);
 		}
 	}
 
 	/* 增强 Light 效果的 tooltip 阴影 - 暗色主题 */
 	.el-popper.is-light {
-		box-shadow: 
+		box-shadow:
 			0 25px 50px -12px rgba(0, 0, 0, 0.4),
 			0 12px 24px -6px rgba(0, 0, 0, 0.25),
 			0 6px 12px -3px rgba(0, 0, 0, 0.15) !important;
