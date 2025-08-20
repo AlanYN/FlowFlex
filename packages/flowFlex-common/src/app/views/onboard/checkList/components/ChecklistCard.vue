@@ -5,8 +5,10 @@
 			<div class="card-header -m-5 p-4">
 				<div class="flex items-center justify-between w-full">
 					<div class="flex items-center space-x-3 flex-1 min-w-0">
-						<div class="card-icon p-2 rounded-full flex-shrink-0">
-							<Icon icon="material-symbols:checklist-rounded" class="w-5 h-5" />
+						<div
+							class="card-icon rounded-full flex-shrink-0 flex items-center justify-center"
+						>
+							<Icon icon="material-symbols:checklist-rounded" class="w-6 h-6" />
 						</div>
 						<h3
 							class="card-title text-xl font-semibold leading-tight tracking-tight truncate"
