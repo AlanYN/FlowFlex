@@ -12,6 +12,7 @@
 			:placeholder="props.placeholder"
 			@keyup.enter="addTags"
 			@blur="addTagsOnBlur"
+			:disabled="disabled"
 			class="input-tag"
 			ref="inputTagRef"
 			type="text"
@@ -35,6 +36,7 @@ interface PropsModel {
 	limit?: number; // 最多能输入几个标签
 	styleType?: string; // 输入框样式，视觉中存在两种高度tag
 	placeholder?: string; // 提示信息
+	disabled?: boolean; // 是否禁用
 }
 
 // 接收父组件参数

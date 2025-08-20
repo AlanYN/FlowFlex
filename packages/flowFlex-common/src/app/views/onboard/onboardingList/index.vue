@@ -146,7 +146,10 @@
 							min-width="200"
 						>
 							<template #default="{ row }">
-								<div class="workflow-name-tag" :title="row.workflowName">
+								<div
+									:class="row.workflowName ? `workflow-name-tag` : ''"
+									:title="row.workflowName"
+								>
 									{{ row.workflowName }}
 								</div>
 							</template>
@@ -1259,30 +1262,6 @@ onMounted(async () => {
 	margin-top: 16px;
 }
 
-/* 表格样式 */
-:deep(.el-table) {
-	border: none;
-}
-
-:deep(.el-table .bg-blue-50) {
-	background-color: var(--primary-10) !important;
-}
-
-:deep(.el-table th) {
-	background-color: var(--primary-10);
-	border-bottom: 1px solid #e5e7eb;
-	color: #374151;
-	font-weight: 500;
-}
-
-:deep(.el-table td) {
-	border-bottom: 1px solid #f3f4f6;
-}
-
-:deep(.el-table tbody tr:hover > td) {
-	background-color: #f9fafb;
-}
-
 /* 优先级标签样式 */
 :deep(.el-tag.el-tag--danger) {
 	background-color: #dc2626;
@@ -1519,32 +1498,6 @@ html.dark {
 	:deep(.onboarding-form .el-select .el-input__wrapper) {
 		background-color: var(--black-200);
 		border-color: var(--black-200);
-	}
-
-	/* 表格暗色主题 - 保持头部蓝色样式 */
-	:deep(.el-table .bg-blue-50) {
-		background-color: #003c76 !important; /* 使用项目的 sea-700 深蓝色 */
-	}
-
-	:deep(.el-table th) {
-		background-color: #003c76 !important; /* 使用项目的 sea-700 深蓝色 */
-		border-bottom: 1px solid #00509d !important; /* 使用项目的 sea-600 */
-		color: #cce8d0 !important; /* 使用项目的浅色文字 */
-	}
-
-	:deep(.el-table td) {
-		border-bottom: 1px solid var(--black-200) !important;
-		background-color: var(--black-400) !important;
-		color: var(--white-100) !important;
-	}
-
-	:deep(.el-table tbody tr:hover > td) {
-		background-color: var(--black-300) !important;
-	}
-
-	/* 表格整体边框 */
-	:deep(.el-table) {
-		border: 1px solid var(--black-200) !important;
 	}
 
 	/* 管道视图暗色主题 */
