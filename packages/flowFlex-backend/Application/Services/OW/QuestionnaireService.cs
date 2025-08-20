@@ -451,11 +451,11 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Source questionnaire with ID {id} not found");
             }
 
-            // Validate new name uniqueness
-            if (await _questionnaireRepository.IsNameExistsAsync(input.Name))
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
-            }
+            // Determine base name and ensure uniqueness
+            var baseName = string.IsNullOrWhiteSpace(input.Name)
+                ? $"{sourceQuestionnaire.Name} (Copy)"
+                : input.Name;
+            var uniqueName = await EnsureUniqueQuestionnaireNameAsync(baseName);
 
             // Process StructureJson to generate new IDs
             string newStructureJson = null;
@@ -466,7 +466,7 @@ namespace FlowFlex.Application.Service.OW
 
             var newQuestionnaire = new Questionnaire
             {
-                Name = input.Name,
+                Name = uniqueName,
                 Description = input.Description ?? sourceQuestionnaire.Description,
                 Category = input.Category ?? sourceQuestionnaire.Category,
                             Status = "Draft",
@@ -493,6 +493,25 @@ namespace FlowFlex.Application.Service.OW
             await CalculateQuestionStatistics(newQuestionnaire);
 
             return newQuestionnaire.Id;
+        }
+
+        private async Task<string> EnsureUniqueQuestionnaireNameAsync(string baseName)
+        {
+            var originalName = baseName;
+            var counter = 1;
+            var currentName = baseName;
+
+            while (true)
+            {
+                var exists = await _questionnaireRepository.IsNameExistsAsync(currentName);
+                if (!exists)
+                {
+                    return currentName;
+                }
+
+                counter++;
+                currentName = $"{originalName} ({counter})";
+            }
         }
 
         /// <summary>

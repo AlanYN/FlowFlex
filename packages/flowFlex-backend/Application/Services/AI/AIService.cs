@@ -5345,16 +5345,14 @@ Make questions relevant to the project context and stage objectives.";
             // Determine effective language: explicit -> auto-detect from input content
             var effectiveLanguage = DetermineEffectiveLanguage(input);
 
-            // Set language instruction and universal rule
+            // Set language instruction
             if (effectiveLanguage == "zh-CN")
             {
-                promptBuilder.AppendLine("请用中文生成阶段总结。");
-                promptBuilder.AppendLine("请严格按照用户输入内容的语言输出结果（Output the result according to the language input by the user.）。");
+                promptBuilder.AppendLine("用中文生成简洁的阶段总结。");
             }
             else
             {
-                promptBuilder.AppendLine("Please generate the stage summary in English.");
-                promptBuilder.AppendLine("Output the result according to the language input by the user.");
+                promptBuilder.AppendLine("Generate a concise stage summary in English.");
             }
 
             promptBuilder.AppendLine();
@@ -5385,21 +5383,13 @@ Make questions relevant to the project context and stage objectives.";
                 //promptBuilder.AppendLine($"Completion Rate: {(totalTasks > 0 ? (decimal)completedTasks / totalTasks * 100 : 0):F1}%");
                 //promptBuilder.AppendLine();
 
-                promptBuilder.AppendLine("Task Details:");
+                promptBuilder.AppendLine("Tasks:");
                 foreach (var task in input.ChecklistTasks)
                 {
-                    promptBuilder.AppendLine($"- [{(task.IsCompleted ? "✓" : "○")}] {task.TaskName} {(task.IsRequired ? "(Required)" : "(Optional)")}");
-                    if (!string.IsNullOrEmpty(task.Description))
-                    {
-                        promptBuilder.AppendLine($"  Description: {task.Description}");
-                    }
+                    promptBuilder.AppendLine($"- [{(task.IsCompleted ? "✓" : "○")}] {task.TaskName}");
                     if (task.IsCompleted && !string.IsNullOrEmpty(task.CompletionNotes))
                     {
-                        promptBuilder.AppendLine($"  Completion Notes: {task.CompletionNotes}");
-                    }
-                    if (!string.IsNullOrEmpty(task.Category))
-                    {
-                        promptBuilder.AppendLine($"  Category: {task.Category}");
+                        promptBuilder.AppendLine($"  Notes: {task.CompletionNotes}");
                     }
                 }
                 promptBuilder.AppendLine();
@@ -5421,18 +5411,13 @@ Make questions relevant to the project context and stage objectives.";
                 //promptBuilder.AppendLine($"Completion Rate: {(totalQuestions > 0 ? (decimal)answeredQuestions / totalQuestions * 100 : 0):F1}%");
                 //promptBuilder.AppendLine();
 
-                promptBuilder.AppendLine("Question Details:");
+                promptBuilder.AppendLine("Questions:");
                 foreach (var question in input.QuestionnaireQuestions)
                 {
-                    promptBuilder.AppendLine($"- [{(question.IsAnswered ? "✓" : "○")}] {question.QuestionText} {(question.IsRequired ? "(Required)" : "(Optional)")}");
-                    promptBuilder.AppendLine($"  Type: {question.QuestionType}");
+                    promptBuilder.AppendLine($"- [{(question.IsAnswered ? "✓" : "○")}] {question.QuestionText}");
                     if (question.IsAnswered && question.Answer != null)
                     {
                         promptBuilder.AppendLine($"  Answer: {question.Answer}");
-                    }
-                    if (!string.IsNullOrEmpty(question.Category))
-                    {
-                        promptBuilder.AppendLine($"  Category: {question.Category}");
                     }
                 }
                 promptBuilder.AppendLine();
@@ -5441,47 +5426,26 @@ Make questions relevant to the project context and stage objectives.";
             // Add static fields information
             if (input.StaticFields.Any())
             {
-                promptBuilder.AppendLine("=== Static Fields Information ===");
-                promptBuilder.AppendLine($"Total Fields: {input.StaticFields.Count}");
-                promptBuilder.AppendLine();
-
-                promptBuilder.AppendLine("Field Details:");
-                foreach (var field in input.StaticFields)
+                promptBuilder.AppendLine("=== Static Fields ===");
+                foreach (var field in input.StaticFields.Where(f => f.IsRequired || !string.IsNullOrEmpty(f.Description)))
                 {
-                    promptBuilder.AppendLine($"- {field.FieldName}");
-                    if (!string.IsNullOrEmpty(field.DisplayName) && field.DisplayName != field.FieldName)
-                    {
-                        promptBuilder.AppendLine($"  Display Name: {field.DisplayName}");
-                    }
-                    if (!string.IsNullOrEmpty(field.FieldType))
-                    {
-                        promptBuilder.AppendLine($"  Type: {field.FieldType}");
-                    }
-                    if (field.IsRequired)
-                    {
-                        promptBuilder.AppendLine($"  Required: Yes");
-                    }
-                    if (!string.IsNullOrEmpty(field.Description))
-                    {
-                        promptBuilder.AppendLine($"  Description: {field.Description}");
-                    }
+                    promptBuilder.AppendLine($"- {field.DisplayName ?? field.FieldName}");
                 }
                 promptBuilder.AppendLine();
             }
 
-            // Simple summary requirements (pure text, <= 600 words)
+            // Simple summary requirements (pure text, <= 200 words)
             promptBuilder.AppendLine("=== Summary Requirements ===");
-            promptBuilder.AppendLine("Please provide a concise, pure text summary (no JSON/Markdown/code blocks), up to 600 English words, that covers:");
-            promptBuilder.AppendLine("1. Stage Overview");
-            promptBuilder.AppendLine("2. Checklist Summary");
-            promptBuilder.AppendLine("3. Questionnaire Summary");
-            promptBuilder.AppendLine("4. Fields Summary");
+            promptBuilder.AppendLine("Provide a concise summary in maximum 200 words covering key findings and progress:");
+            promptBuilder.AppendLine("- Current completion status");
+            promptBuilder.AppendLine("- Key findings or issues identified");
+            promptBuilder.AppendLine("- Next steps or recommendations");
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("Rules:");
-            promptBuilder.AppendLine("- Output must be plain text only");
-            promptBuilder.AppendLine("- Do not return JSON or any structured data format");
-            promptBuilder.AppendLine("- Do not include Markdown headings or lists");
-            promptBuilder.AppendLine("- Keep the length within 300 words");
+            promptBuilder.AppendLine("Output Rules:");
+            promptBuilder.AppendLine("- Plain text only, no formatting");
+            promptBuilder.AppendLine("- Maximum 200 words");
+            promptBuilder.AppendLine("- Focus on actionable insights");
+            promptBuilder.AppendLine("- No instructional phrases or meta-commentary");
 
             return promptBuilder.ToString();
         }

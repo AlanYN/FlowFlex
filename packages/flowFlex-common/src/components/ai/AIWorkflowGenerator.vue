@@ -770,137 +770,6 @@
 
 					<!-- Input Area -->
 					<div class="input-area">
-						<!-- AI File Analyzer and Generate Button -->
-						<div class="file-upload-section">
-							<div class="file-analyzer-container">
-								<AIFileAnalyzer
-									@file-analyzed="handleFileAnalyzed"
-									@analysis-complete="handleAnalysisComplete"
-									@stream-chunk="handleStreamChunk"
-									@analysis-started="handleAnalysisStarted"
-								/>
-
-								<!-- Generate My Workflow Button (only show when there's chat history) -->
-								<div
-									v-if="shouldShowGenerateButton"
-									class="generate-workflow-right"
-								>
-									<el-button
-										type="primary"
-										size="default"
-										@click="generateWorkflow"
-										:loading="generating"
-										class="generate-workflow-btn-right"
-									>
-										<el-icon class="mr-1"><Star /></el-icon>
-										Generate My Workflow
-									</el-button>
-								</div>
-							</div>
-
-							<!-- Uploaded File Display -->
-							<div v-if="uploadedFile" class="uploaded-file-display">
-								<div class="file-info">
-									<el-icon
-										class="file-icon"
-										:class="{
-											'pdf-icon': isPDFFile(uploadedFile),
-											'word-icon': isWordFile(uploadedFile),
-											'image-icon': isImageFile(uploadedFile),
-										}"
-									>
-										<Picture v-if="isImageFile(uploadedFile)" />
-										<Document v-else />
-									</el-icon>
-									<span class="file-name">{{ uploadedFile.name }}</span>
-									<span class="file-type-badge" v-if="isPDFFile(uploadedFile)">
-										PDF
-									</span>
-									<span
-										class="file-type-badge word"
-										v-else-if="isWordFile(uploadedFile)"
-									>
-										WORD
-									</span>
-									<el-button
-										size="small"
-										type="text"
-										@click="removeUploadedFile"
-										class="remove-file-btn"
-									>
-										<el-icon><Close /></el-icon>
-									</el-button>
-								</div>
-								<!-- File Preview -->
-								<div v-if="uploadedFile" class="file-preview">
-									<!-- Image Preview -->
-									<div v-if="isImageFile(uploadedFile)" class="image-preview">
-										<img
-											:src="getFilePreviewUrl(uploadedFile)"
-											:alt="uploadedFile.name"
-											class="preview-image"
-										/>
-									</div>
-
-									<!-- PDF Preview -->
-									<div
-										v-else-if="isPDFFile(uploadedFile)"
-										class="document-preview pdf-preview"
-									>
-										<div class="preview-header">
-											<el-icon class="preview-icon"><Document /></el-icon>
-											<div class="preview-info">
-												<span class="preview-title">PDF Document</span>
-												<span class="preview-subtitle">
-													{{ formatFileSize(uploadedFile.size) }}
-												</span>
-											</div>
-										</div>
-										<div class="preview-description">
-											Click "Send to AI Chat" to analyze this PDF document
-										</div>
-									</div>
-
-									<!-- Word Preview -->
-									<div
-										v-else-if="isWordFile(uploadedFile)"
-										class="document-preview word-preview"
-									>
-										<div class="preview-header">
-											<el-icon class="preview-icon"><Document /></el-icon>
-											<div class="preview-info">
-												<span class="preview-title">Word Document</span>
-												<span class="preview-subtitle">
-													{{ formatFileSize(uploadedFile.size) }}
-												</span>
-											</div>
-										</div>
-										<div class="preview-description">
-											Click "Send to AI Chat" to analyze this Word document
-										</div>
-									</div>
-
-									<!-- Other File Preview -->
-									<div v-else class="document-preview generic-preview">
-										<div class="preview-header">
-											<el-icon class="preview-icon"><Document /></el-icon>
-											<div class="preview-info">
-												<span class="preview-title">
-													{{ getFileTypeName(uploadedFile) }}
-												</span>
-												<span class="preview-subtitle">
-													{{ formatFileSize(uploadedFile.size) }}
-												</span>
-											</div>
-										</div>
-										<div class="preview-description">
-											Click "Send to AI Chat" to analyze this document
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-
 						<!-- Text Input -->
 						<div class="text-input-section">
 							<div class="input-with-button">
@@ -927,44 +796,179 @@
 							</div>
 						</div>
 
-						<!-- Model Selection -->
-						<div class="ai-model-selector-bottom">
-							<div class="model-selector-label">Model:</div>
-							<el-select
-								v-model="currentAIModel"
-								placeholder="Select AI Model"
-								size="default"
-								class="model-select"
-								style="width: 220px"
-								value-key="id"
-								@change="handleModelChange"
-							>
-								<el-option
-									v-for="model in availableModels"
-									:key="model.id"
-									:label="`${model.provider.toLowerCase()} ${model.modelName}`"
-									:value="model"
-									:disabled="!model.isAvailable"
+						<!-- Model Selection and AI File Analyzer -->
+						<div class="bottom-controls-section">
+							<div class="ai-model-selector-bottom">
+								<div class="model-selector-label">Model:</div>
+								<el-select
+									v-model="currentAIModel"
+									placeholder="Select AI Model"
+									size="default"
+									class="model-select"
+									style="width: 220px"
+									value-key="id"
+									@change="handleModelChange"
 								>
-									<div class="model-option">
-										<div class="model-info">
-											<span class="model-display">
-												{{ model.provider.toLowerCase() }}
-												{{ model.modelName }}
+									<el-option
+										v-for="model in availableModels"
+										:key="model.id"
+										:label="`${model.provider.toLowerCase()} ${
+											model.modelName
+										}`"
+										:value="model"
+										:disabled="!model.isAvailable"
+									>
+										<div class="model-option">
+											<div class="model-info">
+												<span class="model-display">
+													{{ model.provider.toLowerCase() }}
+													{{ model.modelName }}
+												</span>
+											</div>
+											<div class="model-status">
+												<span
+													class="status-dot"
+													:class="{
+														online: model.isAvailable,
+														offline: !model.isAvailable,
+													}"
+												></span>
+											</div>
+										</div>
+									</el-option>
+								</el-select>
+							</div>
+
+							<!-- AI File Analyzer and Generate Button -->
+							<div class="file-upload-section">
+								<div class="file-analyzer-container">
+									<AIFileAnalyzer
+										@file-analyzed="handleFileAnalyzed"
+										@analysis-complete="handleAnalysisComplete"
+										@stream-chunk="handleStreamChunk"
+										@analysis-started="handleAnalysisStarted"
+									/>
+
+									<!-- Generate My Workflow Button (only show when there's chat history) -->
+									<div
+										v-if="shouldShowGenerateButton"
+										class="generate-workflow-right"
+									>
+										<el-button
+											type="primary"
+											size="default"
+											@click="generateWorkflow"
+											:loading="generating"
+											class="generate-workflow-btn-right"
+										>
+											<el-icon class="mr-1"><Star /></el-icon>
+											Generate My Workflow
+										</el-button>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Uploaded File Display -->
+						<div v-if="uploadedFile" class="uploaded-file-display">
+							<div class="file-info">
+								<el-icon
+									class="file-icon"
+									:class="{
+										'pdf-icon': isPDFFile(uploadedFile),
+										'word-icon': isWordFile(uploadedFile),
+										'image-icon': isImageFile(uploadedFile),
+									}"
+								>
+									<Picture v-if="isImageFile(uploadedFile)" />
+									<Document v-else />
+								</el-icon>
+								<span class="file-name">{{ uploadedFile.name }}</span>
+								<span class="file-type-badge" v-if="isPDFFile(uploadedFile)">
+									PDF
+								</span>
+								<span
+									class="file-type-badge word"
+									v-else-if="isWordFile(uploadedFile)"
+								>
+									WORD
+								</span>
+								<el-button
+									size="small"
+									type="text"
+									@click="removeUploadedFile"
+									class="remove-file-btn"
+								>
+									<el-icon><Close /></el-icon>
+								</el-button>
+							</div>
+							<!-- File Preview -->
+							<div v-if="uploadedFile" class="file-preview">
+								<!-- Image Preview -->
+								<div v-if="isImageFile(uploadedFile)" class="image-preview">
+									<img
+										:src="getFilePreviewUrl(uploadedFile)"
+										:alt="uploadedFile.name"
+										class="preview-image"
+									/>
+								</div>
+
+								<!-- PDF Preview -->
+								<div
+									v-else-if="isPDFFile(uploadedFile)"
+									class="document-preview pdf-preview"
+								>
+									<div class="preview-header">
+										<el-icon class="preview-icon"><Document /></el-icon>
+										<div class="preview-info">
+											<span class="preview-title">PDF Document</span>
+											<span class="preview-subtitle">
+												{{ formatFileSize(uploadedFile.size) }}
 											</span>
 										</div>
-										<div class="model-status">
-											<span
-												class="status-dot"
-												:class="{
-													online: model.isAvailable,
-													offline: !model.isAvailable,
-												}"
-											></span>
+									</div>
+									<div class="preview-description">
+										Click "Send to AI Chat" to analyze this PDF document
+									</div>
+								</div>
+
+								<!-- Word Preview -->
+								<div
+									v-else-if="isWordFile(uploadedFile)"
+									class="document-preview word-preview"
+								>
+									<div class="preview-header">
+										<el-icon class="preview-icon"><Document /></el-icon>
+										<div class="preview-info">
+											<span class="preview-title">Word Document</span>
+											<span class="preview-subtitle">
+												{{ formatFileSize(uploadedFile.size) }}
+											</span>
 										</div>
 									</div>
-								</el-option>
-							</el-select>
+									<div class="preview-description">
+										Click "Send to AI Chat" to analyze this Word document
+									</div>
+								</div>
+
+								<!-- Other File Preview -->
+								<div v-else class="document-preview generic-preview">
+									<div class="preview-header">
+										<el-icon class="preview-icon"><Document /></el-icon>
+										<div class="preview-info">
+											<span class="preview-title">
+												{{ getFileTypeName(uploadedFile) }}
+											</span>
+											<span class="preview-subtitle">
+												{{ formatFileSize(uploadedFile.size) }}
+											</span>
+										</div>
+									</div>
+									<div class="preview-description">
+										Click "Send to AI Chat" to analyze this document
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -1005,17 +1009,6 @@
 										</el-dropdown-menu>
 									</template>
 								</el-dropdown>
-								<el-button
-									size="small"
-									type="text"
-									@click="toggleHistory"
-									class="collapse-btn"
-								>
-									<el-icon>
-										<ArrowRight v-if="isHistoryCollapsed" />
-										<ArrowLeft v-else />
-									</el-icon>
-								</el-button>
 							</div>
 						</div>
 
@@ -1061,9 +1054,6 @@
 										<span class="history-time">
 											{{ formatRelativeTime(session.timestamp) }}
 										</span>
-										<span class="message-count">
-											{{ session.messages.length }} msgs
-										</span>
 									</div>
 								</div>
 								<div class="item-actions">
@@ -1093,9 +1083,6 @@
 									<div class="history-meta">
 										<span class="history-time">
 											{{ formatRelativeTime(session.timestamp) }}
-										</span>
-										<span class="message-count">
-											{{ session.messages.length }} msgs
 										</span>
 									</div>
 								</div>
@@ -1200,7 +1187,6 @@ import {
 	Close,
 	Picture,
 	MoreFilled,
-	Download,
 	Search,
 	Edit,
 } from '@element-plus/icons-vue';
@@ -3345,40 +3331,6 @@ const deleteSession = (sessionId: string) => {
 		});
 };
 
-const exportChatHistory = () => {
-	try {
-		const exportData = {
-			exportDate: new Date().toISOString(),
-			sessions: chatHistory.value.map((session) => ({
-				...session,
-				timestamp: session.timestamp.toISOString(),
-				messages: session.messages.map((msg) => ({
-					...msg,
-					timestamp: msg.timestamp.toISOString(),
-				})),
-			})),
-		};
-
-		const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-			type: 'application/json',
-		});
-
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `ai-workflow-chat-history-${new Date().toISOString().split('T')[0]}.json`;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
-
-		ElMessage.success('Chat history exported successfully');
-	} catch (error) {
-		console.error('Export failed:', error);
-		ElMessage.error('Failed to export chat history');
-	}
-};
-
 const clearAllHistory = () => {
 	ElMessageBox.confirm(
 		'Are you sure you want to clear all chat history? This action cannot be undone.',
@@ -3660,14 +3612,17 @@ onMounted(async () => {
 
 .assistant-container {
 	display: flex;
+	align-items: stretch;
 	gap: 1rem;
-	height: 700px;
+	height: 75vh;
+	min-height: 700px;
 }
 
 .chat-area {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
+	height: 100%;
 }
 
 .chat-messages {
@@ -3677,7 +3632,8 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
-	max-height: 600px;
+	max-height: calc(75vh - 200px);
+	min-height: 500px;
 }
 
 /* Custom scrollbar styles */
@@ -4123,13 +4079,21 @@ onMounted(async () => {
 	border-radius: 0 0 12px 12px;
 }
 
+.bottom-controls-section {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-top: 0.75rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid #e5e7eb;
+}
+
 .ai-model-selector-bottom {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
-	margin-top: 0.75rem;
-	padding-top: 0.75rem;
-	border-top: 1px solid #e5e7eb;
+	flex-shrink: 0;
 }
 
 .model-selector-label {
@@ -4182,6 +4146,7 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+	flex-shrink: 0;
 }
 
 .file-analyzer-container {
@@ -4377,12 +4342,29 @@ onMounted(async () => {
 
 .input-with-button {
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
 	gap: 0.75rem;
 }
 
 .chat-input {
 	flex: 1;
+}
+
+.chat-input .el-textarea__inner {
+	resize: none;
+	line-height: 1.5;
+	min-height: 70px !important;
+	height: 70px !important;
+	border-radius: 12px;
+	border: 1px solid #d1d5db;
+	padding: 12px 16px;
+	font-size: 14px;
+	transition: all 0.2s ease;
+}
+
+.chat-input .el-textarea__inner:focus {
+	border-color: #4f46e5;
+	box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
 .input-actions {
@@ -4393,21 +4375,20 @@ onMounted(async () => {
 
 .send-button {
 	min-width: 80px;
-	height: 36px;
+	height: 70px;
 	font-size: 0.875rem;
 	font-weight: 500;
+	border-radius: 12px;
+	transition: all 0.2s ease;
 }
 
 .chat-history {
+	margin-top: -85px;
 	width: 320px;
-	border: 1px solid #e2e8f0;
-	border-right: none;
+	border-left: 1px solid #e2e8f0;
 	display: flex;
 	flex-direction: column;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-	background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.04);
-	border-radius: 16px 0 0 16px;
 	overflow: hidden;
 }
 
@@ -4420,7 +4401,6 @@ onMounted(async () => {
 .history-header {
 	padding: 1.25rem;
 	border-bottom: 1px solid #f1f5f9;
-	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
 	backdrop-filter: blur(10px);
 	position: relative;
 }
@@ -4527,6 +4507,7 @@ onMounted(async () => {
 	flex: 1;
 	overflow-y: auto;
 	padding: 1rem 0.75rem;
+	height: 0; /* 强制使用flex-grow填充剩余空间 */
 }
 
 .section-header {

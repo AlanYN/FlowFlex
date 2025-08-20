@@ -949,6 +949,46 @@ const getGridAnswerLabels = (
 	return labels.filter(Boolean);
 };
 
+// 解析短答网格单行（或多行）答案为 “行:值” 列表字符串
+const getShortAnswerGridRowSummary = (response: any, questionConfig: any): string => {
+	const parsed = parseResponseText(response?.responseText || '');
+	if (!parsed || Object.keys(parsed).length === 0) {
+		return 'No answer';
+	}
+
+	// 建立 rowId -> label 的映射
+	const rowIdToLabel = new Map<string, string>();
+	if (questionConfig?.rows && Array.isArray(questionConfig.rows)) {
+		questionConfig.rows.forEach((r: any) => rowIdToLabel.set(r.id, r.label));
+	}
+
+	const rows: Array<{ label: string; value: string }> = [];
+	Object.entries(parsed).forEach(([key, val]) => {
+		const parts = key.split('_');
+		const rowPart = parts.find((p) => p.startsWith('row-')) || '';
+		const label = rowIdToLabel.get(rowPart) || rowPart.replace('row-', '');
+		const value = String(val ?? '').trim();
+		if (label && value) {
+			rows.push({ label, value });
+		}
+	});
+
+	// 兜底：如果解析不到 rowPart，尝试从 question 文本中取行号
+	if (rows.length === 0) {
+		const firstVal = Object.values(parsed)[0];
+		let rowLabel = '';
+		if (typeof response?.question === 'string') {
+			const match = response.question.match(/-\s*(\d+)\s*$/);
+			if (match) rowLabel = match[1];
+		}
+		if (rowLabel && firstVal) {
+			return `${rowLabel}:${String(firstVal)}`;
+		}
+	}
+
+	return rows.map((r) => `${r.label}:${r.value}`).join(' ');
+};
+
 // 检查是否有有效答案
 const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
@@ -1061,6 +1101,9 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 				response.questionId
 			);
 			return gridLabels.join(', ');
+
+		case 'short_answer_grid':
+			return getShortAnswerGridRowSummary(response, questionConfig);
 
 		case 'date':
 			return formatAnswerDate(answer, 'date');

@@ -9,15 +9,13 @@
 			:before-upload="beforeUpload"
 			class="file-upload-area"
 		>
-			<div class="upload-content">
+			<div class="upload-content file-upload-area-upload">
 				<div class="upload-icon">
 					<el-icon><Document /></el-icon>
 				</div>
 				<div class="upload-text">
 					<p class="upload-title">AI Analyze Files</p>
-					<p class="supported-formats">
-						Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON
-					</p>
+					<p class="supported-formats">Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON</p>
 				</div>
 			</div>
 		</el-upload>
@@ -40,24 +38,31 @@
 				</div>
 
 				<div class="processing-steps">
-					<div 
-						v-for="(step, index) in processingSteps" 
+					<div
+						v-for="(step, index) in processingSteps"
 						:key="index"
-						:class="['step-item', { 
-							active: currentStep === index, 
-							completed: currentStep > index,
-							error: step.error 
-						}]"
+						:class="[
+							'step-item',
+							{
+								active: currentStep === index,
+								completed: currentStep > index,
+								error: step.error,
+							},
+						]"
 					>
 						<div class="step-icon">
 							<el-icon v-if="step.error"><Close /></el-icon>
 							<el-icon v-else-if="currentStep > index"><Check /></el-icon>
-							<el-icon v-else-if="currentStep === index" class="loading"><Loading /></el-icon>
+							<el-icon v-else-if="currentStep === index" class="loading">
+								<Loading />
+							</el-icon>
 							<span v-else class="step-number">{{ index + 1 }}</span>
 						</div>
 						<div class="step-content">
 							<p class="step-title">{{ step.title }}</p>
-							<p v-if="step.description" class="step-description">{{ step.description }}</p>
+							<p v-if="step.description" class="step-description">
+								{{ step.description }}
+							</p>
 							<p v-if="step.error" class="step-error">{{ step.error }}</p>
 						</div>
 					</div>
@@ -70,20 +75,18 @@
 						<span v-if="extractedContent.length > 300">...</span>
 					</div>
 					<p class="content-stats">
-						Total characters: {{ extractedContent.length }} | 
-						Words: {{ extractedContent.split(/\s+/).length }}
+						Total characters: {{ extractedContent.length }} | Words:
+						{{ extractedContent.split(/\s+/).length }}
 					</p>
 				</div>
 			</div>
 
 			<template #footer>
 				<div class="dialog-footer">
-					<el-button @click="cancelProcessing" :disabled="isProcessing">
-						Cancel
-					</el-button>
-					<el-button 
-						type="primary" 
-						@click="sendToAI" 
+					<el-button @click="cancelProcessing" :disabled="isProcessing">Cancel</el-button>
+					<el-button
+						type="primary"
+						@click="sendToAI"
 						:disabled="!extractedContent || isProcessing"
 						:loading="isSendingToAI"
 					>
@@ -112,13 +115,17 @@ let mammothLoadingPromise: Promise<any> | null = null;
 
 const loadScriptOnce = (src: string): Promise<void> => {
 	return new Promise((resolve, reject) => {
-		const existing = Array.from(document.getElementsByTagName('script')).find(s => s.src === src);
+		const existing = Array.from(document.getElementsByTagName('script')).find(
+			(s) => s.src === src
+		);
 		if (existing) {
 			if ((existing as any)._loaded) {
 				resolve();
 			} else {
 				existing.addEventListener('load', () => resolve());
-				existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
+				existing.addEventListener('error', () =>
+					reject(new Error(`Failed to load ${src}`))
+				);
 			}
 			return;
 		}
@@ -189,7 +196,7 @@ const maxFileSize = 10 * 1024 * 1024; // 10MB
 const processingSteps = ref([
 	{ title: 'Reading file', description: 'Loading file content...', error: '' },
 	{ title: 'Extracting text', description: 'Converting to readable text...', error: '' },
-	{ title: 'Preparing content', description: 'Formatting for AI analysis...', error: '' }
+	{ title: 'Preparing content', description: 'Formatting for AI analysis...', error: '' },
 ]);
 
 // Computed
@@ -200,7 +207,7 @@ const supportedFormats = computed(() => {
 // Methods
 const handleFileSelect = async (file: any) => {
 	const rawFile = file.raw || file;
-	
+
 	if (!isValidFileType(rawFile)) {
 		ElMessage.error('Unsupported file type. Please select a supported format.');
 		return;
@@ -237,9 +244,9 @@ const processFile = async (file: File) => {
 	isProcessing.value = true;
 	currentStep.value = 0;
 	extractedContent.value = '';
-	
+
 	// Reset error states
-	processingSteps.value.forEach(step => step.error = '');
+	processingSteps.value.forEach((step) => (step.error = ''));
 
 	try {
 		// Step 1: Reading file
@@ -287,11 +294,13 @@ const processFile = async (file: File) => {
 
 		// Emit file analyzed event
 		emit('fileAnalyzed', extractedContent.value, file.name);
-
 	} catch (error) {
 		console.error('File processing error:', error);
-		processingSteps.value[currentStep.value].error = error instanceof Error ? error.message : 'Processing failed';
-		ElMessage.error('Failed to process file: ' + (error instanceof Error ? error.message : 'Unknown error'));
+		processingSteps.value[currentStep.value].error =
+			error instanceof Error ? error.message : 'Processing failed';
+		ElMessage.error(
+			'Failed to process file: ' + (error instanceof Error ? error.message : 'Unknown error')
+		);
 	} finally {
 		isProcessing.value = false;
 	}
@@ -300,7 +309,7 @@ const processFile = async (file: File) => {
 const readTextFile = (file: File): Promise<string> => {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
-		reader.onload = (e) => resolve(e.target?.result as string || '');
+		reader.onload = (e) => resolve((e.target?.result as string) || '');
 		reader.onerror = () => reject(new Error('Failed to read text file'));
 		reader.readAsText(file);
 	});
@@ -309,7 +318,7 @@ const readTextFile = (file: File): Promise<string> => {
 const readCSVFile = async (file: File): Promise<string> => {
 	const text = await readTextFile(file);
 	const lines = text.split('\n');
-	return lines.map(line => line.replace(/,/g, ' | ')).join('\n');
+	return lines.map((line) => line.replace(/,/g, ' | ')).join('\n');
 };
 
 const readExcelFile = (file: File): Promise<string> => {
@@ -319,12 +328,12 @@ const readExcelFile = (file: File): Promise<string> => {
 			try {
 				const data = new Uint8Array(e.target?.result as ArrayBuffer);
 				const workbook = XLSX.read(data, { type: 'array' });
-				
+
 				let content = '';
-				workbook.SheetNames.forEach(sheetName => {
+				workbook.SheetNames.forEach((sheetName) => {
 					const worksheet = workbook.Sheets[sheetName];
 					const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-					
+
 					content += `Sheet: ${sheetName}\n`;
 					jsonData.forEach((row: any) => {
 						if (Array.isArray(row) && row.length > 0) {
@@ -333,7 +342,7 @@ const readExcelFile = (file: File): Promise<string> => {
 					});
 					content += '\n';
 				});
-				
+
 				resolve(content);
 			} catch (error) {
 				reject(new Error('Failed to parse Excel file'));
@@ -395,10 +404,10 @@ const sendToAI = async () => {
 	}
 
 	isSendingToAI.value = true;
-	
+
 	// 立即关闭弹窗
 	showProcessingDialog.value = false;
-	
+
 	// 通知父组件分析开始
 	emit('analysisStarted', selectedFile.value?.name || 'Unknown file');
 
@@ -423,14 +432,15 @@ Please provide a comprehensive analysis of this content.`;
 		const messages: AIChatMessage[] = [
 			{
 				role: 'system',
-				content: 'You are an AI assistant specialized in analyzing and understanding various types of documents and files. Provide detailed, helpful analysis of the content provided.',
-				timestamp: new Date().toISOString()
+				content:
+					'You are an AI assistant specialized in analyzing and understanding various types of documents and files. Provide detailed, helpful analysis of the content provided.',
+				timestamp: new Date().toISOString(),
 			},
 			{
 				role: 'user',
 				content: analysisPrompt,
-				timestamp: new Date().toISOString()
-			}
+				timestamp: new Date().toISOString(),
+			},
 		];
 
 		// Prepare chat request
@@ -441,8 +451,8 @@ Please provide a comprehensive analysis of this content.`;
 			...(currentAIModel.value && {
 				modelId: currentAIModel.value.id.toString(),
 				modelProvider: currentAIModel.value.provider,
-				modelName: currentAIModel.value.modelName
-			})
+				modelName: currentAIModel.value.modelName,
+			}),
 		};
 
 		let analysisResult = '';
@@ -457,7 +467,7 @@ Please provide a comprehensive analysis of this content.`;
 			},
 			(data: any) => {
 				console.log('File analysis completed:', data);
-				
+
 				// Emit analysis complete event
 				emit('analysisComplete', {
 					fileName: selectedFile.value?.name,
@@ -466,8 +476,8 @@ Please provide a comprehensive analysis of this content.`;
 					metadata: {
 						fileSize: selectedFile.value?.size,
 						fileType: selectedFile.value?.type,
-						analysisTimestamp: new Date().toISOString()
-					}
+						analysisTimestamp: new Date().toISOString(),
+					},
 				});
 
 				ElMessage.success('File analysis completed successfully!');
@@ -477,10 +487,12 @@ Please provide a comprehensive analysis of this content.`;
 				ElMessage.error('Failed to analyze file: ' + (error.message || 'Unknown error'));
 			}
 		);
-
 	} catch (error) {
 		console.error('Send to AI error:', error);
-		ElMessage.error('Failed to send content to AI: ' + (error instanceof Error ? error.message : 'Unknown error'));
+		ElMessage.error(
+			'Failed to send content to AI: ' +
+				(error instanceof Error ? error.message : 'Unknown error')
+		);
 	} finally {
 		isSendingToAI.value = false;
 	}
@@ -495,7 +507,7 @@ const cancelProcessing = () => {
 	isSendingToAI.value = false;
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 </script>
 
 <style scoped>
@@ -505,6 +517,9 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 .file-upload-area {
 	width: 100%;
+}
+.file-upload-area-upload {
+	float: right !important;
 }
 
 .upload-content {
@@ -668,8 +683,12 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 }
 
 @keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .step-content {

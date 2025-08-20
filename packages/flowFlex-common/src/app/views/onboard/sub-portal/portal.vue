@@ -376,6 +376,7 @@
 											<!-- 文件组件 -->
 											<Documents
 												v-else-if="component.key === 'files'"
+												ref="documentsRef"
 												:onboarding-id="onboardingId"
 												:stage-id="activeStage"
 												:component="component"
@@ -466,7 +467,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, watch, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, Loading, Check, Document, Refresh } from '@element-plus/icons-vue';
@@ -626,7 +627,14 @@ const stageIdFromRoute = computed(() => {
 // 添加组件引用
 const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
+const documentsRef = ref<any[]>([]);
 const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+
+// 在组件更新前重置 refs，避免多次渲染导致重复收集
+onBeforeUpdate(() => {
+	staticFormRefs.value = [];
+	questionnaireDetailsRefs.value = [];
+});
 
 // 计算属性
 const currentStageTitle = computed(() => {
@@ -817,17 +825,28 @@ const handleBack = () => {
 const completing = ref(false);
 const checkLoading = ref(false);
 
-// 函数式ref，用于收集组件实例
+// 函数式ref，用于收集StaticForm组件实例（去重）
 const setStaticFormRef = (el: any) => {
-	if (el) {
+	if (el && !staticFormRefs.value.includes(el)) {
 		staticFormRefs.value.push(el);
 	}
 };
 
+// 函数式ref，用于收集QuestionnaireDetails组件实例（去重）
 const setQuestionnaireDetailsRef = (el: any) => {
-	if (el) {
+	if (el && !questionnaireDetailsRefs.value.includes(el)) {
 		questionnaireDetailsRefs.value.push(el);
 	}
+};
+
+// 清理StaticForm refs
+const clearStaticFormRefs = () => {
+	staticFormRefs.value = [];
+};
+
+// 清理QuestionnaireDetails refs
+const clearQuestionnaireDetailsRefs = () => {
+	questionnaireDetailsRefs.value = [];
 };
 
 // 其他必要的函数（简化版本）
@@ -1080,8 +1099,9 @@ const loadStageRelatedData = async (stageId: string) => {
 	try {
 		stageDataLoading.value = true;
 		// 清理之前的组件refs
-		staticFormRefs.value = [];
-		questionnaireDetailsRefs.value = [];
+		clearStaticFormRefs();
+		clearQuestionnaireDetailsRefs();
+		documentsRef.value = [];
 
 		// 并行加载依赖stageId的数据
 		await Promise.all([
@@ -1182,6 +1202,23 @@ const saveAllForm = async (isValidate: boolean = true) => {
 				if (questRef && typeof questRef.handleSave === 'function') {
 					const result = await questRef.handleSave(false, isValidate);
 					if (result !== true) {
+						return false;
+					}
+				}
+			}
+		}
+
+		// 校验Documents组件
+		if (documentsRef.value.length > 0 && isValidate) {
+			for (let i = 0; i < documentsRef.value.length; i++) {
+				const docRef = documentsRef.value[i];
+				if (docRef && typeof docRef.vailComponent === 'function') {
+					try {
+						const result = docRef.vailComponent();
+						if (!result) {
+							return false;
+						}
+					} catch (error) {
 						return false;
 					}
 				}
