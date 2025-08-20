@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITEM WFE - Welcome to Your Account</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .welcome-message {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .account-info {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .account-info h3 {
+            color: #495057;
+            margin-bottom: 20px;
+            font-size: 16px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+            min-width: 120px;
+            font-size: 14px;
+        }
+
+        .info-value {
+            color: #667eea;
+            font-weight: 500;
+            word-break: break-all;
+            font-size: 14px;
+        }
+
+        .password-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 25px;
+        }
+
+        .password-warning h4 {
+            color: #856404;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .password-warning p {
+            color: #856404;
+            font-size: 13px;
+            margin: 0;
+        }
+
+        .login-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s ease;
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .privacy-notice {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .privacy-notice h4 {
+            color: #0c5460;
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+
+        .privacy-notice ul {
+            color: #0c5460;
+            font-size: 13px;
+            padding-left: 20px;
+        }
+
+        .privacy-notice li {
+            margin-bottom: 5px;
+        }
+
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .footer p {
+            color: #6c757d;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .contact-info {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .email-container {
+                margin: 10px;
+                border-radius: 4px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .info-label {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>ITEM WFE</h1>
+            <p>Welcome to Our Workflow Engine Platform</p>
+        </div>
+
+        <div class="content">
+            <div class="welcome-message">
+                <strong>🎉 Congratulations on Your Successful Registration!</strong><br>
+                Your ITEM WFE account has been successfully created and you can now start using our workflow engine services.
+            </div>
+
+            <div class="account-info">
+                <h3>📋 Account Information</h3>
+                <div class="info-item">
+                    <span class="info-label">Username:</span>
+                    <span class="info-value">user_20241201_001</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Initial Password:</span>
+                    <span class="info-value">Temp@123456</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Login URL:</span>
+                    <span class="info-value">https://crm-staging.item.com</span>
+                </div>
+            </div>
+
+            <div class="password-warning">
+                <h4>⚠️ Important Notice</h4>
+                <p>For account security, please change your initial password immediately after your first login.</p>
+            </div>
+
+            <div class="login-section">
+                <a href="https://crm-staging.item.com" class="login-button">
+                    🚀 Login Now
+                </a>
+            </div>
+
+            <div class="privacy-notice">
+                <h4>🔒 Privacy & Security Reminders</h4>
+                <ul>
+                    <li>Keep your login credentials secure and do not share them with others</li>
+                    <li>Change your password regularly and use strong password combinations</li>
+                    <li>Do not save login status on public devices</li>
+                    <li>Contact administrators immediately if you notice any suspicious login activities</li>
+                    <li>Your personal information will be protected in accordance with our privacy policy</li>
+                    <li>This email contains sensitive information - please delete after use</li>
+                    <li>Never forward this email to others or share your credentials</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Thank you for choosing ITEM WFE</p>
+            <p>For any questions, please contact: <span class="contact-info">WFESupport@item.com</span></p>
+            <p>© 2025 ITEM WFE. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

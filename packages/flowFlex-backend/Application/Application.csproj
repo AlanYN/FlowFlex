@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Templates\Email\*.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="Service\ChangeLog\TemplateExtention.cs" />
   </ItemGroup>
 

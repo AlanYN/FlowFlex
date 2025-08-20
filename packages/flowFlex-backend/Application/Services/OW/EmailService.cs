@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -10,6 +11,7 @@ using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Infrastructure.Services;
+using FlowFlex.Application.Contracts.IServices;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -20,11 +22,13 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly EmailOptions _emailOptions;
         private readonly ILogger<EmailService> _logger;
+        private readonly IEmailTemplateService _templateService;
 
-        public EmailService(IOptions<EmailOptions> emailOptions, ILogger<EmailService> logger)
+        public EmailService(IOptions<EmailOptions> emailOptions, ILogger<EmailService> logger, IEmailTemplateService templateService)
         {
             _emailOptions = emailOptions.Value;
             _logger = logger;
+            _templateService = templateService;
         }
 
         /// <summary>
@@ -38,38 +42,12 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var subject = "ITEM WFE - Email Verification Code";
-                var body = $@"
-                <html>
-                <head>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
-                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                        .header {{ background-color: #4a86e8; color: white; padding: 10px; text-align: center; }}
-                        .content {{ padding: 20px; border: 1px solid #ddd; }}
-                        .code {{ font-size: 24px; font-weight: bold; text-align: center; padding: 10px; background-color: #f5f5f5; margin: 20px 0; letter-spacing: 5px; }}
-                        .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <div class='header'>
-                            <h2>Email Verification Code</h2>
-                        </div>
-                        <div class='content'>
-                            <p>Hello,</p>
-                            <p>Thank you for registering with ITEM WFE system. Please use the following verification code to complete your email verification:</p>
-                            <div class='code'>{verificationCode}</div>
-                            <p>This verification code is valid for {_emailOptions.VerificationCodeExpiryMinutes} minutes. Please complete the verification as soon as possible.</p>
-                            <p>If you did not request this verification code, please ignore this email.</p>
-                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
-                        </div>
-                        <div class='footer'>
-                            <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>";
+                var body = _templateService.Render("verification_code_en", new Dictionary<string, object>
+                {
+                    ["verificationCode"] = verificationCode,
+                    ["expiryMinutes"] = _emailOptions.VerificationCodeExpiryMinutes.ToString(),
+                    ["year"] = DateTime.UtcNow.Year.ToString()
+                });
 
                 return await SendEmailAsync(to, subject, body);
             }
@@ -91,35 +69,13 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var subject = "Welcome to ITEM WFE!";
-                var body = $@"
-                <html>
-                <head>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
-                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                        .header {{ background-color: #4a86e8; color: white; padding: 10px; text-align: center; }}
-                        .content {{ padding: 20px; border: 1px solid #ddd; }}
-                        .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <div class='header'>
-                            <h2>Welcome to ITEM WFE!</h2>
-                        </div>
-                        <div class='content'>
-                            <p>Dear {username},</p>
-                            <p>Welcome to ITEM WFE! Your email has been successfully verified.</p>
-                            <p>You can now log in to the system using your email and password.</p>
-                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
-                        </div>
-                        <div class='footer'>
-                            <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>";
+                var body = _templateService.Render("welcome_en", new Dictionary<string, object>
+                {
+                    ["username"] = username,
+                    ["email"] = to,
+                    ["loginUrl"] = "https://crm-staging.item.com",
+                    ["year"] = DateTime.UtcNow.Year.ToString()
+                });
 
                 return await SendEmailAsync(to, subject, body);
             }
@@ -142,55 +98,13 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var subject = "ITEM WFE - Customer Portal Access Invitation";
-                var body = $@"
-                <html>
-                <head>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
-                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                        .header {{ background-color: #4a86e8; color: white; padding: 20px; text-align: center; }}
-                        .content {{ padding: 30px; border: 1px solid #ddd; }}
-                        .button {{ display: inline-block; padding: 12px 24px; background-color: #4a86e8; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }}
-                        .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
-                        .info-box {{ background-color: #f8f9fa; padding: 15px; border-left: 4px solid #4a86e8; margin: 20px 0; }}
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <div class='header'>
-                            <h2>Customer Portal Invitation</h2>
-                        </div>
-                        <div class='content'>
-                            <p>Dear Customer,</p>
-                            <p>You have been invited to access the Customer Portal for <strong>{onboardingName}</strong>.</p>
-                            
-                            <div class='info-box'>
-                                <p><strong>What you can do in the Customer Portal:</strong></p>
-                                <ul>
-                                    <li>Track your Customer Portal progress</li>
-                                    <li>Upload required documents</li>
-                                    <li>Communicate with your account manager</li>
-                                    <li>Access important updates and notifications</li>
-                                </ul>
-                            </div>
-                            
-                            <p>Click the button below to access your portal:</p>
-                            <p style='text-align: center;'>
-                                <a href='{invitationUrl}' class='button'>Access Customer Portal</a>
-                            </p>
-                            
-                            <p><strong>Note:</strong> This invitation link is secure and will require email verification before granting access.</p>
-                            
-                            <p>Thank you for choosing ITEM WFE!</p>
-                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
-                        </div>
-                        <div class='footer'>
-                            <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>";
+                var body = _templateService.Render("portal_invitation_en", new Dictionary<string, object>
+                {
+                    ["recipientName"] = to,
+                    ["onboardingName"] = onboardingName,
+                    ["invitationUrl"] = invitationUrl,
+                    ["year"] = DateTime.UtcNow.Year.ToString()
+                });
 
                 return await SendEmailAsync(to, subject, body);
             }
@@ -212,56 +126,13 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var subject = "ITEM WFE - Password Reset Confirmation";
-                var body = $@"
-                <html>
-                <head>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
-                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                        .header {{ background-color: #28a745; color: white; padding: 20px; text-align: center; }}
-                        .content {{ padding: 30px; border: 1px solid #ddd; }}
-                        .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
-                        .success-box {{ background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; border-radius: 5px; }}
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <div class='header'>
-                            <h2>Password Reset Confirmation</h2>
-                        </div>
-                        <div class='content'>
-                            <p>Dear {username},</p>
-                            
-                            <div class='success-box'>
-                                <p><strong>✅ Password Reset Successful!</strong></p>
-                                <p>Your password has been successfully reset for your ITEM WFE Customer Portal account.</p>
-                            </div>
-                            
-                            <p><strong>Account Details:</strong></p>
-                            <ul>
-                                <li>Email: {to}</li>
-                                <li>Reset Time: {DateTime.UtcNow:MM/dd/yyyy HH:mm:ss} UTC</li>
-                            </ul>
-                            
-                            <p>You can now log in to the Customer Portal using your new password.</p>
-                            
-                            <p><strong>Security Notice:</strong></p>
-                            <ul>
-                                <li>If you did not request this password reset, please contact our support team immediately</li>
-                                <li>For security reasons, please do not share your login credentials with anyone</li>
-                                <li>We recommend using a strong, unique password</li>
-                            </ul>
-                            
-                            <p>Thank you for using ITEM WFE!</p>
-                            <p>If you have any questions, please contact us at WFESupport@item.com</p>
-                        </div>
-                        <div class='footer'>
-                            <p>This email was sent automatically by the system. Please do not reply.</p>
-                            <p>&copy; {DateTime.UtcNow.Year} ITEM WFE. All rights reserved.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>";
+                var body = _templateService.Render("password_reset_confirmation_en", new Dictionary<string, object>
+                {
+                    ["username"] = username,
+                    ["email"] = to,
+                    ["resetTimeUtc"] = DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss") + " UTC",
+                    ["year"] = DateTime.UtcNow.Year.ToString()
+                });
 
                 return await SendEmailAsync(to, subject, body);
             }

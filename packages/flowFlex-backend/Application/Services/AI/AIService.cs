@@ -5436,14 +5436,14 @@ Make questions relevant to the project context and stage objectives.";
 
             // Simple summary requirements (pure text, <= 200 words)
             promptBuilder.AppendLine("=== Summary Requirements ===");
-            promptBuilder.AppendLine("Provide a concise summary in maximum 200 words covering key findings and progress:");
+            promptBuilder.AppendLine("Provide a concise summary in maximum 150 words covering key findings and progress:");
             promptBuilder.AppendLine("- Current completion status");
             promptBuilder.AppendLine("- Key findings or issues identified");
             promptBuilder.AppendLine("- Next steps or recommendations");
             promptBuilder.AppendLine();
             promptBuilder.AppendLine("Output Rules:");
             promptBuilder.AppendLine("- Plain text only, no formatting");
-            promptBuilder.AppendLine("- Maximum 200 words");
+            promptBuilder.AppendLine("- Maximum 150 words");
             promptBuilder.AppendLine("- Focus on actionable insights");
             promptBuilder.AppendLine("- No instructional phrases or meta-commentary");
 
