@@ -300,5 +300,100 @@ namespace FlowFlex.WebApi.Controllers.OW
             var response = await _userService.ThirdPartyLoginAsync(request);
             return Success(response);
         }
+
+        /// <summary>
+        /// Get user list with pagination and search
+        /// </summary>
+        /// <param name="request">User list request</param>
+        /// <returns>User list response</returns>
+        [HttpPost("list")]
+        [Authorize]
+        [ProducesResponseType<SuccessResponse<UserListResponseDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> GetUserList([FromBody] UserListRequestDto request)
+        {
+            var response = await _userService.GetUserListAsync(request);
+            return Success(response);
+        }
+
+        /// <summary>
+        /// Get user list with pagination and search (GET method with query parameters)
+        /// </summary>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <param name="searchText">Search text</param>
+        /// <param name="email">Email filter</param>
+        /// <param name="username">Username filter</param>
+        /// <param name="team">Team filter</param>
+        /// <param name="status">Status filter</param>
+        /// <param name="emailVerified">Email verified filter</param>
+        /// <param name="sortField">Sort field</param>
+        /// <param name="sortDirection">Sort direction</param>
+        /// <returns>User list response</returns>
+        [HttpGet("list")]
+        [Authorize]
+        [ProducesResponseType<SuccessResponse<UserListResponseDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> GetUserListFromQuery(
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string searchText = null,
+            [FromQuery] string email = null,
+            [FromQuery] string username = null,
+            [FromQuery] string team = null,
+            [FromQuery] string status = null,
+            [FromQuery] bool? emailVerified = null,
+            [FromQuery] string sortField = "CreateDate",
+            [FromQuery] string sortDirection = "desc")
+        {
+            var request = new UserListRequestDto
+            {
+                PageIndex = pageIndex,
+                PageSize = pageSize,
+                SearchText = searchText,
+                Email = email,
+                Username = username,
+                Team = team,
+                Status = status,
+                EmailVerified = emailVerified,
+                SortField = sortField,
+                SortDirection = sortDirection
+            };
+
+            var response = await _userService.GetUserListAsync(request);
+            return Success(response);
+        }
+
+        /// <summary>
+        /// Assign random teams to users without team
+        /// </summary>
+        /// <returns>Number of users assigned teams</returns>
+        [HttpPost("assign-random-teams")]
+        [Authorize]
+        [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> AssignRandomTeams()
+        {
+            var assignedCount = await _userService.AssignRandomTeamsToUsersAsync();
+            return Success(assignedCount);
+        }
+
+        /// <summary>
+        /// Get user tree structure grouped by teams
+        /// </summary>
+        /// <returns>Tree structure with teams and users</returns>
+        [HttpGet("tree")]
+        [Authorize]
+        [ProducesResponseType<SuccessResponse<List<UserTreeNodeDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> GetUserTree()
+        {
+            var treeStructure = await _userService.GetUserTreeAsync();
+            return Success(treeStructure);
+        }
     }
 }

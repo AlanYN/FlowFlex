@@ -65,7 +65,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250122000001_RemoveAssignmentsJsonColumns", (Action)(() => Migration_20250122000001_RemoveAssignmentsJsonColumns.Up(_db))),
                     ("20250122000002_AddGinIndexForStageComponentsJson", (Action)(() => Migration_20250122000002_AddGinIndexForStageComponentsJson.Up(_db))),
                     ("20250122000003_CreateComponentMappingTables", (Action)(() => Migration_20250122000003_CreateComponentMappingTables.Up(_db))),
-                    ("20250122000015_ConvertOwEntityBaseTablesToSnowflakeId", (Action)(() => Migration_20250122000015_ConvertOwEntityBaseTablesToSnowflakeId.Up(_db)))
+                    ("20250122000015_ConvertOwEntityBaseTablesToSnowflakeId", (Action)(() => Migration_20250122000015_ConvertOwEntityBaseTablesToSnowflakeId.Up(_db))),
+                    ("20250122000020_AddTeamColumnToUsers", (Action)(() => Migration_20250122000020_AddTeamColumnToUsers.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

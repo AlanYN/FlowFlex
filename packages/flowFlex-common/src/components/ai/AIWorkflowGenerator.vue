@@ -801,7 +801,16 @@
 											class="send-button"
 											circle
 										>
-											<el-icon><Position /></el-icon>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 1024 1024"
+												class="send-icon"
+											>
+												<path
+													fill="currentColor"
+													d="m249.6 417.088 319.744 43.072 39.168 310.272L845.12 178.88 249.6 417.088zm-129.024 47.168a32 32 0 0 1-7.68-61.44l777.792-311.04a32 32 0 0 1 41.6 41.6l-310.336 775.68a32 32 0 0 1-61.44-7.808L512 516.992l-391.424-52.736z"
+												/>
+											</svg>
 										</el-button>
 									</div>
 								</div>
@@ -988,7 +997,25 @@
 								@contextmenu.prevent="showContextMenu($event, session)"
 							>
 								<div class="item-content">
-									<div class="history-title">{{ session.title }}</div>
+									<div class="history-title">
+										<svg
+											v-if="isFileSession(session)"
+											xmlns="http://www.w3.org/2000/svg"
+											xmlns:xlink="http://www.w3.org/1999/xlink"
+											aria-hidden="true"
+											role="img"
+											class="attachment-icon"
+											width="1em"
+											height="1em"
+											viewBox="0 0 1024 1024"
+										>
+											<path
+												d="M239.08352 319.0784a188.17024 188.17024 0 0 1 376.29952 0v0.16384l4.62848 347.62752v0.08192a112.64 112.64 0 0 1-156.0576 105.63584 112.55808 112.55808 0 0 1-68.97664-105.39008V315.14624a36.864 36.864 0 1 1 73.728 0v352.99328a38.83008 38.83008 0 1 0 77.57824 0v-0.16384l-4.58752-347.58656V320.3072a114.4832 114.4832 0 0 0-228.88448-0.4096l4.5056 347.58656a190.13632 190.13632 0 1 0 380.3136 0l0.4096-334.39744a36.864 36.864 0 1 1 73.728 0.08192l-0.4096 334.31552a263.90528 263.90528 0 0 1-450.43712 186.61376 263.86432 263.86432 0 0 1-77.29152-186.368l-4.54656-347.50464v-1.10592z"
+												fill="currentColor"
+											/>
+										</svg>
+										{{ session.title }}
+									</div>
 									<div class="history-meta">
 										<span class="history-time">
 											{{ formatRelativeTime(session.timestamp) }}
@@ -1018,7 +1045,25 @@
 								@contextmenu.prevent="showContextMenu($event, session)"
 							>
 								<div class="item-content">
-									<div class="history-title">{{ session.title }}</div>
+									<div class="history-title">
+										<svg
+											v-if="isFileSession(session)"
+											xmlns="http://www.w3.org/2000/svg"
+											xmlns:xlink="http://www.w3.org/1999/xlink"
+											aria-hidden="true"
+											role="img"
+											class="attachment-icon"
+											width="1em"
+											height="1em"
+											viewBox="0 0 1024 1024"
+										>
+											<path
+												d="M239.08352 319.0784a188.17024 188.17024 0 0 1 376.29952 0v0.16384l4.62848 347.62752v0.08192a112.64 112.64 0 0 1-156.0576 105.63584 112.55808 112.55808 0 0 1-68.97664-105.39008V315.14624a36.864 36.864 0 1 1 73.728 0v352.99328a38.83008 38.83008 0 1 0 77.57824 0v-0.16384l-4.58752-347.58656V320.3072a114.4832 114.4832 0 0 0-228.88448-0.4096l4.5056 347.58656a190.13632 190.13632 0 1 0 380.3136 0l0.4096-334.39744a36.864 36.864 0 1 1 73.728 0.08192l-0.4096 334.31552a263.90528 263.90528 0 0 1-450.43712 186.61376 263.86432 263.86432 0 0 1-77.29152-186.368l-4.54656-347.50464v-1.10592z"
+												fill="currentColor"
+											/>
+										</svg>
+										{{ session.title }}
+									</div>
 									<div class="history-meta">
 										<span class="history-time">
 											{{ formatRelativeTime(session.timestamp) }}
@@ -1119,8 +1164,6 @@ import {
 	ArrowDown,
 	ArrowUp,
 	ChatDotRound,
-	Position,
-	Refresh,
 	Document,
 	Close,
 	Picture,
@@ -3212,37 +3255,6 @@ const validateWorkflowData = (messageData: any): boolean => {
 	return true;
 };
 
-// Refresh workflow data from server
-const refreshWorkflowData = async (messageData: any) => {
-	if (!messageData.workflow?.id) {
-		ElMessage.error('Workflow ID is missing');
-		return;
-	}
-
-	try {
-		applying.value = true;
-
-		// Fetch fresh workflow data
-		const workflowWithStages = await getWorkflowWithStages(messageData.workflow.id);
-
-		if (workflowWithStages) {
-			// Update the message data with fresh server data
-			messageData.workflow = workflowWithStages;
-			messageData.stages = workflowWithStages.stages || [];
-
-			ElMessage.success('Workflow data refreshed successfully');
-			console.log('Refreshed workflow data:', workflowWithStages);
-		} else {
-			ElMessage.error('Failed to refresh workflow data');
-		}
-	} catch (error) {
-		console.error('Error refreshing workflow data:', error);
-		ElMessage.error('Failed to refresh workflow data');
-	} finally {
-		applying.value = false;
-	}
-};
-
 const saveWorkflowChanges = async (messageData: any) => {
 	if (!validateWorkflowData(messageData)) {
 		return;
@@ -3512,7 +3524,7 @@ const handleFileAnalyzed = (content: string, fileName: string) => {
 	const fileMessage: ChatMessage = {
 		id: Date.now().toString(),
 		type: 'user',
-		content: `📎 Uploaded file: ${fileName}\n\nContent preview:\n${content.substring(0, 500)}${
+		content: `Uploaded file: ${fileName}\n\nContent preview:\n${content.substring(0, 500)}${
 			content.length > 500 ? '...' : ''
 		}`,
 		timestamp: new Date(),
@@ -3567,6 +3579,18 @@ const formatTime = (timestamp: Date) => {
 		hour: '2-digit',
 		minute: '2-digit',
 	});
+};
+
+// Check if session contains file attachment
+const isFileSession = (session: ChatSession): boolean => {
+	return session.messages.some(
+		(msg) =>
+			msg.type === 'user' &&
+			(msg.content.includes('📎 Uploaded file:') ||
+				msg.content.includes('Uploaded file:') ||
+				msg.content.includes('Uploaded file "') ||
+				msg.content.includes('for workflow analysis'))
+	);
 };
 
 const formatAIMessage = (content: string) => {
@@ -4581,6 +4605,13 @@ onMounted(async () => {
 	color: white;
 }
 
+.input-right-actions .send-button .send-icon {
+	width: 14px;
+	height: 14px;
+	color: white;
+	transform: rotate(-45deg);
+}
+
 .chat-input {
 	flex: 1;
 }
@@ -4843,6 +4874,22 @@ onMounted(async () => {
 	white-space: nowrap;
 	line-height: 1.4;
 	letter-spacing: -0.01em;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.attachment-icon {
+	color: #6b7280;
+	flex-shrink: 0;
+	font-size: 14px;
+	opacity: 0.8;
+	transition: all 0.2s ease;
+}
+
+.history-item:hover .attachment-icon {
+	color: #4f46e5;
+	opacity: 1;
 }
 
 .history-meta {

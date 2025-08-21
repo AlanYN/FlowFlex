@@ -14,7 +14,24 @@
 				:before-upload="beforeUpload"
 				class="file-upload-icon"
 			>
-				<el-button type="text" size="large" class="attachment-btn">📎</el-button>
+				<el-button type="text" size="large" class="attachment-btn">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						xmlns:xlink="http://www.w3.org/1999/xlink"
+						aria-hidden="true"
+						role="img"
+						name="Clip"
+						class="attachment-icon"
+						width="1em"
+						height="1em"
+						viewBox="0 0 1024 1024"
+					>
+						<path
+							d="M239.08352 319.0784a188.17024 188.17024 0 0 1 376.29952 0v0.16384l4.62848 347.62752v0.08192a112.64 112.64 0 0 1-156.0576 105.63584 112.55808 112.55808 0 0 1-68.97664-105.39008V315.14624a36.864 36.864 0 1 1 73.728 0v352.99328a38.83008 38.83008 0 1 0 77.57824 0v-0.16384l-4.58752-347.58656V320.3072a114.4832 114.4832 0 0 0-228.88448-0.4096l4.5056 347.58656a190.13632 190.13632 0 1 0 380.3136 0l0.4096-334.39744a36.864 36.864 0 1 1 73.728 0.08192l-0.4096 334.31552a263.90528 263.90528 0 0 1-450.43712 186.61376 263.86432 263.86432 0 0 1-77.29152-186.368l-4.54656-347.50464v-1.10592z"
+							fill="currentColor"
+						></path>
+					</svg>
+				</el-button>
 			</el-upload>
 		</el-tooltip>
 
@@ -533,6 +550,11 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	color: #4f46e5 !important;
 	background: #f3f4f6 !important;
 	border-radius: 4px !important;
+}
+
+.attachment-icon {
+	font-size: 18px;
+	color: currentColor;
 }
 
 .processing-content {
