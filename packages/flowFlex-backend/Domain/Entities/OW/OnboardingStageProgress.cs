@@ -37,6 +37,21 @@ namespace FlowFlex.Domain.Entities.OW
         public DateTimeOffset? CompletionTime { get; set; }
 
         /// <summary>
+        /// End Time - Estimated end time based on StartTime + EstimatedDays (UTC)
+        /// </summary>
+        public DateTimeOffset? EndTime 
+        { 
+            get 
+            {
+                if (StartTime.HasValue && EstimatedDays.HasValue && EstimatedDays > 0)
+                {
+                    return StartTime.Value.AddDays((double)EstimatedDays.Value);
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Completed By ID
         /// </summary>
         public long? CompletedById { get; set; }

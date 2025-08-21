@@ -49,6 +49,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public DateTimeOffset? CompletionTime { get; set; }
 
         /// <summary>
+        /// 预计结束时间 (基于开始时间 + 预计天数计算) - UTC时间
+        /// </summary>
+        public DateTimeOffset? EndTime { get; set; }
+
+        /// <summary>
         /// 完成人ID
         /// </summary>
         public long? CompletedById { get; set; }

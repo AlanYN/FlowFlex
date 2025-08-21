@@ -35,11 +35,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.WorkflowName, opt => opt.Ignore())
                 .ForMember(dest => dest.CurrentStageName, opt => opt.Ignore());
 
-            // OnboardingStageProgress  OnboardingStageProgressDto ӳ
+            // OnboardingStageProgress to OnboardingStageProgressDto mapping
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
+                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime))
                 // AI summary fields
                 .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
                 .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
