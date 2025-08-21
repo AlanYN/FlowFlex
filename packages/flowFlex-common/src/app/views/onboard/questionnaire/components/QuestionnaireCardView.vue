@@ -202,8 +202,10 @@
 										/>
 										<span class="card-value font-medium">
 											{{
-												JSON.parse(questionnaire.structureJson).sections
-													.length
+												(questionnaire.structureJson &&
+													JSON.parse(questionnaire.structureJson)
+														?.sections?.length) ||
+												0
 											}}
 										</span>
 									</div>
