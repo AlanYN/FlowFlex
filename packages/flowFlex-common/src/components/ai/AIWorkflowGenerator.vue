@@ -337,21 +337,6 @@
 																	<p class="task-description">
 																		{{ task.description }}
 																	</p>
-																	<div class="task-meta">
-																		<el-tag
-																			size="small"
-																			type="info"
-																		>
-																			{{ task.category }}
-																		</el-tag>
-																		<span
-																			class="estimated-time"
-																		>
-																			{{
-																				task.estimatedMinutes
-																			}}min
-																		</span>
-																	</div>
 																</div>
 															</div>
 														</el-collapse-transition>
@@ -501,20 +486,6 @@
 																		>
 																			{{ option }}
 																		</el-tag>
-																	</div>
-																	<div class="question-meta">
-																		<el-tag
-																			size="small"
-																			type="success"
-																		>
-																			{{ question.category }}
-																		</el-tag>
-																		<span
-																			v-if="question.helpText"
-																			class="help-text"
-																		>
-																			{{ question.helpText }}
-																		</span>
 																	</div>
 																</div>
 															</div>
@@ -676,14 +647,6 @@
 
 										<!-- Action Buttons -->
 										<div class="save-section">
-											<el-button
-												size="small"
-												@click="refreshWorkflowData(message.data!)"
-												:loading="applying"
-											>
-												<el-icon><Refresh /></el-icon>
-												Refresh Data
-											</el-button>
 											<el-button
 												type="primary"
 												@click="saveWorkflowChanges(message.data!)"
@@ -1165,7 +1128,7 @@ import {
 	Search,
 	Edit,
 } from '@element-plus/icons-vue';
-import { createWorkflow } from '@/apis/ow';
+import { createWorkflow, getWorkflowList } from '@/apis/ow';
 import { defHttp } from '../../app/apis/axios';
 import { useGlobSetting } from '../../app/settings';
 import {
@@ -1267,6 +1230,7 @@ interface ChatMessage {
 		checklists?: ChecklistItem[];
 		questionnaires?: QuestionnaireItem[];
 		workflows?: any[]; // For workflow selection
+		operationMode?: string; // For modification mode
 	};
 }
 
@@ -1442,7 +1406,9 @@ const generateWorkflow = async () => {
 
 	try {
 		const onStreamChunk = (chunk: string) => {
-			streamingMessage.value = chunk;
+			// 过滤和美化流式消息
+			const cleanedMessage = cleanStreamMessage(chunk);
+			streamingMessage.value = cleanedMessage;
 			scrollToBottom();
 		};
 
@@ -2341,6 +2307,137 @@ const generateWorkflow = async () => {
 	}
 };
 
+// Handle workflow modification requests
+const handleWorkflowModification = async (messageContent: string) => {
+	try {
+		// Get available workflows to modify
+		const response = await getWorkflowList();
+		if (!response.success || !response.data || response.data.length === 0) {
+			const noWorkflowMessage: ChatMessage = {
+				id: (Date.now() + 2).toString(),
+				type: 'ai',
+				content:
+					'No existing workflows found. Would you like to create a new workflow instead?',
+				timestamp: new Date(),
+			};
+			chatMessages.value.push(noWorkflowMessage);
+			await scrollToBottom();
+			saveChatSession();
+			return;
+		}
+
+		const workflows = response.data;
+
+		// If only one workflow, directly show it for modification
+		if (workflows.length === 1) {
+			const workflowWithStages = await getWorkflowWithStages(workflows[0].id);
+			if (workflowWithStages) {
+				selectedWorkflow.value = workflowWithStages;
+
+				const modificationMessage: ChatMessage = {
+					id: (Date.now() + 2).toString(),
+					type: 'workflow-modification',
+					content: `Ready to modify workflow: ${workflowWithStages.name}`,
+					timestamp: new Date(),
+					data: {
+						workflow: workflowWithStages,
+						stages: workflowWithStages.stages || [],
+						operationMode: 'modify',
+					},
+				};
+				chatMessages.value.push(modificationMessage);
+				await scrollToBottom();
+				saveChatSession();
+				return;
+			}
+		}
+
+		// Multiple workflows found, show selection
+		const selectionMessage: ChatMessage = {
+			id: (Date.now() + 2).toString(),
+			type: 'workflow-selection',
+			content: `Found ${workflows.length} workflows. Please select which workflow you'd like to modify:`,
+			timestamp: new Date(),
+			data: {
+				workflows: workflows,
+				operationMode: 'modify',
+			},
+		};
+		chatMessages.value.push(selectionMessage);
+		await scrollToBottom();
+		saveChatSession();
+	} catch (error) {
+		console.error('Failed to load workflows for modification:', error);
+		const errorMessage: ChatMessage = {
+			id: (Date.now() + 2).toString(),
+			type: 'ai',
+			content: 'Failed to load existing workflows. Please try again or contact support.',
+			timestamp: new Date(),
+		};
+		chatMessages.value.push(errorMessage);
+		await scrollToBottom();
+		saveChatSession();
+	}
+};
+
+// Clean and beautify streaming messages
+const cleanStreamMessage = (message: string): string => {
+	if (!message || typeof message !== 'string') {
+		return 'Processing...';
+	}
+
+	// Remove technical details like "(1948 characters, 0.1s)"
+	let cleaned = message.replace(/\(\d+\s+characters?,\s*[\d.]+s?\)\s*\|?/gi, '');
+
+	// Remove redundant progress indicators
+	cleaned = cleaned.replace(/\s*\|\s*$/, '');
+
+	// Replace technical messages with user-friendly ones
+	const messageMap: Record<string, string> = {
+		'Generating workflow': 'Creating your workflow...',
+		'Processing workflow': 'Analyzing requirements...',
+		'Analyzing workflow': 'Understanding your needs...',
+		'Creating stages': 'Building workflow stages...',
+		'Generating stages': 'Designing process steps...',
+		'Processing stages': 'Organizing workflow structure...',
+		'Creating checklists': 'Adding task checklists...',
+		'Generating checklists': 'Creating task lists...',
+		'Creating questionnaires': 'Preparing data collection forms...',
+		'Generating questionnaires': 'Building information gathering tools...',
+		'Finalizing workflow': 'Putting finishing touches...',
+		'Completing workflow': 'Almost ready...',
+	};
+
+	// Replace exact matches
+	for (const [key, value] of Object.entries(messageMap)) {
+		if (cleaned.toLowerCase().includes(key.toLowerCase())) {
+			return value;
+		}
+	}
+
+	// If message contains "workflow" or "generating", make it more user-friendly
+	if (cleaned.toLowerCase().includes('workflow') && cleaned.toLowerCase().includes('generat')) {
+		return 'Creating your workflow...';
+	}
+
+	// If it's a very short message or contains mostly technical info, use a generic message
+	if (cleaned.length < 10 || /^\d+\s*(characters?|chars?|bytes?)/i.test(cleaned)) {
+		return 'Processing your request...';
+	}
+
+	// Trim and ensure proper capitalization
+	cleaned = cleaned.trim();
+	if (cleaned && cleaned.length > 0) {
+		cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+		// Ensure it ends with proper punctuation for a processing message
+		if (!cleaned.endsWith('...') && !cleaned.endsWith('.') && !cleaned.endsWith('!')) {
+			cleaned += '...';
+		}
+	}
+
+	return cleaned || 'Processing...';
+};
+
 // Check if message contains workflow generation keywords
 const isGenerateWorkflowIntent = (message: string): boolean => {
 	const generateKeywords = [
@@ -2368,6 +2465,44 @@ const isGenerateWorkflowIntent = (message: string): boolean => {
 
 	const lowerMessage = message.toLowerCase();
 	return generateKeywords.some((keyword) => lowerMessage.includes(keyword.toLowerCase()));
+};
+
+// Check if message contains workflow modification keywords
+const isModifyWorkflowIntent = (message: string): boolean => {
+	const modifyKeywords = [
+		// English keywords
+		'modify',
+		'edit',
+		'update',
+		'change',
+		'adjust',
+		'revise',
+		'alter',
+		'modify workflow',
+		'edit workflow',
+		'update workflow',
+		'change workflow',
+		'adjust workflow',
+		'revise workflow',
+		// Chinese keywords
+		'修改',
+		'编辑',
+		'调整',
+		'更新',
+		'变更',
+		'改变',
+		'修订',
+		'完善',
+		'修改工作流',
+		'编辑工作流',
+		'调整工作流',
+		'更新工作流',
+		'变更工作流',
+		'改变工作流',
+	];
+
+	const lowerMessage = message.toLowerCase();
+	return modifyKeywords.some((keyword) => lowerMessage.includes(keyword.toLowerCase()));
 };
 
 const sendMessage = async () => {
@@ -2399,6 +2534,13 @@ const sendMessage = async () => {
 	}
 
 	// Check for workflow modification intent
+	if (isModifyWorkflowIntent(messageContent)) {
+		console.log('Detected workflow modification intent, triggering modification flow...');
+		handleWorkflowModification(messageContent);
+		return;
+	}
+
+	// Check for existing workflow modification intent (original logic)
 	const modificationIntent = detectWorkflowModificationIntent(messageContent);
 	if (modificationIntent.isModification && modificationIntent.keywords.length > 0) {
 		console.log('Detected workflow modification intent:', modificationIntent);
@@ -5342,22 +5484,6 @@ onMounted(async () => {
 	padding-left: 1.5rem;
 }
 
-.task-meta {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding-left: 1.5rem;
-	margin-top: 0.5rem;
-}
-
-.estimated-time {
-	font-size: 12px;
-	color: #9ca3af;
-	background: #f3f4f6;
-	padding: 2px 6px;
-	border-radius: 4px;
-}
-
 /* Questionnaires Grid */
 .questionnaires-grid {
 	display: grid;
@@ -5442,21 +5568,6 @@ onMounted(async () => {
 	background: #f1f5f9 !important;
 	border-color: #cbd5e1 !important;
 	color: #475569 !important;
-}
-
-.question-meta {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	margin-top: 0.5rem;
-}
-
-.help-text {
-	font-size: 12px;
-	color: #9ca3af;
-	background: #f9fafb;
-	padding: 2px 6px;
-	border-radius: 4px;
 }
 
 /* Responsive Design for Checklists and Questionnaires */
