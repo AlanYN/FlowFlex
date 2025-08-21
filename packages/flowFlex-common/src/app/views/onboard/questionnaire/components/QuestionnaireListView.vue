@@ -153,7 +153,11 @@
 			<el-table-column label="Sections" sortable="custom" width="120" align="center">
 				<template #default="{ row }">
 					<div class="table-cell-content">
-						{{ JSON.parse(row.structureJson).sections.length }}
+						{{
+							(row.structureJson &&
+								JSON.parse(row.structureJson)?.sections?.length) ||
+							0
+						}}
 					</div>
 				</template>
 			</el-table-column>

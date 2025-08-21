@@ -185,7 +185,7 @@
 									>
 										<span class="option-number">{{ optionIndex + 1 }}.</span>
 										<el-tag v-if="option.isOther" type="warning">Other</el-tag>
-										<div v-else class="option-badge flex-1 truncate">
+										<div v-else class="option-badge truncate">
 											{{ option.label }}
 										</div>
 										<span
