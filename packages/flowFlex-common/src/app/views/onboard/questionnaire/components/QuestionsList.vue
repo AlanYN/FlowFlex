@@ -39,6 +39,7 @@
 											<el-tag v-if="item.required" size="small" type="danger">
 												Required
 											</el-tag>
+											<el-tag size="small" type="success">Action</el-tag>
 										</div>
 										<div class="question-meta mt-2">
 											<div class="question-text">{{ item.question }}</div>
@@ -91,6 +92,20 @@
 														/>
 														<span class="text-xs">
 															Go to Section Based on Answer
+														</span>
+													</div>
+												</el-dropdown-item>
+												<el-dropdown-item
+													@click="openActionEditor(index)"
+													divided
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="tabler:math-function"
+															class="drag-icon"
+														/>
+														<span class="text-xs">
+															Configure Action
 														</span>
 													</div>
 												</el-dropdown-item>
@@ -221,6 +236,17 @@
 			:sections="sections"
 			@save="handleJumpRulesSave"
 		/>
+
+		<ActionConfigDialog
+			ref="actionConfigDialogRef"
+			v-model="actionEditorVisible"
+			:action="null"
+			:is-editing="false"
+			triggerSourceId="0"
+			:loading="false"
+			@save-success="onActionSave"
+			@cancel="onActionCancel"
+		/>
 	</div>
 </template>
 
@@ -235,6 +261,7 @@ import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
+import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 
 interface QuestionType {
 	id: string;
@@ -364,6 +391,24 @@ const openJumpRuleEditor = (index: number) => {
 		currentEditingIndex.value = index;
 		jumpRuleEditorVisible.value = true;
 	}
+};
+
+const actionEditorVisible = ref(false);
+const openActionEditor = (index: number) => {
+	const question = questionsData.value[index];
+	if (question) {
+		actionEditorVisible.value = true;
+		currentEditingQuestion.value = question as QuestionWithJumpRules;
+	}
+};
+
+const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
+const onActionSave = () => {
+	actionEditorVisible.value = false;
+	currentEditingQuestion.value = null;
+};
+const onActionCancel = () => {
+	actionEditorVisible.value = false;
 };
 
 // 处理跳转规则保存

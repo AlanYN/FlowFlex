@@ -72,6 +72,10 @@ export interface QuestionnaireSection {
 		fileUrl: string;
 		uploadDate: string;
 	};
+	action?: {
+		id: string;
+		name: string;
+	}[];
 	type:
 		| 'short_answer'
 		| 'paragraph'
