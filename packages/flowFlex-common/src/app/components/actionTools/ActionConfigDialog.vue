@@ -206,7 +206,7 @@ const drawerSize = computed(() => {
 
 const buttonLeftPosition = computed(() => {
 	const drawerWidth = leftPanelVisible.value ? 0.8 : 0.4;
-	return `calc(100vw - ${drawerWidth * 100}vw - 20px)`;
+	return `calc(100vw - ${drawerWidth * 100}vw - 30px)`;
 });
 
 const showVariablesPanel = () => {
@@ -515,7 +515,7 @@ defineExpose({
 
 .external-toggle-button {
 	@apply border-l-2 border-primary-500 rounded-s-md cursor-pointer transition-all duration-300 bg-white flex flex-col items-center justify-center gap-2;
-	width: 20px;
+	width: 30px;
 	height: 200px;
 
 	&:hover {

@@ -368,12 +368,8 @@ const loadChecklists = async (resetPage = false) => {
 
 		// 处理API响应
 		if (response.code === '200' || response.data) {
-			const data = response.data;
-			// 如果返回的是分页数据
-
-			// 如果返回的是直接的数组
-			checklists.value = data;
-			pagination.value.total = checklists.value.length;
+			checklists.value = response.data?.items || [];
+			pagination.value.total = response.data?.totalCount || 0;
 		} else {
 			checklists.value = [];
 			pagination.value.total = 0;
