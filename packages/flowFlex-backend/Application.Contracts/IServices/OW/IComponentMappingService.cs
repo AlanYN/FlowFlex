@@ -8,6 +8,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW
     public interface IComponentMappingService : IScopedService
     {
         /// <summary>
+        /// Sync mappings for all stages in a workflow
+        /// </summary>
+        Task SyncWorkflowMappingsAsync(long workflowId);
+
+        /// <summary>
         /// Sync mappings for a specific stage
         /// </summary>
         Task SyncStageMappingsAsync(long stageId);

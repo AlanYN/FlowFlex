@@ -32,8 +32,9 @@ namespace FlowFlex.Application.Service.OW
         private readonly UserContext _userContext;
         private readonly ILogger<WorkflowService> _logger;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly IComponentMappingService _componentMappingService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -41,6 +42,7 @@ namespace FlowFlex.Application.Service.OW
             _userContext = userContext;
             _logger = logger;
             _operatorContextService = operatorContextService;
+            _componentMappingService = componentMappingService;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -96,6 +98,18 @@ namespace FlowFlex.Application.Service.OW
                 }
                 
                 _logger.LogInformation("Created {StageCount} stages for workflow {WorkflowId}", input.Stages.Count, entity.Id);
+                
+                // Sync component mappings for all stages in the workflow
+                try
+                {
+                    await _componentMappingService.SyncWorkflowMappingsAsync(entity.Id);
+                    _logger.LogInformation("Successfully synced component mappings for workflow {WorkflowId}", entity.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to sync component mappings for workflow {WorkflowId}: {Error}", entity.Id, ex.Message);
+                    // Don't fail the workflow creation if mapping sync fails
+                }
             }
 
             return entity.Id;

@@ -34,6 +34,8 @@ namespace FlowFlex.Application.Services.AI
         private readonly IChecklistRepository _checklistRepository;
         private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly IChecklistTaskService _checklistTaskService;
+        private readonly IComponentMappingService _componentMappingService;
+        private readonly IStageRepository _stageRepository;
 
         public AIService(
             IOptions<AIOptions> aiOptions,
@@ -46,7 +48,9 @@ namespace FlowFlex.Application.Services.AI
             IQuestionnaireService questionnaireService,
             IChecklistRepository checklistRepository,
             IQuestionnaireRepository questionnaireRepository,
-            IChecklistTaskService checklistTaskService)
+            IChecklistTaskService checklistTaskService,
+            IComponentMappingService componentMappingService,
+            IStageRepository stageRepository)
         {
             _aiOptions = aiOptions.Value;
             _logger = logger;
@@ -59,6 +63,8 @@ namespace FlowFlex.Application.Services.AI
             _checklistRepository = checklistRepository;
             _questionnaireRepository = questionnaireRepository;
             _checklistTaskService = checklistTaskService;
+            _componentMappingService = componentMappingService;
+            _stageRepository = stageRepository;
         }
 
         public async Task<AIWorkflowGenerationResult> GenerateWorkflowAsync(AIWorkflowGenerationInput input)
@@ -5089,6 +5095,105 @@ Make questions relevant to the project context and stage objectives.";
                     // The QuestionnaireInputDto should include the questions in its structure
                     _logger.LogInformation("✅ Questionnaire {QuestionnaireId} created with {QuestionCount} questions",
                         questionnaireId, questionnaire.Questions?.Count ?? 0);
+                }
+
+                // Now update stage components to link the created checklists and questionnaires
+                
+                for (int i = 0; i < createdStages.Count; i++)
+                {
+                    var stage = createdStages[i];
+                    var stageComponents = new List<dynamic>();
+
+                    // Add checklist component if we have a checklist for this stage
+                    if (i < checklists.Count && checklists[i].GeneratedChecklist != null)
+                    {
+                        // Get the created checklist ID (we need to find it by name since we don't store it above)
+                        var checklistName = checklists[i].GeneratedChecklist.Name;
+                        var checklistEntities = await _checklistRepository.GetByNameAsync(checklistName);
+                        var checklistEntity = checklistEntities?.FirstOrDefault();
+                        
+                        if (checklistEntity != null)
+                        {
+                            stageComponents.Add(new
+                            {
+                                Key = "checklist",
+                                Order = 1,
+                                IsEnabled = true,
+                                Configuration = (object)null,
+                                StaticFields = new List<object>(),
+                                ChecklistIds = new List<long> { checklistEntity.Id },
+                                QuestionnaireIds = new List<long>(),
+                                ChecklistNames = new List<string> { checklistEntity.Name },
+                                QuestionnaireNames = new List<string>()
+                            });
+                        }
+                    }
+
+                    // Add questionnaire component if we have a questionnaire for this stage
+                    if (i < questionnaires.Count && questionnaires[i].GeneratedQuestionnaire != null)
+                    {
+                        // Get the created questionnaire ID
+                        var questionnaireName = questionnaires[i].GeneratedQuestionnaire.Name;
+                        // Use LINQ query to find questionnaire by name
+                        var questionnaireEntity = await _questionnaireRepository.GetFirstAsync(q => q.Name == questionnaireName && q.IsValid);
+                        
+                        if (questionnaireEntity != null)
+                        {
+                            // If we already have a checklist component, add questionnaire to a new component
+                            // Otherwise, create a questionnaire-only component
+                            stageComponents.Add(new
+                            {
+                                Key = "questionnaires",
+                                Order = stageComponents.Count + 1,
+                                IsEnabled = true,
+                                Configuration = (object)null,
+                                StaticFields = new List<object>(),
+                                ChecklistIds = new List<long>(),
+                                QuestionnaireIds = new List<long> { questionnaireEntity.Id },
+                                ChecklistNames = new List<string>(),
+                                QuestionnaireNames = new List<string> { questionnaireEntity.Name }
+                            });
+                        }
+                    }
+
+                    // Update stage components if we have any
+                    if (stageComponents.Any())
+                    {
+                        try
+                        {
+                            var updateComponentsInput = new
+                            {
+                                Components = stageComponents
+                            };
+
+                            // We need to use StageService to update components, but it's not available in AI service
+                            // Let's manually update the stage's ComponentsJson
+                            var stageEntity = await _stageRepository.GetByIdAsync(stage.Id);
+                            if (stageEntity != null)
+                            {
+                                stageEntity.ComponentsJson = JsonSerializer.Serialize(stageComponents);
+                                await _stageRepository.UpdateAsync(stageEntity);
+                                
+                                _logger.LogInformation("✅ Updated stage {StageId} components with {ComponentCount} components", 
+                                    stage.Id, stageComponents.Count);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to update components for stage {StageId}: {Error}", stage.Id, ex.Message);
+                        }
+                    }
+                }
+
+                // Finally, sync the component mappings for the entire workflow
+                try
+                {
+                    await _componentMappingService.SyncWorkflowMappingsAsync(workflowId);
+                    _logger.LogInformation("✅ Successfully synced component mappings for AI-generated workflow {WorkflowId}", workflowId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to sync component mappings for workflow {WorkflowId}: {Error}", workflowId, ex.Message);
                 }
 
                 return true;

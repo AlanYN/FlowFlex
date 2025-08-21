@@ -32,6 +32,32 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
+        /// Sync mappings for all stages in a workflow
+        /// </summary>
+        public async Task SyncWorkflowMappingsAsync(long workflowId)
+        {
+            try
+            {
+                Console.WriteLine($"[ComponentMappingService] Syncing mappings for workflow {workflowId}");
+
+                // Get all stages in the workflow
+                var stages = await _stageRepository.GetListAsync(s => s.WorkflowId == workflowId && s.IsValid);
+                
+                foreach (var stage in stages)
+                {
+                    await SyncStageMappingsAsync(stage.Id);
+                }
+
+                Console.WriteLine($"[ComponentMappingService] Completed syncing mappings for workflow {workflowId} - {stages.Count} stages processed");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ComponentMappingService] Error syncing workflow {workflowId} mappings: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Sync mappings for a specific stage
         /// </summary>
         public async Task SyncStageMappingsAsync(long stageId)

@@ -18,6 +18,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Repository.OW;
+using SqlSugar;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -115,9 +116,12 @@ namespace FlowFlex.Application.Service.OW
                     // Assignments are no longer stored in Questionnaire entity
         // They will be managed through Stage Components only
 
-            // Validate structure JSON
+            // Normalize and validate structure JSON
             if (!string.IsNullOrWhiteSpace(input.StructureJson))
             {
+                // Normalize IDs in structure JSON to use snowflake IDs
+                input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
+                
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid questionnaire structure JSON");
@@ -175,9 +179,12 @@ namespace FlowFlex.Application.Service.OW
             // Assignments are no longer stored in Questionnaire entity
             // They will be managed through Stage Components only
 
-            // Validate structure JSON
+            // Normalize and validate structure JSON
             if (!string.IsNullOrWhiteSpace(input.StructureJson))
             {
+                // Normalize IDs in structure JSON to use snowflake IDs
+                input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
+                
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid questionnaire structure JSON");
@@ -352,11 +359,11 @@ namespace FlowFlex.Application.Service.OW
                  
                  // Use database-level JSONB query for optimal performance
                  var (items, count) = await _questionnaireRepository.GetPagedByStageComponentsAsync(
-                     query.PageIndex,
-                     query.PageSize,
-                     query.Name,
-                     query.WorkflowId,
-                     query.StageId,
+                query.PageIndex,
+                query.PageSize,
+                query.Name,
+                query.WorkflowId,
+                query.StageId,
                      query.IsActive,
                      query.SortField,
                      query.SortDirection);
@@ -405,7 +412,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // For basic queries, now filling assignments (may impact performance for large datasets)
                 Console.WriteLine("[QuestionnaireService] Filling assignments for basic query");
-                await FillAssignmentsAsync(result);
+            await FillAssignmentsAsync(result);
             }
 
             return new PagedResult<QuestionnaireOutputDto>
@@ -431,7 +438,7 @@ namespace FlowFlex.Application.Service.OW
                 : input.Name;
             var uniqueName = await EnsureUniqueQuestionnaireNameAsync(baseName);
 
-            // Process StructureJson to generate new IDs
+            // Process StructureJson to generate new snowflake IDs
             string newStructureJson = null;
             if (input.CopyStructure && sourceQuestionnaire.Structure != null)
             {
@@ -540,25 +547,8 @@ namespace FlowFlex.Application.Service.OW
                             var originalId = value.GetString();
                             if (!string.IsNullOrEmpty(originalId))
                             {
-                                // Generate new ID based on the original pattern
-                                if (originalId.StartsWith("section-"))
-                                {
-                                    obj[key] = $"section-{GenerateUniqueTimestamp()}";
-                                }
-                                else if (originalId.StartsWith("question-"))
-                                {
-                                    obj[key] = $"question-{GenerateUniqueTimestamp()}";
-                                }
-                                else if (originalId.StartsWith("option-"))
-                                {
-                                    obj[key] = $"option-{GenerateUniqueTimestamp()}";
-                                }
-                                else
-                                {
-                                    // For other ID patterns, generate a new timestamp-based ID
-                                    var prefix = originalId.Contains('-') ? originalId.Split('-')[0] : "item";
-                                    obj[key] = $"{prefix}-{GenerateUniqueTimestamp()}";
-                                }
+                                // Generate snowflake ID for all id fields (sections, questions, options, etc.)
+                                obj[key] = GenerateSnowflakeId().ToString();
                             }
                             else
                             {
@@ -607,14 +597,131 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Generate unique timestamp for IDs
+        /// Generate snowflake ID for structure elements
         /// </summary>
-        private static long GenerateUniqueTimestamp()
+        private static long GenerateSnowflakeId()
         {
-            // Add some randomness to ensure uniqueness when called multiple times quickly
-            var timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            var random = new Random();
-            return timestamp + random.Next(1, 1000);
+            return SnowFlakeSingle.Instance.NextId();
+        }
+
+        /// <summary>
+        /// Normalize structure JSON to use snowflake IDs instead of prefixed IDs
+        /// </summary>
+        private string NormalizeStructureJsonIds(string structureJson)
+        {
+            if (string.IsNullOrWhiteSpace(structureJson))
+            {
+                return structureJson;
+            }
+
+            try
+            {
+                // Parse the JSON structure
+                var structure = JsonSerializer.Deserialize<JsonElement>(structureJson);
+
+                // Normalize IDs in the structure
+                var normalizedStructure = NormalizeIdsInJsonElement(structure);
+
+                // Serialize back to JSON
+                return JsonSerializer.Serialize(normalizedStructure, new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+            }
+            catch (Exception ex)
+            {
+                // If JSON parsing fails, return original structure
+                // Log the error but don't fail the operation
+                Console.WriteLine($"[QuestionnaireService] Error normalizing structure JSON IDs: {ex.Message}");
+                return structureJson;
+            }
+        }
+
+        /// <summary>
+        /// Recursively normalize IDs in JSON structure to use snowflake IDs
+        /// </summary>
+        private object NormalizeIdsInJsonElement(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    var obj = new Dictionary<string, object>();
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        var key = property.Name;
+                        var value = property.Value;
+
+                        // Normalize ID fields to use snowflake IDs
+                        if (key == "id" && value.ValueKind == JsonValueKind.String)
+                        {
+                            var originalId = value.GetString();
+                            if (!string.IsNullOrEmpty(originalId))
+                            {
+                                // Check if ID is already a snowflake ID (pure number)
+                                if (long.TryParse(originalId, out _))
+                                {
+                                    // Already a snowflake ID, keep it
+                                    obj[key] = originalId;
+                                }
+                                else
+                                {
+                                    // Convert prefixed ID to snowflake ID
+                                    obj[key] = GenerateSnowflakeId().ToString();
+                                }
+                            }
+                            else
+                            {
+                                obj[key] = originalId;
+                            }
+                        }
+                        else
+                        {
+                            obj[key] = NormalizeIdsInJsonElement(value);
+                        }
+                    }
+                    return obj;
+
+                case JsonValueKind.Array:
+                    var array = new List<object>();
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        array.Add(NormalizeIdsInJsonElement(item));
+                    }
+                    return array;
+
+                case JsonValueKind.String:
+                    return element.GetString();
+
+                case JsonValueKind.Number:
+                    if (element.TryGetInt32(out var intValue))
+                        return intValue;
+                    if (element.TryGetInt64(out var longValue))
+                        return longValue;
+                    if (element.TryGetDouble(out var doubleValue))
+                        return doubleValue;
+                    return element.GetRawText();
+
+                case JsonValueKind.True:
+                    return true;
+
+                case JsonValueKind.False:
+                    return false;
+
+                case JsonValueKind.Null:
+                    return null;
+
+                default:
+                    return element.GetRawText();
+            }
+        }
+
+        /// <summary>
+        /// Test method to verify ID normalization in structure JSON (for debugging)
+        /// </summary>
+        public string TestNormalizeStructureJsonIds(string originalStructureJson)
+        {
+            return NormalizeStructureJsonIds(originalStructureJson);
         }
 
         /// <summary>
@@ -814,13 +921,13 @@ namespace FlowFlex.Application.Service.OW
             if (assignments.TryGetValue(questionnaire.Id, out var questionnaireAssignments))
             {
                 questionnaire.Assignments = questionnaireAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
-                {
-                    WorkflowId = a.WorkflowId,
+                    {
+                        WorkflowId = a.WorkflowId,
                     StageId = a.StageId
-                }).ToList();
-            }
-            else
-            {
+                    }).ToList();
+                }
+                else
+                {
                 questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
             }
         }
@@ -935,14 +1042,14 @@ namespace FlowFlex.Application.Service.OW
                 questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
             }
         }
-    }
+        }
 
-    /// <summary>
+        /// <summary>
     /// Apply sorting to questionnaire list
-    /// </summary>
+        /// </summary>
     private List<Questionnaire> ApplySorting(List<Questionnaire> questionnaires, string sortField, string sortDirection)
-    {
-        if (questionnaires == null || !questionnaires.Any())
+        {
+            if (questionnaires == null || !questionnaires.Any())
             return questionnaires ?? new List<Questionnaire>();
 
         bool isAsc = sortDirection?.ToLower() == "asc";
