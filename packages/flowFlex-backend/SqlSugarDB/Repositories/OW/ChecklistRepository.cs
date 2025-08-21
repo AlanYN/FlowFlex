@@ -168,15 +168,43 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
         string sortField = "CreateDate",
         string sortDirection = "desc")
     {
+        // 记录当前请求头
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext != null)
+        {
+            var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+            var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+            _logger.LogInformation($"[ChecklistRepository] GetPagedAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+        }
+
         // Build query condition list
         var whereExpressions = new List<Expression<Func<Checklist, bool>>>();
 
         // Basic filter conditions
         whereExpressions.Add(x => x.IsValid == true);
 
+        // 获取当前租户ID和应用代码
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+        
+        _logger.LogInformation($"[ChecklistRepository] GetPagedAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+        
+        // 添加租户和应用过滤条件
+        whereExpressions.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
+
         if (!string.IsNullOrEmpty(name))
         {
-            whereExpressions.Add(x => x.Name.ToLower().Contains(name.ToLower()));
+            // Support comma-separated checklist names
+            var names = name.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                           .Select(n => n.Trim())
+                           .Where(n => !string.IsNullOrEmpty(n))
+                           .ToList();
+
+            if (names.Any())
+            {
+                // Use OR condition to match any of the checklist names (case-insensitive)
+                whereExpressions.Add(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+            }
         }
 
         if (!string.IsNullOrEmpty(team))
@@ -207,10 +235,12 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
         // Note: workflowId and stageId filters are removed as these fields no longer exist
 
         // Determine sort field and direction
-        Expression<Func<Checklist, object>> orderByExpression = sortField switch
+        Expression<Func<Checklist, object>> orderByExpression = sortField?.ToLower() switch
         {
-            "Name" => x => x.Name,
-            "Team" => x => x.Team,
+            "name" => x => x.Name,
+            "team" => x => x.Team,
+            "createdate" => x => x.CreateDate,
+            "modifydate" => x => x.ModifyDate,
             _ => x => x.CreateDate
         };
 
@@ -224,6 +254,8 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             orderByExpression,
             isAsc
         );
+
+        _logger.LogInformation($"[ChecklistRepository] GetPagedAsync returned {items.Count} items, total count: {totalCount} with TenantId={currentTenantId}, AppCode={currentAppCode}");
 
         return (items, totalCount);
     }

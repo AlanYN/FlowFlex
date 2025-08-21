@@ -18,7 +18,7 @@ namespace FlowFlex.Application.Maps
 
             // Questionnaire entity to output DTO
             CreateMap<Questionnaire, QuestionnaireOutputDto>()
-                .ForMember(dest => dest.Assignments, opt => opt.MapFrom(src => src.Assignments))
+                .ForMember(dest => dest.Assignments, opt => opt.Ignore()) // Assignments handled separately in service
                 .ForMember(dest => dest.StructureJson, opt => opt.MapFrom(src => src.Structure != null ? src.Structure.ToString(Newtonsoft.Json.Formatting.None) : null))
                 .ForMember(dest => dest.TagsJson, opt => opt.MapFrom(src => src.Tags != null ? src.Tags.ToString(Newtonsoft.Json.Formatting.None) : null));
 
@@ -35,7 +35,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.TotalQuestions, opt => opt.Ignore())
                 .ForMember(dest => dest.RequiredQuestions, opt => opt.Ignore())
-                .ForMember(dest => dest.Assignments, opt => opt.Ignore()) // Ignore assignments as they're handled separately in service
+                // Assignments removed from entity - handled through Stage Components
                 .ForMember(dest => dest.Structure, opt => opt.MapFrom(src => ParseJToken(NormalizeJson(src.StructureJson))))
                 .ForMember(dest => dest.Tags, opt => opt.MapFrom(src => ParseJToken(NormalizeJson(src.TagsJson))));
 

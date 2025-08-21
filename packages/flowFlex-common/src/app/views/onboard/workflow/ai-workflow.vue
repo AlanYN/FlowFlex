@@ -108,6 +108,7 @@
 			:close-on-click-modal="false"
 			top="5vh"
 			class="ai-config-dialog"
+			style="max-width: 1200px"
 		>
 			<div class="ai-config-container">
 				<AIModelConfig />

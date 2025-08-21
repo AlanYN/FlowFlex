@@ -4959,15 +4959,9 @@ Make questions relevant to the project context and stage objectives.";
                     // Ensure unique checklist name
                     checklist.GeneratedChecklist.Name = await EnsureUniqueChecklistNameAsync(checklist.GeneratedChecklist.Name, checklist.GeneratedChecklist.Team);
 
-                    // Set up assignments for the checklist
-                    checklist.GeneratedChecklist.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>
-                    {
-                        new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
-                        {
-                            WorkflowId = workflowId,
-                            StageId = stage.Id
-                        }
-                    };
+                    // Set up assignments for the checklist (assignments are now managed through Stage Components)
+                    // These will be populated when the checklist is queried through the service layer
+                    checklist.GeneratedChecklist.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
 
                     // Create the checklist
                     var checklistId = await _checklistService.CreateAsync(checklist.GeneratedChecklist);
@@ -5083,15 +5077,9 @@ Make questions relevant to the project context and stage objectives.";
                         _logger.LogWarning("⚠️ No questions found for questionnaire {Index}", i);
                     }
 
-                    // Set up assignments for the questionnaire
-                    questionnaire.GeneratedQuestionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>
-                    {
-                        new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
-                        {
-                            WorkflowId = workflowId,
-                            StageId = stage.Id
-                        }
-                    };
+                    // Set up assignments for the questionnaire (assignments are now managed through Stage Components)
+                    // These will be populated when the questionnaire is queried through the service layer
+                    questionnaire.GeneratedQuestionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
 
                     // Create the questionnaire
                     var questionnaireId = await _questionnaireService.CreateAsync(questionnaire.GeneratedQuestionnaire);
@@ -5376,12 +5364,7 @@ Make questions relevant to the project context and stage objectives.";
                 var requiredTasks = input.ChecklistTasks.Count(t => t.IsRequired);
                 var completedRequiredTasks = input.ChecklistTasks.Count(t => t.IsRequired && t.IsCompleted);
 
-                //promptBuilder.AppendLine($"Total Tasks: {totalTasks}");
-                //promptBuilder.AppendLine($"Completed Tasks: {completedTasks}");
-                //promptBuilder.AppendLine($"Required Tasks: {requiredTasks}");
-                //promptBuilder.AppendLine($"Completed Required Tasks: {completedRequiredTasks}");
-                //promptBuilder.AppendLine($"Completion Rate: {(totalTasks > 0 ? (decimal)completedTasks / totalTasks * 100 : 0):F1}%");
-                //promptBuilder.AppendLine();
+                // 移除详细统计信息，仅在任务列表中显示完成状态
 
                 promptBuilder.AppendLine("Tasks:");
                 foreach (var task in input.ChecklistTasks)
@@ -5434,7 +5417,7 @@ Make questions relevant to the project context and stage objectives.";
                 promptBuilder.AppendLine();
             }
 
-            // Simple summary requirements (pure text, <= 200 words)
+            // Simple summary requirements (pure text, <= 150 words)
             promptBuilder.AppendLine("=== Summary Requirements ===");
             promptBuilder.AppendLine("Provide a concise summary in maximum 150 words covering key findings and progress:");
             promptBuilder.AppendLine("- Current completion status");

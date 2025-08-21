@@ -34,27 +34,29 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageRepository _stageRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IMapper _mapper;
-        private readonly IStageAssignmentSyncService _syncService;
         private readonly IStagesProgressSyncService _stagesProgressSyncService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IAIService _aiService;
+        private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
         private readonly UserContext _userContext;
+        private readonly IComponentMappingService _mappingService;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStageAssignmentSyncService syncService, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IAIService aiService, UserContext userContext)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
             _mapper = mapper;
-            _syncService = syncService;
             _stagesProgressSyncService = stagesProgressSyncService;
             _checklistService = checklistService;
             _questionnaireService = questionnaireService;
             _aiService = aiService;
+            _checklistTaskCompletionRepository = checklistTaskCompletionRepository;
             _userContext = userContext;
+            _mappingService = mappingService;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -84,6 +86,26 @@ namespace FlowFlex.Application.Service.OW
             entity.InitCreateInfo(_userContext);
 
             await _stageRepository.InsertAsync(entity);
+
+            // Sync component mappings if the new stage has components
+            if (input.Components != null && input.Components.Any())
+            {
+                var hasChecklist = input.Components.Any(c => c.Key == "checklist" && c.ChecklistIds?.Any() == true);
+                var hasQuestionnaires = input.Components.Any(c => c.Key == "questionnaires" && c.QuestionnaireIds?.Any() == true);
+
+                if (hasChecklist || hasQuestionnaires)
+                {
+                    try
+                    {
+                        await _mappingService.SyncStageMappingsAsync(entity.Id);
+                        Console.WriteLine($"[StageService] Synced stage mappings for new stage {entity.Id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[StageService] Error syncing stage mappings for new stage {entity.Id}: {ex.Message}");
+                    }
+                }
+            }
 
             // Create new WorkflowVersion (after adding stage) - Disabled automatic version creation
             // await CreateWorkflowVersionForStageChangeAsync(entity.WorkflowId, $"Stage '{entity.Name}' created");
@@ -177,32 +199,24 @@ namespace FlowFlex.Application.Service.OW
                 var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
                 var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
 
-                // Trigger async AI summary generation if components changed
+                // Sync component mappings if there are changes
                 if (hasChecklistChanges || hasQuestionnaireChanges)
                 {
-                    // Fire and forget - generate AI summary asynchronously
-                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
-                }
-
-                if (hasChecklistChanges || hasQuestionnaireChanges)
-                {
-                    // Sync assignments with checklists and questionnaires if components changed
                     try
                     {
-                        await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                            id,
-                            stage.WorkflowId,
-                            oldChecklistIds,
-                            newChecklistIds,
-                            oldQuestionnaireIds,
-                            newQuestionnaireIds);
+                        await _mappingService.SyncStageMappingsAsync(id);
+                        Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after update");
                     }
                     catch (Exception ex)
                     {
-                        // Log sync error but don't fail the operation
-                        // The stage update succeeded, sync is a secondary operation
+                        Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
                     }
+
+                    // Trigger async AI summary generation if components changed
+                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                 }
+
+                            // Assignment sync is no longer needed as assignments are managed through Stage Components only
 
                 // Cache cleanup removed
 
@@ -679,40 +693,28 @@ namespace FlowFlex.Application.Service.OW
 
             if (result)
             {
-                // Trigger async AI summary generation for component updates
-                _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                // Check if there are actual changes to sync
+                var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
+                var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
 
-                // Sync assignments with checklists and questionnaires
-                try
+                // Sync component mappings if there are changes
+                if (hasChecklistChanges || hasQuestionnaireChanges)
                 {
-                    await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                        id,
-                        entity.WorkflowId,
-                        oldChecklistIds,
-                        newChecklistIds,
-                        oldQuestionnaireIds,
-                        newQuestionnaireIds);
+                    try
+                    {
+                        await _mappingService.SyncStageMappingsAsync(id);
+                        Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after component update");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
+                    }
+
+                    // Trigger async AI summary generation for component updates
+                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                 }
-                catch (Exception ex)
-                {
-                    // Log sync error but don't fail the operation
-                    // The stage components update succeeded, sync is a secondary operation
-                    // Removed operation logging - not relevant for stage management operations
-                    // await _operationLogService.LogOperationAsync(
-                    //    OperationTypeEnum.OnboardingStatusChange,
-                    //    BusinessModuleEnum.Stage,
-                    //    id,
-                    //    null, // onboardingId
-                    //    null, // stageId
-                    //    "Stage Components Assignment Sync Error",
-                    //    "Failed to sync assignments with checklist/questionnaire",
-                    //    null, // beforeData
-                    //    ex.Message, // afterData
-                    //    new List<string> { "AssignmentSync" },
-                    //    null, // extendedData
-                    //    OperationStatusEnum.Failed
-                    //);
-                }
+
+                // Assignment sync is no longer needed as assignments are managed through Stage Components only
 
                 // Log operation
                 // Removed operation logging - not relevant for stage management operations
@@ -883,17 +885,14 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Manually sync assignments between stage components and checklist/questionnaire assignments
+        /// Manually sync assignments between stage components and checklist/questionnaire assignments (DEPRECATED)
+        /// Assignments are now managed through Stage Components only
         /// </summary>
+        [Obsolete("This method is deprecated. Assignments are now managed through Stage Components only.")]
         public async Task<bool> SyncAssignmentsFromStageComponentsAsync(long stageId, long workflowId, List<long> oldChecklistIds, List<long> newChecklistIds, List<long> oldQuestionnaireIds, List<long> newQuestionnaireIds)
         {
-            return await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                stageId,
-                workflowId,
-                oldChecklistIds,
-                newChecklistIds,
-                oldQuestionnaireIds,
-                newQuestionnaireIds);
+            // Assignment sync is no longer needed as assignments are managed through Stage Components only
+            return true; // Return success to avoid breaking existing calls
         }
 
         #endregion
@@ -1061,7 +1060,7 @@ namespace FlowFlex.Application.Service.OW
                 };
 
                 // Populate stage component information (checklist and questionnaire data)
-                await PopulateStageComponentsForSummary(stageId, aiInput, summaryOptions);
+                await PopulateStageComponentsForSummary(stageId, aiInput, summaryOptions, onboardingId);
 
                 // Debug: Print final data counts
                 Console.WriteLine($"[DEBUG] Final AI Input - ChecklistTasks: {aiInput.ChecklistTasks.Count}, QuestionnaireQuestions: {aiInput.QuestionnaireQuestions.Count}, StaticFields: {aiInput.StaticFields.Count}");
@@ -1450,7 +1449,8 @@ namespace FlowFlex.Application.Service.OW
         /// <param name="stageId">Stage ID</param>
         /// <param name="aiInput">AI input to populate</param>
         /// <param name="summaryOptions">Summary options</param>
-        private async Task PopulateStageComponentsForSummary(long stageId, AIStageSummaryInput aiInput, StageSummaryOptions summaryOptions)
+        /// <param name="onboardingId">Onboarding ID for task completion context</param>
+        private async Task PopulateStageComponentsForSummary(long stageId, AIStageSummaryInput aiInput, StageSummaryOptions summaryOptions, long? onboardingId = null)
         {
             try
             {
@@ -1479,19 +1479,44 @@ namespace FlowFlex.Application.Service.OW
                             
                             if (checklist?.Tasks != null && checklist.Tasks.Any())
                             {
-                                var taskInfos = checklist.Tasks.Select(task => new AISummaryTaskInfo
+                                // Get task completion status if onboarding context is available
+                                Dictionary<long, (bool isCompleted, string notes)> taskCompletionMap = new();
+                                if (onboardingId.HasValue)
                                 {
-                                    TaskId = task.Id,
-                                    TaskName = task.Name ?? "",
-                                    Description = task.Description ?? "",
-                                    IsRequired = task.IsRequired,
-                                    IsCompleted = false, // No completion status without onboarding context
-                                    CompletionNotes = "",
-                                    Category = checklist.Name ?? "Checklist"
+                                    try
+                                    {
+                                        // Get task completions for this onboarding and checklist
+                                        // Use repository to get task completion entities directly
+                                        var taskCompletions = await _checklistTaskCompletionRepository.GetByOnboardingAndChecklistAsync(onboardingId.Value, checklistId);
+                                        taskCompletionMap = taskCompletions.ToDictionary(
+                                            tc => tc.TaskId,
+                                            tc => (tc.IsCompleted, tc.CompletionNotes ?? "")
+                                        );
+                                        Console.WriteLine($"[DEBUG] Found {taskCompletionMap.Count} task completions for onboarding {onboardingId.Value}, checklist {checklistId}");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[WARNING] Could not load task completions: {ex.Message}");
+                                    }
+                                }
+
+                                var taskInfos = checklist.Tasks.Select(task => 
+                                {
+                                    var hasCompletion = taskCompletionMap.TryGetValue(task.Id, out var completion);
+                                    return new AISummaryTaskInfo
+                                    {
+                                        TaskId = task.Id,
+                                        TaskName = task.Name ?? "",
+                                        Description = task.Description ?? "",
+                                        IsRequired = task.IsRequired,
+                                        IsCompleted = hasCompletion ? completion.isCompleted : false,
+                                        CompletionNotes = hasCompletion ? completion.notes : "",
+                                        Category = checklist.Name ?? "Checklist"
+                                    };
                                 }).ToList();
 
                                 aiInput.ChecklistTasks.AddRange(taskInfos);
-                                Console.WriteLine($"[DEBUG] Added {taskInfos.Count} tasks from checklist {checklist.Name}");
+                                Console.WriteLine($"[DEBUG] Added {taskInfos.Count} tasks from checklist {checklist.Name}, {taskInfos.Count(t => t.IsCompleted)} completed");
                             }
                             else
                             {

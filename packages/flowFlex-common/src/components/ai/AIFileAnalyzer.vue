@@ -1,24 +1,22 @@
 <template>
 	<div class="ai-file-analyzer">
-		<el-upload
-			ref="uploadRef"
-			:auto-upload="false"
-			:show-file-list="false"
-			:accept="acceptedFileTypes"
-			:on-change="handleFileSelect"
-			:before-upload="beforeUpload"
-			class="file-upload-area"
+		<el-tooltip
+			content="Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON"
+			placement="top"
+			effect="dark"
 		>
-			<div class="upload-content file-upload-area-upload">
-				<div class="upload-icon">
-					<el-icon><Document /></el-icon>
-				</div>
-				<div class="upload-text">
-					<p class="upload-title">AI Analyze Files</p>
-					<p class="supported-formats">Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON</p>
-				</div>
-			</div>
-		</el-upload>
+			<el-upload
+				ref="uploadRef"
+				:auto-upload="false"
+				:show-file-list="false"
+				:accept="acceptedFileTypes"
+				:on-change="handleFileSelect"
+				:before-upload="beforeUpload"
+				class="file-upload-icon"
+			>
+				<el-button type="text" size="large" class="attachment-btn">📎</el-button>
+			</el-upload>
+		</el-tooltip>
 
 		<!-- File Processing Dialog -->
 		<el-dialog
@@ -512,67 +510,29 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 <style scoped>
 .ai-file-analyzer {
-	width: 100%;
+	display: inline-block;
 }
 
-.file-upload-area {
-	width: 100%;
-}
-.file-upload-area-upload {
-	float: right !important;
+.file-upload-icon {
+	display: inline-block;
 }
 
-.upload-content {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	padding: 0.75rem;
-	border: 2px dashed #d1d5db;
-	border-radius: 8px;
-	background: #f9fafb;
-	transition: all 0.2s ease;
-	cursor: pointer;
+.attachment-btn {
+	font-size: 18px !important;
+	color: #6b7280 !important;
+	padding: 4px 8px !important;
+	margin: 0 !important;
+	border: none !important;
+	background: transparent !important;
+	transition: all 0.2s ease !important;
+	min-height: auto !important;
+	height: auto !important;
 }
 
-.upload-content:hover {
-	border-color: #4f46e5;
-	background: #f8fafc;
-}
-
-.upload-icon {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: white;
-	font-size: 18px;
-	flex-shrink: 0;
-}
-
-.upload-text {
-	flex: 1;
-}
-
-.upload-title {
-	margin: 0 0 0.125rem 0;
-	font-size: 14px;
-	font-weight: 600;
-	color: #374151;
-}
-
-.upload-subtitle {
-	margin: 0 0 0.25rem 0;
-	font-size: 12px;
-	color: #6b7280;
-}
-
-.supported-formats {
-	margin: 0;
-	font-size: 11px;
-	color: #9ca3af;
+.attachment-btn:hover {
+	color: #4f46e5 !important;
+	background: #f3f4f6 !important;
+	border-radius: 4px !important;
 }
 
 .processing-content {

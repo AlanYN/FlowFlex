@@ -17,7 +17,7 @@ namespace FlowFlex.Application.Maps
 
             // Checklist 映射
             CreateMap<Checklist, ChecklistOutputDto>()
-                .ForMember(dest => dest.Assignments, opt => opt.MapFrom(src => src.Assignments));
+                .ForMember(dest => dest.Assignments, opt => opt.Ignore()); // Assignments handled separately in service
 
             // InputDto -> Entity
             CreateMap<ChecklistInputDto, Checklist>()
@@ -29,8 +29,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.Assignments, opt => opt.Ignore()); // Assignments handled separately
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
+                // Assignments removed from entity - handled through Stage Components
         }
     }
 }

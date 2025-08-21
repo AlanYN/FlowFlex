@@ -773,96 +773,72 @@
 						<!-- Text Input -->
 						<div class="text-input-section">
 							<div class="input-with-button">
-								<el-input
-									v-model="currentInput"
-									type="textarea"
-									:rows="3"
-									placeholder="Type your response here..."
-									@keydown="handleKeydown"
-									class="chat-input"
-								/>
-								<div class="input-actions">
-									<el-button
-										type="primary"
-										@click="sendMessage"
-										:disabled="!currentInput.trim() && !uploadedFile"
-										size="default"
-										class="send-button"
-									>
-										<el-icon><Position /></el-icon>
-										Send
-									</el-button>
-								</div>
-							</div>
-						</div>
-
-						<!-- Model Selection and AI File Analyzer -->
-						<div class="bottom-controls-section">
-							<div class="ai-model-selector-bottom">
-								<div class="model-selector-label">Model:</div>
-								<el-select
-									v-model="currentAIModel"
-									placeholder="Select AI Model"
-									size="default"
-									class="model-select"
-									style="width: 220px"
-									value-key="id"
-									@change="handleModelChange"
-								>
-									<el-option
-										v-for="model in availableModels"
-										:key="model.id"
-										:label="`${model.provider.toLowerCase()} ${
-											model.modelName
-										}`"
-										:value="model"
-										:disabled="!model.isAvailable"
-									>
-										<div class="model-option">
-											<div class="model-info">
-												<span class="model-display">
-													{{ model.provider.toLowerCase() }}
-													{{ model.modelName }}
-												</span>
-											</div>
-											<div class="model-status">
-												<span
-													class="status-dot"
-													:class="{
-														online: model.isAvailable,
-														offline: !model.isAvailable,
-													}"
-												></span>
-											</div>
-										</div>
-									</el-option>
-								</el-select>
-							</div>
-
-							<!-- AI File Analyzer and Generate Button -->
-							<div class="file-upload-section">
-								<div class="file-analyzer-container">
-									<AIFileAnalyzer
-										@file-analyzed="handleFileAnalyzed"
-										@analysis-complete="handleAnalysisComplete"
-										@stream-chunk="handleStreamChunk"
-										@analysis-started="handleAnalysisStarted"
+								<div class="input-container">
+									<el-input
+										v-model="currentInput"
+										type="textarea"
+										:rows="3"
+										placeholder="Type your response here..."
+										@keydown="handleKeydown"
+										class="chat-input"
 									/>
-
-									<!-- Generate My Workflow Button (only show when there's chat history) -->
-									<div
-										v-if="shouldShowGenerateButton"
-										class="generate-workflow-right"
-									>
+									<div class="input-bottom-actions">
+										<div class="ai-model-selector-bottom">
+											<el-select
+												v-model="currentAIModel"
+												placeholder="Select AI Model"
+												size="small"
+												class="model-select"
+												style="width: 180px"
+												value-key="id"
+												@change="handleModelChange"
+											>
+												<el-option
+													v-for="model in availableModels"
+													:key="model.id"
+													:label="`${model.provider.toLowerCase()} ${
+														model.modelName
+													}`"
+													:value="model"
+													:disabled="!model.isAvailable"
+												>
+													<div class="model-option">
+														<div class="model-info">
+															<span class="model-display">
+																{{ model.provider.toLowerCase() }}
+																{{ model.modelName }}
+															</span>
+														</div>
+														<div class="model-status">
+															<span
+																class="status-dot"
+																:class="{
+																	online: model.isAvailable,
+																	offline: !model.isAvailable,
+																}"
+															></span>
+														</div>
+													</div>
+												</el-option>
+											</el-select>
+										</div>
+									</div>
+									<div class="input-right-actions">
+										<AIFileAnalyzer
+											@file-analyzed="handleFileAnalyzed"
+											@analysis-complete="handleAnalysisComplete"
+											@stream-chunk="handleStreamChunk"
+											@analysis-started="handleAnalysisStarted"
+										/>
 										<el-button
 											type="primary"
-											size="default"
-											@click="generateWorkflow"
-											:loading="generating"
-											class="generate-workflow-btn-right"
+											@click="sendMessage"
+											:disabled="!currentInput.trim() && !uploadedFile"
+											size="small"
+											class="send-button"
+											circle
 										>
-											<el-icon class="mr-1"><Star /></el-icon>
-											Generate My Workflow
+											<el-icon><Position /></el-icon>
 										</el-button>
 									</div>
 								</div>
@@ -1176,7 +1152,6 @@ import {
 	Plus,
 	Check,
 	Delete,
-	ArrowLeft,
 	ArrowRight,
 	ArrowDown,
 	ArrowUp,
@@ -1405,12 +1380,6 @@ const canGenerate = computed(() => {
 	const hasFile = uploadedFile.value;
 	const hasChatHistory = chatMessages.value.some((msg) => msg.type === 'user');
 	return hasInput || hasFile || hasChatHistory;
-});
-
-// Show Generate button only when there's chat history
-const shouldShowGenerateButton = computed(() => {
-	const hasChatHistory = chatMessages.value.some((msg) => msg.type === 'user');
-	return hasChatHistory;
 });
 
 const pinnedSessions = computed(() => {
@@ -2372,6 +2341,35 @@ const generateWorkflow = async () => {
 	}
 };
 
+// Check if message contains workflow generation keywords
+const isGenerateWorkflowIntent = (message: string): boolean => {
+	const generateKeywords = [
+		// English keywords
+		'generate',
+		'create',
+		'build',
+		'make',
+		'new workflow',
+		'generate workflow',
+		'create workflow',
+		'build workflow',
+		// Chinese keywords
+		'生成',
+		'创建',
+		'制作',
+		'构建',
+		'新建',
+		'新工作流',
+		'生成工作流',
+		'创建工作流',
+		'制作工作流',
+		'构建工作流',
+	];
+
+	const lowerMessage = message.toLowerCase();
+	return generateKeywords.some((keyword) => lowerMessage.includes(keyword.toLowerCase()));
+};
+
 const sendMessage = async () => {
 	if (!currentInput.value.trim() && !uploadedFile.value) return;
 
@@ -2392,6 +2390,13 @@ const sendMessage = async () => {
 	await scrollToBottom();
 
 	console.log('User message added, current messages:', chatMessages.value.length);
+
+	// Check for workflow generation intent first
+	if (isGenerateWorkflowIntent(messageContent)) {
+		console.log('Detected workflow generation intent, triggering generation...');
+		generateWorkflow();
+		return;
+	}
 
 	// Check for workflow modification intent
 	const modificationIntent = detectWorkflowModificationIntent(messageContent);
@@ -2897,10 +2902,6 @@ const clearChat = () => {
 	uploadedFile.value = null;
 	streamingMessage.value = '';
 	generating.value = false;
-};
-
-const toggleHistory = () => {
-	isHistoryCollapsed.value = !isHistoryCollapsed.value;
 };
 
 const startNewChat = () => {
@@ -3561,6 +3562,11 @@ onMounted(async () => {
 .assistant-card {
 	display: flex;
 	flex-direction: column;
+	margin-bottom: 0;
+}
+
+.assistant-card .el-card__body {
+	padding-bottom: 0 !important;
 }
 
 .card-header {
@@ -3614,8 +3620,35 @@ onMounted(async () => {
 	display: flex;
 	align-items: stretch;
 	gap: 1rem;
-	height: 75vh;
-	min-height: 700px;
+	height: clamp(500px, calc(100vh - 200px), 800px);
+	min-height: 500px;
+	max-height: 800px;
+}
+
+/* 针对笔记本电脑屏幕 */
+@media (max-height: 900px) {
+	.assistant-container {
+		height: clamp(500px, calc(100vh - 180px), 500px);
+		max-height: 500px;
+	}
+
+	.chat-messages {
+		max-height: calc(clamp(500px, calc(100vh - 180px), 500px) - 130px);
+		min-height: 300px;
+	}
+}
+
+/* 针对大显示器 */
+@media (min-height: 1000px) {
+	.assistant-container {
+		height: clamp(800px, calc(100vh - 220px), 800px);
+		max-height: 800px;
+	}
+
+	.chat-messages {
+		max-height: calc(clamp(800px, calc(100vh - 220px), 800px) - 150px);
+		min-height: 450px;
+	}
 }
 
 .chat-area {
@@ -3632,8 +3665,8 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
-	max-height: calc(75vh - 200px);
-	min-height: 500px;
+	max-height: calc(clamp(500px, calc(100vh - 200px), 860px) - 150px);
+	min-height: 350px;
 }
 
 /* Custom scrollbar styles */
@@ -4071,22 +4104,10 @@ onMounted(async () => {
 }
 
 .input-area {
-	padding: 1rem;
+	padding: 1rem 1rem 0 1rem;
+	margin: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
-	background: #f9fafb;
-	border-radius: 0 0 12px 12px;
-}
-
-.bottom-controls-section {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	margin-top: 0.75rem;
-	padding-top: 0.75rem;
-	border-top: 1px solid #e5e7eb;
 }
 
 .ai-model-selector-bottom {
@@ -4337,13 +4358,85 @@ onMounted(async () => {
 .text-input-section {
 	display: flex;
 	flex-direction: column;
-	gap: 0.5rem;
 }
 
 .input-with-button {
 	display: flex;
-	align-items: flex-end;
-	gap: 0.75rem;
+	align-items: stretch;
+}
+
+.input-container {
+	flex: 1;
+	position: relative;
+}
+
+.input-bottom-actions {
+	position: absolute;
+	bottom: 8px;
+	left: 12px;
+	z-index: 10;
+}
+
+.input-bottom-actions .ai-model-selector-bottom {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.input-bottom-actions .model-select {
+	width: 140px !important;
+}
+
+.input-bottom-actions .model-select .el-input__inner {
+	font-size: 0.75rem;
+	border: none !important;
+	background: transparent !important;
+	padding: 2px 4px;
+	box-shadow: none !important;
+	color: #6b7280;
+}
+
+.input-bottom-actions .model-select .el-input__inner:focus {
+	border: none !important;
+	box-shadow: none !important;
+}
+
+.input-right-actions {
+	position: absolute;
+	bottom: 8px;
+	right: 12px;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.input-right-actions .send-button {
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	padding: 0;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+	border: none;
+	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+	transition: all 0.2s ease;
+}
+
+.input-right-actions .send-button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.input-right-actions .send-button:disabled {
+	background: #d1d5db;
+	box-shadow: none;
+	transform: none;
+}
+
+.input-right-actions .send-button .el-icon {
+	font-size: 14px;
+	color: white;
 }
 
 .chat-input {
@@ -4357,7 +4450,7 @@ onMounted(async () => {
 	height: 70px !important;
 	border-radius: 12px;
 	border: 1px solid #d1d5db;
-	padding: 12px 16px;
+	padding: 12px 80px 12px 16px;
 	font-size: 14px;
 	transition: all 0.2s ease;
 }
@@ -4365,21 +4458,6 @@ onMounted(async () => {
 .chat-input .el-textarea__inner:focus {
 	border-color: #4f46e5;
 	box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.input-actions {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.send-button {
-	min-width: 80px;
-	height: 70px;
-	font-size: 0.875rem;
-	font-weight: 500;
-	border-radius: 12px;
-	transition: all 0.2s ease;
 }
 
 .chat-history {

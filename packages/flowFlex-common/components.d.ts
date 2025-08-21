@@ -10,6 +10,7 @@ declare module 'vue' {
     AIFileAnalyzer: typeof import('./src/components/ai/AIFileAnalyzer.vue')['default']
     AIModelConfigManager: typeof import('./src/components/ai/AIModelConfigManager.vue')['default']
     AIWorkflowGenerator: typeof import('./src/components/ai/AIWorkflowGenerator.vue')['default']
+    AIWorkflowGenerator_template_fix: typeof import('./src/components/ai/AIWorkflowGenerator_template_fix.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

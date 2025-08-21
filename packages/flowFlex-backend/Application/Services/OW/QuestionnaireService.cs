@@ -17,6 +17,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Repository.OW;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -25,24 +26,52 @@ namespace FlowFlex.Application.Service.OW
     /// </summary>
     public class QuestionnaireService : IQuestionnaireService, IScopedService
     {
+        private static readonly JsonSerializerOptions StageJsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
+        };
+
         private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly IMapper _mapper;
-        private readonly IStageAssignmentSyncService _syncService;
+        private readonly IStageRepository _stageRepository;
         private readonly IOperatorContextService _operatorContextService;
         private readonly UserContext _userContext;
+        private readonly IComponentMappingService _mappingService;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
             IMapper mapper,
-            IStageAssignmentSyncService syncService,
+            IStageRepository stageRepository,
             UserContext userContext,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IComponentMappingService mappingService)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
-            _syncService = syncService;
+            _stageRepository = stageRepository;
+            _mappingService = mappingService;
             _userContext = userContext;
             _operatorContextService = operatorContextService;
+        }
+        private static string TryUnwrapComponentsJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return json;
+            var current = json.Trim();
+            // If already looks like array/object, return
+            if (current.StartsWith("[") || current.StartsWith("{")) return current;
+            // Try unwrap one level string-encoded json
+            try
+            {
+                var inner = JsonSerializer.Deserialize<string>(current);
+                if (!string.IsNullOrWhiteSpace(inner))
+                {
+                    inner = inner.Trim();
+                    if (inner.StartsWith("[") || inner.StartsWith("{")) return inner;
+                }
+            }
+            catch { }
+            return current;
         }
 
         private static string NormalizeJson(string raw)
@@ -83,25 +112,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
             }
 
-            // Determine assignments to use
-            var assignments = new List<(long? workflowId, long? stageId)>();
-
-            if (input.Assignments != null && input.Assignments.Any())
-            {
-                // Use assignments array (new approach)
-                assignments = input.Assignments.Select(a => (
-                    (long?)a.WorkflowId,
-                    a.StageId.HasValue && a.StageId.Value > 0 ? a.StageId : null // 处理空StageId
-                )).ToList();
-            }
-            else
-            {
-                // Use single WorkflowId/StageId (backward compatibility)
-                assignments.Add((input.WorkflowId, input.StageId));
-            }
-
-            // Note: Removed workflow-stage assignment uniqueness validation
-            // Multiple questionnaires can now be associated with the same workflow-stage combination
+                    // Assignments are no longer stored in Questionnaire entity
+        // They will be managed through Stage Components only
 
             // Validate structure JSON
             if (!string.IsNullOrWhiteSpace(input.StructureJson))
@@ -112,17 +124,10 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
-            // Create single questionnaire entity with all assignments
+        // Create single questionnaire entity without assignments
             var entity = _mapper.Map<Questionnaire>(input);
 
-            // Set assignments in JSON format
-            entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
-            {
-                WorkflowId = a.workflowId ?? 0,
-                StageId = a.stageId ?? 0 // 允许为0表示空StageId
-            }).ToList();
-
-            // Note: WorkflowId and StageId fields have been removed - assignments are now stored in JSON
+        // Note: WorkflowId and StageId fields have been removed - assignments are now managed through Stage Components
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
@@ -141,27 +146,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Sections module removed; ignore input.Sections to keep compatibility
 
-            // 获取有效的stage assignments用于同步
-            var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
-                .Select(a => (a.WorkflowId, a.StageId))
-                .ToList() ?? new List<(long, long)>();
-            
-            // 同步stage components
-            if (newAssignments.Any())
-            {
-                try
-                {
-                    await _syncService.SyncStageComponentsFromQuestionnaireAssignmentsAsync(
-                        entity.Id,
-                        new List<(long, long)>(), // 创建时没有旧assignments
-                        newAssignments);
-                }
-                catch (Exception ex)
-                {
-                    // 记录错误但不影响创建操作
-                    Console.WriteLine($"Failed to sync stage components for new questionnaire {entity.Id}: {ex.Message}");
-                }
-            }
+                    // Sync service is no longer needed as assignments are managed through Stage Components
 
             // Cache removed, no need to clean up
 
@@ -187,30 +172,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
             }
 
-            // Store old assignments for sync comparison
-            var oldAssignments = entity.Assignments?.Where(a => a.StageId > 0)
-                .Select(a => (a.WorkflowId, a.StageId))
-                .ToList() ?? new List<(long, long)>();
-
-            // Determine assignments to use
-            var assignments = new List<(long? workflowId, long? stageId)>();
-
-            if (input.Assignments != null && input.Assignments.Any())
-            {
-                // Use assignments array (new approach)
-                assignments = input.Assignments.Select(a => (
-                    (long?)a.WorkflowId,
-                    a.StageId.HasValue && a.StageId.Value > 0 ? a.StageId : null // 处理空StageId
-                )).ToList();
-            }
-            else
-            {
-                // Use single WorkflowId/StageId (backward compatibility)
-                assignments.Add((input.WorkflowId, input.StageId));
-            }
-
-            // Note: Removed workflow-stage assignment uniqueness validation
-            // Multiple questionnaires can now be associated with the same workflow-stage combination
+            // Assignments are no longer stored in Questionnaire entity
+            // They will be managed through Stage Components only
 
             // Validate structure JSON
             if (!string.IsNullOrWhiteSpace(input.StructureJson))
@@ -227,22 +190,10 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot modify structure of published questionnaire");
             }
 
-            // Update the entity with all assignments
+            // Update the entity (without assignments)
             _mapper.Map(input, entity);
 
-            // Set assignments in JSON format
-            entity.Assignments = assignments.Select(a => new QuestionnaireAssignmentDto
-            {
-                WorkflowId = a.workflowId ?? 0,
-                StageId = a.stageId ?? 0 // 允许为0表示空StageId
-            }).ToList();
-
-            // Get new assignments for sync comparison (only valid stage assignments)
-            var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
-                .Select(a => (a.WorkflowId, a.StageId))
-                .ToList() ?? new List<(long, long)>();
-
-            // Note: WorkflowId and StageId fields have been removed - assignments are now stored in JSON
+            // Note: WorkflowId and StageId fields have been removed - assignments are now managed through Stage Components
 
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
@@ -260,22 +211,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Sections module removed; ignore input.Sections to keep compatibility
 
-            // Sync with stage components if update was successful
-            if (result)
-            {
-                try
-                {
-                    await _syncService.SyncStageComponentsFromQuestionnaireAssignmentsAsync(
-                        id,
-                        oldAssignments,
-                        newAssignments);
-                }
-                catch (Exception ex)
-                {
-                    // Log sync error but don't fail the operation
-                    Console.WriteLine($"Failed to sync stage components for questionnaire {id}: {ex.Message}");
-                }
-            }
+            // Sync service is no longer needed as assignments are managed through Stage Components
 
             // TODO: Clean up any historical duplicate questionnaire records with same name but different assignments
             // This would be similar to what we did for Checklist
@@ -329,19 +265,15 @@ namespace FlowFlex.Application.Service.OW
             // Sections removed with ff_questionnaire_section table; keep empty for compatibility
             result.Sections = new List<QuestionnaireSectionDto>();
 
-            // 直接从实体获取assignments
-            if (entity.Assignments?.Any() == true)
-            {
-                result.Assignments = entity.Assignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+            // Get assignments from mapping table (ultra-fast)
+            var assignments = await _mappingService.GetQuestionnaireAssignmentsAsync(new List<long> { id });
+            result.Assignments = assignments.TryGetValue(id, out var questionnaireAssignments)
+                ? questionnaireAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
                 {
                     WorkflowId = a.WorkflowId,
-                    StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
-                }).ToList();
-            }
-            else
-            {
-                result.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
-            }
+                    StageId = a.StageId
+                }).ToList()
+                : new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
 
             return result;
         }
@@ -365,16 +297,12 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<List<QuestionnaireOutputDto>> GetByStageIdAsync(long stageId)
         {
-            // Add debug log
-            // Debug logging handled by structured logging
-            // First query all questionnaire records for debugging
-            var allQuestionnaires = await _questionnaireRepository.GetListAsync(x => x.IsValid == true);
-            // Debug logging handled by structured logging
-
-            // Get questionnaires associated with the specified stage
-            var list = await _questionnaireRepository.GetByStageIdAsync(stageId);
-            // Debug logging handled by structured logging
-            var result = _mapper.Map<List<QuestionnaireOutputDto>>(list);
+            var questionnaireIds = await GetQuestionnaireIdsByStageIdAsync(stageId);
+            if (!questionnaireIds.Any())
+                return new List<QuestionnaireOutputDto>();
+                
+            var questionnaires = await _questionnaireRepository.GetByIdsAsync(questionnaireIds);
+            var result = _mapper.Map<List<QuestionnaireOutputDto>>(questionnaires);
 
             // Sections removed; keep empty lists
             foreach (var questionnaire in result)
@@ -412,18 +340,53 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<PagedResult<QuestionnaireOutputDto>> QueryAsync(QuestionnaireQueryRequest query)
         {
-            var (items, totalCount) = await _questionnaireRepository.GetPagedAsync(
+            Console.WriteLine($"[QuestionnaireService] QueryAsync - WorkflowId: {query.WorkflowId}, StageId: {query.StageId}, PageIndex: {query.PageIndex}, PageSize: {query.PageSize}");
+            
+            List<Questionnaire> filteredItems;
+            int totalCount;
+
+                         // If workflowId or stageId filtering is needed, use database-level JSONB query
+             if (query.WorkflowId.HasValue || query.StageId.HasValue)
+             {
+                 Console.WriteLine($"[QuestionnaireService] Using database JSONB query for WorkflowId: {query.WorkflowId}, StageId: {query.StageId}");
+                 
+                 // Use database-level JSONB query for optimal performance
+                 var (items, count) = await _questionnaireRepository.GetPagedByStageComponentsAsync(
+                     query.PageIndex,
+                     query.PageSize,
+                     query.Name,
+                     query.WorkflowId,
+                     query.StageId,
+                     query.IsActive,
+                     query.SortField,
+                     query.SortDirection);
+                 
+                 filteredItems = items;
+                 totalCount = count;
+                 Console.WriteLine($"[QuestionnaireService] Database JSONB query returned {items.Count} items, total count: {count}");
+             }
+            else
+            {
+                Console.WriteLine("[QuestionnaireService] Using repository method for basic filtering (no workflow/stage filtering)");
+                
+                // Use repository method for basic filtering (no workflow/stage filtering needed)
+                var (items, count) = await _questionnaireRepository.GetPagedAsync(
                 query.PageIndex,
                 query.PageSize,
                 query.Name,
-                query.WorkflowId,
-                query.StageId,
+                    null, // workflowId - not supported in repository anymore
+                    null, // stageId - not supported in repository anymore
                 null, // isTemplate parameter removed
                 query.IsActive,
                 query.SortField,
                 query.SortDirection);
 
-            var result = _mapper.Map<List<QuestionnaireOutputDto>>(items);
+                filteredItems = items;
+                totalCount = count;
+                Console.WriteLine($"[QuestionnaireService] Repository returned {items.Count} items, total count: {count}");
+            }
+
+            var result = _mapper.Map<List<QuestionnaireOutputDto>>(filteredItems);
 
             // Sections removed; keep empty lists
             foreach (var questionnaire in result)
@@ -432,7 +395,18 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // Fill assignments for the questionnaires
-            await FillAssignmentsAsync(result);
+            if (query.WorkflowId.HasValue || query.StageId.HasValue)
+            {
+                // For filtered queries, we know the context and can fill assignments efficiently
+                Console.WriteLine("[QuestionnaireService] Filling assignments for filtered query");
+                await FillAssignmentsFromFilterContext(result, query.WorkflowId, query.StageId);
+            }
+            else
+            {
+                // For basic queries, now filling assignments (may impact performance for large datasets)
+                Console.WriteLine("[QuestionnaireService] Filling assignments for basic query");
+                await FillAssignmentsAsync(result);
+            }
 
             return new PagedResult<QuestionnaireOutputDto>
             {
@@ -477,8 +451,7 @@ namespace FlowFlex.Application.Service.OW
                 AllowMultipleSubmissions = sourceQuestionnaire.AllowMultipleSubmissions,
                 IsActive = true,
                 Version = 1,
-                // Copy assignments from source questionnaire
-                Assignments = sourceQuestionnaire.Assignments,
+                // Assignments are no longer stored in Questionnaire entity
                 // Copy tenant and app information from source questionnaire
                 TenantId = sourceQuestionnaire.TenantId,
                 AppCode = sourceQuestionnaire.AppCode
@@ -793,93 +766,305 @@ namespace FlowFlex.Application.Service.OW
                 return response;
             }
 
-            // Batch query all questionnaires for all stages
-            var allQuestionnaires = await _questionnaireRepository.GetByStageIdsAsync(request.StageIds);
-
-            // Group by Stage ID from assignments
-            var groupedQuestionnaires = new Dictionary<long, List<QuestionnaireOutputDto>>();
-
-            foreach (var questionnaire in allQuestionnaires)
+            // Get questionnaires for each stage from Stage Components
+            foreach (var stageId in request.StageIds)
             {
-                var mappedQuestionnaire = _mapper.Map<QuestionnaireOutputDto>(questionnaire);
-                
-                // 直接将实体的assignments映射到DTO，避免后续的FillAssignmentsAsync方法
-                if (questionnaire.Assignments?.Any() == true)
+                var questionnaireIds = await GetQuestionnaireIdsByStageIdAsync(stageId);
+                if (questionnaireIds.Any())
                 {
-                    mappedQuestionnaire.Assignments = questionnaire.Assignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                    var questionnaires = await _questionnaireRepository.GetByIdsAsync(questionnaireIds);
+                    var questionnaireDtos = _mapper.Map<List<QuestionnaireOutputDto>>(questionnaires);
+                    
+                    // Sections removed; keep empty lists
+                    foreach (var questionnaire in questionnaireDtos)
                     {
-                        WorkflowId = a.WorkflowId,
-                        StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
-                    }).ToList();
+                        questionnaire.Sections = new List<QuestionnaireSectionDto>();
+                    }
+                    
+                    await FillAssignmentsAsync(questionnaireDtos);
+                    response.StageQuestionnaires[stageId] = questionnaireDtos;
                 }
                 else
                 {
-                    mappedQuestionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                    response.StageQuestionnaires[stageId] = new List<QuestionnaireOutputDto>();
                 }
-
-                // Check assignments for stage IDs
-                if (questionnaire.Assignments?.Any() == true)
-                {
-                    foreach (var assignment in questionnaire.Assignments)
-                    {
-                        // 只处理有效的StageId（大于0）
-                        if (assignment.StageId > 0)
-                        {
-                            if (!groupedQuestionnaires.ContainsKey(assignment.StageId))
-                            {
-                                groupedQuestionnaires[assignment.StageId] = new List<QuestionnaireOutputDto>();
-                            }
-                            groupedQuestionnaires[assignment.StageId].Add(mappedQuestionnaire);
-                        }
-                    }
-                }
-            }
-
-            // Ensure all requested Stage IDs have corresponding results (even if empty lists)
-            foreach (var stageId in request.StageIds)
-            {
-                response.StageQuestionnaires[stageId] = groupedQuestionnaires.ContainsKey(stageId)
-                    ? groupedQuestionnaires[stageId]
-                    : new List<QuestionnaireOutputDto>();
             }
 
             return response;
         }
 
-        /// <summary>
-        /// Fill assignments for questionnaire output DTOs
-        /// </summary>
-        private async Task FillAssignmentsAsync(List<QuestionnaireOutputDto> questionnaires)
+            /// <summary>
+    /// Fill assignments for questionnaire output DTOs using ultra-fast mapping table
+    /// </summary>
+    private async Task FillAssignmentsAsync(List<QuestionnaireOutputDto> questionnaires)
+    {
+        if (questionnaires == null || !questionnaires.Any())
+            return;
+
+        var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
+        
+        Console.WriteLine($"[QuestionnaireService] Using mapping table to fill assignments for {questionnaireIds.Count} questionnaires");
+        
+        // Get assignments from mapping table (ultra-fast)
+        var assignments = await _mappingService.GetQuestionnaireAssignmentsAsync(questionnaireIds);
+        
+        // Map assignments to questionnaires
+        foreach (var questionnaire in questionnaires)
         {
-            if (questionnaires == null || !questionnaires.Any())
+            if (assignments.TryGetValue(questionnaire.Id, out var questionnaireAssignments))
+            {
+                questionnaire.Assignments = questionnaireAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                {
+                    WorkflowId = a.WorkflowId,
+                    StageId = a.StageId
+                }).ToList();
+            }
+            else
+            {
+                questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+            }
+        }
+    }
+
+
+
+        /// <summary>
+            /// Fill assignments from filter context (optimized for when we already know the workflow/stage)
+        /// </summary>
+    private async Task FillAssignmentsFromFilterContext(List<QuestionnaireOutputDto> questionnaires, long? workflowId, long? stageId)
+        {
+        if (!questionnaires.Any())
                 return;
 
-            // 获取所有问卷的ID
-            var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
-            
-            // 直接通过ID获取问卷，避免通过名称查询导致的assignments合并问题
-            var allQuestionnaires = await _questionnaireRepository.GetByIdsAsync(questionnaireIds);
-            
-            // 按ID索引问卷，确保每个问卷只获取自己的assignments
-            var questionnaireById = allQuestionnaires.ToDictionary(q => q.Id);
-            
-            // 为每个问卷填充其自身的assignments
+        Console.WriteLine($"[QuestionnaireService] FillAssignmentsFromFilterContext - WorkflowId: {workflowId}, StageId: {stageId}, Questionnaires: {questionnaires.Count}");
+
+        try
+        {
+            // Since we're in the context of a filtered query, we know the assignment context
             foreach (var questionnaire in questionnaires)
             {
-                if (questionnaireById.TryGetValue(questionnaire.Id, out var entity) && entity.Assignments?.Any() == true)
+                Console.WriteLine($"[QuestionnaireService] Processing questionnaire {questionnaire.Id} ({questionnaire.Name})");
+                questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                
+                // We need to find which specific stage(s) contain this questionnaire
+                if (stageId.HasValue)
                 {
-                    questionnaire.Assignments = entity.Assignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                    Console.WriteLine($"[QuestionnaireService] Checking specific stage {stageId.Value} for questionnaire {questionnaire.Id}");
+                    // If we have a specific stageId, check if this questionnaire is in that stage
+                    var stage = await _stageRepository.GetByIdAsync(stageId.Value);
+                    Console.WriteLine($"[QuestionnaireService] Stage found: {stage != null}, ComponentsJson: {!string.IsNullOrEmpty(stage?.ComponentsJson)}");
+                    if (stage != null && !string.IsNullOrEmpty(stage.ComponentsJson))
                     {
-                        WorkflowId = a.WorkflowId,
-                        StageId = a.StageId > 0 ? a.StageId : null // 处理空StageId，0表示空
-                    }).ToList();
+                        try
+                        {
+                            Console.WriteLine($"[QuestionnaireService] Raw ComponentsJson: {stage.ComponentsJson}");
+                            var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
+                            Console.WriteLine($"[QuestionnaireService] Normalized ComponentsJson: {normalized}");
+                            var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, StageJsonOptions);
+                            Console.WriteLine($"[QuestionnaireService] Parsed {components?.Count ?? 0} components");
+                            
+                            // Check each component for questionnaires
+                            foreach (var component in components ?? new List<StageComponent>())
+                            {
+                                Console.WriteLine($"[QuestionnaireService] Component Key: {component.Key}, QuestionnaireIds: [{string.Join(",", component.QuestionnaireIds ?? new List<long>())}]");
+                            }
+                            
+                            var hasQuestionnaire = components?.Any(c => c.Key == "questionnaires" && 
+                                c.QuestionnaireIds?.Contains(questionnaire.Id) == true) == true;
+                                
+                            if (hasQuestionnaire)
+                            {
+                                Console.WriteLine($"[QuestionnaireService] Found questionnaire {questionnaire.Id} in stage {stage.Id}");
+                                questionnaire.Assignments.Add(new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                                {
+                                    WorkflowId = stage.WorkflowId,
+                                    StageId = stage.Id
+                                });
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[QuestionnaireService] Questionnaire {questionnaire.Id} NOT found in stage {stage.Id}");
+                            }
+                        }
+                        catch (JsonException ex)
+                        {
+                            Console.WriteLine($"[QuestionnaireService] Error parsing ComponentsJson for stage {stage.Id}: {ex.Message}");
+                        }
+                    }
                 }
-                else
+                else if (workflowId.HasValue)
                 {
-                    // 如果没有找到对应的问卷或assignments为空，则设置为空列表
-                    questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                    // If we only have workflowId, get stages for this workflow and check each
+                    var stages = await _stageRepository.GetByWorkflowIdAsync(workflowId.Value);
+                    foreach (var stage in stages)
+                    {
+                        if (string.IsNullOrEmpty(stage.ComponentsJson))
+                            continue;
+                            
+                        try
+                        {
+                            var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
+                            var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, StageJsonOptions);
+                            var hasQuestionnaire = components?.Any(c => c.Key == "questionnaires" && 
+                                c.QuestionnaireIds?.Contains(questionnaire.Id) == true) == true;
+                                
+                            if (hasQuestionnaire)
+                            {
+                                Console.WriteLine($"[QuestionnaireService] Found questionnaire {questionnaire.Id} in workflow stage {stage.Id}");
+                                questionnaire.Assignments.Add(new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                                {
+                                    WorkflowId = stage.WorkflowId,
+                                    StageId = stage.Id
+                                });
+                            }
+                        }
+                        catch (JsonException ex)
+                        {
+                            Console.WriteLine($"[QuestionnaireService] Error parsing ComponentsJson for workflow stage {stage.Id}: {ex.Message}");
+                        }
+                    }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error filling assignments from filter context: {ex.Message}");
+            // Fallback to empty assignments
+            foreach (var questionnaire in questionnaires)
+            {
+                questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Apply sorting to questionnaire list
+    /// </summary>
+    private List<Questionnaire> ApplySorting(List<Questionnaire> questionnaires, string sortField, string sortDirection)
+    {
+        if (questionnaires == null || !questionnaires.Any())
+            return questionnaires ?? new List<Questionnaire>();
+
+        bool isAsc = sortDirection?.ToLower() == "asc";
+
+        return (sortField?.ToLower()) switch
+        {
+            "name" => isAsc ? questionnaires.OrderBy(q => q.Name).ToList() : questionnaires.OrderByDescending(q => q.Name).ToList(),
+            "createdate" => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList(),
+            "modifydate" => isAsc ? questionnaires.OrderBy(q => q.ModifyDate).ToList() : questionnaires.OrderByDescending(q => q.ModifyDate).ToList(),
+            _ => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Get questionnaire IDs by stage ID from Stage Components
+    /// </summary>
+    private async Task<List<long>> GetQuestionnaireIdsByStageIdAsync(long stageId)
+    {
+        try
+        {
+            var stage = await _stageRepository.GetByIdAsync(stageId);
+            if (stage == null || string.IsNullOrEmpty(stage.ComponentsJson))
+            {
+                Console.WriteLine($"[QuestionnaireService] Stage {stageId} not found or has no ComponentsJson");
+                return new List<long>();
+            }
+                
+            Console.WriteLine($"[QuestionnaireService] Stage {stageId} ComponentsJson: {stage.ComponentsJson}");
+            
+            var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
+            var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, StageJsonOptions);
+            var questionnaireComponents = components?.Where(c => c.Key == "questionnaires").ToList();
+            
+            Console.WriteLine($"[QuestionnaireService] Found {questionnaireComponents?.Count ?? 0} questionnaire components in stage {stageId}");
+            
+            var questionnaireIds = questionnaireComponents?
+                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                .Distinct()
+                .ToList() ?? new List<long>();
+                
+            Console.WriteLine($"[QuestionnaireService] Extracted questionnaire IDs from stage {stageId}: [{string.Join(", ", questionnaireIds)}]");
+            
+            return questionnaireIds;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting questionnaire IDs for stage {stageId}: {ex.Message}");
+            return new List<long>();
+        }
+    }
+
+            /// <summary>
+        /// Get questionnaire IDs by workflow and/or stage ID using database-level JSONB query
+        /// </summary>
+        private async Task<List<long>> GetQuestionnaireIdsByWorkflowAndStageAsync(long? workflowId, long? stageId)
+        {
+            try
+            {
+                Console.WriteLine($"[QuestionnaireService] GetQuestionnaireIdsByWorkflowAndStageAsync using database JSONB query - WorkflowId: {workflowId}, StageId: {stageId}");
+                
+                // Use database-level JSONB query for optimal performance
+                var questionnaireIds = await _questionnaireRepository.GetQuestionnaireIdsByStageComponentsAsync(workflowId, stageId);
+                
+                Console.WriteLine($"[QuestionnaireService] Database JSONB query found {questionnaireIds.Count} questionnaire IDs");
+                
+                return questionnaireIds;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting questionnaire IDs for workflow {workflowId} and stage {stageId}: {ex.Message}");
+                return new List<long>();
+            }
+        }
+
+    /// <summary>
+    /// Debug method: Find which stages contain a specific questionnaire ID
+    /// </summary>
+    public async Task<List<Stage>> FindStagesContainingQuestionnaireAsync(long questionnaireId)
+    {
+        var matchingStages = new List<Stage>();
+        
+        try
+        {
+            // Get all stages for debugging
+            var allStages = await _stageRepository.GetListAsync();
+            Console.WriteLine($"[QuestionnaireService] Checking {allStages.Count} stages for questionnaire {questionnaireId}");
+            
+            foreach (var stage in allStages)
+            {
+                if (string.IsNullOrEmpty(stage.ComponentsJson))
+                    continue;
+                    
+                try
+                {
+                    var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
+                    var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, StageJsonOptions);
+                    var hasQuestionnaire = components?.Any(c => c.Key == "questionnaires" && 
+                        c.QuestionnaireIds?.Contains(questionnaireId) == true);
+                        
+                    if (hasQuestionnaire == true)
+                    {
+                        Console.WriteLine($"[QuestionnaireService] Found questionnaire {questionnaireId} in stage {stage.Id} (Workflow: {stage.WorkflowId})");
+                        matchingStages.Add(stage);
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"[QuestionnaireService] Error parsing ComponentsJson for stage {stage.Id}: {ex.Message}");
+                }
+            }
+            
+            if (!matchingStages.Any())
+            {
+                Console.WriteLine($"[QuestionnaireService] Questionnaire {questionnaireId} not found in any stage components");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error finding stages for questionnaire {questionnaireId}: {ex.Message}");
+        }
+        
+        return matchingStages;
         }
     }
 }
