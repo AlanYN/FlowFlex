@@ -550,6 +550,43 @@ namespace FlowFlex.Application.Service.OW
             {
                 case JsonValueKind.Object:
                     var obj = new Dictionary<string, object>();
+                    bool hasId = false;
+                    bool needsId = false;
+                    string objectType = null;
+                    
+                    // First pass: check if this object needs an ID and if it already has one
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        if (property.Name == "id")
+                        {
+                            hasId = true;
+                        }
+                        // Detect object type based on properties
+                        else if (property.Name == "questions" && property.Value.ValueKind == JsonValueKind.Array)
+                        {
+                            objectType = "section";
+                            needsId = true;
+                        }
+                        else if (property.Name == "type" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            objectType = "question";
+                            needsId = true;
+                        }
+                        else if (property.Name == "value" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            objectType = "option";
+                            needsId = true;
+                        }
+                        else if (property.Name == "title" || property.Name == "order")
+                        {
+                            if (objectType == null)
+                            {
+                                needsId = true;
+                            }
+                        }
+                    }
+                    
+                    // Second pass: process all properties
                     foreach (var property in element.EnumerateObject())
                     {
                         var key = property.Name;
@@ -566,7 +603,8 @@ namespace FlowFlex.Application.Service.OW
                             }
                             else
                             {
-                                obj[key] = originalId;
+                                // Empty ID, generate a new one
+                                obj[key] = GenerateSnowflakeId().ToString();
                             }
                         }
                         else
@@ -574,6 +612,16 @@ namespace FlowFlex.Application.Service.OW
                             obj[key] = GenerateNewIdsInJsonElement(value);
                         }
                     }
+                    
+                    // If this object needs an ID but doesn't have one, generate it
+                    if (needsId && !hasId)
+                    {
+                        var newId = GenerateSnowflakeId().ToString();
+                        obj["id"] = newId;
+                        var logType = objectType ?? "unknown";
+                        Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType} in duplication: {newId}");
+                    }
+                    
                     return obj;
 
                 case JsonValueKind.Array:
@@ -661,6 +709,45 @@ namespace FlowFlex.Application.Service.OW
             {
                 case JsonValueKind.Object:
                     var obj = new Dictionary<string, object>();
+                    bool hasId = false;
+                    bool needsId = false;
+                    
+                    // First pass: check if this object needs an ID and if it already has one
+                    string objectType = null;
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        if (property.Name == "id")
+                        {
+                            hasId = true;
+                        }
+                        // Detect object type based on properties
+                        else if (property.Name == "questions" && property.Value.ValueKind == JsonValueKind.Array)
+                        {
+                            objectType = "section";
+                            needsId = true;
+                        }
+                        else if (property.Name == "type" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            objectType = "question";
+                            needsId = true;
+                        }
+                        else if (property.Name == "value" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            // This might be an option object
+                            objectType = "option";
+                            needsId = true;
+                        }
+                        // Also check for other identifying properties
+                        else if (property.Name == "title" || property.Name == "order")
+                        {
+                            if (objectType == null)
+                            {
+                                needsId = true; // Generic object that might need an ID
+                            }
+                        }
+                    }
+                    
+                    // Second pass: process all properties
                     foreach (var property in element.EnumerateObject())
                     {
                         var key = property.Name;
@@ -686,7 +773,8 @@ namespace FlowFlex.Application.Service.OW
                             }
                             else
                             {
-                                obj[key] = originalId;
+                                // Empty ID, generate a new one
+                                obj[key] = GenerateSnowflakeId().ToString();
                             }
                         }
                         else
@@ -694,6 +782,16 @@ namespace FlowFlex.Application.Service.OW
                             obj[key] = NormalizeIdsInJsonElement(value);
                         }
                     }
+                    
+                    // If this object needs an ID but doesn't have one, generate it
+                    if (needsId && !hasId)
+                    {
+                        var newId = GenerateSnowflakeId().ToString();
+                        obj["id"] = newId;
+                        var logType = objectType ?? "unknown";
+                        Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType}: {newId}");
+                    }
+                    
                     return obj;
 
                 case JsonValueKind.Array:
@@ -736,6 +834,25 @@ namespace FlowFlex.Application.Service.OW
         public string TestNormalizeStructureJsonIds(string originalStructureJson)
         {
             return NormalizeStructureJsonIds(originalStructureJson);
+        }
+
+        /// <summary>
+        /// Test method to verify missing ID generation in structure JSON (for debugging)
+        /// </summary>
+        public string TestGenerateMissingIds(string structureJsonWithMissingIds)
+        {
+            try
+            {
+                Console.WriteLine("[QuestionnaireService] Testing missing ID generation...");
+                var result = NormalizeStructureJsonIds(structureJsonWithMissingIds);
+                Console.WriteLine("[QuestionnaireService] Missing ID generation test completed.");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error in missing ID generation test: {ex.Message}");
+                return structureJsonWithMissingIds;
+            }
         }
 
         /// <summary>

@@ -59,7 +59,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get operation logs by Onboarding ID
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
-        /// <param name="stageId">Stage ID (optional, used to filter logs for specific stage)</param>
+        /// <param name="stageId">Stage ID (required for performance optimization)</param>
         /// <param name="pageIndex">Page number</param>
         /// <param name="pageSize">Page size</param>
         /// <returns>Paginated operation log list</returns>
@@ -67,7 +67,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<PagedResult<OperationChangeLogOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetLogsByOnboardingAsync(
             long onboardingId,
-            [FromQuery] long? stageId = null,
+            [FromQuery] long stageId, // 现在是必填参数
             [FromQuery] int pageIndex = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] bool includeActionExecutions = true)

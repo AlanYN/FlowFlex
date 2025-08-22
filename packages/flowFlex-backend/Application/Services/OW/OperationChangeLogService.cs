@@ -16,6 +16,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using System.Security.Claims;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Domain.Shared.Models;
 using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Services.OW
@@ -575,8 +576,23 @@ namespace FlowFlex.Application.Services.OW
                 {
                     try
                     {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
                         var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
-                            stageId.Value, 1, 1000); // Get more records for merging
+                            stageId.Value, 1, 1000, jsonConditions); // Get more records for merging with filtering
 
                         // Convert action executions to change log DTOs
                         var actionExecutionDtos = actionExecutionsResult.Data
@@ -1141,8 +1157,19 @@ namespace FlowFlex.Application.Services.OW
             var operationType = GetActionExecutionOperationType(actionExecution.ExecutionStatus);
             var operationTypeDisplayName = GetActionExecutionTypeDisplayName(actionExecution.ExecutionStatus);
 
-            // Extract context summary
-            var extendedData = GetActionContextSummary(actionExecution.TriggerContext);
+            // Parse and include execution output in extended data
+            var extendedData = GenerateActionExtendedData(actionExecution);
+
+            // Set operator name with special handling for system operations
+            var operatorName = !string.IsNullOrEmpty(actionExecution.CreatedBy) 
+                ? actionExecution.CreatedBy 
+                : "1"; // Default to "1" for system operations
+            
+            // Convert "1" to empty string as per business requirement
+            if (string.Equals(operatorName, "1", StringComparison.OrdinalIgnoreCase))
+            {
+                operatorName = "";
+            }
 
             return new OperationChangeLogOutputDto
             {
@@ -1161,7 +1188,7 @@ namespace FlowFlex.Application.Services.OW
                 OperationStatusDisplayName = GetActionExecutionStatusDisplayName(actionExecution.ExecutionStatus),
                 ErrorMessage = actionExecution.ErrorMessage,
                 OperationTime = actionExecution.StartedAt ?? actionExecution.CreatedAt,
-                OperatorName = actionExecution.CreatedBy,
+                OperatorName = operatorName,
                 CreateDate = actionExecution.CreatedAt,
                 ModifyDate = actionExecution.CompletedAt ?? actionExecution.CreatedAt,
                 CreateBy = actionExecution.CreatedBy,
@@ -1189,16 +1216,16 @@ namespace FlowFlex.Application.Services.OW
                 _ => $"{actionType} action status: {execution.ExecutionStatus}"
             };
 
-            // Add output summary for successful executions
-            if ((status == "success" || status == "completed") && !string.IsNullOrEmpty(execution.ExecutionOutput))
+            // Add detailed execution output information for all executions
+            if (!string.IsNullOrEmpty(execution.ExecutionOutput))
             {
                 try
                 {
                     var executionOutputToken = JToken.Parse(execution.ExecutionOutput);
-                    var outputSummary = GetActionOutputSummary(executionOutputToken);
-                    if (!string.IsNullOrEmpty(outputSummary))
+                    var outputDetails = GetFriendlyExecutionOutput(executionOutputToken);
+                    if (!string.IsNullOrEmpty(outputDetails))
                     {
-                        description += $" - {outputSummary}";
+                        description += $". {outputDetails}";
                     }
                 }
                 catch
@@ -1386,6 +1413,165 @@ namespace FlowFlex.Application.Services.OW
 
             return "";
         }
+
+        /// <summary>
+        /// Generate extended data for action execution including full execution output
+        /// </summary>
+        private string GenerateActionExtendedData(ActionExecutionWithActionInfoDto actionExecution)
+        {
+            try
+            {
+                var extendedData = new
+                {
+                    ActionCode = actionExecution.ActionCode,
+                    ActionType = actionExecution.ActionType,
+                    ExecutionId = actionExecution.ExecutionId,
+                    ExecutionStatus = actionExecution.ExecutionStatus,
+                    StartedAt = actionExecution.StartedAt,
+                    CompletedAt = actionExecution.CompletedAt,
+                    DurationMs = actionExecution.DurationMs,
+                    TriggerContext = !string.IsNullOrEmpty(actionExecution.TriggerContext) 
+                        ? JToken.Parse(actionExecution.TriggerContext) 
+                        : null,
+                    ExecutionInput = !string.IsNullOrEmpty(actionExecution.ExecutionInput) 
+                        ? JToken.Parse(actionExecution.ExecutionInput) 
+                        : null,
+                    ExecutionOutput = !string.IsNullOrEmpty(actionExecution.ExecutionOutput) 
+                        ? JToken.Parse(actionExecution.ExecutionOutput) 
+                        : null,
+                    ErrorMessage = actionExecution.ErrorMessage,
+                    ErrorStackTrace = actionExecution.ErrorStackTrace,
+                    ExecutorInfo = !string.IsNullOrEmpty(actionExecution.ExecutorInfo) 
+                        ? JToken.Parse(actionExecution.ExecutorInfo) 
+                        : null
+                };
+
+                return JsonSerializer.Serialize(extendedData, new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to generate extended data for action execution {ExecutionId}", actionExecution.ExecutionId);
+                
+                // Fallback to simpler format
+                return JsonSerializer.Serialize(new
+                {
+                    ActionCode = actionExecution.ActionCode,
+                    ExecutionStatus = actionExecution.ExecutionStatus,
+                    ErrorMessage = actionExecution.ErrorMessage
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get friendly execution output description for operation description
+        /// </summary>
+        private string GetFriendlyExecutionOutput(Newtonsoft.Json.Linq.JToken executionOutput)
+        {
+            try
+            {
+                if (executionOutput?.Type != Newtonsoft.Json.Linq.JTokenType.Object)
+                    return "";
+
+                var output = executionOutput as Newtonsoft.Json.Linq.JObject;
+                if (output == null) return "";
+
+                var details = new List<string>();
+
+                // Extract key information in a user-friendly way
+                if (output.TryGetValue("success", out var success))
+                {
+                    var isSuccess = success.Value<bool>();
+                    details.Add($"Result: {(isSuccess ? "Success" : "Failed")}");
+                }
+
+                if (output.TryGetValue("status", out var status))
+                {
+                    details.Add($"Status: {status}");
+                }
+
+                if (output.TryGetValue("message", out var message) && !string.IsNullOrEmpty(message.ToString()))
+                {
+                    var messageText = message.ToString();
+                    if (messageText.Length > 100)
+                        messageText = messageText.Substring(0, 100) + "...";
+                    details.Add($"Message: {messageText}");
+                }
+
+                if (output.TryGetValue("executionTime", out var execTime))
+                {
+                    details.Add($"Execution Time: {execTime}s");
+                }
+
+                if (output.TryGetValue("memoryUsage", out var memory) && long.TryParse(memory.ToString(), out var memoryBytes))
+                {
+                    var memoryKB = memoryBytes / 1024.0;
+                    details.Add($"Memory Usage: {memoryKB:F1}KB");
+                }
+
+                if (output.TryGetValue("token", out var token) && !string.IsNullOrEmpty(token.ToString()))
+                {
+                    var tokenStr = token.ToString();
+                    if (tokenStr.Length > 12)
+                        tokenStr = tokenStr.Substring(0, 8) + "...";
+                    details.Add($"Token: {tokenStr}");
+                }
+
+                // Extract summary from stdout if available
+                if (output.TryGetValue("stdout", out var stdout) && !string.IsNullOrEmpty(stdout.ToString()))
+                {
+                    var stdoutText = stdout.ToString().Trim();
+                    
+                    // Look for specific patterns in stdout
+                    if (stdoutText.Contains("Action completed successfully"))
+                    {
+                        details.Add("Output: Action completed successfully");
+                    }
+                    else if (stdoutText.Contains("=== Action Execution Started ==="))
+                    {
+                        details.Add("Output: Execution started and processed");
+                    }
+                    else if (stdoutText.Length > 0)
+                    {
+                        // Extract first meaningful line
+                        var lines = stdoutText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                        var meaningfulLine = lines.FirstOrDefault(line => 
+                            !line.Trim().StartsWith("===") && 
+                            !string.IsNullOrWhiteSpace(line.Trim()));
+                        
+                        if (!string.IsNullOrEmpty(meaningfulLine))
+                        {
+                            if (meaningfulLine.Length > 50)
+                                meaningfulLine = meaningfulLine.Substring(0, 50) + "...";
+                            details.Add($"Output: {meaningfulLine.Trim()}");
+                        }
+                    }
+                }
+
+                if (output.TryGetValue("stderr", out var stderr) && 
+                    stderr != null && 
+                    !string.IsNullOrEmpty(stderr.ToString()) && 
+                    stderr.ToString().ToLower() != "null")
+                {
+                    var stderrText = stderr.ToString();
+                    if (stderrText.Length > 50)
+                        stderrText = stderrText.Substring(0, 50) + "...";
+                    details.Add($"Error: {stderrText}");
+                }
+
+                return string.Join(", ", details);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to parse friendly execution output");
+                return "";
+            }
+        }
+
+
 
         #endregion
     }

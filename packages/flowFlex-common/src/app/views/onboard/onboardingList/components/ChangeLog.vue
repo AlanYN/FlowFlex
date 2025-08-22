@@ -105,12 +105,14 @@
 							<!-- 问卷答案变更详情 -->
 							<div
 								v-else-if="
-									(row.type === 'Answer Update' ||
-										row.type === 'Answer Submit') &&
-									row.answerChanges?.length
+									row.type === 'Answer Update' ||
+									row.type === 'Answer Submit' ||
+									row.type === 'QuestionnaireAnswerUpdate' ||
+									row.type === 'QuestionnaireAnswerSubmit'
 								"
 							>
-								<div class="space-y-2">
+								<!-- 如果有具体变更，显示变更详情 -->
+								<div v-if="row.answerChanges?.length" class="space-y-2">
 									<div
 										v-for="(change, index) in row.answerChanges"
 										:key="index"
@@ -118,6 +120,15 @@
 									>
 										{{ change }}
 									</div>
+								</div>
+								<!-- 如果没有具体变更，显示"没有变化" -->
+								<div
+									v-else
+									class="bg-gray-50 dark:bg-gray-900/20 p-2 rounded text-xs border-l-4 border-gray-400"
+								>
+									<span class="text-gray-600 dark:text-gray-400 italic">
+										No changes
+									</span>
 								</div>
 							</div>
 
@@ -165,7 +176,12 @@
 										row.type === 'Action Failed' ||
 										row.type === 'Action Running' ||
 										row.type === 'Action Pending' ||
-										row.type === 'Action Cancelled') &&
+										row.type === 'Action Cancelled' ||
+										row.type === 'ActionExecutionSuccess' ||
+										row.type === 'ActionExecutionFailed' ||
+										row.type === 'ActionExecutionRunning' ||
+										row.type === 'ActionExecutionPending' ||
+										row.type === 'ActionExecutionCancelled') &&
 									row.actionInfo
 								"
 							>
@@ -187,6 +203,25 @@
 												{{ getActionExecutionStatusText(row.type) }}
 											</span>
 										</div>
+
+										<!-- 显示 operationTitle -->
+										<div v-if="row.operationTitle" class="mb-2">
+											<div
+												class="text-gray-800 dark:text-gray-200 text-sm font-medium"
+											>
+												{{ row.operationTitle }}
+											</div>
+										</div>
+
+										<!-- 显示 operationDescription -->
+										<div v-if="row.operationDescription" class="mb-3">
+											<div
+												class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"
+											>
+												{{ row.operationDescription }}
+											</div>
+										</div>
+
 										<div class="space-y-1 text-xs">
 											<div class="flex items-center">
 												<span class="text-gray-500 mr-2">Type:</span>
@@ -247,10 +282,14 @@
 				<el-table-column label="Updated By" width="150">
 					<template #default="{ row }">
 						<span
+							v-if="row.updatedBy && row.updatedBy.trim() !== ''"
 							class="text-gray-900 dark:text-white-100 truncate"
 							:title="row.updatedBy"
 						>
-							{{ row.updatedBy || defaultStr }}
+							{{ row.updatedBy }}
+						</span>
+						<span v-else class="text-gray-400 dark:text-gray-500 text-sm italic">
+							<!-- 系统操作不显示操作者 -->
 						</span>
 					</template>
 				</el-table-column>
@@ -271,12 +310,13 @@
 						<el-icon class="text-4xl mb-2">
 							<Document />
 						</el-icon>
-						<div class="text-lg mb-2">No change records found</div>
+						<div v-if="!props.stageId" class="text-lg mb-2">Please select a stage</div>
+						<div v-else class="text-lg mb-2">No change records found</div>
 						<div class="text-sm">
 							{{
-								props.stageId
-									? 'No changes recorded for this stage yet.'
-									: 'No changes recorded for this onboarding yet.'
+								!props.stageId
+									? 'Change logs require a stage selection. Please select a stage to view its change history.'
+									: 'No changes recorded for this stage yet.'
 							}}
 						</div>
 					</div>
@@ -356,15 +396,24 @@ const processedChanges = ref<ProcessedChange[]>([]); // 修正类型
 const loadChangeLogs = async () => {
 	if (!props.onboardingId) return;
 
+	// stageId 现在是必填参数，如果没有则不加载数据
+	if (!props.stageId) {
+		console.warn('⚠️ Change logs loading skipped: stageId is required parameter');
+		changes.value = [];
+		processedChanges.value = [];
+		total.value = 0;
+		return;
+	}
+
 	// 防止重复请求
 	if (loading.value) return;
 
 	loading.value = true;
 
 	try {
-		// 使用真实API调用
+		// stageId 是必填参数，确保API调用格式统一
 		const apiParams = {
-			stageId: props.stageId ? String(props.stageId) : undefined,
+			stageId: String(props.stageId), // 必填参数
 			pageIndex: currentPage.value,
 			pageSize: pageSize.value,
 		};
@@ -374,20 +423,23 @@ const loadChangeLogs = async () => {
 			// 映射API数据到组件期望的格式
 			let rawItems = response.data.items || [];
 
-			changes.value = rawItems.map((item: any) => ({
-				id: item.id,
-				type: item.operationType, // 使用operationType作为type
-				details: item.operationDescription || item.operationTitle || '', // 详细描述
-				operationTitle: item.operationTitle, // 保留原始标题
-				beforeData: item.beforeData,
-				afterData: item.afterData,
-				changedFields: item.changedFields || [],
-				updatedBy: item.operatorName || 'Unknown', // 操作人
-				dateTime: item.operationTime || item.createDate || '', // 操作时间
-				extendedInfo: item.extendedData, // 扩展信息
-				stageId: item.stageId, // 添加 stageId 映射
-				onboardingId: item.onboardingId, // 也添加 onboardingId 以备后用
-			}));
+			changes.value = rawItems.map((item: any) => {
+				return {
+					id: item.id,
+					type: item.operationType, // 使用operationType作为type
+					details: item.operationDescription || item.operationTitle || '', // 详细描述
+					operationTitle: item.operationTitle, // 保留原始标题
+					operationDescription: item.operationDescription, // 保留原始描述
+					beforeData: item.beforeData,
+					afterData: item.afterData,
+					changedFields: item.changedFields || [],
+					updatedBy: item.operatorName || '', // 操作人，空字符串表示系统操作
+					dateTime: item.operationTime || item.createDate || '', // 操作时间
+					extendedInfo: item.extendedData, // 扩展信息
+					stageId: item.stageId, // 添加 stageId 映射
+					onboardingId: item.onboardingId, // 也添加 onboardingId 以备后用
+				};
+			});
 
 			// 处理变更数据
 			await processChangesData();
@@ -440,10 +492,11 @@ const processChangesData = async () => {
 						change.afterData,
 						change // Pass the current change to identify the questionnaire
 					);
+					// 如果解析成功但没有发现变化，保持空数组（不添加默认消息）
 				} catch (error) {
 					console.warn('Enhanced parsing failed, using basic parsing:', error);
-					// 回退到基本解析
-					answerChanges = ['问卷答案已更新'];
+					// 回退到基本解析，只在真正解析失败时使用
+					answerChanges = ['Questionnaire answer updated'];
 				}
 				break;
 
@@ -480,6 +533,11 @@ const processChangesData = async () => {
 			case 'Action Running':
 			case 'Action Pending':
 			case 'Action Cancelled':
+			case 'ActionExecutionSuccess':
+			case 'ActionExecutionFailed':
+			case 'ActionExecutionRunning':
+			case 'ActionExecutionPending':
+			case 'ActionExecutionCancelled':
 				actionInfo = extractActionInfo(change);
 				break;
 
@@ -1292,23 +1350,7 @@ const formatFileSize = (bytes: number): string => {
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// --- US date/time formatting helpers for answer values ---
-const formatDateUS = (dateString: string): string => {
-	if (!dateString) return '';
-	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) return dateString;
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const year = date.getFullYear();
-		const hours = String(date.getHours()).padStart(2, '0');
-		const minutes = String(date.getMinutes()).padStart(2, '0');
-		const seconds = String(date.getSeconds()).padStart(2, '0');
-		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-	} catch {
-		return dateString;
-	}
-};
+// --- Date/time formatting helpers for answer values ---
 
 const formatAnswerDate = (dateStr: any, questionType?: string): string => {
 	if (!dateStr) return '';
@@ -1368,6 +1410,7 @@ const getTagType = (type: string): string => {
 			return 'info';
 		case 'Task Complete':
 		case 'Action Success':
+		case 'ActionExecutionSuccess':
 			return 'success';
 		case 'Task Incomplete':
 		case 'ChecklistTaskUncomplete':
@@ -1376,11 +1419,15 @@ const getTagType = (type: string): string => {
 		case 'StaticFieldValueChange':
 			return 'warning';
 		case 'Action Failed':
+		case 'ActionExecutionFailed':
 			return 'danger';
 		case 'Action Running':
 		case 'Action Pending':
+		case 'ActionExecutionRunning':
+		case 'ActionExecutionPending':
 			return 'info';
 		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
 			return 'warning';
 		default:
 			return 'info';
@@ -1508,14 +1555,19 @@ const formatDuration = (durationMs: number): string => {
 const getActionExecutionBgClass = (type: string): string => {
 	switch (type) {
 		case 'Action Success':
+		case 'ActionExecutionSuccess':
 			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
 		case 'Action Failed':
+		case 'ActionExecutionFailed':
 			return 'bg-red-50 dark:bg-red-900/20 border-red-400';
 		case 'Action Running':
+		case 'ActionExecutionRunning':
 			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
 		case 'Action Pending':
+		case 'ActionExecutionPending':
 			return 'bg-orange-50 dark:bg-orange-900/20 border-orange-400';
 		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
 			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
 		default:
 			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
@@ -1525,14 +1577,19 @@ const getActionExecutionBgClass = (type: string): string => {
 const getActionExecutionStatusClass = (type: string): string => {
 	switch (type) {
 		case 'Action Success':
+		case 'ActionExecutionSuccess':
 			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
 		case 'Action Failed':
+		case 'ActionExecutionFailed':
 			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
 		case 'Action Running':
+		case 'ActionExecutionRunning':
 			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
 		case 'Action Pending':
+		case 'ActionExecutionPending':
 			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
 		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
 			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
 		default:
 			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
@@ -1542,14 +1599,19 @@ const getActionExecutionStatusClass = (type: string): string => {
 const getActionExecutionStatusText = (type: string): string => {
 	switch (type) {
 		case 'Action Success':
+		case 'ActionExecutionSuccess':
 			return 'Success';
 		case 'Action Failed':
+		case 'ActionExecutionFailed':
 			return 'Failed';
 		case 'Action Running':
+		case 'ActionExecutionRunning':
 			return 'Running';
 		case 'Action Pending':
+		case 'ActionExecutionPending':
 			return 'Pending';
 		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
 			return 'Cancelled';
 		default:
 			return 'Unknown';
