@@ -826,7 +826,7 @@ const handleInputChange = (questionId: string, value: any) => {
 };
 
 // 复杂表单值变化处理
-const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
+const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string }, value: any) => {
 	if (question.type == 'multiple_choice') {
 		handleRadioClick(question?.id, value);
 	} else {
@@ -1276,7 +1276,6 @@ onMounted(async () => {
 					);
 				})
 				.forEach((section: any) => {
-					debugger;
 					section.questions.forEach((question: any) => {
 						// 根据问题类型初始化表单数据
 						if (
