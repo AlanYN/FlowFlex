@@ -30,10 +30,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
 
-            // ʵ嵽DTOӳ
+            // Entity to DTO mapping
             CreateMap<Onboarding, OnboardingOutputDto>()
                 .ForMember(dest => dest.WorkflowName, opt => opt.Ignore())
-                .ForMember(dest => dest.CurrentStageName, opt => opt.Ignore());
+                .ForMember(dest => dest.CurrentStageName, opt => opt.Ignore())
+                .ForMember(dest => dest.CurrentStageEndTime, opt => opt.Ignore())
+                .ForMember(dest => dest.CurrentStageEstimatedDays, opt => opt.Ignore());
 
             // OnboardingStageProgress to OnboardingStageProgressDto mapping
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
