@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using SqlSugar;
 using System.Collections.Generic;
 using FlowFlex.Domain.Entities.Base;
+using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Domain.Entities.OW
 {
@@ -99,6 +100,13 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [SugarColumn(ColumnName = "visible_in_portal")]
         public bool VisibleInPortal { get; set; } = true;
+
+        /// <summary>
+        /// Portal Permission - Defines the level of access in the customer portal (Viewable or Completable)
+        /// Only applies when VisibleInPortal is true
+        /// </summary>
+        [SugarColumn(ColumnName = "portal_permission")]
+        public PortalPermissionEnum? PortalPermission { get; set; } = PortalPermissionEnum.Viewable;
 
         /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage

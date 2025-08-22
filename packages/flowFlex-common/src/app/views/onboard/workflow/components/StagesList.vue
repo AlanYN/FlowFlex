@@ -96,9 +96,30 @@
 										{{ getInitials(element.name) }}
 									</div>
 									<div class="stage-info">
-										<a class="stage-name">
-											{{ element.name }}
-										</a>
+										<div class="stage-name-container">
+											<span class="stage-name">
+												{{ element.name }}
+												<!-- Portal Permission Icon -->
+												<el-tooltip
+													v-if="element.visibleInPortal"
+													:content="
+														getPortalPermissionTooltip(
+															element.portalPermission
+														)
+													"
+													placement="top"
+												>
+													<Icon
+														:icon="
+															getPortalPermissionIcon(
+																element.portalPermission
+															)
+														"
+														class="portal-icon"
+													/>
+												</el-tooltip>
+											</span>
+										</div>
 										<div class="stage-description">
 											{{ element.description || 'No description available' }}
 										</div>
@@ -333,12 +354,18 @@ import {
 	QuestionFilled,
 	FolderOpened,
 } from '@element-plus/icons-vue';
+import { Icon } from '@iconify/vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { Stage } from '#/onboard';
 // 导入静态字段配置
 import staticFieldConfig from '../static-field.json';
 import { defaultStr } from '@/settings/projectSetting';
 import { ElDropdown } from 'element-plus';
+// Portal权限枚举常量
+const PortalPermissionEnum = {
+	Viewable: 1,
+	Completable: 2,
+};
 
 // Props
 const props = defineProps({
@@ -609,6 +636,22 @@ const getSelectedStaticFields = (stage: Stage) => {
 
 	return fieldsComponent.staticFields.map((field) => getFieldLabel(field));
 };
+
+// 获取Portal权限图标
+const getPortalPermissionIcon = (permission?: number) => {
+	if (permission === PortalPermissionEnum.Completable) {
+		return 'material-symbols:edit-document-outline-rounded';
+	}
+	return 'weui:eyes-on-outlined';
+};
+
+// 获取Portal权限工具提示文本
+const getPortalPermissionTooltip = (permission?: number) => {
+	if (permission === PortalPermissionEnum.Completable) {
+		return 'Completable in portal';
+	}
+	return 'Viewable only in portal';
+};
 </script>
 
 <style lang="scss" scoped>
@@ -697,14 +740,42 @@ const getSelectedStaticFields = (stage: Stage) => {
 	overflow: hidden;
 }
 
+.stage-name-container {
+	display: flex;
+	align-items: center;
+	margin-bottom: 2px;
+}
+
 .stage-name {
 	font-weight: 500;
 	font-size: 15px;
 	color: #111827;
-	margin-bottom: 2px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.portal-icon {
+	width: 20px;
+	height: 20px;
+	color: #000000;
+	flex-shrink: 0;
+	outline: none;
+	border: none;
+	padding-top: 2px;
+}
+
+.portal-icon:focus,
+.portal-icon:active,
+.portal-icon:hover {
+	outline: none !important;
+	border: none !important;
+	box-shadow: none !important;
 }
 
 .stage-description {
@@ -913,7 +984,7 @@ const getSelectedStaticFields = (stage: Stage) => {
 
 .text-muted-foreground {
 	color: #6b7280;
-	@apply mr-2;
+	margin-right: 8px;
 }
 
 .toggle-arrow {

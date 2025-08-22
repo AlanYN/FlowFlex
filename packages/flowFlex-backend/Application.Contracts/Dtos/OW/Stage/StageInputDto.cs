@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
+using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
 {
@@ -81,6 +82,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// Visible in Portal - Controls whether this stage is visible in the portal
         /// </summary>
         public bool VisibleInPortal { get; set; } = true;
+
+        /// <summary>
+        /// Portal Permission - Defines the level of access in the customer portal (Viewable or Completable)
+        /// Only applies when VisibleInPortal is true
+        /// </summary>
+        public PortalPermissionEnum? PortalPermission { get; set; } = PortalPermissionEnum.Viewable;
 
         /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage

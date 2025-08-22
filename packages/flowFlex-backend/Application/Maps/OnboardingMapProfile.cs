@@ -38,6 +38,7 @@ namespace FlowFlex.Application.Maps
             // OnboardingStageProgress to OnboardingStageProgressDto mapping
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime))
@@ -51,6 +52,7 @@ namespace FlowFlex.Application.Maps
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components));
