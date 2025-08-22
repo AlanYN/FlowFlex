@@ -277,7 +277,7 @@ const loadQuestionnaireData = async () => {
 					// 处理questions字段（API返回的是questions，我们内部使用items）
 					items: (section.questions || section.items || []).map((item: any) => ({
 						...item,
-						temporaryId: section?.temporaryId ? section.temporaryId : section.id,
+						temporaryId: item?.temporaryId ? item.temporaryId : item.id,
 						type: item?.type || 'short_answer',
 						question: item.title || item.question || '',
 						description: item.description || '',
