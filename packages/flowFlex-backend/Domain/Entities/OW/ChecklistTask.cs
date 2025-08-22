@@ -118,6 +118,12 @@ public class ChecklistTask : EntityBaseCreateInfo
     public string AttachmentsJson { get; set; }
 
     /// <summary>
+    /// Structured Assignee Information (JSONB)
+    /// </summary>
+    [SugarColumn(ColumnName = "assignee_json", ColumnDataType = "jsonb", IsJson = true)]
+    public string AssigneeJson { get; set; }
+
+    /// <summary>
     /// Task Status (Pending/InProgress/Completed/Blocked/Cancelled)
     /// </summary>
     [StringLength(20)]

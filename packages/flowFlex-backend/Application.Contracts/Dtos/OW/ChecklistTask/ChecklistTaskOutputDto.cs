@@ -101,6 +101,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         public string AttachmentsJson { get; set; }
 
         /// <summary>
+        /// 结构化负责人信息
+        /// </summary>
+        public AssigneeDto Assignee { get; set; }
+
+        /// <summary>
         /// 状态
         /// </summary>
         public string Status { get; set; }

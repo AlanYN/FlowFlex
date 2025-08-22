@@ -410,6 +410,46 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     }
 
     /// <summary>
+    /// Set structured assignee information for task (configuration stage)
+    /// </summary>
+    public async Task<bool> SetTaskAssigneeAsync(long id, AssigneeDto assignee)
+    {
+        var task = await _checklistTaskRepository.GetByIdAsync(id);
+        if (task == null)
+        {
+            throw new CRMException(ErrorCodeEnum.CustomError, "Task not found");
+        }
+
+        // Update both traditional fields and structured JSON field
+        if (assignee != null)
+        {
+            task.AssigneeId = assignee.UserId;
+            task.AssigneeName = assignee.Name;
+            task.AssignedTeam = assignee.Team;
+            
+            // Serialize to JSON with proper options
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            task.AssigneeJson = System.Text.Json.JsonSerializer.Serialize(assignee, options);
+        }
+        else
+        {
+            // Clear all assignee information
+            task.AssigneeId = null;
+            task.AssigneeName = null;
+            task.AssignedTeam = null;
+            task.AssigneeJson = null;
+        }
+
+        task.InitUpdateInfo(_userContext);
+
+        return await _checklistTaskRepository.UpdateAsync(task);
+    }
+
+    /// <summary>
     /// Get pending tasks by assignee
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetPendingTasksByAssigneeAsync(long assigneeId)
