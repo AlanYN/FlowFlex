@@ -793,5 +793,86 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return new List<Stage>();
             }
         }
+
+        /// <summary>
+        /// Get questionnaires by IDs with pagination and filters (using mapping table approach)
+        /// </summary>
+        public async Task<(List<Questionnaire> items, int totalCount)> GetPagedByIdsAsync(
+            List<long> questionnaireIds,
+            int pageIndex,
+            int pageSize,
+            string name = null,
+            bool? isActive = null,
+            string sortField = null,
+            string sortDirection = null)
+        {
+            try
+            {
+                var tenantId = GetCurrentTenantId();
+                var appCode = GetCurrentAppCode();
+
+                _logger.LogInformation("[QuestionnaireRepository] GetPagedByIdsAsync - IDs count: {Count}, PageIndex: {PageIndex}, PageSize: {PageSize}", 
+                    questionnaireIds?.Count ?? 0, pageIndex, pageSize);
+
+                // If no IDs provided, return empty result
+                if (questionnaireIds == null || !questionnaireIds.Any())
+                {
+                    return (new List<Questionnaire>(), 0);
+                }
+
+                // Build query
+                var query = db.Queryable<Questionnaire>()
+                    .Where(x => x.IsValid == true)
+                    .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
+                    .Where(x => questionnaireIds.Contains(x.Id));
+
+                // Name filter
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    var names = name.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                   .Select(n => n.Trim())
+                                   .Where(n => !string.IsNullOrEmpty(n))
+                                   .ToList();
+                    if (names.Any())
+                    {
+                        query = query.Where(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+                    }
+                }
+
+                // IsActive filter
+                if (isActive.HasValue)
+                {
+                    query = query.Where(x => x.IsActive == isActive.Value);
+                }
+
+                // Get total count
+                var totalCount = await query.CountAsync();
+
+                // Apply sorting
+                var isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+                query = sortField?.ToLower() switch
+                {
+                    "name" => isDescending ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name),
+                    "createdate" => isDescending ? query.OrderByDescending(x => x.CreateDate) : query.OrderBy(x => x.CreateDate),
+                    "modifydate" => isDescending ? query.OrderByDescending(x => x.ModifyDate) : query.OrderBy(x => x.ModifyDate),
+                    _ => query.OrderByDescending(x => x.CreateDate) // Default sorting
+                };
+
+                // Apply pagination
+                var items = await query
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                _logger.LogInformation("[QuestionnaireRepository] GetPagedByIdsAsync returned {Count} items, total: {Total}", items.Count, totalCount);
+
+                return (items, totalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetPagedByIdsAsync");
+                return (new List<Questionnaire>(), 0);
+            }
+        }
     }
 }

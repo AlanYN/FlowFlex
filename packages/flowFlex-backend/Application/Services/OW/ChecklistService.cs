@@ -280,17 +280,16 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.CustomError, "Source checklist not found");
         }
 
-        // Validate name uniqueness
-        if (await _checklistRepository.IsNameExistsAsync(input.Name, input.TargetTeam ?? sourceChecklist.Team))
-        {
-            throw new CRMException(ErrorCodeEnum.CustomError,
-                $"Checklist name '{input.Name}' already exists");
-        }
+        // Determine base name and ensure uniqueness
+        var baseName = string.IsNullOrWhiteSpace(input.Name)
+            ? $"{sourceChecklist.Name} (Copy)"
+            : input.Name;
+        var uniqueName = await EnsureUniqueChecklistNameAsync(baseName, input.TargetTeam ?? sourceChecklist.Team);
 
         // Create new checklist with assignments copied
             var newChecklist = new Checklist
         {
-            Name = input.Name,
+            Name = uniqueName,
             Description = input.Description ?? sourceChecklist.Description,
             Team = input.TargetTeam ?? sourceChecklist.Team,
             Type = sourceChecklist.Type,
@@ -353,6 +352,25 @@ public class ChecklistService : IChecklistService, IScopedService
         // Cache has been removed, no cleanup needed
 
         return newChecklistId;
+    }
+
+    private async Task<string> EnsureUniqueChecklistNameAsync(string baseName, string team = null)
+    {
+        var originalName = baseName;
+        var counter = 1;
+        var currentName = baseName;
+
+        while (true)
+        {
+            var exists = await _checklistRepository.IsNameExistsAsync(currentName, team);
+            if (!exists)
+            {
+                return currentName;
+            }
+
+            counter++;
+            currentName = $"{originalName} ({counter})";
+        }
     }
 
     /// <summary>
@@ -701,25 +719,24 @@ ASSIGNMENTS:
 
 
     /// <summary>
-    /// Get checklist IDs by stage ID from Stage Components
+    /// Get checklist IDs by stage ID from mapping table (ultra-fast)
     /// </summary>
     private async Task<List<long>> GetChecklistIdsByStageIdAsync(long stageId)
     {
         try
         {
-            var stage = await _stageRepository.GetByIdAsync(stageId);
-            if (stage == null || string.IsNullOrEmpty(stage.ComponentsJson))
-                return new List<long>();
-                
-            var components = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson);
-            return components?.Where(c => c.Key == "checklist")
-                .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                .Distinct()
-                .ToList() ?? new List<long>();
+            Console.WriteLine($"[ChecklistService] Getting checklist IDs for stage {stageId} using ComponentMappingService");
+            
+            // Use ComponentMappingService for ultra-fast mapping table query
+            var checklistIds = await _mappingService.GetChecklistIdsByWorkflowStageAsync(null, stageId);
+            
+            Console.WriteLine($"[ChecklistService] ComponentMappingService found {checklistIds.Count} checklist IDs for stage {stageId}: [{string.Join(", ", checklistIds)}]");
+            
+            return checklistIds;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error getting checklist IDs for stage {stageId}: {ex.Message}");
+            Console.WriteLine($"[ChecklistService] Error getting checklist IDs for stage {stageId}: {ex.Message}");
             return new List<long>();
         }
     }

@@ -133,4 +133,17 @@ public class ChecklistTask : EntityBaseCreateInfo
     /// Is Active
     /// </summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Action ID (Associated Action Primary Key)
+    /// </summary>
+    [SugarColumn(ColumnName = "action_id")]
+    public long? ActionId { get; set; }
+
+    /// <summary>
+    /// Action Name
+    /// </summary>
+    [StringLength(200)]
+    [SugarColumn(ColumnName = "action_name")]
+    public string ActionName { get; set; }
 }

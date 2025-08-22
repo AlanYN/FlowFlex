@@ -76,4 +76,9 @@ public interface IChecklistTaskService : IScopedService
     /// Get overdue tasks
     /// </summary>
     Task<List<ChecklistTaskOutputDto>> GetOverdueTasksAsync();
+
+    /// <summary>
+    /// Get tasks by action ID
+    /// </summary>
+    Task<List<ChecklistTaskOutputDto>> GetTasksByActionIdAsync(long actionId);
 }

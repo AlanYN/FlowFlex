@@ -45,6 +45,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
     /// <summary>
     /// Create a new checklist task
+    /// Supports ActionId and ActionName fields for linking tasks to specific actions
     /// </summary>
     public async Task<long> CreateAsync(ChecklistTaskInputDto input)
     {
@@ -86,6 +87,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
     /// <summary>
     /// Update an existing checklist task
+    /// Supports updating ActionId and ActionName fields for linking tasks to specific actions
     /// </summary>
     public async Task<bool> UpdateAsync(long id, ChecklistTaskInputDto input)
     {
@@ -170,6 +172,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
     /// <summary>
     /// Get tasks by checklist ID
+    /// Returns tasks with ActionId and ActionName fields populated
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetListByChecklistIdAsync(long checklistId)
     {
@@ -464,6 +467,15 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     public async Task<List<ChecklistTaskOutputDto>> GetOverdueTasksAsync()
     {
         var tasks = await _checklistTaskRepository.GetOverdueTasksAsync();
+        return _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+    }
+
+    /// <summary>
+    /// Get tasks by action ID
+    /// </summary>
+    public async Task<List<ChecklistTaskOutputDto>> GetTasksByActionIdAsync(long actionId)
+    {
+        var tasks = await _checklistTaskRepository.GetTasksByActionIdAsync(actionId);
         return _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
     }
 

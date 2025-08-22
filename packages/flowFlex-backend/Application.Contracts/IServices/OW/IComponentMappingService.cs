@@ -31,5 +31,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Get checklist assignments from mapping table (ultra-fast)
         /// </summary>
         Task<Dictionary<long, List<(long WorkflowId, long StageId)>>> GetChecklistAssignmentsAsync(List<long> checklistIds);
+
+        /// <summary>
+        /// Get questionnaire IDs by workflow and/or stage from mapping table (ultra-fast)
+        /// </summary>
+        Task<List<long>> GetQuestionnaireIdsByWorkflowStageAsync(long? workflowId = null, long? stageId = null);
+
+        /// <summary>
+        /// Get checklist IDs by workflow and/or stage from mapping table (ultra-fast)
+        /// </summary>
+        Task<List<long>> GetChecklistIdsByWorkflowStageAsync(long? workflowId = null, long? stageId = null);
     }
 }

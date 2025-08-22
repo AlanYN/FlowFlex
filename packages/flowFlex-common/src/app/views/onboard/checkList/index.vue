@@ -495,32 +495,15 @@ const deleteChecklistItem = async (checklistId) => {
 	}
 };
 
-// 生成唯一的复制名称
-const generateUniqueName = (baseName) => {
-	const existingNames = checklists.value.map((c) => c.name.toLowerCase());
-	let counter = 1;
-	let newName = `${baseName}-${counter}`;
-
-	// 持续递增直到找到唯一名称
-	while (existingNames.includes(newName.toLowerCase())) {
-		counter++;
-		newName = `${baseName}-${counter}`;
-	}
-
-	return newName;
-};
-
 const duplicateChecklistItem = async (checklist: Checklist) => {
 	duplicateLoading.value = true;
 	try {
-		// 生成唯一的名称，避免重名问题
-		const duplicateName = generateUniqueName(checklist.name);
-
-		// 确保参数符合DuplicateChecklistInputDto接口
+		// 让后端自动处理名称生成（添加 "(Copy)" 后缀和唯一性保证）
+		// 不传递 name 字段，这样后端会自动使用 "{原名称} (Copy)" 格式
 		const duplicateData = {
-			name: duplicateName,
+			// name: undefined, // 不传 name，让后端自动生成
 			description: checklist.description || '',
-			team: checklist.team || 'Sales', // 确保team不为空
+			targetTeam: checklist.team || 'Sales', // 注意：使用 targetTeam 而不是 team
 			copyTasks: true,
 			setAsTemplate: false,
 		};

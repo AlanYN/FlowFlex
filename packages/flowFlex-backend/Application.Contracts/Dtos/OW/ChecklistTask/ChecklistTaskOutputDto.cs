@@ -134,5 +134,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         /// 修改人
         /// </summary>
         public string ModifyBy { get; set; }
+
+        /// <summary>
+        /// 关联动作ID
+        /// </summary>
+        public long? ActionId { get; set; }
+
+        /// <summary>
+        /// 动作名称
+        /// </summary>
+        public string ActionName { get; set; }
     }
 }
