@@ -35,7 +35,7 @@ const Api = (id?: string | number) => {
  * 获取清单列表 [CL01]
  * @returns List<ChecklistOutputDto>
  */
-export function getChecklists(params: any) {
+export function getChecklists(params?: any) {
 	return defHttp.get({ url: `${Api().checklists}`, params });
 }
 

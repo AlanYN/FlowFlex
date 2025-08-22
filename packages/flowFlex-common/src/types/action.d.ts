@@ -9,9 +9,9 @@ export interface ActionDefinition {
 	createdAt?: string;
 	updatedAt?: string;
 	triggerMappings?: TriggerMapping[];
-	workflowId: string;
-	triggerSourceId: string;
-	triggerType: number;
+	workflowId: string | null;
+	triggerSourceId: string | null;
+	triggerType: number | null;
 }
 
 export interface TriggerMapping {

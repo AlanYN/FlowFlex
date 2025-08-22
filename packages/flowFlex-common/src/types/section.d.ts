@@ -1,7 +1,8 @@
 // Section和条件跳转相关的类型定义
 
 export interface Section {
-	id: string;
+	id?: string;
+	temporaryId: string;
 	name: string;
 	description?: string;
 	questions?: string[]; // 问题ID数组
@@ -19,7 +20,8 @@ export interface JumpRule {
 }
 
 export interface QuestionWithJumpRules {
-	id: string;
+	id?: string;
+	temporaryId: string;
 	type: string;
 	question: string;
 	required: boolean;
@@ -46,7 +48,8 @@ export interface SectionJumpValidation {
 }
 
 export interface QuestionnaireSection {
-	id: string;
+	id?: string;
+	temporaryId: string;
 	columns?: { id: string; isOther: boolean; label: string }[];
 	description?: string;
 	iconType?: string;
@@ -75,7 +78,7 @@ export interface QuestionnaireSection {
 	action?: {
 		id: string;
 		name: string;
-	}[];
+	};
 	type:
 		| 'short_answer'
 		| 'paragraph'

@@ -2,7 +2,7 @@
 	<div class="questions-list">
 		<draggable
 			v-model="questionsData"
-			item-key="id"
+			item-key="temporaryId"
 			handle=".drag-handle"
 			@change="handleQuestionDragEnd"
 			ghost-class="ghost-question"
@@ -11,7 +11,11 @@
 		>
 			<template #item="{ element: item, index }">
 				<div class="question-item flex max-w-full">
-					<template v-if="editingQuestionId === item.id">
+					<template
+						v-if="
+							editingQuestionId === item.id || editingQuestionId === item.temporaryId
+						"
+					>
 						<div class="w-full">
 							<QuestionEditor
 								:question-types="questionTypes"
@@ -39,7 +43,10 @@
 											<el-tag v-if="item.required" size="small" type="danger">
 												Required
 											</el-tag>
-											<el-tag size="small" type="success">Action</el-tag>
+
+											<el-tag v-if="item.action" size="small" type="success">
+												{{ item.action.name }}
+											</el-tag>
 										</div>
 										<div class="question-meta mt-2">
 											<div class="question-text">{{ item.question }}</div>
@@ -242,8 +249,9 @@
 			v-model="actionEditorVisible"
 			:action="null"
 			:is-editing="false"
-			triggerSourceId="0"
+			:triggerSourceId="currentEditingQuestion?.id || ''"
 			:loading="false"
+			:triggerType="TriggerTypeEnum.Questionnaire"
 			@save-success="onActionSave"
 			@cancel="onActionCancel"
 		/>
@@ -262,6 +270,7 @@ import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import { TriggerTypeEnum } from '@/enums/appEnum';
 
 interface QuestionType {
 	id: string;
@@ -315,13 +324,13 @@ const removeQuestion = (index: number) => {
 
 const editQuestion = (index: number) => {
 	const question = questionsData.value[index];
-	editingQuestionId.value = question.id;
+	editingQuestionId.value = question?.temporaryId || null;
 	editingQuestion.value = { ...question };
 };
 
 // 处理问题更新
 const handleUpdateQuestion = (updatedQuestion: QuestionnaireSection) => {
-	const index = questionsData.value.findIndex((q) => q.id === editingQuestionId.value);
+	const index = questionsData.value.findIndex((q) => q.temporaryId === editingQuestionId.value);
 	if (index !== -1) {
 		questionsData.value[index] = {
 			...questionsData.value[index],
@@ -403,12 +412,24 @@ const openActionEditor = (index: number) => {
 };
 
 const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
-const onActionSave = () => {
+const onActionSave = (res) => {
 	actionEditorVisible.value = false;
-	currentEditingQuestion.value = null;
+	const question = questionsData.value.find(
+		(q) =>
+			(currentEditingQuestion.value?.id && q.id === currentEditingQuestion.value?.id) ||
+			(currentEditingQuestion.value?.temporaryId &&
+				q.temporaryId === currentEditingQuestion.value?.temporaryId)
+	);
+	if (res.id && question) {
+		question.action = {
+			id: res.id,
+			name: res.name,
+		};
+	}
 };
 const onActionCancel = () => {
 	actionEditorVisible.value = false;
+	currentEditingQuestion.value = null;
 };
 
 // 处理跳转规则保存
