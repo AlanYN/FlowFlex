@@ -78,10 +78,58 @@
 
 							<!-- 正常显示模式 -->
 							<template v-if="!(editingTask && editingTask.id === task.id)">
-								<span class="flex-1 text-sm text-gray-900">
-									{{ task.name }}
-								</span>
+								<div class="flex items-center flex-1">
+									<span class="text-sm text-gray-900">
+										{{ task.name }}
+									</span>
+									<!-- Action 绑定状态图标 -->
+									<el-tooltip
+										v-if="task.actionId"
+										:content="task.actionName"
+										placement="top"
+									>
+										<Icon
+											icon="tabler:math-function"
+											class="w-4 h-4 ml-2 text-blue-500"
+										/>
+									</el-tooltip>
+								</div>
 								<div class="flex items-center space-x-1">
+									<el-dropdown placement="bottom">
+										<el-button :icon="MoreFilled" link size="small" />
+										<template #dropdown>
+											<el-dropdown-menu>
+												<!-- 如果已绑定 action，显示编辑和删除选项 -->
+												<template v-if="true">
+													<el-dropdown-item
+														@click="openActionEditor(task)"
+													>
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="tabler:edit"
+																class="w-4 h-4"
+															/>
+															<span class="text-xs">Edit Action</span>
+														</div>
+													</el-dropdown-item>
+													<el-dropdown-item
+														v-if="task.actionId"
+														@click="removeActionBinding(task)"
+													>
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="tabler:unlink"
+																class="w-4 h-4 text-red-500"
+															/>
+															<span class="text-xs text-red-500">
+																Remove Action
+															</span>
+														</div>
+													</el-dropdown-item>
+												</template>
+											</el-dropdown-menu>
+										</template>
+									</el-dropdown>
 									<el-button
 										@click="editTask(props.checklist.id, task)"
 										size="small"
@@ -130,15 +178,28 @@
 				</p>
 			</div>
 		</div>
+
+		<ActionConfigDialog
+			ref="actionConfigDialogRef"
+			v-model="actionEditorVisible"
+			:action="actionInfo"
+			:is-editing="!!actionInfo"
+			:triggerSourceId="currentActionTask?.id"
+			:loading="editActionLoading"
+			:triggerType="TriggerTypeEnum.Task"
+			@save-success="onActionSave"
+			@cancel="onActionCancel"
+		/>
 	</div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-import { Plus, Edit, Delete, Loading, Check, Close } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Loading, Check, Close, MoreFilled } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import draggable from 'vuedraggable';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { getActionDetail, deleteMappingAction } from '@/apis/action';
 import {
 	getChecklistTasks,
 	createChecklistTask,
@@ -147,6 +208,8 @@ import {
 	formatTaskForApi,
 } from '@/apis/ow/checklist';
 import { useI18n } from '@/hooks/useI18n';
+import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import { TriggerTypeEnum } from '@/enums/appEnum';
 
 const props = defineProps({
 	checklist: {
@@ -395,6 +458,139 @@ const resetTaskList = () => {
 		estimatedMinutes: 0,
 		isRequired: false,
 	};
+};
+
+// Action 相关状态
+const actionEditorVisible = ref(false);
+const actionInfo = ref(null);
+const editActionLoading = ref(false);
+const actionConfigDialogRef = ref(null);
+const currentActionTask = ref(null); // 当前正在操作 action 的任务
+
+// 打开 Action 编辑器
+const openActionEditor = async (task) => {
+	currentActionTask.value = task; // 使用新的变量存储当前操作的任务
+	actionEditorVisible.value = true;
+
+	// 如果任务已经绑定了 action，获取 action 详情
+	if (task.actionId) {
+		try {
+			editActionLoading.value = true;
+			const actionDetailRes = await getActionDetail(task.actionId);
+			if (actionDetailRes.code === '200' && actionDetailRes?.data) {
+				actionInfo.value = {
+					...actionDetailRes?.data,
+					actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
+					type: actionDetailRes?.data?.actionType === 1 ? 'python' : 'http',
+				};
+			}
+		} catch (error) {
+			console.error('Failed to load action details:', error);
+			ElMessage.warning('Failed to load action details');
+		} finally {
+			editActionLoading.value = false;
+		}
+	} else {
+		actionInfo.value = null;
+	}
+};
+
+// Action 保存成功回调
+const onActionSave = async (actionResult) => {
+	if (actionResult.id && currentActionTask.value) {
+		try {
+			const updateResponse = await updateChecklistTask(currentActionTask.value.id, {
+				...currentActionTask.value,
+				checklistId: props.checklist.id,
+				actionId: actionResult.id,
+				actionName: actionResult.name,
+			});
+			if (updateResponse.code === '200') {
+				ElMessage.success(t('sys.api.operationSuccess'));
+				await loadTasks();
+				emit('task-updated', props.checklist.id);
+			} else {
+				ElMessage.error(t('sys.api.operationFailed'));
+			}
+		} catch (error) {
+			console.error('Failed to bind action to task:', error);
+			ElMessage.error('Failed to bind action to task');
+		}
+	}
+	onActionCancel();
+};
+
+// 取消 Action 编辑
+const onActionCancel = () => {
+	actionEditorVisible.value = false;
+	actionInfo.value = null;
+	currentActionTask.value = null; // 使用新变量清理状态
+};
+
+// 删除 Action 绑定
+const removeActionBinding = async (task) => {
+	try {
+		await ElMessageBox.confirm(
+			'This will remove the action binding from this task. The action itself will not be deleted. Continue?',
+			'Remove Action Binding',
+			{
+				confirmButtonText: 'Remove',
+				cancelButtonText: 'Cancel',
+				type: 'warning',
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Removing...';
+
+						try {
+							// 如果有 actionMappingId，删除映射关系
+							if (task.actionMappingId) {
+								const deleteActionRes = await deleteMappingAction(
+									task.actionMappingId
+								);
+								if (deleteActionRes.code !== '200') {
+									throw new Error(
+										deleteActionRes.msg || 'Failed to remove action mapping'
+									);
+								}
+							}
+
+							// 更新 task，移除 action 绑定
+							const unbindTaskData = formatTaskForApi({
+								...task,
+								checklistId: props.checklist.id,
+								actionId: null,
+								actionName: null,
+								actionMappingId: null,
+							});
+
+							const unbindResponse = await updateChecklistTask(
+								task.id,
+								unbindTaskData
+							);
+							if (unbindResponse.code === '200') {
+								ElMessage.success('Action binding removed successfully');
+								await loadTasks();
+								emit('task-updated', props.checklist.id);
+								done();
+							} else {
+								throw new Error('Failed to update task');
+							}
+						} catch (error) {
+							console.error('Failed to remove action binding:', error);
+							ElMessage.error('Failed to remove action binding');
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Remove';
+						}
+					} else {
+						done();
+					}
+				},
+			}
+		);
+	} catch {
+		// User cancelled
+	}
 };
 
 defineExpose({

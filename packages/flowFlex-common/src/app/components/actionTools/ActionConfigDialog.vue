@@ -239,49 +239,10 @@ const rules = {
 const getDefaultConfig = (type: string) => {
 	if (type === 'python') {
 		return {
-			sourceCode: `from datetime import datetime
-
-def main():
-    """
-    Main function executed when the stage is completed.
-    Access trigger context data through global variables or specific parameters.
-    """
-    # Example: Access data from trigger context
-    # The actual parameter names depend on your backend implementation
-    
-    try:
-        # Print available variables for debugging
-        print("=== Action Execution Started ===")
-        
-        # Access event data (adjust parameter names as needed)
-        # Common patterns:
-        # - event_data = triggerContext.get('event', {})
-        # - onboarding_data = triggerContext.get('onboarding', {})
-        # - questionnaire_data = triggerContext.get('questionnaire', {})
-        
-        print("Processing action execution...")
-        
-        # Your custom logic here
-        # Example operations:
-        # 1. Process event data
-        # 2. Send notifications
-        # 3. Update external systems
-        # 4. Log information
-        
-        print("Action completed successfully")
-        
-        return {
-            "status": "success", 
-            "message": "Action completed successfully",
-            "timestamp": str(datetime.now().isoformat())
-        }
-        
-    except Exception as e:
-        print(f"Error in action execution: {str(e)}")
-        return {
-            "status": "error",
-            "message": f"Action failed: {str(e)}"
-        }`,
+			sourceCode: `def main(customer_name: str):
+    return {
+        "greeting": f"Hello, {customer_name}!",
+    }`,
 		};
 	} else if (type === 'http') {
 		return {
