@@ -414,14 +414,12 @@ const openActionEditor = (index: number) => {
 const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
 const onActionSave = (res) => {
 	actionEditorVisible.value = false;
-	const question = questionsData.value.find(
-		(q) =>
-			(currentEditingQuestion.value?.id && q.id === currentEditingQuestion.value?.id) ||
-			(currentEditingQuestion.value?.temporaryId &&
-				q.temporaryId === currentEditingQuestion.value?.temporaryId)
+	const questionIndex = questionsData.value.findIndex(
+		(q) => q.temporaryId === currentEditingQuestion.value?.temporaryId
 	);
-	if (res.id && question) {
-		question.action = {
+
+	if (res.id && questionIndex !== -1) {
+		questionsData.value[questionIndex].action = {
 			id: res.id,
 			name: res.name,
 		};
