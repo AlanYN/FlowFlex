@@ -270,13 +270,14 @@ const loadQuestionnaireData = async () => {
 			// 填充问卷结构 - 适配API返回的数据结构
 			if (structure?.sections && Array.isArray(structure.sections)) {
 				questionnaire.sections = structure.sections.map((section: any) => ({
-					id: section.id || `section-${Date.now()}-${Math.random()}`,
+					...section,
+					temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 					name: section.name || 'Untitled Section',
 					description: section.description || '',
 					// 处理questions字段（API返回的是questions，我们内部使用items）
 					items: (section.questions || section.items || []).map((item: any) => ({
 						...item,
-						id: item.id || `question-${Date.now()}-${Math.random()}`,
+						temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 						type: item?.type || 'short_answer',
 						question: item.title || item.question || '',
 						description: item.description || '',
@@ -303,7 +304,7 @@ const loadQuestionnaireData = async () => {
 			if (questionnaire.sections.length === 0) {
 				questionnaire.sections = [
 					{
-						id: `section-${Date.now()}`,
+						temporaryId: `section-${Date.now()}`,
 						name: 'Untitled Section',
 						description: '',
 						items: [],
@@ -448,11 +449,11 @@ const questionnaire = reactive({
 	isActive: true,
 	sections: [
 		{
-			id: `section-${Date.now()}`,
+			temporaryId: `section-${Date.now()}`,
 			name: 'Untitled Section',
 			description: '',
 			items: [] as Array<{
-				id: string;
+				temporaryId: string;
 				type: string;
 				question: string;
 				description: string;
@@ -533,10 +534,10 @@ const previewData = computed(() => {
 // 为跳转规则转换sections数据格式
 const sectionsForJumpRules = computed(() => {
 	return questionnaire.sections.map((section, index) => ({
-		id: section.id,
+		...section,
 		name: section.name,
 		description: section.description,
-		questions: section.items.map((item) => item.id),
+		questions: section.items.map((item) => item.temporaryId).filter(Boolean) as string[],
 		order: index,
 		items: section.items,
 	}));
@@ -553,7 +554,7 @@ const togglePreview = () => {
 
 const handleAddSection = () => {
 	questionnaire.sections.push({
-		id: `section-${Date.now()}`,
+		temporaryId: `section-${Date.now()}`,
 		name: 'Untitled Section',
 		description: '',
 		items: [],
@@ -596,7 +597,7 @@ const handleAddQuestion = (questionData: any) => {
 	if (!questionData.question.trim() || !questionData.type) return;
 
 	const question = {
-		id: `question-${Date.now()}`,
+		temporaryId: `question-${Date.now()}`,
 		...questionData,
 		options: [...questionData.options],
 		rows: [...questionData.rows],
@@ -613,7 +614,7 @@ const handleAddContent = async (command: string) => {
 	switch (command) {
 		case 'page-break':
 			questionnaire.sections[currentSectionIndex.value].items.push({
-				id: `page-break-${Date.now()}`,
+				temporaryId: `page-break-${Date.now()}`,
 				type: 'page_break',
 				question: 'Page Break',
 			});
@@ -634,7 +635,7 @@ const handleFileUpload = async (type: 'video' | 'image') => {
 	await triggerFileUpload(type, (result) => {
 		if (result.success) {
 			const mediaItem = {
-				id: `${type}-${Date.now()}`,
+				temporaryId: `${type}-${Date.now()}`,
 				type: type,
 				question: result.fileName!,
 				fileUrl: result.fileUrl!,
@@ -675,13 +676,14 @@ const handleSaveQuestionnaire = async () => {
 		// 构建问卷结构JSON - 适配API期望的数据结构
 		const structureJson = JSON.stringify({
 			sections: questionnaire.sections.map((section) => ({
-				id: section.id,
+				...section,
+				temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 				name: section.name,
 				description: section.description,
 				// API期望的是questions字段，不是items
 				questions: section.items.map((item) => ({
 					...item,
-					id: item.id,
+					temporaryId: item?.temporaryId ? item.temporaryId : item.id,
 					title: item.question, // API期望的是title字段，不是question
 					type: item?.type,
 					description: item.description,
@@ -783,7 +785,7 @@ const cancelEditQuestion = () => {
 
 const handleUpdateQuestion = (updatedQuestion: any) => {
 	const index = questionnaire.sections[currentSectionIndex.value].items.findIndex(
-		(item) => item.id === updatedQuestion.id
+		(item) => item.temporaryId === updatedQuestion.temporaryId
 	);
 	if (index !== -1) {
 		questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;

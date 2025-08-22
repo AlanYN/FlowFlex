@@ -157,6 +157,7 @@ interface Props {
 	triggerSourceId?: string;
 	workflowId?: string;
 	loading?: boolean;
+	triggerType?: TriggerTypeEnum;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -165,13 +166,10 @@ const props = withDefaults(defineProps<Props>(), {
 	isEditing: false,
 	triggerSourceId: '',
 	workflowId: '',
+	triggerType: TriggerTypeEnum.Stage,
 });
 
-const emit = defineEmits<{
-	'update:modelValue': [value: boolean];
-	saveSuccess;
-	cancel: [];
-}>();
+const emit = defineEmits(['update:modelValue', 'saveSuccess', 'cancel']);
 
 // Form data
 const formRef = ref();
@@ -388,29 +386,21 @@ const onSave = async () => {
 			};
 		}
 
+		const params = {
+			...formData,
+			actionConfig: JSON.stringify(cleanActionConfig),
+			workflowId: props?.workflowId || null,
+			actionType: formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
+			triggerSourceId: props?.triggerSourceId || null,
+			triggerType: props?.triggerType || null,
+		};
+
 		const res: any = formData.id
-			? await updateAction(formData.id, {
-					...formData,
-					actionConfig: JSON.stringify(cleanActionConfig),
-					workflowId: props?.workflowId || '',
-					actionType:
-						formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
-					triggerSourceId: props.triggerSourceId,
-					triggerType: TriggerTypeEnum.Stage,
-			  })
-			: await addAction({
-					...formData,
-					actionConfig: JSON.stringify(cleanActionConfig),
-					workflowId: props?.workflowId || '',
-					actionType:
-						formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
-					triggerSourceId: props.triggerSourceId,
-					triggerType: TriggerTypeEnum.Stage,
-			  });
-		console.log('res:', res);
+			? await updateAction(formData.id, params)
+			: await addAction(params);
 		if (res.code == '200') {
 			ElMessage.success('Action added successfully');
-			emit('saveSuccess');
+			emit('saveSuccess', res.data);
 			visible.value = false;
 		} else {
 			res?.msg && ElMessage.error(res?.msg);

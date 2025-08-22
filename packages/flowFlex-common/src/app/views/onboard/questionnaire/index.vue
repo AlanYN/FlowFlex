@@ -411,12 +411,14 @@ const handlePreviewQuestionnaire = async (id: string) => {
 			// 适配数据结构，参考 createQuestion.vue 的处理方式
 			const adaptedSections =
 				structure?.sections?.map((section: any) => ({
-					id: section.id || `section-${Date.now()}-${Math.random()}`,
+					id: section?.id || null,
+					temporaryId: section?.temporaryId || `section-${Date.now()}-${Math.random()}`,
 					title: section.title || 'Untitled Section',
 					description: section.description || '',
 					// 处理questions字段（API返回的是questions，PreviewContent期望的是items）
 					items: (section.questions || section.items || []).map((item: any) => ({
-						id: item.id || `question-${Date.now()}-${Math.random()}`,
+						id: item?.id || null,
+						temporaryId: item?.temporaryId || `question-${Date.now()}-${Math.random()}`,
 						type: item.type || 'text',
 						question: item.title || item.question || '',
 						title: item.title || item.question || '', // 保持兼容性

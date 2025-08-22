@@ -681,6 +681,7 @@ const formattedQuestionnaires = computed(() => {
 			sections: structure.sections.map((section: any) => ({
 				...section,
 				id: section?.id,
+				temporaryId: section?.temporaryId,
 				title: section.title || section.name,
 				questions: (section.questions || []).map((question: any) => ({
 					...question,
@@ -688,6 +689,7 @@ const formattedQuestionnaires = computed(() => {
 					question: question.title || question.question || '',
 					// 使用原始的question.id，不要重新生成
 					id: question.id,
+					temporaryId: question?.temporaryId || question?.id,
 				})),
 			})),
 		};
@@ -826,18 +828,20 @@ const handleInputChange = (questionId: string, value: any) => {
 // 复杂表单值变化处理
 const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 	if (question.type == 'multiple_choice') {
-		handleRadioClick(question.id, value);
+		handleRadioClick(question?.id || question?.temporaryId || '', value);
 	} else {
-		formData.value[question.id] = value;
+		formData.value[question?.id || question?.temporaryId || ''] = value;
 	}
 	if (question.type == 'multiple_choice' || question.type == 'checkboxes') {
 		question?.options?.forEach((option) => {
 			if (
 				option.isOther &&
-				((!Array.isArray(formData.value[question.id]) &&
-					formData.value[question.id] !== option.value) ||
-					(Array.isArray(formData.value[question.id]) &&
-						!formData.value[question.id]?.includes(option.value)))
+				((!Array.isArray(formData.value[question?.id || question?.temporaryId || '']) &&
+					formData.value[question?.id || question?.temporaryId || ''] !== option.value) ||
+					(Array.isArray(formData.value[question?.id || question?.temporaryId || '']) &&
+						!formData.value[question?.id || question?.temporaryId || '']?.includes(
+							option.value
+						)))
 			) {
 				formData.value[`${question.id}_${option.id}`] = '';
 			}
@@ -846,12 +850,20 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 		question?.columns?.forEach((column) => {
 			if (
 				column.isOther &&
-				((!Array.isArray(formData.value[`${question.id}_${value}`]) &&
-					formData.value[`${question.id}_${value}`] !== column.id) ||
-					(Array.isArray(formData.value[`${question.id}_${value}`]) &&
-						!formData.value[`${question.id}_${value}`]?.includes(column.id)))
+				((!Array.isArray(
+					formData.value[`${question?.id || question?.temporaryId}_${value}`]
+				) &&
+					formData.value[`${question?.id || question?.temporaryId}_${value}`] !==
+						column.id) ||
+					(Array.isArray(
+						formData.value[`${question?.id || question?.temporaryId}_${value}`]
+					) &&
+						!formData.value[
+							`${question?.id || question?.temporaryId}_${value}`
+						]?.includes(column.id)))
 			) {
-				formData.value[`${question.id}_${value}_${column.id}`] = '';
+				formData.value[`${question?.id || question?.temporaryId}_${value}_${column.id}`] =
+					'';
 			}
 		});
 	}
@@ -1190,7 +1202,7 @@ const getJumpTargetSection = () => {
 						rule.optionId &&
 						question.options.some(
 							(option) =>
-								option.id === rule.optionId &&
+								option.temporaryId === rule.optionId &&
 								(option.value === userAnswer || option.label === userAnswer)
 						)
 					);
@@ -1214,7 +1226,7 @@ const findSectionIndexById = (sectionId: string) => {
 	const questionnaire = formattedQuestionnaires.value[0];
 	if (!questionnaire.sections) return -1;
 
-	return questionnaire.sections.findIndex((section) => section.id === sectionId);
+	return questionnaire.sections.findIndex((section) => section.temporaryId === sectionId);
 };
 
 // 分页控制方法
@@ -1260,8 +1272,6 @@ const goToSection = (index: number) => {
 	}
 };
 
-// 不再监听 props 重新拉取答案，父组件负责注入
-
 // 初始化
 onMounted(async () => {
 	await nextTick();
@@ -1285,14 +1295,18 @@ onMounted(async () => {
 							// 多选网格：为每一行初始化多选值（数组）
 							if (question.rows && question.rows.length > 0) {
 								question.rows.forEach((row: any) => {
-									const key = `${question.id}_${row.id}`;
+									const key = `${question?.id || question?.temporaryId}_${
+										row.id
+									}`;
 									if (!(key in formData.value)) {
 										formData.value[key] =
 											question.type === 'multiple_choice_grid' ? [] : '';
 									}
 									question.columns.forEach((column: any) => {
 										if (column.isOther) {
-											const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+											const otherTextKey = `${
+												question?.id || question?.temporaryId
+											}_${row.id}_${column.id}`;
 											if (!(otherTextKey in formData.value)) {
 												formData.value[otherTextKey] = '';
 											}
@@ -1304,7 +1318,9 @@ onMounted(async () => {
 							if (question.rows && question.rows.length > 0) {
 								question.rows.forEach((row: any) => {
 									question.columns.forEach((column: any) => {
-										const otherTextKey = `${question.id}_${column.id}_${row.id}`;
+										const otherTextKey = `${
+											question?.id || question?.temporaryId
+										}_${column.id}_${row.id}`;
 										if (!(otherTextKey in formData.value)) {
 											formData.value[otherTextKey] = '';
 										}
@@ -1313,34 +1329,37 @@ onMounted(async () => {
 							}
 						} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
 							// 多选题：初始化为数组
-							if (!(question.id in formData.value)) {
-								formData.value[question.id] = [];
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = [];
 							}
 						} else if (question.type === 'file' || question.type === 'file_upload') {
-							if (!(question.id in formData.value)) {
-								formData.value[question.id] = [];
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = [];
 							}
 						} else if (question.type === 'linear_scale') {
 							// 线性量表：初始化为最小值（数字类型）
-							if (!(question.id in formData.value)) {
-								formData.value[question.id] = question.min;
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] =
+									question.min;
 							}
 						} else if (question.type === 'rating') {
 							// 评分：初始化为0（数字类型）
-							if (!(question.id in formData.value)) {
-								formData.value[question.id] = 0;
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = 0;
 							}
 						} else {
 							// 其他类型：初始化为空字符串
-							if (!(question.id in formData.value)) {
-								formData.value[question.id] = '';
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = '';
 							}
 						}
 					});
 
 					section?.columns?.forEach((column: any) => {
 						if (column.isOther) {
-							const otherTextKey = `${section.id}_${column.id}`;
+							const otherTextKey = `${section?.id || section?.temporaryId}_${
+								column.id
+							}`;
 							if (!(otherTextKey in formData.value)) {
 								formData.value[otherTextKey] = '';
 							}
@@ -1349,7 +1368,9 @@ onMounted(async () => {
 
 					section?.options?.forEach((option: any) => {
 						if (option.isOther) {
-							const otherTextKey = `${section.id}_${option.id}`;
+							const otherTextKey = `${section?.id || section?.temporaryId}_${
+								option.id
+							}`;
 							if (!(otherTextKey in formData.value)) {
 								formData.value[otherTextKey] = '';
 							}

@@ -190,7 +190,7 @@ const validateRules = () => {
 
 	// 检查是否有无效的小节ID
 	Object.values(jumpRules.value).forEach((sectionId) => {
-		const section = props.sections.find((s) => s.id === sectionId);
+		const section = props.sections.find((s) => s.temporaryId === sectionId);
 		if (!section) {
 			validationErrors.value.push(`Invalid section selected: ${sectionId}`);
 		}
@@ -209,12 +209,12 @@ const handleSave = () => {
 	if (isJumpEnabled.value) {
 		Object.entries(jumpRules.value).forEach(([optionId, sectionId]) => {
 			const option = questionOptions.value.find((opt) => opt.id === optionId);
-			const section = props.sections.find((s) => s.id === sectionId);
+			const section = props.sections.find((s) => s.temporaryId === sectionId);
 
 			if (option && section) {
 				rules.push({
-					id: `${props.question!.id}`,
-					questionId: props.question!.id,
+					id: `${props.question!.temporaryId}`,
+					questionId: props.question!.id || props.question!.temporaryId,
 					optionId: optionId,
 					optionLabel: option.label,
 					targetSectionId: sectionId,

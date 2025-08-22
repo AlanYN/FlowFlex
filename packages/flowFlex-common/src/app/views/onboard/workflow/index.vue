@@ -39,7 +39,6 @@
 								<el-tag
 									v-if="workflow.isAIGenerated"
 									type="primary"
-									effect="light"
 									size="small"
 									class="ai-tag rounded-md"
 								>
@@ -51,7 +50,6 @@
 								<el-tag
 									v-if="workflow.isDefault"
 									type="warning"
-									effect="light"
 									size="small"
 									class="default-tag rounded-md"
 								>
@@ -63,19 +61,12 @@
 								<el-tag
 									v-if="workflow.status === 'active'"
 									type="success"
-									effect="light"
 									size="small"
 									class="rounded-md"
 								>
 									Active
 								</el-tag>
-								<el-tag
-									v-else
-									type="info"
-									size="small"
-									effect="light"
-									class="rounded-md"
-								>
+								<el-tag v-else type="danger" size="small" class="rounded-md">
 									Inactive
 								</el-tag>
 							</div>
@@ -1526,24 +1517,6 @@ const resetCombineStagesForm = () => {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-}
-
-.el-tag--success {
-	background-color: transparent;
-	border-color: var(--el-border-color-light, #e6edf7);
-	color: #606266;
-	margin-left: 8px;
-	padding: 2px 8px;
-	font-size: 11px;
-}
-
-.el-tag--info {
-	background-color: transparent;
-	border-color: var(--el-border-color-light, #e6edf7);
-	color: #606266;
-	margin-left: 8px;
-	padding: 2px 8px;
-	font-size: 11px;
 }
 
 .ai-tag {
