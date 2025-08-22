@@ -34,6 +34,8 @@ export interface ChangeLogItem {
 	typeIcon?: string; // 类型图标（可选，如果后端没有提供则前端生成）
 	typeColor?: string; // 类型颜色（可选，如果后端没有提供则前端生成）
 	details: string; // 详细描述
+	operationTitle?: string; // 操作标题
+	operationDescription?: string; // 操作详细描述
 	beforeData?: any; // 变更前数据
 	afterData?: any; // 变更后数据
 	changedFields?: string[]; // 变更字段
