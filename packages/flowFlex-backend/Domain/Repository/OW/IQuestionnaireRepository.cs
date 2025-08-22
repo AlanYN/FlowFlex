@@ -139,5 +139,17 @@ namespace FlowFlex.Domain.Repository.OW
         /// Debug method: Find which stages contain a specific questionnaire ID
         /// </summary>
         Task<List<Stage>> FindStagesContainingQuestionnaireAsync(long questionnaireId);
+
+        /// <summary>
+        /// Get questionnaires by IDs with pagination and filters (using mapping table approach)
+        /// </summary>
+        Task<(List<Questionnaire> items, int totalCount)> GetPagedByIdsAsync(
+            List<long> questionnaireIds,
+            int pageIndex,
+            int pageSize,
+            string name = null,
+            bool? isActive = null,
+            string sortField = null,
+            string sortDirection = null);
     }
 }

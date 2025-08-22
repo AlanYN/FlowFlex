@@ -250,8 +250,8 @@ export interface StageInfo {
 export interface ComponentsData {
 	components: StageComponentData[];
 	visibleInPortal?: boolean;
+	portalPermission?: number;
 	attachmentManagementNeeded?: boolean;
-	[key: string]: any;
 }
 
 export interface StaticField {
@@ -338,7 +338,10 @@ export interface Stage {
 	order: number;
 	selected?: boolean;
 	color?: string;
-	components: ComponentData[];
+	components: StageComponentData[];
+	visibleInPortal?: boolean;
+	portalPermission?: number; // PortalPermissionEnum value
+	attachmentManagementNeeded?: boolean;
 	// AI summary fields (optional)
 	aiSummary?: string;
 	aiSummaryGeneratedAt?: string;

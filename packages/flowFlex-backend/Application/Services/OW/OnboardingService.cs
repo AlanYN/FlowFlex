@@ -769,11 +769,18 @@ namespace FlowFlex.Application.Services.OW
                 var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
                 result.WorkflowName = workflow?.Name;
 
-                // Get current stage name
+                // Get current stage name and estimated days
                 if (entity.CurrentStageId.HasValue)
                 {
                     var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
                     result.CurrentStageName = stage?.Name;
+                    result.CurrentStageEstimatedDays = stage?.EstimatedDuration;
+                    
+                    // Calculate current stage end time based on start time + estimated days
+                    if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
+                    {
+                        result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
+                    }
                 }
 
                 return result;
@@ -797,7 +804,13 @@ namespace FlowFlex.Application.Services.OW
                 await EnsureStagesProgressInitializedAsync(entity);
             }
 
-            return _mapper.Map<List<OnboardingOutputDto>>(entities);
+            // Map to output DTOs
+            var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
+
+            // Populate workflow/stage names and calculate current stage end time
+            await PopulateOnboardingOutputDtoAsync(results, entities);
+
+            return results;
         }
 
         /// <summary>
@@ -988,15 +1001,8 @@ namespace FlowFlex.Application.Services.OW
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
 
-                // Use dictionaries to quickly populate workflow and stage names
-                foreach (var result in results)
-                {
-                    result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
-                    if (result.CurrentStageId.HasValue)
-                    {
-                        result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
-                    }
-                }
+                // Populate workflow/stage names and calculate current stage end time
+                await PopulateOnboardingOutputDtoAsync(results, pagedEntities);
 
                 // Create page model with appropriate pagination info
                 var pageModel = request.AllData
@@ -2368,7 +2374,12 @@ namespace FlowFlex.Application.Services.OW
         public async Task<List<OnboardingOutputDto>> GetOverdueListAsync()
         {
             var entities = await _onboardingRepository.GetOverdueListAsync();
-            return _mapper.Map<List<OnboardingOutputDto>>(entities);
+            var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
+            
+            // Populate workflow/stage names and calculate current stage end time
+            await PopulateOnboardingOutputDtoAsync(results, entities);
+            
+            return results;
         }
 
         /// <summary>
@@ -4920,7 +4931,12 @@ namespace FlowFlex.Application.Services.OW
                     await EnrichStagesProgressWithStageDataAsync(entity);
                 }
 
-                return _mapper.Map<List<OnboardingOutputDto>>(entities);
+                var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
+                
+                // Populate workflow/stage names and calculate current stage end time
+                await PopulateOnboardingOutputDtoAsync(results, entities);
+                
+                return results;
             }
             catch (Exception ex)
             {
@@ -4954,7 +4970,12 @@ namespace FlowFlex.Application.Services.OW
                     await EnrichStagesProgressWithStageDataAsync(entity);
                 }
 
-                return _mapper.Map<List<OnboardingOutputDto>>(entities);
+                var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
+                
+                // Populate workflow/stage names and calculate current stage end time
+                await PopulateOnboardingOutputDtoAsync(results, entities);
+                
+                return results;
             }
             catch (Exception ex)
             {
@@ -4988,7 +5009,12 @@ namespace FlowFlex.Application.Services.OW
                     await EnrichStagesProgressWithStageDataAsync(entity);
                 }
 
-                return _mapper.Map<List<OnboardingOutputDto>>(entities);
+                var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
+                
+                // Populate workflow/stage names and calculate current stage end time
+                await PopulateOnboardingOutputDtoAsync(results, entities);
+                
+                return results;
             }
             catch (Exception ex)
             {
@@ -5155,6 +5181,37 @@ namespace FlowFlex.Application.Services.OW
             {
                 Console.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Helper method to populate workflow/stage names and calculate current stage end time for OnboardingOutputDto lists
+        /// </summary>
+        private async Task PopulateOnboardingOutputDtoAsync(List<OnboardingOutputDto> results, List<Onboarding> entities)
+        {
+            if (!results.Any() || !entities.Any()) return;
+
+            // Batch get related data to avoid N+1 queries
+            var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(entities);
+            var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
+            var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
+            var stageEstimatedDaysDict = stages.ToDictionary(s => s.Id, s => s.EstimatedDuration);
+
+            // Populate workflow and stage names, and calculate current stage end time
+            foreach (var result in results)
+            {
+                result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
+                if (result.CurrentStageId.HasValue)
+                {
+                    result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
+                    result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
+                    
+                    // Calculate current stage end time based on start time + estimated days
+                    if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
+                    {
+                        result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
+                    }
+                }
             }
         }
     }

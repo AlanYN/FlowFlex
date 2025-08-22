@@ -245,6 +245,78 @@ namespace FlowFlex.Application.Service.OW
             }
         }
 
+        /// <summary>
+        /// Get questionnaire IDs by workflow and/or stage from mapping table (ultra-fast)
+        /// </summary>
+        public async Task<List<long>> GetQuestionnaireIdsByWorkflowStageAsync(long? workflowId = null, long? stageId = null)
+        {
+            try
+            {
+                Console.WriteLine($"[ComponentMappingService] Getting questionnaire IDs from mapping table - WorkflowId: {workflowId}, StageId: {stageId}");
+
+                var query = _db.Queryable<QuestionnaireStageMapping>()
+                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.IsValid == true);
+
+                if (workflowId.HasValue)
+                {
+                    query = query.Where(m => m.WorkflowId == workflowId.Value);
+                }
+
+                if (stageId.HasValue)
+                {
+                    query = query.Where(m => m.StageId == stageId.Value);
+                }
+
+                var mappings = await query.ToListAsync();
+                var questionnaireIds = mappings.Select(m => m.QuestionnaireId).Distinct().ToList();
+
+                Console.WriteLine($"[ComponentMappingService] Found {questionnaireIds.Count} distinct questionnaire IDs from mapping table");
+                return questionnaireIds;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ComponentMappingService] Error getting questionnaire IDs by workflow/stage: {ex.Message}");
+                return new List<long>();
+            }
+        }
+
+        /// <summary>
+        /// Get checklist IDs by workflow and/or stage from mapping table (ultra-fast)
+        /// </summary>
+        public async Task<List<long>> GetChecklistIdsByWorkflowStageAsync(long? workflowId = null, long? stageId = null)
+        {
+            try
+            {
+                Console.WriteLine($"[ComponentMappingService] Getting checklist IDs from mapping table - WorkflowId: {workflowId}, StageId: {stageId}");
+
+                var query = _db.Queryable<ChecklistStageMapping>()
+                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.IsValid == true);
+
+                if (workflowId.HasValue)
+                {
+                    query = query.Where(m => m.WorkflowId == workflowId.Value);
+                }
+
+                if (stageId.HasValue)
+                {
+                    query = query.Where(m => m.StageId == stageId.Value);
+                }
+
+                var mappings = await query.ToListAsync();
+                var checklistIds = mappings.Select(m => m.ChecklistId).Distinct().ToList();
+
+                Console.WriteLine($"[ComponentMappingService] Found {checklistIds.Count} distinct checklist IDs from mapping table");
+                return checklistIds;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ComponentMappingService] Error getting checklist IDs by workflow/stage: {ex.Message}");
+                return new List<long>();
+            }
+        }
+
         private static string TryUnwrapComponentsJson(string json)
         {
             if (string.IsNullOrWhiteSpace(json)) return json;

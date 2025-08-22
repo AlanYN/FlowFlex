@@ -45,6 +45,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
     /// <summary>
     /// Create a new checklist task
+    /// Supports ActionId and ActionName fields for linking tasks to specific actions
     /// </summary>
     public async Task<long> CreateAsync(ChecklistTaskInputDto input)
     {
@@ -86,6 +87,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
     /// <summary>
     /// Update an existing checklist task
+    /// Supports updating ActionId and ActionName fields for linking tasks to specific actions
     /// </summary>
     public async Task<bool> UpdateAsync(long id, ChecklistTaskInputDto input)
     {
@@ -170,6 +172,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
     /// <summary>
     /// Get tasks by checklist ID
+    /// Returns tasks with ActionId and ActionName fields populated
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetListByChecklistIdAsync(long checklistId)
     {
@@ -410,6 +413,46 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     }
 
     /// <summary>
+    /// Set structured assignee information for task (configuration stage)
+    /// </summary>
+    public async Task<bool> SetTaskAssigneeAsync(long id, AssigneeDto assignee)
+    {
+        var task = await _checklistTaskRepository.GetByIdAsync(id);
+        if (task == null)
+        {
+            throw new CRMException(ErrorCodeEnum.CustomError, "Task not found");
+        }
+
+        // Update both traditional fields and structured JSON field
+        if (assignee != null)
+        {
+            task.AssigneeId = assignee.UserId;
+            task.AssigneeName = assignee.Name;
+            task.AssignedTeam = assignee.Team;
+            
+            // Serialize to JSON with proper options
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            task.AssigneeJson = System.Text.Json.JsonSerializer.Serialize(assignee, options);
+        }
+        else
+        {
+            // Clear all assignee information
+            task.AssigneeId = null;
+            task.AssigneeName = null;
+            task.AssignedTeam = null;
+            task.AssigneeJson = null;
+        }
+
+        task.InitUpdateInfo(_userContext);
+
+        return await _checklistTaskRepository.UpdateAsync(task);
+    }
+
+    /// <summary>
     /// Get pending tasks by assignee
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetPendingTasksByAssigneeAsync(long assigneeId)
@@ -424,6 +467,15 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     public async Task<List<ChecklistTaskOutputDto>> GetOverdueTasksAsync()
     {
         var tasks = await _checklistTaskRepository.GetOverdueTasksAsync();
+        return _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+    }
+
+    /// <summary>
+    /// Get tasks by action ID
+    /// </summary>
+    public async Task<List<ChecklistTaskOutputDto>> GetTasksByActionIdAsync(long actionId)
+    {
+        var tasks = await _checklistTaskRepository.GetTasksByActionIdAsync(actionId);
         return _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
     }
 

@@ -32,6 +32,23 @@
 						/>
 					</el-form-item>
 
+					<!-- Portal Permission Options - only show when visibleInPortal is true -->
+					<el-form-item v-if="formData.visibleInPortal" prop="portalPermission">
+						<el-radio-group
+							v-model="formData.portalPermission"
+							class="portal-permission-group"
+						>
+							<el-radio
+								v-for="option in portalPermissionOptions"
+								:key="option.value"
+								:value="option.value"
+								class="portal-permission-option"
+							>
+								{{ option.label }}
+							</el-radio>
+						</el-radio-group>
+					</el-form-item>
+
 					<div class="flex items-center gap-2 w-full">
 						<el-form-item
 							label="Assigned User Group"
@@ -90,6 +107,7 @@
 					:model-value="{
 						components: formData.components,
 						visibleInPortal: formData.visibleInPortal,
+						portalPermission: formData.portalPermission,
 						attachmentManagementNeeded: formData.attachmentManagementNeeded,
 					}"
 					@update:model-value="updateComponentsData"
@@ -120,11 +138,12 @@ import type { FormInstance, FormRules } from 'element-plus';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
+import { PortalPermissionEnum, portalPermissionOptions } from '@/enums/portalPermissionEnum';
 import StageComponentsSelector from './StageComponentsSelector.vue';
 import Action from '@/components/actionTools/Action.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { Checklist, Questionnaire, Stage, ComponentData } from '#/onboard';
+import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -193,11 +212,12 @@ const formData = ref({
 	name: '',
 	description: '',
 	visibleInPortal: false,
+	portalPermission: PortalPermissionEnum.Viewable,
 	defaultAssignedGroup: '',
 	defaultAssignee: '',
 	estimatedDuration: null as number | null,
 	requiredFieldsJson: '',
-	components: [] as ComponentData[],
+	components: [] as StageComponentData[],
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 	attachmentManagementNeeded: false,
@@ -237,34 +257,6 @@ const onTabChange = (tab: string) => {
 	}
 };
 
-// AI Summary computed fields (readonly display)
-const aiSummary = computed(() => (props.stage as any)?.aiSummary || '');
-const aiSummaryGeneratedAt = computed(() => (props.stage as any)?.aiSummaryGeneratedAt || '');
-const aiSummaryConfidence = computed(() => (props.stage as any)?.aiSummaryConfidence ?? '');
-const aiSummaryModel = computed(() => (props.stage as any)?.aiSummaryModel || '');
-const aiSummaryMetaAvailable = computed(
-	() => !!(aiSummaryGeneratedAt.value || aiSummaryConfidence.value || aiSummaryModel.value)
-);
-
-// 工具：美国日期格式
-function formatUsDate(value?: string | Date) {
-	if (!value) return '';
-	try {
-		const d = typeof value === 'string' ? new Date(value) : value;
-		return new Intl.DateTimeFormat('en-US', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false,
-		}).format(d);
-	} catch {
-		return String(value ?? '');
-	}
-}
-
 // 初始化表单数据
 onMounted(() => {
 	if (props.stage) {
@@ -278,6 +270,9 @@ onMounted(() => {
 						  ] as StageColorType);
 			} else if (key === 'components') {
 				formData.value[key] = props.stage?.components || [];
+			} else if (key === 'portalPermission') {
+				formData.value[key] =
+					props.stage?.portalPermission || PortalPermissionEnum.Viewable;
 			} else {
 				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}
@@ -286,14 +281,13 @@ onMounted(() => {
 });
 
 // Method to update components data
-function updateComponentsData(val: {
-	components: ComponentData[];
-	visibleInPortal: boolean;
-	attachmentManagementNeeded: boolean;
-}) {
+function updateComponentsData(val: ComponentsData) {
 	formData.value.components = val.components;
-	formData.value.visibleInPortal = val.visibleInPortal;
-	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded;
+	formData.value.visibleInPortal = val.visibleInPortal ?? false;
+	if (val.portalPermission !== undefined) {
+		formData.value.portalPermission = val.portalPermission;
+	}
+	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded ?? false;
 }
 
 // 提交
@@ -347,5 +341,13 @@ const emit = defineEmits(['submit', 'cancel']);
 }
 .text-muted {
 	color: #6b7280;
+}
+.portal-permission-group {
+	width: 100%;
+}
+.portal-permission-option {
+	display: block;
+	margin-bottom: 8px;
+	width: 100%;
 }
 </style>

@@ -164,7 +164,7 @@
 						</el-tag>
 					</template>
 				</el-table-column>
-				<el-table-column prop="triggerMappings" label="Assignments" min-width="300">
+				<!-- <el-table-column prop="triggerMappings" label="Assignments" min-width="300">
 					<template #default="{ row }">
 						<div class="assignments-list">
 							<div
@@ -181,7 +181,7 @@
 							</div>
 						</div>
 					</template>
-				</el-table-column>
+				</el-table-column> -->
 				<el-table-column label="Actions" width="120" fixed="right">
 					<template #default="{ row }">
 						<div class="action-buttons">
@@ -217,32 +217,51 @@
 				/>
 			</div>
 		</div>
+
+		<!-- Action Config Dialog -->
+		<ActionConfigDialog
+			v-model="actionEditorVisible"
+			:action="actionInfo"
+			:is-editing="!!actionInfo"
+			:triggerSourceId="currentEditAction?.id"
+			:loading="editActionLoading"
+			@save-success="onActionSave"
+			@cancel="onActionCancel"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Download, Search, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import { useI18n } from '@/hooks/useI18n';
 import {
 	getActionDefinitions,
 	deleteAction,
 	exportActions,
+	getActionDetail,
 	ActionType,
 	ACTION_TYPE_MAPPING,
 } from '@/apis/action';
-import { ActionDefinition, TriggerMapping, ActionQueryRequest } from '#/action';
+import { ActionDefinition, ActionQueryRequest } from '#/action';
 import { tableMaxHeight } from '@/settings/projectSetting';
 
-// Router
-const router = useRouter();
+// i18n
+const { t } = useI18n();
 
 // Reactive data
 const loading = ref(false);
 const exportLoading = ref(false);
 const selectedActions = ref<any[]>([]);
+
+// Action 弹窗相关状态
+const actionEditorVisible = ref(false);
+const actionInfo = ref(null);
+const editActionLoading = ref(false);
+const currentEditAction = ref<ActionDefinition | null>(null);
 
 // Search form
 const searchForm = reactive({
@@ -280,35 +299,10 @@ const getActionTypeOptions = () => {
 	];
 };
 
-const getAssignmentDisplayName = (mapping: TriggerMapping) => {
-	const parts: string[] = [];
-
-	// Add WorkflowName
-	if (mapping.workFlowName && mapping.workFlowName.trim()) {
-		parts.push(mapping.workFlowName);
-	}
-
-	// Add StageName
-	if (mapping.stageName && mapping.stageName.trim()) {
-		parts.push(mapping.stageName);
-	}
-
-	// Add triggerSourceName
-	if (mapping.triggerSourceName && mapping.triggerSourceName.trim()) {
-		parts.push(mapping.triggerSourceName);
-	}
-
-	// If all fields are empty, return default value
-	if (parts.length === 0) {
-		return 'Unknown Assignment';
-	}
-
-	// Join all non-empty parts with arrows
-	return parts.join(' → ');
-};
-
 const handleCreateAction = () => {
-	router.push('/onboard/createAction');
+	currentEditAction.value = null;
+	actionInfo.value = null;
+	actionEditorVisible.value = true;
 };
 
 const handleExport = async () => {
@@ -383,8 +377,32 @@ const handleSelectionChange = (selection: any[]) => {
 	selectedActions.value = selection;
 };
 
-const handleEdit = (row: ActionDefinition) => {
-	router.push(`/onboard/actionDetail/${row.id}`);
+const handleEdit = async (row: ActionDefinition) => {
+	currentEditAction.value = row;
+	actionEditorVisible.value = true;
+
+	// 获取 action 详情
+	if (!row.id) {
+		ElMessage.error('Action ID is missing');
+		return;
+	}
+
+	try {
+		editActionLoading.value = true;
+		const actionDetailRes = await getActionDetail(row.id);
+		if (actionDetailRes.code === '200' && actionDetailRes?.data) {
+			actionInfo.value = {
+				...actionDetailRes?.data,
+				actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
+				type: actionDetailRes?.data?.actionType === 1 ? 'python' : 'http',
+			};
+		}
+	} catch (error) {
+		console.error('Failed to load action details:', error);
+		ElMessage.warning('Failed to load action details');
+	} finally {
+		editActionLoading.value = false;
+	}
 };
 
 const handleDelete = async (row: ActionDefinition) => {
@@ -434,6 +452,23 @@ const handleCurrentChange = async (page: number) => {
 
 const handleLimitUpdate = async () => {
 	await loadActionsList();
+};
+
+// Action 保存成功回调
+const onActionSave = async (actionResult) => {
+	if (actionResult.id) {
+		ElMessage.success(t('sys.api.operationSuccess'));
+		// 重新加载列表数据
+		await loadActionsList();
+	}
+	onActionCancel();
+};
+
+// 取消 Action 编辑
+const onActionCancel = () => {
+	actionEditorVisible.value = false;
+	actionInfo.value = null;
+	currentEditAction.value = null;
 };
 
 // Load Actions list from API

@@ -150,6 +150,17 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public DateTimeOffset? CurrentStageStartTime { get; set; }
 
         /// <summary>
+        /// 当前Stage预计结束时间 (基于开始时间 + 预计天数计算) - UTC时间
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public DateTimeOffset? CurrentStageEndTime { get; set; }
+
+        /// <summary>
+        /// 当前Stage预计完成天数
+        /// </summary>
+        public decimal? CurrentStageEstimatedDays { get; set; }
+
+        /// <summary>
         /// Timeline天数
         /// </summary>
         public int TimelineDays { get; set; }

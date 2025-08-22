@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Domain.Entities.OW
 {
@@ -119,6 +120,12 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [JsonIgnore]
         public bool VisibleInPortal { get; set; } = true;
+
+        /// <summary>
+        /// Portal Permission (from Stage entity) - Not stored in JSON
+        /// </summary>
+        [JsonIgnore]
+        public PortalPermissionEnum? PortalPermission { get; set; }
 
         /// <summary>
         /// Attachment Management Needed (from Stage entity) - Not stored in JSON

@@ -28,6 +28,7 @@ export interface QuestionWithJumpRules {
 	description?: string;
 	options: Array<{
 		id: string;
+		temporaryId: string;
 		value: string;
 		label: string;
 		isOther: boolean;
@@ -63,6 +64,10 @@ export interface QuestionnaireSection {
 		isOther: boolean;
 		label: string;
 		value: string;
+		action?: {
+			id: string;
+			name: string;
+		};
 	}[];
 	question: string;
 	requireOneResponsePerRow?: boolean;

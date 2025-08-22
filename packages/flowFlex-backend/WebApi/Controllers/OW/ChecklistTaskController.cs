@@ -161,6 +161,17 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Set structured assignee information for task (configuration stage)
+        /// </summary>
+        [HttpPost("{id}/set-assignee")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SetTaskAssignee(long id, [FromBody] AssigneeDto assignee)
+        {
+            var result = await _checklistTaskService.SetTaskAssigneeAsync(id, assignee);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Get pending tasks by assignee
         /// </summary>
         [HttpGet("assignee/{assigneeId}/pending")]
