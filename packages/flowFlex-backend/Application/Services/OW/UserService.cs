@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -88,7 +90,7 @@ namespace FlowFlex.Application.Services.OW
                     existingUser.PasswordHash = BC.HashPassword(request.Password);
                     existingUser.EmailVerified = true;
                     existingUser.Status = "active";
-                    existingUser.ModifyDate = DateTimeOffset.Now;
+            existingUser.ModifyDate = DateTimeOffset.UtcNow;
                     existingUser.ModifyBy = request.Email;
 
                     await _userRepository.UpdateAsync(existingUser);
@@ -127,13 +129,13 @@ namespace FlowFlex.Application.Services.OW
                         existingUser.EmailVerificationCode == request.VerificationCode)
                     {
                         // Verify if verification code has not expired
-                        if (existingUser.VerificationCodeExpiry >= DateTimeOffset.Now)
+            if (existingUser.VerificationCodeExpiry >= DateTimeOffset.UtcNow)
                         {
                             _logger.LogInformation("Allowing password reset for verified user with valid verification code: {Email}", request.Email);
                             
                             // Update password for existing verified user
                             existingUser.PasswordHash = BC.HashPassword(request.Password);
-                            existingUser.ModifyDate = DateTimeOffset.Now;
+            existingUser.ModifyDate = DateTimeOffset.UtcNow;
                             existingUser.ModifyBy = request.Email;
                             // Clear verification code after use
                             existingUser.EmailVerificationCode = null;
@@ -177,7 +179,7 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                     // Verify if verification code has expired
-                    if (existingUser.VerificationCodeExpiry < DateTimeOffset.Now)
+            if (existingUser.VerificationCodeExpiry < DateTimeOffset.UtcNow)
                     {
                         throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
                     }
@@ -187,7 +189,7 @@ namespace FlowFlex.Application.Services.OW
                     existingUser.PasswordHash = BC.HashPassword(request.Password);
                     existingUser.EmailVerified = true;
                     existingUser.Status = "active";
-                    existingUser.ModifyDate = DateTimeOffset.Now;
+            existingUser.ModifyDate = DateTimeOffset.UtcNow;
                     existingUser.ModifyBy = request.Email;
 
                     await _userRepository.UpdateAsync(existingUser);
@@ -265,7 +267,7 @@ namespace FlowFlex.Application.Services.OW
                     EmailVerified = false,
                     Status = "pending", // Pending verification status
                     EmailVerificationCode = verificationCode,
-                    VerificationCodeExpiry = DateTimeOffset.Now.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
+            VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
                     TenantId = "DEFAULT" // Set default tenant ID
                 };
 
@@ -279,7 +281,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Update existing user's verification code
                 user.EmailVerificationCode = verificationCode;
-                user.VerificationCodeExpiry = DateTimeOffset.Now.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes);
+            user.VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes);
                 user.InitUpdateInfo(null);
                 await _userRepository.UpdateAsync(user);
             }
@@ -315,7 +317,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Verify if verification code has expired
-            if (user.VerificationCodeExpiry < DateTimeOffset.Now)
+            if (user.VerificationCodeExpiry < DateTimeOffset.UtcNow)
             {
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
             }
@@ -417,7 +419,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Verify if verification code has expired
-            if (user.VerificationCodeExpiry < DateTimeOffset.Now)
+            if (user.VerificationCodeExpiry < DateTimeOffset.UtcNow)
             {
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
             }
@@ -438,7 +440,7 @@ namespace FlowFlex.Application.Services.OW
             // Clear verification code (one-time use)
             user.EmailVerificationCode = null;
             user.VerificationCodeExpiry = null;
-            user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
             user.ModifyBy = request.Email;
             await _userRepository.UpdateAsync(user);
 
@@ -538,7 +540,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Update user password
             user.PasswordHash = passwordHash;
-            user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
             user.ModifyBy = user.Email;
             await _userRepository.UpdateAsync(user);
 
@@ -768,11 +770,11 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // User exists in the specific tenant, update login information
                     user = existingUser;
-                    user.LastLoginDate = DateTimeOffset.Now;
+            user.LastLoginDate = DateTimeOffset.UtcNow;
                     user.Status = "active"; // Ensure user is active
                     user.EmailVerified = true; // Trust third-party verification
 
-                    user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
                     user.ModifyBy = email;
                     await _userRepository.UpdateAsync(user);
 
@@ -786,10 +788,10 @@ namespace FlowFlex.Application.Services.OW
                     user = existingUserAcrossTenants;
                     
                     // Update login information but keep the original tenant as primary
-                    user.LastLoginDate = DateTimeOffset.Now;
+            user.LastLoginDate = DateTimeOffset.UtcNow;
                     user.Status = "active";
                     user.EmailVerified = true;
-                    user.ModifyDate = DateTimeOffset.Now;
+            user.ModifyDate = DateTimeOffset.UtcNow;
                     user.ModifyBy = email;
                     await _userRepository.UpdateAsync(user);
 
@@ -810,7 +812,7 @@ namespace FlowFlex.Application.Services.OW
                         EmailVerified = true, // Trust third-party verification
                         Status = "active",
                         TenantId = request.TenantId,
-                        LastLoginDate = DateTimeOffset.Now,
+            LastLoginDate = DateTimeOffset.UtcNow,
                         AppCode = request.AppCode // Set AppCode from request
                     };
 
@@ -906,6 +908,382 @@ namespace FlowFlex.Application.Services.OW
                 // For unknown exceptions, provide a generic message but preserve the original for logging
                 throw new CRMException(HttpStatusCode.OK, 
                     "Third-party login failed. Please try again or contact administrator if the problem persists.");
+            }
+        }
+
+        /// <summary>
+        /// Get User List with Pagination and Search
+        /// </summary>
+        /// <param name="request">User list request</param>
+        /// <returns>User list response</returns>
+        public async Task<UserListResponseDto> GetUserListAsync(UserListRequestDto request)
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation("GetUserListAsync called with PageIndex: {PageIndex}, PageSize: {PageSize}, SearchText: {SearchText}, TenantId: {TenantId}, AppCode: {AppCode}", 
+                request.PageIndex, request.PageSize, request.SearchText, currentTenantId, currentAppCode);
+
+            // Validate and set default pagination parameters
+            var pageIndex = Math.Max(1, request.PageIndex);
+            var pageSize = Math.Max(1, Math.Min(100, request.PageSize));
+
+            try
+            {
+                // Get paginated users from repository
+                var (users, totalCount) = await _userRepository.GetPagedAsync(
+                    pageIndex,
+                    pageSize,
+                    request.SearchText,
+                    request.Email,
+                    request.Username,
+                    request.Team,
+                    request.Status,
+                    request.EmailVerified,
+                    request.SortField,
+                    request.SortDirection);
+
+                // Check and assign teams for users without team
+                await EnsureUsersHaveTeams(users);
+
+                // Map to DTOs
+                var userDtos = _mapper.Map<List<UserDto>>(users);
+
+                // Create response
+                var response = new UserListResponseDto
+                {
+                    Users = userDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+
+                _logger.LogInformation("GetUserListAsync completed successfully. Total users: {TotalCount}, Page: {PageIndex}/{TotalPages}", 
+                    totalCount, pageIndex, response.TotalPages);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting user list");
+                throw new CRMException(HttpStatusCode.InternalServerError, 
+                    "An error occurred while retrieving the user list. Please try again.");
+            }
+        }
+
+        /// <summary>
+        /// Assign Random Teams to Users Without Team
+        /// </summary>
+        /// <returns>Number of users assigned teams</returns>
+        public async Task<int> AssignRandomTeamsToUsersAsync()
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation("AssignRandomTeamsToUsersAsync called with TenantId: {TenantId}, AppCode: {AppCode}", 
+                currentTenantId, currentAppCode);
+
+            // Available teams
+            var availableTeams = new List<string>
+            {
+                "Sales",
+                "Account Management",
+                "IT",
+                "Legal",
+                "Operations",
+                "Finance",
+                "Customer",
+                "CSR",
+                "Implementation",
+                "WISE Support",
+                "Billing"
+            };
+
+            try
+            {
+                // Get users without team
+                var usersWithoutTeam = await _userRepository.GetUsersWithoutTeamAsync();
+
+                if (!usersWithoutTeam.Any())
+                {
+                    _logger.LogInformation("No users found without team assignment");
+                    return 0;
+                }
+
+                var random = new Random();
+                var assignedCount = 0;
+
+                foreach (var user in usersWithoutTeam)
+                {
+                    // Randomly select a team
+                    var randomTeam = availableTeams[random.Next(availableTeams.Count)];
+
+                    // Update user team
+                    var success = await _userRepository.UpdateUserTeamAsync(user.Id, randomTeam);
+
+                    if (success)
+                    {
+                        assignedCount++;
+                        _logger.LogInformation("Assigned team '{Team}' to user {UserId} ({Email})", 
+                            randomTeam, user.Id, user.Email);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to assign team to user {UserId} ({Email})", 
+                            user.Id, user.Email);
+                    }
+                }
+
+                _logger.LogInformation("AssignRandomTeamsToUsersAsync completed. Assigned teams to {AssignedCount} users", assignedCount);
+                return assignedCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while assigning teams to users");
+                throw new CRMException(HttpStatusCode.InternalServerError, 
+                    "An error occurred while assigning teams. Please try again.");
+            }
+        }
+
+        /// <summary>
+        /// Get current tenant ID from HTTP context
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.TenantId;
+            }
+
+            // Fallback to headers
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault()
+                        ?? httpContext.Request.Headers["TenantId"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// Get current app code from HTTP context
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.AppCode;
+            }
+
+            // Fallback to headers
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault()
+                       ?? httpContext.Request.Headers["AppCode"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// Ensure users have teams assigned, randomly assign if missing
+        /// </summary>
+        /// <param name="users">List of users to check</param>
+        private async Task EnsureUsersHaveTeams(List<User> users)
+        {
+            // Available teams
+            var availableTeams = new List<string>
+            {
+                "Sales",
+                "Account Management",
+                "IT",
+                "Legal",
+                "Operations",
+                "Finance",
+                "Customer",
+                "CSR",
+                "Implementation",
+                "WISE Support",
+                "Billing"
+            };
+
+            var usersWithoutTeam = users.Where(u => string.IsNullOrEmpty(u.Team)).ToList();
+            
+            if (!usersWithoutTeam.Any())
+            {
+                return; // All users already have teams
+            }
+
+            var random = new Random();
+            var assignedCount = 0;
+
+            foreach (var user in usersWithoutTeam)
+            {
+                try
+                {
+                    // Randomly select a team
+                    var randomTeam = availableTeams[random.Next(availableTeams.Count)];
+
+                    // Update user team in database
+                    var success = await _userRepository.UpdateUserTeamAsync(user.Id, randomTeam);
+
+                    if (success)
+                    {
+                        // Update the user object in memory for current response
+                        user.Team = randomTeam;
+                        assignedCount++;
+                        
+                        _logger.LogInformation("Auto-assigned team '{Team}' to user {UserId} ({Email}) during list query", 
+                            randomTeam, user.Id, user.Email);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to auto-assign team to user {UserId} ({Email}) during list query", 
+                            user.Id, user.Email);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error auto-assigning team to user {UserId} ({Email})", 
+                        user.Id, user.Email);
+                }
+            }
+
+            if (assignedCount > 0)
+            {
+                _logger.LogInformation("Auto-assigned teams to {AssignedCount} users during list query", assignedCount);
+            }
+        }
+
+        /// <summary>
+        /// Get User Tree Structure grouped by teams
+        /// </summary>
+        /// <returns>Tree structure with teams and users</returns>
+        public async Task<List<UserTreeNodeDto>> GetUserTreeAsync()
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation("GetUserTreeAsync called with TenantId: {TenantId}, AppCode: {AppCode}", 
+                currentTenantId, currentAppCode);
+
+            try
+            {
+                // Get all users (without pagination for tree structure)
+                var (users, _) = await _userRepository.GetPagedAsync(1, int.MaxValue);
+
+                // Ensure all users have teams
+                await EnsureUsersHaveTeams(users);
+
+                // Available teams
+                var availableTeams = new List<string>
+                {
+                    "Sales",
+                    "Account Management", 
+                    "IT",
+                    "Legal",
+                    "Operations",
+                    "Finance",
+                    "Customer",
+                    "CSR",
+                    "Implementation",
+                    "WISE Support",
+                    "Billing"
+                };
+
+                var treeNodes = new List<UserTreeNodeDto>();
+
+                // Group users by team
+                var usersByTeam = users.GroupBy(u => u.Team ?? "Unassigned").ToLookup(g => g.Key, g => g.ToList());
+
+                // Create tree structure for each team
+                foreach (var teamName in availableTeams)
+                {
+                    var teamUsers = usersByTeam[teamName].FirstOrDefault() ?? new List<User>();
+                    
+                    var teamNode = new UserTreeNodeDto
+                    {
+                        Id = teamName,
+                        Name = teamName,
+                        Type = "team",
+                        MemberCount = teamUsers.Count,
+                        Children = new List<UserTreeNodeDto>()
+                    };
+
+                    // Add user nodes under each team
+                    foreach (var user in teamUsers)
+                    {
+                        var userNode = new UserTreeNodeDto
+                        {
+                            Id = user.Id.ToString(),
+                            Name = user.Username ?? user.Email,
+                            Type = "user",
+                            UserDetails = _mapper.Map<UserDto>(user),
+                            Children = new List<UserTreeNodeDto>()
+                        };
+
+                        teamNode.Children.Add(userNode);
+                    }
+
+                    treeNodes.Add(teamNode);
+                }
+
+                // Handle users without assigned teams (should be rare due to auto-assignment)
+                var unassignedUsers = usersByTeam["Unassigned"].FirstOrDefault() ?? new List<User>();
+                if (unassignedUsers.Any())
+                {
+                    var unassignedNode = new UserTreeNodeDto
+                    {
+                        Id = "Unassigned",
+                        Name = "Unassigned",
+                        Type = "team",
+                        MemberCount = unassignedUsers.Count,
+                        Children = new List<UserTreeNodeDto>()
+                    };
+
+                    foreach (var user in unassignedUsers)
+                    {
+                        var userNode = new UserTreeNodeDto
+                        {
+                            Id = user.Id.ToString(),
+                            Name = user.Username ?? user.Email,
+                            Type = "user",
+                            UserDetails = _mapper.Map<UserDto>(user),
+                            Children = new List<UserTreeNodeDto>()
+                        };
+
+                        unassignedNode.Children.Add(userNode);
+                    }
+
+                    treeNodes.Add(unassignedNode);
+                }
+
+                _logger.LogInformation("GetUserTreeAsync completed successfully. Total teams: {TeamCount}, Total users: {UserCount}", 
+                    treeNodes.Count, users.Count);
+
+                return treeNodes;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting user tree structure");
+                throw new CRMException(HttpStatusCode.InternalServerError, 
+                    "An error occurred while retrieving the user tree structure. Please try again.");
             }
         }
     }

@@ -204,7 +204,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         var checklist = await _checklistRepository.GetByIdAsync(task.ChecklistId);
 
         task.IsCompleted = true;
-        task.CompletedDate = input.CompletedDate ?? DateTimeOffset.Now;
+            task.CompletedDate = input.CompletedDate ?? DateTimeOffset.UtcNow;
         task.CompletionNotes = input.CompletionNotes;
         task.ActualHours = input.ActualHours;
         task.Status = "Completed";
@@ -221,7 +221,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                 task.Id,
                 task.Name,
                 0, // Onboarding ID from context - future enhancement
-                checklist?.Assignments?.FirstOrDefault()?.StageId,
+                null, // StageId - assignments are now managed through Stage Components
                 input.CompletionNotes,
                 input.ActualHours
             );
@@ -280,7 +280,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                 task.Id,
                 task.Name,
                 0, // Onboarding ID from context - future enhancement
-                checklist?.Assignments?.FirstOrDefault()?.StageId,
+                null, // StageId - assignments are now managed through Stage Components
                 "Task marked as uncompleted"
             );
         }
@@ -347,7 +347,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                     task.Id,
                     task.Name,
                     0, // Onboarding ID from context - future enhancement
-                    checklist?.Assignments?.FirstOrDefault()?.StageId,
+                    null, // StageId - assignments are now managed through Stage Components
                     input.CompletionNotes,
                     input.ActualHours
                 );
@@ -404,7 +404,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         task.AssigneeId = assigneeId;
         task.AssigneeName = assigneeName;
-        task.ModifyDate = DateTimeOffset.Now;
+            task.ModifyDate = DateTimeOffset.UtcNow;
 
         return await _checklistTaskRepository.UpdateAsync(task);
     }

@@ -69,14 +69,16 @@ namespace FlowFlex.WebApi.Controllers.OW
             long onboardingId,
             [FromQuery] long? stageId = null,
             [FromQuery] int pageIndex = 1,
-            [FromQuery] int pageSize = 20)
+            [FromQuery] int pageSize = 20,
+            [FromQuery] bool includeActionExecutions = true)
         {
             var result = await _operationChangeLogService.GetOperationLogsAsync(
                 onboardingId,
                 stageId,
                 null,
                 pageIndex,
-                pageSize
+                pageSize,
+                includeActionExecutions
             );
 
             return Success(result);

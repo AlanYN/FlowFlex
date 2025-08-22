@@ -188,3 +188,10 @@ export const moduleType = [
 		value: 'Operationlog',
 	},
 ];
+
+export enum TriggerTypeEnum {
+	Stage = 1,
+	Task = 2,
+	Questionnaire = 3,
+	Workflow = 4,
+}

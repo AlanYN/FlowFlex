@@ -7,6 +7,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AIFileAnalyzer: typeof import('./src/components/ai/AIFileAnalyzer.vue')['default']
     AIModelConfigManager: typeof import('./src/components/ai/AIModelConfigManager.vue')['default']
     AIWorkflowGenerator: typeof import('./src/components/ai/AIWorkflowGenerator.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

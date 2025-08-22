@@ -20,7 +20,10 @@
 								<span class="option-item-number">{{ index + 1 }}.</span>
 
 								<!-- 选项标签显示/编辑 -->
-								<div v-if="!editingOptions[option.id]" class="option-content">
+								<div
+									v-if="!editingOptions[option.temporaryId]"
+									class="option-content"
+								>
 									<span class="option-label-text">
 										{{ option.label }}
 										<el-tag
@@ -35,19 +38,19 @@
 								</div>
 								<el-input
 									v-else
-									:model-value="editingOptions[option.id]"
+									:model-value="editingOptions[option.temporaryId]"
 									class="option-edit-input"
-									@input="updateEditingOption(option.id, $event)"
-									@keyup.enter="saveOptionEdit(option.id)"
-									@blur="saveOptionEdit(option.id)"
+									@input="updateEditingOption(option.temporaryId, $event)"
+									@keyup.enter="saveOptionEdit(option.temporaryId)"
+									@blur="saveOptionEdit(option.temporaryId)"
 								/>
 
 								<el-button
-									v-if="!editingOptions[option.id] && !option.isOther"
+									v-if="!editingOptions[option.temporaryId] && !option.isOther"
 									type="primary"
 									link
 									size="small"
-									@click="startOptionEdit(option.id, option.label)"
+									@click="startOptionEdit(option.temporaryId, option.label)"
 									class="option-edit-btn"
 									:icon="Edit"
 								/>
@@ -58,7 +61,7 @@
 									type="danger"
 									link
 									size="small"
-									@click="removeOption(option.id)"
+									@click="removeOption(option.temporaryId)"
 									:icon="Delete"
 									class="delete-option-btn"
 								/>
@@ -109,7 +112,8 @@ import { computed, ref } from 'vue';
 import { Delete, Plus, Edit } from '@element-plus/icons-vue';
 
 interface Option {
-	id: string;
+	id?: string;
+	temporaryId: string;
 	value: string;
 	label: string;
 	isOther?: boolean;

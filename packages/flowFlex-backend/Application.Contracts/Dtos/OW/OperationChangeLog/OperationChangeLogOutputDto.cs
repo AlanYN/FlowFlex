@@ -137,6 +137,26 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog
         /// 修改时间
         /// </summary>
         public DateTimeOffset ModifyDate { get; set; }
+
+        /// <summary>
+        /// 创建人
+        /// </summary>
+        public string CreateBy { get; set; }
+
+        /// <summary>
+        /// 修改人
+        /// </summary>
+        public string ModifyBy { get; set; }
+
+        /// <summary>
+        /// 创建用户ID
+        /// </summary>
+        public long CreateUserId { get; set; }
+
+        /// <summary>
+        /// 修改用户ID
+        /// </summary>
+        public long ModifyUserId { get; set; }
     }
 
     /// <summary>

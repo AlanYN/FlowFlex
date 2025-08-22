@@ -12,6 +12,7 @@ using System.Text.Json;
 using System.Linq;
 using FlowFlex.SqlSugarDB.Extensions;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -29,6 +30,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ISqlSugarClient _sqlSugarClient;
         private readonly UserContext _userContext;
+        private readonly IOperatorContextService _operatorContextService;
 
         public QuestionnaireAnswerService(
             IQuestionnaireAnswerRepository repository,
@@ -39,7 +41,8 @@ namespace FlowFlex.Application.Services.OW
             IMapper mapper,
             IHttpContextAccessor httpContextAccessor,
             ISqlSugarClient sqlSugarClient,
-            UserContext userContext)
+            UserContext userContext,
+            IOperatorContextService operatorContextService)
         {
             _repository = repository;
     
@@ -50,6 +53,7 @@ namespace FlowFlex.Application.Services.OW
             _httpContextAccessor = httpContextAccessor;
             _sqlSugarClient = sqlSugarClient;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
         }
 
         /// <summary>
@@ -57,7 +61,46 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string GetCurrentUserName()
         {
-            return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+            // Priority 1: UserContext
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
+            {
+                return _userContext.UserName;
+            }
+
+            var httpContext = _httpContextAccessor?.HttpContext;
+            // Priority 2: Custom headers (fallback from gateway/frontend)
+            var headerName = httpContext?.Request?.Headers["X-User-Name"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerName))
+            {
+                return headerName;
+            }
+
+            // Priority 3: Claims from authenticated principal
+            var user = httpContext?.User;
+            if (user != null)
+            {
+                string[] claimTypes = new[]
+                {
+                    System.Security.Claims.ClaimTypes.Name,
+                    "name",
+                    "preferred_username",
+                    System.Security.Claims.ClaimTypes.Email,
+                    "email",
+                    "upn",
+                    System.Security.Claims.ClaimTypes.GivenName
+                };
+                foreach (var ct in claimTypes)
+                {
+                    var v = user.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(v))
+                    {
+                        return v;
+                    }
+                }
+            }
+
+            // Final fallback
+            return "System";
         }
 
         /// <summary>
@@ -122,7 +165,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 bool isUpdate = existingAnswer != null;
-                string oldAnswerJson = existingAnswer?.AnswerJson;
+                string oldAnswerJson = existingAnswer?.Answer?.ToString(Newtonsoft.Json.Formatting.None);
 
                 // Format and validate answer JSON
                 var formattedJson = string.IsNullOrWhiteSpace(input.AnswerJson) ? "{}" : input.AnswerJson.Trim();
@@ -134,7 +177,7 @@ namespace FlowFlex.Application.Services.OW
                     var updatedAnswerJson = await ProcessAnswerChangesAsync(oldAnswerJson, formattedJson);
 
                     // Update existing answer
-                    existingAnswer.AnswerJson = updatedAnswerJson;
+                    existingAnswer.Answer = string.IsNullOrWhiteSpace(updatedAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(updatedAnswerJson);
                     existingAnswer.Status = input.Status ?? "Draft";
                     existingAnswer.CompletionRate = (int)Math.Round(input.CompletionRate ?? 0);
                     existingAnswer.CurrentSectionIndex = input.CurrentSectionIndex ?? existingAnswer.CurrentSectionIndex;
@@ -142,7 +185,7 @@ namespace FlowFlex.Application.Services.OW
 
                     if (input.Status == "Submitted")
                     {
-                        existingAnswer.SubmitTime = DateTimeOffset.Now;
+                        existingAnswer.SubmitTime = DateTimeOffset.UtcNow;
                     }
 
                     var updateResult = await _repository.UpdateAsync(existingAnswer);
@@ -175,11 +218,11 @@ namespace FlowFlex.Application.Services.OW
                         OnboardingId = input.OnboardingId,
                         StageId = input.StageId,
                         QuestionnaireId = input.QuestionnaireId,
-                        AnswerJson = processedAnswerJson,
+                        Answer = string.IsNullOrWhiteSpace(processedAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(processedAnswerJson),
                         Status = input.Status ?? "Draft",
                         CompletionRate = (int)Math.Round(input.CompletionRate ?? 0),
                         CurrentSectionIndex = input.CurrentSectionIndex ?? 0,
-                        SubmitTime = input.Status == "Submitted" ? DateTimeOffset.Now : null,
+                        SubmitTime = input.Status == "Submitted" ? DateTimeOffset.UtcNow : null,
                         Version = await GetNextVersionAsync(input.OnboardingId, input.StageId),
                         IsLatest = true,
                         Source = "customer_portal",
@@ -189,6 +232,7 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with proper ID and timestamps
                     entity.InitCreateInfo(_userContext);
+                    AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
                     // Debug logging handled by structured logging ?? "NULL"}");
 
                     // Use SqlSugar ORM insert
@@ -318,7 +362,7 @@ namespace FlowFlex.Application.Services.OW
                 var existing = await _repository.GetByIdAsync(answerId);
                 if (existing == null) return false;
 
-                var oldAnswerJson = existing.AnswerJson;
+                var oldAnswerJson = existing.Answer?.ToString(Newtonsoft.Json.Formatting.None);
                 var newAnswerJson = input.AnswerJson;
 
                 // If there are important updates, create new version
@@ -327,7 +371,7 @@ namespace FlowFlex.Application.Services.OW
                     // Create new version
                     var newEntity = _mapper.Map<QuestionnaireAnswer>(existing);
                     newEntity.Id = 0; // Reset ID to create new record
-                    newEntity.AnswerJson = newAnswerJson;
+                    newEntity.Answer = string.IsNullOrWhiteSpace(newAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(newAnswerJson);
                     newEntity.Status = input.Status ?? existing.Status;
                     newEntity.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
                     newEntity.InitCreateInfo(_userContext);
@@ -343,7 +387,7 @@ namespace FlowFlex.Application.Services.OW
                 else
                 {
                     // Update existing version
-                    existing.AnswerJson = newAnswerJson;
+                    existing.Answer = string.IsNullOrWhiteSpace(newAnswerJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(newAnswerJson);
                     existing.Status = input.Status ?? existing.Status;
                     existing.CompletionRate = input.CompletionRate.HasValue ? (int)Math.Round(input.CompletionRate.Value) : existing.CompletionRate;
                     existing.CurrentSectionIndex = input.CurrentSectionIndex ?? existing.CurrentSectionIndex;
@@ -401,8 +445,8 @@ namespace FlowFlex.Application.Services.OW
                 var oldSubmitTime = answer.SubmitTime;
 
                 answer.Status = "Submitted";
-                answer.SubmitTime = DateTimeOffset.Now;
-                answer.ModifyDate = DateTimeOffset.Now;
+                answer.SubmitTime = DateTimeOffset.UtcNow;
+                answer.ModifyDate = DateTimeOffset.UtcNow;
 
                 var result = await _repository.UpdateAsync(answer);
 
@@ -479,7 +523,9 @@ namespace FlowFlex.Application.Services.OW
         private static bool ShouldCreateNewVersion(QuestionnaireAnswer existing, QuestionnaireAnswerUpdateDto input)
         {
             // If answer content changes, create new version
-            return existing.AnswerJson != input.AnswerJson;
+            var existingStr = existing.Answer?.ToString(Newtonsoft.Json.Formatting.None) ?? string.Empty;
+            var incomingStr = input.AnswerJson ?? string.Empty;
+            return existingStr != incomingStr;
         }
 
         private string GetClientIpAddress()
@@ -603,7 +649,7 @@ namespace FlowFlex.Application.Services.OW
                 var oldAnswerData = JsonSerializer.Deserialize<JsonElement>(oldAnswerJson);
                 var newAnswerData = JsonSerializer.Deserialize<JsonElement>(newAnswerJson);
 
-                // Get current user info and time
+                // Get current user info and time (UTC only)
                 string currentUser = GetCurrentUserName();
                 DateTimeOffset currentTime = DateTimeOffset.UtcNow;
 
@@ -891,7 +937,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Add change history to response object
         /// </summary>
-        private void AddChangeHistory(Dictionary<string, object> responseObj, string user, DateTimeOffset time, string action)
+        private void AddChangeHistory(Dictionary<string, object> responseObj, string user, DateTimeOffset timeUtc, string action)
         {
             try
             {
@@ -900,8 +946,9 @@ namespace FlowFlex.Application.Services.OW
                 {
                     action = action, // "created", "modified"
                     user = user,
-                    timestamp = time.ToString("MM/dd/yyyy HH:mm:ss.fff"),
-                    timestampUtc = time.UtcDateTime
+                    // 保留原字段但以UTC标准存储，timestamp 使用 ISO 8601 且为 UTC
+                    timestamp = timeUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    timestampUtc = timeUtc.UtcDateTime
                 };
 
                 // 获取现有的变更历�?
@@ -928,7 +975,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // 添加最后修改信息（用于快速访问）
                 responseObj["lastModifiedBy"] = user;
-                responseObj["lastModifiedAt"] = time.ToString("MM/dd/yyyy HH:mm:ss.fff");
+                responseObj["lastModifiedAt"] = timeUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
             }
             catch (Exception ex)
             {

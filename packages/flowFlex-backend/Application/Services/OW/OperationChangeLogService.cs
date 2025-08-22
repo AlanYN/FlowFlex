@@ -13,6 +13,10 @@ using System.ComponentModel;
 using System.Reflection;
 using SqlSugar;
 using FlowFlex.Application.Services.OW.Extensions;
+using System.Security.Claims;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -22,6 +26,7 @@ namespace FlowFlex.Application.Services.OW
     public class OperationChangeLogService : IOperationChangeLogService, IScopedService
     {
         private readonly IOperationChangeLogRepository _operationChangeLogRepository;
+        private readonly IActionExecutionService _actionExecutionService;
         private readonly ILogger<OperationChangeLogService> _logger;
         private readonly UserContext _userContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -29,12 +34,14 @@ namespace FlowFlex.Application.Services.OW
 
         public OperationChangeLogService(
             IOperationChangeLogRepository operationChangeLogRepository,
+            IActionExecutionService actionExecutionService,
             ILogger<OperationChangeLogService> logger,
             UserContext userContext,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper)
         {
             _operationChangeLogRepository = operationChangeLogRepository;
+            _actionExecutionService = actionExecutionService;
             _logger = logger;
             _userContext = userContext;
             _httpContextAccessor = httpContextAccessor;
@@ -49,7 +56,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 string operationTitle = $"Checklist Task Completed: {taskName}";
-                string operationDescription = $"Task '{taskName}' has been marked as completed by {_userContext.UserName}";
+                string operationDescription = $"Task '{taskName}' has been marked as completed by {GetOperatorDisplayName()}";
 
                 if (!string.IsNullOrEmpty(completionNotes))
                 {
@@ -67,7 +74,7 @@ namespace FlowFlex.Application.Services.OW
                     TaskName = taskName,
                     CompletionNotes = completionNotes,
                     ActualHours = actualHours,
-                    CompletedAt = DateTimeOffset.Now
+            CompletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -96,7 +103,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 string operationTitle = $"Checklist Task Uncompleted: {taskName}";
-                string operationDescription = $"Task '{taskName}' has been marked as uncompleted by {_userContext.UserName}";
+                string operationDescription = $"Task '{taskName}' has been marked as uncompleted by {GetOperatorDisplayName()}";
 
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -108,7 +115,7 @@ namespace FlowFlex.Application.Services.OW
                     TaskId = taskId,
                     TaskName = taskName,
                     Reason = reason,
-                    UncompletedAt = DateTimeOffset.Now
+            UncompletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -146,7 +153,7 @@ namespace FlowFlex.Application.Services.OW
 
                 string operationType = isUpdate ? "Updated" : "Submitted";
                 string operationTitle = $"Questionnaire Answer {operationType}";
-                string operationDescription = $"Questionnaire answer has been {operationType.ToLower()} by {_userContext.UserName}";
+                string operationDescription = $"Questionnaire answer has been {operationType.ToLower()} by {GetOperatorDisplayName()}";
 
                 if (questionnaireId.HasValue)
                 {
@@ -174,7 +181,7 @@ namespace FlowFlex.Application.Services.OW
                     AnswerId = answerId,
                     QuestionnaireId = questionnaireId,
                     IsUpdate = isUpdate,
-                    SubmittedAt = DateTimeOffset.Now,
+            SubmittedAt = DateTimeOffset.UtcNow,
                     ChangedFieldsCount = changedFields.Count
                 });
 
@@ -246,7 +253,7 @@ namespace FlowFlex.Application.Services.OW
                     FieldLabel = fieldLabel,
                     DisplayFieldName = displayFieldName,
                     ChangedFieldsCount = changedFields?.Count ?? 0,
-                    ChangedAt = DateTimeOffset.Now
+            ChangedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -282,7 +289,7 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogInformation($"📝 [Log Step 2] Preparing operation title and description...");
                 // Debug logging handled by structured logging
                 string operationTitle = $"File Uploaded: {fileName}";
-                string operationDescription = $"File '{fileName}' has been uploaded successfully by {_userContext.UserName}";
+                string operationDescription = $"File '{fileName}' has been uploaded successfully by {GetOperatorDisplayName()}";
 
                 _logger.LogInformation($"📝 [Log Step 3] Serializing extended data...");
                 // Debug logging handled by structured logging
@@ -294,7 +301,7 @@ namespace FlowFlex.Application.Services.OW
                     FileSizeFormatted = FormatFileSize(fileSize),
                     ContentType = contentType,
                     Category = category,
-                    UploadedAt = DateTimeOffset.Now
+            UploadedAt = DateTimeOffset.UtcNow
                 });
 
                 _logger.LogInformation($"📝 [Log Step 4] Calling LogOperationAsync...");
@@ -333,7 +340,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 string operationTitle = $"File Deleted: {fileName}";
-                string operationDescription = $"File '{fileName}' has been deleted by {_userContext.UserName}";
+                string operationDescription = $"File '{fileName}' has been deleted by {GetOperatorDisplayName()}";
 
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -345,7 +352,7 @@ namespace FlowFlex.Application.Services.OW
                     FileId = fileId,
                     FileName = fileName,
                     Reason = reason,
-                    DeletedAt = DateTimeOffset.Now
+            DeletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -382,7 +389,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 string operationTitle = $"File Updated: {fileName}";
-                string operationDescription = $"File '{fileName}' has been updated by {_userContext.UserName}";
+                string operationDescription = $"File '{fileName}' has been updated by {GetOperatorDisplayName()}";
 
                 if (changedFields?.Any() == true)
                 {
@@ -394,7 +401,7 @@ namespace FlowFlex.Application.Services.OW
                     FileId = fileId,
                     FileName = fileName,
                     ChangedFieldsCount = changedFields?.Count ?? 0,
-                    UpdatedAt = DateTimeOffset.Now
+            UpdatedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -461,9 +468,9 @@ namespace FlowFlex.Application.Services.OW
                     BeforeData = !string.IsNullOrEmpty(beforeData) ? beforeData : null,
                     AfterData = !string.IsNullOrEmpty(afterData) ? afterData : null,
                     ChangedFields = changedFields != null ? JsonSerializer.Serialize(changedFields) : null,
-                    OperatorId = long.TryParse(_userContext.UserId, out long operatorId) ? operatorId : 0,
-                    OperatorName = !string.IsNullOrEmpty(_userContext.Email) ? _userContext.Email : (_userContext.UserName ?? "System"),
-                    OperationTime = DateTimeOffset.Now,
+                    OperatorId = GetOperatorId(),
+                    OperatorName = GetOperatorDisplayName(),
+            OperationTime = DateTimeOffset.UtcNow,
                     IpAddress = ipAddress,
                     UserAgent = userAgent,
                     OperationSource = operationSource,
@@ -516,10 +523,13 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// 获取操作日志列表
         /// </summary>
-        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20)
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
         {
             try
             {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs
                 List<OperationChangeLog> logs;
 
                 // 优先处理同时提供 onboardingId 和 stageId 的情况
@@ -556,19 +566,46 @@ namespace FlowFlex.Application.Services.OW
                     logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
                 }
 
-                // 分页
-                int totalCount = logs.Count;
-                var pagedLogs = logs
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Get action execution logs if requested and stageId is provided
+                if (includeActionExecutions && stageId.HasValue)
+                {
+                    try
+                    {
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            stageId.Value, 1, 1000); // Get more records for merging
+
+                        // Convert action executions to change log DTOs
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(MapActionExecutionToChangeLogDto)
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        _logger.LogInformation($"Integrated {actionExecutionDtos.Count} action executions for stageId {stageId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for stageId {StageId}, continuing without action logs", stageId);
+                        // Continue without action executions rather than failing the entire request
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
                     .Skip((pageIndex - 1) * pageSize)
                     .Take(pageSize)
                     .ToList();
 
-                // 转换为输出DTO
-                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
-
                 return new PagedResult<OperationChangeLogOutputDto>
                 {
-                    Items = outputDtos,
+                    Items = pagedLogs,
                     TotalCount = totalCount,
                     PageIndex = pageIndex,
                     PageSize = pageSize
@@ -819,6 +856,101 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Resolve operator display name from context, headers, or claims
+        /// </summary>
+        private string GetOperatorDisplayName()
+        {
+            // Prefer explicit email then username from UserContext
+            if (!string.IsNullOrWhiteSpace(_userContext?.Email))
+            {
+                return _userContext.Email;
+            }
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
+            {
+                return _userContext.UserName;
+            }
+
+            var httpContext = _httpContextAccessor?.HttpContext;
+            // Custom headers from gateway/frontend
+            var headerEmail = httpContext?.Request?.Headers["X-User-Email"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerEmail))
+            {
+                return headerEmail;
+            }
+            var headerName = httpContext?.Request?.Headers["X-User-Name"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerName))
+            {
+                return headerName;
+            }
+
+            // Claims
+            var user = httpContext?.User;
+            if (user != null)
+            {
+                string[] emailFirstClaims = new[]
+                {
+                    ClaimTypes.Email,
+                    "email",
+                    "preferred_username",
+                    ClaimTypes.Name,
+                    "name",
+                    ClaimTypes.GivenName,
+                    "upn"
+                };
+                foreach (var ct in emailFirstClaims)
+                {
+                    var value = user.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+
+            return "System";
+        }
+
+        /// <summary>
+        /// Resolve operator id from context, headers, or claims
+        /// </summary>
+        private long GetOperatorId()
+        {
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserId) && long.TryParse(_userContext.UserId, out var idFromContext))
+            {
+                return idFromContext;
+            }
+
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var headerUserId = httpContext?.Request?.Headers["X-User-Id"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(headerUserId) && long.TryParse(headerUserId, out var idFromHeader))
+            {
+                return idFromHeader;
+            }
+
+            var user = httpContext?.User;
+            if (user != null)
+            {
+                string[] idClaims = new[]
+                {
+                    ClaimTypes.NameIdentifier,
+                    "sub",
+                    "user_id",
+                    "uid"
+                };
+                foreach (var ct in idClaims)
+                {
+                    var v = user.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(v) && long.TryParse(v, out var idFromClaims))
+                    {
+                        return idFromClaims;
+                    }
+                }
+            }
+
+            return 0;
+        }
+
+        /// <summary>
         /// Check if there are actual value changes
         /// </summary>
         private bool HasMeaningfulValueChange(string beforeData, string afterData)
@@ -925,7 +1057,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string GetRelativeTimeDisplay(DateTimeOffset dateTime)
         {
-            var now = DateTimeOffset.Now;
+            var now = DateTimeOffset.UtcNow;
             var timeSpan = now - dateTime;
 
             if (timeSpan.TotalMinutes < 1)
@@ -979,6 +1111,280 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return dto;
+        }
+
+        /// <summary>
+        /// Convert ActionExecutionWithActionInfoDto to OperationChangeLogOutputDto
+        /// </summary>
+        private OperationChangeLogOutputDto MapActionExecutionToChangeLogDto(ActionExecutionWithActionInfoDto actionExecution)
+        {
+            // Calculate duration if not available
+            var duration = actionExecution.DurationMs;
+            if (!duration.HasValue && actionExecution.StartedAt.HasValue && actionExecution.CompletedAt.HasValue)
+            {
+                duration = (long)(actionExecution.CompletedAt.Value - actionExecution.StartedAt.Value).TotalMilliseconds;
+            }
+
+            // Extract action name and type, fallback to defaults if empty
+            var actionName = !string.IsNullOrEmpty(actionExecution.ActionName) 
+                ? actionExecution.ActionName 
+                : $"Action-{actionExecution.ActionCode}";
+            var actionType = !string.IsNullOrEmpty(actionExecution.ActionType) 
+                ? actionExecution.ActionType 
+                : "Python";
+
+            // Generate title and description
+            var operationTitle = $"Action Executed: {actionName}";
+            var operationDescription = GenerateActionDescription(actionExecution, actionType, duration);
+
+            // Generate operation type based on execution status
+            var operationType = GetActionExecutionOperationType(actionExecution.ExecutionStatus);
+            var operationTypeDisplayName = GetActionExecutionTypeDisplayName(actionExecution.ExecutionStatus);
+
+            // Extract context summary
+            var extendedData = GetActionContextSummary(actionExecution.TriggerContext);
+
+            return new OperationChangeLogOutputDto
+            {
+                Id = actionExecution.Id,
+                OperationType = operationType,
+                OperationTypeDisplayName = operationTypeDisplayName,
+                BusinessModule = "ActionExecution",
+                BusinessId = actionExecution.Id,
+                OperationTitle = operationTitle,
+                OperationDescription = operationDescription,
+                BeforeData = null, // Action executions don't have before/after data
+                AfterData = null,
+                ChangedFields = new List<string>(),
+                ExtendedData = extendedData,
+                OperationStatus = GetActionExecutionOperationStatus(actionExecution.ExecutionStatus),
+                OperationStatusDisplayName = GetActionExecutionStatusDisplayName(actionExecution.ExecutionStatus),
+                ErrorMessage = actionExecution.ErrorMessage,
+                OperationTime = actionExecution.StartedAt ?? actionExecution.CreatedAt,
+                OperatorName = actionExecution.CreatedBy,
+                CreateDate = actionExecution.CreatedAt,
+                ModifyDate = actionExecution.CompletedAt ?? actionExecution.CreatedAt,
+                CreateBy = actionExecution.CreatedBy,
+                ModifyBy = actionExecution.CreatedBy,
+                CreateUserId = 0, // ActionExecution doesn't have UserId fields
+                ModifyUserId = 0
+            };
+        }
+
+        /// <summary>
+        /// Generate action execution description with rich information
+        /// </summary>
+        private string GenerateActionDescription(ActionExecutionWithActionInfoDto execution, string actionType, long? duration)
+        {
+            var status = execution.ExecutionStatus?.ToLower();
+            var durationText = duration.HasValue ? $" (Duration: {duration}ms)" : "";
+
+            var description = status switch
+            {
+                "success" or "completed" => $"{actionType} action completed successfully{durationText}",
+                "failed" => $"{actionType} action failed: {GetActionErrorMessage(execution)}",
+                "running" => $"{actionType} action is currently running",
+                "pending" => $"{actionType} action is pending execution",
+                "cancelled" => $"{actionType} action was cancelled",
+                _ => $"{actionType} action status: {execution.ExecutionStatus}"
+            };
+
+            // Add output summary for successful executions
+            if ((status == "success" || status == "completed") && !string.IsNullOrEmpty(execution.ExecutionOutput))
+            {
+                try
+                {
+                    var executionOutputToken = JToken.Parse(execution.ExecutionOutput);
+                    var outputSummary = GetActionOutputSummary(executionOutputToken);
+                    if (!string.IsNullOrEmpty(outputSummary))
+                    {
+                        description += $" - {outputSummary}";
+                    }
+                }
+                catch
+                {
+                    // Ignore JSON parsing errors
+                }
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Get action execution operation type
+        /// </summary>
+        private string GetActionExecutionOperationType(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "ActionExecutionSuccess",
+                "failed" => "ActionExecutionFailed",
+                "running" => "ActionExecutionRunning",
+                "pending" => "ActionExecutionPending",
+                "cancelled" => "ActionExecutionCancelled",
+                _ => "ActionExecution"
+            };
+        }
+
+        /// <summary>
+        /// Get action execution type display name
+        /// </summary>
+        private string GetActionExecutionTypeDisplayName(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "Action Execution Success",
+                "failed" => "Action Execution Failed",
+                "running" => "Action Execution Running",
+                "pending" => "Action Execution Pending",
+                "cancelled" => "Action Execution Cancelled",
+                _ => "Action Execution"
+            };
+        }
+
+        /// <summary>
+        /// Get action execution operation status
+        /// </summary>
+        private string GetActionExecutionOperationStatus(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => OperationStatusEnum.Success.ToString(),
+                "failed" => OperationStatusEnum.Failed.ToString(),
+                "running" => OperationStatusEnum.InProgress.ToString(),
+                "pending" => OperationStatusEnum.Pending.ToString(),
+                "cancelled" => OperationStatusEnum.Cancelled.ToString(),
+                _ => OperationStatusEnum.Unknown.ToString()
+            };
+        }
+
+        /// <summary>
+        /// Get action execution status display name
+        /// </summary>
+        private string GetActionExecutionStatusDisplayName(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "Completed Successfully",
+                "failed" => "Failed",
+                "running" => "In Progress",
+                "pending" => "Pending",
+                "cancelled" => "Cancelled",
+                _ => "Unknown"
+            };
+        }
+
+        /// <summary>
+        /// Get error message from action execution
+        /// </summary>
+        private string GetActionErrorMessage(ActionExecutionWithActionInfoDto execution)
+        {
+            if (!string.IsNullOrEmpty(execution.ErrorMessage))
+                return execution.ErrorMessage;
+
+            try
+            {
+                if (!string.IsNullOrEmpty(execution.ExecutionOutput))
+                {
+                    var output = JToken.Parse(execution.ExecutionOutput);
+                    if (output.Type == JTokenType.Object)
+                    {
+                        var outputObj = output as JObject;
+                        if (outputObj?.TryGetValue("message", out var message) == true)
+                        {
+                            return message.ToString();
+                        }
+                        if (outputObj?.TryGetValue("errorDetails", out var errorDetails) == true)
+                        {
+                            return errorDetails.ToString();
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return "Unknown error";
+        }
+
+        /// <summary>
+        /// Get action output summary
+        /// </summary>
+        private string GetActionOutputSummary(Newtonsoft.Json.Linq.JToken executionOutput)
+        {
+            try
+            {
+                if (executionOutput?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                {
+                    var output = executionOutput as Newtonsoft.Json.Linq.JObject;
+                    if (output == null) return "";
+
+                    var summaryParts = new List<string>();
+
+                    // Check for stdout content
+                    if (output.TryGetValue("stdout", out var stdout) && !string.IsNullOrWhiteSpace(stdout.ToString()))
+                    {
+                        var stdoutText = stdout.ToString().Trim();
+                        if (stdoutText.Length > 50)
+                            stdoutText = stdoutText.Substring(0, 50) + "...";
+                        summaryParts.Add($"Output: {stdoutText}");
+                    }
+
+                    // Check for memory usage
+                    if (output.TryGetValue("memoryUsage", out var memory) && long.TryParse(memory.ToString(), out var memoryBytes))
+                    {
+                        var memoryKB = memoryBytes / 1024.0;
+                        summaryParts.Add($"Memory: {memoryKB:F1}KB");
+                    }
+
+                    // Check for execution status/token
+                    if (output.TryGetValue("status", out var statusToken))
+                    {
+                        summaryParts.Add($"Status: {statusToken}");
+                    }
+
+                    return string.Join(", ", summaryParts);
+                }
+            }
+            catch { }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Get action context summary
+        /// </summary>
+        private string GetActionContextSummary(Newtonsoft.Json.Linq.JToken triggerContext)
+        {
+            try
+            {
+                if (triggerContext?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                {
+                    var context = triggerContext as Newtonsoft.Json.Linq.JObject;
+                    if (context == null) return "";
+
+                    var summaryParts = new List<string>();
+
+                    // Extract key information from trigger context
+                    foreach (var prop in context.Properties())
+                    {
+                        if (prop.Name.ToLower() == "workflowid")
+                        {
+                            summaryParts.Add($"Workflow: {prop.Value}");
+                        }
+                        else if (!prop.Name.ToLower().Contains("id") && 
+                                 !prop.Name.ToLower().Contains("event") && 
+                                 !prop.Name.ToLower().Contains("source"))
+                        {
+                            summaryParts.Add($"{prop.Name}: {prop.Value}");
+                        }
+                    }
+
+                    return string.Join(", ", summaryParts);
+                }
+            }
+            catch { }
+
+            return "";
         }
 
         #endregion

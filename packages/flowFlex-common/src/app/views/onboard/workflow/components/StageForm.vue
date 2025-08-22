@@ -5,6 +5,7 @@
 			:tabs="tabsConfig"
 			class="editor-tabs"
 			content-class="editor-content"
+			@tab-change="onTabChange"
 		>
 			<TabPane value="basicInfo">
 				<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
@@ -94,6 +95,9 @@
 					@update:model-value="updateComponentsData"
 				/>
 			</TabPane>
+			<TabPane value="actions">
+				<Action ref="actionRef" :stage-id="formData.id" :workflow-id="workflowId" />
+			</TabPane>
 		</PrototypeTabs>
 
 		<div class="form-actions">
@@ -117,6 +121,7 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 import StageComponentsSelector from './StageComponentsSelector.vue';
+import Action from '@/components/actionTools/Action.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentData } from '#/onboard';
@@ -146,23 +151,45 @@ const props = defineProps({
 		type: Array as PropType<Questionnaire[]>,
 		default: () => [],
 	},
+	workflowId: {
+		type: String,
+		default: '',
+	},
 });
 
 // Tab配置
 const currentTab = ref('basicInfo');
-const tabsConfig = [
-	{
-		value: 'basicInfo',
-		label: 'Basic Info',
-	},
-	{
-		value: 'components',
-		label: 'Components',
-	},
-];
+const tabsConfig = computed(() => {
+	return props?.stage?.id
+		? [
+				{
+					value: 'basicInfo',
+					label: 'Basic Info',
+				},
+				{
+					value: 'components',
+					label: 'Components',
+				},
+				{
+					value: 'actions',
+					label: 'Actions',
+				},
+		  ]
+		: [
+				{
+					value: 'basicInfo',
+					label: 'Basic Info',
+				},
+				{
+					value: 'components',
+					label: 'Components',
+				},
+		  ];
+});
 
 // 表单数据
 const formData = ref({
+	id: '',
 	name: '',
 	description: '',
 	visibleInPortal: false,
@@ -201,6 +228,42 @@ const isFormValid = computed(() => {
 
 // 表单引用
 const formRef = ref<FormInstance>();
+const actionRef = ref<InstanceType<typeof Action>>();
+
+const onTabChange = (tab: string) => {
+	currentTab.value = tab;
+	if (tab === 'actions') {
+		actionRef.value?.getActionList();
+	}
+};
+
+// AI Summary computed fields (readonly display)
+const aiSummary = computed(() => (props.stage as any)?.aiSummary || '');
+const aiSummaryGeneratedAt = computed(() => (props.stage as any)?.aiSummaryGeneratedAt || '');
+const aiSummaryConfidence = computed(() => (props.stage as any)?.aiSummaryConfidence ?? '');
+const aiSummaryModel = computed(() => (props.stage as any)?.aiSummaryModel || '');
+const aiSummaryMetaAvailable = computed(
+	() => !!(aiSummaryGeneratedAt.value || aiSummaryConfidence.value || aiSummaryModel.value)
+);
+
+// 工具：美国日期格式
+function formatUsDate(value?: string | Date) {
+	if (!value) return '';
+	try {
+		const d = typeof value === 'string' ? new Date(value) : value;
+		return new Intl.DateTimeFormat('en-US', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
+		}).format(d);
+	} catch {
+		return String(value ?? '');
+	}
+}
 
 // 初始化表单数据
 onMounted(() => {
@@ -216,97 +279,73 @@ onMounted(() => {
 			} else if (key === 'components') {
 				formData.value[key] = props.stage?.components || [];
 			} else {
-				formData.value[key] = props.stage ? props.stage[key] : '';
+				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}
 		});
-	} else {
-		formData.value.color = colorOptions[
-			Math.floor(Math.random() * colorOptions.length)
-		] as StageColorType;
-		formData.value.components = [];
 	}
 });
 
-// 提交表单
-const submitForm = async () => {
-	if (!formRef.value) return;
+// Method to update components data
+function updateComponentsData(val: {
+	components: ComponentData[];
+	visibleInPortal: boolean;
+	attachmentManagementNeeded: boolean;
+}) {
+	formData.value.components = val.components;
+	formData.value.visibleInPortal = val.visibleInPortal;
+	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded;
+}
 
-	await formRef.value.validate((valid, fields) => {
-		if (valid) {
-			// 包含模块顺序信息
-			const submitData = {
-				...formData.value,
-			};
-			emit('submit', submitData);
-		}
-	});
-};
+// 提交
+function submitForm() {
+	// 透传表单数据
+	const payload = { ...formData.value } as any;
+	// 颜色值
+	payload.color = formData.value.color;
+	// 发出提交事件
+	// @ts-ignore
+	emit('submit', payload);
+}
 
-// 定义事件
+// emits
 const emit = defineEmits(['submit', 'cancel']);
-
-// 更新组件数据的方法
-const updateComponentsData = (newData: any) => {
-	formData.value.components = newData.components;
-	if (Object.prototype.hasOwnProperty.call(newData, 'visibleInPortal')) {
-		formData.value.visibleInPortal = newData.visibleInPortal;
-	}
-	if (Object.prototype.hasOwnProperty.call(newData, 'attachmentManagementNeeded')) {
-		formData.value.attachmentManagementNeeded = newData.attachmentManagementNeeded;
-	}
-};
 </script>
 
 <style scoped>
 .stage-form-container {
 	width: 100%;
-	max-width: 100%;
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
 }
-
-.form-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 10px;
-	margin-top: 20px;
-	flex-shrink: 0;
+.editor-tabs {
+	margin-bottom: 16px;
 }
-
+.editor-content {
+	padding-top: 8px;
+}
 .color-picker-container {
 	width: 100%;
 }
-
 .color-grid {
-	display: flex;
-	justify-content: space-between;
-	padding: 0 10px;
+	display: grid;
+	grid-template-columns: repeat(10, 1fr);
+	gap: 12px;
 }
-
 .color-option {
-	width: 32px;
-	height: 32px;
-	border-radius: 50%;
+	width: 28px;
+	height: 28px;
+	border-radius: 9999px;
 	cursor: pointer;
-	transition: all 0.2s;
 	border: 2px solid transparent;
 }
-
-.color-option:hover {
-	transform: scale(1.1);
-}
-
 .color-option.selected {
-	border-color: #333;
-	transform: scale(1.1);
+	border-color: var(--el-color-primary);
 }
-
-.form-item-description {
-	font-size: 12px;
-	color: #666;
-	margin-top: 4px;
-	line-height: 1.4;
+.form-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 12px;
+	margin-top: 16px;
+}
+.text-muted {
+	color: #6b7280;
 }
 </style>

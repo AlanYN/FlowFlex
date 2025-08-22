@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using FlowFlex.Domain.Entities.Base;
+using Newtonsoft.Json.Linq;
 using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.OW
@@ -36,12 +37,12 @@ namespace FlowFlex.Domain.Entities.OW
         public long? QuestionnaireId { get; set; }
 
         /// <summary>
-        /// Answer JSON Data
+        /// Answer JSONB Data
         /// </summary>
 
-        [Column("answer_json", TypeName = "text")]
-        [SugarColumn(ColumnName = "answer_json", ColumnDataType = "text")]
-        public string AnswerJson { get; set; } = string.Empty;
+        [Column("answer_json", TypeName = "jsonb")]
+        [SugarColumn(ColumnName = "answer_json", ColumnDataType = "jsonb", IsJson = true)]
+        public JToken Answer { get; set; }
 
         /// <summary>
         /// Submission Status (Draft, Submitted, Approved, etc.)

@@ -68,4 +68,4 @@ export function getTenantHeaders(): Record<string, string> {
 	}
 
 	return headers;
-} 
+}

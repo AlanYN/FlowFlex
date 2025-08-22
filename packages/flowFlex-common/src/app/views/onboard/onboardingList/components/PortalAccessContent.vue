@@ -19,7 +19,7 @@
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="flex justify-between items-center">			
+		<div class="flex justify-between items-center">
 			<el-button type="primary" @click="handleAddButtonClick">
 				<el-icon>
 					<Plus />
@@ -346,7 +346,7 @@ const handleViewInvitationLink = async (user: PortalUser) => {
 			try {
 				const url = new URL(invitationUrl);
 				const localInvitationUrl = `${url.pathname}${url.search}`;
-				
+
 				// 显示邀请链接对话框
 				currentInvitationUser.value = user;
 				currentInvitationUrl.value = localInvitationUrl;
@@ -397,13 +397,13 @@ const resendInvitation = async (email: string) => {
 	}
 };
 
-const handleViewCustomerPortal = () => {
-	// Generate customer portal URL using current environment
-	const customerPortalUrl = `/customer-portal?onboardingId=${props.onboardingId}`;
+// const handleViewCustomerPortal = () => {
+// 	// Generate customer portal URL using current environment
+// 	const customerPortalUrl = `/customer-portal?onboardingId=${props.onboardingId}`;
 
-	// Open in new window/tab
-	window.open(customerPortalUrl, '_blank');
-};
+// 	// Open in new window/tab
+// 	window.open(customerPortalUrl, '_blank');
+// };
 
 // Get status tag type for different statuses
 const getStatusTagType = (status: string) => {

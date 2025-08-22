@@ -67,7 +67,8 @@ namespace FlowFlex.WebApi.Extensions
                         // 优化连接池设置以避免并发冲突
                         SqlServerCodeFirstNvarchar = true,
                         IsWithNoLockQuery = false, // 禁用NoLock以确保数据一致性
-                        DisableNvarchar = false
+                        DisableNvarchar = false,
+                        EnableILike = true
                     },
                     ConfigureExternalServices = new ConfigureExternalServices()
                     {
@@ -116,6 +117,7 @@ namespace FlowFlex.WebApi.Extensions
                                 Console.WriteLine($"[Parameters] {string.Join(", ", pars.Select(p => $"{p.ParameterName}={p.Value}"))}");
                             }
                         }
+                        var finalSql = UtilMethods.GetSqlString(DbType.PostgreSQL, sql, pars);
                     };
 
                     provider.Aop.OnError = (exp) =>

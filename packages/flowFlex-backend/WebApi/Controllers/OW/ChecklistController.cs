@@ -99,14 +99,42 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Get checklist list
+        /// Get checklist list with pagination support
         /// </summary>
+        /// <param name="pageIndex">Page index (starting from 1, default: 1)</param>
+        /// <param name="pageSize">Page size (default: 15)</param>
+        /// <param name="sortField">Sort field (default: CreateDate)</param>
+        /// <param name="sortDirection">Sort direction (asc/desc, default: desc)</param>
+        /// <param name="name">Filter by name (supports comma-separated values)</param>
         /// <param name="team">Filter by team (optional)</param>
-        /// <returns>List of checklists</returns>
+        /// <returns>Paged list of checklists or simple list when no pagination params provided</returns>
         [HttpGet]
-        [ProducesResponseType<SuccessResponse<List<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetList([FromQuery] string team = null)
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetList(
+            [FromQuery] int? pageIndex = null,
+            [FromQuery] int? pageSize = null,
+            [FromQuery] string sortField = null,
+            [FromQuery] string sortDirection = null,
+            [FromQuery] string name = null,
+            [FromQuery] string team = null)
         {
+            // If pagination parameters are provided, use paged query
+            if (pageIndex.HasValue || pageSize.HasValue)
+            {
+                var query = new ChecklistQueryRequest
+                {
+                    PageIndex = pageIndex ?? 1,
+                    PageSize = pageSize ?? 15,
+                    SortField = sortField ?? "CreateDate",
+                    SortDirection = sortDirection ?? "desc",
+                    Name = name,
+                    Team = team
+                };
+                var pagedData = await _checklistService.QueryAsync(query);
+                return Success(pagedData);
+            }
+            
+            // Otherwise, use original simple list
             var data = await _checklistService.GetListAsync(team);
             return Success(data);
         }
@@ -164,7 +192,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportToPdf(long id)
         {
             var stream = await _checklistService.ExportToPdfAsync(id);
-            var fileName = $"checklist_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.pdf";
+            var fileName = $"checklist_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.pdf"; // local time for filename
             return File(stream, "application/pdf", fileName);
         }
 

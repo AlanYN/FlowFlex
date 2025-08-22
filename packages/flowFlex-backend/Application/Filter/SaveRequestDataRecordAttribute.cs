@@ -31,7 +31,7 @@ public class SaveRequestDataRecordAttribute : ActionFilterAttribute
         {
             Type = Type,
             Url = url,
-            CreateTime = DateTime.Now,
+            CreateTime = DateTime.UtcNow,
             Source = Source,
             Method = httpContext.Request.Method,
             RequestData = await ReadRequestContent(httpContext.Request),

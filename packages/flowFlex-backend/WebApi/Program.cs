@@ -1,27 +1,23 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Server.IIS;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Versioning;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
-using FlowFlex.Application.Services.OW;
 using FlowFlex.WebApi.Extensions;
 using FlowFlex.WebApi.Middlewares;
 using FlowFlex.SqlSugarDB.Extensions;
 using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.Domain.Shared.JsonConverters;
-using System;
-using System.Linq;
 using System.Reflection;
 using System.Text;
+using FlowFlex.Application.Client;
+using Item.Redis.Extensions;
+using Microsoft.Extensions.DependencyInjection;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -109,6 +105,8 @@ builder.Services.AddControllers(options =>
 // Register services (auto injection)
 builder.Services.AddService(builder.Configuration);
 
+builder.Services.AddRedis(builder.Configuration.GetSection("Redis"));
+
 // Register AutoMapper with explicit profile configuration
 builder.Services.AddAutoMapper(config =>
 {
@@ -128,6 +126,7 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskMapProfile>();
 
     config.AddProfile<FlowFlex.Application.Maps.QuestionnaireSectionMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.ActionMapProfile>();
 }, assemblies);
 
 // Configure options
@@ -163,6 +162,56 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
         ClockSkew = TimeSpan.Zero
+    };
+
+    // Database-backed token validation integrated into JwtBearer events
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            try
+            {
+                var services = context.HttpContext.RequestServices;
+                var jwtService = services.GetService<IJwtService>();
+                var accessTokenService = services.GetService<IAccessTokenService>();
+
+                if (jwtService == null || accessTokenService == null)
+                {
+                    context.Fail("Authentication services unavailable");
+                    return;
+                }
+
+                var jwtToken = context.SecurityToken as System.IdentityModel.Tokens.Jwt.JwtSecurityToken;
+                var rawToken = jwtToken?.RawData
+                               ?? context.HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", string.Empty)?.Trim();
+
+                if (string.IsNullOrEmpty(rawToken))
+                {
+                    context.Fail("Missing token");
+                    return;
+                }
+
+                var jti = jwtService.GetJtiFromToken(rawToken);
+                if (string.IsNullOrEmpty(jti))
+                {
+                    context.Fail("Invalid token jti");
+                    return;
+                }
+
+                var isActive = await accessTokenService.ValidateTokenAsync(jti);
+                if (!isActive)
+                {
+                    context.Fail("Token revoked or inactive");
+                    return;
+                }
+
+                await accessTokenService.UpdateTokenUsageAsync(jti);
+            }
+            catch (Exception ex)
+            {
+                context.Fail($"Authentication error: {ex.Message}");
+            }
+        }
     };
 });
 
@@ -287,6 +336,8 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddGlobalExceptionHandling();
 
+builder.Services.AddClient(builder.Configuration);
+
 // Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces
 // Only register services that are not auto-registered or need special configuration
 
@@ -357,8 +408,7 @@ app.UseCors("AllowAll");
 
 // Add authentication and authorization middleware
 app.UseAuthentication();
-app.UseMiddleware<FlowFlex.WebApi.Middlewares.JwtAuthenticationMiddleware>(); // 重新启用自定义JWT认证中间件
-app.UseMiddleware<FlowFlex.WebApi.Middlewares.TokenValidationMiddleware>(); // 重新启用Token验证中间件
+// Custom JWT/Token validation middlewares removed in favor of JwtBearerEvents.OnTokenValidated
 app.UseAuthorization();
 
 app.MapControllers();

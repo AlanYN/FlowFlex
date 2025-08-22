@@ -23,6 +23,7 @@ export interface ChangeLogQueryParams {
 	endDate?: string; // 结束时间
 	pageIndex?: number; // 页码
 	pageSize?: number; // 页大小
+	includeActionExecutions?: boolean; // 是否包含 Action 执行记录
 }
 
 // ========================= Change Log 数据接口 =========================
@@ -202,11 +203,15 @@ function formatAnswerForDisplay(response: any): string {
 	switch (type) {
 		case 'multiple_choice':
 			// 处理单选题 - 尝试从问题配置中获取对应的 label
-			return getChoiceLabel(answer, response.questionConfig || response.config) || String(answer);
+			return (
+				getChoiceLabel(answer, response.questionConfig || response.config) || String(answer)
+			);
 
 		case 'dropdown':
 			// 处理下拉选择 - 尝试从问题配置中获取对应的 label
-			return getChoiceLabel(answer, response.questionConfig || response.config) || String(answer);
+			return (
+				getChoiceLabel(answer, response.questionConfig || response.config) || String(answer)
+			);
 
 		case 'checkboxes':
 			// 处理复选框 - 获取多个选项的 labels
@@ -272,7 +277,7 @@ function getCheckboxLabels(answer: any, questionConfig: any): string {
 
 	// 首先处理答案格式
 	let answerValues: string[] = [];
-	
+
 	if (Array.isArray(answer)) {
 		answerValues = answer.map((item) => String(item)).filter(Boolean);
 	} else {
@@ -284,11 +289,17 @@ function getCheckboxLabels(answer: any, questionConfig: any): string {
 				answerValues = parsed.map((item) => String(item)).filter(Boolean);
 			} else {
 				// 如果不是数组，按逗号分割
-				answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+				answerValues = answerStr
+					.split(',')
+					.map((item) => item.trim())
+					.filter(Boolean);
 			}
 		} catch {
 			// 解析失败，按逗号分割
-			answerValues = answerStr.split(',').map((item) => item.trim()).filter(Boolean);
+			answerValues = answerStr
+				.split(',')
+				.map((item) => item.trim())
+				.filter(Boolean);
 		}
 	}
 
@@ -304,7 +315,7 @@ function getCheckboxLabels(answer: any, questionConfig: any): string {
 	});
 
 	// 将值转换为标签
-	const labels = answerValues.map(value => optionMap.get(value) || value);
+	const labels = answerValues.map((value) => optionMap.get(value) || value);
 	return labels.join(', ');
 }
 
@@ -456,6 +467,13 @@ export function getOperationTypeInfo(operationType: string) {
 		StaticFieldValueChange: { label: 'Field Change', icon: '🔧', color: 'yellow' },
 		StageTransition: { label: 'Stage Move', icon: '🔄', color: 'blue' },
 		PriorityChange: { label: 'Priority', icon: '⚡', color: 'red' },
+		// Action Execution 相关类型
+		ActionExecutionSuccess: { label: 'Action Success', icon: '🎯', color: 'green' },
+		ActionExecutionFailed: { label: 'Action Failed', icon: '❌', color: 'red' },
+		ActionExecutionRunning: { label: 'Action Running', icon: '⏳', color: 'blue' },
+		ActionExecutionPending: { label: 'Action Pending', icon: '⏱️', color: 'orange' },
+		ActionExecutionCancelled: { label: 'Action Cancelled', icon: '🚫', color: 'gray' },
+		ActionExecution: { label: 'Action Execution', icon: '🎯', color: 'blue' },
 	};
 
 	return typeMap[operationType] || { label: operationType, icon: '📋', color: 'gray' };

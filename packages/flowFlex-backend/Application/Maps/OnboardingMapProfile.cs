@@ -35,11 +35,18 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.WorkflowName, opt => opt.Ignore())
                 .ForMember(dest => dest.CurrentStageName, opt => opt.Ignore());
 
-            // OnboardingStageProgress  OnboardingStageProgressDto ӳ
+            // OnboardingStageProgress to OnboardingStageProgressDto mapping
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
-                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)));
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
+                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime))
+                // AI summary fields
+                .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
+                .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
+                .ForMember(dest => dest.AiSummaryConfidence, opt => opt.MapFrom(src => src.AiSummaryConfidence))
+                .ForMember(dest => dest.AiSummaryModel, opt => opt.MapFrom(src => src.AiSummaryModel))
+                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()
@@ -63,7 +70,8 @@ namespace FlowFlex.Application.Maps
 
             try
             {
-                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
+                var normalized = NormalizeJson(componentsJson);
+                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(normalized);
                 return parsedComponents ?? new List<StageComponent>();
             }
             catch
@@ -71,6 +79,26 @@ namespace FlowFlex.Application.Maps
                 // If JSON is invalid, return empty list instead of default components
                 return new List<StageComponent>();
             }
+        }
+
+        private static string NormalizeJson(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return raw;
+            var current = raw.Trim();
+            for (int i = 0; i < 3; i++)
+            {
+                if (current.StartsWith("[") || current.StartsWith("{")) return current;
+                var quoted = (current.StartsWith("\"") && current.EndsWith("\"")) || (current.StartsWith("\'") && current.EndsWith("\'"));
+                if (!quoted) break;
+                try
+                {
+                    var inner = JsonSerializer.Deserialize<string>(current);
+                    if (string.IsNullOrWhiteSpace(inner)) break;
+                    current = inner.Trim();
+                }
+                catch { break; }
+            }
+            return current;
         }
 
 

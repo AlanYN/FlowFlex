@@ -54,9 +54,19 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250102000018_FixEventsNextRetryAtColumn", (Action)(() => FixEventsNextRetryAtColumn_20250102000017.Up(_db))),
                     ("20250103000001_SimplifyStagesProgressStructure", (Action)(() => SimplifyStagesProgressStructure_20250103000001.Up(_db))),
                     ("20250103000002_ConvertStagesProgressToJsonb", (Action)(() => ConvertStagesProgressToJsonb_20250103000002.Up(_db))),
+                    ("20250103000004_ConvertStageComponentsToJsonb", (Action)(() => ConvertStageComponentsToJsonb_20250103000004.Up(_db))),
+                    ("20250103000005_ConvertTextJsonColumnsToJsonb", (Action)(() => ConvertTextJsonColumnsToJsonb_20250103000005.Up(_db))),
                     ("20250103000003_AddCurrentSectionIndexToQuestionnaireAnswers", (Action)(() => AddCurrentSectionIndexToQuestionnaireAnswers_20250103000003.Up(_db))),
                     ("20250801000001_AddUserAIModelConfig", (Action)(() => AddUserAIModelConfig_20250801000001.Up(_db))),
-                    ("20250102000001_IncreaseAIModelConfigFieldLengths", (Action)(() => IncreaseAIModelConfigFieldLengths_20250102000001.Up(_db)))
+                    ("20250801000002_DropQuestionnaireSectionTable", (Action)(() => DropQuestionnaireSectionTable_20250801000002.Up(_db))),
+                    ("20250102000001_IncreaseAIModelConfigFieldLengths", (Action)(() => IncreaseAIModelConfigFieldLengths_20250102000001.Up(_db))),
+                    ("20250101000003_AddIsAIGeneratedColumn", (Action)(() => Migration_20250101000003_AddIsAIGeneratedColumn.Up(_db))),
+                    ("20250120000001_AddAISummaryFieldsToStage", (Action)(() => AddAISummaryFieldsToStage_20250120000001.Up(_db))),
+                    ("20250122000001_RemoveAssignmentsJsonColumns", (Action)(() => Migration_20250122000001_RemoveAssignmentsJsonColumns.Up(_db))),
+                    ("20250122000002_AddGinIndexForStageComponentsJson", (Action)(() => Migration_20250122000002_AddGinIndexForStageComponentsJson.Up(_db))),
+                    ("20250122000003_CreateComponentMappingTables", (Action)(() => Migration_20250122000003_CreateComponentMappingTables.Up(_db))),
+                    ("20250122000015_ConvertOwEntityBaseTablesToSnowflakeId", (Action)(() => Migration_20250122000015_ConvertOwEntityBaseTablesToSnowflakeId.Up(_db))),
+                    ("20250122000020_AddTeamColumnToUsers", (Action)(() => Migration_20250122000020_AddTeamColumnToUsers.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

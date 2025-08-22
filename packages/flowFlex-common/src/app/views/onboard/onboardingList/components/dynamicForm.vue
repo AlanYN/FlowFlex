@@ -90,6 +90,7 @@
 						<el-input
 							v-if="question.type === 'short_answer' || question.type === 'text'"
 							v-model="formData[question.id]"
+							:maxlength="questionMaxlength"
 							:placeholder="'Enter ' + question.question"
 							@input="handleInputChange(question.id, $event)"
 						/>
@@ -102,8 +103,10 @@
 								question.type === 'textarea'
 							"
 							v-model="formData[question.id]"
+							:maxlength="notesPageTextraMaxLength"
 							type="textarea"
 							:rows="3"
+							show-word-limit
 							:placeholder="'Enter ' + question.question"
 							@input="handleInputChange(question.id, $event)"
 						/>
@@ -119,7 +122,7 @@
 								>
 									<div
 										:class="[
-											'w-4 h-4 border-2 rounded-full flex items-center justify-center',
+											'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
 											formData[question.id] === (option.value || option.label)
 												? 'border-blue-500 bg-blue-500'
 												: 'border-gray-300',
@@ -138,10 +141,19 @@
 											@click.stop
 											:disabled="formData[question.id] != option.value"
 											v-model="formData[`${question.id}_${option.id}`]"
+											:maxlength="questionMaxlength"
 											placeholder="Enter other"
 										/>
 									</div>
-									<span v-else class="text-sm">
+									<span
+										v-else
+										class="text-sm"
+										:class="{
+											'text-primary-500 font-bold':
+												formData[question.id] ===
+												(option.value || option.label),
+										}"
+									>
 										{{ option.label || option.text || option.value }}
 									</span>
 								</div>
@@ -168,6 +180,7 @@
 												!formData[question.id]?.includes(option.value)
 											"
 											v-model="formData[`${question.id}_${option.id}`]"
+											:maxlength="questionMaxlength"
 											placeholder="Enter other"
 										/>
 									</div>
@@ -239,7 +252,7 @@
 								:max="question.max"
 								:marks="getSliderMarks(question)"
 								class="preview-linear-scale"
-								@change="handleInputChange"
+								@change="handleInputChange(question.id, $event)"
 								:validate-event="false"
 								show-stops
 							/>
@@ -294,7 +307,6 @@
 										{{ column.label }}
 										<el-tag
 											v-if="column.isOther"
-											size="small"
 											type="warning"
 											class="other-column-tag"
 										>
@@ -333,8 +345,8 @@
 														column.id
 													)
 												"
+												:maxlength="questionMaxlength"
 												placeholder="Enter other"
-												size="small"
 												class="other-input"
 											/>
 										</div>
@@ -364,7 +376,6 @@
 										{{ column.label }}
 										<el-tag
 											v-if="column.isOther"
-											size="small"
 											type="warning"
 											class="other-column-tag"
 										>
@@ -407,8 +418,8 @@
 													formData[`${question.id}_${row.id}`] !=
 													(column.value || column.label)
 												"
-												placeholder="Please specify..."
-												size="small"
+												placeholder="Enter other"
+												:maxlength="questionMaxlength"
 												class="other-input"
 											/>
 										</div>
@@ -426,6 +437,47 @@
 								<div class="text-xs mt-1">
 									Rows: {{ question.rows?.length || 0 }}, Columns:
 									{{ question.columns?.length || 0 }}
+								</div>
+							</div>
+						</div>
+
+						<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
+							<div v-if="question.columns && question.rows" class="grid-container">
+								<div class="grid-header">
+									<div class="grid-cell grid-row-header"></div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-column-header"
+									>
+										{{ column.label }}
+										<el-tag
+											v-if="column.isOther"
+											type="warning"
+											class="other-column-tag"
+										>
+											Other
+										</el-tag>
+									</div>
+								</div>
+								<div
+									v-for="(row, rowIndex) in question.rows"
+									:key="rowIndex"
+									class="grid-row"
+								>
+									<div class="grid-cell grid-row-header">{{ row.label }}</div>
+									<div
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										class="grid-cell grid-checkbox-cell gap-x-2"
+									>
+										<el-input
+											v-model="
+												formData[`${question.id}_${column.id}_${row.id}`]
+											"
+											:maxlength="questionMaxlength"
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -546,7 +598,11 @@ import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/i
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 import { ElNotification } from 'element-plus';
-import { projectDate } from '@/settings/projectSetting';
+import {
+	projectDate,
+	notesPageTextraMaxLength,
+	questionMaxlength,
+} from '@/settings/projectSetting';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -625,6 +681,7 @@ const formattedQuestionnaires = computed(() => {
 			sections: structure.sections.map((section: any) => ({
 				...section,
 				id: section?.id,
+				temporaryId: section?.temporaryId,
 				title: section.title || section.name,
 				questions: (section.questions || []).map((question: any) => ({
 					...question,
@@ -632,6 +689,7 @@ const formattedQuestionnaires = computed(() => {
 					question: question.title || question.question || '',
 					// 使用原始的question.id，不要重新生成
 					id: question.id,
+					temporaryId: question?.temporaryId || question?.id,
 				})),
 			})),
 		};
@@ -711,6 +769,18 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 					formData.value[key] = responseText[key];
 				});
 			}
+		} else if (ans.type === 'short_answer_grid') {
+			formData.value[ans.questionId] = ans.answer;
+			if (ans.responseText) {
+				const responseText = JSON.parse(ans.responseText);
+				Object.keys(responseText).forEach((key) => {
+					formData.value[key] = responseText[key];
+				});
+			}
+		} else if (ans.type === 'linear_scale' || ans.type === 'rating') {
+			// 确保数字类型的答案保持为数字
+			const numValue = Number(ans.answer);
+			formData.value[ans.questionId] = isNaN(numValue) ? 0 : numValue;
 		} else {
 			formData.value[ans.questionId] = ans.answer;
 		}
@@ -758,18 +828,20 @@ const handleInputChange = (questionId: string, value: any) => {
 // 复杂表单值变化处理
 const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 	if (question.type == 'multiple_choice') {
-		handleRadioClick(question.id, value);
+		handleRadioClick(question?.id || question?.temporaryId || '', value);
 	} else {
-		formData.value[question.id] = value;
+		formData.value[question?.id || question?.temporaryId || ''] = value;
 	}
 	if (question.type == 'multiple_choice' || question.type == 'checkboxes') {
 		question?.options?.forEach((option) => {
 			if (
 				option.isOther &&
-				((!Array.isArray(formData.value[question.id]) &&
-					formData.value[question.id] !== option.value) ||
-					(Array.isArray(formData.value[question.id]) &&
-						!formData.value[question.id]?.includes(option.value)))
+				((!Array.isArray(formData.value[question?.id || question?.temporaryId || '']) &&
+					formData.value[question?.id || question?.temporaryId || ''] !== option.value) ||
+					(Array.isArray(formData.value[question?.id || question?.temporaryId || '']) &&
+						!formData.value[question?.id || question?.temporaryId || '']?.includes(
+							option.value
+						)))
 			) {
 				formData.value[`${question.id}_${option.id}`] = '';
 			}
@@ -778,12 +850,20 @@ const handleHasOtherQuestion = (question: QuestionnaireSection, value: any) => {
 		question?.columns?.forEach((column) => {
 			if (
 				column.isOther &&
-				((!Array.isArray(formData.value[`${question.id}_${value}`]) &&
-					formData.value[`${question.id}_${value}`] !== column.id) ||
-					(Array.isArray(formData.value[`${question.id}_${value}`]) &&
-						!formData.value[`${question.id}_${value}`]?.includes(column.id)))
+				((!Array.isArray(
+					formData.value[`${question?.id || question?.temporaryId}_${value}`]
+				) &&
+					formData.value[`${question?.id || question?.temporaryId}_${value}`] !==
+						column.id) ||
+					(Array.isArray(
+						formData.value[`${question?.id || question?.temporaryId}_${value}`]
+					) &&
+						!formData.value[
+							`${question?.id || question?.temporaryId}_${value}`
+						]?.includes(column.id)))
 			) {
-				formData.value[`${question.id}_${value}_${column.id}`] = '';
+				formData.value[`${question?.id || question?.temporaryId}_${value}_${column.id}`] =
+					'';
 			}
 		});
 	}
@@ -843,6 +923,32 @@ const validateForm = (presentQuestionIndex?: number) => {
 								errors.push(errorMsg);
 							}
 						}
+					} else if (question.type === 'short_answer_grid') {
+						if (question.rows && question.columns && question.columns.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								// 检查该行是否至少有一个单元格有内容
+								let rowHasValue = false;
+								question.columns.forEach((column: any, columnIndex: number) => {
+									const gridKey = `${question.id}_${column.id}_${row.id}`;
+									const gridValue = formData.value[gridKey];
+									if (gridValue && gridValue.trim() !== '') {
+										rowHasValue = true;
+									}
+								});
+								// 如果该行没有任何内容，则标记为未完成
+								if (!rowHasValue) {
+									allRowsCompleted = false;
+								}
+							});
+							if (!allRowsCompleted) {
+								isValid = false;
+								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
+									qIdx + 1
+								}`;
+								errors.push(errorMsg);
+							}
+						}
 					} else if (question.type === 'checkbox_grid') {
 						// 单选网格：检查每一行是否都有选择
 						if (question.rows && question.rows.length > 0) {
@@ -873,7 +979,11 @@ const validateForm = (presentQuestionIndex?: number) => {
 						}
 					} else if (question.type == 'linear_scale') {
 						const value = formData.value[question.id];
-						if ((typeof value === 'number' && value <= question.min) || !value) {
+						if (
+							(typeof value === 'number' && value <= question.min) ||
+							value == null ||
+							value == undefined
+						) {
 							isValid = false;
 							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
 								qIdx + 1
@@ -939,6 +1049,27 @@ const transformFormDataForAPI = () => {
 								questionId: gridKey,
 								question: `${question.question} - ${row.label}`,
 								answer: gridValue,
+								type: question.type,
+								responseText: JSON.stringify(responseText),
+							};
+							questionnaireData.answerJson.push(answer);
+						});
+					}
+				} else if (question.type === 'short_answer_grid') {
+					if (question.rows && question.rows.length > 0) {
+						question.rows.forEach((row: any) => {
+							let responseText = {};
+
+							question.columns.forEach((column: any) => {
+								const gridKey = `${question.id}_${column.id}_${row.id}`;
+								if (formData.value[gridKey]) {
+									responseText[gridKey] = formData.value[gridKey];
+								}
+							});
+							const answer: QuestionnaireAnswer = {
+								questionId: question.id,
+								question: `${question.question} - ${row.label}`,
+								answer: '',
 								type: question.type,
 								responseText: JSON.stringify(responseText),
 							};
@@ -1071,7 +1202,7 @@ const getJumpTargetSection = () => {
 						rule.optionId &&
 						question.options.some(
 							(option) =>
-								option.id === rule.optionId &&
+								option.temporaryId === rule.optionId &&
 								(option.value === userAnswer || option.label === userAnswer)
 						)
 					);
@@ -1095,7 +1226,7 @@ const findSectionIndexById = (sectionId: string) => {
 	const questionnaire = formattedQuestionnaires.value[0];
 	if (!questionnaire.sections) return -1;
 
-	return questionnaire.sections.findIndex((section) => section.id === sectionId);
+	return questionnaire.sections.findIndex((section) => section.temporaryId === sectionId);
 };
 
 // 分页控制方法
@@ -1141,8 +1272,6 @@ const goToSection = (index: number) => {
 	}
 };
 
-// 不再监听 props 重新拉取答案，父组件负责注入
-
 // 初始化
 onMounted(async () => {
 	await nextTick();
@@ -1166,14 +1295,18 @@ onMounted(async () => {
 							// 多选网格：为每一行初始化多选值（数组）
 							if (question.rows && question.rows.length > 0) {
 								question.rows.forEach((row: any) => {
-									const key = `${question.id}_${row.id}`;
+									const key = `${question?.id || question?.temporaryId}_${
+										row.id
+									}`;
 									if (!(key in formData.value)) {
 										formData.value[key] =
 											question.type === 'multiple_choice_grid' ? [] : '';
 									}
 									question.columns.forEach((column: any) => {
 										if (column.isOther) {
-											const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+											const otherTextKey = `${
+												question?.id || question?.temporaryId
+											}_${row.id}_${column.id}`;
 											if (!(otherTextKey in formData.value)) {
 												formData.value[otherTextKey] = '';
 											}
@@ -1181,22 +1314,52 @@ onMounted(async () => {
 									});
 								});
 							}
+						} else if (question.type == 'short_answer_grid') {
+							if (question.rows && question.rows.length > 0) {
+								question.rows.forEach((row: any) => {
+									question.columns.forEach((column: any) => {
+										const otherTextKey = `${
+											question?.id || question?.temporaryId
+										}_${column.id}_${row.id}`;
+										if (!(otherTextKey in formData.value)) {
+											formData.value[otherTextKey] = '';
+										}
+									});
+								});
+							}
 						} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
 							// 多选题：初始化为数组
-							if (!(question.id in formData.value)) {
-								formData.value[question.id] = [];
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = [];
+							}
+						} else if (question.type === 'file' || question.type === 'file_upload') {
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = [];
+							}
+						} else if (question.type === 'linear_scale') {
+							// 线性量表：初始化为最小值（数字类型）
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] =
+									question.min;
+							}
+						} else if (question.type === 'rating') {
+							// 评分：初始化为0（数字类型）
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = 0;
 							}
 						} else {
 							// 其他类型：初始化为空字符串
-							if (!(question.id in formData.value)) {
-								formData.value[question.id] = '';
+							if (!(question?.id || question?.temporaryId in formData.value)) {
+								formData.value[question?.id || question?.temporaryId] = '';
 							}
 						}
 					});
 
 					section?.columns?.forEach((column: any) => {
 						if (column.isOther) {
-							const otherTextKey = `${section.id}_${column.id}`;
+							const otherTextKey = `${section?.id || section?.temporaryId}_${
+								column.id
+							}`;
 							if (!(otherTextKey in formData.value)) {
 								formData.value[otherTextKey] = '';
 							}
@@ -1205,7 +1368,9 @@ onMounted(async () => {
 
 					section?.options?.forEach((option: any) => {
 						if (option.isOther) {
-							const otherTextKey = `${section.id}_${option.id}`;
+							const otherTextKey = `${section?.id || section?.temporaryId}_${
+								option.id
+							}`;
 							if (!(otherTextKey in formData.value)) {
 								formData.value[otherTextKey] = '';
 							}

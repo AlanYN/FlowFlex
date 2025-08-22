@@ -141,8 +141,9 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="operationType">Operation type (optional)</param>
         /// <param name="pageIndex">Page index</param>
         /// <param name="pageSize">Page size</param>
+        /// <param name="includeActionExecutions">Whether to include action executions</param>
         /// <returns>Operation log list</returns>
-        Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20);
+        Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true);
 
         /// <summary>
         /// Get operation logs by business module and business ID

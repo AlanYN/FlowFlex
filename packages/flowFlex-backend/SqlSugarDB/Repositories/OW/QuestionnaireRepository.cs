@@ -6,6 +6,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Models;
 using Microsoft.AspNetCore.Http;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
@@ -233,18 +234,9 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // Filter by workflowId and stageId in memory (since they're in JSON now)
             if (workflowId.HasValue || stageId.HasValue)
             {
-                allItems = allItems.Where(q =>
-                {
-                    // Check if assignments contain the specified workflowId or stageId
-                    if (q.Assignments?.Any() == true)
-                    {
-                        return q.Assignments.Any(a =>
-                            (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
-                            (!stageId.HasValue || a.StageId == stageId.Value)
-                        );
-                    }
-                    return false;
-                }).ToList();
+                // Assignment-based filtering is deprecated - assignments are now managed through Stage Components
+                // This functionality should be implemented in the Service layer instead
+                // For now, skip assignment filtering in repository level
             }
 
             // Calculate total count
@@ -302,7 +294,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     TotalQuestions = totalQuestions,
                     RequiredQuestions = requiredQuestions,
-                    ModifyDate = DateTimeOffset.Now
+            ModifyDate = DateTimeOffset.UtcNow
                 })
                 .Where(x => x.Id == id && x.IsValid == true)
                 .ExecuteCommandAsync();
@@ -348,25 +340,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
-        /// Get questionnaires by multiple stage IDs (supports both old single StageId and new Assignments JSON)
+        /// Get questionnaires by multiple stage IDs (DEPRECATED)
+        /// Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components
         /// </summary>
+        [Obsolete("This method is deprecated. Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components.")]
         public async Task<List<Questionnaire>> GetByStageIdsAsync(List<long> stageIds)
         {
-            if (stageIds == null || !stageIds.Any())
-            {
-                return new List<Questionnaire>();
-            }
-
-            // Get all questionnaires and filter by assignments in memory
-            // This is necessary because SqlSugar doesn't support JSON queries directly
-            var allQuestionnaires = await db.Queryable<Questionnaire>()
-                .Where(x => x.IsValid == true && x.IsActive == true)
-                .ToListAsync();
-
-            return allQuestionnaires.Where(q =>
-                // Check new Assignments JSON field
-                (q.Assignments?.Any(a => stageIds.Contains(a.StageId) && a.StageId > 0) == true) // 只匹配有效的StageId
-            ).OrderByDescending(x => x.CreateDate).ToList();
+            // This method is deprecated and will return empty results
+            // Use QuestionnaireService.GetByStageIdsAsync() instead
+            return new List<Questionnaire>();
         }
 
         /// <summary>
@@ -388,17 +370,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .WhereIF(excludeId.HasValue, x => x.Id != excludeId.Value)
                 .ToListAsync();
 
-            return allQuestionnaires.Any(q =>
-            {
-                if (q.Assignments?.Any() == true)
-                {
-                    return q.Assignments.Any(a =>
-                        (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
-                        (!stageId.HasValue || a.StageId == stageId.Value)
-                    );
-                }
-                return false;
-            });
+            // Assignment existence check is deprecated - assignments are now managed through Stage Components
+            // This functionality should be implemented in the Service layer instead
+            // For now, return false (no duplicate checks at repository level)
+            return false;
         }
 
         /// <summary>
@@ -419,17 +394,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .WhereIF(excludeId.HasValue, x => x.Id != excludeId.Value)
                 .ToListAsync();
 
-            return allQuestionnaires.FirstOrDefault(q =>
-            {
-                if (q.Assignments?.Any() == true)
-                {
-                    return q.Assignments.Any(a =>
-                        (!workflowId.HasValue || a.WorkflowId == workflowId.Value) &&
-                        (!stageId.HasValue || a.StageId == stageId.Value)
-                    );
-                }
-                return false;
-            });
+            // Assignment search is deprecated - assignments are now managed through Stage Components
+            // This functionality should be implemented in the Service layer instead
+            // For now, return null (no matches at repository level)
+            return null;
         }
 
         /// <summary>
@@ -442,26 +410,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .Where(x => x.IsValid == true)
                 .ToListAsync();
 
-            return allQuestionnaires.Where(q =>
-                // Check new Assignments JSON field
-                (q.Assignments?.Any(a => a.WorkflowId == workflowId) == true)
-            ).OrderBy(x => x.CreateDate).ToList();
+            // Assignment-based filtering is deprecated - assignments are now managed through Stage Components
+            // This functionality should be implemented in the Service layer instead
+            // For now, return empty list
+            return new List<Questionnaire>();
         }
 
         /// <summary>
-        /// Get questionnaires by stage ID (supports both old single StageId and new Assignments JSON)
+        /// Get questionnaires by stage ID (DEPRECATED)
+        /// Use QuestionnaireService.GetByStageIdAsync() instead, which queries through Stage Components
         /// </summary>
+        [Obsolete("This method is deprecated. Use QuestionnaireService.GetByStageIdAsync() instead, which queries through Stage Components.")]
         public async Task<List<Questionnaire>> GetByStageIdAsync(long stageId)
         {
-            // Get all questionnaires and filter by assignments in memory
-            var allQuestionnaires = await db.Queryable<Questionnaire>()
-                .Where(x => x.IsValid == true)
-                .ToListAsync();
-
-            return allQuestionnaires.Where(q =>
-                // Check new Assignments JSON field
-                (q.Assignments?.Any(a => a.StageId == stageId && a.StageId > 0) == true) // 只匹配有效的StageId
-            ).OrderBy(x => x.CreateDate).ToList();
+            // This method is deprecated and will return empty results
+            // Use QuestionnaireService.GetByStageIdAsync() instead
+            return new List<Questionnaire>();
         }
 
         /// <summary>
@@ -485,7 +449,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     TotalQuestions = totalQuestions,
                     RequiredQuestions = requiredQuestions,
-                    ModifyDate = DateTimeOffset.Now
+            ModifyDate = DateTimeOffset.UtcNow
                 })
                 .Where(x => x.Id == questionnaireId && x.IsValid == true)
                 .ExecuteCommandAsync();
@@ -572,6 +536,261 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             {
                 // 恢复全局过滤器
                 db.QueryFilter.Restore();
+            }
+        }
+
+        /// <summary>
+        /// Get questionnaires by workflow and/or stage using JSONB database query
+        /// </summary>
+        public async Task<(List<Questionnaire> items, int totalCount)> GetPagedByStageComponentsAsync(
+            int pageIndex,
+            int pageSize,
+            string name = null,
+            long? workflowId = null,
+            long? stageId = null,
+            bool? isActive = null,
+            string sortField = null,
+            string sortDirection = null)
+        {
+            try
+            {
+                var tenantId = GetCurrentTenantId();
+                var appCode = GetCurrentAppCode();
+
+                _logger.LogInformation("[QuestionnaireRepository] GetPagedByStageComponentsAsync with JSONB query - WorkflowId: {WorkflowId}, StageId: {StageId}", workflowId, stageId);
+
+                // Use raw SQL for JSONB query since SqlSugar's JSONB support may be limited
+                var whereConditions = new List<string>();
+                var parameters = new List<SugarParameter>();
+
+                // Base conditions
+                whereConditions.Add("q.is_valid = @IsValid");
+                whereConditions.Add("q.tenant_id = @TenantId");
+                whereConditions.Add("q.app_code = @AppCode");
+                whereConditions.Add("s.is_valid = @StageIsValid");
+                whereConditions.Add("s.tenant_id = @StageTenantId");
+                whereConditions.Add("s.app_code = @StageAppCode");
+
+                parameters.AddRange(new[]
+                {
+                    new SugarParameter("@IsValid", true),
+                    new SugarParameter("@TenantId", tenantId),
+                    new SugarParameter("@AppCode", appCode),
+                    new SugarParameter("@StageIsValid", true),
+                    new SugarParameter("@StageTenantId", tenantId),
+                    new SugarParameter("@StageAppCode", appCode)
+                });
+
+                // JSONB condition for questionnaire IDs in stage components
+                whereConditions.Add(@"EXISTS (
+                    SELECT 1 FROM jsonb_array_elements(s.components_json) AS component
+                    WHERE component->>'Key' = 'questionnaires'
+                    AND jsonb_typeof(component->'QuestionnaireIds') = 'array'
+                    AND component->'QuestionnaireIds' @> to_jsonb(q.id::text)
+                )");
+
+                // Workflow filter
+                if (workflowId.HasValue)
+                {
+                    whereConditions.Add("s.workflow_id = @WorkflowId");
+                    parameters.Add(new SugarParameter("@WorkflowId", workflowId.Value));
+                }
+
+                // Stage filter
+                if (stageId.HasValue)
+                {
+                    whereConditions.Add("s.id = @StageId");
+                    parameters.Add(new SugarParameter("@StageId", stageId.Value));
+                }
+
+                // Name filter
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    var names = name.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                   .Select(n => n.Trim())
+                                   .Where(n => !string.IsNullOrEmpty(n))
+                                   .ToList();
+                    if (names.Any())
+                    {
+                        var nameConditions = names.Select((n, i) => $"q.name ILIKE @Name{i}").ToList();
+                        whereConditions.Add($"({string.Join(" OR ", nameConditions)})");
+                        
+                        for (int i = 0; i < names.Count; i++)
+                        {
+                            parameters.Add(new SugarParameter($"@Name{i}", $"%{names[i]}%"));
+                        }
+                    }
+                }
+
+                // IsActive filter
+                if (isActive.HasValue)
+                {
+                    whereConditions.Add("q.is_active = @IsActive");
+                    parameters.Add(new SugarParameter("@IsActive", isActive.Value));
+                }
+
+                var whereClause = string.Join(" AND ", whereConditions);
+
+                // Count query
+                var countSql = $@"
+                    SELECT COUNT(DISTINCT q.id)
+                    FROM ff_questionnaire q
+                    CROSS JOIN ff_stage s
+                    WHERE {whereClause}";
+
+                var totalCount = await db.Ado.GetIntAsync(countSql, parameters);
+
+                // Data query with sorting and pagination
+                var sortClause = GetSortClause(sortField, sortDirection);
+                var dataSql = $@"
+                    SELECT DISTINCT q.*
+                    FROM ff_questionnaire q
+                    CROSS JOIN ff_stage s
+                    WHERE {whereClause}
+                    ORDER BY {sortClause}
+                    LIMIT @PageSize OFFSET @Offset";
+
+                parameters.Add(new SugarParameter("@PageSize", pageSize));
+                parameters.Add(new SugarParameter("@Offset", (pageIndex - 1) * pageSize));
+
+                var items = await db.Ado.SqlQueryAsync<Questionnaire>(dataSql, parameters);
+
+                _logger.LogInformation("[QuestionnaireRepository] JSONB query returned {Count} items, total: {Total}", items.Count, totalCount);
+
+                return (items, totalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetPagedByStageComponentsAsync");
+                return (new List<Questionnaire>(), 0);
+            }
+        }
+
+        /// <summary>
+        /// Get sort clause for SQL query
+        /// </summary>
+        private string GetSortClause(string sortField, string sortDirection)
+        {
+            var isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+            var direction = isDescending ? "DESC" : "ASC";
+
+            return sortField?.ToLower() switch
+            {
+                "name" => $"q.name {direction}",
+                "createdate" => $"q.create_date {direction}",
+                "modifydate" => $"q.modify_date {direction}",
+                _ => "q.create_date DESC" // Default sorting
+            };
+        }
+
+        /// <summary>
+        /// Get questionnaire IDs by workflow and/or stage using JSONB database query
+        /// </summary>
+        public async Task<List<long>> GetQuestionnaireIdsByStageComponentsAsync(long? workflowId = null, long? stageId = null)
+        {
+            try
+            {
+                var tenantId = GetCurrentTenantId();
+                var appCode = GetCurrentAppCode();
+
+                _logger.LogInformation("[QuestionnaireRepository] GetQuestionnaireIdsByStageComponentsAsync - WorkflowId: {WorkflowId}, StageId: {StageId}", workflowId, stageId);
+
+                var whereConditions = new List<string>();
+                var parameters = new List<SugarParameter>();
+
+                // Base conditions
+                whereConditions.Add("s.is_valid = @IsValid");
+                whereConditions.Add("s.tenant_id = @TenantId");
+                whereConditions.Add("s.app_code = @AppCode");
+                whereConditions.Add("s.components_json IS NOT NULL");
+
+                parameters.AddRange(new[]
+                {
+                    new SugarParameter("@IsValid", true),
+                    new SugarParameter("@TenantId", tenantId),
+                    new SugarParameter("@AppCode", appCode)
+                });
+
+                // Workflow filter
+                if (workflowId.HasValue)
+                {
+                    whereConditions.Add("s.workflow_id = @WorkflowId");
+                    parameters.Add(new SugarParameter("@WorkflowId", workflowId.Value));
+                }
+
+                // Stage filter
+                if (stageId.HasValue)
+                {
+                    whereConditions.Add("s.id = @StageId");
+                    parameters.Add(new SugarParameter("@StageId", stageId.Value));
+                }
+
+                var whereClause = string.Join(" AND ", whereConditions);
+
+                // Query to extract questionnaire IDs from JSONB
+                var sql = $@"
+                    SELECT DISTINCT (jsonb_array_elements_text(component->'QuestionnaireIds'))::bigint AS questionnaire_id
+                    FROM ff_stage s,
+                         jsonb_array_elements(s.components_json) AS component
+                    WHERE {whereClause}
+                      AND component->>'Key' = 'questionnaires'
+                      AND jsonb_typeof(component->'QuestionnaireIds') = 'array'
+                      AND jsonb_array_length(component->'QuestionnaireIds') > 0";
+
+                var questionnaireIds = await db.Ado.SqlQueryAsync<long>(sql, parameters);
+
+                _logger.LogInformation("[QuestionnaireRepository] Found {Count} distinct questionnaire IDs", questionnaireIds.Count);
+
+                return questionnaireIds;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting questionnaire IDs by stage components");
+                return new List<long>();
+            }
+        }
+
+        /// <summary>
+        /// Debug method: Find which stages contain a specific questionnaire ID
+        /// </summary>
+        public async Task<List<Stage>> FindStagesContainingQuestionnaireAsync(long questionnaireId)
+        {
+            try
+            {
+                var tenantId = GetCurrentTenantId();
+                var appCode = GetCurrentAppCode();
+
+                var stages = await db.Queryable<Stage>()
+                    .Where(s => s.IsValid == true && s.TenantId == tenantId && s.AppCode == appCode)
+                    .Where(s => !string.IsNullOrEmpty(s.ComponentsJson))
+                    .ToListAsync();
+
+                var matchingStages = new List<Stage>();
+                foreach (var stage in stages)
+                {
+                    try
+                    {
+                        var components = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson);
+                        var hasQuestionnaire = components?.Any(c => c.Key == "questionnaires" &&
+                            c.QuestionnaireIds?.Contains(questionnaireId) == true);
+
+                        if (hasQuestionnaire == true)
+                        {
+                            matchingStages.Add(stage);
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Skip invalid JSON
+                    }
+                }
+
+                return matchingStages;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error finding stages for questionnaire {QuestionnaireId}", questionnaireId);
+                return new List<Stage>();
             }
         }
     }

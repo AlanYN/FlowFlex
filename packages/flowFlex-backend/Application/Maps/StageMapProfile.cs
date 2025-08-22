@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Domain.Shared.Models;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Linq;
 
 namespace FlowFlex.Application.Maps
@@ -12,6 +13,11 @@ namespace FlowFlex.Application.Maps
     /// </summary>
     public class StageMapProfile : Profile
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            PropertyNameCaseInsensitive = true
+        };
         public StageMapProfile()
         {
             // Entity to OutputDto mapping
@@ -30,7 +36,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
                 .ForMember(dest => dest.QuestionnaireId, opt => opt.MapFrom(src => src.QuestionnaireId))
                 .ForMember(dest => dest.Color, opt => opt.MapFrom(src => src.Color))
-                .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => src.ComponentsJson))
+                .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => NormalizeComponentsJson(src.ComponentsJson)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
@@ -40,7 +46,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
                 .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy))
                 .ForMember(dest => dest.CreateUserId, opt => opt.MapFrom(src => src.CreateUserId))
-                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId));
+                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId))
+                .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
+                .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
+                .ForMember(dest => dest.AiSummaryConfidence, opt => opt.MapFrom(src => src.AiSummaryConfidence))
+                .ForMember(dest => dest.AiSummaryModel, opt => opt.MapFrom(src => src.AiSummaryModel))
+                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData));
 
             // InputDto to Entity mapping
             CreateMap<StageInputDto, Stage>()
@@ -78,22 +89,97 @@ namespace FlowFlex.Application.Maps
 
         private static List<StageComponent> ParseComponents(string componentsJson)
         {
-            if (string.IsNullOrEmpty(componentsJson))
+            if (string.IsNullOrWhiteSpace(componentsJson))
             {
-                // Return empty list when JSON is null or empty, not default components
                 return new List<StageComponent>();
             }
 
+            // Handle possible double-encoded JSON (e.g. "[ { ... } ]")
+            var normalized = TryUnwrapDoubleEncodedJson(componentsJson);
+
             try
             {
-                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson);
+                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions);
                 return parsedComponents ?? new List<StageComponent>();
             }
             catch
             {
-                // If JSON is invalid, return empty list instead of default components
                 return new List<StageComponent>();
             }
+        }
+
+        private static string TryUnwrapDoubleEncodedJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return json;
+            }
+
+            string current = json.Trim();
+
+            // Attempt up to 3 unwrapping passes to handle legacy double/triple encoded values
+            for (int i = 0; i < 3; i++)
+            {
+                if (string.IsNullOrWhiteSpace(current))
+                {
+                    return current;
+                }
+
+                // If it's already a JSON array/object, stop
+                if (current.StartsWith("[") || current.StartsWith("{"))
+                {
+                    break;
+                }
+
+                // If it is a quoted JSON string, unwrap by deserializing as string
+                if ((current.StartsWith("\"") && current.EndsWith("\"")) ||
+                    (current.StartsWith("\'") && current.EndsWith("\'")))
+                {
+                    try
+                    {
+                        var inner = JsonSerializer.Deserialize<string>(current);
+                        if (!string.IsNullOrWhiteSpace(inner))
+                        {
+                            current = inner.Trim();
+                            continue;
+                        }
+                    }
+                    catch
+                    {
+                        // fallthrough and try unescape approach below
+                    }
+                }
+
+                // Heuristic: if we still see a lot of escaped quotes (\") then unescape once
+                if (current.Contains("\\\""))
+                {
+                    try
+                    {
+                        current = current.Replace("\\\"", "\"");
+                        current = current.Trim();
+                        continue;
+                    }
+                    catch
+                    {
+                        // ignore and break
+                    }
+                }
+
+                // Nothing changed, stop
+                break;
+            }
+
+            return current;
+        }
+
+        private static string NormalizeComponentsJson(string componentsJson)
+        {
+            if (string.IsNullOrWhiteSpace(componentsJson))
+            {
+                return null;
+            }
+            var normalized = TryUnwrapDoubleEncodedJson(componentsJson);
+            return normalized;
         }
 
 

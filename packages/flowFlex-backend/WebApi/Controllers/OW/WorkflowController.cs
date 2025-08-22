@@ -26,11 +26,13 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IWorkflowService _workflowService;
         private readonly IStageService _stageService;
+        private readonly IComponentMappingService _componentMappingService;
 
-        public WorkflowController(IWorkflowService workflowService, IStageService stageService)
+        public WorkflowController(IWorkflowService workflowService, IStageService stageService, IComponentMappingService componentMappingService)
         {
             _workflowService = workflowService;
             _stageService = stageService;
+            _componentMappingService = componentMappingService;
         }
 
         /// <summary>
@@ -189,7 +191,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportDetailedToExcel(long id)
         {
             var stream = await _workflowService.ExportDetailedToExcelAsync(id);
-            var fileName = $"workflow_detailed_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
+            var fileName = $"workflow_detailed_{id}_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx"; // local time for filename
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
@@ -201,8 +203,39 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportMultipleDetailedToExcel([FromBody] WorkflowExportSearch search)
         {
             var stream = await _workflowService.ExportMultipleDetailedToExcelAsync(search);
-            var fileName = $"workflows_detailed_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
+            var fileName = $"workflows_detailed_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx"; // local time for filename
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+
+        /// <summary>
+        /// Sync component mappings for a workflow
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <returns>Success status</returns>
+        [HttpPost("{workflowId}/sync-mappings")]
+        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 404)]
+        public async Task<IActionResult> SyncWorkflowMappings(long workflowId)
+        {
+            try
+            {
+                // Verify workflow exists
+                var workflow = await _workflowService.GetByIdAsync(workflowId);
+                if (workflow == null)
+                {
+                    return NotFound($"Workflow with ID {workflowId} not found");
+                }
+
+                // Sync component mappings for all stages in the workflow
+                await _componentMappingService.SyncWorkflowMappingsAsync(workflowId);
+
+                return Success($"Component mappings successfully synced for workflow {workflowId}");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to sync component mappings for workflow {workflowId}: {ex.Message}");
+            }
         }
     }
 

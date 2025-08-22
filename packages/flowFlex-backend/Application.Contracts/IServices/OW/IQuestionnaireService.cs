@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Entities.OW;
 
 namespace FlowFlex.Application.Contracts.IServices.OW;
 
@@ -89,4 +90,9 @@ public interface IQuestionnaireService : IScopedService
     /// Batch get questionnaires by stage IDs
     /// </summary>
     Task<BatchStageQuestionnaireResponse> GetByStageIdsBatchAsync(BatchStageQuestionnaireRequest request);
+
+    /// <summary>
+    /// Debug method: Find which stages contain a specific questionnaire ID
+    /// </summary>
+    Task<List<Stage>> FindStagesContainingQuestionnaireAsync(long questionnaireId);
 }

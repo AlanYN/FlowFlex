@@ -158,6 +158,84 @@
 								</div>
 							</div>
 
+							<!-- Action Execution 详情 -->
+							<div
+								v-else-if="
+									(row.type === 'Action Success' ||
+										row.type === 'Action Failed' ||
+										row.type === 'Action Running' ||
+										row.type === 'Action Pending' ||
+										row.type === 'Action Cancelled') &&
+									row.actionInfo
+								"
+							>
+								<div
+									:class="getActionExecutionBgClass(row.type)"
+									class="p-3 rounded-md border-l-4"
+								>
+									<div class="text-sm">
+										<div
+											class="font-semibold mb-2 flex items-center justify-between"
+										>
+											<span class="text-gray-800 dark:text-gray-200">
+												{{ row.actionInfo.actionName }}
+											</span>
+											<span
+												:class="getActionExecutionStatusClass(row.type)"
+												class="px-2 py-1 rounded text-xs font-medium"
+											>
+												{{ getActionExecutionStatusText(row.type) }}
+											</span>
+										</div>
+										<div class="space-y-1 text-xs">
+											<div class="flex items-center">
+												<span class="text-gray-500 mr-2">Type:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ row.actionInfo.actionType }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.duration"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Duration:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ formatDuration(row.actionInfo.duration) }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.executionId"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">
+													Execution ID:
+												</span>
+												<span
+													class="text-gray-700 dark:text-gray-300 font-mono text-xs"
+												>
+													{{ row.actionInfo.executionId }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.triggerContext"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Context:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ row.actionInfo.triggerContext }}
+												</span>
+											</div>
+											<div v-if="row.actionInfo.errorMessage" class="mt-2">
+												<div class="text-red-600 dark:text-red-400 text-xs">
+													<span class="font-medium">Error:</span>
+													{{ row.actionInfo.errorMessage }}
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
 							<!-- 默认显示（简化的标题） -->
 							<div v-else class="text-gray-700 dark:text-gray-300">
 								{{ getSimplifiedTitle(row) }}
@@ -267,6 +345,7 @@ interface ProcessedChange extends ChangeLogItem {
 	}>;
 	taskInfo?: any;
 	fileInfo?: any;
+	actionInfo?: any;
 }
 
 const processedChanges = ref<ProcessedChange[]>([]); // 修正类型
@@ -349,6 +428,8 @@ const processChangesData = async () => {
 
 		// 根据类型解析不同的变更信息
 		const operationType = change.type;
+		let actionInfo: any = null;
+
 		switch (operationType) {
 			case 'Answer Update':
 			case 'QuestionnaireAnswerUpdate':
@@ -394,6 +475,14 @@ const processChangesData = async () => {
 				fileInfo = extractFileInfo(change.extendedInfo);
 				break;
 
+			case 'Action Success':
+			case 'Action Failed':
+			case 'Action Running':
+			case 'Action Pending':
+			case 'Action Cancelled':
+				actionInfo = extractActionInfo(change);
+				break;
+
 			case 'Completion':
 			case 'Update':
 			case 'StageTransition':
@@ -415,6 +504,7 @@ const processChangesData = async () => {
 			fieldChanges,
 			taskInfo,
 			fileInfo,
+			actionInfo,
 		});
 	}
 
@@ -467,7 +557,7 @@ const parseResponseText = (responseText: string): { [key: string]: string } => {
 	if (!responseText || responseText.trim() === '{}') {
 		return {};
 	}
-	
+
 	try {
 		// 处理Unicode转义序列
 		let decodedText = responseText;
@@ -477,7 +567,7 @@ const parseResponseText = (responseText: string): { [key: string]: string } => {
 		decodedText = decodedText.replace(/u002C/g, ',');
 		decodedText = decodedText.replace(/u007B/g, '{');
 		decodedText = decodedText.replace(/u007D/g, '}');
-		
+
 		const parsed = JSON.parse(decodedText);
 		return parsed || {};
 	} catch (error) {
@@ -487,18 +577,21 @@ const parseResponseText = (responseText: string): { [key: string]: string } => {
 };
 
 // 从responseText中提取Other选项的自定义值
-const extractOtherValues = (responseText: string, questionId: string): { [key: string]: string } => {
+const extractOtherValues = (
+	responseText: string,
+	questionId: string
+): { [key: string]: string } => {
 	const parsed = parseResponseText(responseText);
 	const otherValues: { [key: string]: string } = {};
-	
+
 	// 查找包含questionId的键
-	Object.keys(parsed).forEach(key => {
+	Object.keys(parsed).forEach((key) => {
 		if (key.includes(questionId)) {
 			// 对于网格类型：查找包含"other"的键
 			if (key.includes('other')) {
 				// 提取column ID，格式如：question-xxx_row-xxx_column-other-xxx
 				const parts = key.split('_');
-				const columnPart = parts.find(part => part.startsWith('column-other-'));
+				const columnPart = parts.find((part) => part.startsWith('column-other-'));
 				if (columnPart) {
 					otherValues[columnPart] = parsed[key];
 				}
@@ -507,7 +600,7 @@ const extractOtherValues = (responseText: string, questionId: string): { [key: s
 			else if (key.includes('option-') || key.includes('option_')) {
 				// 提取option ID，格式如：question-xxx_option-xxx
 				const parts = key.split('_');
-				let optionPart = parts.find(part => part.startsWith('option-'));
+				let optionPart = parts.find((part) => part.startsWith('option-'));
 				if (optionPart) {
 					// 同时支持 option- 和 option_ 格式
 					const alternativeKey = optionPart.replace('option-', 'option_');
@@ -517,7 +610,7 @@ const extractOtherValues = (responseText: string, questionId: string): { [key: s
 			}
 		}
 	});
-	
+
 	return otherValues;
 };
 
@@ -527,32 +620,32 @@ const questionColumnMaps = new Map<string, Map<string, string>>();
 // 为特定问题的 column ID 生成字母标签
 const getColumnLabel = (columnId: string, questionId?: string): string => {
 	const mapKey = questionId || 'global';
-	
+
 	if (!questionColumnMaps.has(mapKey)) {
 		questionColumnMaps.set(mapKey, new Map<string, string>());
 	}
-	
+
 	const columnMap = questionColumnMaps.get(mapKey)!;
-	
+
 	if (columnMap.has(columnId)) {
 		return columnMap.get(columnId)!;
 	}
-	
+
 	// 生成字母标签 (a, b, c, d, ...)
 	const label = String.fromCharCode(97 + columnMap.size); // 97 = 'a'
 	columnMap.set(columnId, label);
-	
+
 	return label;
 };
 
 // 获取多选答案数组
 const getCheckboxAnswers = (answer: any): string[] => {
 	if (!answer) return [];
-	
+
 	if (Array.isArray(answer)) {
 		return answer.filter(Boolean);
 	}
-	
+
 	if (typeof answer === 'string') {
 		// 检查是否是JSON数组字符串
 		if (answer.startsWith('[') && answer.endsWith(']')) {
@@ -565,48 +658,58 @@ const getCheckboxAnswers = (answer: any): string[] => {
 				// 如果解析失败，按逗号分割
 			}
 		}
-		
+
 		// 按逗号分割字符串
-		return answer.split(',').map(item => item.trim()).filter(Boolean);
+		return answer
+			.split(',')
+			.map((item) => item.trim())
+			.filter(Boolean);
 	}
-	
+
 	return [String(answer)];
 };
 
 // 获取多选题标签
-const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: string, questionId?: string): string[] => {
+const getCheckboxLabels = (
+	answer: any,
+	questionConfig: any,
+	responseText?: string,
+	questionId?: string
+): string[] => {
 	if (!answer) {
 		return [];
 	}
-	
+
 	// 如果没有questionConfig，仍然尝试解析Other选项
 	if (!questionConfig?.options) {
 		const answerValues = getCheckboxAnswers(answer);
-		
+
 		// 尝试提取Other选项的自定义值
 		let otherValues: { [key: string]: string } = {};
 		if (responseText && questionId) {
 			otherValues = extractOtherValues(responseText, questionId);
 		}
-		
+
 		// 处理答案值，替换Other选项
 		const processedAnswers: string[] = [];
 		let hasOtherWithCustomValue = false;
-		
+
 		// 首先检查是否有Other选项带自定义值
-		answerValues.forEach(value => {
+		answerValues.forEach((value) => {
 			if (value.startsWith('option_')) {
-				const customValue = otherValues[value] || otherValues[value.replace('option_', 'option-')];
+				const customValue =
+					otherValues[value] || otherValues[value.replace('option_', 'option-')];
 				if (customValue) {
 					hasOtherWithCustomValue = true;
 				}
 			}
 		});
-		
-		answerValues.forEach(value => {
+
+		answerValues.forEach((value) => {
 			// 检查是否是option_开头的Other选项
 			if (value.startsWith('option_')) {
-				const customValue = otherValues[value] || otherValues[value.replace('option_', 'option-')];
+				const customValue =
+					otherValues[value] || otherValues[value.replace('option_', 'option-')];
 				if (customValue) {
 					processedAnswers.push(`Other: ${customValue}`);
 				} else {
@@ -614,57 +717,62 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 				}
 			} else {
 				// 检查是否是Other选项的自定义输入值，如果是则跳过
-				const isCustomInput = Object.values(otherValues).some(customVal => 
-					customVal.toLowerCase() === value.toLowerCase()
+				const isCustomInput = Object.values(otherValues).some(
+					(customVal) => customVal.toLowerCase() === value.toLowerCase()
 				);
-				
+
 				// 如果有Other自定义值且当前值等于自定义值，则跳过
 				if (isCustomInput && hasOtherWithCustomValue) {
 					return;
 				}
-				
+
 				processedAnswers.push(value);
 			}
 		});
-		
+
 		return processedAnswers;
 	}
-	
+
 	const answerValues = getCheckboxAnswers(answer);
-	
+
 	const optionMap = new Map<string, string>();
 	const otherOptionIds = new Set<string>();
-	
+
 	// 建立选项映射并识别Other选项
 	questionConfig.options.forEach((option: any) => {
 		optionMap.set(option.value, option.label);
-		if (option.isOther || option.type === 'other' || option.allowCustom || option.hasInput || 
-			(option.label && (
-				option.label.toLowerCase().includes('other') ||
-				option.label.toLowerCase().includes('enter other') ||
-				option.label.toLowerCase().includes('custom') ||
-				option.label.toLowerCase().includes('specify')
-			))) {
+		if (
+			option.isOther ||
+			option.type === 'other' ||
+			option.allowCustom ||
+			option.hasInput ||
+			(option.label &&
+				(option.label.toLowerCase().includes('other') ||
+					option.label.toLowerCase().includes('enter other') ||
+					option.label.toLowerCase().includes('custom') ||
+					option.label.toLowerCase().includes('specify')))
+		) {
 			otherOptionIds.add(option.value);
 		}
 	});
-	
+
 	// 提取Other选项的自定义值
 	let otherValues: { [key: string]: string } = {};
 	if (responseText && questionId) {
 		otherValues = extractOtherValues(responseText, questionId);
 	}
-	
+
 	const labels: string[] = [];
 	const processedValues = new Set<string>(); // 跟踪已处理的值
-	
+
 	answerValues.forEach((value) => {
 		const optionLabel = optionMap.get(value);
-		
+
 		if (optionLabel) {
 			if (otherOptionIds.has(value)) {
 				// 这是一个Other选项，查找自定义值
-				const customValue = otherValues[value] || otherValues[value.replace('option_', 'option-')];
+				const customValue =
+					otherValues[value] || otherValues[value.replace('option_', 'option-')];
 				if (customValue) {
 					labels.push(`Other: ${customValue}`);
 					// 标记这个自定义值已处理，避免显示原始的输入值
@@ -674,8 +782,8 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 				}
 			} else {
 				// 检查这个值是否是某个Other选项的自定义输入值
-				const isCustomInput = Object.values(otherValues).some(customVal => 
-					customVal.toLowerCase() === value.toLowerCase()
+				const isCustomInput = Object.values(otherValues).some(
+					(customVal) => customVal.toLowerCase() === value.toLowerCase()
 				);
 				if (!isCustomInput) {
 					labels.push(optionLabel);
@@ -683,13 +791,18 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 			}
 		} else {
 			// 检查是否是Other相关的值
-			const isOtherValue = Object.keys(otherValues).some(otherKey => {
-				return otherKey.includes(value) || value.includes(otherKey.replace('option-', '').replace('option_', ''));
+			const isOtherValue = Object.keys(otherValues).some((otherKey) => {
+				return (
+					otherKey.includes(value) ||
+					value.includes(otherKey.replace('option-', '').replace('option_', ''))
+				);
 			});
-			
+
 			if (isOtherValue) {
-				const customValue = Object.entries(otherValues).find(([key]) => 
-					key.includes(value) || value.includes(key.replace('option-', '').replace('option_', ''))
+				const customValue = Object.entries(otherValues).find(
+					([key]) =>
+						key.includes(value) ||
+						value.includes(key.replace('option-', '').replace('option_', ''))
 				)?.[1];
 				if (customValue) {
 					labels.push(`Other: ${customValue}`);
@@ -697,8 +810,8 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 				}
 			} else {
 				// 检查这个值是否是某个Other选项的自定义输入值，如果是则跳过
-				const isCustomInput = Object.values(otherValues).some(customVal => 
-					customVal.toLowerCase() === value.toLowerCase()
+				const isCustomInput = Object.values(otherValues).some(
+					(customVal) => customVal.toLowerCase() === value.toLowerCase()
 				);
 				if (!isCustomInput && !processedValues.has(value.toLowerCase())) {
 					labels.push(value);
@@ -706,125 +819,180 @@ const getCheckboxLabels = (answer: any, questionConfig: any, responseText?: stri
 			}
 		}
 	});
-	
+
 	return labels.filter(Boolean);
 };
 
 // 获取网格答案标签
 const getGridAnswerLabels = (
-    answer: any,
-    questionConfig: any,
-    responseText?: string,
-    questionId?: string
+	answer: any,
+	questionConfig: any,
+	responseText?: string,
+	questionId?: string
 ): string[] => {
-    if (!answer) return [];
+	if (!answer) return [];
 
-    // 如果没有 questionConfig，仍然尝试解析 Other 选项
-    if (!questionConfig?.columns) {
-        const answerIds = getCheckboxAnswers(answer);
+	// 如果没有 questionConfig，仍然尝试解析 Other 选项
+	if (!questionConfig?.columns) {
+		const answerIds = getCheckboxAnswers(answer);
 
-        // 提取 Other 自定义值
-        let otherValues: { [key: string]: string } = {};
-        if (responseText && questionId) {
-            otherValues = extractOtherValues(responseText, questionId);
-        }
+		// 提取 Other 自定义值
+		let otherValues: { [key: string]: string } = {};
+		if (responseText && questionId) {
+			otherValues = extractOtherValues(responseText, questionId);
+		}
 
-        const processedLabels: string[] = [];
-        answerIds.forEach((rawId) => {
-            const id = String(rawId);
-            const idLower = id.toLowerCase();
-            if (idLower.includes('other') || idLower === 'other' || idLower.startsWith('column-other-')) {
-                const customValue =
-                    otherValues[id] ||
-                    Object.entries(otherValues).find(([key]) => key.toLowerCase().includes(idLower))?.[1] ||
-                    Object.values(otherValues)[0];
-                processedLabels.push(customValue ? `Other: ${customValue}` : 'Other');
-            } else {
-                // 为 column ID 创建简化的标签
-                let displayLabel = id;
-                if (id.startsWith('column-')) {
-                    displayLabel = getColumnLabel(id, questionId);
-                }
-                processedLabels.push(displayLabel);
-            }
-        });
+		const processedLabels: string[] = [];
+		answerIds.forEach((rawId) => {
+			const id = String(rawId);
+			const idLower = id.toLowerCase();
+			if (
+				idLower.includes('other') ||
+				idLower === 'other' ||
+				idLower.startsWith('column-other-')
+			) {
+				const customValue =
+					otherValues[id] ||
+					Object.entries(otherValues).find(([key]) =>
+						key.toLowerCase().includes(idLower)
+					)?.[1] ||
+					Object.values(otherValues)[0];
+				processedLabels.push(customValue ? `Other: ${customValue}` : 'Other');
+			} else {
+				// 为 column ID 创建简化的标签
+				let displayLabel = id;
+				if (id.startsWith('column-')) {
+					displayLabel = getColumnLabel(id, questionId);
+				}
+				processedLabels.push(displayLabel);
+			}
+		});
 
-        return processedLabels;
-    }
+		return processedLabels;
+	}
 
-    const answerIds = getCheckboxAnswers(answer);
-    const columnMap = new Map<string, string>();
-    const otherColumnIds = new Set<string>();
+	const answerIds = getCheckboxAnswers(answer);
+	const columnMap = new Map<string, string>();
+	const otherColumnIds = new Set<string>();
 
-    // 建立列映射并识别 Other 列
-    questionConfig.columns.forEach((column: any) => {
-        columnMap.set(column.id, column.label);
-        if (
-            column.isOther ||
-            column.type === 'other' ||
-            column.allowCustom ||
-            column.hasInput ||
-            (column.label &&
-                (column.label.toLowerCase().includes('other') ||
-                    column.label.toLowerCase().includes('enter other') ||
-                    column.label.toLowerCase().includes('custom') ||
-                    column.label.toLowerCase().includes('specify')))
-        ) {
-            otherColumnIds.add(column.id);
-        }
-    });
+	// 建立列映射并识别 Other 列
+	questionConfig.columns.forEach((column: any) => {
+		columnMap.set(column.id, column.label);
+		if (
+			column.isOther ||
+			column.type === 'other' ||
+			column.allowCustom ||
+			column.hasInput ||
+			(column.label &&
+				(column.label.toLowerCase().includes('other') ||
+					column.label.toLowerCase().includes('enter other') ||
+					column.label.toLowerCase().includes('custom') ||
+					column.label.toLowerCase().includes('specify')))
+		) {
+			otherColumnIds.add(column.id);
+		}
+	});
 
-    // 从 responseText 中提取 Other 自定义值
-    let otherValues: { [key: string]: string } = {};
-    if (responseText && questionId) {
-        otherValues = extractOtherValues(responseText, questionId);
-    }
+	// 从 responseText 中提取 Other 自定义值
+	let otherValues: { [key: string]: string } = {};
+	if (responseText && questionId) {
+		otherValues = extractOtherValues(responseText, questionId);
+	}
 
-    // 将 ID 转换为对应的 label
-    const labels: string[] = [];
-    answerIds.forEach((rawId) => {
-        const id = String(rawId);
-        const idLower = id.toLowerCase();
-        const columnLabel = columnMap.get(id);
+	// 将 ID 转换为对应的 label
+	const labels: string[] = [];
+	answerIds.forEach((rawId) => {
+		const id = String(rawId);
+		const idLower = id.toLowerCase();
+		const columnLabel = columnMap.get(id);
 
-        if (columnLabel) {
-            // Other 列显示自定义值
-            if (otherColumnIds.has(id) || idLower.includes('other') || columnLabel.toLowerCase().includes('other')) {
-                const customValue =
-                    otherValues[id] ||
-                    otherValues[id.replace('column-', 'column-other-')] ||
-                    Object.entries(otherValues).find(([key]) => key.toLowerCase().includes(idLower))?.[1] ||
-                    Object.values(otherValues)[0];
+		if (columnLabel) {
+			// Other 列显示自定义值
+			if (
+				otherColumnIds.has(id) ||
+				idLower.includes('other') ||
+				columnLabel.toLowerCase().includes('other')
+			) {
+				const customValue =
+					otherValues[id] ||
+					otherValues[id.replace('column-', 'column-other-')] ||
+					Object.entries(otherValues).find(([key]) =>
+						key.toLowerCase().includes(idLower)
+					)?.[1] ||
+					Object.values(otherValues)[0];
 
-                labels.push(customValue ? `Other: ${customValue}` : columnLabel);
-            } else {
-                labels.push(columnLabel);
-            }
-        } else {
-            // 未配置映射，尝试与 otherValues 关联
-            const hasRelatedOther = Object.keys(otherValues).some((key) => key.toLowerCase().includes(idLower));
-            if (hasRelatedOther || idLower.includes('other')) {
-                const customValue =
-                    Object.entries(otherValues).find(([key]) => key.toLowerCase().includes(idLower))?.[1] ||
-                    Object.values(otherValues)[0];
-                labels.push(customValue ? `Other: ${customValue}` : 'Other');
-            } else {
-                let displayLabel = id;
-                if (id.startsWith('column-')) {
-                    displayLabel = getColumnLabel(id, questionId);
-                }
-                labels.push(displayLabel);
-            }
-        }
-    });
+				labels.push(customValue ? `Other: ${customValue}` : columnLabel);
+			} else {
+				labels.push(columnLabel);
+			}
+		} else {
+			// 未配置映射，尝试与 otherValues 关联
+			const hasRelatedOther = Object.keys(otherValues).some((key) =>
+				key.toLowerCase().includes(idLower)
+			);
+			if (hasRelatedOther || idLower.includes('other')) {
+				const customValue =
+					Object.entries(otherValues).find(([key]) =>
+						key.toLowerCase().includes(idLower)
+					)?.[1] || Object.values(otherValues)[0];
+				labels.push(customValue ? `Other: ${customValue}` : 'Other');
+			} else {
+				let displayLabel = id;
+				if (id.startsWith('column-')) {
+					displayLabel = getColumnLabel(id, questionId);
+				}
+				labels.push(displayLabel);
+			}
+		}
+	});
 
-    return labels.filter(Boolean);
+	return labels.filter(Boolean);
+};
+
+// 解析短答网格单行（或多行）答案为 “行:值” 列表字符串
+const getShortAnswerGridRowSummary = (response: any, questionConfig: any): string => {
+	const parsed = parseResponseText(response?.responseText || '');
+	if (!parsed || Object.keys(parsed).length === 0) {
+		return 'No answer';
+	}
+
+	// 建立 rowId -> label 的映射
+	const rowIdToLabel = new Map<string, string>();
+	if (questionConfig?.rows && Array.isArray(questionConfig.rows)) {
+		questionConfig.rows.forEach((r: any) => rowIdToLabel.set(r.id, r.label));
+	}
+
+	const rows: Array<{ label: string; value: string }> = [];
+	Object.entries(parsed).forEach(([key, val]) => {
+		const parts = key.split('_');
+		const rowPart = parts.find((p) => p.startsWith('row-')) || '';
+		const label = rowIdToLabel.get(rowPart) || rowPart.replace('row-', '');
+		const value = String(val ?? '').trim();
+		if (label && value) {
+			rows.push({ label, value });
+		}
+	});
+
+	// 兜底：如果解析不到 rowPart，尝试从 question 文本中取行号
+	if (rows.length === 0) {
+		const firstVal = Object.values(parsed)[0];
+		let rowLabel = '';
+		if (typeof response?.question === 'string') {
+			const match = response.question.match(/-\s*(\d+)\s*$/);
+			if (match) rowLabel = match[1];
+		}
+		if (rowLabel && firstVal) {
+			return `${rowLabel}:${String(firstVal)}`;
+		}
+	}
+
+	return rows.map((r) => `${r.label}:${r.value}`).join(' ');
 };
 
 // 检查是否有有效答案
 const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
-	
+
 	if (typeof answer === 'string') {
 		const trimmed = answer.trim();
 		// 检查空的JSON对象字符串
@@ -839,28 +1007,27 @@ const hasValidAnswer = (answer: string | any): boolean => {
 			trimmed !== 'undefined'
 		);
 	}
-	
+
 	if (Array.isArray(answer)) {
 		return answer.length > 0;
 	}
-	
+
 	if (typeof answer === 'object' && answer !== null) {
 		// 检查是否是空对象
 		return Object.keys(answer).length > 0;
 	}
-	
+
 	return true;
 };
 
 // 增强的答案格式化函数
 const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string => {
-
 	if (!response.answer && !response.responseText) {
 		return 'No answer';
 	}
 
 	const answer = response.answer || response.responseText;
-	
+
 	// 检查是否有有效答案
 	if (!hasValidAnswer(answer)) {
 		return 'No answer';
@@ -917,9 +1084,9 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 		case 'checkboxes':
 			// 处理多选题，支持Other选项的自定义值
 			const checkboxLabels = getCheckboxLabels(
-				answer, 
-				questionConfig, 
-				response.responseText, 
+				answer,
+				questionConfig,
+				response.responseText,
 				response.questionId
 			);
 			return checkboxLabels.join(', ');
@@ -928,17 +1095,20 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 		case 'checkbox_grid':
 			// 处理网格类型题目，支持Other选项的自定义值
 			const gridLabels = getGridAnswerLabels(
-				answer, 
-				questionConfig, 
-				response.responseText, 
+				answer,
+				questionConfig,
+				response.responseText,
 				response.questionId
 			);
 			return gridLabels.join(', ');
 
-	case 'date':
-		return formatAnswerDate(answer, 'date');
-	case 'time':
-		return formatAnswerDate(answer, 'time');
+		case 'short_answer_grid':
+			return getShortAnswerGridRowSummary(response, questionConfig);
+
+		case 'date':
+			return formatAnswerDate(answer, 'date');
+		case 'time':
+			return formatAnswerDate(answer, 'time');
 
 		default:
 			// 对于其他类型，使用原有逻辑
@@ -999,9 +1169,12 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 					// 确保 responseText 被正确传递
 					const enhancedResponse = {
 						...response,
-						responseText: response.responseText || after.responseText
+						responseText: response.responseText || after.responseText,
 					};
-					const formattedAnswer = formatAnswerWithConfig(enhancedResponse, questionnaireConfig);
+					const formattedAnswer = formatAnswerWithConfig(
+						enhancedResponse,
+						questionnaireConfig
+					);
 					changesList.push(
 						`${response.question || response.questionId}: ${formattedAnswer}`
 					);
@@ -1034,7 +1207,7 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 						// 新增的答案
 						const enhancedAfterResp = {
 							...afterResp,
-							responseText: afterResp.responseText || after.responseText
+							responseText: afterResp.responseText || after.responseText,
 						};
 						const formattedAnswer = formatAnswerWithConfig(
 							enhancedAfterResp,
@@ -1048,17 +1221,20 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 						// 修改的答案
 						const enhancedBeforeResp = {
 							...beforeResp,
-							responseText: beforeResp.responseText || before.responseText
+							responseText: beforeResp.responseText || before.responseText,
 						};
 						const enhancedAfterResp = {
 							...afterResp,
-							responseText: afterResp.responseText || after.responseText
+							responseText: afterResp.responseText || after.responseText,
 						};
 						const beforeAnswer = formatAnswerWithConfig(
 							enhancedBeforeResp,
 							questionnaireConfig
 						);
-						const afterAnswer = formatAnswerWithConfig(enhancedAfterResp, questionnaireConfig);
+						const afterAnswer = formatAnswerWithConfig(
+							enhancedAfterResp,
+							questionnaireConfig
+						);
 						changesList.push(
 							`${afterResp.question || questionId}: ${beforeAnswer} → ${afterAnswer}`
 						);
@@ -1118,41 +1294,41 @@ const formatFileSize = (bytes: number): string => {
 
 // --- US date/time formatting helpers for answer values ---
 const formatDateUS = (dateString: string): string => {
-    if (!dateString) return '';
-    try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return dateString;
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-    } catch {
-        return dateString;
-    }
+	if (!dateString) return '';
+	try {
+		const date = new Date(dateString);
+		if (isNaN(date.getTime())) return dateString;
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
+	} catch {
+		return dateString;
+	}
 };
 
 const formatAnswerDate = (dateStr: any, questionType?: string): string => {
-    if (!dateStr) return '';
-    const dateString = String(dateStr);
-    try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return dateString;
-        if (questionType === 'time') {
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${hours}:${minutes}:${seconds}`;
-        }
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${month}/${day}/${year}`;
-    } catch {
-        return dateString;
-    }
+	if (!dateStr) return '';
+	const dateString = String(dateStr);
+	try {
+		const date = new Date(dateString);
+		if (isNaN(date.getTime())) return dateString;
+		if (questionType === 'time') {
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			const seconds = String(date.getSeconds()).padStart(2, '0');
+			return `${hours}:${minutes}:${seconds}`;
+		}
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const year = date.getFullYear();
+		return `${month}/${day}/${year}`;
+	} catch {
+		return dateString;
+	}
 };
 
 const handleCurrentChange = (newPage: number) => {
@@ -1191,12 +1367,20 @@ const getTagType = (type: string): string => {
 		case 'File Upload':
 			return 'info';
 		case 'Task Complete':
+		case 'Action Success':
 			return 'success';
 		case 'Task Incomplete':
 		case 'ChecklistTaskUncomplete':
 			return 'warning';
 		case 'Field Change':
 		case 'StaticFieldValueChange':
+			return 'warning';
+		case 'Action Failed':
+			return 'danger';
+		case 'Action Running':
+		case 'Action Pending':
+			return 'info';
+		case 'Action Cancelled':
 			return 'warning';
 		default:
 			return 'info';
@@ -1223,6 +1407,153 @@ const getSimplifiedTitle = (row: any): string => {
 	}
 
 	return row.type || 'Change';
+};
+
+// ActionExecution 相关辅助函数
+const extractActionInfo = (change: any): any => {
+	// 从 extendedData 或 change 对象中提取 Action 执行信息
+	try {
+		// 尝试从 operationTitle 和 operationDescription 中提取信息
+		const actionName = extractActionNameFromTitle(change.operationTitle || change.details);
+		const actionType = extractActionTypeFromDescription(
+			change.operationDescription || change.details
+		);
+
+		return {
+			actionName: actionName || 'Unknown Action',
+			actionType: actionType || 'Unknown',
+			executionId: extractExecutionId(change.extendedData),
+			duration: extractDuration(change.extendedData),
+			triggerContext: change.extendedData || '',
+			errorMessage: extractErrorMessage(change),
+		};
+	} catch (error) {
+		console.warn('Failed to extract action info:', error);
+		return {
+			actionName: 'Unknown Action',
+			actionType: 'Unknown',
+			executionId: '',
+			duration: null,
+			triggerContext: '',
+			errorMessage: '',
+		};
+	}
+};
+
+const extractActionNameFromTitle = (title: string): string => {
+	if (!title) return '';
+
+	// 匹配 "Action Executed: ActionName" 或 "Action Failed: ActionName" 等格式
+	const match = title.match(/Action\s+(?:Executed|Failed|Running|Pending|Cancelled):\s*(.+)/i);
+	return match ? match[1].trim() : title;
+};
+
+const extractActionTypeFromDescription = (description: string): string => {
+	if (!description) return '';
+
+	// 匹配描述中的 Action 类型，如 "Python action completed successfully"
+	const match = description.match(/(\w+)\s+action/i);
+	return match ? match[1] : '';
+};
+
+const extractExecutionId = (extendedData: string): string => {
+	if (!extendedData) return '';
+
+	// 尝试提取执行ID
+	try {
+		// 如果是 JSON 字符串，解析并查找 executionId
+		if (extendedData.includes('{')) {
+			const data = JSON.parse(extendedData);
+			return data.executionId || data.ExecutionId || '';
+		}
+
+		// 如果是简单字符串，查找包含ID的部分
+		const match = extendedData.match(/execution[_\s]*id[:\s]*([^\s,]+)/i);
+		return match ? match[1] : '';
+	} catch {
+		return '';
+	}
+};
+
+const extractDuration = (extendedData: string): number | null => {
+	if (!extendedData) return null;
+
+	// 查找持续时间信息
+	const match = extendedData.match(/duration[:\s]*(\d+)/i);
+	return match ? parseInt(match[1], 10) : null;
+};
+
+const extractErrorMessage = (change: any): string => {
+	// 从多个可能的位置提取错误信息
+	return (
+		change.errorMessage ||
+		change.error_message ||
+		(change.details && change.details.includes('failed') ? change.details : '') ||
+		''
+	);
+};
+
+const formatDuration = (durationMs: number): string => {
+	if (durationMs < 1000) {
+		return `${durationMs}ms`;
+	} else if (durationMs < 60000) {
+		return `${(durationMs / 1000).toFixed(1)}s`;
+	} else {
+		const minutes = Math.floor(durationMs / 60000);
+		const seconds = Math.floor((durationMs % 60000) / 1000);
+		return `${minutes}m ${seconds}s`;
+	}
+};
+
+const getActionExecutionBgClass = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
+		case 'Action Failed':
+			return 'bg-red-50 dark:bg-red-900/20 border-red-400';
+		case 'Action Running':
+			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
+		case 'Action Pending':
+			return 'bg-orange-50 dark:bg-orange-900/20 border-orange-400';
+		case 'Action Cancelled':
+			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
+		default:
+			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
+	}
+};
+
+const getActionExecutionStatusClass = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'Action Failed':
+			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
+		case 'Action Running':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'Action Pending':
+			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
+		case 'Action Cancelled':
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+		default:
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	}
+};
+
+const getActionExecutionStatusText = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+			return 'Success';
+		case 'Action Failed':
+			return 'Failed';
+		case 'Action Running':
+			return 'Running';
+		case 'Action Pending':
+			return 'Pending';
+		case 'Action Cancelled':
+			return 'Cancelled';
+		default:
+			return 'Unknown';
+	}
 };
 
 // 监听属性变化并加载数据

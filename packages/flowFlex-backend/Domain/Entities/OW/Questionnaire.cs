@@ -1,13 +1,16 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using FlowFlex.Domain.Entities.Base;
 using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.OW
 {
     /// <summary>
-    /// Simple assignment DTO for Questionnaire assignments
+    /// Simple assignment DTO for Questionnaire assignments (DEPRECATED)
+    /// Assignments are now managed through Stage Components only
     /// </summary>
+    [Obsolete("This DTO is deprecated. Assignments are now managed through Stage Components only.")]
     public class QuestionnaireAssignmentDto
     {
         public long WorkflowId { get; set; }
@@ -40,10 +43,10 @@ namespace FlowFlex.Domain.Entities.OW
         public string Status { get; set; } = "Draft";
 
         /// <summary>
-        /// Questionnaire Structure Definition (JSON, see structure description below)
+        /// Questionnaire Structure Definition (JSONB)
         /// </summary>
-        [SugarColumn(ColumnName = "structure_json")]
-        public string StructureJson { get; set; }
+        [SugarColumn(ColumnName = "structure_json", ColumnDataType = "jsonb", IsJson = true)]
+        public JToken Structure { get; set; }
 
         /// <summary>
         /// Questionnaire Version Number
@@ -66,10 +69,10 @@ namespace FlowFlex.Domain.Entities.OW
         public string Category { get; set; }
 
         /// <summary>
-        /// Questionnaire Tags (JSON array)
+        /// Questionnaire Tags (JSONB array)
         /// </summary>
-        [SugarColumn(ColumnName = "tags_json")]
-        public string TagsJson { get; set; }
+        [SugarColumn(ColumnName = "tags_json", ColumnDataType = "jsonb", IsJson = true)]
+        public JToken Tags { get; set; }
 
         /// <summary>
         /// Estimated Fill Time (minutes)
@@ -101,51 +104,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         public bool IsActive { get; set; } = true;
 
-        /// <summary>
-        /// Assignments JSON storage for multiple workflow-stage assignments
-        /// </summary>
-        [SugarColumn(ColumnName = "assignments_json")]
-        public string? AssignmentsJson { get; set; }
-
-        /// <summary>
-        /// Computed property for Assignments (reads from AssignmentsJson)
-        /// </summary>
-        [SugarColumn(IsIgnore = true)]
-        public List<QuestionnaireAssignmentDto>? Assignments
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(AssignmentsJson))
-                    return new List<QuestionnaireAssignmentDto>();
-
-                try
-                {
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    };
-                    return JsonSerializer.Deserialize<List<QuestionnaireAssignmentDto>>(AssignmentsJson, options) ?? new List<QuestionnaireAssignmentDto>();
-                }
-                catch
-                {
-                    return new List<QuestionnaireAssignmentDto>();
-                }
-            }
-            set
-            {
-                if (value == null || !value.Any())
-                {
-                    AssignmentsJson = null;
-                }
-                else
-                {
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    };
-                    AssignmentsJson = JsonSerializer.Serialize(value, options);
-                }
-            }
-        }
+        // Assignments property removed - now managed through Stage Components only
+        // Legacy support: Keep QuestionnaireAssignmentDto for backward compatibility in services that still reference it
     }
 }

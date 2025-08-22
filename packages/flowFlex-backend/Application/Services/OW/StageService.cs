@@ -3,11 +3,13 @@ using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 
 using FlowFlex.Domain.Shared;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System;
 using System.Linq;
 using FlowFlex.Domain.Repository;
@@ -15,6 +17,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Application.Services.OW.Extensions;
+using System.Text.RegularExpressions;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -23,28 +26,37 @@ namespace FlowFlex.Application.Service.OW
     /// </summary>
     public class StageService : IStageService, IScopedService
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            PropertyNameCaseInsensitive = true
+        };
         private readonly IStageRepository _stageRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IMapper _mapper;
-        private readonly IOperationChangeLogService _operationLogService;
-        private readonly IStageAssignmentSyncService _syncService;
+        private readonly IStagesProgressSyncService _stagesProgressSyncService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
+        private readonly IAIService _aiService;
+        private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
         private readonly UserContext _userContext;
+        private readonly IComponentMappingService _mappingService;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IOperationChangeLogService operationLogService, IStageAssignmentSyncService syncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, UserContext userContext)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
             _mapper = mapper;
-            _operationLogService = operationLogService;
-            _syncService = syncService;
+            _stagesProgressSyncService = stagesProgressSyncService;
             _checklistService = checklistService;
             _questionnaireService = questionnaireService;
+            _aiService = aiService;
+            _checklistTaskCompletionRepository = checklistTaskCompletionRepository;
             _userContext = userContext;
+            _mappingService = mappingService;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -74,6 +86,26 @@ namespace FlowFlex.Application.Service.OW
             entity.InitCreateInfo(_userContext);
 
             await _stageRepository.InsertAsync(entity);
+
+            // Sync component mappings if the new stage has components
+            if (input.Components != null && input.Components.Any())
+            {
+                var hasChecklist = input.Components.Any(c => c.Key == "checklist" && c.ChecklistIds?.Any() == true);
+                var hasQuestionnaires = input.Components.Any(c => c.Key == "questionnaires" && c.QuestionnaireIds?.Any() == true);
+
+                if (hasChecklist || hasQuestionnaires)
+                {
+                    try
+                    {
+                        await _mappingService.SyncStageMappingsAsync(entity.Id);
+                        Console.WriteLine($"[StageService] Synced stage mappings for new stage {entity.Id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[StageService] Error syncing stage mappings for new stage {entity.Id}: {ex.Message}");
+                    }
+                }
+            }
 
             // Create new WorkflowVersion (after adding stage) - Disabled automatic version creation
             // await CreateWorkflowVersionForStageChangeAsync(entity.WorkflowId, $"Stage '{entity.Name}' created");
@@ -107,7 +139,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 try
                 {
-                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson) ?? new List<StageComponent>();
+                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
                 }
                 catch (JsonException)
                 {
@@ -167,81 +199,42 @@ namespace FlowFlex.Application.Service.OW
                 var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
                 var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
 
+                // Sync component mappings if there are changes
                 if (hasChecklistChanges || hasQuestionnaireChanges)
                 {
-                    // Sync assignments with checklists and questionnaires if components changed
                     try
                     {
-                        await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                            id,
-                            stage.WorkflowId,
-                            oldChecklistIds,
-                            newChecklistIds,
-                            oldQuestionnaireIds,
-                            newQuestionnaireIds);
+                        await _mappingService.SyncStageMappingsAsync(id);
+                        Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after update");
                     }
                     catch (Exception ex)
                     {
-                        // Log sync error but don't fail the operation
-                        // The stage update succeeded, sync is a secondary operation
-                        await _operationLogService.LogOperationAsync(
-                            OperationTypeEnum.OnboardingStatusChange,
-                            BusinessModuleEnum.Stage,
-                            id,
-                            null, // onboardingId
-                            null, // stageId
-                            "Stage Update Assignment Sync Error",
-                            "Failed to sync assignments with checklist/questionnaire during stage update",
-                            null, // beforeData
-                            ex.Message, // afterData
-                            new List<string> { "AssignmentSync" },
-                            null, // extendedData
-                            OperationStatusEnum.Failed
-                        );
+                        Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
                     }
+
+                    // Trigger async AI summary generation if components changed
+                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                 }
+
+                            // Assignment sync is no longer needed as assignments are managed through Stage Components only
 
                 // Cache cleanup removed
 
-                // Log operation - use OperationChangeLogService to properly handle JSONB fields
-                var beforeData = JsonSerializer.Serialize(new
+                // Operation logging removed - Stage management operations should not use IOperationChangeLogService
+
+                // Sync stages progress for all onboardings in this workflow
+                // This is done asynchronously to avoid impacting the main operation
+                _ = Task.Run(async () =>
                 {
-                    Name = stage.Name,
-                    WorkflowId = stage.WorkflowId,
-                    Description = stage.Description,
-                    Order = stage.Order
+                    try
+                    {
+                        await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stage.WorkflowId, id);
+                    }
+                    catch
+                    {
+                        // Ignore sync errors to avoid impacting the main operation
+                    }
                 });
-
-                var afterData = JsonSerializer.Serialize(new
-                {
-                    Name = input.Name,
-                    WorkflowId = input.WorkflowId,
-                    Description = input.Description,
-                    Order = input.Order
-                });
-
-                var changedFields = new[]
-                {
-                    stage.Name != input.Name ? "Name" : null,
-                    stage.WorkflowId != input.WorkflowId ? "WorkflowId" : null,
-                    stage.Description != input.Description ? "Description" : null,
-                    stage.Order != input.Order ? "Order" : null
-                }.Where(x => x != null).ToList();
-
-                await _operationLogService.LogOperationAsync(
-                    OperationTypeEnum.OnboardingStatusChange,
-                    BusinessModuleEnum.Stage,
-                    id,
-                    null, // onboardingId
-                    null, // stageId
-                    "Stage Update",
-                    "Stage information updated",
-                    beforeData,
-                    afterData,
-                    changedFields,
-                    null, // extendedData
-                    OperationStatusEnum.Success
-                );
             }
 
             return result;
@@ -291,6 +284,23 @@ namespace FlowFlex.Application.Service.OW
 
             // Delete stage first
             var deleteResult = await _stageRepository.DeleteAsync(entity);
+
+            if (deleteResult)
+            {
+                // Sync stages progress for all onboardings in this workflow
+                // This is done asynchronously to avoid impacting the main operation
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _stagesProgressSyncService.SyncAfterStageDeleteAsync(workflowId, id);
+                    }
+                    catch
+                    {
+                        // Ignore sync errors to avoid impacting the main operation
+                    }
+                });
+            }
 
             return deleteResult;
         }
@@ -378,6 +388,23 @@ namespace FlowFlex.Application.Service.OW
             //     await CreateWorkflowVersionForStageChangeAsync(input.WorkflowId, "Stages reordered");
             // }
 
+            if (result)
+            {
+                // Sync stages progress for all onboardings in this workflow
+                // This is done asynchronously to avoid impacting the main operation
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
+                    }
+                    catch
+                    {
+                        // Ignore sync errors to avoid impacting the main operation
+                    }
+                });
+            }
+
             return result;
         }
 
@@ -434,6 +461,20 @@ namespace FlowFlex.Application.Service.OW
 
             // Create new WorkflowVersion (after stage combination) - Disabled automatic version creation
             // await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stages combined into '{input.NewStageName}'");
+
+            // Sync stages progress for all onboardings in this workflow
+            // This is done asynchronously to avoid impacting the main operation
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _stagesProgressSyncService.SyncAfterStagesCombineAsync(workflowId, input.StageIds, newStage.Id);
+                }
+                catch
+                {
+                    // Ignore sync errors to avoid impacting the main operation
+                }
+            });
 
             return newStage.Id;
         }
@@ -548,31 +589,7 @@ namespace FlowFlex.Application.Service.OW
             throw new NotImplementedException("CompleteStageAsync will be implemented in next phase");
         }
 
-        public async Task<StageLogsDto> GetStageLogsAsync(long stageId, long onboardingId, int pageIndex = 1, int pageSize = 20)
-        {
-            // This is only a sample implementation, should be adjusted according to actual business table structure and log table structure
-            // Query operation logs related to this stage
-            var pagedResult = await _operationLogService.GetOperationLogsAsync(onboardingId, stageId, null, pageIndex, pageSize);
 
-            var result = new StageLogsDto
-            {
-                Logs = pagedResult.Items.Select(log => new StageLogDto
-                {
-                    LogId = log.Id,
-                    OperationType = log.OperationType,
-                    Description = log.OperationDescription,
-                    Details = log.ExtendedData ?? string.Empty,
-                    OperatedBy = log.OperatorName,
-                    OperatedTime = log.OperationTime,
-                    OperatedTimeDisplay = log.OperationTime.ToString("MM/dd/yyyy HH:mm:ss"),
-                    Result = log.OperationStatus,
-                    LogTypeTag = log.OperationType
-                }).ToList(),
-                TotalCount = pagedResult.TotalCount,
-                HasMore = pagedResult.TotalCount > pageIndex * pageSize
-            };
-            return result;
-        }
 
         public async Task<bool> AddStageNoteAsync(long stageId, long onboardingId, string noteContent, bool isPrivate = false)
         {
@@ -634,7 +651,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 try
                 {
-                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson) ?? new List<StageComponent>();
+                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
                 }
                 catch (JsonException)
                 {
@@ -667,8 +684,8 @@ namespace FlowFlex.Application.Service.OW
                 .Distinct()
                 .ToList();
 
-            // Update components JSON
-            entity.ComponentsJson = JsonSerializer.Serialize(input.Components);
+            // Update components
+            // ComponentsJson 将由 AutoMapper 的 SerializeComponents 统一生成，避免重复/多层序列化
             entity.Components = input.Components;
             entity.InitUpdateInfo(_userContext);
 
@@ -676,52 +693,45 @@ namespace FlowFlex.Application.Service.OW
 
             if (result)
             {
-                // Sync assignments with checklists and questionnaires
-                try
+                // Check if there are actual changes to sync
+                var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
+                var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
+
+                // Sync component mappings if there are changes
+                if (hasChecklistChanges || hasQuestionnaireChanges)
                 {
-                    await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                        id,
-                        entity.WorkflowId,
-                        oldChecklistIds,
-                        newChecklistIds,
-                        oldQuestionnaireIds,
-                        newQuestionnaireIds);
-                }
-                catch (Exception ex)
-                {
-                    // Log sync error but don't fail the operation
-                    // The stage components update succeeded, sync is a secondary operation
-                    await _operationLogService.LogOperationAsync(
-                        OperationTypeEnum.OnboardingStatusChange,
-                        BusinessModuleEnum.Stage,
-                        id,
-                        null, // onboardingId
-                        null, // stageId
-                        "Stage Components Assignment Sync Error",
-                        "Failed to sync assignments with checklist/questionnaire",
-                        null, // beforeData
-                        ex.Message, // afterData
-                        new List<string> { "AssignmentSync" },
-                        null, // extendedData
-                        OperationStatusEnum.Failed
-                    );
+                    try
+                    {
+                        await _mappingService.SyncStageMappingsAsync(id);
+                        Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after component update");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
+                    }
+
+                    // Trigger async AI summary generation for component updates
+                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                 }
 
+                // Assignment sync is no longer needed as assignments are managed through Stage Components only
+
                 // Log operation
-                await _operationLogService.LogOperationAsync(
-                    OperationTypeEnum.OnboardingStatusChange,
-                    BusinessModuleEnum.Stage,
-                    id,
-                    null, // onboardingId
-                    null, // stageId
-                    "Stage Components Update",
-                    "Stage components configuration updated",
-                    null, // beforeData
-                    JsonSerializer.Serialize(input.Components), // afterData
-                    new List<string> { "Components" },
-                    null, // extendedData
-                    OperationStatusEnum.Success
-                );
+                // Removed operation logging - not relevant for stage management operations
+                // await _operationLogService.LogOperationAsync(
+                //OperationTypeEnum.OnboardingStatusChange,
+                //BusinessModuleEnum.Stage,
+                //id,
+                //null, // onboardingId
+                //null, // stageId
+                //"Stage Components Update",
+                //"Stage components configuration updated",
+                //null, // beforeData
+                //JsonSerializer.Serialize(input.Components), // afterData
+                //new List<string> { "Components" },
+                //null, // extendedData
+                //OperationStatusEnum.Success
+                // );
             }
 
             return result;
@@ -739,21 +749,93 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // If no components configured, return empty list instead of default components
+            Console.WriteLine($"[DEBUG] GetComponentsAsync - Stage {id}, ComponentsJson: {entity.ComponentsJson ?? "NULL"}");
             if (string.IsNullOrEmpty(entity.ComponentsJson))
             {
+                Console.WriteLine($"[DEBUG] ComponentsJson is null or empty for stage {id}");
                 return new List<StageComponent>();
             }
 
             try
             {
-                var components = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson);
+                // Handle double-escaped JSON string
+                var jsonString = entity.ComponentsJson;
+                
+                // If the string starts and ends with quotes, it's likely double-escaped
+                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                {
+                    Console.WriteLine($"[DEBUG] Detected double-escaped JSON, unescaping...");
+                    // Remove outer quotes and unescape
+                    jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
+                    Console.WriteLine($"[DEBUG] Unescaped JSON: {jsonString}");
+                }
+
+                // Clean problematic escape sequences (e.g., \u0026 and stray \&)
+                var cleanedJson = CleanJsonString(jsonString);
+                Console.WriteLine($"[DEBUG] Cleaned JSON (preview): {cleanedJson.Substring(0, Math.Min(200, cleanedJson.Length))}...");
+
+                List<StageComponent> components = null;
+                try
+                {
+                    components = JsonSerializer.Deserialize<List<StageComponent>>(cleanedJson, _jsonOptions);
+                }
+                catch (JsonException jsonEx)
+                {
+                    Console.WriteLine($"[ERROR] Direct JSON deserialization failed: {jsonEx.Message}");
+                    // As a last resort, try to parse array items individually
+                    try
+                    {
+                        Console.WriteLine("[DEBUG] Trying manual JSON parsing...");
+                        using var doc = JsonDocument.Parse(cleanedJson);
+                        JsonElement root = doc.RootElement;
+                        if (root.ValueKind == JsonValueKind.String)
+                        {
+                            var inner = root.GetString() ?? string.Empty;
+                            using var innerDoc = JsonDocument.Parse(inner);
+                            root = innerDoc.RootElement.Clone();
+                        }
+                        if (root.ValueKind == JsonValueKind.Array)
+                        {
+                            var list = new List<StageComponent>();
+                            foreach (var elem in root.EnumerateArray())
+                            {
+                                bool isEnabled = true;
+                                if (elem.TryGetProperty("IsEnabled", out var enProp2) && enProp2.ValueKind == JsonValueKind.False)
+                                {
+                                    isEnabled = false;
+                                }
+                                var sc = new StageComponent
+                                {
+                                    Key = elem.TryGetProperty("Key", out var keyProp) ? keyProp.GetString() ?? string.Empty : string.Empty,
+                                    Order = elem.TryGetProperty("Order", out var orderProp) && orderProp.TryGetInt32(out var oi) ? oi : 0,
+                                    IsEnabled = isEnabled,
+                                    Configuration = elem.TryGetProperty("Configuration", out var cfgProp) ? (cfgProp.ValueKind == JsonValueKind.String ? cfgProp.GetString() : null) : null,
+                                    StaticFields = elem.TryGetProperty("StaticFields", out var sfProp) && sfProp.ValueKind == JsonValueKind.Array ? sfProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
+                                    ChecklistIds = elem.TryGetProperty("ChecklistIds", out var clProp) && clProp.ValueKind == JsonValueKind.Array ? clProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
+                                    QuestionnaireIds = elem.TryGetProperty("QuestionnaireIds", out var qProp) && qProp.ValueKind == JsonValueKind.Array ? qProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
+                                    ChecklistNames = elem.TryGetProperty("ChecklistNames", out var clnProp) && clnProp.ValueKind == JsonValueKind.Array ? clnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
+                                    QuestionnaireNames = elem.TryGetProperty("QuestionnaireNames", out var qnnProp) && qnnProp.ValueKind == JsonValueKind.Array ? qnnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>()
+                                };
+                                list.Add(sc);
+                            }
+                            components = list;
+                            Console.WriteLine($"[DEBUG] Manual parsing succeeded, {components.Count} components");
+                        }
+                    }
+                    catch (Exception manualEx)
+                    {
+                        Console.WriteLine($"[ERROR] Manual parsing also failed: {manualEx.Message}");
+                        throw; // rethrow original exception
+                    }
+                }
+
                 if (components == null || !components.Any())
                 {
                     return new List<StageComponent>();
                 }
 
                 // Check if any component is missing names and fill them
-                bool needsNameFilling = components.Any(c => 
+                bool needsNameFilling = components.Any(c =>
                     (c.ChecklistIds?.Any() == true && (c.ChecklistNames?.Count != c.ChecklistIds.Count)) ||
                     (c.QuestionnaireIds?.Any() == true && (c.QuestionnaireNames?.Count != c.QuestionnaireIds.Count))
                 );
@@ -761,31 +843,17 @@ namespace FlowFlex.Application.Service.OW
                 if (needsNameFilling)
                 {
                     await FillComponentNamesAsync(components);
-                    
+
                     // Update the entity with filled names for future use
                     try
                     {
-                        entity.ComponentsJson = JsonSerializer.Serialize(components);
+                        // ComponentsJson 由映射层统一生成，避免重复序列化
                         entity.Components = components;
                         await _stageRepository.UpdateAsync(entity);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        // Log but don't fail - names were filled for this request
-                        await _operationLogService.LogOperationAsync(
-                            OperationTypeEnum.OnboardingStatusChange,
-                            BusinessModuleEnum.Stage,
-                            id,
-                            null,
-                            null,
-                            "Component Names Fill Update Error",
-                            $"Failed to update stage with filled component names: {ex.Message}",
-                            null,
-                            null,
-                            new List<string> { "ComponentNamesFill" },
-                            null,
-                            OperationStatusEnum.Failed
-                        );
+                        // Ignore persistence error here
                     }
                 }
 
@@ -799,17 +867,32 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Manually sync assignments between stage components and checklist/questionnaire assignments
+        /// Clean JSON string from problematic Unicode escape sequences and stray backslashes
         /// </summary>
+        private static string CleanJsonString(string jsonString)
+        {
+            if (string.IsNullOrEmpty(jsonString)) return jsonString;
+
+            var cleaned = jsonString;
+            // Replace common unicode escape sequences with actual chars
+            cleaned = Regex.Replace(cleaned, @"\\u003[cC]", "<");
+            cleaned = Regex.Replace(cleaned, @"\\u003[eE]", ">");
+            cleaned = Regex.Replace(cleaned, @"\\u0026", "&");
+            cleaned = Regex.Replace(cleaned, @"\\u0027", "'");
+            // Remove stray escapes before ampersand if any remained (e.g., \&)
+            cleaned = Regex.Replace(cleaned, @"\\&", "&");
+            return cleaned;
+        }
+
+        /// <summary>
+        /// Manually sync assignments between stage components and checklist/questionnaire assignments (DEPRECATED)
+        /// Assignments are now managed through Stage Components only
+        /// </summary>
+        [Obsolete("This method is deprecated. Assignments are now managed through Stage Components only.")]
         public async Task<bool> SyncAssignmentsFromStageComponentsAsync(long stageId, long workflowId, List<long> oldChecklistIds, List<long> newChecklistIds, List<long> oldQuestionnaireIds, List<long> newQuestionnaireIds)
         {
-            return await _syncService.SyncAssignmentsFromStageComponentsAsync(
-                stageId,
-                workflowId,
-                oldChecklistIds,
-                newChecklistIds,
-                oldQuestionnaireIds,
-                newQuestionnaireIds);
+            // Assignment sync is no longer needed as assignments are managed through Stage Components only
+            return true; // Return success to avoid breaking existing calls
         }
 
         #endregion
@@ -865,20 +948,21 @@ namespace FlowFlex.Application.Service.OW
                 {
                     // Log error but continue - names will be empty if service fails
                     // This ensures the operation doesn't fail completely
-                    await _operationLogService.LogOperationAsync(
-                        OperationTypeEnum.OnboardingStatusChange,
-                        BusinessModuleEnum.Stage,
-                        0,
-                        null,
-                        null,
-                        "Checklist Names Fetch Error",
-                        $"Failed to fetch checklist names: {ex.Message}",
-                        null,
-                        JsonSerializer.Serialize(allChecklistIds),
-                        new List<string> { "ChecklistNamesFetch" },
-                        null,
-                        OperationStatusEnum.Failed
-                    );
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //OperationTypeEnum.OnboardingStatusChange,
+                    //BusinessModuleEnum.Stage,
+                    //0,
+                    //null,
+                    //null,
+                    //"Checklist Names Fetch Error",
+                    //$"Failed to fetch checklist names: {ex.Message}",
+                    //null,
+                    //JsonSerializer.Serialize(allChecklistIds),
+                    //new List<string> { "ChecklistNamesFetch" },
+                    //null,
+                    //OperationStatusEnum.Failed
+                    //   );
                 }
             }
 
@@ -892,20 +976,21 @@ namespace FlowFlex.Application.Service.OW
                 catch (Exception ex)
                 {
                     // Log error but continue - names will be empty if service fails
-                    await _operationLogService.LogOperationAsync(
-                        OperationTypeEnum.OnboardingStatusChange,
-                        BusinessModuleEnum.Stage,
-                        0,
-                        null,
-                        null,
-                        "Questionnaire Names Fetch Error",
-                        $"Failed to fetch questionnaire names: {ex.Message}",
-                        null,
-                        JsonSerializer.Serialize(allQuestionnaireIds),
-                        new List<string> { "QuestionnaireNamesFetch" },
-                        null,
-                        OperationStatusEnum.Failed
-                    );
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //    OperationTypeEnum.OnboardingStatusChange,
+                    //    BusinessModuleEnum.Stage,
+                    //    0,
+                    //    null,
+                    //    null,
+                    //    "Questionnaire Names Fetch Error",
+                    //    $"Failed to fetch questionnaire names: {ex.Message}",
+                    //    null,
+                    //    JsonSerializer.Serialize(allQuestionnaireIds),
+                    //    new List<string> { "QuestionnaireNamesFetch" },
+                    //    null,
+                    //    OperationStatusEnum.Failed
+                    //);
                 }
             }
 
@@ -931,5 +1016,702 @@ namespace FlowFlex.Application.Service.OW
         }
 
         // Cache cleanup methods have been removed
+
+        /// <summary>
+        /// Generate AI summary for stage based on its content
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional, for specific onboarding context)</param>
+        /// <param name="summaryOptions">Summary generation options</param>
+        /// <returns>Generated AI summary</returns>
+        public async Task<AIStageSummaryResult> GenerateAISummaryAsync(long stageId, long? onboardingId = null, StageSummaryOptions summaryOptions = null)
+        {
+            try
+            {
+                // Get stage information
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null)
+                {
+                    return new AIStageSummaryResult
+                    {
+                        Success = false,
+                        Message = "Stage not found"
+                    };
+                }
+
+                // Set default options if not provided
+                summaryOptions ??= new StageSummaryOptions();
+
+                // Prepare AI summary input
+                var aiInput = new AIStageSummaryInput
+                {
+                    StageId = stageId,
+                    StageName = stage.Name,
+                    StageDescription = stage.Description ?? "",
+                    Language = summaryOptions.Language,
+                    SummaryLength = summaryOptions.SummaryLength,
+                    AdditionalContext = summaryOptions.AdditionalContext,
+                    ModelId = summaryOptions.ModelId,
+                    ModelProvider = summaryOptions.ModelProvider,
+                    ModelName = summaryOptions.ModelName,
+                    ChecklistTasks = new List<AISummaryTaskInfo>(),
+                    QuestionnaireQuestions = new List<AISummaryQuestionInfo>(),
+                    StaticFields = new List<AISummaryFieldInfo>()
+                };
+
+                // Populate stage component information (checklist and questionnaire data)
+                await PopulateStageComponentsForSummary(stageId, aiInput, summaryOptions, onboardingId);
+
+                // Debug: Print final data counts
+                Console.WriteLine($"[DEBUG] Final AI Input - ChecklistTasks: {aiInput.ChecklistTasks.Count}, QuestionnaireQuestions: {aiInput.QuestionnaireQuestions.Count}, StaticFields: {aiInput.StaticFields.Count}");
+
+                // Generate AI summary
+                var result = await _aiService.GenerateStageSummaryAsync(aiInput);
+
+                // Log the operation
+                // Removed operation logging - not relevant for stage management operations
+                // await _operationLogService.LogOperationAsync(
+                //OperationTypeEnum.OnboardingStatusChange,
+                //    BusinessModuleEnum.Stage,
+                //    stageId,
+                //    null,
+                //    null,
+                //    "AI Summary Generated",
+                //    $"AI summary generated for stage '{stage.Name}' with {aiInput.ChecklistTasks.Count} tasks and {aiInput.QuestionnaireQuestions.Count} questions",
+                //    null,
+                //    JsonSerializer.Serialize(new { stageId, onboardingId, summaryLength = summaryOptions.SummaryLength }),
+                //    new List<string> { "AISummary", "StageAnalysis" },
+                //    null,
+                //    result.Success? OperationStatusEnum.Success: OperationStatusEnum.Failed
+                //);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                // Removed operation logging - not relevant for stage management operations
+                // await _operationLogService.LogOperationAsync(
+                //OperationTypeEnum.OnboardingStatusChange,
+                //    BusinessModuleEnum.Stage,
+                //    stageId,
+                //    null,
+                //    null,
+                //    "AI Summary Generation Failed",
+                //    $"Failed to generate AI summary: {ex.Message}",
+                //    null,
+                //    JsonSerializer.Serialize(new { stageId, onboardingId, error = ex.Message }),
+                //    new List<string> { "AISummary", "Error" },
+                //    null,
+                //    OperationStatusEnum.Failed
+                //);
+
+                return new AIStageSummaryResult
+                {
+                    Success = false,
+                    Message = $"Failed to generate AI summary: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Generate AI summary in background without blocking the main operation
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="trigger">What triggered the summary generation</param>
+        private async Task GenerateAISummaryInBackgroundAsync(long stageId, string trigger)
+        {
+            try
+            {
+                // Use default summary options for background generation
+                var summaryOptions = new StageSummaryOptions
+                {
+                    // Use auto language detection to follow user's input language
+                    Language = "auto",
+                    SummaryLength = "short", // Use shorter summary for better performance
+                    AdditionalContext = $"Auto-generated summary triggered by: {trigger}",
+                    IncludeTaskAnalysis = true,
+                    IncludeQuestionnaireInsights = true,
+                    IncludeRiskAssessment = false, // Disable to reduce complexity
+                    IncludeRecommendations = false // Disable to reduce complexity
+                };
+
+                // Generate AI summary with retry mechanism
+                var result = await GenerateAISummaryWithRetryAsync(stageId, summaryOptions);
+
+                if (result.Success)
+                {
+                    // Store the summary result (you might want to save this to database)
+                    await StoreStageSummaryAsync(stageId, result, trigger);
+
+                    // Log successful background generation
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //OperationTypeEnum.OnboardingStatusChange,
+                    //    BusinessModuleEnum.Stage,
+                    //    stageId,
+                    //    null,
+                    //    null,
+                    //    "Background AI Summary Generated",
+                    //    $"AI summary successfully generated in background. Trigger: {trigger}",
+                    //    null,
+                    //    JsonSerializer.Serialize(new
+                    //    {
+                    //        stageId,
+                    //        trigger,
+                    //        summaryLength = result.Summary?.Length ?? 0,
+                    //        confidenceScore = result.ConfidenceScore
+                    //    }),
+                    //    new List<string> { "BackgroundAISummary", "Success" },
+                    //    null,
+                    //    OperationStatusEnum.Success
+                    //);
+                }
+                else
+                {
+                    // Log failed background generation
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //OperationTypeEnum.OnboardingStatusChange,
+                    //    BusinessModuleEnum.Stage,
+                    //    stageId,
+                    //    null,
+                    //    null,
+                    //    "Background AI Summary Failed",
+                    //    $"Failed to generate AI summary in background. Trigger: {trigger}. Error: {result.Message}",
+                    //    null,
+                    //    JsonSerializer.Serialize(new { stageId, trigger, error = result.Message }),
+                    //    new List<string> { "BackgroundAISummary", "Failed" },
+                    //    null,
+                    //    OperationStatusEnum.Failed
+                    //);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log exception in background generation - don't let it bubble up
+                try
+                {
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //OperationTypeEnum.OnboardingStatusChange,
+                    //    BusinessModuleEnum.Stage,
+                    //    stageId,
+                    //    null,
+                    //    null,
+                    //    "Background AI Summary Exception",
+                    //    $"Exception occurred during background AI summary generation. Trigger: {trigger}. Exception: {ex.Message}",
+                    //    null,
+                    //    JsonSerializer.Serialize(new { stageId, trigger, exception = ex.ToString() }),
+                    //    new List<string> { "BackgroundAISummary", "Exception" },
+                    //    null,
+                    //    OperationStatusEnum.Failed
+                    //);
+                }
+                catch
+                {
+                    // If logging fails, just ignore - we don't want to crash the background task
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generate AI summary with retry mechanism for better reliability
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="summaryOptions">Summary options</param>
+        /// <returns>AI summary result</returns>
+        private async Task<AIStageSummaryResult> GenerateAISummaryWithRetryAsync(long stageId, StageSummaryOptions summaryOptions)
+        {
+            const int maxRetries = 2;
+            var delays = new[] { TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15) };
+
+            for (int attempt = 0; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    // Add timeout for each attempt
+                    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1)); // 1 minute timeout per attempt
+
+                    var result = await GenerateAISummaryAsync(stageId, null, summaryOptions);
+
+                    if (result.Success)
+                    {
+                        return result;
+                    }
+
+                    // If not successful and we have retries left, log and continue
+                    if (attempt < maxRetries)
+                    {
+                        // Removed operation logging - not relevant for stage management operations
+                        // await _operationLogService.LogOperationAsync(
+                        //OperationTypeEnum.OnboardingStatusChange,
+                        //    BusinessModuleEnum.Stage,
+                        //    stageId,
+                        //    null,
+                        //    null,
+                        //    "AI Summary Retry",
+                        //    $"Attempt {attempt + 1} failed: {result.Message}. Retrying in {delays[attempt].TotalSeconds} seconds.",
+                        //    null,
+                        //    JsonSerializer.Serialize(new { attempt = attempt + 1, error = result.Message }),
+                        //    new List<string> { "AISummaryRetry" },
+                        //    null,
+                        //    OperationStatusEnum.Failed
+                        //);
+
+                        await Task.Delay(delays[attempt]);
+                    }
+                    else
+                    {
+                        return result; // Return the last failed result
+                    }
+                }
+                catch (TaskCanceledException ex)
+                {
+                    var errorMessage = $"AI summary generation timed out on attempt {attempt + 1}";
+
+                    if (attempt < maxRetries)
+                    {
+                        // Removed operation logging - not relevant for stage management operations
+                        // await _operationLogService.LogOperationAsync(
+                        //OperationTypeEnum.OnboardingStatusChange,
+                        //    BusinessModuleEnum.Stage,
+                        //    stageId,
+                        //    null,
+                        //    null,
+                        //    "AI Summary Timeout Retry",
+                        //    $"{errorMessage}. Retrying in {delays[attempt].TotalSeconds} seconds.",
+                        //    null,
+                        //    JsonSerializer.Serialize(new { attempt = attempt + 1, timeout = true }),
+                        //    new List<string> { "AISummaryTimeout" },
+                        //    null,
+                        //    OperationStatusEnum.Failed
+                        //);
+
+                        await Task.Delay(delays[attempt]);
+                    }
+                    else
+                    {
+                        return new AIStageSummaryResult
+                        {
+                            Success = false,
+                            Message = $"{errorMessage}. All retry attempts exhausted."
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var errorMessage = $"AI summary generation failed on attempt {attempt + 1}: {ex.Message}";
+
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(delays[attempt]);
+                    }
+                    else
+                    {
+                        return new AIStageSummaryResult
+                        {
+                            Success = false,
+                            Message = $"{errorMessage}. All retry attempts exhausted."
+                        };
+                    }
+                }
+            }
+
+            // This should never be reached, but just in case
+            return new AIStageSummaryResult
+            {
+                Success = false,
+                Message = "Unexpected error in retry mechanism"
+            };
+        }
+
+        /// <summary>
+        /// Store the generated AI summary (placeholder for future database storage)
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="summaryResult">AI summary result</param>
+        /// <param name="trigger">What triggered the summary</param>
+        private async Task StoreStageSummaryAsync(long stageId, AIStageSummaryResult summaryResult, string trigger)
+        {
+            try
+            {
+                // Update Stage entity with AI summary data
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage != null)
+                {
+                    // Update AI summary fields
+                    stage.AiSummary = summaryResult.Summary;
+                    stage.AiSummaryGeneratedAt = DateTime.UtcNow;
+                    stage.AiSummaryConfidence = (decimal?)summaryResult.ConfidenceScore;
+                    stage.AiSummaryModel = summaryResult.ModelUsed;
+
+                    // Store detailed AI summary data as JSON
+                    var detailedData = new
+                    {
+                        breakdown = summaryResult.Breakdown,
+                        keyInsights = summaryResult.KeyInsights,
+                        recommendations = summaryResult.Recommendations,
+                        completionStatus = summaryResult.CompletionStatus,
+                        trigger = trigger,
+                        generatedAt = DateTime.UtcNow
+                    };
+                    stage.AiSummaryData = JsonSerializer.Serialize(detailedData);
+
+                    // Save to database
+                    await _stageRepository.UpdateAsync(stage);
+
+                    // Log successful storage
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //OperationTypeEnum.OnboardingStatusChange,
+                    //            BusinessModuleEnum.Stage,
+                    //            stageId,
+                    //            null,
+                    //            null,
+                    //            "AI Summary Stored",
+                    //            $"AI summary successfully stored in database. Trigger: {trigger}",
+                    //            null,
+                    //            JsonSerializer.Serialize(new
+                    //            {
+                    //                stageId,
+                    //                trigger,
+                    //                summaryLength = summaryResult.Summary?.Length ?? 0,
+                    //                confidenceScore = summaryResult.ConfidenceScore,
+                    //                modelUsed = summaryResult.ModelUsed,
+                    //                hasBreakdown = summaryResult.Breakdown != null,
+                    //                keyInsightsCount = summaryResult.KeyInsights?.Count ?? 0,
+                    //                recommendationsCount = summaryResult.Recommendations?.Count ?? 0,
+                    //                storedAt = DateTime.UtcNow
+                    //            }),
+                    //            new List<string> { "AISummaryStorage", "DatabaseUpdate" },
+                    //            null,
+                    //            OperationStatusEnum.Success
+                    //        );
+                }
+                else
+                {
+                    // Stage not found - log error
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //OperationTypeEnum.OnboardingStatusChange,
+                    //            BusinessModuleEnum.Stage,
+                    //            stageId,
+                    //            null,
+                    //            null,
+                    //            "AI Summary Storage Failed",
+                    //            $"Stage with ID {stageId} not found when trying to store AI summary",
+                    //            null,
+                    //            JsonSerializer.Serialize(new { stageId, trigger, error = "Stage not found" }),
+                    //            new List<string> { "AISummaryStorage", "Error" },
+                    //            null,
+                    //            OperationStatusEnum.Failed
+                    //        );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log storage failure but don't crash the background task
+                try
+                {
+                    // Removed operation logging - not relevant for stage management operations
+                    // await _operationLogService.LogOperationAsync(
+                    //OperationTypeEnum.OnboardingStatusChange,
+                    //            BusinessModuleEnum.Stage,
+                    //            stageId,
+                    //            null,
+                    //            null,
+                    //            "AI Summary Storage Error",
+                    //            $"Failed to store AI summary in database: {ex.Message}",
+                    //            null,
+                    //            JsonSerializer.Serialize(new
+                    //            {
+                    //                stageId,
+                    //                trigger,
+                    //                error = ex.Message,
+                    //                stackTrace = ex.StackTrace
+                    //            }),
+                    //            new List<string> { "AISummaryStorage", "Exception" },
+                    //            null,
+                    //            OperationStatusEnum.Failed
+                    //        );
+                }
+                catch
+                {
+                    // If even logging fails, just ignore to prevent infinite loops
+                }
+            }
+        }
+
+        /// <summary>
+        /// Populate stage components information for AI summary when no specific onboarding context is available
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiInput">AI input to populate</param>
+        /// <param name="summaryOptions">Summary options</param>
+        /// <param name="onboardingId">Onboarding ID for task completion context</param>
+        private async Task PopulateStageComponentsForSummary(long stageId, AIStageSummaryInput aiInput, StageSummaryOptions summaryOptions, long? onboardingId = null)
+        {
+            try
+            {
+                // Get stage components
+                var components = await GetComponentsAsync(stageId);
+                Console.WriteLine($"[DEBUG] PopulateStageComponentsForSummary - Stage {stageId}, Components count: {components.Count}");
+
+                if (summaryOptions.IncludeTaskAnalysis)
+                {
+                    // Get checklist information from components
+                    var checklistIds = components
+                        .Where(c => c.Key == "checklist")
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+                    
+                    Console.WriteLine($"[DEBUG] Found {checklistIds.Count} checklist IDs: [{string.Join(", ", checklistIds)}]");
+
+                    foreach (var checklistId in checklistIds)
+                    {
+                        try
+                        {
+                            Console.WriteLine($"[DEBUG] Attempting to load checklist {checklistId}");
+                            var checklist = await _checklistService.GetByIdAsync(checklistId);
+                            Console.WriteLine($"[DEBUG] Checklist loaded: {checklist?.Name}, Tasks count: {checklist?.Tasks?.Count ?? 0}");
+                            
+                            if (checklist?.Tasks != null && checklist.Tasks.Any())
+                            {
+                                // Get task completion status if onboarding context is available
+                                Dictionary<long, (bool isCompleted, string notes)> taskCompletionMap = new();
+                                if (onboardingId.HasValue)
+                                {
+                                    try
+                                    {
+                                        // Get task completions for this onboarding and checklist
+                                        // Use repository to get task completion entities directly
+                                        var taskCompletions = await _checklistTaskCompletionRepository.GetByOnboardingAndChecklistAsync(onboardingId.Value, checklistId);
+                                        taskCompletionMap = taskCompletions.ToDictionary(
+                                            tc => tc.TaskId,
+                                            tc => (tc.IsCompleted, tc.CompletionNotes ?? "")
+                                        );
+                                        Console.WriteLine($"[DEBUG] Found {taskCompletionMap.Count} task completions for onboarding {onboardingId.Value}, checklist {checklistId}");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[WARNING] Could not load task completions: {ex.Message}");
+                                    }
+                                }
+
+                                var taskInfos = checklist.Tasks.Select(task => 
+                                {
+                                    var hasCompletion = taskCompletionMap.TryGetValue(task.Id, out var completion);
+                                    return new AISummaryTaskInfo
+                                    {
+                                        TaskId = task.Id,
+                                        TaskName = task.Name ?? "",
+                                        Description = task.Description ?? "",
+                                        IsRequired = task.IsRequired,
+                                        IsCompleted = hasCompletion ? completion.isCompleted : false,
+                                        CompletionNotes = hasCompletion ? completion.notes : "",
+                                        Category = checklist.Name ?? "Checklist"
+                                    };
+                                }).ToList();
+
+                                aiInput.ChecklistTasks.AddRange(taskInfos);
+                                Console.WriteLine($"[DEBUG] Added {taskInfos.Count} tasks from checklist {checklist.Name}, {taskInfos.Count(t => t.IsCompleted)} completed");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[DEBUG] Checklist {checklistId} has no tasks or is null");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log but continue with other checklists
+                            Console.WriteLine($"[ERROR] Error loading checklist {checklistId}: {ex.Message}");
+                            Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+                        }
+                    }
+                }
+
+                // Get static fields information from components
+                var fieldsComponents = components
+                    .Where(c => c.Key == "fields" && c.StaticFields != null && c.StaticFields.Any())
+                    .ToList();
+
+                foreach (var fieldsComponent in fieldsComponents)
+                {
+                    foreach (var fieldName in fieldsComponent.StaticFields)
+                    {
+                        var fieldInfo = new AISummaryFieldInfo
+                        {
+                            FieldName = fieldName,
+                            DisplayName = fieldName, // TODO: Get display name from field configuration if available
+                            FieldType = "Text", // TODO: Get field type from configuration if available
+                            IsRequired = false, // TODO: Get required status from configuration if available
+                            Description = $"Static field: {fieldName}",
+                            Category = "Static Field"
+                        };
+
+                        aiInput.StaticFields.Add(fieldInfo);
+                    }
+                }
+
+                if (summaryOptions.IncludeQuestionnaireInsights)
+                {
+                    // Get questionnaire information from components
+                    var questionnaireIds = components
+                        .Where(c => c.Key == "questionnaires")
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+                    
+                    Console.WriteLine($"[DEBUG] Found {questionnaireIds.Count} questionnaire IDs: [{string.Join(", ", questionnaireIds)}]");
+
+                    foreach (var questionnaireId in questionnaireIds)
+                    {
+                        try
+                        {
+                            Console.WriteLine($"[DEBUG] Attempting to load questionnaire {questionnaireId}");
+                            var questionnaire = await _questionnaireService.GetByIdAsync(questionnaireId);
+                            Console.WriteLine($"[DEBUG] Questionnaire loaded: {questionnaire?.Name}, Sections count: {questionnaire?.Sections?.Count ?? 0}");
+                            
+                            if (questionnaire?.Sections != null && questionnaire.Sections.Any())
+                            {
+                                var questionInfos = questionnaire.Sections
+                                    .SelectMany(section => section.Questions)
+                                    .Select(question => new AISummaryQuestionInfo
+                                    {
+                                        QuestionId = long.TryParse(question.Id, out var qId) ? qId : 0,
+                                        QuestionText = question.Text ?? "",
+                                        QuestionType = question.Type ?? "",
+                                        IsRequired = question.IsRequired,
+                                        IsAnswered = false, // No answer status without onboarding context
+                                        Answer = null,
+                                        Category = questionnaire.Name ?? "Questionnaire"
+                                    }).ToList();
+
+                                aiInput.QuestionnaireQuestions.AddRange(questionInfos);
+                                Console.WriteLine($"[DEBUG] Added {questionInfos.Count} questions from questionnaire {questionnaire.Name}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[DEBUG] Questionnaire {questionnaireId} has no sections or is null");
+                                // Fallback: parse StructureJson if available
+                                if (!string.IsNullOrWhiteSpace(questionnaire?.StructureJson))
+                                {
+                                    try
+                                    {
+                                        using var structureDoc = JsonDocument.Parse(questionnaire.StructureJson);
+                                        var root = structureDoc.RootElement;
+                                        if (root.TryGetProperty("sections", out var sectionsEl) && sectionsEl.ValueKind == JsonValueKind.Array)
+                                        {
+                                            var parsedQuestions = new List<AISummaryQuestionInfo>();
+                                            foreach (var sectionEl in sectionsEl.EnumerateArray())
+                                            {
+                                                if (sectionEl.TryGetProperty("questions", out var qsEl) && qsEl.ValueKind == JsonValueKind.Array)
+                                                {
+                                                    foreach (var qEl in qsEl.EnumerateArray())
+                                                    {
+                                                        var idStr = qEl.TryGetProperty("id", out var idEl) ? (idEl.ValueKind == JsonValueKind.String ? idEl.GetString() : idEl.ToString()) : "0";
+                                                        var text = qEl.TryGetProperty("title", out var titleEl) ? titleEl.GetString() : (qEl.TryGetProperty("text", out var textEl) ? textEl.GetString() : "");
+                                                        var type = qEl.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "";
+                                                        var required = qEl.TryGetProperty("required", out var reqEl) ? (reqEl.ValueKind == JsonValueKind.True) : (qEl.TryGetProperty("isRequired", out var req2El) && req2El.ValueKind == JsonValueKind.True);
+
+                                                        parsedQuestions.Add(new AISummaryQuestionInfo
+                                                        {
+                                                            QuestionId = long.TryParse(idStr, out var qid) ? qid : 0,
+                                                            QuestionText = text ?? "",
+                                                            QuestionType = type ?? "",
+                                                            IsRequired = required,
+                                                            IsAnswered = false,
+                                                            Answer = null,
+                                                            Category = questionnaire.Name ?? "Questionnaire"
+                                                        });
+                                                    }
+                                                }
+                                            }
+
+                                            if (parsedQuestions.Any())
+                                            {
+                                                aiInput.QuestionnaireQuestions.AddRange(parsedQuestions);
+                                                Console.WriteLine($"[DEBUG] Fallback parsed {parsedQuestions.Count} questions from StructureJson for questionnaire {questionnaire.Name}");
+                                            }
+                                        }
+                                    }
+                                    catch (Exception sx)
+                                    {
+                                        Console.WriteLine($"[ERROR] Failed to parse StructureJson for questionnaire {questionnaireId}: {sx.Message}");
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log but continue with other questionnaires
+                            Console.WriteLine($"[ERROR] Error loading questionnaire {questionnaireId}: {ex.Message}");
+                            Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the entire operation
+                Console.WriteLine($"Error populating stage components for summary: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Update Stage AI Summary if it's currently empty (backfill only)
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiSummary">AI Summary content</param>
+        /// <param name="generatedAt">Generated timestamp</param>
+        /// <param name="confidence">Confidence score</param>
+        /// <param name="modelUsed">AI model used</param>
+        /// <returns>Success status</returns>
+        public async Task<bool> UpdateStageAISummaryIfEmptyAsync(long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed)
+        {
+            try
+            {
+                // Get current stage
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null)
+                {
+                    Console.WriteLine($"Stage {stageId} not found for AI summary update");
+                    return false;
+                }
+
+                // Only update if AI summary is currently empty (backfill only)
+                if (!string.IsNullOrWhiteSpace(stage.AiSummary))
+                {
+                    Console.WriteLine($"Stage {stageId} already has AI summary, skipping backfill");
+                    return true; // Return true since it's not an error
+                }
+
+                // Update AI summary fields
+                stage.AiSummary = aiSummary;
+                stage.AiSummaryGeneratedAt = generatedAt;
+                stage.AiSummaryConfidence = (decimal?)confidence;
+                stage.AiSummaryModel = modelUsed;
+                stage.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    trigger = "Stream API backfill",
+                    generatedAt = generatedAt,
+                    confidence = confidence,
+                    model = modelUsed
+                });
+
+                // Save to database
+                var result = await _stageRepository.UpdateAsync(stage);
+                Console.WriteLine($"✅ Successfully backfilled AI summary for stage {stageId}");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Failed to update AI summary for stage {stageId}: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

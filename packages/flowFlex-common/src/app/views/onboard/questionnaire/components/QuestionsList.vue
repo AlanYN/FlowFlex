@@ -2,7 +2,7 @@
 	<div class="questions-list">
 		<draggable
 			v-model="questionsData"
-			item-key="id"
+			item-key="temporaryId"
 			handle=".drag-handle"
 			@change="handleQuestionDragEnd"
 			ghost-class="ghost-question"
@@ -10,8 +10,12 @@
 			:animation="300"
 		>
 			<template #item="{ element: item, index }">
-				<div class="question-item flex">
-					<template v-if="editingQuestionId === item.id">
+				<div class="question-item flex max-w-full">
+					<template
+						v-if="
+							editingQuestionId === item.id || editingQuestionId === item.temporaryId
+						"
+					>
 						<div class="w-full">
 							<QuestionEditor
 								:question-types="questionTypes"
@@ -27,7 +31,7 @@
 						<div class="drag-handle">
 							<DragIcon class="drag-icon" />
 						</div>
-						<div class="flex-1">
+						<div class="flex-1 max-w-[calc(100%-2.25rem)]">
 							<div class="question-header">
 								<div class="question-left">
 									<div class="question-info">
@@ -38,6 +42,10 @@
 											</el-tag>
 											<el-tag v-if="item.required" size="small" type="danger">
 												Required
+											</el-tag>
+
+											<el-tag v-if="item.action" size="small" type="success">
+												{{ item.action.name }}
 											</el-tag>
 										</div>
 										<div class="question-meta mt-2">
@@ -54,7 +62,7 @@
 											item.type != 'page_break'
 										"
 									>
-										<el-button :icon="More" link />
+										<el-button :icon="MoreFilled" link />
 										<template #dropdown>
 											<el-dropdown-menu>
 												<el-dropdown-item
@@ -91,6 +99,20 @@
 														/>
 														<span class="text-xs">
 															Go to Section Based on Answer
+														</span>
+													</div>
+												</el-dropdown-item>
+												<el-dropdown-item
+													@click="openActionEditor(index)"
+													divided
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="tabler:math-function"
+															class="drag-icon"
+														/>
+														<span class="text-xs">
+															Configure Action
 														</span>
 													</div>
 												</el-dropdown-item>
@@ -174,21 +196,23 @@
 							</div>
 							<div
 								v-if="item.options && item.options.length > 0"
-								class="question-options"
+								class="question-options w-full"
 							>
 								<div class="options-label">Options:</div>
 								<div class="options-list gap-y-2">
 									<div
 										v-for="(option, optionIndex) in item.options"
 										:key="option.id"
-										class="option-item"
+										class="option-item max-w-[50%]"
 									>
 										<span class="option-number">{{ optionIndex + 1 }}.</span>
 										<el-tag v-if="option.isOther" type="warning">Other</el-tag>
-										<span v-else class="option-badge">{{ option.label }}</span>
+										<div v-else class="option-badge truncate">
+											{{ option.label }}
+										</div>
 										<span
 											v-if="item.type === 'multiple_choice'"
-											class="jump-badge"
+											class="jump-badge flex-shrink-0"
 											:class="getJumpTargetClass(item, option.id)"
 										>
 											→ {{ getJumpTargetName(item, option.id) }}
@@ -219,12 +243,24 @@
 			:sections="sections"
 			@save="handleJumpRulesSave"
 		/>
+
+		<ActionConfigDialog
+			ref="actionConfigDialogRef"
+			v-model="actionEditorVisible"
+			:action="null"
+			:is-editing="false"
+			:triggerSourceId="currentEditingQuestion?.id || ''"
+			:loading="false"
+			:triggerType="TriggerTypeEnum.Questionnaire"
+			@save-success="onActionSave"
+			@cancel="onActionCancel"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Delete, Document, Edit, More } from '@element-plus/icons-vue';
+import { Delete, Document, Edit, MoreFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import draggable from 'vuedraggable';
 import DragIcon from '@assets/svg/publicPage/drag.svg';
@@ -233,6 +269,8 @@ import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
+import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import { TriggerTypeEnum } from '@/enums/appEnum';
 
 interface QuestionType {
 	id: string;
@@ -286,13 +324,13 @@ const removeQuestion = (index: number) => {
 
 const editQuestion = (index: number) => {
 	const question = questionsData.value[index];
-	editingQuestionId.value = question.id;
+	editingQuestionId.value = question?.temporaryId || null;
 	editingQuestion.value = { ...question };
 };
 
 // 处理问题更新
 const handleUpdateQuestion = (updatedQuestion: QuestionnaireSection) => {
-	const index = questionsData.value.findIndex((q) => q.id === editingQuestionId.value);
+	const index = questionsData.value.findIndex((q) => q.temporaryId === editingQuestionId.value);
 	if (index !== -1) {
 		questionsData.value[index] = {
 			...questionsData.value[index],
@@ -362,6 +400,36 @@ const openJumpRuleEditor = (index: number) => {
 		currentEditingIndex.value = index;
 		jumpRuleEditorVisible.value = true;
 	}
+};
+
+const actionEditorVisible = ref(false);
+const openActionEditor = (index: number) => {
+	const question = questionsData.value[index];
+	if (question) {
+		actionEditorVisible.value = true;
+		currentEditingQuestion.value = question as QuestionWithJumpRules;
+	}
+};
+
+const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
+const onActionSave = (res) => {
+	actionEditorVisible.value = false;
+	const question = questionsData.value.find(
+		(q) =>
+			(currentEditingQuestion.value?.id && q.id === currentEditingQuestion.value?.id) ||
+			(currentEditingQuestion.value?.temporaryId &&
+				q.temporaryId === currentEditingQuestion.value?.temporaryId)
+	);
+	if (res.id && question) {
+		question.action = {
+			id: res.id,
+			name: res.name,
+		};
+	}
+};
+const onActionCancel = () => {
+	actionEditorVisible.value = false;
+	currentEditingQuestion.value = null;
 };
 
 // 处理跳转规则保存
@@ -541,8 +609,6 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 }
 
 .option-badge {
-	display: inline-flex;
-	align-items: center;
 	padding: 0.125rem 0.625rem;
 	border-radius: 9999px;
 	border: 1px solid #e5e7eb;

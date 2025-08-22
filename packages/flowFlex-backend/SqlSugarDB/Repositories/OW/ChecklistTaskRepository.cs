@@ -28,6 +28,23 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     }
 
     /// <summary>
+    /// Get tasks for multiple checklist ids in a single query
+    /// </summary>
+    public async Task<List<ChecklistTask>> GetByChecklistIdsAsync(List<long> checklistIds)
+    {
+        if (checklistIds == null || checklistIds.Count == 0)
+        {
+            return new List<ChecklistTask>();
+        }
+
+        return await db.Queryable<ChecklistTask>()
+            .Where(x => checklistIds.Contains(x.ChecklistId) && x.IsValid == true)
+            .OrderBy(x => x.ChecklistId)
+            .OrderBy(x => x.Order)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Get completed tasks count
     /// </summary>
     public async Task<int> GetCompletedCountAsync(long checklistId)

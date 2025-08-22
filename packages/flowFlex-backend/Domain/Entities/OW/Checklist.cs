@@ -2,12 +2,15 @@ using System.ComponentModel.DataAnnotations;
 using SqlSugar;
 using FlowFlex.Domain.Entities.Base;
 using System.Text.Json;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Domain.Entities.OW;
 
 /// <summary>
-/// Simple Assignment DTO for domain use
+/// Simple Assignment DTO for domain use (DEPRECATED)
+/// Assignments are now managed through Stage Components only
 /// </summary>
+[Obsolete("This DTO is deprecated. Assignments are now managed through Stage Components only.")]
 public class AssignmentDto
 {
     public long WorkflowId { get; set; }
@@ -71,57 +74,6 @@ public class Checklist : EntityBaseCreateInfo
     /// </summary>
     public bool IsActive { get; set; } = true;
 
-    /// <summary>
-    /// Assignments stored as JSON
-    /// </summary>
-    [SugarColumn(ColumnName = "assignments_json", ColumnDataType = "TEXT", IsNullable = true)]
-    public string? AssignmentsJson { get; set; }
-
-    /// <summary>
-    /// Assignments property (not stored in database, computed from AssignmentsJson)
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public List<AssignmentDto> Assignments
-    {
-        get
-        {
-            if (string.IsNullOrEmpty(AssignmentsJson))
-                return new List<AssignmentDto>();
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    PropertyNameCaseInsensitive = true
-                };
-                return JsonSerializer.Deserialize<List<AssignmentDto>>(AssignmentsJson, options) ?? new List<AssignmentDto>();
-            }
-            catch
-            {
-                return new List<AssignmentDto>();
-            }
-        }
-        set
-        {
-            if (value == null || !value.Any())
-            {
-                AssignmentsJson = null;
-                return;
-            }
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-                AssignmentsJson = JsonSerializer.Serialize(value, options);
-            }
-            catch
-            {
-                AssignmentsJson = null;
-            }
-        }
-    }
+    // Assignments properties removed - now managed through Stage Components only
+    // Legacy support: Keep AssignmentDto for backward compatibility in services that still reference it
 }

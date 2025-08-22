@@ -1,0 +1,161 @@
+import { defHttp } from '@/apis/axios';
+import { ActionDefinition, ActionQueryRequest } from '#/action';
+import { useGlobSetting } from '@/settings';
+
+const globSetting = useGlobSetting();
+
+// Action Type Enum
+export enum ActionType {
+	PYTHON_SCRIPT = 1,
+	HTTP_API = 2,
+	SEND_EMAIL = 3,
+}
+
+// Action Type Mapping
+export const ACTION_TYPE_MAPPING = {
+	[ActionType.PYTHON_SCRIPT]: 'Python Script',
+	[ActionType.HTTP_API]: 'HTTP API',
+	[ActionType.SEND_EMAIL]: 'Send Email',
+} as const;
+
+// Frontend to Backend Type Mapping
+export const FRONTEND_TO_BACKEND_TYPE_MAPPING = {
+	python: 'PythonScript',
+	http: 'HttpApi',
+	email: 'SendEmail',
+} as const;
+
+const Api = () => {
+	return {
+		action: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionDetail: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionDelete: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionExport: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionTest: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionUpdate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		actionCreate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+
+		textRun: `${globSetting.apiProName}/action/${globSetting.apiVersion}/test/direct`,
+
+		actionList: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings/action`,
+		stageAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings/trigger-source`,
+
+		mappingAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings`,
+	};
+};
+
+export function addAction(data: ActionDefinition) {
+	return defHttp.post({
+		url: Api().action,
+		data,
+	});
+}
+
+/**
+ * Get Actions list
+ */
+export function getActionDefinitions(params: ActionQueryRequest) {
+	return defHttp.get({
+		url: Api().action,
+		params,
+	});
+}
+
+/**
+ * Delete Action
+ */
+export function deleteAction(id: string) {
+	return defHttp.delete({
+		url: `${Api().action}/${id}`,
+	});
+}
+
+/**
+ * Export Actions
+ */
+export function exportActions(params: ActionQueryRequest) {
+	return defHttp.get({
+		url: `${Api().action}/export`,
+		params,
+		responseType: 'blob',
+	});
+}
+
+/**
+ * Get Action Detail
+ */
+export function getActionDetail(id: string) {
+	return defHttp.get({
+		url: `${Api().action}/${id}`,
+	});
+}
+
+/**
+ * Update Action
+ */
+export function updateAction(id: string, data: Partial<ActionDefinition>) {
+	return defHttp.put({
+		url: `${Api().action}/${id}`,
+		data,
+	});
+}
+
+export function testRunActionNoId(data: {
+	actionType: number;
+	actionConfig: string;
+	contextData?: string;
+}) {
+	return defHttp.post({
+		url: `${Api().textRun}`,
+		data,
+	});
+}
+
+/**
+ * Test Action
+ */
+export function testAction(id: string) {
+	return defHttp.post({
+		url: `${Api().action}/${id}/test`,
+	});
+}
+
+export function getActionList(stageId: string) {
+	return defHttp.get({
+		url: `${Api().actionList}/${stageId}`,
+	});
+}
+
+export function getStageAction(stageId: string) {
+	return defHttp.get({
+		url: `${Api().stageAction}/${stageId}`,
+	});
+}
+
+export function deleteMappingAction(id: string) {
+	return defHttp.delete({
+		url: `${Api().mappingAction}/${id}`,
+	});
+}
+
+// Test result interface for different action types
+export interface TestResult {
+	success: boolean;
+	message?: string;
+	stdout?: string;
+	stderr?: string;
+	executionTime?: string;
+	memoryUsage?: number;
+	status?: string;
+	token?: string;
+	timestamp?: string;
+	// For HTTP API responses
+	statusCode?: number;
+	responseBody?: string;
+	responseHeaders?: Record<string, string>;
+	// For Email actions
+	emailSent?: boolean;
+	recipients?: string[];
+	// Generic data for other action types
+	data?: any;
+}

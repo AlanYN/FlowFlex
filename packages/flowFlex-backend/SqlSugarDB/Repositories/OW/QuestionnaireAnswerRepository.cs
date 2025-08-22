@@ -74,7 +74,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<QuestionnaireAnswer>> GetByStatusAsync(string status, int days = 30)
         {
-            var startDate = DateTimeOffset.Now.AddDays(-days);
+            var startDate = DateTimeOffset.UtcNow.AddDays(-days);
             return await base.GetListAsync(x => x.Status == status && x.CreateDate >= startDate && x.IsValid);
         }
 

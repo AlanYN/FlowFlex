@@ -1,9 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.SqlSugarDB.Context;
 using FlowFlex.Domain.Shared;
+using SqlSugar;
+using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -12,8 +16,11 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class UserRepository : OwBaseRepository<User>, IUserRepository, IScopedService
     {
-        public UserRepository(ISqlSugarContext context) : base(context)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public UserRepository(ISqlSugarContext context, IHttpContextAccessor httpContextAccessor) : base(context)
         {
+            _httpContextAccessor = httpContextAccessor;
         }
 
         /// <summary>
@@ -124,6 +131,185 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .ExecuteCommandAsync();
 
             return result > 0;
+        }
+
+        /// <summary>
+        /// Get users with pagination and filters
+        /// </summary>
+        public async Task<(List<User> items, int totalCount)> GetPagedAsync(
+            int pageIndex,
+            int pageSize,
+            string searchText = null,
+            string email = null,
+            string username = null,
+            string team = null,
+            string status = null,
+            bool? emailVerified = null,
+            string sortField = "CreateDate",
+            string sortDirection = "desc")
+        {
+            // Global tenant and app filters will be applied automatically by AppTenantFilter
+            var query = _db.Queryable<User>()
+                .Where(u => u.IsValid);
+
+            // Search text filter (search in username and email)
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                query = query.Where(u => u.Username.Contains(searchText) || u.Email.Contains(searchText));
+            }
+
+            // Email filter
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                query = query.Where(u => u.Email.Contains(email));
+            }
+
+            // Username filter
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                query = query.Where(u => u.Username.Contains(username));
+            }
+
+            // Team filter
+            if (!string.IsNullOrWhiteSpace(team))
+            {
+                query = query.Where(u => u.Team == team);
+            }
+
+            // Status filter
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(u => u.Status == status);
+            }
+
+            // Email verification status filter
+            if (emailVerified.HasValue)
+            {
+                query = query.Where(u => u.EmailVerified == emailVerified.Value);
+            }
+
+            // Apply sorting
+            if (!string.IsNullOrWhiteSpace(sortField))
+            {
+                var isAsc = sortDirection?.ToLower() != "desc";
+                switch (sortField.ToLower())
+                {
+                    case "username":
+                        query = isAsc ? query.OrderBy(u => u.Username) : query.OrderByDescending(u => u.Username);
+                        break;
+                    case "email":
+                        query = isAsc ? query.OrderBy(u => u.Email) : query.OrderByDescending(u => u.Email);
+                        break;
+                    case "team":
+                        query = isAsc ? query.OrderBy(u => u.Team) : query.OrderByDescending(u => u.Team);
+                        break;
+                    case "status":
+                        query = isAsc ? query.OrderBy(u => u.Status) : query.OrderByDescending(u => u.Status);
+                        break;
+                    case "lastlogindate":
+                        query = isAsc ? query.OrderBy(u => u.LastLoginDate) : query.OrderByDescending(u => u.LastLoginDate);
+                        break;
+                    default: // CreateDate
+                        query = isAsc ? query.OrderBy(u => u.CreateDate) : query.OrderByDescending(u => u.CreateDate);
+                        break;
+                }
+            }
+            else
+            {
+                query = query.OrderByDescending(u => u.CreateDate);
+            }
+
+            // Get total count
+            var totalCount = await query.CountAsync();
+
+            // Get paged results
+            var items = await query.ToPageListAsync(pageIndex, pageSize);
+
+            return (items, totalCount);
+        }
+
+        /// <summary>
+        /// Get users without team
+        /// </summary>
+        public async Task<List<User>> GetUsersWithoutTeamAsync()
+        {
+            // Global tenant and app filters will be applied automatically by AppTenantFilter
+            return await _db.Queryable<User>()
+                .Where(u => u.IsValid && (u.Team == null || u.Team == ""))
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Update user team
+        /// </summary>
+        public async Task<bool> UpdateUserTeamAsync(long userId, string team)
+        {
+            var result = await _db.Updateable<User>()
+                .SetColumns(u => new User
+                {
+                    Team = team,
+                    ModifyDate = DateTimeOffset.Now
+                })
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+
+            return result > 0;
+        }
+
+        /// <summary>
+        /// Get current tenant ID from HTTP context
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.TenantId;
+            }
+
+            // Fallback to headers
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault()
+                        ?? httpContext.Request.Headers["TenantId"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// Get current app code from HTTP context
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.AppCode;
+            }
+
+            // Fallback to headers
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault()
+                       ?? httpContext.Request.Headers["AppCode"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+
+            return "DEFAULT";
         }
     }
 }

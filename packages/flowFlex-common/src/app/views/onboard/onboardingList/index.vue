@@ -54,8 +54,8 @@
 								<el-empty description="No Data" :image-size="50" />
 							</slot>
 						</template>
-						<el-table-column type="selection" width="50" align />
-						<el-table-column label="Actions" width="80">
+						<el-table-column type="selection" fixed="left" width="50" align />
+						<el-table-column label="Actions" fixed="left" width="80">
 							<template #default="{ row }">
 								<el-dropdown trigger="click">
 									<el-button
@@ -84,6 +84,26 @@
 							</template>
 						</el-table-column>
 						<el-table-column
+							prop="leadName"
+							label="Customer Name"
+							sortable="custom"
+							min-width="220"
+							fixed="left"
+						>
+							<template #default="{ row }">
+								<el-link
+									type="primary"
+									:underline="false"
+									@click="handleEdit(row.id)"
+									class="table-cell-link"
+								>
+									<div class="table-cell-content" :title="row.leadName">
+										{{ row.leadName }}
+									</div>
+								</el-link>
+							</template>
+						</el-table-column>
+						<el-table-column
 							prop="leadId"
 							label="Lead ID"
 							sortable="custom"
@@ -96,14 +116,14 @@
 							</template>
 						</el-table-column>
 						<el-table-column
-							prop="leadName"
-							label="Company/Contact Name"
+							prop="contactPerson"
 							sortable="custom"
-							min-width="220"
+							label="Contact Name"
+							width="220"
 						>
 							<template #default="{ row }">
-								<div class="table-cell-content" :title="row.leadName">
-									{{ row.leadName }}
+								<div class="table-cell-content" :title="row.contactPerson">
+									{{ row.contactPerson }}
 								</div>
 							</template>
 						</el-table-column>
@@ -126,7 +146,10 @@
 							min-width="200"
 						>
 							<template #default="{ row }">
-								<div class="workflow-name-tag" :title="row.workflowName">
+								<div
+									:class="row.workflowName ? `workflow-name-tag` : ''"
+									:title="row.workflowName"
+								>
 									{{ row.workflowName }}
 								</div>
 							</template>
@@ -309,10 +332,19 @@
 				label-position="top"
 				class="onboarding-form"
 			>
-				<el-form-item label="Company Name" prop="leadName">
+				<el-form-item label="Customer Name" prop="leadName">
 					<el-input
 						v-model="formData.leadName"
-						placeholder="Input Company Name"
+						placeholder="Input Customer Name"
+						clearable
+						class="w-full rounded-md"
+					/>
+				</el-form-item>
+
+				<el-form-item label="Lead ID" prop="leadId">
+					<el-input
+						v-model="formData.leadId"
+						placeholder="Enter Lead ID"
 						clearable
 						class="w-full rounded-md"
 					/>
@@ -338,15 +370,6 @@
 						/>
 					</el-form-item>
 				</div>
-
-				<el-form-item label="Lead ID" prop="leadId">
-					<el-input
-						v-model="formData.leadId"
-						placeholder="Enter Lead ID"
-						clearable
-						class="w-full rounded-md"
-					/>
-				</el-form-item>
 
 				<el-form-item label="Life Cycle Stage" prop="lifeCycleStageId">
 					<el-select
@@ -488,8 +511,8 @@ const formData = reactive({
 const formRules = {
 	leadId: [{ required: true, message: 'Lead ID is required', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Priority is required', trigger: 'change' }],
-	leadName: [{ required: true, message: 'Company Name is required', trigger: 'blur' }],
-	ContactPerson: [{ required: true, message: 'Contact Name is required', trigger: 'blur' }], // 必填
+	leadName: [{ required: true, message: 'Customer Name is required', trigger: 'blur' }],
+	ContactPerson: [{ required: false, message: 'Contact Name is required', trigger: 'blur' }], // 必填
 	ContactEmail: [
 		{ required: true, message: 'Contact Email is required', trigger: 'blur' },
 		{ type: 'email', message: 'Please enter a valid email address', trigger: 'blur' },
@@ -1009,10 +1032,10 @@ const handleSave = async () => {
 							label: 'Lead ID',
 						},
 						leadName: {
-							apiField: 'COMPANYNAME',
+							apiField: 'CUSTOMERNAME',
 							type: 'text',
 							required: true,
-							label: 'Lead Company Name',
+							label: 'Customer Name',
 						},
 						ContactPerson: {
 							apiField: 'CONTACTNAME',
@@ -1239,30 +1262,6 @@ onMounted(async () => {
 	margin-top: 16px;
 }
 
-/* 表格样式 */
-:deep(.el-table) {
-	border: none;
-}
-
-:deep(.el-table .bg-blue-50) {
-	background-color: var(--primary-10) !important;
-}
-
-:deep(.el-table th) {
-	background-color: var(--primary-10);
-	border-bottom: 1px solid #e5e7eb;
-	color: #374151;
-	font-weight: 500;
-}
-
-:deep(.el-table td) {
-	border-bottom: 1px solid #f3f4f6;
-}
-
-:deep(.el-table tbody tr:hover > td) {
-	background-color: #f9fafb;
-}
-
 /* 优先级标签样式 */
 :deep(.el-tag.el-tag--danger) {
 	background-color: #dc2626;
@@ -1399,6 +1398,16 @@ onMounted(async () => {
 	display: block;
 }
 
+/* Ensure Element Plus link wrapper doesn't break ellipsis */
+.table-cell-link {
+	display: block;
+	width: 100%;
+}
+:deep(.table-cell-link .el-link__inner) {
+	display: block;
+	width: 100%;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
 	.onboarding-list-container {
@@ -1489,32 +1498,6 @@ html.dark {
 	:deep(.onboarding-form .el-select .el-input__wrapper) {
 		background-color: var(--black-200);
 		border-color: var(--black-200);
-	}
-
-	/* 表格暗色主题 - 保持头部蓝色样式 */
-	:deep(.el-table .bg-blue-50) {
-		background-color: #003c76 !important; /* 使用项目的 sea-700 深蓝色 */
-	}
-
-	:deep(.el-table th) {
-		background-color: #003c76 !important; /* 使用项目的 sea-700 深蓝色 */
-		border-bottom: 1px solid #00509d !important; /* 使用项目的 sea-600 */
-		color: #cce8d0 !important; /* 使用项目的浅色文字 */
-	}
-
-	:deep(.el-table td) {
-		border-bottom: 1px solid var(--black-200) !important;
-		background-color: var(--black-400) !important;
-		color: var(--white-100) !important;
-	}
-
-	:deep(.el-table tbody tr:hover > td) {
-		background-color: var(--black-300) !important;
-	}
-
-	/* 表格整体边框 */
-	:deep(.el-table) {
-		border: 1px solid var(--black-200) !important;
 	}
 
 	/* 管道视图暗色主题 */

@@ -9,9 +9,7 @@
 				@click="selectQuestionType(type.id)"
 				:class="{ active: selectedType === type.id }"
 			>
-				<el-icon class="type-icon">
-					<component :is="type.icon" />
-				</el-icon>
+				<Icon :icon="type.icon" class="type-icon" />
 				<div class="type-info">
 					<div class="type-content">
 						<span class="type-name">{{ type.name }}</span>
@@ -52,6 +50,7 @@ const selectQuestionType = (typeId: string) => {
 <style scoped lang="scss">
 .config-section {
 	margin-bottom: 1.5rem;
+	width: 100%;
 }
 
 .section-title {
@@ -63,8 +62,10 @@ const selectQuestionType = (typeId: string) => {
 
 .question-types-grid {
 	display: grid;
-	grid-template-columns: repeat(2, 1fr);
+	grid-template-columns: 1fr 1fr;
 	gap: 0.5rem;
+	width: 100%;
+	align-items: stretch;
 }
 
 .question-type-item {
@@ -77,6 +78,7 @@ const selectQuestionType = (typeId: string) => {
 	transition: all 0.2s;
 	min-height: 3rem;
 	width: 100%;
+	min-width: 0;
 	box-sizing: border-box;
 	@apply dark:border-black-200;
 }
@@ -101,6 +103,7 @@ const selectQuestionType = (typeId: string) => {
 .type-info {
 	flex: 1;
 	min-width: 0;
+	overflow: hidden;
 }
 
 .type-content {
@@ -108,6 +111,8 @@ const selectQuestionType = (typeId: string) => {
 	align-items: center;
 	gap: 0.375rem;
 	min-height: 1.5rem;
+	width: 100%;
+	min-width: 0;
 }
 
 .type-name {
@@ -120,6 +125,7 @@ const selectQuestionType = (typeId: string) => {
 	flex: 1;
 	min-width: 0;
 	line-height: 1.25;
+	max-width: 100%;
 	@apply dark:text-primary-200;
 }
 
@@ -129,6 +135,7 @@ const selectQuestionType = (typeId: string) => {
 	height: 1.125rem;
 	line-height: 1;
 	padding: 0.125rem 0.25rem;
+	margin-left: auto;
 }
 
 /* 深色模式支持 */

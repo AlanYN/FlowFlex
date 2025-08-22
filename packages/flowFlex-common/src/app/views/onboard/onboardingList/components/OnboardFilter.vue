@@ -1,14 +1,14 @@
 <template>
 	<el-card class="mb-6 rounded-md filter_card">
 		<template #default>
-			<div class="pt-6">
+			<div class="">
 				<el-form
 					ref="searchFormRef"
 					:model="searchParams"
 					@submit.prevent="handleSearch"
 					class="onboardSearch-form"
 				>
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 						<div class="space-y-2">
 							<label class="text-sm font-medium text-primary-500">Lead ID</label>
 							<InputTag

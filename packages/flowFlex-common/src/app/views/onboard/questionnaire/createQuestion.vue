@@ -41,15 +41,6 @@
 
 							<el-divider />
 
-							<!-- 工作流阶段分配 -->
-							<WorkflowAssignments
-								ref="workflowAssignmentsRef"
-								:assignments="initialAssignments"
-								:workflows="workflows"
-							/>
-
-							<el-divider />
-
 							<!-- 分区管理 -->
 							<SectionManager
 								:sections="questionnaire.sections"
@@ -114,7 +105,7 @@
 											/>
 										</div>
 										<el-dropdown placement="bottom" @command="handleAddContent">
-											<el-button :icon="More" link />
+											<el-button :icon="MoreFilled" link />
 											<template #dropdown>
 												<el-dropdown-menu>
 													<el-dropdown-item command="page-break">
@@ -213,14 +204,13 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Edit, More } from '@element-plus/icons-vue';
+import { Edit, MoreFilled } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import QuestionnaireHeader from './components/QuestionnaireHeader.vue';
 import QuestionnaireBasicInfo from './components/QuestionnaireBasicInfo.vue';
-import WorkflowAssignments from './components/WorkflowAssignments.vue';
 import SectionManager from './components/SectionManager.vue';
 import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
 import QuestionEditor from './components/QuestionEditor.vue';
@@ -277,17 +267,17 @@ const loadQuestionnaireData = async () => {
 			questionnaire.description = data.description || '';
 			questionnaire.isActive = data.isActive ?? true;
 
-			initialAssignments.value = data.assignments || [];
 			// 填充问卷结构 - 适配API返回的数据结构
 			if (structure?.sections && Array.isArray(structure.sections)) {
 				questionnaire.sections = structure.sections.map((section: any) => ({
-					id: section.id || `section-${Date.now()}-${Math.random()}`,
+					...section,
+					temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 					name: section.name || 'Untitled Section',
 					description: section.description || '',
 					// 处理questions字段（API返回的是questions，我们内部使用items）
 					items: (section.questions || section.items || []).map((item: any) => ({
 						...item,
-						id: item.id || `question-${Date.now()}-${Math.random()}`,
+						temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 						type: item?.type || 'short_answer',
 						question: item.title || item.question || '',
 						description: item.description || '',
@@ -314,7 +304,7 @@ const loadQuestionnaireData = async () => {
 			if (questionnaire.sections.length === 0) {
 				questionnaire.sections = [
 					{
-						id: `section-${Date.now()}`,
+						temporaryId: `section-${Date.now()}`,
 						name: 'Untitled Section',
 						description: '',
 						items: [],
@@ -331,6 +321,10 @@ const loadQuestionnaireData = async () => {
 		router.push('/onboard/questionnaire');
 	} finally {
 		loading.value = false;
+		nextTick(() => {
+			updateConfigScrollbar();
+			updateEditorScrollbar();
+		});
 	}
 };
 
@@ -355,74 +349,75 @@ const updateBasicInfo = (basicInfo: { name: string; description: string }) => {
 	questionnaire.description = basicInfo.description;
 };
 
-// 子组件引用
-const workflowAssignmentsRef = ref<any>(null);
 const questionEditorRef = ref<any>(null);
-
-// 工作流分配数据（用于初始化子组件）
-const initialAssignments = ref<Array<{ workflowId: string; stageId: string }>>([]);
 
 // 问题类型定义
 const questionTypes = [
 	{
 		id: 'short_answer',
 		name: 'Short answer',
-		icon: 'EditPen',
+		icon: 'mdi-light:pencil',
 	},
 	{
 		id: 'paragraph',
 		name: 'Paragraph',
-		icon: 'Document',
+		icon: 'fluent:text-wrap-20-regular',
 	},
 	{
 		id: 'multiple_choice',
 		name: 'Multiple choice',
-		icon: 'CircleCheck',
+		icon: 'mdi:checkbox-marked-circle-outline',
 	},
 	{
 		id: 'checkboxes',
 		name: 'Checkboxes',
-		icon: 'Select',
+		icon: 'material-symbols-light:check-box-outline-sharp',
 	},
 	{
 		id: 'dropdown',
 		name: 'Dropdown',
-		icon: 'ArrowDown',
+		icon: 'ic:outline-arrow-drop-down-circle',
 	},
 	{
 		id: 'file_upload',
 		name: 'File upload',
-		icon: 'Upload',
+		icon: 'ic:outline-drive-folder-upload',
 	},
 	{
 		id: 'linear_scale',
 		name: 'Linear scale',
-		icon: 'Histogram',
+		icon: 'material-symbols:scan-outline-sharp',
 	},
 	{
 		id: 'rating',
 		name: 'Rating',
-		icon: 'Star',
+		icon: 'ic:twotone-star-rate',
 	},
 	{
 		id: 'multiple_choice_grid',
 		name: 'Multiple choice grid',
-		icon: 'Grid',
+		icon: 'tabler:grid-dots',
 	},
 	{
 		id: 'checkbox_grid',
 		name: 'Checkbox grid',
-		icon: 'Grid',
+		icon: 'gridicons:grid',
 	},
 	{
 		id: 'date',
 		name: 'Date',
-		icon: 'Calendar',
+		icon: 'ic:baseline-calendar-month',
 	},
 	{
 		id: 'time',
 		name: 'Time',
-		icon: 'Clock',
+		icon: 'ic:outline-access-alarms',
+	},
+	{
+		id: 'short_answer_grid',
+		name: 'Short Answer Grid',
+		icon: 'ph:grid-nine-light',
+		isNew: true,
 	},
 ];
 
@@ -454,11 +449,11 @@ const questionnaire = reactive({
 	isActive: true,
 	sections: [
 		{
-			id: `section-${Date.now()}`,
+			temporaryId: `section-${Date.now()}`,
 			name: 'Untitled Section',
 			description: '',
 			items: [] as Array<{
-				id: string;
+				temporaryId: string;
 				type: string;
 				question: string;
 				description: string;
@@ -533,18 +528,16 @@ const previewData = computed(() => {
 		isActive: true,
 		createBy: 'Current User',
 		createDate: new Date().toISOString(),
-		// 添加工作流阶段分配信息
-		assignments: workflowAssignmentsRef.value?.getAssignments() || [],
 	};
 });
 
 // 为跳转规则转换sections数据格式
 const sectionsForJumpRules = computed(() => {
 	return questionnaire.sections.map((section, index) => ({
-		id: section.id,
+		...section,
 		name: section.name,
 		description: section.description,
-		questions: section.items.map((item) => item.id),
+		questions: section.items.map((item) => item.temporaryId).filter(Boolean) as string[],
 		order: index,
 		items: section.items,
 	}));
@@ -561,7 +554,7 @@ const togglePreview = () => {
 
 const handleAddSection = () => {
 	questionnaire.sections.push({
-		id: `section-${Date.now()}`,
+		temporaryId: `section-${Date.now()}`,
 		name: 'Untitled Section',
 		description: '',
 		items: [],
@@ -604,7 +597,7 @@ const handleAddQuestion = (questionData: any) => {
 	if (!questionData.question.trim() || !questionData.type) return;
 
 	const question = {
-		id: `question-${Date.now()}`,
+		temporaryId: `question-${Date.now()}`,
 		...questionData,
 		options: [...questionData.options],
 		rows: [...questionData.rows],
@@ -621,7 +614,7 @@ const handleAddContent = async (command: string) => {
 	switch (command) {
 		case 'page-break':
 			questionnaire.sections[currentSectionIndex.value].items.push({
-				id: `page-break-${Date.now()}`,
+				temporaryId: `page-break-${Date.now()}`,
 				type: 'page_break',
 				question: 'Page Break',
 			});
@@ -642,7 +635,7 @@ const handleFileUpload = async (type: 'video' | 'image') => {
 	await triggerFileUpload(type, (result) => {
 		if (result.success) {
 			const mediaItem = {
-				id: `${type}-${Date.now()}`,
+				temporaryId: `${type}-${Date.now()}`,
 				type: type,
 				question: result.fileName!,
 				fileUrl: result.fileUrl!,
@@ -680,19 +673,17 @@ const handleSaveQuestionnaire = async () => {
 	try {
 		saving.value = true;
 
-		// 从子组件获取工作流分配数据
-		const assignments = workflowAssignmentsRef.value?.getAssignments() || [];
-
 		// 构建问卷结构JSON - 适配API期望的数据结构
 		const structureJson = JSON.stringify({
 			sections: questionnaire.sections.map((section) => ({
-				id: section.id,
+				...section,
+				temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 				name: section.name,
 				description: section.description,
 				// API期望的是questions字段，不是items
 				questions: section.items.map((item) => ({
 					...item,
-					id: item.id,
+					temporaryId: item?.temporaryId ? item.temporaryId : item.id,
 					title: item.question, // API期望的是title字段，不是question
 					type: item?.type,
 					description: item.description,
@@ -737,7 +728,6 @@ const handleSaveQuestionnaire = async () => {
 			estimatedMinutes: Math.max(1, Math.ceil(totalQuestions * 0.5)),
 			category: 'custom',
 			type: 'questionnaire',
-			assignments: assignments.filter((assignment) => assignment.workflowId),
 		};
 
 		let result;
@@ -795,7 +785,7 @@ const cancelEditQuestion = () => {
 
 const handleUpdateQuestion = (updatedQuestion: any) => {
 	const index = questionnaire.sections[currentSectionIndex.value].items.findIndex(
-		(item) => item.id === updatedQuestion.id
+		(item) => item.temporaryId === updatedQuestion.temporaryId
 	);
 	if (index !== -1) {
 		questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
@@ -823,10 +813,6 @@ const fetchAllStages = async () => {
 onMounted(async () => {
 	// 初始化数据 - 先加载问卷数据和工作流
 	await Promise.all([loadQuestionnaireData(), fetchWorkflows(), fetchAllStages()]);
-	nextTick(() => {
-		updateConfigScrollbar();
-		updateEditorScrollbar();
-	});
 });
 </script>
 

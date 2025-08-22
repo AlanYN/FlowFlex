@@ -22,11 +22,13 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IComponentMappingService _mappingService;
 
-        public QuestionnaireController(IQuestionnaireService questionnaireService, IFileStorageService fileStorageService)
+        public QuestionnaireController(IQuestionnaireService questionnaireService, IFileStorageService fileStorageService, IComponentMappingService mappingService)
         {
             _questionnaireService = questionnaireService;
             _fileStorageService = fileStorageService;
+            _mappingService = mappingService;
         }
 
         /// <summary>
@@ -372,6 +374,44 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             // Return all results, both successful and failed
             return Success(uploadResults);
+        }
+
+        /// <summary>
+        /// Debug endpoint: Find which stages contain a specific questionnaire
+        /// </summary>
+        [HttpGet("{id}/debug/stages")]
+        [ProducesResponseType<SuccessResponse<List<object>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> DebugFindStagesContainingQuestionnaire(long id)
+        {
+            var stages = await _questionnaireService.FindStagesContainingQuestionnaireAsync(id);
+            
+            var result = stages.Select(s => new
+            {
+                StageId = s.Id,
+                StageName = s.Name,
+                WorkflowId = s.WorkflowId,
+                ComponentsJson = s.ComponentsJson
+            }).ToList();
+            
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Sync component mappings (初始化映射表数据)
+        /// </summary>
+        [HttpPost("sync-mappings")]
+        [ApiExplorerSettings(IgnoreApi = true)] // 隐藏在 Swagger 中，仅用于管理
+        public async Task<IActionResult> SyncMappings()
+        {
+            try
+            {
+                await _mappingService.SyncAllStageMappingsAsync();
+                return Success("Component mappings synchronized successfully");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to sync mappings: {ex.Message}");
+            }
         }
     }
 }

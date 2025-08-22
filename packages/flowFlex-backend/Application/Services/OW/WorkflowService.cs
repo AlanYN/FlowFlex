@@ -20,6 +20,7 @@ using FlowFlex.Application.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Item.Redis;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -30,14 +31,18 @@ namespace FlowFlex.Application.Service.OW
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<WorkflowService> _logger;
+        private readonly IOperatorContextService _operatorContextService;
+        private readonly IComponentMappingService _componentMappingService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
+            _operatorContextService = operatorContextService;
+            _componentMappingService = componentMappingService;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -69,10 +74,11 @@ namespace FlowFlex.Application.Service.OW
             }
 
             var entity = _mapper.Map<Workflow>(input);
-            entity.StartDate = input.StartDate == default ? DateTimeOffset.Now : input.StartDate;
+            entity.StartDate = input.StartDate == default ? DateTimeOffset.UtcNow : input.StartDate;
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
+            AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
 
             await _workflowRepository.InsertAsync(entity);
 
@@ -86,11 +92,24 @@ namespace FlowFlex.Application.Service.OW
                     
                     // Initialize create information
                     stage.InitCreateInfo(_userContext);
+                    AuditHelper.ApplyCreateAudit(stage, _operatorContextService);
                     
                     await _stageRepository.InsertAsync(stage);
                 }
                 
                 _logger.LogInformation("Created {StageCount} stages for workflow {WorkflowId}", input.Stages.Count, entity.Id);
+                
+                // Sync component mappings for all stages in the workflow
+                try
+                {
+                    await _componentMappingService.SyncWorkflowMappingsAsync(entity.Id);
+                    _logger.LogInformation("Successfully synced component mappings for workflow {WorkflowId}", entity.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to sync component mappings for workflow {WorkflowId}: {Error}", entity.Id, ex.Message);
+                    // Don't fail the workflow creation if mapping sync fails
+                }
             }
 
             return entity.Id;
@@ -157,6 +176,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
+            AuditHelper.ApplyModifyAudit(entity, _operatorContextService);
 
             var updateResult = await _workflowRepository.UpdateAsync(entity);
 
@@ -188,6 +208,7 @@ namespace FlowFlex.Application.Service.OW
                         _mapper.Map(stageInput, existingStage);
                         existingStage.WorkflowId = id;
                         existingStage.InitUpdateInfo(_userContext);
+                        AuditHelper.ApplyModifyAudit(existingStage, _operatorContextService);
                         
                         await _stageRepository.UpdateAsync(existingStage);
                     }
@@ -197,6 +218,7 @@ namespace FlowFlex.Application.Service.OW
                         var newStage = _mapper.Map<Stage>(stageInput);
                         newStage.WorkflowId = id;
                         newStage.InitCreateInfo(_userContext);
+                        AuditHelper.ApplyCreateAudit(newStage, _operatorContextService);
                         
                         await _stageRepository.InsertAsync(newStage);
                     }
@@ -427,6 +449,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
             duplicatedWorkflow.InitCreateInfo(_userContext);
+            AuditHelper.ApplyCreateAudit(duplicatedWorkflow, _operatorContextService);
 
             var newWorkflowId = await _workflowRepository.InsertReturnSnowflakeIdAsync(duplicatedWorkflow);
 
@@ -453,6 +476,7 @@ namespace FlowFlex.Application.Service.OW
 
                 // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
                 duplicatedStage.InitCreateInfo(_userContext);
+                AuditHelper.ApplyCreateAudit(duplicatedStage, _operatorContextService);
 
                 await _stageRepository.InsertAsync(duplicatedStage);
             }
@@ -599,7 +623,7 @@ namespace FlowFlex.Application.Service.OW
                 Description = input.Description,
                 IsDefault = input.IsDefault,
                 Status = input.Status,
-                StartDate = input.StartDate == default ? DateTimeOffset.Now : input.StartDate,
+            StartDate = input.StartDate == default ? DateTimeOffset.UtcNow : input.StartDate,
                 EndDate = input.EndDate,
                 Version = 1,
                 IsActive = input.IsActive
@@ -654,11 +678,13 @@ namespace FlowFlex.Application.Service.OW
             // Update workflow start date to current date when creating new version
             // Use today's date at start of day in local timezone
             var today = DateTime.Today;
-            workflow.StartDate = new DateTimeOffset(today, DateTimeOffset.Now.Offset);
+            // Preserve original local date semantics but convert to UTC offset
+            workflow.StartDate = new DateTimeOffset(today, TimeSpan.Zero);
 
             // Update workflow version number
             workflow.Version += 1;
             workflow.InitUpdateInfo(_userContext);
+            AuditHelper.ApplyModifyAudit(workflow, _operatorContextService);
             var result = await _workflowRepository.UpdateAsync(workflow);
 
             // Create version history record (including stage snapshot) after updating workflow

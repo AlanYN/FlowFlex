@@ -221,6 +221,80 @@
 							</div>
 							<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
 								<div class="space-y-6 mt-4">
+									<!-- AI Summary 展示（当前阶段） -->
+									<div
+										v-if="showAISummarySection"
+										class="bg-white dark:bg-black-300 rounded-md p-4"
+									>
+										<div class="flex justify-between items-center mb-2">
+											<div class="text-sm text-gray-500">AI Summary</div>
+											<el-button
+												:icon="Refresh"
+												size="small"
+												circle
+												:loading="aiSummaryLoading"
+												@click="refreshAISummary"
+												title="Refresh AI Summary"
+											/>
+										</div>
+
+										<!-- AI Summary content (always visible if exists) -->
+										<div v-if="currentAISummary" class="ai-summary-content">
+											<p
+												class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200"
+												:class="{ streaming: aiSummaryLoading }"
+											>
+												{{ currentAISummary }}
+												<span
+													v-if="aiSummaryLoading"
+													class="typing-indicator"
+												>
+													|
+												</span>
+											</p>
+										</div>
+
+										<!-- Loading state (only when no content yet) -->
+										<div
+											v-else-if="aiSummaryLoading"
+											class="flex items-center space-x-2 py-4"
+										>
+											<el-icon class="is-loading text-lg text-primary-500">
+												<Loading />
+											</el-icon>
+											<span class="text-sm text-gray-500">
+												{{ aiSummaryLoadingText }}
+											</span>
+										</div>
+
+										<!-- Empty state -->
+										<div v-else class="text-sm text-gray-400 italic py-2">
+											No AI summary available. Click refresh to generate.
+										</div>
+
+										<!-- Loading indicator when streaming content -->
+										<div
+											v-if="aiSummaryLoading && currentAISummary"
+											class="flex items-center space-x-2 py-2 mt-2"
+										>
+											<el-icon class="is-loading text-sm text-primary-500">
+												<Loading />
+											</el-icon>
+											<span class="text-xs text-gray-500">
+												{{ aiSummaryLoadingText }}
+											</span>
+										</div>
+
+										<div
+											v-if="currentAISummaryGeneratedAt"
+											class="mt-1 text-xs text-gray-400"
+										>
+											<span>
+												Generated at:
+												{{ formatUsDate(currentAISummaryGeneratedAt) }}
+											</span>
+										</div>
+									</div>
 									<!-- Stage Details 加载状态 -->
 									<div
 										v-if="stageDataLoading"
@@ -302,8 +376,10 @@
 											<!-- 文件组件 -->
 											<Documents
 												v-else-if="component.key === 'files'"
+												ref="documentsRef"
 												:onboarding-id="onboardingId"
 												:stage-id="activeStage"
+												:component="component"
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
 											/>
@@ -391,10 +467,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, watch, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Loading, Check, Document } from '@element-plus/icons-vue';
+import { ArrowLeft, Loading, Check, Document, Refresh } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
@@ -409,6 +485,10 @@ import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboa
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
+import { getTokenobj } from '@/utils/auth';
+import { getTimeZoneInfo } from '@/hooks/time';
+import { useGlobSetting } from '@/settings';
+import { useUserStore } from '@/stores/modules/user';
 // 导入组件
 import OnboardingProgress from '../onboardingList/components/OnboardingProgress.vue';
 import QuestionnaireDetails from '../onboardingList/components/QuestionnaireDetails.vue';
@@ -435,6 +515,8 @@ const DetailsIcon = {
 };
 
 const { t } = useI18n();
+const userStore = useUserStore();
+const globSetting = useGlobSetting();
 
 // 常量定义
 const router = useRouter();
@@ -545,7 +627,14 @@ const stageIdFromRoute = computed(() => {
 // 添加组件引用
 const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
+const documentsRef = ref<any[]>([]);
 const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+
+// 在组件更新前重置 refs，避免多次渲染导致重复收集
+onBeforeUpdate(() => {
+	staticFormRefs.value = [];
+	questionnaireDetailsRefs.value = [];
+});
 
 // 计算属性
 const currentStageTitle = computed(() => {
@@ -567,6 +656,147 @@ const sortedComponents = computed(() => {
 		return a.order - b.order;
 	});
 });
+
+// AI Summary 状态与工具
+const aiSummaryLoading = ref(false);
+const aiSummaryLoadingText = ref('Generating AI summary...');
+const currentAISummary = ref('');
+const currentAISummaryGeneratedAt = ref('');
+const showAISummarySection = ref(true);
+
+const formatUsDate = (value?: string | Date) => {
+	if (!value) return '';
+	try {
+		const d = typeof value === 'string' ? new Date(value) : value;
+		return new Intl.DateTimeFormat('en-US', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
+		}).format(d);
+	} catch {
+		return String(value);
+	}
+};
+
+const updateAISummaryFromStageInfo = () => {
+	if (onboardingActiveStageInfo.value?.aiSummary) {
+		currentAISummary.value = (onboardingActiveStageInfo.value as any).aiSummary;
+		currentAISummaryGeneratedAt.value =
+			(onboardingActiveStageInfo.value as any).aiSummaryGeneratedAt || '';
+	} else {
+		currentAISummary.value = '';
+		currentAISummaryGeneratedAt.value = '';
+	}
+};
+
+const refreshAISummary = async () => {
+	if (!activeStage.value) {
+		ElMessage.error('No active stage selected');
+		return;
+	}
+
+	// 重置状态，开始流式生成
+	aiSummaryLoading.value = true;
+	aiSummaryLoadingText.value = 'Starting AI summary generation...';
+	currentAISummary.value = ''; // 清空现有内容，准备流式显示
+	console.log('🔄 [AI Summary] Starting generation, loading =', aiSummaryLoading.value);
+
+	try {
+		// 获取认证信息
+		const tokenObj = getTokenobj();
+		const userInfo = userStore.getUserInfo;
+
+		// 构建请求头
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+			Accept: 'text/plain',
+			'Time-Zone': getTimeZoneInfo().timeZone,
+			'Application-code': globSetting?.ssoCode || '',
+		};
+
+		// 添加认证头
+		if (tokenObj?.accessToken?.token) {
+			const token = tokenObj.accessToken.token;
+			const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
+			headers.Authorization = `${tokenType} ${token}`;
+		}
+
+		// 添加用户相关头信息
+		if (userInfo?.appCode) {
+			headers['X-App-Code'] = String(userInfo.appCode);
+		}
+		if (userInfo?.tenantId) {
+			headers['X-Tenant-Id'] = String(userInfo.tenantId);
+		}
+
+		// 使用fetch进行POST流式请求
+		const url = `/api/ow/stages/v1/${activeStage.value}/ai-summary/stream?onboardingId=${onboardingId.value}`;
+		const response = await fetch(url, {
+			method: 'POST',
+			headers,
+		});
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		const reader = response.body?.getReader();
+		const decoder = new TextDecoder();
+
+		if (!reader) {
+			throw new Error('Response body is not readable');
+		}
+
+		// 直接处理纯文本流式响应
+		for (let done = false; !done; ) {
+			const { value, done: isDone } = await reader.read();
+			done = isDone;
+			if (done) break;
+
+			const chunk = decoder.decode(value, { stream: true });
+
+			// 检查是否是错误信息
+			if (chunk.startsWith('Error:')) {
+				console.error('❌ [AI Summary] Server error:', chunk);
+				ElMessage.error(chunk.replace('Error: ', '') || 'Failed to generate AI summary');
+				aiSummaryLoading.value = false;
+				return;
+			}
+
+			// 直接将文本内容添加到AI Summary中
+			if (chunk.trim()) {
+				currentAISummary.value += chunk;
+				console.log('📝 [AI Summary] Text chunk received:', chunk.length, 'chars');
+			}
+		}
+
+		// 流结束，设置状态
+		console.log('✅ [AI Summary] Stream completed');
+		currentAISummaryGeneratedAt.value = new Date().toISOString();
+		aiSummaryLoading.value = false;
+		ElMessage.success('AI Summary generated successfully');
+
+		// 更新本地stage信息
+		if (onboardingActiveStageInfo.value) {
+			(onboardingActiveStageInfo.value as any).aiSummary = currentAISummary.value;
+			(onboardingActiveStageInfo.value as any).aiSummaryGeneratedAt =
+				currentAISummaryGeneratedAt.value;
+			console.log('📝 [AI Summary] Updated stage info');
+		}
+	} catch (error) {
+		console.error('Error generating AI summary:', error);
+		aiSummaryLoading.value = false;
+		ElMessage.error('Failed to generate AI summary');
+	}
+};
+
+const checkAndGenerateAISummary = async () => {
+	if (!onboardingActiveStageInfo.value?.aiSummary && !aiSummaryLoading.value) {
+		await refreshAISummary();
+	}
+};
 
 // 事件处理函数
 const handleNavigation = (item: any) => {
@@ -595,17 +825,28 @@ const handleBack = () => {
 const completing = ref(false);
 const checkLoading = ref(false);
 
-// 函数式ref，用于收集组件实例
+// 函数式ref，用于收集StaticForm组件实例（去重）
 const setStaticFormRef = (el: any) => {
-	if (el) {
+	if (el && !staticFormRefs.value.includes(el)) {
 		staticFormRefs.value.push(el);
 	}
 };
 
+// 函数式ref，用于收集QuestionnaireDetails组件实例（去重）
 const setQuestionnaireDetailsRef = (el: any) => {
-	if (el) {
+	if (el && !questionnaireDetailsRefs.value.includes(el)) {
 		questionnaireDetailsRefs.value.push(el);
 	}
+};
+
+// 清理StaticForm refs
+const clearStaticFormRefs = () => {
+	staticFormRefs.value = [];
+};
+
+// 清理QuestionnaireDetails refs
+const clearQuestionnaireDetailsRefs = () => {
+	questionnaireDetailsRefs.value = [];
 };
 
 // 其他必要的函数（简化版本）
@@ -660,6 +901,7 @@ const loadOnboardingDetail = async () => {
 				activeStage.value = newStageId;
 				// 设置 activeStage 后，加载当前阶段的基础数据
 				await loadCurrentStageData();
+				await checkAndGenerateAISummary();
 			}
 		}
 	} finally {
@@ -720,29 +962,40 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 		]);
 
 		if (checklistResponse.code === '200') {
-			// 获取已完成的任务信息
-			const completedTasksMap = new Map<string, boolean>();
+			// 获取已完成的任务信息，包含完成者与完成时间
+			const completedTasksMap = new Map<string, any>();
 			if (completionResponse.code === '200' && completionResponse.data) {
 				if (Array.isArray(completionResponse.data)) {
 					completionResponse.data.forEach((completedTask: any) => {
 						const taskId = completedTask.taskId || completedTask.id;
 						if (taskId) {
-							completedTasksMap.set(taskId, true);
+							completedTasksMap.set(taskId, {
+								isCompleted: completedTask.isCompleted,
+								completedBy: completedTask.modifyBy || completedTask.createBy,
+								completedTime:
+									completedTask.completedTime || completedTask.modifyDate,
+							});
 						}
 					});
 				}
 			}
 
-			// 处理每个 checklist 的数据，合并完成状态信息
+			// 处理每个 checklist 的数据，合并完成状态与完成者信息
 			const processedChecklists = (checklistResponse.data || []).map((checklist: any) => {
 				if (!checklist.tasks || !Array.isArray(checklist.tasks)) {
 					checklist.tasks = [];
 				}
 
-				checklist.tasks = checklist.tasks.map((task: any) => ({
-					...task,
-					isCompleted: completedTasksMap.has(task.id) || task.isCompleted || false,
-				}));
+				checklist.tasks = checklist.tasks.map((task: any) => {
+					const completionInfo = completedTasksMap.get(task.id);
+					return {
+						...task,
+						isCompleted: completionInfo?.isCompleted || task.isCompleted || false,
+						completedBy:
+							completionInfo?.completedBy || task.assigneeName || task.createBy,
+						completedDate: completionInfo?.completedTime || task.completedDate,
+					};
+				});
 
 				const completedTasks = checklist.tasks.filter(
 					(task: any) => task.isCompleted
@@ -846,8 +1099,9 @@ const loadStageRelatedData = async (stageId: string) => {
 	try {
 		stageDataLoading.value = true;
 		// 清理之前的组件refs
-		staticFormRefs.value = [];
-		questionnaireDetailsRefs.value = [];
+		clearStaticFormRefs();
+		clearQuestionnaireDetailsRefs();
+		documentsRef.value = [];
 
 		// 并行加载依赖stageId的数据
 		await Promise.all([
@@ -919,6 +1173,8 @@ const setActiveStageWithData = async (stageId: string) => {
 	// 重新加载依赖stageId的数据
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues();
+	updateAISummaryFromStageInfo();
+	await checkAndGenerateAISummary();
 };
 
 // 保存所有表单数据的函数
@@ -946,6 +1202,23 @@ const saveAllForm = async (isValidate: boolean = true) => {
 				if (questRef && typeof questRef.handleSave === 'function') {
 					const result = await questRef.handleSave(false, isValidate);
 					if (result !== true) {
+						return false;
+					}
+				}
+			}
+		}
+
+		// 校验Documents组件
+		if (documentsRef.value.length > 0 && isValidate) {
+			for (let i = 0; i < documentsRef.value.length; i++) {
+				const docRef = documentsRef.value[i];
+				if (docRef && typeof docRef.vailComponent === 'function') {
+					try {
+						const result = docRef.vailComponent();
+						if (!result) {
+							return false;
+						}
+					} catch (error) {
 						return false;
 					}
 				}
@@ -1113,5 +1386,45 @@ button:hover {
 /* Shadow styles to match original */
 .shadow-sm {
 	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* AI Summary Streaming Styles */
+.ai-summary-content .streaming {
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(59, 130, 246, 0.1) 50%,
+		transparent 100%
+	);
+	background-size: 200% 100%;
+	animation: shimmer 2s infinite;
+	padding: 8px;
+	border-radius: 4px;
+}
+
+@keyframes shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+.typing-indicator {
+	animation: blink 1s infinite;
+	color: #3b82f6;
+	font-weight: bold;
+}
+
+@keyframes blink {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	51%,
+	100% {
+		opacity: 0;
+	}
 }
 </style>

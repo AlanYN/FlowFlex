@@ -44,7 +44,7 @@
 						<p class="font-medium">{{ customerData.leadId }}</p>
 					</div>
 					<div>
-						<p class="text-sm font-medium text-gray-500">Company Name</p>
+						<p class="text-sm font-medium text-gray-500">Customer Name</p>
 						<p class="font-medium">{{ customerData.leadName }}</p>
 					</div>
 					<div>
@@ -206,7 +206,7 @@
 							</el-table-column>
 							<el-table-column label="Answer" show-overflow-tooltip min-width="200">
 								<template #default="{ row }">
-									<div class="bg-blue-50 p-2 rounded text-sm">
+									<div class="answer-cell bg-blue-50 p-2 rounded text-sm">
 										<!-- 短答题 -->
 										<div
 											v-if="isShortAnswerType(row.questionType)"
@@ -547,6 +547,67 @@
 															row.questionConfig,
 															row.responseText,
 															row.id
+														).length > 1
+															? 's'
+															: ''
+													}}
+												</div>
+											</template>
+										</div>
+
+										<!-- 短答网格 (Short answer grid) -->
+										<div
+											v-else-if="isShortAnswerGridType(row.questionType)"
+											class="short-answer-grid"
+										>
+											<template
+												v-if="
+													getShortAnswerGridData(
+														row.responseText,
+														row.id,
+														row.questionConfig
+													).length > 0
+												"
+											>
+												<div class="space-y-2">
+													<div
+														v-for="(
+															gridData, index
+														) in getShortAnswerGridData(
+															row.responseText,
+															row.id,
+															row.questionConfig
+														)"
+														:key="`grid-${index}`"
+														class="grid-row-data"
+													>
+														<div class="flex items-start text-sm">
+															<span
+																class="font-medium text-gray-600 mr-2 min-w-0 flex-shrink-0"
+															>
+																{{ gridData.row }}:
+															</span>
+															<span
+																class="text-gray-800 bg-gray-50 px-2 py-1 rounded flex-1"
+															>
+																{{ gridData.value }}
+															</span>
+														</div>
+													</div>
+												</div>
+												<div class="mt-2 text-xs text-gray-500">
+													{{
+														getShortAnswerGridData(
+															row.responseText,
+															row.id,
+															row.questionConfig
+														).length
+													}}
+													cell{{
+														getShortAnswerGridData(
+															row.responseText,
+															row.id,
+															row.questionConfig
 														).length > 1
 															? 's'
 															: ''
@@ -918,20 +979,32 @@ const processQuestionnaireData = (
 		// Create a map of answers by question ID for O(1) lookup
 		const answersMap = new Map<string, any>();
 		const gridAnswersMap = new Map<string, any[]>(); // 用于存储网格类型的答案
+		const shortGridAnswersMap = new Map<string, any[]>(); // 用于聚合短答网格的多条行答案
 
 		// Process current questionnaire's answers
 		parsedAnswers.responses?.forEach((resp) => {
-			// 检查是否是网格类型的答案（包含 _row- 或 _）
+			// 短答网格：同一题会有多条记录，按题目ID聚合
+			if (resp.type === 'short_answer_grid') {
+				const qid = resp.questionId;
+				if (!shortGridAnswersMap.has(qid)) {
+					shortGridAnswersMap.set(qid, []);
+				}
+				shortGridAnswersMap.get(qid)!.push(resp);
+				return;
+			}
+
+			// 其他网格类型（questionId 中带行信息）
 			if (resp.questionId.includes('_row-') || resp.questionId.includes('_')) {
-				// 提取原始问题ID
 				const baseQuestionId = resp.questionId.split('_')[0];
 				if (!gridAnswersMap.has(baseQuestionId)) {
 					gridAnswersMap.set(baseQuestionId, []);
 				}
 				gridAnswersMap.get(baseQuestionId)!.push(resp);
-			} else {
-				answersMap.set(resp.questionId, resp);
+				return;
 			}
+
+			// 普通题：一题一条
+			answersMap.set(resp.questionId, resp);
 		});
 
 		// Process each section and question
@@ -939,7 +1012,9 @@ const processQuestionnaireData = (
 			section.questions?.forEach((question: any, questionIndex: number) => {
 				// 检查是否是网格类型的问题
 				const isGridType =
-					question.type === 'checkbox_grid' || question.type === 'multiple_choice_grid';
+					question.type === 'checkbox_grid' ||
+					question.type === 'multiple_choice_grid' ||
+					question.type === 'short_answer_grid';
 
 				// Try to find answer using various possible question IDs
 				let answerData: any = null;
@@ -960,6 +1035,13 @@ const processQuestionnaireData = (
 				// Try to find grid answers using the same possible IDs
 				let gridAnswers: any[] = [];
 				for (const possibleId of possibleIds) {
+					if (question.type === 'short_answer_grid') {
+						const shortList = shortGridAnswersMap.get(possibleId);
+						if (shortList && shortList.length > 0) {
+							gridAnswers = shortList;
+							break;
+						}
+					}
 					const foundGridAnswers = gridAnswersMap.get(possibleId);
 					if (foundGridAnswers && foundGridAnswers.length > 0) {
 						gridAnswers = foundGridAnswers;
@@ -969,59 +1051,68 @@ const processQuestionnaireData = (
 
 				// 如果是网格类型且有网格答案，处理网格答案
 				if (isGridType && gridAnswers && gridAnswers.length > 0) {
-					// 为每个网格行创建一个响应记录
-					gridAnswers.forEach((gridAnswer) => {
-						// 获取具体答案的更新信息
+					// 短答网格：将同一题的所有单元格答案合并为一条记录，答案放在 responseText
+					if (question.type === 'short_answer_grid') {
+						const merged: Record<string, any> = {};
+						const rowsMap: Record<string, string> = {};
 						let lastUpdated = '';
 						let updatedBy = '';
 						let firstAnsweredDate = '';
 						let firstAnsweredBy = '';
 
-						if (gridAnswer?.lastModifiedAt && gridAnswer?.lastModifiedBy) {
-							lastUpdated = gridAnswer.lastModifiedAt;
-							updatedBy = gridAnswer.lastModifiedBy;
-						}
-
-						// 从changeHistory中获取首次回答时间和回答人
-						if (
-							gridAnswer?.changeHistory &&
-							Array.isArray(gridAnswer.changeHistory) &&
-							gridAnswer.changeHistory.length > 0
-						) {
-							// 找到第一个"created"操作的时间和用户
-							const firstCreated = gridAnswer.changeHistory.find(
-								(change: any) => change.action === 'created'
-							);
-							if (firstCreated) {
-								firstAnsweredDate =
-									firstCreated.timestamp || firstCreated.timestampUtc || '';
-								firstAnsweredBy = firstCreated.user || '';
-							} else {
-								// 如果没有找到created，使用第一个记录的时间和用户
-								const firstRecord = gridAnswer.changeHistory[0];
-								firstAnsweredDate =
-									firstRecord.timestamp || firstRecord.timestampUtc || '';
-								firstAnsweredBy = firstRecord.user || '';
+						gridAnswers.forEach((ga) => {
+							if (ga?.responseText) {
+								try {
+									const parsed = JSON.parse(ga.responseText);
+									Object.assign(merged, parsed);
+									// 从 key 里解析 row-...，并映射到题目配置的行 label
+									const rowLabelMap = new Map<string, string>();
+									(question.rows || []).forEach((r: any) =>
+										rowLabelMap.set(r.id, r.label)
+									);
+									Object.entries(parsed).forEach(([k, v]) => {
+										const parts = k.split('_');
+										const rowPart =
+											parts.find((p) => p.startsWith('row-')) || '';
+										const label =
+											rowLabelMap.get(rowPart) || rowPart.replace('row-', '');
+										if (String(v || '').trim() !== '') {
+											rowsMap[label] = String(v);
+										}
+									});
+								} catch {}
 							}
-						}
 
-						// 避免空选择时将 "{}" 作为有效答案展示
-						const sanitizedGridAnswer =
-							typeof gridAnswer.answer === 'string'
-								? gridAnswer.answer
-								: String(gridAnswer.answer ?? '');
+							if (ga?.changeHistory && Array.isArray(ga.changeHistory)) {
+								const firstCreated = ga.changeHistory.find(
+									(c: any) => c.action === 'created'
+								);
+								if (
+									firstCreated &&
+									(!firstAnsweredDate ||
+										firstCreated.timestampUtc < firstAnsweredDate)
+								) {
+									firstAnsweredDate =
+										firstCreated.timestampUtc || firstCreated.timestamp || '';
+									firstAnsweredBy = firstCreated.user || '';
+								}
+							}
+
+							if (
+								ga?.lastModifiedAt &&
+								(!lastUpdated || ga.lastModifiedAt > lastUpdated)
+							) {
+								lastUpdated = ga.lastModifiedAt;
+								updatedBy = ga.lastModifiedBy || '';
+							}
+						});
 
 						responses.push({
-							id: gridAnswer.questionId, // 使用网格行的完整ID
-							question: gridAnswer.question || question.title, // 使用网格行的问题标题
+							id: question.id,
+							question: question.title,
 							description: question.description,
-							// 对于网格题，仅保留实际选择值；不再用 responseText 兜底，避免显示 "{}"
-							answer: sanitizedGridAnswer,
-							answeredBy:
-								firstAnsweredBy ||
-								gridAnswer?.lastModifiedBy ||
-								answer?.createBy ||
-								'',
+							answer: '',
+							answeredBy: firstAnsweredBy || answer?.createBy || '',
 							answeredDate: answer?.createDate || '',
 							firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
 							lastUpdated: lastUpdated || answer?.modifyDate || '',
@@ -1029,11 +1120,77 @@ const processQuestionnaireData = (
 							questionType: question.type,
 							section: section.name,
 							required: question.required || false,
-							questionConfig: question.config || question, // 存储完整的问题配置
-							questionNumber: questionIndex + 1, // 添加题目序号
-							responseText: gridAnswer.responseText || answer?.answerJson || '', // 保存原始responseText
+							questionConfig: question.config || question,
+							questionNumber: questionIndex + 1,
+							responseText: JSON.stringify({ rows: rowsMap, cells: merged }),
 						});
-					});
+					} else {
+						// 为每个网格行创建一个响应记录
+						gridAnswers.forEach((gridAnswer) => {
+							// 获取具体答案的更新信息
+							let lastUpdated = '';
+							let updatedBy = '';
+							let firstAnsweredDate = '';
+							let firstAnsweredBy = '';
+
+							if (gridAnswer?.lastModifiedAt && gridAnswer?.lastModifiedBy) {
+								lastUpdated = gridAnswer.lastModifiedAt;
+								updatedBy = gridAnswer.lastModifiedBy;
+							}
+
+							// 从changeHistory中获取首次回答时间和回答人
+							if (
+								gridAnswer?.changeHistory &&
+								Array.isArray(gridAnswer.changeHistory) &&
+								gridAnswer.changeHistory.length > 0
+							) {
+								// 找到第一个"created"操作的时间和用户
+								const firstCreated = gridAnswer.changeHistory.find(
+									(change: any) => change.action === 'created'
+								);
+								if (firstCreated) {
+									firstAnsweredDate =
+										firstCreated.timestamp || firstCreated.timestampUtc || '';
+									firstAnsweredBy = firstCreated.user || '';
+								} else {
+									// 如果没有找到created，使用第一个记录的时间和用户
+									const firstRecord = gridAnswer.changeHistory[0];
+									firstAnsweredDate =
+										firstRecord.timestamp || firstRecord.timestampUtc || '';
+									firstAnsweredBy = firstRecord.user || '';
+								}
+							}
+
+							// 避免空选择时将 "{}" 作为有效答案展示
+							const sanitizedGridAnswer =
+								typeof gridAnswer.answer === 'string'
+									? gridAnswer.answer
+									: String(gridAnswer.answer ?? '');
+
+							responses.push({
+								id: gridAnswer.questionId, // 使用网格行的完整ID
+								question: gridAnswer.question || question.title, // 使用网格行的问题标题
+								description: question.description,
+								// 对于网格题，仅保留实际选择值；不再用 responseText 兜底，避免显示 "{}"
+								answer: sanitizedGridAnswer,
+								answeredBy:
+									firstAnsweredBy ||
+									gridAnswer?.lastModifiedBy ||
+									answer?.createBy ||
+									'',
+								answeredDate: answer?.createDate || '',
+								firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
+								lastUpdated: lastUpdated || answer?.modifyDate || '',
+								updatedBy: updatedBy || answer?.modifyBy || '',
+								questionType: question.type,
+								section: section.name,
+								required: question.required || false,
+								questionConfig: question.config || question, // 存储完整的问题配置
+								questionNumber: questionIndex + 1, // 添加题目序号
+								responseText: gridAnswer.responseText || answer?.answerJson || '', // 保存原始responseText
+							});
+						});
+					}
 				} else {
 					// 非网格类型或没有网格答案的普通处理
 					// 获取具体答案的更新信息
@@ -1368,6 +1525,13 @@ const allQuestionsForExport = computed(() => {
 				);
 				displayAnswer = labels.join(', ');
 			}
+			// 如果是短答网格类型，转换为键值对显示
+			else if (response.questionType === 'short_answer_grid') {
+				const gridData = getShortAnswerGridData(response.responseText, response.id);
+				displayAnswer = gridData
+					.map((item) => `${item.row}-${item.column}: ${item.value}`)
+					.join('; ');
+			}
 			// 如果是多选类型，转换为label显示
 			else if (response.questionType === 'checkboxes' && response.answer) {
 				const labels = getCheckboxLabels(
@@ -1436,6 +1600,13 @@ const filteredQuestionsForExport = computed(() => {
 					response.id
 				);
 				displayAnswer = labels.join(', ');
+			}
+			// 如果是短答网格类型，转换为键值对显示
+			else if (response.questionType === 'short_answer_grid') {
+				const gridData = getShortAnswerGridData(response.responseText, response.id);
+				displayAnswer = gridData
+					.map((item) => `${item.row}-${item.column}: ${item.value}`)
+					.join('; ');
 			}
 			// 如果是多选类型，转换为label显示
 			else if (response.questionType === 'checkboxes' && response.answer) {
@@ -2237,6 +2408,10 @@ const isMultipleChoiceGridType = (type: string): boolean => {
 	return type === 'multiple_choice_grid';
 };
 
+const isShortAnswerGridType = (type: string): boolean => {
+	return type === 'short_answer_grid';
+};
+
 // Answer formatting methods
 const getCheckboxAnswers = (answer: any): string[] => {
 	if (!answer) return [];
@@ -2474,6 +2649,99 @@ const getGridAnswerLabels = (
 	});
 
 	return labels.filter(Boolean);
+};
+
+// 解析短答网格数据
+const getShortAnswerGridData = (
+	responseText?: string,
+	questionId?: string,
+	questionConfig?: any
+): Array<{ column: string; value: string; row: string }> => {
+	if (!responseText || !questionId) return [];
+
+	try {
+		const parsed = parseResponseText(responseText);
+		// 优先处理合并格式 { rows: { '1': '1A', '2': '2B' }, cells: {...} }
+		if (parsed && (parsed as any).rows && typeof (parsed as any).rows === 'object') {
+			const rowsObj = (parsed as any).rows as Record<string, any>;
+			const rows = (questionConfig?.rows || []) as Array<{ id: string; label: string }>;
+			if (rows.length > 0) {
+				const result: Array<{ column: string; value: string; row: string }> = [];
+				rows.forEach((r) => {
+					if (rowsObj[r.label] != null) {
+						result.push({ row: r.label, column: '', value: String(rowsObj[r.label]) });
+					}
+				});
+				return result;
+			}
+			return Object.entries(rowsObj).map(([row, value]) => ({
+				row: String(row),
+				column: '',
+				value: String(value),
+			}));
+		}
+
+		const gridData: Array<{ column: string; value: string; row: string }> = [];
+
+		// 遍历所有的键值对，查找属于当前问题的网格数据
+		Object.entries(parsed).forEach(([key, value]) => {
+			if (value && String(value).trim() !== '') {
+				// 解析键名格式: questionId_columnId_rowId
+				const parts = key.split('_');
+				if (parts.length >= 3) {
+					const baseQuestionId = parts[0];
+					const columnId = parts[1];
+					const rowId = parts[2];
+
+					// 确保这是当前问题的数据 - 支持多种匹配方式
+					const isCurrentQuestion =
+						baseQuestionId === questionId ||
+						key.startsWith(questionId + '_') ||
+						key.startsWith('question-' + questionId.replace('question-', ''));
+
+					if (isCurrentQuestion) {
+						// 生成显示用的列标题和行标题
+						let columnLabel = columnId;
+						let rowLabel = rowId;
+
+						// 美化显示标签
+						if (columnId.startsWith('column-')) {
+							columnLabel = columnId.replace('column-', 'Col ');
+						} else if (columnId.includes('column')) {
+							columnLabel = columnId.replace(/column/gi, 'Col');
+						}
+
+						// 优先用配置里的真实行标签
+						const rows = (questionConfig?.rows || []) as Array<{
+							id: string;
+							label: string;
+						}>;
+						const matched = rows.find((r) => r.id === rowId || rowId.endsWith(r.id));
+						rowLabel = matched?.label || rowId.replace('row-', '');
+
+						gridData.push({
+							column: columnLabel,
+							row: rowLabel,
+							value: String(value),
+						});
+					}
+				}
+			}
+		});
+
+		// 按行和列排序，确保显示顺序一致
+		gridData.sort((a, b) => {
+			if (a.row === b.row) {
+				return a.column.localeCompare(b.column);
+			}
+			return a.row.localeCompare(b.row);
+		});
+
+		return gridData;
+	} catch (error) {
+		console.warn('Failed to parse short answer grid data:', responseText, error);
+		return [];
+	}
 };
 
 // 图标选项配置
@@ -2861,7 +3129,8 @@ html.dark {
 .checkbox-answers,
 .single-choice-answer,
 .dropdown-answer,
-.grid-answer {
+.grid-answer,
+.short-answer-grid {
 	.checkbox-tag,
 	.choice-tag,
 	.dropdown-tag,
@@ -2886,6 +3155,40 @@ html.dark {
 	.flex {
 		max-width: 100%;
 	}
+
+	/* 短答网格特殊样式 */
+	&.short-answer-grid {
+		.grid-row-data {
+			padding: 4px 0;
+			border-bottom: 1px solid #f0f0f0;
+
+			&:last-child {
+				border-bottom: none;
+			}
+
+			.font-medium {
+				min-width: 120px;
+				color: #6b7280;
+				font-size: 0.8rem;
+			}
+
+			span:last-child {
+				background-color: #f8fafc;
+				border: 1px solid #e2e8f0;
+				border-radius: 4px;
+				padding: 2px 8px;
+				font-size: 0.875rem;
+				color: #374151;
+				word-break: break-word;
+			}
+		}
+	}
+}
+
+/* 统一 Answer 单元格最小高度，保证无值与有值展示高度一致 */
+.answer-cell {
+	min-height: 40px;
+	display: block;
 }
 
 /* 确保卡片内容占满宽度 */

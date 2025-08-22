@@ -16,18 +16,6 @@
 						</el-icon>
 						AI Model Config
 					</el-button>
-					<el-button @click="openWorkflowList">
-						<el-icon class="mr-1">
-							<List />
-						</el-icon>
-						{{ showWorkflowList ? 'Hide' : 'Show' }} Workflow List
-					</el-button>
-					<el-button type="primary" @click="goToTraditionalCreate">
-						<el-icon class="mr-1">
-							<Plus />
-						</el-icon>
-						Traditional Create
-					</el-button>
 				</div>
 			</div>
 		</div>
@@ -60,7 +48,21 @@
 								class="workflow-item border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
 							>
 								<div class="flex items-center justify-between mb-2">
-									<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
+									<div class="flex items-center gap-2">
+										<h4 class="font-medium text-sm">{{ workflow.name }}</h4>
+										<el-tag
+											v-if="workflow.isAIGenerated"
+											type="primary"
+											effect="light"
+											size="small"
+											class="ai-tag"
+										>
+											<div class="flex items-center gap-1">
+												<span class="ai-sparkles">✨</span>
+												AI
+											</div>
+										</el-tag>
+									</div>
 									<el-tag
 										:type="workflow.isActive ? 'success' : 'info'"
 										size="small"
@@ -98,297 +100,6 @@
 			</div>
 		</div>
 
-		<!-- AI Generated Workflow Dialog -->
-		<el-dialog
-			v-model="showGeneratedDialog"
-			title="🤖 AI-Generated Workflow"
-			width="95%"
-			:close-on-click-modal="false"
-			class="ai-workflow-dialog"
-			top="3vh"
-		>
-			<!-- Workflow Overview Header -->
-			<div class="workflow-overview-header">
-				<div class="overview-left">
-					<div class="ai-status-indicator">
-						<div class="pulse-ring"></div>
-						<div class="pulse-dot"></div>
-					</div>
-					<div class="workflow-info">
-						<h3 class="workflow-title">{{ generatedWorkflow?.name }}</h3>
-						<div class="workflow-meta">
-							<span class="meta-badge">
-								{{ isModifyMode ? 'AI-Enhanced' : 'AI-Generated' }}
-							</span>
-							<span class="meta-divider">•</span>
-							<span class="stages-count">{{ generatedStages.length }} stages</span>
-							<span class="meta-divider">•</span>
-							<span class="total-duration">{{ getTotalDuration() }} days total</span>
-						</div>
-					</div>
-				</div>
-				<div class="overview-actions">
-					<el-button size="small" @click="addStage" class="add-stage-btn">
-						<el-icon class="mr-1"><Plus /></el-icon>
-						Add Stage
-					</el-button>
-				</div>
-			</div>
-
-			<!-- Workflow Stages Grid -->
-			<div class="workflow-stages-grid">
-				<div class="stages-grid-container">
-					<div
-						v-for="(stage, index) in generatedStages"
-						:key="index"
-						class="stage-card-wrapper"
-					>
-						<div class="stage-card">
-							<!-- Stage Header -->
-							<div class="stage-card-header">
-								<div class="stage-number-badge">{{ stage.order }}</div>
-								<div class="stage-title-section">
-									<el-input
-										v-model="stage.name"
-										size="small"
-										placeholder="Stage name..."
-										class="stage-title-input"
-										@blur="updateStage(index)"
-									/>
-								</div>
-								<div class="stage-actions">
-									<el-button
-										size="small"
-										type="danger"
-										@click="removeStage(index)"
-										class="remove-stage-btn"
-									>
-										<el-icon><Remove /></el-icon>
-									</el-button>
-								</div>
-							</div>
-
-							<!-- Stage Content -->
-							<div class="stage-card-body">
-								<!-- Assignment and Duration -->
-								<div class="stage-meta-row">
-									<div class="meta-item">
-										<label class="meta-label">Team:</label>
-										<el-select
-											v-model="stage.assignedGroup"
-											size="small"
-											placeholder="Select"
-											class="team-select"
-										>
-											<el-option label="Sales" value="Sales" />
-											<el-option label="IT" value="IT" />
-											<el-option label="HR" value="HR" />
-											<el-option label="Finance" value="Finance" />
-											<el-option label="Operations" value="Operations" />
-										</el-select>
-									</div>
-									<div class="meta-item">
-										<label class="meta-label">Days:</label>
-										<el-input-number
-											v-model="stage.estimatedDuration"
-											size="small"
-											:min="1"
-											:max="30"
-											class="duration-input"
-											controls-position="right"
-										/>
-									</div>
-								</div>
-
-								<!-- Description -->
-								<div class="stage-description-section">
-									<label class="meta-label">Description:</label>
-									<el-input
-										v-model="stage.description"
-										type="textarea"
-										:rows="3"
-										placeholder="Describe what happens in this stage..."
-										@blur="updateStage(index)"
-										class="description-textarea"
-									/>
-								</div>
-
-								<!-- Required Fields -->
-								<div class="required-fields-section">
-									<label class="meta-label">Required Fields:</label>
-									<div
-										v-if="
-											stage.requiredFields && stage.requiredFields.length > 0
-										"
-										class="fields-tags-container"
-									>
-										<el-tag
-											v-for="(field, fieldIndex) in stage.requiredFields"
-											:key="fieldIndex"
-											size="small"
-											closable
-											@close="removeRequiredField(index, fieldIndex)"
-											class="field-tag"
-										>
-											{{ field }}
-										</el-tag>
-									</div>
-									<el-button
-										size="small"
-										@click="addRequiredField(index)"
-										class="add-field-btn"
-										type="dashed"
-									>
-										<el-icon><Plus /></el-icon>
-										{{
-											stage.requiredFields && stage.requiredFields.length > 0
-												? 'Add More'
-												: 'Add Fields'
-										}}
-									</el-button>
-								</div>
-							</div>
-
-							<!-- Stage Connection Line -->
-							<div class="stage-connection" v-if="index < generatedStages.length - 1">
-								<div class="connection-line"></div>
-								<div class="connection-arrow">
-									<el-icon><ArrowRight /></el-icon>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<template #footer>
-				<div class="ai-dialog-footer">
-					<div class="footer-content">
-						<div class="footer-left">
-							<div class="workflow-summary">
-								<span class="summary-text">
-									Total: {{ generatedStages.length }} stages,
-									{{ getTotalDuration() }} days
-								</span>
-							</div>
-						</div>
-						<div class="footer-center">
-							<el-button
-								@click="enhanceWorkflow"
-								:loading="enhancing"
-								class="ai-enhance-btn"
-							>
-								<el-icon class="mr-1"><Star /></el-icon>
-								AI Enhance
-							</el-button>
-							<el-button
-								@click="validateWorkflow"
-								:loading="validating"
-								class="ai-validate-btn"
-							>
-								<el-icon class="mr-1"><Check /></el-icon>
-								Validate
-							</el-button>
-						</div>
-						<div class="footer-right">
-							<el-button @click="showGeneratedDialog = false" class="cancel-btn">
-								Cancel
-							</el-button>
-							<el-button
-								type="primary"
-								@click="saveWorkflow"
-								:loading="saving"
-								class="save-workflow-btn"
-							>
-								{{ isModifyMode ? 'Update Workflow' : 'Save Workflow' }}
-							</el-button>
-						</div>
-					</div>
-				</div>
-			</template>
-		</el-dialog>
-
-		<!-- Field Addition Dialog -->
-		<el-dialog
-			v-model="showFieldDialog"
-			title="✨ Add Required Field"
-			width="400px"
-			class="ai-field-dialog"
-		>
-			<div class="field-dialog-content">
-				<p class="text-sm text-gray-600 mb-4">Add a new required field for this stage:</p>
-				<el-input
-					v-model="newFieldName"
-					placeholder="Enter field name..."
-					@keyup.enter="confirmAddField"
-					class="ai-field-input"
-				/>
-			</div>
-			<template #footer>
-				<div class="flex justify-end space-x-2">
-					<el-button @click="showFieldDialog = false">Cancel</el-button>
-					<el-button type="primary" @click="confirmAddField" class="ai-confirm-btn">
-						Add Field
-					</el-button>
-				</div>
-			</template>
-		</el-dialog>
-
-		<!-- AI Enhancement Dialog -->
-		<el-dialog
-			v-model="showEnhanceDialog"
-			title="🚀 AI Workflow Enhancement"
-			width="600px"
-			class="ai-enhance-dialog"
-		>
-			<div class="enhance-dialog-content">
-				<div class="mb-4">
-					<p class="text-sm text-gray-600 mb-2">
-						Describe how you'd like to enhance this workflow:
-					</p>
-					<el-input
-						v-model="enhanceRequest"
-						type="textarea"
-						:rows="4"
-						placeholder="E.g., Add approval steps, include quality checkpoints, optimize for efficiency..."
-						class="ai-enhance-input"
-					/>
-				</div>
-
-				<div v-if="enhanceResult" class="enhancement-result mt-4">
-					<h4 class="text-md font-medium text-gray-800 mb-2">
-						AI Enhancement Suggestions:
-					</h4>
-					<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-						<div
-							v-for="(suggestion, index) in enhanceResult.suggestions"
-							:key="index"
-							class="mb-2"
-						>
-							<div class="flex items-start space-x-2">
-								<el-icon class="text-blue-500 mt-0.5"><Star /></el-icon>
-								<span class="text-sm text-gray-700">{{ suggestion }}</span>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-			<template #footer>
-				<div class="flex justify-between">
-					<el-button @click="showEnhanceDialog = false">Cancel</el-button>
-					<el-button
-						type="primary"
-						@click="applyEnhancement"
-						:loading="enhancing"
-						class="ai-apply-btn"
-					>
-						<el-icon class="mr-1"><Star /></el-icon>
-						Apply Suggestions
-					</el-button>
-				</div>
-			</template>
-		</el-dialog>
-
 		<!-- AI Model Config Dialog -->
 		<el-dialog
 			v-model="showAIConfigDialog"
@@ -397,6 +108,7 @@
 			:close-on-click-modal="false"
 			top="5vh"
 			class="ai-config-dialog"
+			style="max-width: 1200px"
 		>
 			<div class="ai-config-container">
 				<AIModelConfig />
@@ -406,33 +118,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { List, Refresh, Setting } from '@element-plus/icons-vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import {
-	List,
-	Plus,
-	Refresh,
-	Document,
-	Remove,
-	Star,
-	Check,
-	ArrowRight,
-	Setting,
-} from '@element-plus/icons-vue';
 
 // Components
-import AIWorkflowGenerator from '@/components/ai/AIWorkflowGenerator.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import AIWorkflowGenerator from '../../../../components/ai/AIWorkflowGenerator.vue';
 import AIModelConfig from './ai-config.vue';
 
 // APIs
-import { getWorkflowList, createWorkflow, updateWorkflow } from '@/apis/ow';
-import { validateAIWorkflow } from '@/apis/ai/workflow';
+import { getWorkflowList } from '@/apis/ow';
 
 // Router
 const router = useRouter();
-const { scrollbarRef, updateScrollbarHeight } = useAdaptiveScrollbar(50);
+const { scrollbarRef } = useAdaptiveScrollbar(50);
 
 // Types
 interface WorkflowStage {
@@ -449,6 +149,7 @@ interface Workflow {
 	name: string;
 	description: string;
 	isActive: boolean;
+	isAIGenerated?: boolean;
 	stages?: WorkflowStage[];
 	createdAt?: string;
 }
@@ -460,58 +161,20 @@ interface AIWorkflowData {
 	selectedWorkflowId?: number;
 }
 
-interface EnhanceResult {
-	suggestions: string[];
-}
-
 // Reactive Data
 const showWorkflowList = ref(false);
 const workflowList = ref<Workflow[]>([]);
-const showGeneratedDialog = ref(false);
-const generatedWorkflow = ref<Workflow | null>(null);
-const generatedStages = ref<WorkflowStage[]>([]);
-const saving = ref(false);
-const enhancing = ref(false);
-const validating = ref(false);
-
-// Field Dialog
-const showFieldDialog = ref(false);
-const newFieldName = ref('');
-const currentStageIndex = ref(-1);
-
-// Enhancement Dialog
-const showEnhanceDialog = ref(false);
-const enhanceRequest = ref('');
-const enhanceResult = ref<EnhanceResult | null>(null);
 
 // AI Config Dialog
 const showAIConfigDialog = ref(false);
 
-// Modification mode tracking
-const isModifyMode = ref(false);
-const selectedWorkflowId = ref<number | null>(null);
-
 // Methods
 const handleWorkflowGenerated = (workflowData: AIWorkflowData) => {
-	// workflowData is now complete AI response data
-	generatedWorkflow.value = workflowData.generatedWorkflow;
-	generatedStages.value = workflowData.stages || [];
-
-	// Set operation mode information
-	isModifyMode.value = workflowData.operationMode === 'modify';
-	selectedWorkflowId.value = workflowData.selectedWorkflowId || null;
-
-	showGeneratedDialog.value = true;
-
-	console.log('Generated workflow data:', workflowData);
-	console.log('Generated stages:', workflowData.stages);
-	console.log('Operation mode:', workflowData.operationMode);
-	console.log('Selected workflow ID:', workflowData.selectedWorkflowId);
-
-	const message = isModifyMode.value
-		? 'AI workflow modification completed! Please review and save.'
-		: 'AI workflow generated successfully! Please review, edit, and save.';
-	ElMessage.success(message);
+	// Navigate to workflow details page after creation
+	router.push({
+		path: '/onboard/onboardWorkflow',
+		query: { id: workflowData.generatedWorkflow.id },
+	});
 };
 
 const refreshWorkflowList = async () => {
@@ -525,208 +188,8 @@ const refreshWorkflowList = async () => {
 	}
 };
 
-const goToTraditionalCreate = () => {
-	router.push('/onboard/onboardWorkflow');
-};
-
 const showAIConfig = () => {
 	showAIConfigDialog.value = true;
-};
-
-const addStage = () => {
-	const newOrder = Math.max(...generatedStages.value.map((s) => s.order), 0) + 1;
-	generatedStages.value.push({
-		name: `New Stage ${newOrder}`,
-		description: '',
-		order: newOrder,
-		assignedGroup: 'General',
-		requiredFields: [],
-		estimatedDuration: 1,
-	});
-};
-
-const removeStage = (index: number) => {
-	generatedStages.value.splice(index, 1);
-	// Reorder stages
-	generatedStages.value.forEach((stage, idx) => {
-		stage.order = idx + 1;
-	});
-};
-
-const updateStage = (index: number) => {
-	// Stage update logic, can add auto-save
-	console.log('Stage updated:', generatedStages.value[index]);
-};
-
-const addRequiredField = (stageIndex: number) => {
-	currentStageIndex.value = stageIndex;
-	showFieldDialog.value = true;
-};
-
-const confirmAddField = () => {
-	if (!newFieldName.value.trim()) {
-		ElMessage.warning('Field name cannot be empty');
-		return;
-	}
-
-	if (currentStageIndex.value >= 0) {
-		if (!generatedStages.value[currentStageIndex.value].requiredFields) {
-			generatedStages.value[currentStageIndex.value].requiredFields = [];
-		}
-		generatedStages.value[currentStageIndex.value].requiredFields.push(
-			newFieldName.value.trim()
-		);
-		newFieldName.value = '';
-		showFieldDialog.value = false;
-	}
-};
-
-const removeRequiredField = (stageIndex: number, fieldIndex: number) => {
-	generatedStages.value[stageIndex].requiredFields.splice(fieldIndex, 1);
-};
-
-const enhanceWorkflow = () => {
-	showEnhanceDialog.value = true;
-	enhanceRequest.value = '';
-	enhanceResult.value = null;
-};
-
-const applyEnhancement = async () => {
-	if (!enhanceRequest.value.trim()) {
-		ElMessage.warning('Please describe your enhancement requirements');
-		return;
-	}
-
-	enhancing.value = true;
-	try {
-		// This would call the AI enhancement API
-		// For now, we'll show a success message
-		ElMessage.success('AI enhancement suggestions applied successfully!');
-		showEnhanceDialog.value = false;
-		enhanceRequest.value = '';
-		enhanceResult.value = null;
-	} catch (error) {
-		console.error('Enhancement error:', error);
-		ElMessage.error('Enhancement process encountered an error');
-	} finally {
-		enhancing.value = false;
-	}
-};
-
-const validateWorkflow = async () => {
-	if (!generatedWorkflow.value) return;
-
-	validating.value = true;
-	try {
-		const workflowData = {
-			...generatedWorkflow.value,
-			stages: generatedStages.value,
-		};
-
-		const response = await validateAIWorkflow(workflowData);
-		if (response.success) {
-			const result = response.data;
-			if (result.isValid) {
-				ElMessage.success(
-					`Workflow validated! Quality Score: ${Math.round(result.qualityScore * 100)}%`
-				);
-			} else {
-				const errors = result.issues.filter((issue) => issue.severity === 'Error');
-				const warnings = result.issues.filter((issue) => issue.severity === 'Warning');
-
-				let message = 'Workflow validation issues:\n';
-				if (errors.length > 0) {
-					message += `Errors (${errors.length}): ${errors
-						.map((e) => e.message)
-						.join(', ')}\n`;
-				}
-				if (warnings.length > 0) {
-					message += `Warnings (${warnings.length}): ${warnings
-						.map((w) => w.message)
-						.join(', ')}`;
-				}
-
-				ElMessage.warning(message);
-			}
-		}
-	} catch (error) {
-		console.error('Validation error:', error);
-		ElMessage.error('Validation process encountered an error');
-	} finally {
-		validating.value = false;
-	}
-};
-
-const saveWorkflow = async () => {
-	console.log('Saving workflow - generatedWorkflow:', generatedWorkflow.value);
-	console.log('Saving workflow - generatedStages:', generatedStages.value);
-	console.log('Saving workflow - stages length:', generatedStages.value.length);
-
-	if (!generatedWorkflow.value || generatedStages.value.length === 0) {
-		ElMessage.warning('Please ensure the workflow includes at least one stage');
-		return;
-	}
-
-	saving.value = true;
-	try {
-		const workflowData = {
-			name: generatedWorkflow.value.name,
-			description: generatedWorkflow.value.description,
-			isActive: generatedWorkflow.value.isActive,
-			status: 'active',
-			startDate: new Date().toISOString(),
-			// Note: Backend expects uppercase Stages
-			stages: generatedStages.value.map((stage, index) => ({
-				name: stage.name,
-				description: stage.description,
-				order: stage.order || index + 1,
-				defaultAssignedGroup: stage.assignedGroup || 'Execution Team',
-				estimatedDuration: stage.estimatedDuration || 1,
-				isActive: true,
-				workflowVersion: '1',
-			})),
-		};
-
-		let response;
-		if (isModifyMode.value && selectedWorkflowId.value) {
-			// Modify mode: update existing workflow
-			response = await updateWorkflow(selectedWorkflowId.value, workflowData);
-			if (response.success) {
-				ElMessage.success('Workflow updated successfully!');
-				showGeneratedDialog.value = false;
-				await refreshWorkflowList();
-
-				// Navigate to workflow details page
-				router.push({
-					path: '/onboard/onboardWorkflow',
-					query: { id: selectedWorkflowId.value },
-				});
-			} else {
-				ElMessage.error(response.message || 'Update failed');
-			}
-		} else {
-			// Create mode: create new workflow
-			response = await createWorkflow(workflowData);
-			if (response.success) {
-				ElMessage.success('Workflow saved successfully!');
-				showGeneratedDialog.value = false;
-				await refreshWorkflowList();
-
-				// Navigate to workflow details page
-				router.push({
-					path: '/onboard/onboardWorkflow',
-					query: { id: response.data },
-				});
-			} else {
-				ElMessage.error(response.message || 'Save failed');
-			}
-		}
-	} catch (error) {
-		console.error('Save workflow error:', error);
-		ElMessage.error('An error occurred during saving');
-	} finally {
-		saving.value = false;
-	}
 };
 
 const formatDate = (dateString?: string) => {
@@ -752,15 +215,6 @@ const getStageCount = (workflow: Workflow) => {
 		return 0;
 	}
 	return workflow.stages.length;
-};
-
-const getTotalDuration = () => {
-	return generatedStages.value.reduce((sum, stage) => sum + stage.estimatedDuration, 0);
-};
-
-const openWorkflowList = () => {
-	showWorkflowList.value = !showWorkflowList.value;
-	updateScrollbarHeight();
 };
 
 // Lifecycle
@@ -1405,5 +859,59 @@ onMounted(() => {
 .ai-config-container {
 	height: auto;
 	min-height: fit-content;
+}
+
+/* AI Tag Styles */
+.ai-tag {
+	background: #753bbd;
+	background-color: #753bbd;
+	color: white;
+	border-color: transparent;
+	padding: 2px 6px;
+	font-size: 10px;
+	display: inline-flex;
+	align-items: center;
+}
+
+/* Increase specificity to override Element Plus tag presets */
+.ai-tag.el-tag,
+.ai-tag.el-tag--primary,
+.ai-tag.is-light,
+.ai-tag.el-tag.el-tag--primary,
+.el-tag.ai-tag,
+.el-tag--primary.ai-tag,
+.el-tag--primary.is-light.ai-tag {
+	background: #753bbd !important;
+	background-color: #753bbd !important;
+	background-image: none !important;
+	color: #ffffff !important;
+	border-color: transparent !important;
+	--el-tag-text-color: #ffffff !important;
+}
+
+.ai-sparkles {
+	font-size: 10px;
+	animation: sparkle 2s ease-in-out infinite;
+	display: inline-block;
+}
+
+@keyframes sparkle {
+	0%,
+	100% {
+		transform: scale(1) rotate(0deg);
+		opacity: 1;
+	}
+	25% {
+		transform: scale(1.1) rotate(5deg);
+		opacity: 0.9;
+	}
+	50% {
+		transform: scale(1.2) rotate(-5deg);
+		opacity: 0.8;
+	}
+	75% {
+		transform: scale(1.1) rotate(3deg);
+		opacity: 0.9;
+	}
 }
 </style>

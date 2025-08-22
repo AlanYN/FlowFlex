@@ -50,7 +50,7 @@
 
 	/* 设置圆角以及边框颜色 */
 	.el-table {
-		// Add margin to the el-table to prevent border overlap
+		border: none;
 
 		.el-table--border {
 			// border-radius: 10px 10px 0 0;
@@ -67,12 +67,6 @@
 				border-right: 0;
 				border-bottom: 0;
 			}
-
-			// .el-table__border-left-patch,
-			// .el-table--border::before,
-			// .el-table--border .el-table__inner-wrapper::after {
-			// 	background-color: transparent !important;
-			// }
 
 			&:after,
 			.el-table__inner-wrapper::before {
@@ -96,6 +90,13 @@
 				}
 			}
 		}
+
+		th {
+			background-color: var(--primary-10) !important;
+			border-bottom: 1px solid #e5e7eb;
+			color: #374151;
+			font-weight: 500;
+		}
 	}
 
 	// 分页相关初始化
@@ -106,11 +107,16 @@
 
 	// 选择框相关初始化
 	.el-checkbox {
+		white-space: normal;
+		height: auto;
+		line-height: inherit;
+		
+
 		.el-checkbox__input .el-checkbox__inner {
 			@apply border-gray-500 text-primary-500;
 		}
 		.el-checkbox__input.is-checked + .el-checkbox__label {
-			@apply font-bold text-primary-500;
+			@apply font-bold text-primary-500 ;
 		}
 		.el-checkbox__input.is-checked {
 			.el-checkbox__inner {
@@ -120,6 +126,10 @@
 				}
 			}
 		}
+	}
+
+	.el-checkbox__label {
+		line-height: 1.5;
 	}
 
 	// 选项卡相关初始化
@@ -326,9 +336,7 @@
 			.el-sub-menu__title {
 				@apply bg-primary-50 text-neutral-800;
 			}
-			.el-menu-item {
-				// @apply bg-siderbarGray text-primary-500;
-			}
+
 			.is-active {
 				@apply bg-primary-50 text-neutral-800;
 			}
@@ -390,6 +398,11 @@
 		@apply bg-primary-500 text-white-100;
 	}
 
+	.el-radio {
+		white-space: normal;
+		height: auto;
+	}
+
 	// 单选框
 	.el-radio__input.is-checked .el-radio__inner {
 		@apply bg-primary-500 border-primary-500;
@@ -411,10 +424,6 @@
 
 	.el-select__wrapper.is-focused {
 		box-shadow: 0 0 0 1px var(--primary-500);
-	}
-
-	.el-select__wrapper {
-		@apply mx-[1px];
 	}
 
 	.el-date-table td.end-date .el-date-table-cell__text,

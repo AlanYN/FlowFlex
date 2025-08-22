@@ -13,9 +13,10 @@
 						>
 							<template #prefix>
 								<div v-if="newQuestion.type" class="type-option">
-									<el-icon class="type-icon">
-										<component :is="getQuestionTypeIcon(newQuestion.type)" />
-									</el-icon>
+									<Icon
+										:icon="getQuestionTypeIcon(newQuestion.type)"
+										class="type-icon"
+									/>
 								</div>
 							</template>
 							<el-option
@@ -25,9 +26,7 @@
 								:value="type.id"
 							>
 								<div class="type-option">
-									<el-icon class="type-icon">
-										<component :is="type.icon" />
-									</el-icon>
+									<Icon :icon="type.icon" class="type-icon" />
 									<span class="type-option-name">{{ type.name }}</span>
 									<el-tag
 										v-if="type.isNew"
@@ -181,9 +180,15 @@ const getInitialFormData = () => ({
 	question: '',
 	description: '',
 	required: false,
-	options: [] as Array<{ id: string; value: string; label: string; isOther?: boolean }>,
-	rows: [] as Array<{ id: string; label: string; isOther?: boolean }>,
-	columns: [] as Array<{ id: string; label: string; isOther?: boolean }>,
+	options: [] as Array<{
+		id?: string;
+		temporaryId: string;
+		value: string;
+		label: string;
+		isOther?: boolean;
+	}>,
+	rows: [] as Array<{ id?: string; temporaryId: string; label: string; isOther?: boolean }>,
+	columns: [] as Array<{ id?: string; temporaryId: string; label: string; isOther?: boolean }>,
 	requireOneResponsePerRow: false,
 	min: 1,
 	max: 5,
@@ -239,8 +244,8 @@ const loadEditingData = () => {
 			rows: [...(props.editingQuestion.rows || [])],
 			columns: [...(props.editingQuestion.columns || [])],
 			requireOneResponsePerRow: props.editingQuestion.requireOneResponsePerRow || false,
-			min: props.editingQuestion.min || 1,
-			max: props.editingQuestion.max || 5,
+			min: props.editingQuestion.min,
+			max: props.editingQuestion.max,
 			minLabel: props.editingQuestion.minLabel || '',
 			maxLabel: props.editingQuestion.maxLabel || '',
 			iconType: props.editingQuestion.iconType || 'star',
@@ -332,7 +337,7 @@ const handleAddOption = () => {
 	const generatedValue = generateOptionValue(newOption.label, newQuestion.options);
 
 	newQuestion.options.push({
-		id: `option-${Date.now()}`,
+		temporaryId: `option-${Date.now()}`,
 		value: generatedValue,
 		label: newOption.label,
 	});
@@ -342,22 +347,24 @@ const handleAddOption = () => {
 
 const handleAddOtherOption = () => {
 	newQuestion.options.push({
-		id: `option-${Date.now()}`,
+		temporaryId: `option-${Date.now()}`,
 		value: generateOptionValue('Other', newQuestion.options),
 		label: '',
 		isOther: true,
 	});
 };
 
-const updateExistingOptions = (id: string, label: string) => {
-	if (newQuestion.options.find((option) => option.id === id)) {
-		newQuestion.options.find((option) => option.id === id)!.label = label;
+const updateExistingOptions = (temporaryId: string, label: string) => {
+	if (newQuestion.options.find((option) => option.temporaryId === temporaryId)) {
+		newQuestion.options.find((option) => option.temporaryId === temporaryId)!.label = label;
 	}
 };
 
 // 删除选项
-const handleRemoveOption = (id: string) => {
-	newQuestion.options = newQuestion.options.filter((option) => option.id !== id);
+const handleRemoveOption = (temporaryId: string) => {
+	newQuestion.options = newQuestion.options.filter(
+		(option) => option.temporaryId !== temporaryId
+	);
 };
 
 // 添加行
@@ -365,7 +372,7 @@ const handleAddRow = () => {
 	if (!newRow.label.trim()) return;
 
 	newQuestion.rows.push({
-		id: `row-${Date.now()}`,
+		temporaryId: `row-${Date.now()}`,
 		label: newRow.label,
 	});
 
@@ -373,8 +380,8 @@ const handleAddRow = () => {
 };
 
 // 删除行
-const handleRemoveRow = (id: string) => {
-	newQuestion.rows = newQuestion.rows.filter((row) => row.id !== id);
+const handleRemoveRow = (temporaryId: string) => {
+	newQuestion.rows = newQuestion.rows.filter((row) => row.temporaryId !== temporaryId);
 };
 
 // 添加列
@@ -382,7 +389,7 @@ const handleAddColumn = () => {
 	if (!newColumn.label.trim()) return;
 
 	newQuestion.columns.push({
-		id: `column-${Date.now()}`,
+		temporaryId: `column-${Date.now()}`,
 		label: newColumn.label,
 	});
 
@@ -396,25 +403,27 @@ const handleAddOtherColumn = () => {
 	if (hasOther) return;
 
 	newQuestion.columns.push({
-		id: `column-other-${Date.now()}`,
+		temporaryId: `column-other-${Date.now()}`,
 		label: 'Other',
 		isOther: true,
 	});
 };
 
 // 删除列
-const handleRemoveColumn = (id: string) => {
-	newQuestion.columns = newQuestion.columns.filter((column) => column.id !== id);
+const handleRemoveColumn = (temporaryId: string) => {
+	newQuestion.columns = newQuestion.columns.filter(
+		(column) => column.temporaryId !== temporaryId
+	);
 };
 
-const updateRowLabel = (id: string, label: string) => {
-	if (newQuestion.rows.find((row) => row.id === id)) {
-		newQuestion.rows.find((row) => row.id === id)!.label = label;
+const updateRowLabel = (temporaryId: string, label: string) => {
+	if (newQuestion.rows.find((row) => row.temporaryId === temporaryId)) {
+		newQuestion.rows.find((row) => row.temporaryId === temporaryId)!.label = label;
 	}
 };
-const updateColumnLabel = (id: string, label: string) => {
-	if (newQuestion.columns.find((column) => column.id === id)) {
-		newQuestion.columns.find((column) => column.id === id)!.label = label;
+const updateColumnLabel = (temporaryId: string, label: string) => {
+	if (newQuestion.columns.find((column) => column.temporaryId === temporaryId)) {
+		newQuestion.columns.find((column) => column.temporaryId === temporaryId)!.label = label;
 	}
 };
 
@@ -423,7 +432,7 @@ const handleAddQuestion = () => {
 	if (!newQuestion.question.trim() || !newQuestion.type) return;
 
 	const questionData = {
-		id: props.isEditing ? props.editingQuestion.id : `question-${Date.now()}`,
+		...newQuestion,
 		type: newQuestion.type,
 		question: newQuestion.question,
 		description: newQuestion.description,
@@ -460,7 +469,7 @@ const needsOptions = (type: string) => {
 };
 
 const needsGrid = (type: string) => {
-	return ['multiple_choice_grid', 'checkbox_grid'].includes(type);
+	return ['multiple_choice_grid', 'checkbox_grid', 'short_answer_grid'].includes(type);
 };
 
 const needsLinearScale = (type: string) => {
@@ -473,7 +482,7 @@ const needsRating = (type: string) => {
 
 const getQuestionTypeIcon = (type: string) => {
 	const questionType = props.questionTypes.find((t) => t.id === type);
-	return questionType ? questionType.icon : 'Document';
+	return questionType ? questionType.icon : 'material-symbols-light:edit-document-outline';
 };
 
 // 组件挂载时处理编辑状态

@@ -41,5 +41,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// 创建时间
         /// </summary>
         public DateTimeOffset CreateDate { get; set; }
+
+        /// <summary>
+        /// 用户团队
+        /// </summary>
+        public string Team { get; set; }
     }
 }

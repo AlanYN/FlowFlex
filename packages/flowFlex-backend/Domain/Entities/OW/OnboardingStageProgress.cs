@@ -37,6 +37,21 @@ namespace FlowFlex.Domain.Entities.OW
         public DateTimeOffset? CompletionTime { get; set; }
 
         /// <summary>
+        /// End Time - Estimated end time based on StartTime + EstimatedDays (UTC)
+        /// </summary>
+        public DateTimeOffset? EndTime 
+        { 
+            get 
+            {
+                if (StartTime.HasValue && EstimatedDays.HasValue && EstimatedDays > 0)
+                {
+                    return StartTime.Value.AddDays((double)EstimatedDays.Value);
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Completed By ID
         /// </summary>
         public long? CompletedById { get; set; }
@@ -122,6 +137,31 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [JsonIgnore]
         public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
+
+        /// <summary>
+        /// AI Generated Summary (per onboarding). Stored in JSON.
+        /// </summary>
+        public string AiSummary { get; set; }
+
+        /// <summary>
+        /// AI Summary Generation Time (per onboarding). Stored in JSON.
+        /// </summary>
+        public DateTime? AiSummaryGeneratedAt { get; set; }
+
+        /// <summary>
+        /// AI Summary Confidence (per onboarding). Stored in JSON.
+        /// </summary>
+        public decimal? AiSummaryConfidence { get; set; }
+
+        /// <summary>
+        /// AI Summary Model (per onboarding). Stored in JSON.
+        /// </summary>
+        public string AiSummaryModel { get; set; }
+
+        /// <summary>
+        /// AI Summary Detailed Data (per onboarding). Stored in JSON.
+        /// </summary>
+        public string AiSummaryData { get; set; }
 
         // === Legacy fields for backward compatibility - will be removed in future versions ===
         

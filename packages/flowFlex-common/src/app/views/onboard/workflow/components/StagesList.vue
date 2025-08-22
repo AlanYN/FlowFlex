@@ -221,13 +221,15 @@
 									<div class="text-sm font-medium mb-3">Stage Components</div>
 									<div class="components-list">
 										<div
-											v-for="(component, index) in getStageComponents(
+											v-for="(component, itemIndex) in getStageComponents(
 												element
 											)"
 											:key="component.id"
 											class="component-item"
 										>
-											<span class="component-number">{{ index + 1 }}</span>
+											<span class="component-number">
+												{{ itemIndex + 1 }}
+											</span>
 											<div class="component-icon">
 												<component :is="getComponentIcon(component.type)" />
 											</div>

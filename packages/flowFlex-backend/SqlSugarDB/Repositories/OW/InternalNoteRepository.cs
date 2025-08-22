@@ -91,9 +91,9 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
         }
 
         note.IsResolved = true;
-        note.ResolvedTime = DateTimeOffset.Now;
+        note.ResolvedTime = DateTimeOffset.UtcNow;
         note.ResolvedBy = resolvedBy;
-        note.ModifyDate = DateTimeOffset.Now;
+        note.ModifyDate = DateTimeOffset.UtcNow;
 
         return await UpdateAsync(note);
     }
@@ -112,7 +112,7 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
         note.IsResolved = false;
         note.ResolvedTime = null;
         note.ResolvedBy = string.Empty;
-        note.ModifyDate = DateTimeOffset.Now;
+        note.ModifyDate = DateTimeOffset.UtcNow;
 
         return await UpdateAsync(note);
     }
@@ -233,7 +233,7 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
     /// </summary>
     public async Task<List<InternalNote>> GetByNoteTypeAsync(string noteType, int days = 30)
     {
-        var startDate = DateTimeOffset.Now.AddDays(-days);
+        var startDate = DateTimeOffset.UtcNow.AddDays(-days);
         return await db.Queryable<InternalNote>()
             .Where(x => x.NoteType == noteType && x.CreateDate >= startDate && x.IsValid)
             .OrderByDescending(x => x.CreateDate)
@@ -307,10 +307,10 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
         foreach (var note in notes)
         {
             note.IsResolved = true;
-            note.ResolvedTime = DateTimeOffset.Now;
+            note.ResolvedTime = DateTimeOffset.UtcNow;
             note.ResolvedById = resolvedById;
             note.ResolutionNotes = resolutionNotes;
-            note.ModifyDate = DateTimeOffset.Now;
+            note.ModifyDate = DateTimeOffset.UtcNow;
         }
 
         return await db.Updateable(notes).ExecuteCommandAsync() > 0;
@@ -321,7 +321,7 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
     /// </summary>
     public async Task<Dictionary<string, object>> GetNoteStatisticsAsync(long? onboardingId = null, int days = 30)
     {
-        var startDate = DateTimeOffset.Now.AddDays(-days);
+        var startDate = DateTimeOffset.UtcNow.AddDays(-days);
         var query = db.Queryable<InternalNote>()
             .Where(x => x.CreateDate >= startDate && x.IsValid);
 
@@ -359,7 +359,7 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
     /// </summary>
     public async Task<List<InternalNote>> GetMentionedNotesAsync(long userId, int days = 30)
     {
-        var startDate = DateTimeOffset.Now.AddDays(-days);
+        var startDate = DateTimeOffset.UtcNow.AddDays(-days);
         return await db.Queryable<InternalNote>()
             .Where(x => x.CreateDate >= startDate && x.IsValid &&
                        x.MentionedUserIds.Contains(userId.ToString()))

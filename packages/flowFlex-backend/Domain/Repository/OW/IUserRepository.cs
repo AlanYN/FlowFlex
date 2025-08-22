@@ -63,5 +63,45 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="verified">Whether verified</param>
         /// <returns>Whether update was successful</returns>
         Task<bool> UpdateEmailVerificationStatusAsync(long userId, bool verified);
+
+        /// <summary>
+        /// Get users with pagination and filters
+        /// </summary>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <param name="searchText">Search text (username or email)</param>
+        /// <param name="email">Email filter</param>
+        /// <param name="username">Username filter</param>
+        /// <param name="team">Team filter</param>
+        /// <param name="status">Status filter</param>
+        /// <param name="emailVerified">Email verification status filter</param>
+        /// <param name="sortField">Sort field</param>
+        /// <param name="sortDirection">Sort direction</param>
+        /// <returns>User list and total count</returns>
+        Task<(List<User> items, int totalCount)> GetPagedAsync(
+            int pageIndex,
+            int pageSize,
+            string searchText = null,
+            string email = null,
+            string username = null,
+            string team = null,
+            string status = null,
+            bool? emailVerified = null,
+            string sortField = "CreateDate",
+            string sortDirection = "desc");
+
+        /// <summary>
+        /// Get users without team
+        /// </summary>
+        /// <returns>List of users without team</returns>
+        Task<List<User>> GetUsersWithoutTeamAsync();
+
+        /// <summary>
+        /// Update user team
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="team">Team name</param>
+        /// <returns>Whether update was successful</returns>
+        Task<bool> UpdateUserTeamAsync(long userId, string team);
     }
 }
