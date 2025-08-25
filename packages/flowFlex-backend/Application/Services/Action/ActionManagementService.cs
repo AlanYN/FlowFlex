@@ -11,6 +11,9 @@ using FlowFlex.Domain.Shared.Models;
 using Application.Contracts.IServices.Action;
 using Item.Excel.Lib;
 using System.Text.RegularExpressions;
+using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Domain.Entities.OW;
+using System.Text.Json;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -22,6 +25,8 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
         private readonly IActionCodeGeneratorService _actionCodeGeneratorService;
+        private readonly IChecklistTaskRepository _checklistTaskRepository;
+        private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
 
@@ -29,12 +34,16 @@ namespace FlowFlex.Application.Services.Action
             IActionDefinitionRepository actionDefinitionRepository,
             IActionTriggerMappingRepository actionTriggerMappingRepository,
             IActionCodeGeneratorService actionCodeGeneratorService,
+            IChecklistTaskRepository checklistTaskRepository,
+            IQuestionnaireRepository questionnaireRepository,
             IMapper mapper,
             ILogger<ActionManagementService> logger)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
             _actionCodeGeneratorService = actionCodeGeneratorService;
+            _checklistTaskRepository = checklistTaskRepository;
+            _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
             _logger = logger;
         }
@@ -271,14 +280,28 @@ namespace FlowFlex.Application.Services.Action
             var entity = await _actionDefinitionRepository.GetByIdAsync(id);
             if (entity == null)
             {
-                return false;
+                // Return true for idempotent delete operation - if action doesn't exist, consider it already deleted
+                _logger.LogInformation("Action definition {ActionId} not found, considering delete operation successful", id);
+                return true;
             }
 
+            _logger.LogInformation("Starting comprehensive cleanup for action definition: {ActionId}", id);
+
+            // 1. Delete all related ActionTriggerMappings and collect affected IDs for targeted cleanup
+            var (taskIds, questionIds) = await CleanupActionTriggerMappingsAsync(id);
+
+            // 2. Clear action references from specific ChecklistTasks (performance optimized)
+            await CleanupChecklistTaskActionReferencesAsync(id, taskIds);
+
+            // 3. Clear action references from Questionnaires for specific questions/options (performance optimized)
+            await CleanupQuestionnaireActionReferencesAsync(id, questionIds);
+
+            // 4. Finally, mark the ActionDefinition as deleted
             entity.IsValid = false;
             entity.ModifyDate = DateTimeOffset.UtcNow;
 
             await _actionDefinitionRepository.UpdateAsync(entity);
-            _logger.LogInformation("Deleted action definition: {ActionId}", id);
+            _logger.LogInformation("Successfully deleted action definition and all related references: {ActionId}", id);
 
             return true;
         }
@@ -379,7 +402,9 @@ namespace FlowFlex.Application.Services.Action
             var entity = await _actionTriggerMappingRepository.GetByIdAsync(id);
             if (entity == null)
             {
-                return false;
+                // Return true for idempotent delete operation - if mapping doesn't exist, consider it already deleted
+                _logger.LogInformation("Action trigger mapping {MappingId} not found, considering delete operation successful", id);
+                return true;
             }
 
             entity.IsValid = false;
@@ -421,6 +446,252 @@ namespace FlowFlex.Application.Services.Action
         public async Task<bool> BatchUpdateActionTriggerMappingStatusAsync(List<long> mappingIds, bool isEnabled)
         {
             return await _actionTriggerMappingRepository.BatchUpdateEnabledStatusAsync(mappingIds, isEnabled);
+        }
+
+        #endregion
+
+        #region Action Cleanup Helper Methods
+
+        /// <summary>
+        /// Clean up all ActionTriggerMappings for a specific ActionDefinition and return mapping info for targeted cleanup
+        /// </summary>
+        private async Task<(List<long> taskIds, List<long> questionIds)> CleanupActionTriggerMappingsAsync(long actionDefinitionId)
+        {
+            var taskIds = new List<long>();
+            var questionIds = new List<long>();
+
+            try
+            {
+                // Get all mappings for this action definition
+                var actionMappings = await _actionTriggerMappingRepository.GetByActionDefinitionIdAsync(actionDefinitionId);
+                // Filter only valid mappings
+                actionMappings = actionMappings.Where(m => m.IsValid).ToList();
+
+                _logger.LogInformation("Found {Count} ActionTriggerMappings to cleanup for action {ActionId}", 
+                    actionMappings.Count, actionDefinitionId);
+
+                foreach (var mapping in actionMappings)
+                {
+                    // Collect source IDs for targeted cleanup
+                    if (mapping.TriggerType?.Trim() == "Task")
+                    {
+                        taskIds.Add(mapping.TriggerSourceId);
+                    }
+                    else if (mapping.TriggerType?.Trim() == "Question")
+                    {
+                        questionIds.Add(mapping.TriggerSourceId);
+                    }
+
+                    // Mark mapping as deleted
+                    mapping.IsValid = false;
+                    mapping.ModifyDate = DateTimeOffset.UtcNow;
+                    await _actionTriggerMappingRepository.UpdateAsync(mapping);
+                    
+                    _logger.LogDebug("Deleted ActionTriggerMapping {MappingId} (Type: {TriggerType}, SourceId: {TriggerSourceId}) for action {ActionId}", 
+                        mapping.Id, mapping.TriggerType, mapping.TriggerSourceId, actionDefinitionId);
+                }
+
+                _logger.LogInformation("Successfully cleaned up {Count} ActionTriggerMappings for action {ActionId} - Tasks: {TaskCount}, Questions: {QuestionCount}", 
+                    actionMappings.Count, actionDefinitionId, taskIds.Count, questionIds.Count);
+
+                return (taskIds.Distinct().ToList(), questionIds.Distinct().ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cleaning up ActionTriggerMappings for action {ActionId}", actionDefinitionId);
+                return (taskIds, questionIds);
+            }
+        }
+
+        /// <summary>
+        /// Clear action references from specific ChecklistTasks (performance optimized)
+        /// </summary>
+        private async Task CleanupChecklistTaskActionReferencesAsync(long actionDefinitionId, List<long> taskIds)
+        {
+            if (!taskIds.Any())
+            {
+                _logger.LogInformation("No ChecklistTask IDs provided for cleanup, skipping task reference cleanup");
+                return;
+            }
+
+            try
+            {
+                var cleanedCount = 0;
+
+                foreach (var taskId in taskIds)
+                {
+                    var task = await _checklistTaskRepository.GetByIdAsync(taskId);
+                    if (task != null && task.ActionId == actionDefinitionId && task.IsValid)
+                    {
+                        task.ActionId = null;
+                        task.ActionName = null;
+                        task.ActionMappingId = null;
+                        task.ModifyDate = DateTimeOffset.UtcNow;
+                        await _checklistTaskRepository.UpdateAsync(task);
+                        cleanedCount++;
+                        _logger.LogDebug("Cleared action reference from ChecklistTask {TaskId}", task.Id);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("ChecklistTask {TaskId} not found or does not reference action {ActionId}", taskId, actionDefinitionId);
+                    }
+                }
+
+                _logger.LogInformation("Successfully cleaned up {Count} ChecklistTask action references for action {ActionId} from {TotalIds} provided IDs", 
+                    cleanedCount, actionDefinitionId, taskIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cleaning up ChecklistTask action references for action {ActionId}", actionDefinitionId);
+            }
+        }
+
+        /// <summary>
+        /// Clear action references from Questionnaires for specific question/option IDs (performance optimized)
+        /// </summary>
+        private async Task CleanupQuestionnaireActionReferencesAsync(long actionDefinitionId, List<long> questionIds)
+        {
+            if (!questionIds.Any())
+            {
+                _logger.LogInformation("No Question/Option IDs provided for cleanup, skipping questionnaire reference cleanup");
+                return;
+            }
+
+            try
+            {
+                // Get all questionnaires - we still need to iterate through them as questions are embedded in JSON
+                var questionnaires = await _questionnaireRepository.GetListAsync();
+                var updatedCount = 0;
+                var questionIdStrings = questionIds.Select(id => id.ToString()).ToHashSet();
+
+                foreach (var questionnaire in questionnaires.Where(q => q.IsValid))
+                {
+                    if (questionnaire?.Structure == null) continue;
+
+                    var structureJson = questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None);
+                    var hasChanges = false;
+
+                    try
+                    {
+                        using var document = JsonDocument.Parse(structureJson);
+                        var root = document.RootElement;
+
+                        // Create a mutable copy for modifications
+                        var structureObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(structureJson);
+
+                        if (root.TryGetProperty("sections", out var sectionsElement))
+                        {
+                            var sectionIndex = 0;
+                            foreach (var section in sectionsElement.EnumerateArray())
+                            {
+                                // Process questions array - only clean matching IDs
+                                hasChanges |= CleanupActionReferencesInTargetedArray(section, structureObj.sections[sectionIndex], 
+                                    "questions", actionDefinitionId, questionIdStrings);
+
+                                // Process subsections if they exist
+                                if (section.TryGetProperty("subsections", out var subsectionsElement))
+                                {
+                                    var subsectionIndex = 0;
+                                    foreach (var subsection in subsectionsElement.EnumerateArray())
+                                    {
+                                        hasChanges |= CleanupActionReferencesInTargetedArray(subsection, 
+                                            structureObj.sections[sectionIndex].subsections[subsectionIndex], 
+                                            "questions", actionDefinitionId, questionIdStrings);
+                                        subsectionIndex++;
+                                    }
+                                }
+                                sectionIndex++;
+                            }
+                        }
+
+                        if (hasChanges)
+                        {
+                            questionnaire.Structure = Newtonsoft.Json.Linq.JObject.FromObject(structureObj);
+                            questionnaire.ModifyDate = DateTimeOffset.UtcNow;
+                            await _questionnaireRepository.UpdateAsync(questionnaire);
+                            updatedCount++;
+                            _logger.LogDebug("Updated questionnaire {QuestionnaireId} to remove targeted action references", 
+                                questionnaire.Id);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error processing questionnaire {QuestionnaireId} for targeted action cleanup", 
+                            questionnaire.Id);
+                    }
+                }
+
+                _logger.LogInformation("Successfully cleaned up action references from {Count} questionnaires for action {ActionId} targeting {TargetCount} question/option IDs", 
+                    updatedCount, actionDefinitionId, questionIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cleaning up Questionnaire action references for action {ActionId}", actionDefinitionId);
+            }
+        }
+
+        /// <summary>
+        /// Helper method to clean up action references in question arrays - performance optimized for specific IDs
+        /// </summary>
+        private bool CleanupActionReferencesInTargetedArray(JsonElement section, dynamic sectionObj, 
+            string arrayName, long actionDefinitionId, HashSet<string> targetQuestionIds)
+        {
+            var hasChanges = false;
+
+            if (section.TryGetProperty(arrayName, out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
+            {
+                var questionIndex = 0;
+                foreach (var question in questionsElement.EnumerateArray())
+                {
+                    var questionId = question.TryGetProperty("id", out var questionIdEl) ? questionIdEl.GetString() : null;
+                    
+                    // Only process if this question ID is in our target list
+                    if (!string.IsNullOrEmpty(questionId) && targetQuestionIds.Contains(questionId))
+                    {
+                        // Check and clean question action
+                        if (question.TryGetProperty("action", out var actionElement))
+                        {
+                            if (actionElement.TryGetProperty("id", out var actionIdEl) && 
+                                actionIdEl.GetString() == actionDefinitionId.ToString())
+                            {
+                                sectionObj[arrayName][questionIndex].action = null;
+                                hasChanges = true;
+                                _logger.LogDebug("Removed action reference from question {QuestionId} in {ArrayName}", questionId, arrayName);
+                            }
+                        }
+
+                        // Check and clean options actions
+                        if (question.TryGetProperty("options", out var optionsElement) && optionsElement.ValueKind == JsonValueKind.Array)
+                        {
+                            var optionIndex = 0;
+                            foreach (var option in optionsElement.EnumerateArray())
+                            {
+                                var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : 
+                                              option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
+
+                                // Check if this option ID is also in our target list
+                                if (!string.IsNullOrEmpty(optionId) && targetQuestionIds.Contains(optionId))
+                                {
+                                    if (option.TryGetProperty("action", out var optionActionElement))
+                                    {
+                                        if (optionActionElement.TryGetProperty("id", out var optionActionIdEl) && 
+                                            optionActionIdEl.GetString() == actionDefinitionId.ToString())
+                                        {
+                                            sectionObj[arrayName][questionIndex].options[optionIndex].action = null;
+                                            hasChanges = true;
+                                            _logger.LogDebug("Removed action reference from option {OptionId} in {ArrayName}", optionId, arrayName);
+                                        }
+                                    }
+                                }
+                                optionIndex++;
+                            }
+                        }
+                    }
+                    questionIndex++;
+                }
+            }
+
+            return hasChanges;
         }
 
         #endregion

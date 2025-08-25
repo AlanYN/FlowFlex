@@ -297,14 +297,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <returns>Success status</returns>
         [HttpDelete("mappings/{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> DeleteActionTriggerMapping(long id)
         {
             var result = await _actionManagementService.DeleteActionTriggerMappingAsync(id);
-            if (!result)
-            {
-                return NotFound();
-            }
             return Success(result);
         }
 
