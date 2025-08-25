@@ -104,5 +104,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="request">Third-party login request</param>
         /// <returns>Login response with system token</returns>
         Task<LoginResponseDto> ThirdPartyLoginAsync(ThirdPartyLoginRequestDto request);
+
+        Task<UserDto> GetUserByEmail(string email);
     }
 }

@@ -125,6 +125,96 @@ namespace FlowFlex.WebApi.Extensions
                         Console.WriteLine($"[SQL Error] {exp.Message}");
                     };
 
+                    provider.Aop.DataExecuting = (oldValue, entityInfo) =>
+                    {
+                        try
+                        {
+
+                            if (entityInfo.OperationType != DataFilterType.InsertByObject &&
+                                entityInfo.OperationType != DataFilterType.UpdateByObject)
+                                return;
+
+                            var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
+                            var userContext = httpContextAccessor?.HttpContext?.RequestServices?.GetService<UserContext>();
+
+                            if (userContext == null) return;
+
+                            var now = DateTimeOffset.UtcNow;
+                            var userName = userContext.UserName ?? "SYSTEM";
+                            var userId = long.TryParse(userContext.UserId, out var parsedUserId) ? parsedUserId : 0;
+                            var tenantId = userContext.TenantId ?? "DEFAULT";
+
+                            if (entityInfo.EntityColumnInfo.PropertyInfo.PropertyType == typeof(DateTimeOffset?))
+                            {
+                                DateTimeOffset? sourceValue = (DateTimeOffset?)entityInfo.EntityColumnInfo.PropertyInfo.GetValue(entityInfo.EntityValue);
+                                if (sourceValue == DateTimeOffset.MinValue)
+                                {
+                                    entityInfo.SetValue(null);
+                                }
+                            }
+
+                            if (entityInfo.OperationType == DataFilterType.InsertByObject)
+                            {
+                                switch (entityInfo.PropertyName)
+                                {
+                                    case nameof(EntityBaseCreateInfo.TenantId):
+                                        if (string.IsNullOrEmpty((string)oldValue) || (string)oldValue == "0")
+                                        {
+                                            entityInfo.SetValue(tenantId);
+                                        }
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.CreateDate):
+                                        entityInfo.SetValue(now);
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.ModifyDate):
+                                        entityInfo.SetValue(now);
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.CreateBy):
+                                        entityInfo.SetValue(userName);
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.ModifyBy):
+                                        entityInfo.SetValue(userName);
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.CreateUserId):
+                                        entityInfo.SetValue(userId);
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.ModifyUserId):
+                                        entityInfo.SetValue(userId);
+                                        break;
+                                }
+                            }
+
+                            if (entityInfo.OperationType == DataFilterType.UpdateByObject)
+                            {
+                                switch (entityInfo.PropertyName)
+                                {
+                                    case nameof(EntityBaseCreateInfo.ModifyDate):
+                                        entityInfo.SetValue(now);
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.ModifyBy):
+                                        entityInfo.SetValue(userName);
+                                        break;
+
+                                    case nameof(EntityBaseCreateInfo.ModifyUserId):
+                                        entityInfo.SetValue(userId);
+                                        break;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // 记录错误但不中断操作
+                            Console.WriteLine($"[AOP Error] Failed to set audit fields: {ex.Message}");
+                        }
+                    };
+
                     // Set command timeout using the correct API
                     provider.Ado.CommandTimeOut = commandTimeout;
 
@@ -147,55 +237,55 @@ namespace FlowFlex.WebApi.Extensions
                     var httpContext = httpContextAccessor?.HttpContext;
 
                     if (httpContext != null)
-                {
-                    // Get AppContext from middleware if available
-                    var appContext = httpContext.Items["AppContext"] as AppContext;
-
-                    // Try to get user information from JWT claims first
-                    var userIdClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
-                                    ?? httpContext.User?.FindFirst("sub");
-                    var emailClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Email);
-                    var usernameClaim = httpContext.User?.FindFirst("username");
-                    var tenantIdClaim = httpContext.User?.FindFirst("tenantId");
-                    var appCodeClaim = httpContext.User?.FindFirst("appCode");
-
-                    // Fallback to request headers if JWT claims are not available
-                    var userIdHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
-                    var userNameHeader = httpContext.Request.Headers["X-User-Name"].FirstOrDefault();
-                    var tenantIdHeader = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
-                    var appCodeHeader = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
-
-                    // Also try alternative header names
-                    if (string.IsNullOrEmpty(tenantIdHeader))
                     {
-                        tenantIdHeader = httpContext.Request.Headers["TenantId"].FirstOrDefault();
+                        // Get AppContext from middleware if available
+                        var appContext = httpContext.Items["AppContext"] as AppContext;
+
+                        // Try to get user information from JWT claims first
+                        var userIdClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                                        ?? httpContext.User?.FindFirst("sub");
+                        var emailClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Email);
+                        var usernameClaim = httpContext.User?.FindFirst("username");
+                        var tenantIdClaim = httpContext.User?.FindFirst("tenantId");
+                        var appCodeClaim = httpContext.User?.FindFirst("appCode");
+
+                        // Fallback to request headers if JWT claims are not available
+                        var userIdHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault();
+                        var userNameHeader = httpContext.Request.Headers["X-User-Name"].FirstOrDefault();
+                        var tenantIdHeader = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                        var appCodeHeader = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+
+                        // Also try alternative header names
+                        if (string.IsNullOrEmpty(tenantIdHeader))
+                        {
+                            tenantIdHeader = httpContext.Request.Headers["TenantId"].FirstOrDefault();
+                        }
+                        if (string.IsNullOrEmpty(appCodeHeader))
+                        {
+                            appCodeHeader = httpContext.Request.Headers["AppCode"].FirstOrDefault();
+                        }
+
+                        // Determine final values with priority: headers > JWT claims > AppContext > defaults
+                        // 修改优先级顺序，使header优先级高于JWT token
+                        var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
+                        var email = emailClaim?.Value ?? string.Empty;
+                        var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
+                        var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "DEFAULT";
+                        var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "DEFAULT";
+
+                        // Note: No inference from email domain - use explicit headers only
+
+                        // User context logging handled by structured logging
+
+                        return new UserContext
+                        {
+                            UserId = userId,
+                            UserName = userName,
+                            Email = email,
+                            TenantId = tenantId,
+                            AppCode = appCode
+                        };
                     }
-                    if (string.IsNullOrEmpty(appCodeHeader))
-                    {
-                        appCodeHeader = httpContext.Request.Headers["AppCode"].FirstOrDefault();
-                    }
-
-                    // Determine final values with priority: headers > JWT claims > AppContext > defaults
-                    // 修改优先级顺序，使header优先级高于JWT token
-                    var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
-                    var email = emailClaim?.Value ?? string.Empty;
-                    var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
-                    var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "DEFAULT";
-                    var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "DEFAULT";
-
-                    // Note: No inference from email domain - use explicit headers only
-
-                    // User context logging handled by structured logging
-
-                    return new UserContext
-                    {
-                        UserId = userId,
-                        UserName = userName,
-                        Email = email,
-                        TenantId = tenantId,
-                        AppCode = appCode
-                    };
-                }
 
                     // Default values for test environment or when no HTTP context
                     return new UserContext
