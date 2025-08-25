@@ -275,7 +275,6 @@ const fetchWorkflows = async () => {
 		}
 	} catch (error) {
 		workflows.value = [];
-		ElMessage.error('Failed to fetch workflows');
 	}
 };
 

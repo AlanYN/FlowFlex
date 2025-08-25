@@ -942,8 +942,6 @@ Activating an expired workflow may cause issues with the onboarding process. Do 
 									instance.confirmButtonText = 'Continue Activation';
 								}
 							} catch (error) {
-								ElMessage.error(t('sys.api.operationFailed'));
-								// 恢复按钮状态
 								instance.confirmButtonLoading = false;
 								instance.confirmButtonText = 'Continue Activation';
 							}
@@ -1017,7 +1015,6 @@ const deactivateWorkflow = async () => {
 							instance.confirmButtonText = 'Set as Inactive';
 						}
 					} catch (error) {
-						ElMessage.error(t('sys.api.operationFailed'));
 						// 恢复按钮状态
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Set as Inactive';
@@ -1051,8 +1048,6 @@ const setAsDefault = async () => {
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
-	} catch (err) {
-		ElMessage.error(err);
 	} finally {
 		loading.updateWorkflow = false;
 	}
@@ -1159,7 +1154,6 @@ const deleteStage = async (stageId: string) => {
 							instance.confirmButtonText = 'Delete Stage';
 						}
 					} catch (error) {
-						ElMessage.error(t('sys.api.operationFailed'));
 						// 恢复按钮状态
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Delete Stage';
@@ -1211,7 +1205,6 @@ const updateStagesOrder = async () => {
 			}
 		}
 	} catch (error) {
-		ElMessage.error(t('sys.api.operationFailed'));
 		// 发生异常，恢复原始顺序
 		if (originalStagesOrder.value.length > 0) {
 			workflow.value.stages = [...originalStagesOrder.value];

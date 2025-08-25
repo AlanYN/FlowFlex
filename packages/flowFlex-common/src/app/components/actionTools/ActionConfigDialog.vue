@@ -463,7 +463,7 @@ defineExpose({
 	left: v-bind(buttonLeftPosition);
 	top: 10vh;
 	transform: translateY(-50%);
-	z-index: 2082;
+	z-index: 4999;
 	transition: left 0.3s ease;
 	animation: delayedFadeIn 0.6s ease-out;
 }

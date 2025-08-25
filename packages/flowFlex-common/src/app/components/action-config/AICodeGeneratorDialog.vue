@@ -8,7 +8,7 @@
 	>
 		<div>
 			<!-- Model Selection -->
-			<div class="flex items-center gap-2 mb-4">
+			<div class="flex items-center gap-2 mb-4 p-1">
 				<el-icon class="text-blue-500"><Star /></el-icon>
 				<span class="font-medium text-gray-900">Model:</span>
 				<el-select
