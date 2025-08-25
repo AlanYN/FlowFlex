@@ -415,7 +415,7 @@ const questionTypes = [
 	},
 	{
 		id: 'short_answer_grid',
-		name: 'Short Answer Grid',
+		name: 'Short answer grid',
 		icon: 'ph:grid-nine-light',
 		isNew: true,
 	},

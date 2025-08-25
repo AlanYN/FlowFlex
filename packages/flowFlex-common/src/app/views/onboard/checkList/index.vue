@@ -123,7 +123,7 @@
 		<el-dialog
 			v-model="showTaskDialog"
 			:title="`Tasks - ${currentChecklist?.name || ''}`"
-			:width="dialogWidth"
+			:width="bigDialogWidth"
 			:close-on-click-modal="false"
 		>
 			<div class="task-dialog-content">
@@ -223,7 +223,7 @@ import TaskList from './components/TaskList.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import { Checklist } from '#/checklist';
-import { dialogWidth } from '@/settings/projectSetting';
+import { dialogWidth, bigDialogWidth } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 
