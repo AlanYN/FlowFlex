@@ -222,7 +222,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Download, Search, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
-import { useI18n } from '@/hooks/useI18n';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import {
 	getActionDefinitions,
@@ -235,9 +234,6 @@ import {
 import { ActionDefinition, ActionQueryRequest } from '#/action';
 import { tableMaxHeight } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
-
-// i18n
-const { t } = useI18n();
 
 // Reactive data
 const loading = ref(false);
@@ -445,7 +441,6 @@ const handleLimitUpdate = async () => {
 // Action 保存成功回调
 const onActionSave = async (actionResult) => {
 	if (actionResult.id) {
-		ElMessage.success(t('sys.api.operationSuccess'));
 		// 重新加载列表数据
 		await loadActionsList();
 	}
