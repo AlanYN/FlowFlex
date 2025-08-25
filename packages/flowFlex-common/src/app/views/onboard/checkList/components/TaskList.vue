@@ -344,6 +344,7 @@ const editTask = (checklistId, task) => {
 		description: task.description || '',
 		estimatedMinutes: task.estimatedMinutes || 0,
 		isRequired: task.isRequired || false,
+		...task,
 	};
 };
 

@@ -553,6 +553,7 @@ export function formatTaskForApi(task: any): ChecklistTaskInputDto {
 		dueDate: task.dueDate,
 		dependsOnTaskIds: task.dependsOnTaskIds || [],
 		customFieldsJson: task.customFieldsJson,
+		...task,
 	};
 }
 
