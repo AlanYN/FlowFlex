@@ -300,7 +300,7 @@
 			v-model="actionEditorVisible"
 			:action="actionInfo"
 			:is-editing="!!actionInfo"
-			:triggerSourceId="actionConfigId"
+			:triggerSourceId="actionConfig?.id || ''"
 			:loading="editActionLoading"
 			:triggerType="TriggerTypeEnum.Questionnaire"
 			@save-success="onActionSave"
@@ -459,7 +459,7 @@ const openJumpRuleEditor = (index: number) => {
 };
 
 const actionEditorVisible = ref(false);
-const actionConfigId = ref('');
+const actionConfig = ref<any>(null);
 const actionType = ref<'question' | 'option'>('question');
 const actionInfo = ref(null);
 const openActionEditor = (index: number, optionIndex?: number) => {
@@ -470,13 +470,13 @@ const openActionEditor = (index: number, optionIndex?: number) => {
 		actionType.value = 'option';
 		const option = question.options?.[optionIndex];
 		if (option) {
-			actionConfigId.value = option?.id || '';
+			actionConfig.value = option || '';
 			actionEditorVisible.value = true;
 		}
 	} else {
 		actionType.value = 'question';
 		if (question) {
-			actionConfigId.value = question?.id || '';
+			actionConfig.value = question || '';
 			actionEditorVisible.value = true;
 		}
 	}
@@ -498,7 +498,10 @@ const onActionSave = (res) => {
 	} else if (actionType.value === 'option') {
 		if (res.id && questionIndex !== -1) {
 			const option = questionsData.value[questionIndex].options?.find(
-				(option) => option.id === actionConfigId.value
+				(option) =>
+					(option?.temporaryId !== undefined &&
+						option?.temporaryId === actionConfig.value?.temporaryId) ||
+					(option?.id !== undefined && option?.id === actionConfig.value?.id)
 			);
 			if (option) {
 				option.action = {
@@ -531,12 +534,16 @@ const editActionLoading = ref(false);
 const editAction = async (index: number, optionIndex?: number) => {
 	const question = questionsData.value[index];
 	if (!question) return;
+	currentEditingQuestion.value = question as QuestionWithJumpRules;
+	actionType.value = optionIndex !== undefined ? 'option' : 'question';
 	let actionId = '';
 	if (optionIndex !== undefined) {
 		const option = question.options?.[optionIndex];
 		actionId = option?.action?.id || '';
+		actionConfig.value = option;
 	} else {
 		actionId = question.action?.id || '';
+		actionConfig.value = question;
 	}
 
 	try {
@@ -605,7 +612,7 @@ const onActionCancel = () => {
 	actionEditorVisible.value = false;
 	currentEditingQuestion.value = null;
 	actionInfo.value = null;
-	actionConfigId.value = '';
+	actionConfig.value = null;
 	actionType.value = 'question';
 };
 
