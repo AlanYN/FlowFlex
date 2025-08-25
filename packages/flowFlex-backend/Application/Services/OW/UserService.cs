@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -65,7 +65,7 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>User information</returns>
         public async Task<UserDto> RegisterAsync(RegisterRequestDto request)
         {
-            _logger.LogInformation("RegisterAsync called for email: {Email}, SkipEmailVerification: {SkipEmailVerification}", 
+            _logger.LogInformation("RegisterAsync called for email: {Email}, SkipEmailVerification: {SkipEmailVerification}",
                 request.Email, request.SkipEmailVerification);
 
             // Check if email already exists (no tenant validation)
@@ -73,7 +73,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (existingUser != null)
             {
-                _logger.LogInformation("User already exists for email: {Email}, EmailVerified: {EmailVerified}", 
+                _logger.LogInformation("User already exists for email: {Email}, EmailVerified: {EmailVerified}",
                     request.Email, existingUser.EmailVerified);
 
                 // For portal users who skip email verification, allow password reset for existing users
@@ -81,16 +81,16 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Check if user was already verified before updating
                     var wasAlreadyVerified = existingUser.EmailVerified;
-                    
-                    _logger.LogInformation("Portal user password reset for email: {Email}, WasAlreadyVerified: {WasAlreadyVerified}", 
+
+                    _logger.LogInformation("Portal user password reset for email: {Email}, WasAlreadyVerified: {WasAlreadyVerified}",
                         request.Email, wasAlreadyVerified);
-                    
+
                     // Update existing user (both verified and unverified) to reset password
                     existingUser.Username = request.Email;
                     existingUser.PasswordHash = BC.HashPassword(request.Password);
                     existingUser.EmailVerified = true;
                     existingUser.Status = "active";
-            existingUser.ModifyDate = DateTimeOffset.UtcNow;
+                    existingUser.ModifyDate = DateTimeOffset.UtcNow;
                     existingUser.ModifyBy = request.Email;
 
                     await _userRepository.UpdateAsync(existingUser);
@@ -125,17 +125,17 @@ namespace FlowFlex.Application.Services.OW
                 if (existingUser.EmailVerified)
                 {
                     // For verified users, check if verification code is correct and allow password reset
-                    if (!string.IsNullOrEmpty(existingUser.EmailVerificationCode) && 
+                    if (!string.IsNullOrEmpty(existingUser.EmailVerificationCode) &&
                         existingUser.EmailVerificationCode == request.VerificationCode)
                     {
                         // Verify if verification code has not expired
-            if (existingUser.VerificationCodeExpiry >= DateTimeOffset.UtcNow)
+                        if (existingUser.VerificationCodeExpiry >= DateTimeOffset.UtcNow)
                         {
                             _logger.LogInformation("Allowing password reset for verified user with valid verification code: {Email}", request.Email);
-                            
+
                             // Update password for existing verified user
                             existingUser.PasswordHash = BC.HashPassword(request.Password);
-            existingUser.ModifyDate = DateTimeOffset.UtcNow;
+                            existingUser.ModifyDate = DateTimeOffset.UtcNow;
                             existingUser.ModifyBy = request.Email;
                             // Clear verification code after use
                             existingUser.EmailVerificationCode = null;
@@ -179,7 +179,7 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                     // Verify if verification code has expired
-            if (existingUser.VerificationCodeExpiry < DateTimeOffset.UtcNow)
+                    if (existingUser.VerificationCodeExpiry < DateTimeOffset.UtcNow)
                     {
                         throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code has expired");
                     }
@@ -189,7 +189,7 @@ namespace FlowFlex.Application.Services.OW
                     existingUser.PasswordHash = BC.HashPassword(request.Password);
                     existingUser.EmailVerified = true;
                     existingUser.Status = "active";
-            existingUser.ModifyDate = DateTimeOffset.UtcNow;
+                    existingUser.ModifyDate = DateTimeOffset.UtcNow;
                     existingUser.ModifyBy = request.Email;
 
                     await _userRepository.UpdateAsync(existingUser);
@@ -233,7 +233,7 @@ namespace FlowFlex.Application.Services.OW
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Failed to send welcome email to {Email}", newUser.Email);
-                }
+                    }
                 });
 
                 return _mapper.Map<UserDto>(newUser);
@@ -267,7 +267,7 @@ namespace FlowFlex.Application.Services.OW
                     EmailVerified = false,
                     Status = "pending", // Pending verification status
                     EmailVerificationCode = verificationCode,
-            VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
+                    VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
                     TenantId = "DEFAULT" // Set default tenant ID
                 };
 
@@ -281,7 +281,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Update existing user's verification code
                 user.EmailVerificationCode = verificationCode;
-            user.VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes);
+                user.VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes);
                 user.InitUpdateInfo(null);
                 await _userRepository.UpdateAsync(user);
             }
@@ -686,7 +686,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Revoke the token
                 var result = await _accessTokenService.RevokeTokenAsync(jti, "logout");
-                
+
                 if (result)
                 {
                     _logger.LogInformation("User logged out successfully, token {Jti} revoked", jti);
@@ -709,8 +709,8 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var revokedCount = await _accessTokenService.RevokeAllUserTokensAsync(userId, "logout_all_devices");
-                
-                _logger.LogInformation("User {UserId} logged out from all devices, {Count} tokens revoked", 
+
+                _logger.LogInformation("User {UserId} logged out from all devices, {Count} tokens revoked",
                     userId, revokedCount);
 
                 return revokedCount;
@@ -730,10 +730,10 @@ namespace FlowFlex.Application.Services.OW
         public async Task<LoginResponseDto> ThirdPartyLoginAsync(ThirdPartyLoginRequestDto request)
         {
             string email = null; // Declare email variable outside try-catch for use in catch block
-            
+
             try
             {
-                _logger.LogInformation("Processing third-party login request for AppCode: {AppCode}, TenantId: {TenantId}", 
+                _logger.LogInformation("Processing third-party login request for AppCode: {AppCode}, TenantId: {TenantId}",
                     request.AppCode, request.TenantId);
 
                 // Clean the authorization token (remove Bearer prefix if present)
@@ -756,12 +756,12 @@ namespace FlowFlex.Application.Services.OW
                 // Extract username (fallback to email if not available)
                 var username = !string.IsNullOrWhiteSpace(tokenInfo.Username) ? tokenInfo.Username : email;
 
-                _logger.LogInformation("Extracted user info from token - Email: {Email}, Username: {Username}", 
+                _logger.LogInformation("Extracted user info from token - Email: {Email}, Username: {Username}",
                     email, username);
 
                 // First, check if user exists across all tenants with the same appCode
                 var existingUserAcrossTenants = await _userRepository.GetByEmailAndAppCodeAsync(email, request.AppCode);
-                
+
                 // Then check if user exists in the specific tenant
                 var existingUser = await _userRepository.GetByEmailAndTenantAsync(email, request.TenantId);
                 User user;
@@ -770,15 +770,15 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // User exists in the specific tenant, update login information
                     user = existingUser;
-            user.LastLoginDate = DateTimeOffset.UtcNow;
+                    user.LastLoginDate = DateTimeOffset.UtcNow;
                     user.Status = "active"; // Ensure user is active
                     user.EmailVerified = true; // Trust third-party verification
 
-            user.ModifyDate = DateTimeOffset.UtcNow;
+                    user.ModifyDate = DateTimeOffset.UtcNow;
                     user.ModifyBy = email;
                     await _userRepository.UpdateAsync(user);
 
-                    _logger.LogInformation("Updated existing user {UserId} in tenant {TenantId} for third-party login", 
+                    _logger.LogInformation("Updated existing user {UserId} in tenant {TenantId} for third-party login",
                         user.Id, request.TenantId);
                 }
                 else if (existingUserAcrossTenants != null)
@@ -786,18 +786,18 @@ namespace FlowFlex.Application.Services.OW
                     // User exists in a different tenant with the same appCode
                     // This represents the same physical user accessing a different tenant
                     user = existingUserAcrossTenants;
-                    
+
                     // Update login information but keep the original tenant as primary
-            user.LastLoginDate = DateTimeOffset.UtcNow;
+                    user.LastLoginDate = DateTimeOffset.UtcNow;
                     user.Status = "active";
                     user.EmailVerified = true;
-            user.ModifyDate = DateTimeOffset.UtcNow;
+                    user.ModifyDate = DateTimeOffset.UtcNow;
                     user.ModifyBy = email;
                     await _userRepository.UpdateAsync(user);
 
-                    _logger.LogInformation("Cross-tenant login for existing user {UserId} (Email: {Email}) from tenant {OriginalTenantId} accessing tenant {RequestedTenantId}", 
+                    _logger.LogInformation("Cross-tenant login for existing user {UserId} (Email: {Email}) from tenant {OriginalTenantId} accessing tenant {RequestedTenantId}",
                         user.Id, email, user.TenantId, request.TenantId);
-                        
+
                     // Note: We keep the user's original tenant ID but allow access to the requested tenant
                     // The JWT token will contain the requested tenant information for this session
                 }
@@ -812,7 +812,7 @@ namespace FlowFlex.Application.Services.OW
                         EmailVerified = true, // Trust third-party verification
                         Status = "active",
                         TenantId = request.TenantId,
-            LastLoginDate = DateTimeOffset.UtcNow,
+                        LastLoginDate = DateTimeOffset.UtcNow,
                         AppCode = request.AppCode // Set AppCode from request
                     };
 
@@ -828,13 +828,13 @@ namespace FlowFlex.Application.Services.OW
 
                     // Initialize create information with correct context
                     user.InitCreateInfo(thirdPartyUserContext);
-                    
+
                     // Ensure the values are set correctly (in case InitCreateInfo didn't work as expected)
                     user.TenantId = request.TenantId;
                     user.AppCode = request.AppCode;
                     await _userRepository.InsertAsync(user);
 
-                    _logger.LogInformation("Created new user {UserId} for third-party login with email {Email}", 
+                    _logger.LogInformation("Created new user {UserId} for third-party login with email {Email}",
                         user.Id, email);
 
                     // Send welcome email for new users
@@ -853,9 +853,9 @@ namespace FlowFlex.Application.Services.OW
                 // Use the requested tenant ID for the session, not the user's stored tenant ID
                 var sessionTenantId = request.TenantId;
                 var tokenDetails = _jwtService.GenerateTokenWithDetails(
-                    user.Id, 
-                    user.Email, 
-                    user.Username, 
+                    user.Id,
+                    user.Email,
+                    user.Username,
                     sessionTenantId,  // Use session tenant ID
                     "third_party_login"
                 );
@@ -873,7 +873,7 @@ namespace FlowFlex.Application.Services.OW
                     revokeOtherTokens: true // Revoke other tokens to maintain single session
                 );
 
-                _logger.LogInformation("Successfully completed third-party login for user {UserId} with AppCode {AppCode}", 
+                _logger.LogInformation("Successfully completed third-party login for user {UserId} with AppCode {AppCode}",
                     user.Id, request.AppCode);
 
                 return new LoginResponseDto
@@ -888,25 +888,25 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Third-party login failed for AppCode: {AppCode}, TenantId: {TenantId}", 
+                _logger.LogError(ex, "Third-party login failed for AppCode: {AppCode}, TenantId: {TenantId}",
                     request.AppCode, request.TenantId);
-                
+
                 // Handle specific database constraint violations
                 if (ex.Message.Contains("duplicate key value violates unique constraint \"idx_users_email_tenant\""))
                 {
-                    throw new CRMException(HttpStatusCode.OK, 
+                    throw new CRMException(HttpStatusCode.OK,
                         $"User with email '{email}' already exists in tenant '{request.TenantId}'. Please use the existing user account or contact administrator.");
                 }
-                
+
                 // Handle other known exceptions with user-friendly messages
                 if (ex.Message.Contains("duplicate key"))
                 {
-                    throw new CRMException(HttpStatusCode.OK, 
+                    throw new CRMException(HttpStatusCode.OK,
                         "User account conflict detected. Please contact administrator for assistance.");
                 }
-                
+
                 // For unknown exceptions, provide a generic message but preserve the original for logging
-                throw new CRMException(HttpStatusCode.OK, 
+                throw new CRMException(HttpStatusCode.OK,
                     "Third-party login failed. Please try again or contact administrator if the problem persists.");
             }
         }
@@ -921,7 +921,7 @@ namespace FlowFlex.Application.Services.OW
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
 
-            _logger.LogInformation("GetUserListAsync called with PageIndex: {PageIndex}, PageSize: {PageSize}, SearchText: {SearchText}, TenantId: {TenantId}, AppCode: {AppCode}", 
+            _logger.LogInformation("GetUserListAsync called with PageIndex: {PageIndex}, PageSize: {PageSize}, SearchText: {SearchText}, TenantId: {TenantId}, AppCode: {AppCode}",
                 request.PageIndex, request.PageSize, request.SearchText, currentTenantId, currentAppCode);
 
             // Validate and set default pagination parameters
@@ -958,7 +958,7 @@ namespace FlowFlex.Application.Services.OW
                     PageSize = pageSize
                 };
 
-                _logger.LogInformation("GetUserListAsync completed successfully. Total users: {TotalCount}, Page: {PageIndex}/{TotalPages}", 
+                _logger.LogInformation("GetUserListAsync completed successfully. Total users: {TotalCount}, Page: {PageIndex}/{TotalPages}",
                     totalCount, pageIndex, response.TotalPages);
 
                 return response;
@@ -966,7 +966,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while getting user list");
-                throw new CRMException(HttpStatusCode.InternalServerError, 
+                throw new CRMException(HttpStatusCode.InternalServerError,
                     "An error occurred while retrieving the user list. Please try again.");
             }
         }
@@ -980,7 +980,7 @@ namespace FlowFlex.Application.Services.OW
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
 
-            _logger.LogInformation("AssignRandomTeamsToUsersAsync called with TenantId: {TenantId}, AppCode: {AppCode}", 
+            _logger.LogInformation("AssignRandomTeamsToUsersAsync called with TenantId: {TenantId}, AppCode: {AppCode}",
                 currentTenantId, currentAppCode);
 
             // Available teams
@@ -1024,12 +1024,12 @@ namespace FlowFlex.Application.Services.OW
                     if (success)
                     {
                         assignedCount++;
-                        _logger.LogInformation("Assigned team '{Team}' to user {UserId} ({Email})", 
+                        _logger.LogInformation("Assigned team '{Team}' to user {UserId} ({Email})",
                             randomTeam, user.Id, user.Email);
                     }
                     else
                     {
-                        _logger.LogWarning("Failed to assign team to user {UserId} ({Email})", 
+                        _logger.LogWarning("Failed to assign team to user {UserId} ({Email})",
                             user.Id, user.Email);
                     }
                 }
@@ -1040,7 +1040,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while assigning teams to users");
-                throw new CRMException(HttpStatusCode.InternalServerError, 
+                throw new CRMException(HttpStatusCode.InternalServerError,
                     "An error occurred while assigning teams. Please try again.");
             }
         }
@@ -1124,7 +1124,7 @@ namespace FlowFlex.Application.Services.OW
             };
 
             var usersWithoutTeam = users.Where(u => string.IsNullOrEmpty(u.Team)).ToList();
-            
+
             if (!usersWithoutTeam.Any())
             {
                 return; // All users already have teams
@@ -1148,19 +1148,19 @@ namespace FlowFlex.Application.Services.OW
                         // Update the user object in memory for current response
                         user.Team = randomTeam;
                         assignedCount++;
-                        
-                        _logger.LogInformation("Auto-assigned team '{Team}' to user {UserId} ({Email}) during list query", 
+
+                        _logger.LogInformation("Auto-assigned team '{Team}' to user {UserId} ({Email}) during list query",
                             randomTeam, user.Id, user.Email);
                     }
                     else
                     {
-                        _logger.LogWarning("Failed to auto-assign team to user {UserId} ({Email}) during list query", 
+                        _logger.LogWarning("Failed to auto-assign team to user {UserId} ({Email}) during list query",
                             user.Id, user.Email);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error auto-assigning team to user {UserId} ({Email})", 
+                    _logger.LogError(ex, "Error auto-assigning team to user {UserId} ({Email})",
                         user.Id, user.Email);
                 }
             }
@@ -1180,7 +1180,7 @@ namespace FlowFlex.Application.Services.OW
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
 
-            _logger.LogInformation("GetUserTreeAsync called with TenantId: {TenantId}, AppCode: {AppCode}", 
+            _logger.LogInformation("GetUserTreeAsync called with TenantId: {TenantId}, AppCode: {AppCode}",
                 currentTenantId, currentAppCode);
 
             try
@@ -1195,7 +1195,7 @@ namespace FlowFlex.Application.Services.OW
                 var availableTeams = new List<string>
                 {
                     "Sales",
-                    "Account Management", 
+                    "Account Management",
                     "IT",
                     "Legal",
                     "Operations",
@@ -1216,7 +1216,7 @@ namespace FlowFlex.Application.Services.OW
                 foreach (var teamName in availableTeams)
                 {
                     var teamUsers = usersByTeam[teamName].FirstOrDefault() ?? new List<User>();
-                    
+
                     var teamNode = new UserTreeNodeDto
                     {
                         Id = teamName,
@@ -1274,7 +1274,7 @@ namespace FlowFlex.Application.Services.OW
                     treeNodes.Add(unassignedNode);
                 }
 
-                _logger.LogInformation("GetUserTreeAsync completed successfully. Total teams: {TeamCount}, Total users: {UserCount}", 
+                _logger.LogInformation("GetUserTreeAsync completed successfully. Total teams: {TeamCount}, Total users: {UserCount}",
                     treeNodes.Count, users.Count);
 
                 return treeNodes;
@@ -1282,9 +1282,15 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while getting user tree structure");
-                throw new CRMException(HttpStatusCode.InternalServerError, 
+                throw new CRMException(HttpStatusCode.InternalServerError,
                     "An error occurred while retrieving the user tree structure. Please try again.");
             }
+        }
+
+        public async Task<UserDto> GetUserByEmail(string email)
+        {
+            var user = await _userRepository.GetFirstAsync(u => u.Email == email);
+            return _mapper.Map<UserDto>(user);
         }
     }
 }

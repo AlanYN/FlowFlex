@@ -13,7 +13,15 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
     /// </summary>
     public class ActionDefinitionRepository : BaseRepository<ActionDefinition>, IActionDefinitionRepository
     {
-        public ActionDefinitionRepository(ISqlSugarClient dbContext) : base(dbContext) { }
+        private readonly UserContext _userContext;
+
+        public ActionDefinitionRepository(
+            UserContext userContext,
+            ISqlSugarClient dbContext
+            ) : base(dbContext)
+        {
+            _userContext = userContext;
+        }
 
         /// <summary>
         /// Get action definitions by action type
@@ -95,6 +103,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             }
 
             query.WhereIF(isTools.HasValue, x => x.IsTools == isTools.Value);
+
+            query.WhereIF(isTools.HasValue && !isTools.Value, x => x.CreateBy == _userContext.UserId.ToString());
 
             var triggerTypeFilters = new[]
             {
