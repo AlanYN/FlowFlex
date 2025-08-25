@@ -20,7 +20,6 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
-using FlowFlex.Domain.Shared.Enums.Action;
 using SqlSugar;
 
 namespace FlowFlex.Application.Service.OW
@@ -128,8 +127,8 @@ namespace FlowFlex.Application.Service.OW
                 // Normalize IDs in structure JSON to use snowflake IDs
                 input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
                 
-                // Process Questions and create Actions if needed
-                input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
+                // No longer create Actions automatically
+                // input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
                 
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
@@ -194,8 +193,8 @@ namespace FlowFlex.Application.Service.OW
                 // Normalize IDs in structure JSON to use snowflake IDs
                 input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
                 
-                // Process Questions and create Actions if needed
-                input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
+                // No longer create Actions automatically
+                // input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
                 
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
@@ -231,8 +230,8 @@ namespace FlowFlex.Application.Service.OW
             // Ensure ActionTriggerMappings exist for all Questions with Action IDs
             await EnsureQuestionActionTriggerMappingsExistAsync(entity);
 
-            // Update existing Action configurations to use latest template
-            await UpdateExistingQuestionActionConfigurationsAsync(entity);
+            // No longer update Action configurations automatically
+            // await UpdateExistingQuestionActionConfigurationsAsync(entity);
 
             // Sections module removed; ignore input.Sections to keep compatibility
 
@@ -1265,160 +1264,13 @@ namespace FlowFlex.Application.Service.OW
         return matchingStages;
         }
 
-    /// <summary>
-    /// Process Questions in structure JSON and create Actions for Questions with Action names but no Action IDs
-    /// </summary>
-    private async Task<string> ProcessQuestionActionsAsync(string structureJson, string questionnaireName)
-    {
-        if (string.IsNullOrWhiteSpace(structureJson))
-            return structureJson;
 
-        try
-        {
-            using var document = JsonDocument.Parse(structureJson);
-            var jsonString = await ProcessJsonDocumentAsync(document, questionnaireName);
-            return jsonString;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to process question actions for questionnaire '{questionnaireName}': {ex.Message}");
-            return structureJson; // Return original if processing fails
-        }
-    }
 
-    /// <summary>
-    /// Process JSON document to create Actions for Questions
-    /// </summary>
-    private async Task<string> ProcessJsonDocumentAsync(JsonDocument document, string questionnaireName)
-    {
-        var root = document.RootElement;
-        var updatedRoot = await ProcessJsonElementAsync(root, questionnaireName);
-        
-        return JsonSerializer.Serialize(updatedRoot, new JsonSerializerOptions 
-        { 
-            WriteIndented = false,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-    }
 
-    /// <summary>
-    /// Recursively process JSON elements to find and update Questions with Actions
-    /// </summary>
-    private async Task<object> ProcessJsonElementAsync(JsonElement element, string questionnaireName)
-    {
-        switch (element.ValueKind)
-        {
-            case JsonValueKind.Object:
-                var result = new Dictionary<string, object>();
-                
-                // Check if this is a Question object with Action
-                bool isQuestion = element.TryGetProperty("id", out _) && 
-                                element.TryGetProperty("type", out _);
-                
-                if (isQuestion && element.TryGetProperty("action", out var actionElement))
-                {
-                    var updatedAction = await ProcessQuestionActionAsync(actionElement, element, questionnaireName);
-                    
-                    foreach (var property in element.EnumerateObject())
-                    {
-                        if (property.Name == "action")
-                        {
-                            result[property.Name] = updatedAction;
-                        }
-                        else
-                        {
-                            result[property.Name] = await ProcessJsonElementAsync(property.Value, questionnaireName);
-                        }
-                    }
-                }
-                else
-                {
-                    foreach (var property in element.EnumerateObject())
-                    {
-                        result[property.Name] = await ProcessJsonElementAsync(property.Value, questionnaireName);
-                    }
-                }
-                
-                return result;
-                
-            case JsonValueKind.Array:
-                var arrayResult = new List<object>();
-                foreach (var item in element.EnumerateArray())
-                {
-                    arrayResult.Add(await ProcessJsonElementAsync(item, questionnaireName));
-                }
-                return arrayResult;
-                
-            case JsonValueKind.String:
-                return element.GetString();
-            case JsonValueKind.Number:
-                if (element.TryGetInt64(out var longValue))
-                    return longValue;
-                if (element.TryGetDouble(out var doubleValue))
-                    return doubleValue;
-                return element.GetDecimal();
-            case JsonValueKind.True:
-                return true;
-            case JsonValueKind.False:
-                return false;
-            case JsonValueKind.Null:
-                return null;
-            default:
-                return element.ToString();
-        }
-    }
 
-    /// <summary>
-    /// Process Question Action object, creating ActionDefinition and ActionTriggerMapping if needed
-    /// </summary>
-    private async Task<object> ProcessQuestionActionAsync(JsonElement actionElement, JsonElement questionElement, string questionnaireName)
-    {
-        try
-        {
-            // Extract action information
-            var actionName = actionElement.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-            var actionId = actionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
-            
-            // If Action name exists but no ID, create new Action
-            if (!string.IsNullOrWhiteSpace(actionName) && string.IsNullOrWhiteSpace(actionId))
-            {
-                var questionId = questionElement.TryGetProperty("id", out var qIdEl) ? qIdEl.GetString() : "0";
-                var questionTitle = questionElement.TryGetProperty("title", out var titleEl) ? titleEl.GetString() : 
-                                  questionElement.TryGetProperty("question", out var questionEl) ? questionEl.GetString() : "Unknown";
-                
-                // Create ActionDefinition
-                var createActionDto = new CreateActionDefinitionDto
-                {
-                    Name = actionName,
-                    Description = $"Auto-generated action for question: {questionTitle} in questionnaire: {questionnaireName}",
-                    ActionType = ActionTypeEnum.Python,
-                    ActionConfig = CreateDefaultPythonActionConfigForQuestion(questionTitle, questionnaireName, questionElement),
-                    IsEnabled = true
-                };
 
-                var actionDefinition = await _actionManagementService.CreateActionDefinitionAsync(createActionDto);
-                
-                // Create ActionTriggerMapping
-                await CreateQuestionActionTriggerMappingAsync(actionDefinition.Id, questionId, questionnaireName);
-                
-                // Return updated action object with the new ID
-                return new 
-                {
-                    id = actionDefinition.Id.ToString(),
-                    name = actionDefinition.Name
-                };
-            }
-            
-            // Return original action if no processing needed
-            return JsonSerializer.Deserialize<object>(actionElement.GetRawText());
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to process question action: {ex.Message}");
-            // Return original action if processing fails
-            return JsonSerializer.Deserialize<object>(actionElement.GetRawText());
-        }
-    }
+
+
 
     /// <summary>
     /// Create ActionTriggerMapping for Question Action
@@ -1447,61 +1299,39 @@ namespace FlowFlex.Application.Service.OW
         }
     }
 
-    /// <summary>
-    /// Create default Python action configuration for a Question
-    /// </summary>
-    private string CreateDefaultPythonActionConfigForQuestion(string questionTitle, string questionnaireName, JsonElement questionElement)
-    {
-        var questionType = questionElement.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "unknown";
-        var isRequired = questionElement.TryGetProperty("required", out var reqEl) && reqEl.GetBoolean();
-        
-        var config = new
-        {
-            sourceCode = $@"def main(workflowContext):
-    """"""
-    Auto-generated action for question: {questionTitle}
-    Questionnaire: {questionnaireName}
-    Question Type: {questionType}
-    Required: {isRequired}
-    """"""
-    
-    import json
-    
-    # Parse the workflow context data
-    if isinstance(workflowContext, str):
-        context_data = json.loads(workflowContext)
-    else:
-        context_data = workflowContext
-    
-    # Extract question information from context
-    question_id = context_data.get('QuestionId')
-    question_title = context_data.get('QuestionTitle', '{questionTitle}')
-    questionnaire_name = context_data.get('QuestionnaireName', '{questionnaireName}')
-    stage_id = context_data.get('CompletedStageId')
-    onboarding_id = context_data.get('OnboardingId')
-    
-    print(f'Executing action for question: {{question_title}} (ID: {{question_id}})')
-    print(f'Questionnaire: {{questionnaire_name}}')
-    print(f'Stage: {{stage_id}}, Onboarding: {{onboarding_id}}')
-    
-    # TODO: Add your custom logic here
-    # You can access all context data passed from the trigger event
-    # For example, access user answers, stage completion data, etc.
-    
-    return {{
-        'success': True,
-        'message': f'Action completed for question: {{question_title}}',
-        'question_id': question_id,
-        'questionnaire': questionnaire_name
-    }}",
-            timeout = 30,
-            environmentVariables = new { },
-            requirements = new string[] { }
-        };
 
-        return System.Text.Json.JsonSerializer.Serialize(config);
+
+
+
+    /// <summary>
+    /// Create ActionTriggerMapping for Option Action
+    /// </summary>
+    private async Task CreateOptionActionTriggerMappingAsync(long actionDefinitionId, string optionId, string optionValue, string questionnaireName)
+    {
+        try
+        {
+            var createMappingDto = new CreateActionTriggerMappingDto
+            {
+                ActionDefinitionId = actionDefinitionId,
+                TriggerType = "Option",
+                TriggerSourceId = long.TryParse(optionId, out var oId) ? oId : 0,
+                WorkFlowId = 0, // This should be determined from context
+                StageId = 0,    // This should be determined from context
+                TriggerEvent = "Selected",
+                ExecutionOrder = 1,
+                IsEnabled = true,
+                TriggerConditions = $"{{\"optionValue\": \"{optionValue}\"}}" // Store option value for trigger condition
+            };
+
+            await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to create action trigger mapping for option: {ex.Message}");
+        }
     }
 
+  
     /// <summary>
     /// Ensure ActionTriggerMappings exist for all Questions with Action IDs in the Questionnaire
     /// </summary>
@@ -1550,6 +1380,9 @@ namespace FlowFlex.Application.Service.OW
             foreach (var question in questionsElement.EnumerateArray())
             {
                 await EnsureSingleQuestionActionMappingAsync(question, questionnaireName);
+                
+                // Also check options for action mappings
+                await EnsureQuestionOptionsActionMappingsAsync(question, questionnaireName);
             }
         }
     }
@@ -1600,97 +1433,86 @@ namespace FlowFlex.Application.Service.OW
     }
 
     /// <summary>
-    /// Update existing Action configurations for all Questions with Action IDs to use latest template
+    /// Ensure ActionTriggerMappings exist for all Options with Action IDs in a Question
     /// </summary>
-    private async Task UpdateExistingQuestionActionConfigurationsAsync(Questionnaire questionnaire)
+    private async Task EnsureQuestionOptionsActionMappingsAsync(JsonElement question, string questionnaireName)
     {
-        if (questionnaire?.Structure == null)
-            return;
-
         try
         {
-            var structureJson = questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None);
-            using var document = JsonDocument.Parse(structureJson);
-            var root = document.RootElement;
+            // Check if question has options array
+            if (!question.TryGetProperty("options", out var optionsElement) || 
+                optionsElement.ValueKind != JsonValueKind.Array)
+                return;
 
-            if (root.TryGetProperty("sections", out var sectionsElement))
+            foreach (var option in optionsElement.EnumerateArray())
             {
-                foreach (var section in sectionsElement.EnumerateArray())
-                {
-                    await UpdateSectionActionsConfigurationAsync(section, questionnaire.Name);
-                }
+                await EnsureSingleOptionActionMappingAsync(option, questionnaireName);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to update Question Action configurations for questionnaire '{questionnaire.Name}': {ex.Message}");
+            Console.WriteLine($"Failed to ensure Option ActionTriggerMappings for question: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Update Action configurations for questions in a section
+    /// Ensure ActionTriggerMapping exists for a single Option if it has an Action ID
     /// </summary>
-    private async Task UpdateSectionActionsConfigurationAsync(JsonElement section, string questionnaireName)
-    {
-        // Check both "items" and "questions" arrays for Questions
-        await UpdateQuestionArrayActionsConfigurationAsync(section, "items", questionnaireName);
-        await UpdateQuestionArrayActionsConfigurationAsync(section, "questions", questionnaireName);
-    }
-
-    /// <summary>
-    /// Update Action configurations for questions in a question array
-    /// </summary>
-    private async Task UpdateQuestionArrayActionsConfigurationAsync(JsonElement section, string arrayName, string questionnaireName)
-    {
-        if (section.TryGetProperty(arrayName, out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var question in questionsElement.EnumerateArray())
-            {
-                await UpdateSingleQuestionActionConfigurationAsync(question, questionnaireName);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Update Action configuration for a single Question if it has an Action ID
-    /// </summary>
-    private async Task UpdateSingleQuestionActionConfigurationAsync(JsonElement question, string questionnaireName)
+    private async Task EnsureSingleOptionActionMappingAsync(JsonElement option, string questionnaireName)
     {
         try
         {
-            // Check if this is a question with action
-            if (!question.TryGetProperty("action", out var actionElement))
+            // Check if this is an option with action
+            if (!option.TryGetProperty("action", out var actionElement))
                 return;
 
-            // Extract action ID and question information
+            // Extract action ID and option information
             var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
-            var actionName = actionElement.TryGetProperty("name", out var actionNameEl) ? actionNameEl.GetString() : null;
-            var questionTitle = question.TryGetProperty("title", out var titleEl) ? titleEl.GetString() : 
-                              question.TryGetProperty("question", out var questionEl) ? questionEl.GetString() : "Unknown";
+            var optionValue = option.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
+            var optionId = option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : 
+                          option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : null;
 
-            if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(actionName))
+            if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(optionId))
                 return;
 
             if (!long.TryParse(actionId, out var actionIdLong))
                 return;
 
-            // Update Action configuration to use latest template
-            var updateActionDto = new UpdateActionDefinitionDto
+            // For temporaryId options, we need to handle them differently since they don't have numeric IDs yet
+            long optionIdLong = 0;
+            if (!long.TryParse(optionId, out optionIdLong))
             {
-                Name = actionName,
-                Description = $"Updated action configuration for question: {questionTitle} in questionnaire: {questionnaireName}",
-                ActionType = ActionTypeEnum.Python,
-                ActionConfig = CreateDefaultPythonActionConfigForQuestion(questionTitle, questionnaireName, question),
-                IsEnabled = true
-            };
+                // This is a temporaryId, we'll use a hash or generate a temporary mapping
+                Console.WriteLine($"Option has temporaryId '{optionId}', skipping ActionTriggerMapping check for now");
+                return;
+            }
 
-            await _actionManagementService.UpdateActionDefinitionAsync(actionIdLong, updateActionDto);
-            Console.WriteLine($"Updated Action configuration for Question '{questionTitle}' (Action ID: {actionIdLong}) to use workflowContext parameter");
+            // Check if ActionTriggerMapping already exists
+            var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(optionIdLong);
+            var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong && 
+                                                      m.TriggerType == "Option" && 
+                                                      m.TriggerSourceId == optionIdLong);
+
+            if (!hasMapping)
+            {
+                Console.WriteLine($"Creating missing ActionTriggerMapping for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+                
+                // Create the missing ActionTriggerMapping
+                await CreateOptionActionTriggerMappingAsync(actionIdLong, optionId, optionValue, questionnaireName);
+            }
+            else
+            {
+                Console.WriteLine($"ActionTriggerMapping already exists for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to update action configuration for question: {ex.Message}");
+            Console.WriteLine($"Failed to ensure ActionTriggerMapping for option: {ex.Message}");
         }
     }
+
+
+
+
     }
 }
