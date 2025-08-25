@@ -315,7 +315,7 @@ const dialogTitle = computed(() => {
 // 控制是否显示配置模式区域
 const shouldShowConfigMode = computed(() => {
 	// 新建时（没有传入 action），总是显示 Configuration Mode 让用户选择
-	return !props.action;
+	return !props.action && !props.forceEditable;
 });
 
 // 计算是否应该禁用表单字段
@@ -564,7 +564,7 @@ const onSave = async () => {
 		saving.value = true;
 
 		// 判断是编辑模式还是新建模式，以及是否使用已有工具
-		if (!props.action && configMode.value === 'useExisting') {
+		if (!props.action && configMode.value === 'useExisting' && !props.forceEditable) {
 			// 新建模式 + 使用已有工具：创建映射关系
 			if (!selectedToolId.value) {
 				ElMessage.error('Please select an existing tool');
