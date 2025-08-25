@@ -33,7 +33,7 @@
 						size="small"
 						@click="handleTest"
 						:loading="testing"
-						:disabled="!sourceCode || isCodeEditorLoading || disabled"
+						:disabled="!sourceCode || isCodeEditorLoading"
 					>
 						Test Run
 					</el-button>

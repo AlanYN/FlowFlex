@@ -531,12 +531,6 @@ const resetFormData = () => {
 
 // Handle test result - 参考 detail.vue 的 handleTestResult 逻辑
 const onTest = async () => {
-	// 如果字段被禁用（选择了已有工具），则不允许测试
-	if (shouldDisableFields.value) {
-		ElMessage.warning('Cannot test when using existing tool');
-		return;
-	}
-
 	try {
 		testing.value = true;
 		testResult.value = null;
