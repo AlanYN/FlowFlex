@@ -480,6 +480,7 @@ const loadActionsList = async () => {
 		const params: ActionQueryRequest = {
 			pageIndex: pagination.currentPage,
 			pageSize: pagination.pageSize,
+			isTools: true,
 		};
 
 		// Add search conditions

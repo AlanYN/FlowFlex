@@ -8,7 +8,13 @@
 			@tab-change="onTabChange"
 		>
 			<TabPane value="basicInfo">
-				<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
+				<el-form
+					ref="formRef"
+					:model="formData"
+					:rules="rules"
+					label-position="top"
+					class="p-1"
+				>
 					<el-form-item label="Stage Name" prop="name">
 						<el-input v-model="formData.name" placeholder="Enter stage name" />
 					</el-form-item>
@@ -55,24 +61,21 @@
 							prop="defaultAssignedGroup"
 							class="w-1/2"
 						>
-							<el-select
+							<FlowflexUser
 								v-model="formData.defaultAssignedGroup"
 								placeholder="Select user group"
-								style="width: 100%"
-							>
-								<el-option
-									v-for="item in defaultAssignedGroup"
-									:key="item.value"
-									:label="item.key"
-									:value="item.value"
-								/>
-							</el-select>
+								:multiple="false"
+								:clearable="true"
+								team-only
+							/>
 						</el-form-item>
 
 						<el-form-item label="Default Assignee" prop="defaultAssignee" class="w-1/2">
-							<el-input
+							<FlowflexUser
 								v-model="formData.defaultAssignee"
-								placeholder="Enter default assignee role"
+								placeholder="Select default assignee"
+								:multiple="false"
+								:clearable="true"
 							/>
 						</el-form-item>
 					</div>
@@ -137,10 +140,10 @@ import { ref, reactive, onMounted, PropType, computed } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
-import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 import { PortalPermissionEnum, portalPermissionOptions } from '@/enums/portalPermissionEnum';
 import StageComponentsSelector from './StageComponentsSelector.vue';
 import Action from '@/components/actionTools/Action.vue';
+import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';

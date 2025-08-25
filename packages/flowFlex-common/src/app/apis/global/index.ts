@@ -1,6 +1,7 @@
 import { defHttp } from '@/apis/axios';
 
 import { useGlobSetting } from '@/settings';
+import { FlowflexUser } from '#/golbal';
 
 const globSetting = useGlobSetting();
 
@@ -55,10 +56,14 @@ export function sendEmail(params) {
 }
 
 export function getFlowflexUser(params: {
-	pageIndex: number;
-	pageSize: number;
+	pageIndex?: number;
+	pageSize?: number;
 	searchText?: string;
 	team?: string;
-}) {
+}): Promise<{
+	code: string;
+	msg: string;
+	data: FlowflexUser[];
+}> {
 	return defHttp.get({ url: `${Api().flowflexUser}`, params });
 }

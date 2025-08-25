@@ -39,6 +39,7 @@ export interface ActionQueryRequest {
 	isAssignmentQuestionnaire?: boolean;
 	pageIndex?: number;
 	pageSize?: number;
+	isTools?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -66,6 +67,7 @@ export interface ActionItem {
 	description: string;
 	condition: string;
 	actionConfig: ActionConfig;
+	isTools: boolean;
 }
 
 export interface ActionListItem {

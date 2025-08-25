@@ -369,3 +369,21 @@ declare global {
 		__WUJIE: { mount: () => void };
 	}
 }
+
+export interface FlowflexUser {
+	id: string;
+	name: string;
+	type: 'user' | 'team';
+	children: FlowflexUser[];
+	userDetails?: {
+		id: string;
+		email: string;
+		username: string;
+		emailVerified: boolean;
+		lastLoginDate: string;
+		status: string;
+		createDate: string;
+		team: string;
+	};
+	memberCount?: number;
+}

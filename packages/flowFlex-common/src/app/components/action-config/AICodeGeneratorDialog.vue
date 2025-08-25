@@ -18,6 +18,8 @@
 					style="width: 260px"
 					@change="onModelChange"
 					:disabled="loadingModels"
+					:teleported="true"
+					popper-class="!z-[5001]"
 				>
 					<el-option
 						v-for="model in modelOptions"
