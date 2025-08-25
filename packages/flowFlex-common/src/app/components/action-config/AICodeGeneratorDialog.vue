@@ -1,5 +1,11 @@
 <template>
-	<el-dialog v-model="visible" title="Code Generator" width="800px">
+	<el-dialog
+		v-model="visible"
+		modal-class="!z-[5000]"
+		title="Code Generator"
+		width="800px"
+		append-to-body
+	>
 		<div>
 			<!-- Model Selection -->
 			<div class="flex items-center gap-2 mb-4">

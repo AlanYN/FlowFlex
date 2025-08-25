@@ -39,6 +39,7 @@
 								:rules="rules"
 								label-position="top"
 								label-width="120px"
+								class="p-1"
 							>
 								<!-- Basic Info -->
 								<el-form-item label="Action Name" prop="name">
@@ -46,6 +47,18 @@
 										v-model="formData.name"
 										placeholder="Enter action name"
 									/>
+								</el-form-item>
+
+								<el-form-item label="Condition" prop="condition">
+									<el-select
+										v-model="formData.condition"
+										placeholder="Enter action id"
+									>
+										<el-option
+											label="Stage Completed"
+											value="Stage Completed"
+										/>
+									</el-select>
 								</el-form-item>
 
 								<el-form-item label="Description" prop="description">
@@ -185,6 +198,7 @@ const formData = reactive<ActionItem>({
 	name: '',
 	type: 'python',
 	description: '',
+	condition: 'Stage Completed',
 	actionConfig: {},
 });
 
@@ -234,14 +248,15 @@ const actionTypes = [
 const rules = {
 	name: [{ required: true, message: 'Please enter action name', trigger: 'blur' }],
 	type: [{ required: true, message: 'Please select action type', trigger: 'change' }],
+	condition: [{ required: true, message: 'Please select condition', trigger: 'change' }],
 };
 
 const getDefaultConfig = (type: string) => {
 	if (type === 'python') {
 		return {
-			sourceCode: `def main(customer_name: str):
+			sourceCode: `def main(onboardingId: str):
     return {
-        "greeting": f"Hello, {customer_name}!",
+        "greeting": f"{onboardingId}!",
     }`,
 		};
 	} else if (type === 'http') {
@@ -265,6 +280,7 @@ const resetForm = () => {
 	formData.name = '';
 	formData.type = 'python';
 	formData.description = '';
+	visible.value = false;
 	formData.actionConfig = getDefaultConfig('python');
 	testResult.value = null;
 };
@@ -447,7 +463,7 @@ defineExpose({
 	left: v-bind(buttonLeftPosition);
 	top: 10vh;
 	transform: translateY(-50%);
-	z-index: 9999;
+	z-index: 2082;
 	transition: left 0.3s ease;
 	animation: delayedFadeIn 0.6s ease-out;
 }

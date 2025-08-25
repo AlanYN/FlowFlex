@@ -64,6 +64,7 @@ export interface ActionItem {
 	name: string;
 	type: 'python' | 'http';
 	description: string;
+	condition: string;
 	actionConfig: ActionConfig;
 }
 

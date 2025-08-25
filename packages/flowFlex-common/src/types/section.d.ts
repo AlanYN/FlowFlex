@@ -60,10 +60,11 @@ export interface QuestionnaireSection {
 	min?: number;
 	minLabel?: string;
 	options?: {
-		id: string;
+		id?: string;
 		isOther: boolean;
 		label: string;
 		value: string;
+		temporaryId: string;
 		action?: {
 			id: string;
 			name: string;
