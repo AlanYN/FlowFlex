@@ -40,10 +40,10 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
 
         /// <summary>
         /// Trigger event (Completed, Created, Updated, etc.)
+        /// Defaults to "Completed" if not provided
         /// </summary>
-        [Required]
         [StringLength(50)]
-        public string TriggerEvent { get; set; }
+        public string TriggerEvent { get; set; } = "Completed";
 
         /// <summary>
         /// Trigger conditions (JSON format)

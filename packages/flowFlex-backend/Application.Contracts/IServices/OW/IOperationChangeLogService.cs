@@ -182,6 +182,18 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true);
 
         /// <summary>
+        /// Get operation log list for stage components (OPTIMIZED VERSION with database-level pagination)
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional)</param>
+        /// <param name="operationType">Operation type (optional)</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <param name="includeActionExecutions">Whether to include action executions</param>
+        /// <returns>Operation log list including all tasks and questions from stage components (optimized)</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsOptimizedAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true);
+
+        /// <summary>
         /// Get operation logs by business module and business ID
         /// </summary>
         /// <param name="businessModule">Business module</param>

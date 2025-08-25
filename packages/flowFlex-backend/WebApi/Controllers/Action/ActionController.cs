@@ -272,7 +272,8 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <summary>
         /// Create new action trigger mapping
         /// </summary>
-        /// <param name="dto">Create action trigger mapping DTO</param>
+        /// <param name="dto">Create action trigger mapping DTO. 
+        /// TriggerEvent defaults to "Completed" if not provided.</param>
         /// <returns>Created action trigger mapping</returns>
         [HttpPost("mappings")]
         [ProducesResponseType<SuccessResponse<ActionTriggerMappingDto>>((int)HttpStatusCode.Created)]

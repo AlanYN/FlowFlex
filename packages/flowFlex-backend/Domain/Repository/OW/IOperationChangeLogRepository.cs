@@ -87,5 +87,34 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="operationLog">Operation log entity</param>
         /// <returns>Whether successful</returns>
         Task<bool> InsertOperationLogAsync(OperationChangeLog operationLog);
+
+        /// <summary>
+        /// Get operation logs by multiple business IDs and module (batch query to avoid N+1 problem)
+        /// </summary>
+        /// <param name="businessModule">Business module</param>
+        /// <param name="businessIds">Business ID list</param>
+        /// <param name="onboardingId">Onboarding ID filter (optional)</param>
+        /// <returns>Operation log list</returns>
+        Task<List<OperationChangeLog>> GetByBusinessIdsAsync(string businessModule, List<long> businessIds, long? onboardingId = null);
+
+        /// <summary>
+        /// Get operation logs with pagination for stage components (optimized for large datasets)
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="taskIds">Task ID list</param>
+        /// <param name="questionIds">Question ID list</param>
+        /// <param name="operationType">Operation type filter (optional)</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation log list</returns>
+        Task<(List<OperationChangeLog> logs, int totalCount)> GetStageComponentLogsPaginatedAsync(
+            long? onboardingId, 
+            long stageId, 
+            List<long> taskIds, 
+            List<long> questionIds, 
+            string operationType, 
+            int pageIndex, 
+            int pageSize);
     }
 }
