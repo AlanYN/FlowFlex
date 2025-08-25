@@ -251,6 +251,7 @@ interface Props {
 	workflowId?: string;
 	loading?: boolean;
 	triggerType?: TriggerTypeEnum;
+	forceEditable?: boolean; // 强制允许编辑，忽略isTools限制
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -260,6 +261,7 @@ const props = withDefaults(defineProps<Props>(), {
 	triggerSourceId: '',
 	workflowId: '',
 	triggerType: TriggerTypeEnum.Stage,
+	forceEditable: false,
 });
 
 const emit = defineEmits(['update:modelValue', 'saveSuccess', 'cancel']);
@@ -317,6 +319,11 @@ const shouldShowConfigMode = computed(() => {
 
 // 计算是否应该禁用表单字段
 const shouldDisableFields = computed(() => {
+	// 如果强制允许编辑，直接返回false
+	if (props.forceEditable) {
+		return false;
+	}
+
 	// 编辑状态：根据 isTools 决定
 	if (props.action) {
 		return props.action.isTools === true;

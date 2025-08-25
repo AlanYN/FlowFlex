@@ -79,20 +79,18 @@
 							<!-- 正常显示模式 -->
 							<template v-if="!(editingTask && editingTask.id === task.id)">
 								<div class="flex items-center flex-1">
-									<span class="text-sm text-gray-900">
+									<div class="text-sm text-gray-900 truncate whitespace-nowrap">
 										{{ task.name }}
-									</span>
+									</div>
 									<!-- Action 绑定状态图标 -->
-									<el-tooltip
+									<el-tag
 										v-if="task.actionId"
-										:content="task.actionName"
-										placement="top"
+										type="success"
+										size="small"
+										class="ml-2"
 									>
-										<Icon
-											icon="tabler:math-function"
-											class="w-4 h-4 ml-2 text-blue-500"
-										/>
-									</el-tooltip>
+										{{ task.actionName }}
+									</el-tag>
 								</div>
 								<div class="flex items-center space-x-1">
 									<el-dropdown placement="bottom">
