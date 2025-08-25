@@ -580,6 +580,7 @@ const onSave = async () => {
 			if (res.code == '200') {
 				emit('saveSuccess', {
 					...formData,
+					actionMappingId: res.data.id,
 				});
 				visible.value = false;
 			} else {
