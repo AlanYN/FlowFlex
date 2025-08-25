@@ -12,6 +12,10 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Domain.Shared.Enums.Action;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Service.OW;
 
@@ -24,6 +28,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IChecklistRepository _checklistRepository;
     private readonly IChecklistService _checklistService;
     private readonly IOperationChangeLogService _operationChangeLogService;
+    private readonly IActionManagementService _actionManagementService;
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
 
@@ -32,6 +37,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IChecklistRepository checklistRepository,
         IChecklistService checklistService,
         IOperationChangeLogService operationChangeLogService,
+        IActionManagementService actionManagementService,
         IMapper mapper,
         UserContext userContext)
     {
@@ -39,6 +45,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _checklistRepository = checklistRepository;
         _checklistService = checklistService;
         _operationChangeLogService = operationChangeLogService;
+        _actionManagementService = actionManagementService;
         _mapper = mapper;
         _userContext = userContext;
     }
@@ -74,10 +81,19 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         entity.Status = string.IsNullOrEmpty(entity.Status) ? "Pending" : entity.Status;
         entity.IsCompleted = false;
 
+        // Handle Action creation and ActionTriggerMapping
+        await HandleActionCreationAsync(entity, input, checklist);
+
         // Initialize create information with proper ID and timestamps
         entity.InitCreateInfo(_userContext);
 
         await _checklistTaskRepository.InsertAsync(entity);
+
+        // Create ActionTriggerMapping after task insertion (if Action was created)
+        if (entity.ActionId.HasValue)
+        {
+            await CreateActionTriggerMappingAsync(entity, checklist);
+        }
 
         // Update checklist completion rate
         await _checklistService.CalculateCompletionAsync(input.ChecklistId);
@@ -107,6 +123,10 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                     "Dependent task not found or not in same checklist");
             }
         }
+
+        // Handle Action update
+        var checklist = await _checklistRepository.GetByIdAsync(existingTask.ChecklistId);
+        await HandleActionUpdateAsync(existingTask, input, checklist);
 
         _mapper.Map(input, existingTask);
         existingTask.InitUpdateInfo(_userContext);
@@ -533,5 +553,220 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         recursionStack.Remove(currentTaskId);
         return false;
+    }
+
+    /// <summary>
+    /// Handle Action creation and ActionTriggerMapping for ChecklistTask
+    /// If ActionName is provided but ActionId is null, creates a new Action and ActionTriggerMapping
+    /// </summary>
+    private async Task HandleActionCreationAsync(ChecklistTask entity, ChecklistTaskInputDto input, Checklist checklist)
+    {
+        // If ActionName is provided but ActionId is null, create a new Action
+        if (!string.IsNullOrWhiteSpace(input.ActionName) && !input.ActionId.HasValue)
+        {
+            try
+            {
+                // Create ActionDefinition with default Python action configuration
+                var createActionDto = new CreateActionDefinitionDto
+                {
+                    Name = input.ActionName,
+                    Description = $"Auto-generated action for task: {input.Name}",
+                    ActionType = ActionTypeEnum.Python,
+                    ActionConfig = CreateDefaultPythonActionConfig(input, checklist),
+                    IsEnabled = true
+                };
+
+                var actionDefinition = await _actionManagementService.CreateActionDefinitionAsync(createActionDto);
+                
+                // Update entity with created Action information
+                entity.ActionId = actionDefinition.Id;
+                entity.ActionName = actionDefinition.Name;
+
+                // Note: ActionTriggerMapping will be created after task is inserted
+                // since we need the TaskId for TriggerSourceId
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail task creation
+                // Task will be created without Action linkage
+                Console.WriteLine($"Failed to create action for task '{input.Name}': {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Create ActionTriggerMapping after task insertion
+    /// </summary>
+    private async Task CreateActionTriggerMappingAsync(ChecklistTask entity, Checklist checklist)
+    {
+        if (!entity.ActionId.HasValue) return;
+
+        try
+        {
+            // Get stage and workflow information from checklist
+            // Note: Since checklists are now component-based, we need to find the associated stage
+            // This is a simplified approach - in a real scenario, you'd need to determine 
+            // the correct workflow and stage from the component mapping
+            
+            var createMappingDto = new CreateActionTriggerMappingDto
+            {
+                ActionDefinitionId = entity.ActionId.Value,
+                TriggerType = "Task",
+                TriggerSourceId = entity.Id,
+                WorkFlowId = 0, // This should be determined from context
+                StageId = 0,    // This should be determined from context  
+                TriggerEvent = "Completed",
+                ExecutionOrder = 1,
+                IsEnabled = true
+            };
+
+            await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't fail task creation
+            Console.WriteLine($"Failed to create action trigger mapping for task '{entity.Name}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Create default Python action configuration for a task
+    /// </summary>
+    private string CreateDefaultPythonActionConfig(ChecklistTaskInputDto input, Checklist checklist)
+    {
+        var config = new
+        {
+            sourceCode = $@"def main(context_data):
+    """"""
+    Auto-generated action for task: {input.Name}
+    Description: {input.Description ?? "No description provided"}
+    """"""
+    
+    # Extract task information from context
+    task_id = context_data.get('TaskId')
+    task_name = context_data.get('TaskName', '{input.Name}')
+    checklist_name = context_data.get('ChecklistName', '{checklist?.Name ?? "Unknown"}')
+    
+    print(f'Executing action for task: {{task_name}} (ID: {{task_id}})')
+    print(f'Checklist: {{checklist_name}}')
+    
+    # TODO: Add your custom logic here
+    # You can access all context data passed from the trigger event
+    
+    return {{
+        'success': True,
+        'message': f'Action completed for task: {{task_name}}',
+        'task_id': task_id
+    }}",
+            timeout = 30,
+            environmentVariables = new { },
+            requirements = new string[] { }
+        };
+
+        return System.Text.Json.JsonSerializer.Serialize(config);
+    }
+
+    /// <summary>
+    /// Handle Action update for ChecklistTask
+    /// If ActionName is provided but ActionId is null, creates a new Action and ActionTriggerMapping
+    /// If ActionName is changed for existing Action, updates the Action name
+    /// If ActionId exists but no ActionTriggerMapping, creates the mapping
+    /// </summary>
+    private async Task HandleActionUpdateAsync(ChecklistTask existingTask, ChecklistTaskInputDto input, Checklist checklist)
+    {
+        // If ActionName is provided but ActionId is null, create new Action
+        if (!string.IsNullOrWhiteSpace(input.ActionName) && !input.ActionId.HasValue)
+        {
+            try
+            {
+                var createActionDto = new CreateActionDefinitionDto
+                {
+                    Name = input.ActionName,
+                    Description = $"Auto-generated action for task: {input.Name}",
+                    ActionType = ActionTypeEnum.Python,
+                    ActionConfig = CreateDefaultPythonActionConfig(input, checklist),
+                    IsEnabled = true
+                };
+
+                var actionDefinition = await _actionManagementService.CreateActionDefinitionAsync(createActionDto);
+                
+                // Update task with created Action information
+                existingTask.ActionId = actionDefinition.Id;
+                existingTask.ActionName = actionDefinition.Name;
+
+                // Create ActionTriggerMapping
+                await CreateActionTriggerMappingAsync(existingTask, checklist);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to create action for task '{input.Name}': {ex.Message}");
+            }
+        }
+        // If ActionName is changed for existing Action, update Action name
+        else if (!string.IsNullOrWhiteSpace(input.ActionName) && 
+                 input.ActionId.HasValue && 
+                 existingTask.ActionName != input.ActionName)
+        {
+            try
+            {
+                var updateActionDto = new UpdateActionDefinitionDto
+                {
+                    Name = input.ActionName,
+                    Description = $"Updated action for task: {input.Name}",
+                    ActionType = ActionTypeEnum.Python,
+                    ActionConfig = CreateDefaultPythonActionConfig(input, checklist),
+                    IsEnabled = true
+                };
+
+                await _actionManagementService.UpdateActionDefinitionAsync(input.ActionId.Value, updateActionDto);
+                existingTask.ActionName = input.ActionName;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to update action for task '{input.Name}': {ex.Message}");
+            }
+        }
+
+        // Check if ActionId exists but no ActionTriggerMapping exists, create the mapping
+        if (input.ActionId.HasValue || existingTask.ActionId.HasValue)
+        {
+            var actionId = input.ActionId ?? existingTask.ActionId;
+            if (actionId.HasValue)
+            {
+                await EnsureActionTriggerMappingExistsAsync(existingTask, actionId.Value, checklist);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ensure ActionTriggerMapping exists for the given task and action
+    /// </summary>
+    private async Task EnsureActionTriggerMappingExistsAsync(ChecklistTask task, long actionId, Checklist checklist)
+    {
+        try
+        {
+            // Check if ActionTriggerMapping already exists
+            var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(task.Id);
+            var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionId && 
+                                                      m.TriggerType == "Task" && 
+                                                      m.TriggerSourceId == task.Id);
+            
+            if (!hasMapping)
+            {
+                Console.WriteLine($"Creating missing ActionTriggerMapping for Task {task.Id} and Action {actionId}");
+                
+                // Set the ActionId for CreateActionTriggerMappingAsync
+                task.ActionId = actionId;
+                await CreateActionTriggerMappingAsync(task, checklist);
+            }
+            else
+            {
+                Console.WriteLine($"ActionTriggerMapping already exists for Task {task.Id} and Action {actionId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to ensure ActionTriggerMapping exists for task '{task.Name}': {ex.Message}");
+        }
     }
 }

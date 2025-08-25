@@ -72,9 +72,10 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromQuery] int pageSize = 20,
             [FromQuery] bool includeActionExecutions = true)
         {
-            var result = await _operationChangeLogService.GetOperationLogsAsync(
-                onboardingId,
+            // Use new method to get stage components logs (includes tasks and questions action executions)
+            var result = await _operationChangeLogService.GetOperationLogsByStageComponentsAsync(
                 stageId,
+                onboardingId,
                 null,
                 pageIndex,
                 pageSize,
@@ -96,14 +97,17 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> GetLogsByStageAsync(
             long stageId,
             [FromQuery] int pageIndex = 1,
-            [FromQuery] int pageSize = 20)
+            [FromQuery] int pageSize = 20,
+            [FromQuery] bool includeActionExecutions = true)
         {
-            var result = await _operationChangeLogService.GetOperationLogsAsync(
-                null,
+            // Use new method to get stage components logs (includes tasks and questions action executions)
+            var result = await _operationChangeLogService.GetOperationLogsByStageComponentsAsync(
                 stageId,
                 null,
+                null,
                 pageIndex,
-                pageSize
+                pageSize,
+                includeActionExecutions
             );
 
             return Success(result);
@@ -209,6 +213,64 @@ namespace FlowFlex.WebApi.Controllers.OW
                 .ToList();
 
             return Success(operationStatuses);
+        }
+
+        /// <summary>
+        /// Get operation logs by Task ID
+        /// </summary>
+        /// <param name="taskId">Task ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional)</param>
+        /// <param name="pageIndex">Page number</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation log list including task action executions</returns>
+        [HttpGet("task/{taskId}")]
+        [ProducesResponseType<SuccessResponse<PagedResult<OperationChangeLogOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetLogsByTaskAsync(
+            long taskId,
+            [FromQuery] long? onboardingId = null,
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] bool includeActionExecutions = true)
+        {
+            var result = await _operationChangeLogService.GetOperationLogsByTaskAsync(
+                taskId,
+                onboardingId,
+                null,
+                pageIndex,
+                pageSize,
+                includeActionExecutions
+            );
+
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get operation logs by Question ID
+        /// </summary>
+        /// <param name="questionId">Question ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional)</param>
+        /// <param name="pageIndex">Page number</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation log list including question action executions</returns>
+        [HttpGet("question/{questionId}")]
+        [ProducesResponseType<SuccessResponse<PagedResult<OperationChangeLogOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetLogsByQuestionAsync(
+            long questionId,
+            [FromQuery] long? onboardingId = null,
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] bool includeActionExecutions = true)
+        {
+            var result = await _operationChangeLogService.GetOperationLogsByQuestionAsync(
+                questionId,
+                onboardingId,
+                null,
+                pageIndex,
+                pageSize,
+                includeActionExecutions
+            );
+
+            return Success(result);
         }
     }
 }

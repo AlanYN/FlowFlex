@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -16,6 +17,8 @@ using FlowFlex.Application.Services.OW.Extensions;
 using System.Security.Claims;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Notification;
+using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Domain.Shared.Models;
 using Newtonsoft.Json.Linq;
 
@@ -32,6 +35,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly UserContext _userContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMapper _mapper;
+        private readonly IServiceProvider _serviceProvider; // 使用 IServiceProvider 来延迟解析服务，避免循环依赖
 
         public OperationChangeLogService(
             IOperationChangeLogRepository operationChangeLogRepository,
@@ -39,7 +43,8 @@ namespace FlowFlex.Application.Services.OW
             ILogger<OperationChangeLogService> logger,
             UserContext userContext,
             IHttpContextAccessor httpContextAccessor,
-            IMapper mapper)
+            IMapper mapper,
+            IServiceProvider serviceProvider)
         {
             _operationChangeLogRepository = operationChangeLogRepository;
             _actionExecutionService = actionExecutionService;
@@ -47,6 +52,7 @@ namespace FlowFlex.Application.Services.OW
             _userContext = userContext;
             _httpContextAccessor = httpContextAccessor;
             _mapper = mapper;
+            _serviceProvider = serviceProvider;
         }
 
         /// <summary>
@@ -1130,7 +1136,40 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Convert ActionExecutionWithActionInfoDto to OperationChangeLogOutputDto
+        /// Convert ActionExecutionWithActionInfoDto to OperationChangeLogOutputDto with source type
+        /// </summary>
+        private OperationChangeLogOutputDto MapActionExecutionToChangeLogDto(ActionExecutionWithActionInfoDto actionExecution, string sourceType = null)
+        {
+            var dto = MapActionExecutionToChangeLogDto(actionExecution);
+            
+            // Override operationType based on source type
+            if (!string.IsNullOrEmpty(sourceType))
+            {
+                switch (sourceType)
+                {
+                    case "Stage":
+                        dto.OperationType = OperationTypeEnum.StageActionExecution.ToString();
+                        dto.OperationTypeDisplayName = GetEnumDescription(OperationTypeEnum.StageActionExecution);
+                        dto.BusinessModule = BusinessModuleEnum.Stage.ToString();
+                        break;
+                    case "Task":
+                        dto.OperationType = OperationTypeEnum.TaskActionExecution.ToString();
+                        dto.OperationTypeDisplayName = GetEnumDescription(OperationTypeEnum.TaskActionExecution);
+                        dto.BusinessModule = BusinessModuleEnum.Task.ToString();
+                        break;
+                    case "Question":
+                        dto.OperationType = OperationTypeEnum.QuestionActionExecution.ToString();
+                        dto.OperationTypeDisplayName = GetEnumDescription(OperationTypeEnum.QuestionActionExecution);
+                        dto.BusinessModule = BusinessModuleEnum.Question.ToString();
+                        break;
+                }
+            }
+            
+            return dto;
+        }
+
+        /// <summary>
+        /// Convert ActionExecutionWithActionInfoDto to OperationChangeLogOutputDto (original method)
         /// </summary>
         private OperationChangeLogOutputDto MapActionExecutionToChangeLogDto(ActionExecutionWithActionInfoDto actionExecution)
         {
@@ -1568,6 +1607,565 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogDebug(ex, "Failed to parse friendly execution output");
                 return "";
+            }
+        }
+
+        /// <summary>
+        /// Get operation log list for task
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByTaskAsync(long taskId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs for task
+                List<OperationChangeLog> logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Task.ToString(), taskId);
+
+                // Apply filters
+                if (onboardingId.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                }
+
+                if (operationType.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                }
+
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Get action execution logs if requested
+                if (includeActionExecutions)
+                {
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            taskId, 1, 1000, jsonConditions); // Get more records for merging with filtering
+
+                        // Convert action executions to change log DTOs
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(ae => MapActionExecutionToChangeLogDto(ae, "Task"))
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        _logger.LogInformation($"Integrated {actionExecutionDtos.Count} action executions for taskId {taskId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for taskId {TaskId}, continuing without action logs", taskId);
+                        // Continue without action executions rather than failing the entire request
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = pagedLogs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting operation logs for task {TaskId}", taskId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get operation log list for question
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByQuestionAsync(long questionId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs for question
+                List<OperationChangeLog> logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Question.ToString(), questionId);
+
+                // Apply filters
+                if (onboardingId.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                }
+
+                if (operationType.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                }
+
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Get action execution logs if requested
+                if (includeActionExecutions)
+                {
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            questionId, 1, 1000, jsonConditions); // Get more records for merging with filtering
+
+                        // Convert action executions to change log DTOs
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(ae => MapActionExecutionToChangeLogDto(ae, "Question"))
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        _logger.LogInformation($"Integrated {actionExecutionDtos.Count} action executions for questionId {questionId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for questionId {QuestionId}, continuing without action logs", questionId);
+                        // Continue without action executions rather than failing the entire request
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = pagedLogs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting operation logs for question {QuestionId}", questionId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get operation log list for stage components (all related tasks and questions)
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs using the same logic as the original GetOperationLogsAsync method
+                List<OperationChangeLog> logs;
+
+                // Use the same logic as GetOperationLogsAsync to get comprehensive operation logs
+                if (onboardingId.HasValue)
+                {
+                    logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId);
+                }
+                else
+                {
+                    logs = await _operationChangeLogRepository.GetByStageIdAsync(stageId);
+                }
+
+                // Apply operationType filter if provided
+                if (operationType.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                }
+
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Additionally, get operation logs for all tasks and questions in this stage
+                await CollectTaskAndQuestionOperationLogsAsync(stageId, onboardingId, operationType, allLogs);
+
+                if (includeActionExecutions)
+                {
+                    try
+                    {
+                        // Get stage components using lazy service resolution to avoid circular dependency
+                        var stageService = _serviceProvider.GetRequiredService<IStageService>();
+                        var stageComponents = await stageService.GetComponentsAsync(stageId);
+                        _logger.LogDebug("Found {Count} components for stage {StageId}", stageComponents.Count, stageId);
+
+                        // Collect source IDs with their types for proper operationType assignment
+                        var sourceIdTypes = new Dictionary<long, string>();
+
+                        // Add stage itself for stage-level actions
+                        sourceIdTypes.Add(stageId, "Stage");
+
+                        // Process stage components to collect all task and question IDs with types
+                        await CollectAllSourceIdsFromStageComponentsAsync(stageComponents, sourceIdTypes);
+
+                        _logger.LogDebug("Total source IDs for action executions: {Count} - [{SourceIds}]", 
+                            sourceIdTypes.Count, string.Join(", ", sourceIdTypes.Keys));
+
+                        // Get action executions for all collected source IDs with proper operationType
+                        // Since they all use the same API: /api/action/v1/executions/trigger-source/{sourceId}/search
+                        await CollectActionExecutionsForAllSourceIdsAsync(sourceIdTypes, allLogs, onboardingId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to process stage components for action executions, continuing without component actions");
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = pagedLogs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting operation logs for stage components {StageId}", stageId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Collect operation logs for all tasks and questions in this stage
+        /// </summary>
+        private async Task CollectTaskAndQuestionOperationLogsAsync(long stageId, long? onboardingId, OperationTypeEnum? operationType, List<OperationChangeLogOutputDto> allLogs)
+        {
+            try
+            {
+                // Get stage components to find all tasks and questions
+                var stageService = _serviceProvider.GetRequiredService<IStageService>();
+                var stageComponents = await stageService.GetComponentsAsync(stageId);
+                _logger.LogDebug("Found {Count} components for stage {StageId}", stageComponents.Count, stageId);
+
+                // Collect task and question IDs
+                var taskIds = new List<long>();
+                var questionIds = new List<long>();
+                await CollectTaskAndQuestionIdsAsync(stageComponents, taskIds, questionIds);
+
+                // Get operation logs for all tasks
+                await CollectOperationLogsForTasksAsync(taskIds, onboardingId, operationType, allLogs);
+
+                // Get operation logs for all questions
+                await CollectOperationLogsForQuestionsAsync(questionIds, onboardingId, operationType, allLogs);
+
+                _logger.LogDebug("Collected operation logs for {TaskCount} tasks and {QuestionCount} questions", 
+                    taskIds.Count, questionIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting task and question operation logs for stage {StageId}", stageId);
+            }
+        }
+
+        /// <summary>
+        /// Collect task and question IDs from stage components
+        /// </summary>
+        private async Task CollectTaskAndQuestionIdsAsync(List<StageComponent> stageComponents, List<long> taskIds, List<long> questionIds)
+        {
+            try
+            {
+                // Collect task IDs from checklist components
+                var checklistComponents = stageComponents.Where(c => c.Key == "checklist").ToList();
+                if (checklistComponents.Any())
+                {
+                    var checklistIdsList = checklistComponents
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    if (checklistIdsList.Any())
+                    {
+                        var checklistService = _serviceProvider.GetRequiredService<IChecklistService>();
+                        var checklists = await checklistService.GetByIdsAsync(checklistIdsList);
+                        
+                        foreach (var checklist in checklists)
+                        {
+                            if (checklist.Tasks?.Any() == true)
+                            {
+                                taskIds.AddRange(checklist.Tasks.Select(t => t.Id));
+                            }
+                        }
+                    }
+                }
+
+                // Collect question IDs from questionnaire components
+                var questionnaireComponents = stageComponents.Where(c => c.Key == "questionnaires").ToList();
+                if (questionnaireComponents.Any())
+                {
+                    var questionnaireIdsList = questionnaireComponents
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    if (questionnaireIdsList.Any())
+                    {
+                        var questionnaireService = _serviceProvider.GetRequiredService<IQuestionnaireService>();
+                        var questionnaires = await questionnaireService.GetByIdsAsync(questionnaireIdsList);
+                        
+                        foreach (var questionnaire in questionnaires)
+                        {
+                            if (string.IsNullOrWhiteSpace(questionnaire.StructureJson)) continue;
+
+                            try
+                            {
+                                var structureData = JsonSerializer.Deserialize<QuestionnaireStructure>(
+                                    questionnaire.StructureJson, 
+                                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                                if (structureData?.Sections?.Any() != true) continue;
+
+                                foreach (var section in structureData.Sections)
+                                {
+                                    var allQuestions = new List<QuestionnaireQuestion>();
+                                    if (section.Items?.Any() == true) allQuestions.AddRange(section.Items);
+                                    if (section.Questions?.Any() == true) allQuestions.AddRange(section.Questions);
+                                    
+                                    allQuestions = allQuestions.GroupBy(q => q.Id).Select(g => g.First()).ToList();
+
+                                    foreach (var question in allQuestions)
+                                    {
+                                        if (long.TryParse(question.Id, out long questionIdLong))
+                                        {
+                                            questionIds.Add(questionIdLong);
+                                        }
+                                    }
+                                }
+                            }
+                            catch (JsonException ex)
+                            {
+                                _logger.LogError(ex, "Error parsing StructureJson for questionnaire {QuestionnaireId}", questionnaire.Id);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting task and question IDs from stage components");
+            }
+        }
+
+        /// <summary>
+        /// Collect operation logs for tasks
+        /// </summary>
+        private async Task CollectOperationLogsForTasksAsync(List<long> taskIds, long? onboardingId, OperationTypeEnum? operationType, List<OperationChangeLogOutputDto> allLogs)
+        {
+            try
+            {
+                foreach (var taskId in taskIds)
+                {
+                    var taskLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Task.ToString(), taskId);
+
+                    // Apply filters
+                    if (onboardingId.HasValue && taskLogs.Any())
+                    {
+                        taskLogs = taskLogs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                    }
+
+                    if (operationType.HasValue && taskLogs.Any())
+                    {
+                        taskLogs = taskLogs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                    }
+
+                    // Convert to DTOs and add to allLogs
+                    var taskLogDtos = taskLogs.Select(MapToOutputDto).ToList();
+                    allLogs.AddRange(taskLogDtos);
+                }
+
+                _logger.LogDebug("Collected operation logs for {TaskCount} tasks", taskIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting operation logs for tasks");
+            }
+        }
+
+        /// <summary>
+        /// Collect operation logs for questions
+        /// </summary>
+        private async Task CollectOperationLogsForQuestionsAsync(List<long> questionIds, long? onboardingId, OperationTypeEnum? operationType, List<OperationChangeLogOutputDto> allLogs)
+        {
+            try
+            {
+                foreach (var questionId in questionIds)
+                {
+                    var questionLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Question.ToString(), questionId);
+
+                    // Apply filters
+                    if (onboardingId.HasValue && questionLogs.Any())
+                    {
+                        questionLogs = questionLogs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                    }
+
+                    if (operationType.HasValue && questionLogs.Any())
+                    {
+                        questionLogs = questionLogs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                    }
+
+                    // Convert to DTOs and add to allLogs
+                    var questionLogDtos = questionLogs.Select(MapToOutputDto).ToList();
+                    allLogs.AddRange(questionLogDtos);
+                }
+
+                _logger.LogDebug("Collected operation logs for {QuestionCount} questions", questionIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting operation logs for questions");
+            }
+        }
+
+        /// <summary>
+        /// Collect all source IDs (tasks and questions) from stage components with their types
+        /// All IDs will be used the same way: /api/action/v1/executions/trigger-source/{sourceId}/search
+        /// </summary>
+        private async Task CollectAllSourceIdsFromStageComponentsAsync(List<StageComponent> stageComponents, Dictionary<long, string> sourceIdTypes)
+        {
+            try
+            {
+                // Reuse the same logic for collecting IDs
+                var taskIds = new List<long>();
+                var questionIds = new List<long>();
+                await CollectTaskAndQuestionIdsAsync(stageComponents, taskIds, questionIds);
+
+                // Add to sourceIdTypes with correct types
+                foreach (var taskId in taskIds)
+                {
+                    sourceIdTypes.TryAdd(taskId, "Task");
+                }
+
+                foreach (var questionId in questionIds)
+                {
+                    sourceIdTypes.TryAdd(questionId, "Question");
+                }
+
+                _logger.LogDebug("Collected {TaskCount} task IDs and {QuestionCount} question IDs for action executions", 
+                    taskIds.Count, questionIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting source IDs from stage components");
+            }
+        }
+
+
+
+        /// <summary>
+        /// Collect action executions for all source IDs using the unified API
+        /// All source IDs (stage, task, question) use the same API: /api/action/v1/executions/trigger-source/{sourceId}/search
+        /// </summary>
+        private async Task CollectActionExecutionsForAllSourceIdsAsync(Dictionary<long, string> sourceIdTypes, List<OperationChangeLogOutputDto> allLogs, long? onboardingId)
+        {
+            try
+            {
+                var totalActionExecutions = 0;
+
+                foreach (var kvp in sourceIdTypes)
+                {
+                    var sourceId = kvp.Key;
+                    var sourceType = kvp.Value;
+
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        // Call the unified API: /api/action/v1/executions/trigger-source/{sourceId}/search
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            sourceId, 1, 1000, jsonConditions);
+
+                        if (actionExecutionsResult.Data.Any())
+                        {
+                            var actionExecutionDtos = actionExecutionsResult.Data
+                                .Select(ae => MapActionExecutionToChangeLogDto(ae, sourceType))
+                                .ToList();
+                            allLogs.AddRange(actionExecutionDtos);
+
+                            totalActionExecutions += actionExecutionDtos.Count;
+                            _logger.LogDebug("Added {Count} {SourceType} action executions for sourceId {SourceId}", 
+                                actionExecutionDtos.Count, sourceType, sourceId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}, continuing", sourceType, sourceId);
+                    }
+                }
+
+                _logger.LogInformation("Total action executions collected: {TotalCount} from {SourceIdCount} source IDs", 
+                    totalActionExecutions, sourceIdTypes.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting action executions for all source IDs");
             }
         }
 

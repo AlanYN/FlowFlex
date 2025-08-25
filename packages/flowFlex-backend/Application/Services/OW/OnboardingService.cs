@@ -22,6 +22,7 @@ using System.Linq.Expressions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Utils;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -45,6 +46,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -65,7 +67,8 @@ namespace FlowFlex.Application.Services.OW
             IStaticFieldValueService staticFieldValueService,
             IChecklistService checklistService,
             IQuestionnaireService questionnaireService,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IServiceScopeFactory serviceScopeFactory)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -82,6 +85,7 @@ namespace FlowFlex.Application.Services.OW
             _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
+            _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
         }
 
         /// <summary>
@@ -2918,7 +2922,23 @@ namespace FlowFlex.Application.Services.OW
                 }
                 catch { }
 
-                await _mediator.Publish(onboardingStageCompletedEvent);
+                // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // 创建新的作用域来避免 ServiceProvider disposed 错误
+                        using var scope = _serviceScopeFactory.CreateScope();
+                        var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+                        await scopedMediator.Publish(onboardingStageCompletedEvent);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 记录错误但不影响主流程
+                        // TODO: 可以考虑添加重试机制或者使用消息队列
+                        // 这里可以添加日志记录，但要确保不抛出异常
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -2989,8 +3009,24 @@ namespace FlowFlex.Application.Services.OW
                     onboardingStageCompletedEvent.BusinessContext["Components.RequiredFieldsCount"] = componentsPayload2?.RequiredFields?.Count ?? 0;
                 }
                 catch { }
-                // Debug logging handled by structured logging
-                await _mediator.Publish(onboardingStageCompletedEvent);
+                
+                // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // 创建新的作用域来避免 ServiceProvider disposed 错误
+                        using var scope = _serviceScopeFactory.CreateScope();
+                        var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+                        await scopedMediator.Publish(onboardingStageCompletedEvent);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 记录错误但不影响主流程
+                        // TODO: 可以考虑添加重试机制或者使用消息队列
+                        // 这里可以添加日志记录，但要确保不抛出异常
+                    }
+                });
 
                 // Debug logging handled by structured logging
             }

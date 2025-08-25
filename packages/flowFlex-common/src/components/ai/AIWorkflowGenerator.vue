@@ -3032,10 +3032,23 @@ const saveChatSession = () => {
 	}
 
 	const sessionId = currentSessionId.value || Date.now().toString();
-	const userMessage = chatMessages.value.find((msg) => msg.type === 'user');
-	const title = userMessage
-		? userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? '...' : '')
-		: 'New Chat';
+
+	// Check if session already exists to preserve custom title
+	const existingIndex = chatHistory.value.findIndex((s) => s.id === sessionId);
+	let title: string;
+
+	if (existingIndex >= 0) {
+		// If session exists, preserve the existing title (user might have renamed it)
+		title = chatHistory.value[existingIndex].title;
+		console.log('Preserving existing session title:', title);
+	} else {
+		// If it's a new session, generate title from first user message
+		const userMessage = chatMessages.value.find((msg) => msg.type === 'user');
+		title = userMessage
+			? userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? '...' : '')
+			: 'New Chat';
+		console.log('Generated new session title:', title);
+	}
 
 	console.log('💾 Creating session:', {
 		sessionId,
@@ -3050,7 +3063,6 @@ const saveChatSession = () => {
 		messages: [...chatMessages.value],
 	};
 
-	const existingIndex = chatHistory.value.findIndex((s) => s.id === sessionId);
 	if (existingIndex >= 0) {
 		console.log('Updating existing session at index:', existingIndex);
 		chatHistory.value[existingIndex] = session;

@@ -6157,8 +6157,6 @@ Make questions relevant to the project context and stage objectives.";
                 promptBuilder.AppendLine("Second Paragraph - Progress Status:");
                 promptBuilder.AppendLine("   - Report actual completion rates (use specific percentages and counts shown above)");
                 promptBuilder.AppendLine("   - Highlight completed achievements and pending requirements");
-                promptBuilder.AppendLine("   - Identify any critical issues or blockers from incomplete required items");
-                promptBuilder.AppendLine("   - Recommend immediate next steps based on remaining work");
                 promptBuilder.AppendLine();
                 promptBuilder.AppendLine("Output Rules:");
                 promptBuilder.AppendLine("- Write as two natural paragraphs without section titles or labels");

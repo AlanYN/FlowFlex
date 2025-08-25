@@ -476,6 +476,10 @@ export function getOperationTypeInfo(operationType: string) {
 		ActionExecutionPending: { label: 'Action Pending', icon: '⏱️', color: 'orange' },
 		ActionExecutionCancelled: { label: 'Action Cancelled', icon: '🚫', color: 'gray' },
 		ActionExecution: { label: 'Action Execution', icon: '🎯', color: 'blue' },
+		// 新增：按来源区分的 Action Execution 类型
+		StageActionExecution: { label: 'Stage Action', icon: '🏛️', color: 'blue' },
+		TaskActionExecution: { label: 'Task Action', icon: '✅', color: 'green' },
+		QuestionActionExecution: { label: 'Question Action', icon: '❓', color: 'purple' },
 	};
 
 	return typeMap[operationType] || { label: operationType, icon: '📋', color: 'gray' };
