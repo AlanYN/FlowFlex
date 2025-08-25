@@ -190,8 +190,8 @@ export const moduleType = [
 ];
 
 export enum TriggerTypeEnum {
-	Stage = 1,
-	Task = 2,
-	Questionnaire = 3,
-	Workflow = 4,
+	Stage = 'Stage',
+	Task = 'Task',
+	Questionnaire = 'Question',
+	Workflow = 'Workflow',
 }
