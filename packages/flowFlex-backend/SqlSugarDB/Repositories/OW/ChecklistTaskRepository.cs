@@ -252,4 +252,15 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
 
         return maxOrder + 1;
     }
+
+    /// <summary>
+    /// Get tasks by action ID
+    /// </summary>
+    public async Task<List<ChecklistTask>> GetTasksByActionIdAsync(long actionId)
+    {
+        return await db.Queryable<ChecklistTask>()
+            .Where(x => x.ActionId == actionId && x.IsValid == true)
+            .OrderBy(x => x.Order)
+            .ToListAsync();
+    }
 }

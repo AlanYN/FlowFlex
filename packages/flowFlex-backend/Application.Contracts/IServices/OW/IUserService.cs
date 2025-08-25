@@ -1,5 +1,4 @@
-using System.Threading.Tasks;
-using FlowFlex.Application.Contracts.Dtos.OW.User;
+﻿using FlowFlex.Application.Contracts.Dtos.OW.User;
 
 namespace FlowFlex.Application.Contracts.IServices.OW
 {
@@ -104,6 +103,25 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="request">Third-party login request</param>
         /// <returns>Login response with system token</returns>
         Task<LoginResponseDto> ThirdPartyLoginAsync(ThirdPartyLoginRequestDto request);
+
+        /// <summary>
+        /// Get User List with Pagination and Search
+        /// </summary>
+        /// <param name="request">User list request</param>
+        /// <returns>User list response</returns>
+        Task<UserListResponseDto> GetUserListAsync(UserListRequestDto request);
+
+        /// <summary>
+        /// Assign Random Teams to Users Without Team
+        /// </summary>
+        /// <returns>Number of users assigned teams</returns>
+        Task<int> AssignRandomTeamsToUsersAsync();
+
+        /// <summary>
+        /// Get User Tree Structure grouped by teams
+        /// </summary>
+        /// <returns>Tree structure with teams and users</returns>
+        Task<List<UserTreeNodeDto>> GetUserTreeAsync();
 
         Task<UserDto> GetUserByEmail(string email);
     }

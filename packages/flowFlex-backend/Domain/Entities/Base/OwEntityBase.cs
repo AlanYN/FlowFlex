@@ -4,22 +4,31 @@ using System.ComponentModel.DataAnnotations.Schema;
 using SqlSugar;
 using Newtonsoft.Json;
 using FlowFlex.Domain.Shared.JsonConverters;
+using FlowFlex.Domain.Shared;
 
 namespace FlowFlex.Domain.Entities
 {
     /// <summary>
-    /// OW基础实体
+    /// OW基础实体 - 使用雪花ID
     /// </summary>
     public abstract class OwEntityBase
     {
         /// <summary>
-        /// 主键ID
+        /// 主键ID - 使用雪花ID
         /// </summary>
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [SugarColumn(IsPrimaryKey = true)]
         [JsonConverter(typeof(LongToStringConverter))]
         public long Id { get; set; }
+
+        /// <summary>
+        /// 初始化雪花ID
+        /// </summary>
+        public long InitNewId()
+        {
+            Id = SnowFlakeSingle.Instance.NextId();
+            return Id;
+        }
 
         /// <summary>
         /// 租户ID

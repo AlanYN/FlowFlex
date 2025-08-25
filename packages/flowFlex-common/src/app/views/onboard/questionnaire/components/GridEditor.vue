@@ -18,23 +18,23 @@
 						<div v-for="(row, index) in rows" :key="row.id" class="grid-editor-item">
 							<div class="flex items-center gap-2">
 								<span class="grid-item-number">{{ index + 1 }}.</span>
-								<div v-if="!editingRows[row.id]" class="grid-item-label">
+								<div v-if="!editingRows[row.temporaryId]" class="grid-item-label">
 									{{ row.label }}
 								</div>
 								<el-input
 									v-else
-									:model-value="editingRows[row.id]"
+									:model-value="editingRows[row.temporaryId]"
 									class="grid-edit-input"
-									@input="updateEditingRow(row.id, $event)"
-									@keyup.enter="saveRowEdit(row.id)"
-									@blur="saveRowEdit(row.id)"
+									@input="updateEditingRow(row.temporaryId, $event)"
+									@keyup.enter="saveRowEdit(row.temporaryId)"
+									@blur="saveRowEdit(row.temporaryId)"
 								/>
 								<el-button
-									v-if="!editingRows[row.id]"
+									v-if="!editingRows[row.temporaryId]"
 									type="primary"
 									link
 									size="small"
-									@click="startRowEdit(row.id, row.label)"
+									@click="startRowEdit(row.temporaryId, row.label)"
 									class="grid-edit-btn"
 									:icon="Edit"
 								/>
@@ -45,7 +45,7 @@
 									type="danger"
 									text
 									size="small"
-									@click="removeRow(row.id)"
+									@click="removeRow(row.temporaryId)"
 									class="grid-delete-btn"
 								>
 									<el-icon><Close /></el-icon>
@@ -93,7 +93,10 @@
 								<span class="grid-item-number">{{ index + 1 }}.</span>
 
 								<!-- 列标签显示/编辑 -->
-								<div v-if="!editingColumns[column.id]" class="grid-item-label">
+								<div
+									v-if="!editingColumns[column.temporaryId]"
+									class="grid-item-label"
+								>
 									{{ column.label }}
 									<el-tag
 										v-if="column.isOther"
@@ -106,18 +109,18 @@
 								</div>
 								<el-input
 									v-else
-									:model-value="editingColumns[column.id]"
+									:model-value="editingColumns[column.temporaryId]"
 									class="grid-edit-input"
-									@input="updateEditingColumn(column.id, $event)"
-									@keyup.enter="saveColumnEdit(column.id)"
-									@blur="saveColumnEdit(column.id)"
+									@input="updateEditingColumn(column.temporaryId, $event)"
+									@keyup.enter="saveColumnEdit(column.temporaryId)"
+									@blur="saveColumnEdit(column.temporaryId)"
 								/>
 								<el-button
-									v-if="!editingColumns[column.id]"
+									v-if="!editingColumns[column.temporaryId]"
 									type="primary"
 									link
 									size="small"
-									@click="startColumnEdit(column.id, column.label)"
+									@click="startColumnEdit(column.temporaryId, column.label)"
 									class="grid-edit-btn"
 									:icon="Edit"
 								/>
@@ -128,7 +131,7 @@
 									type="danger"
 									text
 									size="small"
-									@click="removeColumn(column.id)"
+									@click="removeColumn(column.temporaryId)"
 									class="grid-delete-btn"
 								>
 									<el-icon><Close /></el-icon>
@@ -195,7 +198,8 @@ import { computed, ref } from 'vue';
 import { Close, Plus, Edit } from '@element-plus/icons-vue';
 
 interface GridItem {
-	id: string;
+	id?: string;
+	temporaryId: string;
 	label: string;
 	isOther?: boolean;
 }

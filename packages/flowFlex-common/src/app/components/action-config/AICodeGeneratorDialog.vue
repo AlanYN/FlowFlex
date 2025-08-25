@@ -1,8 +1,14 @@
 <template>
-	<el-dialog v-model="visible" title="Code Generator" width="800px">
+	<el-dialog
+		v-model="visible"
+		modal-class="!z-[5000]"
+		title="Code Generator"
+		width="800px"
+		append-to-body
+	>
 		<div>
 			<!-- Model Selection -->
-			<div class="flex items-center gap-2 mb-4">
+			<div class="flex items-center gap-2 mb-4 p-1">
 				<el-icon class="text-blue-500"><Star /></el-icon>
 				<span class="font-medium text-gray-900">Model:</span>
 				<el-select
@@ -12,6 +18,8 @@
 					style="width: 260px"
 					@change="onModelChange"
 					:disabled="loadingModels"
+					:teleported="true"
+					popper-class="!z-[5001]"
 				>
 					<el-option
 						v-for="model in modelOptions"

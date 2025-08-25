@@ -6,11 +6,9 @@ using System.Net;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
-
-
 using Item.Internal.StandardApi.Response;
-using System.Net;
 using System.Linq.Dynamic.Core;
+using System;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -24,10 +22,12 @@ namespace FlowFlex.WebApi.Controllers.OW
     public class StageController : Controllers.ControllerBase
     {
         private readonly IStageService _stageService;
+        private readonly IOnboardingService _onboardingService;
 
-        public StageController(IStageService stageService)
+        public StageController(IStageService stageService, IOnboardingService onboardingService)
         {
             _stageService = stageService;
+            _onboardingService = onboardingService;
         }
 
         #region Stage Basic Management Functions
@@ -388,29 +388,6 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Get stage operation logs
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="onboardingId">Onboarding ID</param>
-        /// <param name="pageIndex">Page index</param>
-        /// <param name="pageSize">Page size</param>
-        /// <returns>Stage operation logs</returns>
-        /// <remarks>
-        /// Get stage operation logs:
-        /// - Record all operations
-        /// - Filter by stage
-        /// - Filter by onboarding
-        /// - Paginate results
-        /// </remarks>
-        [HttpGet("{stageId}/onboarding/{onboardingId}/logs")]
-        [ProducesResponseType<SuccessResponse<StageLogsDto>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetStageLogsAsync(long stageId, long onboardingId, [FromQuery] int pageIndex = 1, [FromQuery] int pageSize = 20)
-        {
-            var result = await _stageService.GetStageLogsAsync(stageId, onboardingId, pageIndex, pageSize);
-            return Success(result);
-        }
-
-        /// <summary>
         /// Add stage note
         /// </summary>
         /// <param name="stageId">Stage ID</param>
@@ -494,6 +471,123 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             var result = await _stageService.DeleteStageNoteAsync(stageId, onboardingId, noteId);
             return Success(result);
+        }
+
+        /// <summary>
+        /// Generate AI Summary for stage with streaming response
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional)</param>
+        /// <param name="language">Preferred language for summary (optional)</param>
+        /// <returns>Streaming AI summary response</returns>
+        [HttpPost("{stageId}/ai-summary/stream")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task StreamAISummary(
+            [FromRoute] long stageId,
+            [FromQuery] long? onboardingId = null,
+            [FromQuery] string? language = null)
+        {
+            // 设置流式响应头 - 纯文本流
+            Response.ContentType = "text/plain; charset=utf-8";
+            Response.Headers.Add("Cache-Control", "no-cache");
+            Response.Headers.Add("Connection", "keep-alive");
+            Response.Headers.Add("Access-Control-Allow-Origin", "*");
+
+            try
+            {
+                // 准备AI Summary生成输入
+                var summaryOptions = new StageSummaryOptions
+                {
+                    Language = language ?? "auto",
+                    SummaryLength = "medium",
+                    IncludeTaskAnalysis = true,
+                    IncludeQuestionnaireInsights = true
+                };
+
+                // 调用AI服务生成摘要
+                var summaryResult = await _stageService.GenerateAISummaryAsync(stageId, onboardingId, summaryOptions);
+
+                if (summaryResult.Success && !string.IsNullOrEmpty(summaryResult.Summary))
+                {
+                    // 直接以纯文本形式流式发送AI内容
+                    var fullContent = summaryResult.Summary;
+                    var chunkSize = Math.Max(5, fullContent.Length / 20); // 将内容分成20个左右的块，每块至少5个字符
+
+                    for (int i = 0; i < fullContent.Length; i += chunkSize)
+                    {
+                        var chunk = fullContent.Substring(i, Math.Min(chunkSize, fullContent.Length - i));
+
+                        // 直接发送文本内容，不使用JSON格式
+                        await Response.WriteAsync(chunk);
+                        await Response.Body.FlushAsync();
+
+                        // 添加小延迟来模拟真实的AI流式响应
+                        await Task.Delay(100);
+                    }
+
+                    // 异步更新数据库 - 不阻塞响应
+                    var generatedAt = DateTime.UtcNow;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await UpdateAISummaryInDatabaseAsync(stageId, onboardingId, fullContent, generatedAt, summaryResult.ConfidenceScore, summaryResult.ModelUsed);
+                        }
+                        catch (Exception updateEx)
+                        {
+                            // 记录错误但不影响用户体验
+                            Console.WriteLine($"Failed to update AI summary in database: {updateEx.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    // 发送错误信息，以纯文本形式
+                    var errorMessage = summaryResult?.Message ?? "Failed to generate AI summary";
+                    await Response.WriteAsync($"Error: {errorMessage}");
+                }
+
+                await Response.Body.FlushAsync();
+            }
+            catch (Exception ex)
+            {
+                // 发送错误信息，以纯文本形式
+                await Response.WriteAsync($"Error: Stream error: {ex.Message}");
+                await Response.Body.FlushAsync();
+            }
+        }
+
+        /// <summary>
+        /// 异步更新AI Summary到数据库
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional)</param>
+        /// <param name="aiSummary">AI Summary content</param>
+        /// <param name="generatedAt">Generated timestamp</param>
+        /// <param name="confidence">Confidence score</param>
+        /// <param name="modelUsed">AI model used</param>
+        /// <returns></returns>
+        private async Task UpdateAISummaryInDatabaseAsync(long stageId, long? onboardingId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed)
+        {
+            try
+            {
+                // 1. 更新Stage表的AI Summary字段（backfill，如果为空的话）
+                await _stageService.UpdateStageAISummaryIfEmptyAsync(stageId, aiSummary, generatedAt, confidence, modelUsed);
+
+                // 2. 如果有onboardingId，更新Onboarding的stagesProgress
+                if (onboardingId.HasValue)
+                {
+                    await _onboardingService.UpdateOnboardingStageAISummaryAsync(onboardingId.Value, stageId, aiSummary, generatedAt, confidence, modelUsed);
+                }
+
+                Console.WriteLine($"✅ Successfully updated AI summary in database for stage {stageId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Failed to update AI summary in database for stage {stageId}: {ex.Message}");
+                throw;
+            }
         }
 
         #endregion
@@ -587,8 +681,6 @@ namespace FlowFlex.WebApi.Controllers.OW
         public string NoteContent { get; set; }
     }
 
-
-
     #endregion
-}
 
+}

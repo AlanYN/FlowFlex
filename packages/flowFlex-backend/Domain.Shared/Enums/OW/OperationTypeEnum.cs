@@ -71,7 +71,25 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Onboarding status changed
         /// </summary>
         [Description("Onboarding Status Change")]
-        OnboardingStatusChange = 11
+        OnboardingStatusChange = 11,
+
+        /// <summary>
+        /// Stage action execution
+        /// </summary>
+        [Description("Stage Action Execution")]
+        StageActionExecution = 12,
+
+        /// <summary>
+        /// Task action execution
+        /// </summary>
+        [Description("Task Action Execution")]
+        TaskActionExecution = 13,
+
+        /// <summary>
+        /// Question action execution
+        /// </summary>
+        [Description("Question Action Execution")]
+        QuestionActionExecution = 14
     }
 
     /// <summary>
@@ -125,7 +143,19 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// File
         /// </summary>
         [Description("File")]
-        File = 8
+        File = 8,
+
+        /// <summary>
+        /// Task
+        /// </summary>
+        [Description("Task")]
+        Task = 9,
+
+        /// <summary>
+        /// Question
+        /// </summary>
+        [Description("Question")]
+        Question = 10
     }
 
     /// <summary>
@@ -149,6 +179,30 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Partial success
         /// </summary>
         [Description("Partial")]
-        Partial = 3
+        Partial = 3,
+
+        /// <summary>
+        /// Pending
+        /// </summary>
+        [Description("Pending")]
+        Pending = 4,
+
+        /// <summary>
+        /// In Progress
+        /// </summary>
+        [Description("InProgress")]
+        InProgress = 5,
+
+        /// <summary>
+        /// Cancelled
+        /// </summary>
+        [Description("Cancelled")]
+        Cancelled = 6,
+
+        /// <summary>
+        /// Unknown
+        /// </summary>
+        [Description("Unknown")]
+        Unknown = 7
     }
 }

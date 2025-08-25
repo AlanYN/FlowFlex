@@ -23,6 +23,7 @@ export interface ChangeLogQueryParams {
 	endDate?: string; // 结束时间
 	pageIndex?: number; // 页码
 	pageSize?: number; // 页大小
+	includeActionExecutions?: boolean; // 是否包含 Action 执行记录
 }
 
 // ========================= Change Log 数据接口 =========================
@@ -33,6 +34,8 @@ export interface ChangeLogItem {
 	typeIcon?: string; // 类型图标（可选，如果后端没有提供则前端生成）
 	typeColor?: string; // 类型颜色（可选，如果后端没有提供则前端生成）
 	details: string; // 详细描述
+	operationTitle?: string; // 操作标题
+	operationDescription?: string; // 操作详细描述
 	beforeData?: any; // 变更前数据
 	afterData?: any; // 变更后数据
 	changedFields?: string[]; // 变更字段
@@ -466,6 +469,17 @@ export function getOperationTypeInfo(operationType: string) {
 		StaticFieldValueChange: { label: 'Field Change', icon: '🔧', color: 'yellow' },
 		StageTransition: { label: 'Stage Move', icon: '🔄', color: 'blue' },
 		PriorityChange: { label: 'Priority', icon: '⚡', color: 'red' },
+		// Action Execution 相关类型
+		ActionExecutionSuccess: { label: 'Action Success', icon: '🎯', color: 'green' },
+		ActionExecutionFailed: { label: 'Action Failed', icon: '❌', color: 'red' },
+		ActionExecutionRunning: { label: 'Action Running', icon: '⏳', color: 'blue' },
+		ActionExecutionPending: { label: 'Action Pending', icon: '⏱️', color: 'orange' },
+		ActionExecutionCancelled: { label: 'Action Cancelled', icon: '🚫', color: 'gray' },
+		ActionExecution: { label: 'Action Execution', icon: '🎯', color: 'blue' },
+		// 新增：按来源区分的 Action Execution 类型
+		StageActionExecution: { label: 'Stage Action', icon: '🏛️', color: 'blue' },
+		TaskActionExecution: { label: 'Task Action', icon: '✅', color: 'green' },
+		QuestionActionExecution: { label: 'Question Action', icon: '❓', color: 'purple' },
 	};
 
 	return typeMap[operationType] || { label: operationType, icon: '📋', color: 'gray' };

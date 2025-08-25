@@ -67,5 +67,11 @@ namespace FlowFlex.Domain.Entities.OW
         [MaxLength(45)]
         [SugarColumn(ColumnName = "last_login_ip")]
         public string LastLoginIp { get; set; }
+
+        /// <summary>
+        /// User Team
+        /// </summary>
+        [MaxLength(100)]
+        public string Team { get; set; }
     }
 }

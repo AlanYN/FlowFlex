@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -14,6 +15,12 @@ using System.Reflection;
 using SqlSugar;
 using FlowFlex.Application.Services.OW.Extensions;
 using System.Security.Claims;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Notification;
+using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
+using FlowFlex.Domain.Shared.Models;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -23,23 +30,29 @@ namespace FlowFlex.Application.Services.OW
     public class OperationChangeLogService : IOperationChangeLogService, IScopedService
     {
         private readonly IOperationChangeLogRepository _operationChangeLogRepository;
+        private readonly IActionExecutionService _actionExecutionService;
         private readonly ILogger<OperationChangeLogService> _logger;
         private readonly UserContext _userContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMapper _mapper;
+        private readonly IServiceProvider _serviceProvider; // 使用 IServiceProvider 来延迟解析服务，避免循环依赖
 
         public OperationChangeLogService(
             IOperationChangeLogRepository operationChangeLogRepository,
+            IActionExecutionService actionExecutionService,
             ILogger<OperationChangeLogService> logger,
             UserContext userContext,
             IHttpContextAccessor httpContextAccessor,
-            IMapper mapper)
+            IMapper mapper,
+            IServiceProvider serviceProvider)
         {
             _operationChangeLogRepository = operationChangeLogRepository;
+            _actionExecutionService = actionExecutionService;
             _logger = logger;
             _userContext = userContext;
             _httpContextAccessor = httpContextAccessor;
             _mapper = mapper;
+            _serviceProvider = serviceProvider;
         }
 
         /// <summary>
@@ -517,10 +530,13 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// 获取操作日志列表
         /// </summary>
-        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20)
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsAsync(long? onboardingId = null, long? stageId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
         {
             try
             {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs
                 List<OperationChangeLog> logs;
 
                 // 优先处理同时提供 onboardingId 和 stageId 的情况
@@ -557,19 +573,61 @@ namespace FlowFlex.Application.Services.OW
                     logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
                 }
 
-                // 分页
-                int totalCount = logs.Count;
-                var pagedLogs = logs
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Get action execution logs if requested and stageId is provided
+                if (includeActionExecutions && stageId.HasValue)
+                {
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            stageId.Value, 1, 1000, jsonConditions); // Get more records for merging with filtering
+
+                        // Convert action executions to change log DTOs
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(MapActionExecutionToChangeLogDto)
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        _logger.LogInformation($"Integrated {actionExecutionDtos.Count} action executions for stageId {stageId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for stageId {StageId}, continuing without action logs", stageId);
+                        // Continue without action executions rather than failing the entire request
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
                     .Skip((pageIndex - 1) * pageSize)
                     .Take(pageSize)
                     .ToList();
 
-                // 转换为输出DTO
-                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
-
                 return new PagedResult<OperationChangeLogOutputDto>
                 {
-                    Items = outputDtos,
+                    Items = pagedLogs,
                     TotalCount = totalCount,
                     PageIndex = pageIndex,
                     PageSize = pageSize
@@ -1076,6 +1134,1042 @@ namespace FlowFlex.Application.Services.OW
 
             return dto;
         }
+
+        /// <summary>
+        /// Convert ActionExecutionWithActionInfoDto to OperationChangeLogOutputDto with source type
+        /// </summary>
+        private OperationChangeLogOutputDto MapActionExecutionToChangeLogDto(ActionExecutionWithActionInfoDto actionExecution, string sourceType = null)
+        {
+            var dto = MapActionExecutionToChangeLogDto(actionExecution);
+            
+            // Override operationType based on source type
+            if (!string.IsNullOrEmpty(sourceType))
+            {
+                switch (sourceType)
+                {
+                    case "Stage":
+                        dto.OperationType = OperationTypeEnum.StageActionExecution.ToString();
+                        dto.OperationTypeDisplayName = GetEnumDescription(OperationTypeEnum.StageActionExecution);
+                        dto.BusinessModule = BusinessModuleEnum.Stage.ToString();
+                        break;
+                    case "Task":
+                        dto.OperationType = OperationTypeEnum.TaskActionExecution.ToString();
+                        dto.OperationTypeDisplayName = GetEnumDescription(OperationTypeEnum.TaskActionExecution);
+                        dto.BusinessModule = BusinessModuleEnum.Task.ToString();
+                        break;
+                    case "Question":
+                        dto.OperationType = OperationTypeEnum.QuestionActionExecution.ToString();
+                        dto.OperationTypeDisplayName = GetEnumDescription(OperationTypeEnum.QuestionActionExecution);
+                        dto.BusinessModule = BusinessModuleEnum.Question.ToString();
+                        break;
+                }
+            }
+            
+            return dto;
+        }
+
+        /// <summary>
+        /// Convert ActionExecutionWithActionInfoDto to OperationChangeLogOutputDto (original method)
+        /// </summary>
+        private OperationChangeLogOutputDto MapActionExecutionToChangeLogDto(ActionExecutionWithActionInfoDto actionExecution)
+        {
+            // Calculate duration if not available
+            var duration = actionExecution.DurationMs;
+            if (!duration.HasValue && actionExecution.StartedAt.HasValue && actionExecution.CompletedAt.HasValue)
+            {
+                duration = (long)(actionExecution.CompletedAt.Value - actionExecution.StartedAt.Value).TotalMilliseconds;
+            }
+
+            // Extract action name and type, fallback to defaults if empty
+            var actionName = !string.IsNullOrEmpty(actionExecution.ActionName) 
+                ? actionExecution.ActionName 
+                : $"Action-{actionExecution.ActionCode}";
+            var actionType = !string.IsNullOrEmpty(actionExecution.ActionType) 
+                ? actionExecution.ActionType 
+                : "Python";
+
+            // Generate title and description
+            var operationTitle = $"Action Executed: {actionName}";
+            var operationDescription = GenerateActionDescription(actionExecution, actionType, duration);
+
+            // Generate operation type based on execution status
+            var operationType = GetActionExecutionOperationType(actionExecution.ExecutionStatus);
+            var operationTypeDisplayName = GetActionExecutionTypeDisplayName(actionExecution.ExecutionStatus);
+
+            // Parse and include execution output in extended data
+            var extendedData = GenerateActionExtendedData(actionExecution);
+
+            // Set operator name with special handling for system operations
+            var operatorName = !string.IsNullOrEmpty(actionExecution.CreatedBy) 
+                ? actionExecution.CreatedBy 
+                : "1"; // Default to "1" for system operations
+            
+            // Convert "1" to empty string as per business requirement
+            if (string.Equals(operatorName, "1", StringComparison.OrdinalIgnoreCase))
+            {
+                operatorName = "";
+            }
+
+            return new OperationChangeLogOutputDto
+            {
+                Id = actionExecution.Id,
+                OperationType = operationType,
+                OperationTypeDisplayName = operationTypeDisplayName,
+                BusinessModule = "ActionExecution",
+                BusinessId = actionExecution.Id,
+                OperationTitle = operationTitle,
+                OperationDescription = operationDescription,
+                BeforeData = null, // Action executions don't have before/after data
+                AfterData = null,
+                ChangedFields = new List<string>(),
+                ExtendedData = extendedData,
+                OperationStatus = GetActionExecutionOperationStatus(actionExecution.ExecutionStatus),
+                OperationStatusDisplayName = GetActionExecutionStatusDisplayName(actionExecution.ExecutionStatus),
+                ErrorMessage = actionExecution.ErrorMessage,
+                OperationTime = actionExecution.StartedAt ?? actionExecution.CreatedAt,
+                OperatorName = operatorName,
+                CreateDate = actionExecution.CreatedAt,
+                ModifyDate = actionExecution.CompletedAt ?? actionExecution.CreatedAt,
+                CreateBy = actionExecution.CreatedBy,
+                ModifyBy = actionExecution.CreatedBy,
+                CreateUserId = 0, // ActionExecution doesn't have UserId fields
+                ModifyUserId = 0
+            };
+        }
+
+        /// <summary>
+        /// Generate action execution description with rich information
+        /// </summary>
+        private string GenerateActionDescription(ActionExecutionWithActionInfoDto execution, string actionType, long? duration)
+        {
+            var status = execution.ExecutionStatus?.ToLower();
+            var durationText = duration.HasValue ? $" (Duration: {duration}ms)" : "";
+
+            var description = status switch
+            {
+                "success" or "completed" => $"{actionType} action completed successfully{durationText}",
+                "failed" => $"{actionType} action failed: {GetActionErrorMessage(execution)}",
+                "running" => $"{actionType} action is currently running",
+                "pending" => $"{actionType} action is pending execution",
+                "cancelled" => $"{actionType} action was cancelled",
+                _ => $"{actionType} action status: {execution.ExecutionStatus}"
+            };
+
+            // Add detailed execution output information for all executions
+            if (!string.IsNullOrEmpty(execution.ExecutionOutput))
+            {
+                try
+                {
+                    var executionOutputToken = JToken.Parse(execution.ExecutionOutput);
+                    var outputDetails = GetFriendlyExecutionOutput(executionOutputToken);
+                    if (!string.IsNullOrEmpty(outputDetails))
+                    {
+                        description += $". {outputDetails}";
+                    }
+                }
+                catch
+                {
+                    // Ignore JSON parsing errors
+                }
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Get action execution operation type
+        /// </summary>
+        private string GetActionExecutionOperationType(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "ActionExecutionSuccess",
+                "failed" => "ActionExecutionFailed",
+                "running" => "ActionExecutionRunning",
+                "pending" => "ActionExecutionPending",
+                "cancelled" => "ActionExecutionCancelled",
+                _ => "ActionExecution"
+            };
+        }
+
+        /// <summary>
+        /// Get action execution type display name
+        /// </summary>
+        private string GetActionExecutionTypeDisplayName(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "Action Execution Success",
+                "failed" => "Action Execution Failed",
+                "running" => "Action Execution Running",
+                "pending" => "Action Execution Pending",
+                "cancelled" => "Action Execution Cancelled",
+                _ => "Action Execution"
+            };
+        }
+
+        /// <summary>
+        /// Get action execution operation status
+        /// </summary>
+        private string GetActionExecutionOperationStatus(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => OperationStatusEnum.Success.ToString(),
+                "failed" => OperationStatusEnum.Failed.ToString(),
+                "running" => OperationStatusEnum.InProgress.ToString(),
+                "pending" => OperationStatusEnum.Pending.ToString(),
+                "cancelled" => OperationStatusEnum.Cancelled.ToString(),
+                _ => OperationStatusEnum.Unknown.ToString()
+            };
+        }
+
+        /// <summary>
+        /// Get action execution status display name
+        /// </summary>
+        private string GetActionExecutionStatusDisplayName(string executionStatus)
+        {
+            return executionStatus?.ToLower() switch
+            {
+                "success" or "completed" => "Completed Successfully",
+                "failed" => "Failed",
+                "running" => "In Progress",
+                "pending" => "Pending",
+                "cancelled" => "Cancelled",
+                _ => "Unknown"
+            };
+        }
+
+        /// <summary>
+        /// Get error message from action execution
+        /// </summary>
+        private string GetActionErrorMessage(ActionExecutionWithActionInfoDto execution)
+        {
+            if (!string.IsNullOrEmpty(execution.ErrorMessage))
+                return execution.ErrorMessage;
+
+            try
+            {
+                if (!string.IsNullOrEmpty(execution.ExecutionOutput))
+                {
+                    var output = JToken.Parse(execution.ExecutionOutput);
+                    if (output.Type == JTokenType.Object)
+                    {
+                        var outputObj = output as JObject;
+                        if (outputObj?.TryGetValue("message", out var message) == true)
+                        {
+                            return message.ToString();
+                        }
+                        if (outputObj?.TryGetValue("errorDetails", out var errorDetails) == true)
+                        {
+                            return errorDetails.ToString();
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return "Unknown error";
+        }
+
+        /// <summary>
+        /// Get action output summary
+        /// </summary>
+        private string GetActionOutputSummary(Newtonsoft.Json.Linq.JToken executionOutput)
+        {
+            try
+            {
+                if (executionOutput?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                {
+                    var output = executionOutput as Newtonsoft.Json.Linq.JObject;
+                    if (output == null) return "";
+
+                    var summaryParts = new List<string>();
+
+                    // Check for stdout content
+                    if (output.TryGetValue("stdout", out var stdout) && !string.IsNullOrWhiteSpace(stdout.ToString()))
+                    {
+                        var stdoutText = stdout.ToString().Trim();
+                        if (stdoutText.Length > 50)
+                            stdoutText = stdoutText.Substring(0, 50) + "...";
+                        summaryParts.Add($"Output: {stdoutText}");
+                    }
+
+                    // Check for memory usage
+                    if (output.TryGetValue("memoryUsage", out var memory) && long.TryParse(memory.ToString(), out var memoryBytes))
+                    {
+                        var memoryKB = memoryBytes / 1024.0;
+                        summaryParts.Add($"Memory: {memoryKB:F1}KB");
+                    }
+
+                    // Check for execution status/token
+                    if (output.TryGetValue("status", out var statusToken))
+                    {
+                        summaryParts.Add($"Status: {statusToken}");
+                    }
+
+                    return string.Join(", ", summaryParts);
+                }
+            }
+            catch { }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Get action context summary
+        /// </summary>
+        private string GetActionContextSummary(Newtonsoft.Json.Linq.JToken triggerContext)
+        {
+            try
+            {
+                if (triggerContext?.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                {
+                    var context = triggerContext as Newtonsoft.Json.Linq.JObject;
+                    if (context == null) return "";
+
+                    var summaryParts = new List<string>();
+
+                    // Extract key information from trigger context
+                    foreach (var prop in context.Properties())
+                    {
+                        if (prop.Name.ToLower() == "workflowid")
+                        {
+                            summaryParts.Add($"Workflow: {prop.Value}");
+                        }
+                        else if (!prop.Name.ToLower().Contains("id") && 
+                                 !prop.Name.ToLower().Contains("event") && 
+                                 !prop.Name.ToLower().Contains("source"))
+                        {
+                            summaryParts.Add($"{prop.Name}: {prop.Value}");
+                        }
+                    }
+
+                    return string.Join(", ", summaryParts);
+                }
+            }
+            catch { }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Generate extended data for action execution including full execution output
+        /// </summary>
+        private string GenerateActionExtendedData(ActionExecutionWithActionInfoDto actionExecution)
+        {
+            try
+            {
+                var extendedData = new
+                {
+                    ActionCode = actionExecution.ActionCode,
+                    ActionType = actionExecution.ActionType,
+                    ExecutionId = actionExecution.ExecutionId,
+                    ExecutionStatus = actionExecution.ExecutionStatus,
+                    StartedAt = actionExecution.StartedAt,
+                    CompletedAt = actionExecution.CompletedAt,
+                    DurationMs = actionExecution.DurationMs,
+                    TriggerContext = !string.IsNullOrEmpty(actionExecution.TriggerContext) 
+                        ? JToken.Parse(actionExecution.TriggerContext) 
+                        : null,
+                    ExecutionInput = !string.IsNullOrEmpty(actionExecution.ExecutionInput) 
+                        ? JToken.Parse(actionExecution.ExecutionInput) 
+                        : null,
+                    ExecutionOutput = !string.IsNullOrEmpty(actionExecution.ExecutionOutput) 
+                        ? JToken.Parse(actionExecution.ExecutionOutput) 
+                        : null,
+                    ErrorMessage = actionExecution.ErrorMessage,
+                    ErrorStackTrace = actionExecution.ErrorStackTrace,
+                    ExecutorInfo = !string.IsNullOrEmpty(actionExecution.ExecutorInfo) 
+                        ? JToken.Parse(actionExecution.ExecutorInfo) 
+                        : null
+                };
+
+                return JsonSerializer.Serialize(extendedData, new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to generate extended data for action execution {ExecutionId}", actionExecution.ExecutionId);
+                
+                // Fallback to simpler format
+                return JsonSerializer.Serialize(new
+                {
+                    ActionCode = actionExecution.ActionCode,
+                    ExecutionStatus = actionExecution.ExecutionStatus,
+                    ErrorMessage = actionExecution.ErrorMessage
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get friendly execution output description for operation description
+        /// </summary>
+        private string GetFriendlyExecutionOutput(Newtonsoft.Json.Linq.JToken executionOutput)
+        {
+            try
+            {
+                if (executionOutput?.Type != Newtonsoft.Json.Linq.JTokenType.Object)
+                    return "";
+
+                var output = executionOutput as Newtonsoft.Json.Linq.JObject;
+                if (output == null) return "";
+
+                var details = new List<string>();
+
+                // Extract key information in a user-friendly way
+                if (output.TryGetValue("success", out var success))
+                {
+                    var isSuccess = success.Value<bool>();
+                    details.Add($"Result: {(isSuccess ? "Success" : "Failed")}");
+                }
+
+                if (output.TryGetValue("status", out var status))
+                {
+                    details.Add($"Status: {status}");
+                }
+
+                if (output.TryGetValue("message", out var message) && !string.IsNullOrEmpty(message.ToString()))
+                {
+                    var messageText = message.ToString();
+                    if (messageText.Length > 100)
+                        messageText = messageText.Substring(0, 100) + "...";
+                    details.Add($"Message: {messageText}");
+                }
+
+                if (output.TryGetValue("executionTime", out var execTime))
+                {
+                    details.Add($"Execution Time: {execTime}s");
+                }
+
+                if (output.TryGetValue("memoryUsage", out var memory) && long.TryParse(memory.ToString(), out var memoryBytes))
+                {
+                    var memoryKB = memoryBytes / 1024.0;
+                    details.Add($"Memory Usage: {memoryKB:F1}KB");
+                }
+
+                if (output.TryGetValue("token", out var token) && !string.IsNullOrEmpty(token.ToString()))
+                {
+                    var tokenStr = token.ToString();
+                    if (tokenStr.Length > 12)
+                        tokenStr = tokenStr.Substring(0, 8) + "...";
+                    details.Add($"Token: {tokenStr}");
+                }
+
+                // Extract summary from stdout if available
+                if (output.TryGetValue("stdout", out var stdout) && !string.IsNullOrEmpty(stdout.ToString()))
+                {
+                    var stdoutText = stdout.ToString().Trim();
+                    
+                    // Look for specific patterns in stdout
+                    if (stdoutText.Contains("Action completed successfully"))
+                    {
+                        details.Add("Output: Action completed successfully");
+                    }
+                    else if (stdoutText.Contains("=== Action Execution Started ==="))
+                    {
+                        details.Add("Output: Execution started and processed");
+                    }
+                    else if (stdoutText.Length > 0)
+                    {
+                        // Extract first meaningful line
+                        var lines = stdoutText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                        var meaningfulLine = lines.FirstOrDefault(line => 
+                            !line.Trim().StartsWith("===") && 
+                            !string.IsNullOrWhiteSpace(line.Trim()));
+                        
+                        if (!string.IsNullOrEmpty(meaningfulLine))
+                        {
+                            if (meaningfulLine.Length > 50)
+                                meaningfulLine = meaningfulLine.Substring(0, 50) + "...";
+                            details.Add($"Output: {meaningfulLine.Trim()}");
+                        }
+                    }
+                }
+
+                if (output.TryGetValue("stderr", out var stderr) && 
+                    stderr != null && 
+                    !string.IsNullOrEmpty(stderr.ToString()) && 
+                    stderr.ToString().ToLower() != "null")
+                {
+                    var stderrText = stderr.ToString();
+                    if (stderrText.Length > 50)
+                        stderrText = stderrText.Substring(0, 50) + "...";
+                    details.Add($"Error: {stderrText}");
+                }
+
+                return string.Join(", ", details);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to parse friendly execution output");
+                return "";
+            }
+        }
+
+        /// <summary>
+        /// Get operation log list for task
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByTaskAsync(long taskId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs for task
+                List<OperationChangeLog> logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Task.ToString(), taskId);
+
+                // Apply filters
+                if (onboardingId.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                }
+
+                if (operationType.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                }
+
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Get action execution logs if requested
+                if (includeActionExecutions)
+                {
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            taskId, 1, 1000, jsonConditions); // Get more records for merging with filtering
+
+                        // Convert action executions to change log DTOs
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(ae => MapActionExecutionToChangeLogDto(ae, "Task"))
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        _logger.LogInformation($"Integrated {actionExecutionDtos.Count} action executions for taskId {taskId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for taskId {TaskId}, continuing without action logs", taskId);
+                        // Continue without action executions rather than failing the entire request
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = pagedLogs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting operation logs for task {TaskId}", taskId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get operation log list for question
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByQuestionAsync(long questionId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs for question
+                List<OperationChangeLog> logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Question.ToString(), questionId);
+
+                // Apply filters
+                if (onboardingId.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                }
+
+                if (operationType.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                }
+
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Get action execution logs if requested
+                if (includeActionExecutions)
+                {
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            questionId, 1, 1000, jsonConditions); // Get more records for merging with filtering
+
+                        // Convert action executions to change log DTOs
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(ae => MapActionExecutionToChangeLogDto(ae, "Question"))
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        _logger.LogInformation($"Integrated {actionExecutionDtos.Count} action executions for questionId {questionId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for questionId {QuestionId}, continuing without action logs", questionId);
+                        // Continue without action executions rather than failing the entire request
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = pagedLogs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting operation logs for question {QuestionId}", questionId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get operation log list for stage components (all related tasks and questions)
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                List<OperationChangeLogOutputDto> allLogs = new List<OperationChangeLogOutputDto>();
+
+                // Get operation change logs using the same logic as the original GetOperationLogsAsync method
+                List<OperationChangeLog> logs;
+
+                // Use the same logic as GetOperationLogsAsync to get comprehensive operation logs
+                if (onboardingId.HasValue)
+                {
+                    logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId);
+                }
+                else
+                {
+                    logs = await _operationChangeLogRepository.GetByStageIdAsync(stageId);
+                }
+
+                // Apply operationType filter if provided
+                if (operationType.HasValue && logs.Any())
+                {
+                    logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                }
+
+                // Convert operation logs to output DTOs
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+                allLogs.AddRange(operationLogDtos);
+
+                // Additionally, get operation logs for all tasks and questions in this stage
+                await CollectTaskAndQuestionOperationLogsAsync(stageId, onboardingId, operationType, allLogs);
+
+                if (includeActionExecutions)
+                {
+                    try
+                    {
+                        // Get stage components using lazy service resolution to avoid circular dependency
+                        var stageService = _serviceProvider.GetRequiredService<IStageService>();
+                        var stageComponents = await stageService.GetComponentsAsync(stageId);
+                        _logger.LogDebug("Found {Count} components for stage {StageId}", stageComponents.Count, stageId);
+
+                        // Collect source IDs with their types for proper operationType assignment
+                        var sourceIdTypes = new Dictionary<long, string>();
+
+                        // Add stage itself for stage-level actions
+                        sourceIdTypes.Add(stageId, "Stage");
+
+                        // Process stage components to collect all task and question IDs with types
+                        await CollectAllSourceIdsFromStageComponentsAsync(stageComponents, sourceIdTypes);
+
+                        _logger.LogDebug("Total source IDs for action executions: {Count} - [{SourceIds}]", 
+                            sourceIdTypes.Count, string.Join(", ", sourceIdTypes.Keys));
+
+                        // Get action executions for all collected source IDs with proper operationType
+                        // Since they all use the same API: /api/action/v1/executions/trigger-source/{sourceId}/search
+                        await CollectActionExecutionsForAllSourceIdsAsync(sourceIdTypes, allLogs, onboardingId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to process stage components for action executions, continuing without component actions");
+                    }
+                }
+
+                // Sort all logs by operation time (descending)
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // Apply pagination to combined results
+                int totalCount = allLogs.Count;
+                var pagedLogs = allLogs
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = pagedLogs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting operation logs for stage components {StageId}", stageId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Collect operation logs for all tasks and questions in this stage
+        /// </summary>
+        private async Task CollectTaskAndQuestionOperationLogsAsync(long stageId, long? onboardingId, OperationTypeEnum? operationType, List<OperationChangeLogOutputDto> allLogs)
+        {
+            try
+            {
+                // Get stage components to find all tasks and questions
+                var stageService = _serviceProvider.GetRequiredService<IStageService>();
+                var stageComponents = await stageService.GetComponentsAsync(stageId);
+                _logger.LogDebug("Found {Count} components for stage {StageId}", stageComponents.Count, stageId);
+
+                // Collect task and question IDs
+                var taskIds = new List<long>();
+                var questionIds = new List<long>();
+                await CollectTaskAndQuestionIdsAsync(stageComponents, taskIds, questionIds);
+
+                // Get operation logs for all tasks
+                await CollectOperationLogsForTasksAsync(taskIds, onboardingId, operationType, allLogs);
+
+                // Get operation logs for all questions
+                await CollectOperationLogsForQuestionsAsync(questionIds, onboardingId, operationType, allLogs);
+
+                _logger.LogDebug("Collected operation logs for {TaskCount} tasks and {QuestionCount} questions", 
+                    taskIds.Count, questionIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting task and question operation logs for stage {StageId}", stageId);
+            }
+        }
+
+        /// <summary>
+        /// Collect task and question IDs from stage components
+        /// </summary>
+        private async Task CollectTaskAndQuestionIdsAsync(List<StageComponent> stageComponents, List<long> taskIds, List<long> questionIds)
+        {
+            try
+            {
+                // Collect task IDs from checklist components
+                var checklistComponents = stageComponents.Where(c => c.Key == "checklist").ToList();
+                if (checklistComponents.Any())
+                {
+                    var checklistIdsList = checklistComponents
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    if (checklistIdsList.Any())
+                    {
+                        var checklistService = _serviceProvider.GetRequiredService<IChecklistService>();
+                        var checklists = await checklistService.GetByIdsAsync(checklistIdsList);
+                        
+                        foreach (var checklist in checklists)
+                        {
+                            if (checklist.Tasks?.Any() == true)
+                            {
+                                taskIds.AddRange(checklist.Tasks.Select(t => t.Id));
+                            }
+                        }
+                    }
+                }
+
+                // Collect question IDs from questionnaire components
+                var questionnaireComponents = stageComponents.Where(c => c.Key == "questionnaires").ToList();
+                if (questionnaireComponents.Any())
+                {
+                    var questionnaireIdsList = questionnaireComponents
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    if (questionnaireIdsList.Any())
+                    {
+                        var questionnaireService = _serviceProvider.GetRequiredService<IQuestionnaireService>();
+                        var questionnaires = await questionnaireService.GetByIdsAsync(questionnaireIdsList);
+                        
+                        foreach (var questionnaire in questionnaires)
+                        {
+                            if (string.IsNullOrWhiteSpace(questionnaire.StructureJson)) continue;
+
+                            try
+                            {
+                                var structureData = JsonSerializer.Deserialize<QuestionnaireStructure>(
+                                    questionnaire.StructureJson, 
+                                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                                if (structureData?.Sections?.Any() != true) continue;
+
+                                foreach (var section in structureData.Sections)
+                                {
+                                    var allQuestions = new List<QuestionnaireQuestion>();
+                                    if (section.Items?.Any() == true) allQuestions.AddRange(section.Items);
+                                    if (section.Questions?.Any() == true) allQuestions.AddRange(section.Questions);
+                                    
+                                    allQuestions = allQuestions.GroupBy(q => q.Id).Select(g => g.First()).ToList();
+
+                                    foreach (var question in allQuestions)
+                                    {
+                                        if (long.TryParse(question.Id, out long questionIdLong))
+                                        {
+                                            questionIds.Add(questionIdLong);
+                                        }
+                                    }
+                                }
+                            }
+                            catch (JsonException ex)
+                            {
+                                _logger.LogError(ex, "Error parsing StructureJson for questionnaire {QuestionnaireId}", questionnaire.Id);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting task and question IDs from stage components");
+            }
+        }
+
+        /// <summary>
+        /// Collect operation logs for tasks
+        /// </summary>
+        private async Task CollectOperationLogsForTasksAsync(List<long> taskIds, long? onboardingId, OperationTypeEnum? operationType, List<OperationChangeLogOutputDto> allLogs)
+        {
+            try
+            {
+                foreach (var taskId in taskIds)
+                {
+                    var taskLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Task.ToString(), taskId);
+
+                    // Apply filters
+                    if (onboardingId.HasValue && taskLogs.Any())
+                    {
+                        taskLogs = taskLogs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                    }
+
+                    if (operationType.HasValue && taskLogs.Any())
+                    {
+                        taskLogs = taskLogs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                    }
+
+                    // Convert to DTOs and add to allLogs
+                    var taskLogDtos = taskLogs.Select(MapToOutputDto).ToList();
+                    allLogs.AddRange(taskLogDtos);
+                }
+
+                _logger.LogDebug("Collected operation logs for {TaskCount} tasks", taskIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting operation logs for tasks");
+            }
+        }
+
+        /// <summary>
+        /// Collect operation logs for questions
+        /// </summary>
+        private async Task CollectOperationLogsForQuestionsAsync(List<long> questionIds, long? onboardingId, OperationTypeEnum? operationType, List<OperationChangeLogOutputDto> allLogs)
+        {
+            try
+            {
+                foreach (var questionId in questionIds)
+                {
+                    var questionLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Question.ToString(), questionId);
+
+                    // Apply filters
+                    if (onboardingId.HasValue && questionLogs.Any())
+                    {
+                        questionLogs = questionLogs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                    }
+
+                    if (operationType.HasValue && questionLogs.Any())
+                    {
+                        questionLogs = questionLogs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                    }
+
+                    // Convert to DTOs and add to allLogs
+                    var questionLogDtos = questionLogs.Select(MapToOutputDto).ToList();
+                    allLogs.AddRange(questionLogDtos);
+                }
+
+                _logger.LogDebug("Collected operation logs for {QuestionCount} questions", questionIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting operation logs for questions");
+            }
+        }
+
+        /// <summary>
+        /// Collect all source IDs (tasks and questions) from stage components with their types
+        /// All IDs will be used the same way: /api/action/v1/executions/trigger-source/{sourceId}/search
+        /// </summary>
+        private async Task CollectAllSourceIdsFromStageComponentsAsync(List<StageComponent> stageComponents, Dictionary<long, string> sourceIdTypes)
+        {
+            try
+            {
+                // Reuse the same logic for collecting IDs
+                var taskIds = new List<long>();
+                var questionIds = new List<long>();
+                await CollectTaskAndQuestionIdsAsync(stageComponents, taskIds, questionIds);
+
+                // Add to sourceIdTypes with correct types
+                foreach (var taskId in taskIds)
+                {
+                    sourceIdTypes.TryAdd(taskId, "Task");
+                }
+
+                foreach (var questionId in questionIds)
+                {
+                    sourceIdTypes.TryAdd(questionId, "Question");
+                }
+
+                _logger.LogDebug("Collected {TaskCount} task IDs and {QuestionCount} question IDs for action executions", 
+                    taskIds.Count, questionIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting source IDs from stage components");
+            }
+        }
+
+
+
+        /// <summary>
+        /// Collect action executions for all source IDs using the unified API
+        /// All source IDs (stage, task, question) use the same API: /api/action/v1/executions/trigger-source/{sourceId}/search
+        /// </summary>
+        private async Task CollectActionExecutionsForAllSourceIdsAsync(Dictionary<long, string> sourceIdTypes, List<OperationChangeLogOutputDto> allLogs, long? onboardingId)
+        {
+            try
+            {
+                var totalActionExecutions = 0;
+
+                foreach (var kvp in sourceIdTypes)
+                {
+                    var sourceId = kvp.Key;
+                    var sourceType = kvp.Value;
+
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        // Call the unified API: /api/action/v1/executions/trigger-source/{sourceId}/search
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            sourceId, 1, 1000, jsonConditions);
+
+                        if (actionExecutionsResult.Data.Any())
+                        {
+                            var actionExecutionDtos = actionExecutionsResult.Data
+                                .Select(ae => MapActionExecutionToChangeLogDto(ae, sourceType))
+                                .ToList();
+                            allLogs.AddRange(actionExecutionDtos);
+
+                            totalActionExecutions += actionExecutionDtos.Count;
+                            _logger.LogDebug("Added {Count} {SourceType} action executions for sourceId {SourceId}", 
+                                actionExecutionDtos.Count, sourceType, sourceId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}, continuing", sourceType, sourceId);
+                    }
+                }
+
+                _logger.LogInformation("Total action executions collected: {TotalCount} from {SourceIdCount} source IDs", 
+                    totalActionExecutions, sourceIdTypes.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting action executions for all source IDs");
+            }
+        }
+
+
 
         #endregion
     }

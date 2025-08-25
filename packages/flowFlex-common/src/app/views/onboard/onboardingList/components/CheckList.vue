@@ -97,8 +97,12 @@
 <script setup lang="ts">
 import { defaultStr } from '@/settings/projectSetting';
 import { Check } from '@element-plus/icons-vue';
+import { ElMessageBox } from 'element-plus';
 import { computed } from 'vue';
 import { ChecklistData, TaskData } from '#/onboard';
+import { useI18n } from '@/hooks/useI18n';
+
+const { t } = useI18n();
 
 // Props
 interface Props {
@@ -138,11 +142,37 @@ const overallCompletionRate = computed(() => {
 });
 
 // 方法
-const toggleTask = (task: TaskData) => {
-	emit('taskToggled', {
-		...task,
-		isCompleted: !task.isCompleted,
-	});
+const toggleTask = async (task: TaskData) => {
+	if (task.isCompleted) {
+		// 当任务已完成时，需要确认是否撤销
+		try {
+			await ElMessageBox.confirm(
+				'Are you sure you want to undo this completed task? This action will mark the task as incomplete.',
+				'Confirm Undo Task',
+				{
+					confirmButtonText: t('sys.app.confirmText'),
+					cancelButtonText: t('sys.app.cancelText'),
+					type: 'warning',
+					showClose: true,
+				}
+			);
+
+			// 用户确认后执行撤销操作
+			emit('taskToggled', {
+				...task,
+				isCompleted: !task.isCompleted,
+			});
+		} catch (error) {
+			// 用户取消操作，不执行任何操作
+			console.log('User cancelled the undo operation');
+		}
+	} else {
+		// 任务未完成时，直接标记为完成
+		emit('taskToggled', {
+			...task,
+			isCompleted: !task.isCompleted,
+		});
+	}
 };
 
 // 格式化日期显示
@@ -266,6 +296,9 @@ const formatDate = (dateString: string | null): string => {
 	border: 1px solid #e5e7eb;
 	transition: all 0.2s ease;
 	cursor: pointer;
+	/* 确保卡片不会被内容撑开 */
+	min-width: 0;
+	overflow: hidden;
 
 	&:hover:not(.completed) {
 		border-color: #3b82f6;
@@ -312,6 +345,8 @@ const formatDate = (dateString: string | null): string => {
 .item-content {
 	flex: 1;
 	min-width: 0;
+	/* 确保内容不会撑开父容器 */
+	overflow: hidden;
 }
 
 .item-title {
@@ -320,6 +355,11 @@ const formatDate = (dateString: string | null): string => {
 	margin: 0 0 4px 0;
 	color: #1f2937;
 	transition: all 0.2s ease;
+	/* 处理长文本，防止撑开容器 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
 
 	.completed & {
 		text-decoration: line-through;
@@ -332,6 +372,11 @@ const formatDate = (dateString: string | null): string => {
 	margin: 0 0 8px 0;
 	color: #6b7280;
 	line-height: 1.4;
+	/* 限制描述文本最多显示3行 */
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
 }
 
 .completion-info {
@@ -340,6 +385,9 @@ const formatDate = (dateString: string | null): string => {
 	gap: 6px;
 	font-size: 12px;
 	color: #10b981;
+	/* 确保完成信息不会撑开容器 */
+	min-width: 0;
+	overflow: hidden;
 }
 
 .completion-icon {
@@ -349,6 +397,10 @@ const formatDate = (dateString: string | null): string => {
 
 .completion-text {
 	font-size: 12px;
+	/* 防止长邮箱地址撑开容器 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .item-status {

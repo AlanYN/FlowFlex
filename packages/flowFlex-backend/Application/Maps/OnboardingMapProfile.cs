@@ -30,20 +30,31 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
 
-            // ʵ嵽DTOӳ
+            // Entity to DTO mapping
             CreateMap<Onboarding, OnboardingOutputDto>()
                 .ForMember(dest => dest.WorkflowName, opt => opt.Ignore())
-                .ForMember(dest => dest.CurrentStageName, opt => opt.Ignore());
+                .ForMember(dest => dest.CurrentStageName, opt => opt.Ignore())
+                .ForMember(dest => dest.CurrentStageEndTime, opt => opt.Ignore())
+                .ForMember(dest => dest.CurrentStageEstimatedDays, opt => opt.Ignore());
 
-            // OnboardingStageProgress  OnboardingStageProgressDto ӳ
+            // OnboardingStageProgress to OnboardingStageProgressDto mapping
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
-                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)));
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
+                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime))
+                // AI summary fields
+                .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
+                .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
+                .ForMember(dest => dest.AiSummaryConfidence, opt => opt.MapFrom(src => src.AiSummaryConfidence))
+                .ForMember(dest => dest.AiSummaryModel, opt => opt.MapFrom(src => src.AiSummaryModel))
+                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components));

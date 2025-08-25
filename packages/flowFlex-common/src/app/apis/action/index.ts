@@ -138,6 +138,13 @@ export function deleteMappingAction(id: string) {
 	});
 }
 
+export function addMappingAction(data: any) {
+	return defHttp.post({
+		url: `${Api().mappingAction}`,
+		data,
+	});
+}
+
 // Test result interface for different action types
 export interface TestResult {
 	success: boolean;

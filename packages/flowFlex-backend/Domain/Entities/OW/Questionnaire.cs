@@ -7,8 +7,10 @@ using SqlSugar;
 namespace FlowFlex.Domain.Entities.OW
 {
     /// <summary>
-    /// Simple assignment DTO for Questionnaire assignments
+    /// Simple assignment DTO for Questionnaire assignments (DEPRECATED)
+    /// Assignments are now managed through Stage Components only
     /// </summary>
+    [Obsolete("This DTO is deprecated. Assignments are now managed through Stage Components only.")]
     public class QuestionnaireAssignmentDto
     {
         public long WorkflowId { get; set; }
@@ -102,10 +104,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         public bool IsActive { get; set; } = true;
 
-        /// <summary>
-        /// Assignments JSONB storage (ORM-serialized as array)
-        /// </summary>
-        [SugarColumn(ColumnName = "assignments_json", ColumnDataType = "jsonb", IsJson = true)]
-        public List<QuestionnaireAssignmentDto>? Assignments { get; set; } = new List<QuestionnaireAssignmentDto>();
+        // Assignments property removed - now managed through Stage Components only
+        // Legacy support: Keep QuestionnaireAssignmentDto for backward compatibility in services that still reference it
     }
 }

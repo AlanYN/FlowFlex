@@ -16,6 +16,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
+using System.Text.Json;
+using FlowFlex.Domain.Repository.OW;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
@@ -31,22 +33,25 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IChecklistRepository _checklistRepository;
     private readonly IChecklistTaskRepository _checklistTaskRepository;
     private readonly IMapper _mapper;
-    private readonly IStageAssignmentSyncService _syncService;
+    private readonly IStageRepository _stageRepository;
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
+    private readonly IComponentMappingService _mappingService;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
         IChecklistTaskRepository checklistTaskRepository,
         IMapper mapper,
-        IStageAssignmentSyncService syncService,
+        IStageRepository stageRepository,
         UserContext userContext,
-        IOperatorContextService operatorContextService)
+        IOperatorContextService operatorContextService,
+        IComponentMappingService mappingService)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
         _mapper = mapper;
-        _syncService = syncService;
+        _mappingService = mappingService;
+        _stageRepository = stageRepository;
         _userContext = userContext;
         _operatorContextService = operatorContextService;
     }
@@ -70,42 +75,8 @@ public class ChecklistService : IChecklistService, IScopedService
         // Create a single checklist entity
         var entity = _mapper.Map<Checklist>(input);
 
-        // Handle assignments - store all assignments in JSON field
-        if (input.Assignments != null && input.Assignments.Any())
-        {
-            try
-            {
-                // Convert Application.Contracts.AssignmentDto to Domain.AssignmentDto
-                // Filter out assignments with invalid WorkflowId, but allow null StageId
-                entity.Assignments = input.Assignments
-                    .Where(a => a.WorkflowId > 0)
-                    .Select(a => new Domain.Entities.OW.AssignmentDto
-                    {
-                        WorkflowId = a.WorkflowId,
-                        StageId = a.StageId ?? 0 // Use 0 for null StageId
-                    }).ToList();
-
-                Console.WriteLine($"Created checklist with {entity.Assignments.Count} valid assignments out of {input.Assignments.Count} total assignments");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error processing assignments during creation: {ex.Message}");
-                // Log the raw assignment data for debugging
-                for (int i = 0; i < input.Assignments.Count; i++)
-                {
-                    var assignment = input.Assignments[i];
-                    Console.WriteLine($"Assignment {i}: WorkflowId={assignment.WorkflowId}, StageId={assignment.StageId}");
-                }
-
-                // Initialize empty assignments if processing fails
-                entity.Assignments = new List<Domain.Entities.OW.AssignmentDto>();
-            }
-        }
-        else
-        {
-            // Initialize empty assignments if none provided
-            entity.Assignments = new List<Domain.Entities.OW.AssignmentDto>();
-        }
+        // Assignments are no longer stored in Checklist entity
+        // They will be managed through Stage Components only
 
         // Initialize create information with proper ID and timestamps
         entity.InitCreateInfo(_userContext);
@@ -113,27 +84,7 @@ public class ChecklistService : IChecklistService, IScopedService
 
         await _checklistRepository.InsertAsync(entity);
 
-        // 获取有效的stage assignments用于同步
-        var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
-            .Select(a => (a.WorkflowId, a.StageId))
-            .ToList() ?? new List<(long, long)>();
-        
-        // 同步stage components
-        if (newAssignments.Any())
-        {
-            try
-            {
-                await _syncService.SyncStageComponentsFromChecklistAssignmentsAsync(
-                    entity.Id,
-                    new List<(long, long)>(), // 创建时没有旧assignments
-                    newAssignments);
-            }
-            catch (Exception ex)
-            {
-                // 记录错误但不影响创建操作
-                Console.WriteLine($"Failed to sync stage components for new checklist {entity.Id}: {ex.Message}");
-            }
-        }
+        // Sync service is no longer needed as assignments are managed through Stage Components
 
         return entity.Id;
     }
@@ -191,55 +142,8 @@ public class ChecklistService : IChecklistService, IScopedService
             }
         }
 
-        // Store old assignments for sync comparison
-        var oldAssignments = entity.Assignments?.Where(a => a.StageId > 0)
-            .Select(a => (a.WorkflowId, a.StageId))
-            .ToList() ?? new List<(long, long)>();
-
-        // Update the checklist entity
+        // Update the checklist entity (without assignments)
         _mapper.Map(input, entity);
-
-        // Handle assignments - store all assignments in JSON field
-        if (input.Assignments != null && input.Assignments.Any())
-        {
-            try
-            {
-                // Convert Application.Contracts.AssignmentDto to Domain.AssignmentDto
-                // Filter out assignments with invalid WorkflowId, but allow null StageId
-                entity.Assignments = input.Assignments
-                    .Where(a => a.WorkflowId > 0)
-                    .Select(a => new Domain.Entities.OW.AssignmentDto
-                    {
-                        WorkflowId = a.WorkflowId,
-                        StageId = a.StageId ?? 0 // Use 0 for null StageId
-                    }).ToList();
-
-                Console.WriteLine($"Processed {entity.Assignments.Count} valid assignments out of {input.Assignments.Count} total assignments");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error processing assignments: {ex.Message}");
-                // Log the raw assignment data for debugging
-                for (int i = 0; i < input.Assignments.Count; i++)
-                {
-                    var assignment = input.Assignments[i];
-                    Console.WriteLine($"Assignment {i}: WorkflowId={assignment.WorkflowId}, StageId={assignment.StageId}");
-                }
-
-                // Initialize empty assignments if processing fails
-                entity.Assignments = new List<Domain.Entities.OW.AssignmentDto>();
-            }
-        }
-        else
-        {
-            // Initialize empty assignments if none provided
-            entity.Assignments = new List<Domain.Entities.OW.AssignmentDto>();
-        }
-
-        // Get new assignments for sync comparison (only valid stage assignments)
-        var newAssignments = entity.Assignments?.Where(a => a.StageId > 0)
-            .Select(a => (a.WorkflowId, a.StageId))
-            .ToList() ?? new List<(long, long)>();
 
         // Initialize update information with proper timestamps
         entity.InitUpdateInfo(_userContext);
@@ -247,22 +151,7 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var result = await _checklistRepository.UpdateAsync(entity);
 
-        // Sync with stage components if update was successful
-        if (result)
-        {
-            try
-            {
-                await _syncService.SyncStageComponentsFromChecklistAssignmentsAsync(
-                    id,
-                    oldAssignments,
-                    newAssignments);
-            }
-            catch (Exception ex)
-            {
-                // Log sync error but don't fail the operation
-                Console.WriteLine($"Failed to sync stage components for checklist {id}: {ex.Message}");
-            }
-        }
+        // Sync service is no longer needed as assignments are managed through Stage Components
 
         return result;
     }
@@ -391,17 +280,16 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.CustomError, "Source checklist not found");
         }
 
-        // Validate name uniqueness
-        if (await _checklistRepository.IsNameExistsAsync(input.Name, input.TargetTeam ?? sourceChecklist.Team))
-        {
-            throw new CRMException(ErrorCodeEnum.CustomError,
-                $"Checklist name '{input.Name}' already exists");
-        }
+        // Determine base name and ensure uniqueness
+        var baseName = string.IsNullOrWhiteSpace(input.Name)
+            ? $"{sourceChecklist.Name} (Copy)"
+            : input.Name;
+        var uniqueName = await EnsureUniqueChecklistNameAsync(baseName, input.TargetTeam ?? sourceChecklist.Team);
 
         // Create new checklist with assignments copied
             var newChecklist = new Checklist
         {
-            Name = input.Name,
+            Name = uniqueName,
             Description = input.Description ?? sourceChecklist.Description,
             Team = input.TargetTeam ?? sourceChecklist.Team,
             Type = sourceChecklist.Type,
@@ -410,14 +298,7 @@ public class ChecklistService : IChecklistService, IScopedService
             TemplateId = sourceChecklist.IsTemplate ? sourceChecklist.Id : sourceChecklist.TemplateId,
             EstimatedHours = sourceChecklist.EstimatedHours,
             IsActive = true,
-                // Copy assignments from source checklist (JSONB list)
-                Assignments = sourceChecklist.Assignments != null
-                    ? sourceChecklist.Assignments.Select(a => new FlowFlex.Domain.Entities.OW.AssignmentDto
-                    {
-                        WorkflowId = a.WorkflowId,
-                        StageId = a.StageId
-                    }).ToList()
-                    : new List<FlowFlex.Domain.Entities.OW.AssignmentDto>(),
+                // Assignments are no longer stored in Checklist entity
             // Copy tenant and app information from source checklist
             TenantId = sourceChecklist.TenantId,
             AppCode = sourceChecklist.AppCode
@@ -471,6 +352,25 @@ public class ChecklistService : IChecklistService, IScopedService
         // Cache has been removed, no cleanup needed
 
         return newChecklistId;
+    }
+
+    private async Task<string> EnsureUniqueChecklistNameAsync(string baseName, string team = null)
+    {
+        var originalName = baseName;
+        var counter = 1;
+        var currentName = baseName;
+
+        while (true)
+        {
+            var exists = await _checklistRepository.IsNameExistsAsync(currentName, team);
+            if (!exists)
+            {
+                return currentName;
+            }
+
+            counter++;
+            currentName = $"{originalName} ({counter})";
+        }
     }
 
     /// <summary>
@@ -632,10 +532,11 @@ public class ChecklistService : IChecklistService, IScopedService
     /// </summary>
     public async Task<List<ChecklistOutputDto>> GetByStageIdAsync(long stageId)
     {
-        // Since GetByStageIdAsync method was removed, we need to get all checklists and filter by assignments
-        var (allChecklists, _) = await _checklistRepository.GetPagedAsync(1, int.MaxValue);
-        var checklists = allChecklists.Where(c =>
-            c.Assignments?.Any(a => a.StageId == stageId) == true).ToList();
+        var checklistIds = await GetChecklistIdsByStageIdAsync(stageId);
+        if (!checklistIds.Any())
+            return new List<ChecklistOutputDto>();
+            
+        var checklists = await _checklistRepository.GetByIdsAsync(checklistIds);
         var result = _mapper.Map<List<ChecklistOutputDto>>(checklists);
 
         // Fill assignments and tasks for the checklists
@@ -654,10 +555,20 @@ public class ChecklistService : IChecklistService, IScopedService
             return new List<ChecklistOutputDto>();
         }
 
-        // Since GetByStageIdsAsync method was removed, we need to get all checklists and filter by assignments
-        var (allChecklists, _) = await _checklistRepository.GetPagedAsync(1, int.MaxValue);
-        var checklists = allChecklists.Where(c =>
-            c.Assignments?.Any(a => stageIds.Contains(a.StageId)) == true).ToList();
+        var allChecklistIds = new HashSet<long>();
+        foreach (var stageId in stageIds)
+        {
+            var checklistIds = await GetChecklistIdsByStageIdAsync(stageId);
+            foreach (var id in checklistIds)
+            {
+                allChecklistIds.Add(id);
+            }
+        }
+        
+        if (!allChecklistIds.Any())
+            return new List<ChecklistOutputDto>();
+            
+        var checklists = await _checklistRepository.GetByIdsAsync(allChecklistIds.ToList());
         var result = _mapper.Map<List<ChecklistOutputDto>>(checklists);
 
         // Fill assignments and tasks for the checklists
@@ -678,31 +589,21 @@ public class ChecklistService : IChecklistService, IScopedService
             return response;
         }
 
-        // Batch query all checklists for all stages
-        var (allChecklistEntities, _) = await _checklistRepository.GetPagedAsync(1, int.MaxValue);
-        var allChecklists = allChecklistEntities.Where(c =>
-            c.Assignments?.Any(a => request.StageIds.Contains(a.StageId)) == true).ToList();
-
-        // Group by Stage ID - since each checklist can have multiple assignments, we need to handle this differently
-        var groupedChecklists = new Dictionary<long, List<ChecklistOutputDto>>();
-
+        // Get checklists for each stage from Stage Components
         foreach (var stageId in request.StageIds)
         {
-            var checklistsForStage = allChecklists.Where(c =>
-                c.Assignments?.Any(a => a.StageId == stageId) == true).ToList();
-            groupedChecklists[stageId] = _mapper.Map<List<ChecklistOutputDto>>(checklistsForStage);
-        }
-
-        // Fill assignments for all checklists
-        var allChecklistDtos = groupedChecklists.Values.SelectMany(list => list).ToList();
-        await FillAssignmentsAsync(allChecklistDtos);
-
-        // Populate response
-        foreach (var stageId in request.StageIds)
-        {
-            response.StageChecklists[stageId] = groupedChecklists.ContainsKey(stageId)
-                ? groupedChecklists[stageId]
-                : new List<ChecklistOutputDto>();
+            var checklistIds = await GetChecklistIdsByStageIdAsync(stageId);
+            if (checklistIds.Any())
+            {
+                var checklists = await _checklistRepository.GetByIdsAsync(checklistIds);
+                var checklistDtos = _mapper.Map<List<ChecklistOutputDto>>(checklists);
+                await FillAssignmentsAsync(checklistDtos);
+                response.StageChecklists[stageId] = checklistDtos;
+            }
+            else
+            {
+                response.StageChecklists[stageId] = new List<ChecklistOutputDto>();
+            }
         }
 
         return response;
@@ -724,13 +625,10 @@ ASSIGNMENTS:
 -----------
 ";
 
-        if (checklist.Assignments?.Any() == true)
-        {
-            foreach (var assignment in checklist.Assignments)
-            {
-                content += $"Workflow ID: {assignment.WorkflowId}, Stage ID: {assignment.StageId}\n";
-            }
-        }
+        // Assignments are now managed through Stage Components
+        // For PDF generation, we would need to query the assignments from Stage Components
+        // For now, show a placeholder message
+        content += "Assignments are now managed through Stage Components\n";
 
         return content;
     }
@@ -751,30 +649,28 @@ ASSIGNMENTS:
         if (checklists == null || !checklists.Any())
             return;
 
-        // Batch load checklist entities to access Assignments (avoid N+1)
         var checklistIds = checklists.Select(c => c.Id).ToList();
-        var entities = await _checklistRepository.GetByIdsAsync(checklistIds);
-        var entityById = entities?.ToDictionary(e => e.Id) ?? new Dictionary<long, Checklist>();
 
-        // Map assignments and calculate task statistics
+        Console.WriteLine($"[ChecklistService] Using mapping table to fill assignments for {checklistIds.Count} checklists");
+        
+        // Get assignments from mapping table (ultra-fast)
+        var assignments = await _mappingService.GetChecklistAssignmentsAsync(checklistIds);
+        
+        // Map assignments to checklists
         foreach (var checklist in checklists)
         {
-            var hasEntity = entityById.TryGetValue(checklist.Id, out var entity);
-            if (hasEntity && entity != null)
+            if (assignments.TryGetValue(checklist.Id, out var checklistAssignments))
             {
-                // Use the Assignments property from the entity (which reads from AssignmentsJson)
-                checklist.Assignments = entity.Assignments?.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                checklist.Assignments = checklistAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
                 {
                     WorkflowId = a.WorkflowId,
                     StageId = a.StageId
-                }).ToList() ?? new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                }).ToList();
             }
             else
             {
                 checklist.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
             }
-
-            // Defer task stats calculation after batch load
         }
 
         // Batch load tasks for all checklists (avoid N+1)
@@ -817,6 +713,31 @@ ASSIGNMENTS:
             {
                 checklist.Tasks = new List<ChecklistTaskOutputDto>();
             }
+        }
+    }
+
+
+
+    /// <summary>
+    /// Get checklist IDs by stage ID from mapping table (ultra-fast)
+    /// </summary>
+    private async Task<List<long>> GetChecklistIdsByStageIdAsync(long stageId)
+    {
+        try
+        {
+            Console.WriteLine($"[ChecklistService] Getting checklist IDs for stage {stageId} using ComponentMappingService");
+            
+            // Use ComponentMappingService for ultra-fast mapping table query
+            var checklistIds = await _mappingService.GetChecklistIdsByWorkflowStageAsync(null, stageId);
+            
+            Console.WriteLine($"[ChecklistService] ComponentMappingService found {checklistIds.Count} checklist IDs for stage {stageId}: [{string.Join(", ", checklistIds)}]");
+            
+            return checklistIds;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ChecklistService] Error getting checklist IDs for stage {stageId}: {ex.Message}");
+            return new List<long>();
         }
     }
 }

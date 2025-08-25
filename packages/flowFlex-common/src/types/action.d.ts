@@ -9,9 +9,9 @@ export interface ActionDefinition {
 	createdAt?: string;
 	updatedAt?: string;
 	triggerMappings?: TriggerMapping[];
-	workflowId: string;
-	triggerSourceId: string;
-	triggerType: number;
+	workflowId: string | null;
+	triggerSourceId: string | null;
+	triggerType: number | null;
 }
 
 export interface TriggerMapping {
@@ -39,6 +39,7 @@ export interface ActionQueryRequest {
 	isAssignmentQuestionnaire?: boolean;
 	pageIndex?: number;
 	pageSize?: number;
+	isTools?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -64,7 +65,9 @@ export interface ActionItem {
 	name: string;
 	type: 'python' | 'http';
 	description: string;
+	condition: string;
 	actionConfig: ActionConfig;
+	isTools: boolean;
 }
 
 export interface ActionListItem {

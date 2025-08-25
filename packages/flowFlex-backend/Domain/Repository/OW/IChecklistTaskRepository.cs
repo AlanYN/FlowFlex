@@ -56,5 +56,10 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get next order number for checklist
         /// </summary>
         Task<int> GetNextOrderAsync(long checklistId);
+
+        /// <summary>
+        /// Get tasks by action ID
+        /// </summary>
+        Task<List<ChecklistTask>> GetTasksByActionIdAsync(long actionId);
     }
 }

@@ -1,5 +1,5 @@
 <template>
-	<div class="new-workflow-form">
+	<div class="new-workflow-form p-1">
 		<el-form
 			ref="formRef"
 			:model="formData"
@@ -291,7 +291,6 @@ const emit = defineEmits(['submit', 'cancel']);
 
 <style scoped>
 .new-workflow-form {
-	padding: 0;
 	margin-top: 5px;
 }
 

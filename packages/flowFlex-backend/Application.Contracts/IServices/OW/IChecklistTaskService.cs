@@ -63,6 +63,11 @@ public interface IChecklistTaskService : IScopedService
     Task<bool> AssignTaskAsync(long id, long assigneeId, string assigneeName);
 
     /// <summary>
+    /// Set structured assignee information for task (configuration stage)
+    /// </summary>
+    Task<bool> SetTaskAssigneeAsync(long id, AssigneeDto assignee);
+
+    /// <summary>
     /// Get pending tasks by assignee
     /// </summary>
     Task<List<ChecklistTaskOutputDto>> GetPendingTasksByAssigneeAsync(long assigneeId);
@@ -71,4 +76,9 @@ public interface IChecklistTaskService : IScopedService
     /// Get overdue tasks
     /// </summary>
     Task<List<ChecklistTaskOutputDto>> GetOverdueTasksAsync();
+
+    /// <summary>
+    /// Get tasks by action ID
+    /// </summary>
+    Task<List<ChecklistTaskOutputDto>> GetTasksByActionIdAsync(long actionId);
 }

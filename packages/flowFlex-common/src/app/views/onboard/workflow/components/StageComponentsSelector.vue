@@ -1,5 +1,5 @@
 <template>
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
 		<!-- Left Side: Selection Areas -->
 
 		<div class="space-y-4 w-full overflow-hidden">

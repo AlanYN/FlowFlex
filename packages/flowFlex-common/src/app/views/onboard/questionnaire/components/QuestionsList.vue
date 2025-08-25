@@ -2,7 +2,7 @@
 	<div class="questions-list">
 		<draggable
 			v-model="questionsData"
-			item-key="id"
+			item-key="temporaryId"
 			handle=".drag-handle"
 			@change="handleQuestionDragEnd"
 			ghost-class="ghost-question"
@@ -11,7 +11,11 @@
 		>
 			<template #item="{ element: item, index }">
 				<div class="question-item flex max-w-full">
-					<template v-if="editingQuestionId === item.id">
+					<template
+						v-if="
+							editingQuestionId === item.id || editingQuestionId === item.temporaryId
+						"
+					>
 						<div class="w-full">
 							<QuestionEditor
 								:question-types="questionTypes"
@@ -38,6 +42,17 @@
 											</el-tag>
 											<el-tag v-if="item.required" size="small" type="danger">
 												Required
+											</el-tag>
+
+											<el-tag
+												v-if="item.action"
+												size="small"
+												type="success"
+												closable
+												@close="handleRemoveAction(index)"
+												@click="editAction(index)"
+											>
+												{{ item.action.name }}
 											</el-tag>
 										</div>
 										<div class="question-meta mt-2">
@@ -91,6 +106,20 @@
 														/>
 														<span class="text-xs">
 															Go to Section Based on Answer
+														</span>
+													</div>
+												</el-dropdown-item>
+												<el-dropdown-item
+													@click="openActionEditor(index)"
+													divided
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="tabler:math-function"
+															class="drag-icon"
+														/>
+														<span class="text-xs">
+															Configure Action
 														</span>
 													</div>
 												</el-dropdown-item>
@@ -181,20 +210,64 @@
 									<div
 										v-for="(option, optionIndex) in item.options"
 										:key="option.id"
-										class="option-item max-w-[50%]"
+										class="option-item w-full flex items-center justify-between"
 									>
-										<span class="option-number">{{ optionIndex + 1 }}.</span>
-										<el-tag v-if="option.isOther" type="warning">Other</el-tag>
-										<div v-else class="option-badge flex-1 truncate">
-											{{ option.label }}
-										</div>
-										<span
-											v-if="item.type === 'multiple_choice'"
-											class="jump-badge flex-shrink-0"
-											:class="getJumpTargetClass(item, option.id)"
+										<div
+											class="option-content flex max-w-[50%] items-center gap-2 flex-1"
 										>
-											→ {{ getJumpTargetName(item, option.id) }}
-										</span>
+											<span class="option-number">
+												{{ optionIndex + 1 }}.
+											</span>
+											<el-tag v-if="option.isOther" type="warning">
+												Other
+											</el-tag>
+											<div v-else class="option-badge truncate">
+												{{ option.label }}
+											</div>
+											<!-- 显示选项的action标签 -->
+											<span
+												v-if="item.type === 'multiple_choice'"
+												class="jump-badge flex-shrink-0"
+												:class="
+													getJumpTargetClass(item, option.temporaryId)
+												"
+											>
+												→
+												{{ getJumpTargetName(item, option.temporaryId) }}
+											</span>
+											<el-tag
+												v-if="option.action"
+												type="success"
+												closable
+												@close="handleRemoveAction(index, optionIndex)"
+												@click="editAction(index, optionIndex)"
+											>
+												{{ option.action.name }}
+											</el-tag>
+										</div>
+										<!-- 选项操作下拉菜单，和问题级别保持一致 -->
+										<el-dropdown placement="bottom">
+											<el-button :icon="MoreFilled" link size="small" />
+											<template #dropdown>
+												<el-dropdown-menu>
+													<el-dropdown-item
+														@click="
+															openActionEditor(index, optionIndex)
+														"
+													>
+														<div class="flex items-center gap-2">
+															<Icon
+																icon="tabler:math-function"
+																class="drag-icon"
+															/>
+															<span class="text-xs">
+																Configure Action
+															</span>
+														</div>
+													</el-dropdown-item>
+												</el-dropdown-menu>
+											</template>
+										</el-dropdown>
 									</div>
 								</div>
 							</div>
@@ -221,20 +294,39 @@
 			:sections="sections"
 			@save="handleJumpRulesSave"
 		/>
+
+		<ActionConfigDialog
+			ref="actionConfigDialogRef"
+			v-model="actionEditorVisible"
+			:action="actionInfo"
+			:is-editing="!!actionInfo"
+			:triggerSourceId="actionConfig?.id || ''"
+			:loading="editActionLoading"
+			:triggerType="TriggerTypeEnum.Questionnaire"
+			@save-success="onActionSave"
+			@cancel="onActionCancel"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Delete, Document, Edit, MoreFilled } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import draggable from 'vuedraggable';
 import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
+import { getActionDetail, deleteMappingAction } from '@/apis/action';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
+import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import { TriggerTypeEnum } from '@/enums/appEnum';
+
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 interface QuestionType {
 	id: string;
@@ -288,13 +380,13 @@ const removeQuestion = (index: number) => {
 
 const editQuestion = (index: number) => {
 	const question = questionsData.value[index];
-	editingQuestionId.value = question.id;
+	editingQuestionId.value = question?.temporaryId || null;
 	editingQuestion.value = { ...question };
 };
 
 // 处理问题更新
 const handleUpdateQuestion = (updatedQuestion: QuestionnaireSection) => {
-	const index = questionsData.value.findIndex((q) => q.id === editingQuestionId.value);
+	const index = questionsData.value.findIndex((q) => q.temporaryId === editingQuestionId.value);
 	if (index !== -1) {
 		questionsData.value[index] = {
 			...questionsData.value[index],
@@ -364,6 +456,164 @@ const openJumpRuleEditor = (index: number) => {
 		currentEditingIndex.value = index;
 		jumpRuleEditorVisible.value = true;
 	}
+};
+
+const actionEditorVisible = ref(false);
+const actionConfig = ref<any>(null);
+const actionType = ref<'question' | 'option'>('question');
+const actionInfo = ref(null);
+const openActionEditor = (index: number, optionIndex?: number) => {
+	const question = questionsData.value[index];
+	if (!question) return;
+	currentEditingQuestion.value = question as QuestionWithJumpRules;
+	if (optionIndex !== undefined) {
+		actionType.value = 'option';
+		const option = question.options?.[optionIndex];
+		if (option) {
+			actionConfig.value = option || '';
+			actionEditorVisible.value = true;
+		}
+	} else {
+		actionType.value = 'question';
+		if (question) {
+			actionConfig.value = question || '';
+			actionEditorVisible.value = true;
+		}
+	}
+};
+
+const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
+const onActionSave = (res) => {
+	actionEditorVisible.value = false;
+	const questionIndex = questionsData.value.findIndex(
+		(q) => q.temporaryId === currentEditingQuestion.value?.temporaryId
+	);
+	if (actionType.value === 'question') {
+		if (res.id && questionIndex !== -1) {
+			questionsData.value[questionIndex].action = {
+				id: res.id,
+				name: res.name,
+			};
+		}
+	} else if (actionType.value === 'option') {
+		if (res.id && questionIndex !== -1) {
+			const option = questionsData.value[questionIndex].options?.find(
+				(option) =>
+					(option?.temporaryId !== undefined &&
+						option?.temporaryId === actionConfig.value?.temporaryId) ||
+					(option?.id !== undefined && option?.id === actionConfig.value?.id)
+			);
+			if (option) {
+				option.action = {
+					id: res.id,
+					name: res.name,
+				};
+			}
+		}
+	}
+};
+
+const handleRemoveAction = async (index: number, optionIndex?: number) => {
+	const question = questionsData.value[index];
+	if (!question) return;
+	if (optionIndex !== undefined) {
+		const option = question.options?.[optionIndex];
+		if (option) {
+			await removeAction(option.action?.id || '', () => {
+				option.action = undefined;
+			});
+		}
+	} else {
+		await removeAction(question.action?.id || '', () => {
+			question.action = undefined;
+		});
+	}
+};
+
+const editActionLoading = ref(false);
+const editAction = async (index: number, optionIndex?: number) => {
+	const question = questionsData.value[index];
+	if (!question) return;
+	currentEditingQuestion.value = question as QuestionWithJumpRules;
+	actionType.value = optionIndex !== undefined ? 'option' : 'question';
+	let actionId = '';
+	if (optionIndex !== undefined) {
+		const option = question.options?.[optionIndex];
+		actionId = option?.action?.id || '';
+		actionConfig.value = option;
+	} else {
+		actionId = question.action?.id || '';
+		actionConfig.value = question;
+	}
+
+	try {
+		editActionLoading.value = true;
+		actionEditorVisible.value = true;
+		const res = await getActionDetail(actionId);
+		if (res.code === '200' && res?.data) {
+			actionInfo.value = {
+				...res?.data,
+				actionConfig: JSON.parse(res?.data?.actionConfig || '{}'),
+				type: res?.data?.actionType === 1 ? 'python' : 'http',
+			};
+		}
+	} finally {
+		editActionLoading.value = false;
+	}
+};
+
+const removeAction = async (id, callback) => {
+	try {
+		ElMessageBox.confirm(
+			'This will permanently delete the action. Continue?',
+			'Delete Action',
+			{
+				confirmButtonText: 'Delete',
+				cancelButtonText: 'Cancel',
+				type: 'warning',
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						// 显示loading状态
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Activating...';
+
+						try {
+							// 调用激活工作流API
+							const res = await deleteMappingAction(id);
+
+							if (res.code === '200') {
+								ElMessage.success(t('sys.api.operationSuccess'));
+								callback && callback();
+								done(); // 关闭对话框
+							} else {
+								ElMessage.error(res.msg || t('sys.api.operationFailed'));
+								// 恢复按钮状态
+								instance.confirmButtonLoading = false;
+								instance.confirmButtonText = 'Delete';
+							}
+						} catch (error) {
+							ElMessage.error(t('sys.api.operationFailed'));
+							// 恢复按钮状态
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete';
+						}
+					} else {
+						done(); // 取消或关闭时直接关闭对话框
+					}
+				},
+			}
+		);
+	} catch {
+		// User cancelled
+	}
+};
+
+const onActionCancel = () => {
+	actionEditorVisible.value = false;
+	currentEditingQuestion.value = null;
+	actionInfo.value = null;
+	actionConfig.value = null;
+	actionType.value = 'question';
 };
 
 // 处理跳转规则保存

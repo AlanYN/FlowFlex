@@ -64,72 +64,6 @@
 									/>
 								</el-select>
 							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-primary-500">
-									Assignment - Workflow
-								</label>
-								<el-select
-									v-model="searchForm.assignmentWorkflow"
-									placeholder="Select Assignment"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All" value="all" />
-									<el-option label="Yes" value="yes" />
-									<el-option label="No" value="no" />
-								</el-select>
-							</div>
-						</div>
-
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-primary-500">
-									Assignment - Stage
-								</label>
-								<el-select
-									v-model="searchForm.assignmentStage"
-									placeholder="Select Assignment"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All" value="all" />
-									<el-option label="Yes" value="yes" />
-									<el-option label="No" value="no" />
-								</el-select>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-primary-500">
-									Assignment - Checklist
-								</label>
-								<el-select
-									v-model="searchForm.assignmentChecklist"
-									placeholder="Select Assignment"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All" value="all" />
-									<el-option label="Yes" value="yes" />
-									<el-option label="No" value="no" />
-								</el-select>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-primary-500">
-									Assignment - Questionnaire
-								</label>
-								<el-select
-									v-model="searchForm.assignmentQuestionnaire"
-									placeholder="Select Assignment"
-									clearable
-									class="w-full rounded-md"
-								>
-									<el-option label="All" value="all" />
-									<el-option label="Yes" value="yes" />
-									<el-option label="No" value="no" />
-								</el-select>
-							</div>
 						</div>
 
 						<div class="flex justify-end space-x-2 mt-4">
@@ -145,114 +79,189 @@
 			</template>
 		</el-card>
 
-		<!-- Table Area -->
-		<div class="customer-block !p-0 !ml-0">
-			<el-table
-				:data="actionsList"
-				style="width: 100%"
-				@selection-change="handleSelectionChange"
-				:max-height="tableMaxHeight"
-				v-loading="loading"
-			>
-				<el-table-column type="selection" width="55" />
-				<el-table-column prop="actionCode" label="Action ID" width="120" />
-				<el-table-column prop="name" label="Action Name" min-width="200" />
-				<el-table-column prop="actionType" label="Type" width="150">
-					<template #default="{ row }">
-						<el-tag class="type-tag">
-							{{ getActionTypeName(row.actionType) }}
-						</el-tag>
-					</template>
-				</el-table-column>
-				<el-table-column prop="triggerMappings" label="Assignments" min-width="300">
-					<template #default="{ row }">
-						<div class="assignments-list">
-							<div
-								v-for="mapping in row.triggerMappings"
-								:key="mapping.id"
-								class="assignment-item"
-							>
-								<span class="assignment-name">
-									{{ getAssignmentDisplayName(mapping) }}
-								</span>
-								<span class="assignment-date">
-									Last applied: {{ mapping.lastApplied }}
-								</span>
-							</div>
-						</div>
-					</template>
-				</el-table-column>
-				<el-table-column label="Actions" width="120" fixed="right">
-					<template #default="{ row }">
-						<div class="action-buttons">
-							<el-tooltip content="Edit" placement="top">
-								<el-button type="primary" link @click="handleEdit(row)">
-									<el-icon>
-										<Edit />
-									</el-icon>
-								</el-button>
-							</el-tooltip>
-							<el-tooltip content="Delete" placement="top">
-								<el-button type="danger" link @click="handleDelete(row)">
-									<el-icon>
-										<Delete />
-									</el-icon>
-								</el-button>
-							</el-tooltip>
-						</div>
-					</template>
-				</el-table-column>
-			</el-table>
+		<!-- Tabs Area -->
+		<PrototypeTabs
+			v-model="activeTab"
+			:tabs="tabsConfig"
+			type="adaptive"
+			size="default"
+			@tab-change="handleTabChange"
+		>
+			<!-- Tools Tab -->
+			<TabPane value="tools">
+				<div class="customer-block !p-0 !ml-0">
+					<el-table
+						:data="actionsList"
+						style="width: 100%"
+						@selection-change="handleSelectionChange"
+						:max-height="tableMaxHeight"
+						v-loading="loading"
+					>
+						<el-table-column type="selection" width="55" />
+						<el-table-column prop="actionCode" label="Action ID" width="120" />
+						<el-table-column prop="name" label="Action Name" min-width="200" />
+						<el-table-column prop="actionType" label="Type" width="150">
+							<template #default="{ row }">
+								<el-tag class="type-tag">
+									{{ getActionTypeName(row.actionType) }}
+								</el-tag>
+							</template>
+						</el-table-column>
+						<el-table-column label="Actions" width="120" fixed="right">
+							<template #default="{ row }">
+								<div class="action-buttons">
+									<el-tooltip content="Edit" placement="top">
+										<el-button type="primary" link @click="handleEdit(row)">
+											<el-icon>
+												<Edit />
+											</el-icon>
+										</el-button>
+									</el-tooltip>
+									<el-tooltip content="Delete" placement="top">
+										<el-button type="danger" link @click="handleDelete(row)">
+											<el-icon>
+												<Delete />
+											</el-icon>
+										</el-button>
+									</el-tooltip>
+								</div>
+							</template>
+						</el-table-column>
+					</el-table>
 
-			<!-- Pagination -->
-			<div class="border-t bg-white rounded-b-md">
-				<CustomerPagination
-					:total="pagination.total"
-					:limit="pagination.pageSize"
-					:page="pagination.currentPage"
-					:background="true"
-					@pagination="handleLimitUpdate"
-					@update:page="handleCurrentChange"
-					@update:limit="handlePageUpdate"
-				/>
-			</div>
-		</div>
+					<!-- Pagination -->
+					<div class="border-t bg-white rounded-b-md">
+						<CustomerPagination
+							:total="pagination.total"
+							:limit="pagination.pageSize"
+							:page="pagination.currentPage"
+							:background="true"
+							@pagination="handleLimitUpdate"
+							@update:page="handleCurrentChange"
+							@update:limit="handlePageUpdate"
+						/>
+					</div>
+				</div>
+			</TabPane>
+
+			<!-- My Action Tab -->
+			<TabPane value="myAction">
+				<div class="customer-block !p-0 !ml-0">
+					<el-table
+						:data="actionsList"
+						style="width: 100%"
+						@selection-change="handleSelectionChange"
+						:max-height="tableMaxHeight"
+						v-loading="loading"
+					>
+						<el-table-column type="selection" width="55" />
+						<el-table-column prop="actionCode" label="Action ID" width="120" />
+						<el-table-column prop="name" label="Action Name" min-width="200" />
+						<el-table-column prop="actionType" label="Type" width="150">
+							<template #default="{ row }">
+								<el-tag class="type-tag">
+									{{ getActionTypeName(row.actionType) }}
+								</el-tag>
+							</template>
+						</el-table-column>
+						<el-table-column label="Actions" width="120" fixed="right">
+							<template #default="{ row }">
+								<div class="action-buttons">
+									<el-tooltip content="Edit" placement="top">
+										<el-button type="primary" link @click="handleEdit(row)">
+											<el-icon>
+												<Edit />
+											</el-icon>
+										</el-button>
+									</el-tooltip>
+									<el-tooltip content="Delete" placement="top">
+										<el-button type="danger" link @click="handleDelete(row)">
+											<el-icon>
+												<Delete />
+											</el-icon>
+										</el-button>
+									</el-tooltip>
+								</div>
+							</template>
+						</el-table-column>
+					</el-table>
+
+					<!-- Pagination -->
+					<div class="border-t bg-white rounded-b-md">
+						<CustomerPagination
+							:total="pagination.total"
+							:limit="pagination.pageSize"
+							:page="pagination.currentPage"
+							:background="true"
+							@pagination="handleLimitUpdate"
+							@update:page="handleCurrentChange"
+							@update:limit="handlePageUpdate"
+						/>
+					</div>
+				</div>
+			</TabPane>
+		</PrototypeTabs>
+
+		<!-- Action Config Dialog -->
+		<ActionConfigDialog
+			v-model="actionEditorVisible"
+			:action="actionInfo"
+			:is-editing="!!actionInfo"
+			:triggerSourceId="currentEditAction?.id"
+			:loading="editActionLoading"
+			:force-editable="true"
+			@save-success="onActionSave"
+			@cancel="onActionCancel"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, onMounted, markRaw } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Download, Search, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import { useI18n } from '@/hooks/useI18n';
+import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import {
 	getActionDefinitions,
 	deleteAction,
 	exportActions,
+	getActionDetail,
 	ActionType,
 	ACTION_TYPE_MAPPING,
 } from '@/apis/action';
-import { ActionDefinition, TriggerMapping, ActionQueryRequest } from '#/action';
+import { ActionDefinition, ActionQueryRequest } from '#/action';
 import { tableMaxHeight } from '@/settings/projectSetting';
+import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 
-// Router
-const router = useRouter();
+// i18n
+const { t } = useI18n();
 
 // Reactive data
 const loading = ref(false);
 const exportLoading = ref(false);
 const selectedActions = ref<any[]>([]);
 
+// Action 弹窗相关状态
+const actionEditorVisible = ref(false);
+const actionInfo = ref(null);
+const editActionLoading = ref(false);
+const currentEditAction = ref<ActionDefinition | null>(null);
+
 // Search form
 const searchForm = reactive({
 	keyword: '',
 	type: 'all',
-	assignmentWorkflow: 'all',
-	assignmentStage: 'all',
-	assignmentChecklist: 'all',
-	assignmentQuestionnaire: 'all',
 });
+
+// Tabs configuration
+const activeTab = ref('tools');
+const tabsConfig = ref([
+	{ label: 'Tools', value: 'tools', icon: markRaw(TableViewIcon) },
+	{ label: 'My Action', value: 'myAction', icon: markRaw(TableViewIcon) },
+]);
 
 // Pagination
 const pagination = reactive({
@@ -280,35 +289,10 @@ const getActionTypeOptions = () => {
 	];
 };
 
-const getAssignmentDisplayName = (mapping: TriggerMapping) => {
-	const parts: string[] = [];
-
-	// Add WorkflowName
-	if (mapping.workFlowName && mapping.workFlowName.trim()) {
-		parts.push(mapping.workFlowName);
-	}
-
-	// Add StageName
-	if (mapping.stageName && mapping.stageName.trim()) {
-		parts.push(mapping.stageName);
-	}
-
-	// Add triggerSourceName
-	if (mapping.triggerSourceName && mapping.triggerSourceName.trim()) {
-		parts.push(mapping.triggerSourceName);
-	}
-
-	// If all fields are empty, return default value
-	if (parts.length === 0) {
-		return 'Unknown Assignment';
-	}
-
-	// Join all non-empty parts with arrows
-	return parts.join(' → ');
-};
-
 const handleCreateAction = () => {
-	router.push('/onboard/createAction');
+	currentEditAction.value = null;
+	actionInfo.value = null;
+	actionEditorVisible.value = true;
 };
 
 const handleExport = async () => {
@@ -331,20 +315,11 @@ const handleExport = async () => {
 			params.actionType = searchForm.type;
 		}
 
-		if (searchForm.assignmentWorkflow && searchForm.assignmentWorkflow !== 'all') {
-			params.isAssignmentWorkflow = searchForm.assignmentWorkflow === 'yes';
-		}
-
-		if (searchForm.assignmentStage && searchForm.assignmentStage !== 'all') {
-			params.isAssignmentStage = searchForm.assignmentStage === 'yes';
-		}
-
-		if (searchForm.assignmentChecklist && searchForm.assignmentChecklist !== 'all') {
-			params.isAssignmentChecklist = searchForm.assignmentChecklist === 'yes';
-		}
-
-		if (searchForm.assignmentQuestionnaire && searchForm.assignmentQuestionnaire !== 'all') {
-			params.isAssignmentQuestionnaire = searchForm.assignmentQuestionnaire === 'yes';
+		// Handle tab-based filtering
+		if (activeTab.value === 'tools') {
+			params.isTools = true; // 只筛选 isTools = true 的记录
+		} else if (activeTab.value === 'myAction') {
+			params.isTools = false; // 只筛选 isTools = false 的记录
 		}
 
 		// Call export API
@@ -379,12 +354,43 @@ const handleSearch = async () => {
 	await loadActionsList();
 };
 
+const handleTabChange = async (tabValue: string) => {
+	// Reset to first page when switching tabs
+	pagination.currentPage = 1;
+	// Reload data based on the selected tab
+	await loadActionsList();
+};
+
 const handleSelectionChange = (selection: any[]) => {
 	selectedActions.value = selection;
 };
 
-const handleEdit = (row: ActionDefinition) => {
-	router.push(`/onboard/actionDetail/${row.id}`);
+const handleEdit = async (row: ActionDefinition) => {
+	currentEditAction.value = row;
+	actionEditorVisible.value = true;
+
+	// 获取 action 详情
+	if (!row.id) {
+		ElMessage.error('Action ID is missing');
+		return;
+	}
+
+	try {
+		editActionLoading.value = true;
+		const actionDetailRes = await getActionDetail(row.id);
+		if (actionDetailRes.code === '200' && actionDetailRes?.data) {
+			actionInfo.value = {
+				...actionDetailRes?.data,
+				actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
+				type: actionDetailRes?.data?.actionType === 1 ? 'python' : 'http',
+			};
+		}
+	} catch (error) {
+		console.error('Failed to load action details:', error);
+		ElMessage.warning('Failed to load action details');
+	} finally {
+		editActionLoading.value = false;
+	}
 };
 
 const handleDelete = async (row: ActionDefinition) => {
@@ -436,6 +442,23 @@ const handleLimitUpdate = async () => {
 	await loadActionsList();
 };
 
+// Action 保存成功回调
+const onActionSave = async (actionResult) => {
+	if (actionResult.id) {
+		ElMessage.success(t('sys.api.operationSuccess'));
+		// 重新加载列表数据
+		await loadActionsList();
+	}
+	onActionCancel();
+};
+
+// 取消 Action 编辑
+const onActionCancel = () => {
+	actionEditorVisible.value = false;
+	actionInfo.value = null;
+	currentEditAction.value = null;
+};
+
 // Load Actions list from API
 const loadActionsList = async () => {
 	try {
@@ -457,20 +480,11 @@ const loadActionsList = async () => {
 			params.actionType = searchForm.type;
 		}
 
-		if (searchForm.assignmentWorkflow && searchForm.assignmentWorkflow !== 'all') {
-			params.isAssignmentWorkflow = searchForm.assignmentWorkflow === 'yes';
-		}
-
-		if (searchForm.assignmentStage && searchForm.assignmentStage !== 'all') {
-			params.isAssignmentStage = searchForm.assignmentStage === 'yes';
-		}
-
-		if (searchForm.assignmentChecklist && searchForm.assignmentChecklist !== 'all') {
-			params.isAssignmentChecklist = searchForm.assignmentChecklist === 'yes';
-		}
-
-		if (searchForm.assignmentQuestionnaire && searchForm.assignmentQuestionnaire !== 'all') {
-			params.isAssignmentQuestionnaire = searchForm.assignmentQuestionnaire === 'yes';
+		// Handle tab-based filtering
+		if (activeTab.value === 'tools') {
+			params.isTools = true; // 只筛选 isTools = true 的记录
+		} else if (activeTab.value === 'myAction') {
+			params.isTools = false; // 只筛选 isTools = false 的记录
 		}
 
 		// Call API

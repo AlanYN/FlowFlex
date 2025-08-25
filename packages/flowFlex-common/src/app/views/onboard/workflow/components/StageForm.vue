@@ -8,7 +8,13 @@
 			@tab-change="onTabChange"
 		>
 			<TabPane value="basicInfo">
-				<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
+				<el-form
+					ref="formRef"
+					:model="formData"
+					:rules="rules"
+					label-position="top"
+					class="p-1"
+				>
 					<el-form-item label="Stage Name" prop="name">
 						<el-input v-model="formData.name" placeholder="Enter stage name" />
 					</el-form-item>
@@ -32,30 +38,44 @@
 						/>
 					</el-form-item>
 
+					<!-- Portal Permission Options - only show when visibleInPortal is true -->
+					<el-form-item v-if="formData.visibleInPortal" prop="portalPermission">
+						<el-radio-group
+							v-model="formData.portalPermission"
+							class="portal-permission-group"
+						>
+							<el-radio
+								v-for="option in portalPermissionOptions"
+								:key="option.value"
+								:value="option.value"
+								class="portal-permission-option"
+							>
+								{{ option.label }}
+							</el-radio>
+						</el-radio-group>
+					</el-form-item>
+
 					<div class="flex items-center gap-2 w-full">
 						<el-form-item
 							label="Assigned User Group"
 							prop="defaultAssignedGroup"
 							class="w-1/2"
 						>
-							<el-select
+							<FlowflexUser
 								v-model="formData.defaultAssignedGroup"
 								placeholder="Select user group"
-								style="width: 100%"
-							>
-								<el-option
-									v-for="item in defaultAssignedGroup"
-									:key="item.value"
-									:label="item.key"
-									:value="item.value"
-								/>
-							</el-select>
+								:multiple="false"
+								:clearable="true"
+								team-only
+							/>
 						</el-form-item>
 
 						<el-form-item label="Default Assignee" prop="defaultAssignee" class="w-1/2">
-							<el-input
+							<FlowflexUser
 								v-model="formData.defaultAssignee"
-								placeholder="Enter default assignee role"
+								placeholder="Select default assignee"
+								:multiple="false"
+								:clearable="true"
 							/>
 						</el-form-item>
 					</div>
@@ -90,6 +110,7 @@
 					:model-value="{
 						components: formData.components,
 						visibleInPortal: formData.visibleInPortal,
+						portalPermission: formData.portalPermission,
 						attachmentManagementNeeded: formData.attachmentManagementNeeded,
 					}"
 					@update:model-value="updateComponentsData"
@@ -119,12 +140,13 @@ import { ref, reactive, onMounted, PropType, computed } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
-import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
+import { PortalPermissionEnum, portalPermissionOptions } from '@/enums/portalPermissionEnum';
 import StageComponentsSelector from './StageComponentsSelector.vue';
 import Action from '@/components/actionTools/Action.vue';
+import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { Checklist, Questionnaire, Stage, ComponentData } from '#/onboard';
+import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -193,11 +215,12 @@ const formData = ref({
 	name: '',
 	description: '',
 	visibleInPortal: false,
+	portalPermission: PortalPermissionEnum.Viewable,
 	defaultAssignedGroup: '',
 	defaultAssignee: '',
 	estimatedDuration: null as number | null,
 	requiredFieldsJson: '',
-	components: [] as ComponentData[],
+	components: [] as StageComponentData[],
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 	attachmentManagementNeeded: false,
@@ -250,98 +273,84 @@ onMounted(() => {
 						  ] as StageColorType);
 			} else if (key === 'components') {
 				formData.value[key] = props.stage?.components || [];
+			} else if (key === 'portalPermission') {
+				formData.value[key] =
+					props.stage?.portalPermission || PortalPermissionEnum.Viewable;
 			} else {
-				formData.value[key] = props.stage ? props.stage[key] : '';
+				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}
 		});
-	} else {
-		formData.value.color = colorOptions[
-			Math.floor(Math.random() * colorOptions.length)
-		] as StageColorType;
-		formData.value.components = [];
 	}
 });
 
-// 提交表单
-const submitForm = async () => {
-	if (!formRef.value) return;
+// Method to update components data
+function updateComponentsData(val: ComponentsData) {
+	formData.value.components = val.components;
+	formData.value.visibleInPortal = val.visibleInPortal ?? false;
+	if (val.portalPermission !== undefined) {
+		formData.value.portalPermission = val.portalPermission;
+	}
+	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded ?? false;
+}
 
-	await formRef.value.validate((valid, fields) => {
-		if (valid) {
-			// 包含模块顺序信息
-			const submitData = {
-				...formData.value,
-			};
-			emit('submit', submitData);
-		}
-	});
-};
+// 提交
+function submitForm() {
+	// 透传表单数据
+	const payload = { ...formData.value } as any;
+	// 颜色值
+	payload.color = formData.value.color;
+	// 发出提交事件
+	// @ts-ignore
+	emit('submit', payload);
+}
 
-// 定义事件
+// emits
 const emit = defineEmits(['submit', 'cancel']);
-
-// 更新组件数据的方法
-const updateComponentsData = (newData: any) => {
-	formData.value.components = newData.components;
-	if (Object.prototype.hasOwnProperty.call(newData, 'visibleInPortal')) {
-		formData.value.visibleInPortal = newData.visibleInPortal;
-	}
-	if (Object.prototype.hasOwnProperty.call(newData, 'attachmentManagementNeeded')) {
-		formData.value.attachmentManagementNeeded = newData.attachmentManagementNeeded;
-	}
-};
 </script>
 
 <style scoped>
 .stage-form-container {
 	width: 100%;
-	max-width: 100%;
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
 }
-
-.form-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 10px;
-	margin-top: 20px;
-	flex-shrink: 0;
+.editor-tabs {
+	margin-bottom: 16px;
 }
-
+.editor-content {
+	padding-top: 8px;
+}
 .color-picker-container {
 	width: 100%;
 }
-
 .color-grid {
-	display: flex;
-	justify-content: space-between;
-	padding: 0 10px;
+	display: grid;
+	grid-template-columns: repeat(10, 1fr);
+	gap: 12px;
 }
-
 .color-option {
-	width: 32px;
-	height: 32px;
-	border-radius: 50%;
+	width: 28px;
+	height: 28px;
+	border-radius: 9999px;
 	cursor: pointer;
-	transition: all 0.2s;
 	border: 2px solid transparent;
 }
-
-.color-option:hover {
-	transform: scale(1.1);
-}
-
 .color-option.selected {
-	border-color: #333;
-	transform: scale(1.1);
+	border-color: var(--el-color-primary);
 }
-
-.form-item-description {
-	font-size: 12px;
-	color: #666;
-	margin-top: 4px;
-	line-height: 1.4;
+.form-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 12px;
+	margin-top: 16px;
+}
+.text-muted {
+	color: #6b7280;
+}
+.portal-permission-group {
+	width: 100%;
+}
+.portal-permission-option {
+	display: block;
+	margin-bottom: 8px;
+	width: 100%;
 }
 </style>

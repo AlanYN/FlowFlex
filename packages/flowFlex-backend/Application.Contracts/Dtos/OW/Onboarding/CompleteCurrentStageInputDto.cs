@@ -48,5 +48,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 是否强制完成（忽略重复完成检查）
         /// </summary>
         public bool ForceComplete { get; set; } = false;
+
+        /// <summary>
+        /// Preferred language for AI summary output (e.g., zh-CN, en-US)
+        /// </summary>
+        public string? Language { get; set; }
     }
 }

@@ -60,7 +60,18 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250801000001_AddUserAIModelConfig", (Action)(() => AddUserAIModelConfig_20250801000001.Up(_db))),
                     ("20250801000002_DropQuestionnaireSectionTable", (Action)(() => DropQuestionnaireSectionTable_20250801000002.Up(_db))),
                     ("20250102000001_IncreaseAIModelConfigFieldLengths", (Action)(() => IncreaseAIModelConfigFieldLengths_20250102000001.Up(_db))),
-                    ("20250101000003_AddIsAIGeneratedColumn", (Action)(() => Migration_20250101000003_AddIsAIGeneratedColumn.Up(_db)))
+                    ("20250101000003_AddIsAIGeneratedColumn", (Action)(() => Migration_20250101000003_AddIsAIGeneratedColumn.Up(_db))),
+                    ("20250120000001_AddAISummaryFieldsToStage", (Action)(() => AddAISummaryFieldsToStage_20250120000001.Up(_db))),
+                    ("20250122000001_RemoveAssignmentsJsonColumns", (Action)(() => Migration_20250122000001_RemoveAssignmentsJsonColumns.Up(_db))),
+                    ("20250122000002_AddGinIndexForStageComponentsJson", (Action)(() => Migration_20250122000002_AddGinIndexForStageComponentsJson.Up(_db))),
+                    ("20250122000003_CreateComponentMappingTables", (Action)(() => Migration_20250122000003_CreateComponentMappingTables.Up(_db))),
+                    ("20250122000015_ConvertOwEntityBaseTablesToSnowflakeId", (Action)(() => Migration_20250122000015_ConvertOwEntityBaseTablesToSnowflakeId.Up(_db))),
+                    ("20250122000020_AddTeamColumnToUsers", (Action)(() => Migration_20250122000020_AddTeamColumnToUsers.Up(_db))),
+                    ("20250122000021_AddAssigneeJsonToChecklistTask", (Action)(() => Migration_20250122000021_AddAssigneeJsonToChecklistTask.Up(_db))),
+                    ("20250122000022_FixAssigneeJsonEncoding", (Action)(() => Migration_20250122000022_FixAssigneeJsonEncoding.Up(_db))),
+                    ("20250122000023_AddPortalPermissionToStage", (Action)(() => Migration_20250122000023_AddPortalPermissionToStage.Up(_db))),
+                    ("20250122000024_AddActionFieldsToChecklistTask", (Action)(() => _20250122000024_AddActionFieldsToChecklistTask.Up(_db))),
+                    ("20250125000001_CreateAIPromptHistoryTable", (Action)(() => CreateAIPromptHistoryTable_20250125000001.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
@@ -227,21 +238,32 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             try
             {
-                // 首先回滚最新的迁移
+                Console.WriteLine("[MigrationManager] Starting migration rollback...");
+                
+                // 按照逆序回滚迁移（最新的先回滚）
+                CreateAIPromptHistoryTable_20250125000001.Down(_db);
+                Console.WriteLine("[MigrationManager] Rolled back CreateAIPromptHistoryTable_20250125000001");
+                
                 IncreaseAIModelConfigFieldLengths_20250102000001.Down(_db);
+                Console.WriteLine("[MigrationManager] Rolled back IncreaseAIModelConfigFieldLengths_20250102000001");
+                
                 AddUserAIModelConfig_20250801000001.Down(_db);
+                Console.WriteLine("[MigrationManager] Rolled back AddUserAIModelConfig_20250801000001");
                 
                 // 回滚其他迁移
                 // SeedDemoData_20250101000002.Down(_db);
                 InitialCreate_20250101000000.Down(_db);
+                Console.WriteLine("[MigrationManager] Rolled back InitialCreate_20250101000000");
 
                 // Clear migration history
                 _db.Ado.ExecuteCommand("DELETE FROM __migration_history");
-                // Debug logging handled by structured logging
+                Console.WriteLine("[MigrationManager] Cleared migration history");
+                
+                Console.WriteLine("[MigrationManager] Migration rollback completed successfully");
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                Console.WriteLine($"[MigrationManager] Error during migration rollback: {ex.Message}");
                 throw;
             }
         }

@@ -50,7 +50,7 @@
 
 	/* 设置圆角以及边框颜色 */
 	.el-table {
-		// Add margin to the el-table to prevent border overlap
+		border: none;
 
 		.el-table--border {
 			// border-radius: 10px 10px 0 0;
@@ -67,12 +67,6 @@
 				border-right: 0;
 				border-bottom: 0;
 			}
-
-			// .el-table__border-left-patch,
-			// .el-table--border::before,
-			// .el-table--border .el-table__inner-wrapper::after {
-			// 	background-color: transparent !important;
-			// }
 
 			&:after,
 			.el-table__inner-wrapper::before {
@@ -95,6 +89,13 @@
 					@apply not-italic leading-5;
 				}
 			}
+		}
+
+		th {
+			background-color: var(--primary-10) !important;
+			border-bottom: 1px solid #e5e7eb;
+			color: #374151;
+			font-weight: 500;
 		}
 	}
 
@@ -335,9 +336,7 @@
 			.el-sub-menu__title {
 				@apply bg-primary-50 text-neutral-800;
 			}
-			.el-menu-item {
-				// @apply bg-siderbarGray text-primary-500;
-			}
+
 			.is-active {
 				@apply bg-primary-50 text-neutral-800;
 			}

@@ -39,7 +39,6 @@
 								<el-tag
 									v-if="workflow.isAIGenerated"
 									type="primary"
-									effect="light"
 									size="small"
 									class="ai-tag rounded-md"
 								>
@@ -51,7 +50,6 @@
 								<el-tag
 									v-if="workflow.isDefault"
 									type="warning"
-									effect="light"
 									size="small"
 									class="default-tag rounded-md"
 								>
@@ -63,19 +61,12 @@
 								<el-tag
 									v-if="workflow.status === 'active'"
 									type="success"
-									effect="light"
 									size="small"
 									class="rounded-md"
 								>
 									Active
 								</el-tag>
-								<el-tag
-									v-else
-									type="info"
-									size="small"
-									effect="light"
-									class="rounded-md"
-								>
+								<el-tag v-else type="danger" size="small" class="rounded-md">
 									Inactive
 								</el-tag>
 							</div>
@@ -951,8 +942,6 @@ Activating an expired workflow may cause issues with the onboarding process. Do 
 									instance.confirmButtonText = 'Continue Activation';
 								}
 							} catch (error) {
-								ElMessage.error(t('sys.api.operationFailed'));
-								// 恢复按钮状态
 								instance.confirmButtonLoading = false;
 								instance.confirmButtonText = 'Continue Activation';
 							}
@@ -1026,7 +1015,6 @@ const deactivateWorkflow = async () => {
 							instance.confirmButtonText = 'Set as Inactive';
 						}
 					} catch (error) {
-						ElMessage.error(t('sys.api.operationFailed'));
 						// 恢复按钮状态
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Set as Inactive';
@@ -1060,8 +1048,6 @@ const setAsDefault = async () => {
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
-	} catch (err) {
-		ElMessage.error(err);
 	} finally {
 		loading.updateWorkflow = false;
 	}
@@ -1168,7 +1154,6 @@ const deleteStage = async (stageId: string) => {
 							instance.confirmButtonText = 'Delete Stage';
 						}
 					} catch (error) {
-						ElMessage.error(t('sys.api.operationFailed'));
 						// 恢复按钮状态
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Delete Stage';
@@ -1220,7 +1205,6 @@ const updateStagesOrder = async () => {
 			}
 		}
 	} catch (error) {
-		ElMessage.error(t('sys.api.operationFailed'));
 		// 发生异常，恢复原始顺序
 		if (originalStagesOrder.value.length > 0) {
 			workflow.value.stages = [...originalStagesOrder.value];
@@ -1528,26 +1512,9 @@ const resetCombineStagesForm = () => {
 	gap: 8px;
 }
 
-.el-tag--success {
-	background-color: transparent;
-	border-color: var(--el-border-color-light, #e6edf7);
-	color: #606266;
-	margin-left: 8px;
-	padding: 2px 8px;
-	font-size: 11px;
-}
-
-.el-tag--info {
-	background-color: transparent;
-	border-color: var(--el-border-color-light, #e6edf7);
-	color: #606266;
-	margin-left: 8px;
-	padding: 2px 8px;
-	font-size: 11px;
-}
-
 .ai-tag {
-	background: linear-gradient(to right, var(--primary-400, #3b82f6), var(--primary-500, #2563eb));
+	background: #753bbd;
+	background-color: #753bbd;
 	color: white;
 	border-color: transparent;
 	padding: 2px 8px;
@@ -1555,6 +1522,22 @@ const resetCombineStagesForm = () => {
 	display: inline-flex;
 	align-items: center;
 	margin-left: 8px;
+}
+
+/* Increase specificity to override Element Plus tag presets */
+.ai-tag.el-tag,
+.ai-tag.el-tag--primary,
+.ai-tag.is-light,
+.ai-tag.el-tag.el-tag--primary,
+.el-tag.ai-tag,
+.el-tag--primary.ai-tag,
+.el-tag--primary.is-light.ai-tag {
+	background: #753bbd !important;
+	background-color: #753bbd !important;
+	background-image: none !important;
+	color: #ffffff !important;
+	border-color: transparent !important;
+	--el-tag-text-color: #ffffff !important;
 }
 
 .default-tag {

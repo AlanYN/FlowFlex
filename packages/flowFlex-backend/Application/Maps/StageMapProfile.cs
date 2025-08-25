@@ -15,7 +15,8 @@ namespace FlowFlex.Application.Maps
     {
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
         {
-            NumberHandling = JsonNumberHandling.AllowReadingFromString
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            PropertyNameCaseInsensitive = true
         };
         public StageMapProfile()
         {
@@ -38,6 +39,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => NormalizeComponentsJson(src.ComponentsJson)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => src.IsValid))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
@@ -45,7 +47,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
                 .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy))
                 .ForMember(dest => dest.CreateUserId, opt => opt.MapFrom(src => src.CreateUserId))
-                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId));
+                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId))
+                .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
+                .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
+                .ForMember(dest => dest.AiSummaryConfidence, opt => opt.MapFrom(src => src.AiSummaryConfidence))
+                .ForMember(dest => dest.AiSummaryModel, opt => opt.MapFrom(src => src.AiSummaryModel))
+                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData));
 
             // InputDto to Entity mapping
             CreateMap<StageInputDto, Stage>()
@@ -63,6 +70,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Color, opt => opt.MapFrom(src => src.Color))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 // Ignore fields that will be set by extension methods or business logic
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -104,33 +112,66 @@ namespace FlowFlex.Application.Maps
 
         private static string TryUnwrapDoubleEncodedJson(string json)
         {
-            var trimmed = json.Trim();
-
-            // If it looks like a JSON array/object already, return as-is
-            if (trimmed.StartsWith("[") || trimmed.StartsWith("{"))
+            if (string.IsNullOrWhiteSpace(json))
             {
-                return trimmed;
+                return json;
             }
 
-            // If it looks like a quoted JSON string, try to unwrap once
-            if ((trimmed.StartsWith("\"") && trimmed.EndsWith("\"")) ||
-                (trimmed.StartsWith("\'") && trimmed.EndsWith("\'")))
+            string current = json.Trim();
+
+            // Attempt up to 3 unwrapping passes to handle legacy double/triple encoded values
+            for (int i = 0; i < 3; i++)
             {
-                try
+                if (string.IsNullOrWhiteSpace(current))
                 {
-                    var inner = JsonSerializer.Deserialize<string>(trimmed);
-                    if (!string.IsNullOrWhiteSpace(inner))
+                    return current;
+                }
+
+                // If it's already a JSON array/object, stop
+                if (current.StartsWith("[") || current.StartsWith("{"))
+                {
+                    break;
+                }
+
+                // If it is a quoted JSON string, unwrap by deserializing as string
+                if ((current.StartsWith("\"") && current.EndsWith("\"")) ||
+                    (current.StartsWith("\'") && current.EndsWith("\'")))
+                {
+                    try
                     {
-                        return inner.Trim();
+                        var inner = JsonSerializer.Deserialize<string>(current);
+                        if (!string.IsNullOrWhiteSpace(inner))
+                        {
+                            current = inner.Trim();
+                            continue;
+                        }
+                    }
+                    catch
+                    {
+                        // fallthrough and try unescape approach below
                     }
                 }
-                catch
+
+                // Heuristic: if we still see a lot of escaped quotes (\") then unescape once
+                if (current.Contains("\\\""))
                 {
-                    // fallthrough
+                    try
+                    {
+                        current = current.Replace("\\\"", "\"");
+                        current = current.Trim();
+                        continue;
+                    }
+                    catch
+                    {
+                        // ignore and break
+                    }
                 }
+
+                // Nothing changed, stop
+                break;
             }
 
-            return trimmed;
+            return current;
         }
 
         private static string NormalizeComponentsJson(string componentsJson)

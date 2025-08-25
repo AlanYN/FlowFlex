@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import loader from '@monaco-editor/loader';
 
 // Props
@@ -205,6 +205,12 @@ const initEditor = async () => {
 			editor.setValue(props.modelValue);
 		}
 
+		// Ensure readOnly state is properly set after initialization
+		if (props.readOnly !== false) {
+			await nextTick();
+			editor.updateOptions({ readOnly: props.readOnly });
+		}
+
 		// Hide loading when editor is ready
 		loading.value = false;
 	} catch (error) {
@@ -239,9 +245,16 @@ const updateEditorLanguage = (language: string) => {
 };
 
 // Update read-only state
-const updateReadOnly = (readOnly: boolean) => {
+const updateReadOnly = async (readOnly: boolean) => {
 	if (editor) {
+		// Use nextTick to ensure the update happens after any pending DOM updates
+		await nextTick();
+
+		// Update the editor options
 		editor.updateOptions({ readOnly });
+
+		// Force layout update to ensure changes are applied
+		editor.layout();
 	}
 };
 
@@ -260,7 +273,13 @@ onBeforeUnmount(() => {
 // Watchers
 watch(() => props.modelValue, updateEditorValue);
 watch(() => props.language, updateEditorLanguage);
-watch(() => props.readOnly, updateReadOnly);
+watch(
+	() => props.readOnly,
+	async (newReadOnly) => {
+		await updateReadOnly(newReadOnly);
+	},
+	{ immediate: true }
+);
 
 // Format code method
 const formatCode = async () => {

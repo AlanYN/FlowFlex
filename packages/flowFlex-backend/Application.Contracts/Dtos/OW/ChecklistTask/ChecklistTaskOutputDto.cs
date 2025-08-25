@@ -101,6 +101,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         public string AttachmentsJson { get; set; }
 
         /// <summary>
+        /// 结构化负责人信息
+        /// </summary>
+        public AssigneeDto Assignee { get; set; }
+
+        /// <summary>
         /// 状态
         /// </summary>
         public string Status { get; set; }
@@ -129,5 +134,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         /// 修改人
         /// </summary>
         public string ModifyBy { get; set; }
+
+        /// <summary>
+        /// 关联动作ID
+        /// </summary>
+        public long? ActionId { get; set; }
+
+        /// <summary>
+        /// 动作名称
+        /// </summary>
+        public string ActionName { get; set; }
     }
 }

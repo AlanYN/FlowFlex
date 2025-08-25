@@ -58,10 +58,12 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         Task<bool> ValidateStructureAsync(string structureJson);
 
-        /// <summary>
-        /// Get questionnaires by multiple stage IDs
-        /// </summary>
-        Task<List<Questionnaire>> GetByStageIdsAsync(List<long> stageIds);
+            /// <summary>
+    /// Get questionnaires by multiple stage IDs (DEPRECATED)
+    /// Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components
+    /// </summary>
+    [Obsolete("This method is deprecated. Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components.")]
+    Task<List<Questionnaire>> GetByStageIdsAsync(List<long> stageIds);
 
         /// <summary>
         /// Check if workflow and stage association already exists
@@ -92,10 +94,12 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<Questionnaire>> GetByWorkflowIdAsync(long workflowId);
 
         /// <summary>
-        /// Get questionnaires by stage ID
+        /// Get questionnaires by stage ID (DEPRECATED)
+        /// Use QuestionnaireService.GetByStageIdAsync() instead, which queries through Stage Components
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <returns>List of questionnaires</returns>
+        [Obsolete("This method is deprecated. Use QuestionnaireService.GetByStageIdAsync() instead, which queries through Stage Components.")]
         Task<List<Questionnaire>> GetByStageIdAsync(long stageId);
 
         /// <summary>
@@ -112,5 +116,40 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="appCode">应用代码</param>
         /// <returns>问卷列表</returns>
         Task<List<Questionnaire>> GetListWithExplicitFiltersAsync(string tenantId, string appCode);
+
+        /// <summary>
+        /// Get questionnaires by workflow and/or stage using JSONB database query
+        /// </summary>
+        Task<(List<Questionnaire> items, int totalCount)> GetPagedByStageComponentsAsync(
+            int pageIndex,
+            int pageSize,
+            string name = null,
+            long? workflowId = null,
+            long? stageId = null,
+            bool? isActive = null,
+            string sortField = null,
+            string sortDirection = null);
+
+        /// <summary>
+        /// Get questionnaire IDs by workflow and/or stage using JSONB database query
+        /// </summary>
+        Task<List<long>> GetQuestionnaireIdsByStageComponentsAsync(long? workflowId = null, long? stageId = null);
+
+        /// <summary>
+        /// Debug method: Find which stages contain a specific questionnaire ID
+        /// </summary>
+        Task<List<Stage>> FindStagesContainingQuestionnaireAsync(long questionnaireId);
+
+        /// <summary>
+        /// Get questionnaires by IDs with pagination and filters (using mapping table approach)
+        /// </summary>
+        Task<(List<Questionnaire> items, int totalCount)> GetPagedByIdsAsync(
+            List<long> questionnaireIds,
+            int pageIndex,
+            int pageSize,
+            string name = null,
+            bool? isActive = null,
+            string sortField = null,
+            string sortDirection = null);
     }
 }

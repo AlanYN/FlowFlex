@@ -114,6 +114,13 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <param name="input">Chat input with messages and context</param>
         /// <returns>Streaming chat response</returns>
         IAsyncEnumerable<AIChatStreamResult> StreamChatAsync(AIChatInput input);
+
+        /// <summary>
+        /// Generate AI summary for stage based on checklist tasks and questionnaire questions
+        /// </summary>
+        /// <param name="input">Stage summary generation input</param>
+        /// <returns>Generated stage summary</returns>
+        Task<AIStageSummaryResult> GenerateStageSummaryAsync(AIStageSummaryInput input);
     }
 
     /// <summary>
@@ -506,6 +513,383 @@ namespace FlowFlex.Application.Contracts.IServices
         [Newtonsoft.Json.JsonProperty("sessionId")]
         [System.Text.Json.Serialization.JsonPropertyName("sessionId")]
         public string SessionId { get; set; } = string.Empty;
+    }
+
+    #endregion
+
+    #region AI Stage Summary DTOs
+
+    /// <summary>
+    /// AI stage summary generation input
+    /// </summary>
+    public class AIStageSummaryInput
+    {
+        /// <summary>
+        /// Stage ID
+        /// </summary>
+        public long StageId { get; set; }
+
+        /// <summary>
+        /// Onboarding ID (optional, for context-specific summaries)
+        /// </summary>
+        public long? OnboardingId { get; set; }
+
+        /// <summary>
+        /// Stage name
+        /// </summary>
+        public string StageName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Stage description
+        /// </summary>
+        public string StageDescription { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Checklist tasks information
+        /// </summary>
+        public List<AISummaryTaskInfo> Tasks { get; set; } = new();
+
+        /// <summary>
+        /// Checklist tasks information (alias for compatibility)
+        /// </summary>
+        public List<AISummaryTaskInfo> ChecklistTasks 
+        { 
+            get => Tasks; 
+            set => Tasks = value; 
+        }
+
+        /// <summary>
+        /// Questionnaire questions information
+        /// </summary>
+        public List<AISummaryQuestionInfo> Questions { get; set; } = new();
+
+        /// <summary>
+        /// Questionnaire questions information (alias for compatibility)
+        /// </summary>
+        public List<AISummaryQuestionInfo> QuestionnaireQuestions 
+        { 
+            get => Questions; 
+            set => Questions = value; 
+        }
+
+        /// <summary>
+        /// AI model ID to use (optional)
+        /// </summary>
+        public string? ModelId { get; set; }
+
+        /// <summary>
+        /// AI model provider (optional)
+        /// </summary>
+        public string? ModelProvider { get; set; }
+
+        /// <summary>
+        /// AI model name (optional)
+        /// </summary>
+        public string? ModelName { get; set; }
+
+        /// <summary>
+        /// Summary generation language
+        /// </summary>
+        public string Language { get; set; } = "zh-CN";
+
+        /// <summary>
+        /// Summary length preference
+        /// </summary>
+        public string SummaryLength { get; set; } = "medium";
+
+        /// <summary>
+        /// Additional context for summary generation
+        /// </summary>
+        public string AdditionalContext { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Include task analysis in summary
+        /// </summary>
+        public bool IncludeTaskAnalysis { get; set; } = true;
+
+        /// <summary>
+        /// Include questionnaire insights in summary
+        /// </summary>
+        public bool IncludeQuestionnaireInsights { get; set; } = true;
+
+        /// <summary>
+        /// Include risk assessment in summary
+        /// </summary>
+        public bool IncludeRiskAssessment { get; set; } = true;
+
+        /// <summary>
+        /// Include recommendations in summary
+        /// </summary>
+        public bool IncludeRecommendations { get; set; } = true;
+
+        /// <summary>
+        /// Static fields information
+        /// </summary>
+        public List<AISummaryFieldInfo> StaticFields { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Task information for AI summary
+    /// </summary>
+    public class AISummaryTaskInfo
+    {
+        /// <summary>
+        /// Task ID
+        /// </summary>
+        public long TaskId { get; set; }
+
+        /// <summary>
+        /// Task title
+        /// </summary>
+        public string TaskTitle { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Task name (alias for TaskTitle)
+        /// </summary>
+        public string TaskName 
+        { 
+            get => TaskTitle; 
+            set => TaskTitle = value; 
+        }
+
+        /// <summary>
+        /// Task description
+        /// </summary>
+        public string TaskDescription { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Description (alias for TaskDescription)
+        /// </summary>
+        public string Description 
+        { 
+            get => TaskDescription; 
+            set => TaskDescription = value; 
+        }
+
+        /// <summary>
+        /// Task completion notes
+        /// </summary>
+        public string CompletionNotes { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Is task required
+        /// </summary>
+        public bool IsRequired { get; set; }
+
+        /// <summary>
+        /// Is task completed
+        /// </summary>
+        public bool IsCompleted { get; set; }
+
+        /// <summary>
+        /// Task category
+        /// </summary>
+        public string Category { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Estimated completion time in minutes
+        /// </summary>
+        public int EstimatedMinutes { get; set; }
+    }
+
+    /// <summary>
+    /// Question information for AI summary
+    /// </summary>
+    public class AISummaryQuestionInfo
+    {
+        /// <summary>
+        /// Question ID
+        /// </summary>
+        public long QuestionId { get; set; }
+
+        /// <summary>
+        /// Question text
+        /// </summary>
+        public string QuestionText { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Question type
+        /// </summary>
+        public string QuestionType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Is question required
+        /// </summary>
+        public bool IsRequired { get; set; }
+
+        /// <summary>
+        /// Is question answered
+        /// </summary>
+        public bool IsAnswered { get; set; }
+
+        /// <summary>
+        /// Question answer (if available)
+        /// </summary>
+        public string? Answer { get; set; }
+
+        /// <summary>
+        /// Question category
+        /// </summary>
+        public string Category { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Static field information for AI summary
+    /// </summary>
+    public class AISummaryFieldInfo
+    {
+        /// <summary>
+        /// Field name
+        /// </summary>
+        public string FieldName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Field display name
+        /// </summary>
+        public string DisplayName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Field type
+        /// </summary>
+        public string FieldType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Is field required
+        /// </summary>
+        public bool IsRequired { get; set; }
+
+        /// <summary>
+        /// Field description
+        /// </summary>
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Field category
+        /// </summary>
+        public string Category { get; set; } = "Static Field";
+    }
+
+    /// <summary>
+    /// AI stage summary generation result
+    /// </summary>
+    public class AIStageSummaryResult
+    {
+        /// <summary>
+        /// Generation success status
+        /// </summary>
+        public bool Success { get; set; }
+
+        /// <summary>
+        /// Result message
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Generated summary text
+        /// </summary>
+        public string Summary { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Structured summary breakdown
+        /// </summary>
+        public AIStageSummaryBreakdown? Breakdown { get; set; }
+
+        /// <summary>
+        /// Key insights from the analysis
+        /// </summary>
+        public List<string> KeyInsights { get; set; } = new();
+
+        /// <summary>
+        /// Recommendations for improvement
+        /// </summary>
+        public List<string> Recommendations { get; set; } = new();
+
+        /// <summary>
+        /// Completion status analysis
+        /// </summary>
+        public AISummaryCompletionStatus? CompletionStatus { get; set; }
+
+        /// <summary>
+        /// Generation timestamp
+        /// </summary>
+        public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// AI model used for generation
+        /// </summary>
+        public string? ModelUsed { get; set; }
+
+        /// <summary>
+        /// Confidence score of the generated summary (0-1)
+        /// </summary>
+        public double ConfidenceScore { get; set; } = 0.8;
+    }
+
+    /// <summary>
+    /// Structured breakdown of stage summary
+    /// </summary>
+    public class AIStageSummaryBreakdown
+    {
+        /// <summary>
+        /// Overall stage overview
+        /// </summary>
+        public string Overview { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Checklist tasks summary
+        /// </summary>
+        public string ChecklistSummary { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Questionnaire responses summary
+        /// </summary>
+        public string QuestionnaireSummary { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Progress analysis
+        /// </summary>
+        public string ProgressAnalysis { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Risk assessment
+        /// </summary>
+        public string RiskAssessment { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Stage completion status analysis
+    /// </summary>
+    public class AISummaryCompletionStatus
+    {
+        /// <summary>
+        /// Overall completion rate (0-100)
+        /// </summary>
+        public double OverallCompletionRate { get; set; }
+
+        /// <summary>
+        /// Checklist completion rate (0-100)
+        /// </summary>
+        public double ChecklistCompletionRate { get; set; }
+
+        /// <summary>
+        /// Questionnaire completion rate (0-100)
+        /// </summary>
+        public double QuestionnaireCompletionRate { get; set; }
+
+        /// <summary>
+        /// Are critical tasks completed
+        /// </summary>
+        public bool CriticalTasksCompleted { get; set; }
+
+        /// <summary>
+        /// Are required questions answered
+        /// </summary>
+        public bool RequiredQuestionsAnswered { get; set; }
+
+        /// <summary>
+        /// Estimated time to completion
+        /// </summary>
+        public string EstimatedTimeToCompletion { get; set; } = string.Empty;
     }
 
     #endregion

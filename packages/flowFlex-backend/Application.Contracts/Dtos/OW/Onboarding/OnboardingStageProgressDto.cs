@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
 {
@@ -49,6 +50,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public DateTimeOffset? CompletionTime { get; set; }
 
         /// <summary>
+        /// 预计结束时间 (基于开始时间 + 预计天数计算) - UTC时间
+        /// </summary>
+        public DateTimeOffset? EndTime { get; set; }
+
+        /// <summary>
         /// 完成人ID
         /// </summary>
         public long? CompletedById { get; set; }
@@ -84,6 +90,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool VisibleInPortal { get; set; } = true;
 
         /// <summary>
+        /// Portal Permission - Defines the level of access in the customer portal (Viewable or Completable)
+        /// Only applies when VisibleInPortal is true
+        /// </summary>
+        public PortalPermissionEnum? PortalPermission { get; set; }
+
+        /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage
         /// </summary>
         public bool AttachmentManagementNeeded { get; set; } = false;
@@ -93,5 +105,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 定义Stage包含的组件及其顺序
         /// </summary>
         public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; } = new List<FlowFlex.Domain.Shared.Models.StageComponent>();
+
+        // === AI Summary fields for display ===
+        public string AiSummary { get; set; }
+        public DateTime? AiSummaryGeneratedAt { get; set; }
+        public decimal? AiSummaryConfidence { get; set; }
+        public string AiSummaryModel { get; set; }
+        public string AiSummaryData { get; set; }
     }
 }

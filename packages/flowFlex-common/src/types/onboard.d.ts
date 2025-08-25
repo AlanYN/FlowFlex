@@ -240,13 +240,18 @@ export interface StageInfo {
 	startTime: string;
 	status: string;
 	components: ComponentData[];
+	aiSummary?: string;
+	aiSummaryGeneratedAt?: string;
+	aiSummaryConfidence?: number;
+	aiSummaryModel?: string;
+	aiSummaryData?: string;
 }
 
 export interface ComponentsData {
 	components: StageComponentData[];
 	visibleInPortal?: boolean;
+	portalPermission?: number;
 	attachmentManagementNeeded?: boolean;
-	[key: string]: any;
 }
 
 export interface StaticField {
@@ -333,7 +338,16 @@ export interface Stage {
 	order: number;
 	selected?: boolean;
 	color?: string;
-	components: ComponentData[];
+	components: StageComponentData[];
+	visibleInPortal?: boolean;
+	portalPermission?: number; // PortalPermissionEnum value
+	attachmentManagementNeeded?: boolean;
+	// AI summary fields (optional)
+	aiSummary?: string;
+	aiSummaryGeneratedAt?: string;
+	aiSummaryConfidence?: number;
+	aiSummaryModel?: string;
+	aiSummaryData?: any;
 }
 
 // 检查清单任务完成记录相关类型定义

@@ -76,242 +76,44 @@
 			</div>
 		</div>
 
-		<!-- 主要内容区域 - 滚动容器 -->
-		<el-scrollbar ref="scrollbarRef">
-			<!-- 加载状态 -->
-			<div v-if="loading" class="flex justify-center items-center py-12">
-				<el-icon class="animate-spin h-8 w-8 text-primary-500">
-					<Loading />
-				</el-icon>
-				<span class="ml-2 text-primary-600">Loading questionnaires...</span>
-			</div>
+		<!-- 视图切换标签页 -->
+		<PrototypeTabs
+			v-model="activeView"
+			:tabs="tabsConfig"
+			type="adaptive"
+			size="default"
+			@tab-change="handleViewChange"
+		>
+			<!-- 卡片视图 -->
+			<TabPane value="card">
+				<el-scrollbar ref="scrollbarRef">
+					<QuestionnaireCardView
+						:questionnaires="filteredQuestionnaires"
+						:loading="loading"
+						:empty-message="getEmptyStateMessage()"
+						:workflows="workflows"
+						:all-stages="allStages"
+						@command="handleCommand"
+						@new-questionnaire="() => handleNewQuestionnaire()"
+					/>
+				</el-scrollbar>
+			</TabPane>
 
-			<!-- 问卷卡片网格 -->
-			<div v-else class="questionnaire-grid">
-				<template v-if="filteredQuestionnaires.length > 0">
-					<el-card
-						v-for="questionnaire in filteredQuestionnaires"
-						:key="questionnaire.id"
-						class="questionnaire-card overflow-hidden transition-all"
-					>
-						<!-- 卡片头部 -->
-						<template #header>
-							<div class="card-header -m-5 p-4">
-								<div class="flex items-center justify-between w-full">
-									<div class="flex items-center space-x-3 flex-1 min-w-0">
-										<div class="card-icon p-2 rounded-full flex-shrink-0">
-											<el-icon class="h-5 w-5"><Document /></el-icon>
-										</div>
-										<h3
-											class="card-title text-xl font-semibold leading-tight tracking-tight truncate"
-											:title="questionnaire.name"
-										>
-											{{ questionnaire.name }}
-										</h3>
-									</div>
-									<el-dropdown
-										trigger="click"
-										@command="(cmd) => handleCommand(cmd, questionnaire)"
-										class="flex-shrink-0"
-									>
-										<el-button text class="card-more-btn" link>
-											<el-icon class="h-4 w-4"><MoreFilled /></el-icon>
-										</el-button>
-										<template #dropdown>
-											<el-dropdown-menu>
-												<el-dropdown-item command="edit">
-													<el-icon class="mr-2"><Edit /></el-icon>
-													Edit
-												</el-dropdown-item>
-												<el-dropdown-item command="preview">
-													<el-icon class="mr-2"><View /></el-icon>
-													Preview
-												</el-dropdown-item>
-												<el-dropdown-item command="duplicate">
-													<el-icon class="mr-2"><CopyDocument /></el-icon>
-													Duplicate
-												</el-dropdown-item>
-												<el-dropdown-item
-													divided
-													command="delete"
-													class="text-red-500"
-												>
-													<el-icon class="mr-2"><Delete /></el-icon>
-													Delete
-												</el-dropdown-item>
-											</el-dropdown-menu>
-										</template>
-									</el-dropdown>
-								</div>
-								<p class="text-primary-600 text-sm mt-1.5 truncate h-6">
-									{{ questionnaire.description }}
-								</p>
-							</div>
-						</template>
+			<!-- 列表视图 -->
+			<TabPane value="list">
+				<QuestionnaireListView
+					:questionnaires="filteredQuestionnaires"
+					:loading="loading"
+					:workflows="workflows"
+					:all-stages="allStages"
+					@command="handleCommand"
+					@selection-change="handleSelectionChange"
+					@sort-change="handleSortChange"
+				/>
+			</TabPane>
+		</PrototypeTabs>
 
-						<!-- 卡片内容 -->
-						<div class="">
-							<div class="space-y-3">
-								<!-- Assignments区域 -->
-								<div class="space-y-2">
-									<div class="flex items-center text-sm">
-										<span class="card-label">Assignments:</span>
-									</div>
-									<div
-										class="flex items-start gap-2 flex-wrap assignments-container"
-										style="height: 60px; overflow: hidden"
-									>
-										<!-- 显示前5个组合的assignments -->
-										<span
-											class="card-link"
-											v-for="assignment in getDisplayedAssignments(
-												questionnaire.assignments
-											)"
-											:key="`${assignment.workflowId}-${assignment.stageId}`"
-											:title="`${getWorkflowName(
-												assignment.workflowId
-											)} → ${getStageName(assignment.stageId)}`"
-										>
-											<text
-												class="w-full overflow-hidden text-ellipsis whitespace-nowrap"
-											>
-												{{
-													`${getWorkflowName(
-														assignment.workflowId
-													)} → ${getStageName(assignment.stageId)}`
-												}}
-											</text>
-										</span>
-										<!-- 显示剩余数量的按钮 -->
-										<el-popover
-											v-if="
-												questionnaire.assignments &&
-												getRemainingCount(questionnaire.assignments) > 0
-											"
-											placement="top"
-											:width="400"
-											trigger="click"
-										>
-											<template #reference>
-												<span class="card-link-more">
-													+{{
-														getRemainingCount(questionnaire.assignments)
-													}}
-												</span>
-											</template>
-											<div class="popover-content">
-												<h4 class="popover-title">More Assignments</h4>
-												<div class="popover-tags">
-													<span
-														class="popover-tag"
-														v-for="assignment in getRemainingAssignments(
-															questionnaire.assignments
-														)"
-														:key="`${assignment.workflowId}-${assignment.stageId}`"
-														:title="`${getWorkflowName(
-															assignment.workflowId
-														)} → ${getStageName(assignment.stageId)}`"
-													>
-														{{
-															`${getWorkflowName(
-																assignment.workflowId
-															)} → ${getStageName(
-																assignment.stageId
-															)}`
-														}}
-													</span>
-												</div>
-											</div>
-										</el-popover>
-									</div>
-								</div>
-								<div class="flex items-center justify-between text-sm">
-									<el-tooltip class="flex-1" content="total number of sections">
-										<div class="flex flex-1 items-center gap-2">
-											<Icon
-												icon="material-symbols-light:insert-page-break"
-												class="text-primary-500 w-5 h-5"
-											/>
-											<span class="card-value font-medium">
-												{{
-													JSON.parse(questionnaire.structureJson).sections
-														.length
-												}}
-											</span>
-										</div>
-									</el-tooltip>
-									<el-tooltip class="flex-1" content="total number of questions">
-										<div class="flex flex-1 items-center gap-2">
-											<Icon
-												icon="material-symbols:format-list-bulleted"
-												class="text-primary-500 w-5 h-5"
-											/>
-											<span class="card-value font-medium">
-												{{ questionnaire.totalQuestions }}
-											</span>
-										</div>
-									</el-tooltip>
-								</div>
-								<div class="flex items-center justify-between text-sm">
-									<el-tooltip class="flex-1" content="last mdify by">
-										<div class="flex flex-1 items-center gap-2">
-											<Icon
-												icon="ic:baseline-person-3"
-												class="text-primary-500 w-5 h-5"
-											/>
-											<span class="card-value font-medium">
-												{{ questionnaire.modifyBy }}
-											</span>
-										</div>
-									</el-tooltip>
-									<el-tooltip class="flex-1" content="last modify date">
-										<div class="flex flex-1 items-center gap-2">
-											<Icon
-												icon="ic:baseline-calendar-month"
-												class="text-primary-500 w-5 h-5"
-											/>
-											<span class="card-value font-medium">
-												{{
-													timeZoneConvert(
-														questionnaire.modifyDate,
-														false,
-														projectTenMinuteDate
-													)
-												}}
-											</span>
-										</div>
-									</el-tooltip>
-								</div>
-							</div>
-						</div>
-					</el-card>
-				</template>
-			</div>
-
-			<!-- 空状态 -->
-			<div
-				v-if="(!filteredQuestionnaires || filteredQuestionnaires.length === 0) && !loading"
-				class="empty-state flex flex-col items-center justify-center py-12 text-center rounded-lg shadow-sm"
-			>
-				<div class="empty-icon-bg p-4 rounded-full mb-4">
-					<el-icon class="h-12 w-12 empty-icon"><Document /></el-icon>
-				</div>
-				<h3 class="text-lg font-medium empty-title">No questionnaires found</h3>
-				<p class="empty-subtitle mt-1 mb-4">
-					{{ getEmptyStateMessage() }}
-				</p>
-				<el-button
-					type="primary"
-					@click="() => handleNewQuestionnaire()"
-					class="primary-button"
-				>
-					<el-icon class="mr-2"><Plus /></el-icon>
-					Create Your First Questionnaire
-				</el-button>
-			</div>
-		</el-scrollbar>
-
-		<!-- 分页组件 - 移出滚动容器 -->
+		<!-- 统一分页组件 -->
 		<div v-if="!loading && pagination.total > 0">
 			<CustomerPagination
 				:total="pagination.total"
@@ -374,23 +176,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, markRaw } from 'vue';
 import { ElMessage } from 'element-plus';
-import {
-	Plus,
-	Edit,
-	CopyDocument,
-	Delete,
-	Document,
-	MoreFilled,
-	View,
-	Loading,
-} from '@element-plus/icons-vue';
+import { Plus } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import QuestionnairePreview from './components/QuestionnairePreview.vue';
+import QuestionnaireCardView from './components/QuestionnaireCardView.vue';
+import QuestionnaireListView from './components/QuestionnaireListView.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import InputTag from '@/components/global/u-input-tags/index.vue';
-import { timeZoneConvert } from '@/hooks/time';
 
 // 引入问卷相关API接口
 import {
@@ -402,7 +196,10 @@ import {
 import { getWorkflows, getStagesByWorkflow, getAllStages } from '@/apis/ow';
 import { Questionnaire } from '#/onboard';
 import { useRouter } from 'vue-router';
-import { smallDialogWidth, defaultStr, projectTenMinuteDate } from '@/settings/projectSetting';
+import { smallDialogWidth } from '@/settings/projectSetting';
+import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
+import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 
 const router = useRouter();
 
@@ -439,19 +236,14 @@ const showPreview = ref(false);
 const selectedQuestionnaireId = ref('');
 const selectedQuestionnaireData = ref<any>(null);
 
+// 视图切换
+const activeView = ref('card');
+const tabsConfig = ref([
+	{ label: 'Card View', value: 'card', icon: markRaw(TableViewIcon) },
+	{ label: 'List View', value: 'list', icon: markRaw(ProgressViewIcon) },
+]);
+
 // 方法
-const getWorkflowName = (workflowId: string) => {
-	if (!workflowId || workflowId === '0') return defaultStr;
-	const workflow = workflows.value.find((w) => w.id === workflowId);
-	return workflow?.name || workflowId;
-};
-
-const getStageName = (stageId: string) => {
-	if (!stageId || stageId === '0') return defaultStr;
-	const stage = allStages.value.find((s) => s.id === stageId);
-	return stage ? stage.name : stageId;
-};
-
 const getEmptyStateMessage = () => {
 	if (searchQuery.value || selectedWorkflow.value !== 'all' || selectedStage.value !== 'all') {
 		return 'Try adjusting your filters';
@@ -464,55 +256,6 @@ const handleSearchTagsChange = (tags: string[]) => {
 	searchQuery.value = tags.join(',');
 };
 
-// 获取显示的分配数量（去重）
-const getDisplayedAssignments = (assignments: any[]) => {
-	const displayedCount = 5; // 显示5个
-	if (!assignments || assignments.length === 0) {
-		return [];
-	}
-
-	// 根据workflowId+stageId组合进行去重
-	const uniqueAssignments = assignments.filter((assignment, index, self) => {
-		return (
-			index ===
-			self.findIndex(
-				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
-			)
-		);
-	});
-
-	// 返回前N个去重后的数据
-	return uniqueAssignments.slice(0, displayedCount);
-};
-
-// 获取去重后的所有数据
-const getUniqueAssignments = (assignments: any[]) => {
-	if (!assignments || assignments.length === 0) {
-		return [];
-	}
-
-	return assignments.filter((assignment, index, self) => {
-		return (
-			index ===
-			self.findIndex(
-				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
-			)
-		);
-	});
-};
-
-// 获取剩余数量（去重后）
-const getRemainingCount = (assignments: any[]) => {
-	const uniqueAssignments = getUniqueAssignments(assignments);
-	return Math.max(0, uniqueAssignments.length - 5); // 调整为3个
-};
-
-// 获取剩余的标签（去重后，跳过前5个）
-const getRemainingAssignments = (assignments: any[]) => {
-	const uniqueAssignments = getUniqueAssignments(assignments);
-	return uniqueAssignments.slice(5); // 跳过前5个，返回剩余的
-};
-
 // 初始化数据
 onMounted(async () => {
 	// 只加载工作流和问卷数据，不预加载stages
@@ -522,22 +265,16 @@ onMounted(async () => {
 // 获取工作流列表
 const fetchWorkflows = async () => {
 	try {
-		console.log('Fetching workflows...');
 		const response = await getWorkflows();
-		console.log('Workflows response:', response);
 
 		if (response.code === '200') {
 			workflows.value = response.data || [];
-			console.log('Workflows loaded:', workflows.value);
 		} else {
-			console.warn('Failed to fetch workflows:', response.msg);
 			workflows.value = [];
 			ElMessage.error(response.msg || 'Failed to fetch workflows');
 		}
 	} catch (error) {
-		console.error('Error fetching workflows:', error);
 		workflows.value = [];
-		ElMessage.error('Failed to fetch workflows');
 	}
 };
 
@@ -673,12 +410,14 @@ const handlePreviewQuestionnaire = async (id: string) => {
 			// 适配数据结构，参考 createQuestion.vue 的处理方式
 			const adaptedSections =
 				structure?.sections?.map((section: any) => ({
-					id: section.id || `section-${Date.now()}-${Math.random()}`,
+					id: section?.id || null,
+					temporaryId: section?.temporaryId || `section-${Date.now()}-${Math.random()}`,
 					title: section.title || 'Untitled Section',
 					description: section.description || '',
 					// 处理questions字段（API返回的是questions，PreviewContent期望的是items）
 					items: (section.questions || section.items || []).map((item: any) => ({
-						id: item.id || `question-${Date.now()}-${Math.random()}`,
+						id: item?.id || null,
+						temporaryId: item?.temporaryId || `question-${Date.now()}-${Math.random()}`,
 						type: item.type || 'text',
 						question: item.title || item.question || '',
 						title: item.title || item.question || '', // 保持兼容性
@@ -812,6 +551,20 @@ const handlePageUpdate = (pageSize: number) => {
 const handleLimitUpdate = () => {
 	fetchQuestionnaires();
 };
+
+// 视图切换处理
+const handleViewChange = (value: string) => {
+	activeView.value = value;
+};
+
+// 表格相关方法 (列表视图)
+const handleSelectionChange = (selection: Questionnaire[]) => {
+	// 在列表视图中，selectionChange 通常用于多选，这里不需要特殊处理
+};
+
+const handleSortChange = (sort: any) => {
+	// 在列表视图中，sortChange 用于排序，这里不需要特殊处理
+};
 </script>
 
 <style scoped lang="scss">
@@ -821,16 +574,6 @@ const handleLimitUpdate = () => {
 	display: flex;
 	flex-direction: column;
 }
-
-/* 滚动条样式 */
-:deep(.el-scrollbar__wrap) {
-	overflow-x: hidden;
-}
-
-:deep(.el-scrollbar__view) {
-	padding: 0;
-}
-
 /* 页面头部样式 */
 .page-header {
 	@apply dark:from-primary-600 dark:to-primary-500;
@@ -871,117 +614,6 @@ const handleLimitUpdate = () => {
 	@apply dark:text-primary-300;
 }
 
-/* 问卷卡片样式 */
-.questionnaire-card {
-	border: 1px solid var(--primary-100);
-	@apply dark:border-black-200 dark:bg-black-400;
-	transition: all 0.3s ease;
-	border-bottom: 6px solid var(--primary-500);
-	border-bottom-left-radius: 6px;
-	border-bottom-right-radius: 6px;
-}
-
-.questionnaire-card:hover {
-	border-color: var(--primary-300);
-	@apply dark:border-primary-600;
-}
-
-.card-header {
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
-	@apply dark:from-primary-600 dark:to-primary-500;
-	display: flex;
-	flex-direction: column;
-	justify-content: space-between;
-}
-
-.card-icon {
-	background-color: var(--primary-500);
-	color: white;
-	width: 36px;
-	height: 36px;
-}
-
-.card-title {
-	color: var(--primary-800);
-	@apply dark:text-white;
-}
-
-.card-more-btn {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
-.card-label {
-	@apply text-gray-500 dark:text-gray-400 font-medium;
-	min-width: 70px;
-}
-
-.card-link {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
-	white-space: nowrap;
-	width: calc(100% / 3 - 10px); /* 固定宽度 */
-	flex-shrink: 0; /* 防止收缩 */
-	padding-right: 8px; /* 增加右边距 */
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-.card-link:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-.card-link-more {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
-	white-space: nowrap;
-	width: 40px; /* 固定宽度 */
-	overflow: hidden;
-	text-overflow: ellipsis;
-	justify-content: center; /* 文本居中 */
-	flex-shrink: 0; /* 防止收缩 */
-	margin-right: 8px; /* 增加右边距 */
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-.card-link-more:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-/* 响应式优化 */
-@media (max-width: 768px) {
-	.card-label {
-		min-width: 60px;
-		font-size: 12px;
-	}
-
-	.card-link {
-		font-size: 11px;
-		padding: 2px 6px;
-		width: 120px; /* 小屏幕固定宽度 */
-		justify-content: flex-start; /* 确保小屏幕也是左对齐 */
-	}
-
-	.card-link-more {
-		font-size: 11px;
-		padding: 2px 6px;
-		width: 35px; /* 小屏幕固定宽度 */
-	}
-
-	.popover-tag {
-		font-size: 11px;
-		padding: 2px 6px;
-		width: 120px; /* 小屏幕固定宽度 */
-		justify-content: flex-start; /* 确保小屏幕也是左对齐 */
-	}
-
-	.popover-title {
-		font-size: 12px;
-	}
-}
-
-.card-value {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
 /* 删除对话框样式 */
 :deep(.delete-dialog .el-dialog__header) {
 	padding: 20px 20px 0 20px;
@@ -1012,33 +644,6 @@ const handleLimitUpdate = () => {
 .card-action-btn:hover {
 	background-color: var(--primary-100);
 	@apply dark:bg-primary-500;
-}
-
-/* 空状态样式 */
-.empty-state {
-	@apply bg-white dark:bg-black-400;
-	border: 1px solid var(--primary-100);
-	@apply dark:border-black-200;
-}
-
-.empty-icon-bg {
-	background-color: var(--primary-50);
-	@apply dark:bg-primary-800;
-}
-
-.empty-icon {
-	color: var(--primary-400);
-	@apply dark:text-primary-500;
-}
-
-.empty-title {
-	color: var(--primary-800);
-	@apply dark:text-white;
-}
-
-.empty-subtitle {
-	color: var(--primary-600);
-	@apply dark:text-primary-300;
 }
 
 /* InputTag组件样式调整 - 优化显示效果 */
@@ -1192,104 +797,6 @@ const handleLimitUpdate = () => {
 :deep(.el-dialog__title) {
 	color: var(--primary-800);
 	@apply dark:text-white;
-}
-
-/* 问卷卡片网格布局 */
-.questionnaire-grid {
-	display: grid;
-	gap: 24px;
-	/* 使用auto-fill保持卡片合适宽度，避免过度拉伸 */
-	grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-	width: 100%;
-
-	/* 响应式断点调整 - 主要调整gap和minmax，避免使用固定列数 */
-	@media (max-width: 480px) {
-		/* 超小屏幕：1列，全宽 */
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 16px;
-		padding: 0 8px;
-	}
-
-	@media (min-width: 481px) and (max-width: 768px) {
-		/* 小屏幕：自适应，但偏向1列 */
-		grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-		gap: 20px;
-	}
-
-	@media (min-width: 769px) and (max-width: 1024px) {
-		/* 中等屏幕：自适应，偏向2列 */
-		grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-		gap: 20px;
-	}
-
-	@media (min-width: 1025px) and (max-width: 1400px) {
-		/* 大屏幕：自适应，2-3列之间 */
-		grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-		gap: 24px;
-	}
-
-	@media (min-width: 1401px) and (max-width: 1920px) {
-		/* 更大屏幕：自适应，偏向3列 */
-		grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-		gap: 28px;
-	}
-
-	@media (min-width: 1921px) and (max-width: 2560px) {
-		/* 超宽屏：自适应，3-4列之间 */
-		grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-		gap: 32px;
-	}
-
-	@media (min-width: 2561px) {
-		/* 超大屏幕：自适应，4列以上 */
-		grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-		gap: 32px;
-	}
-
-	/* 限制单个卡片的最大宽度，防止过度拉伸 */
-	& > .questionnaire-card {
-		max-width: 600px;
-		width: 100%;
-	}
-}
-
-/* 空状态在网格中的样式 */
-.questionnaire-grid .empty-state {
-	grid-column: 1 / -1; /* 占据整行 */
-}
-
-.popover-title {
-	font-size: 14px;
-	font-weight: 600;
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-	margin-bottom: 10px;
-}
-
-.popover-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-}
-
-.popover-tag {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
-	white-space: nowrap;
-	width: 150px; /* 与主要标签保持一致的固定宽度 */
-	overflow: hidden;
-	text-overflow: ellipsis;
-	justify-content: flex-start; /* 左对齐显示，优先显示workflow */
-	flex-shrink: 0; /* 防止收缩 */
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-.popover-tag:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-/* Assignments容器样式 */
-.assignments-container {
-	height: 60px !important; /* 固定高度 */
 }
 
 /* 暗色主题样式 */

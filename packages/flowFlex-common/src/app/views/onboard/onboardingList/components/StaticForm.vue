@@ -285,21 +285,12 @@
 			</el-form-item>
 
 			<el-form-item label="Assignee" prop="assignee" v-if="staticFields.includes('ASSIGNEE')">
-				<el-select
+				<FlowflexUser
 					v-model="formData.assignee"
-					placeholder="Select Assignee"
-					clearable
-					:loading="assigneeLoading"
-					:disabled="!formData.accountHolderCategory"
-					class="text-sm min-w-[250px]"
-				>
-					<el-option
-						v-for="user in assigneeOptions"
-						:key="user.id"
-						:label="user.fullName"
-						:value="user.id"
-					/>
-				</el-select>
+					placeholder="Select default assignee"
+					:multiple="false"
+					:clearable="true"
+				/>
 			</el-form-item>
 
 			<el-form-item
@@ -374,6 +365,7 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import { textraTwoHundredLength } from '@/settings/projectSetting';
 import { saveQuestionnaireStatic } from '@/apis/ow/onboarding';
 import { ElMessage } from 'element-plus';
+import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 
 const props = defineProps<{
 	staticFields: string[]; // 需要显示的字段
@@ -385,12 +377,6 @@ const emit = defineEmits(['save-success']);
 
 // 表单引用
 const formRef = ref<FormInstance>();
-
-// Assignee相关状态
-const assigneeLoading = ref(false);
-const assigneeOptions = ref<Array<{ id: string; fullName: string; email: string; phone: string }>>(
-	[]
-);
 
 // Location相关状态
 const locationLoading = ref(false);

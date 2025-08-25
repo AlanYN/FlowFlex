@@ -26,23 +26,27 @@
 				<div class="config-title">Configure section navigation for each option:</div>
 
 				<div class="rules-list">
-					<div v-for="option in questionOptions" :key="option.id" class="rule-item">
+					<div
+						v-for="option in questionOptions"
+						:key="option.temporaryId"
+						class="rule-item"
+					>
 						<div v-if="option.isOther" class="option-label">
 							<el-tag type="warning">Other</el-tag>
 						</div>
 						<div v-else class="option-label">{{ option.label }}</div>
 						<el-select
-							v-model="jumpRules[option.id]"
+							v-model="jumpRules[option.temporaryId]"
 							placeholder="Continue to next section"
 							class="section-selector"
 							clearable
-							@change="(value) => handleRuleChange(option.id, value)"
+							@change="(value) => handleRuleChange(option.temporaryId, value)"
 						>
 							<el-option
 								v-for="section in availableSections"
-								:key="section.id"
+								:key="section.temporaryId"
 								:label="section.name"
-								:value="section.id"
+								:value="section.temporaryId"
 							/>
 						</el-select>
 					</div>
@@ -190,7 +194,7 @@ const validateRules = () => {
 
 	// 检查是否有无效的小节ID
 	Object.values(jumpRules.value).forEach((sectionId) => {
-		const section = props.sections.find((s) => s.id === sectionId);
+		const section = props.sections.find((s) => s.temporaryId === sectionId);
 		if (!section) {
 			validationErrors.value.push(`Invalid section selected: ${sectionId}`);
 		}
@@ -208,13 +212,13 @@ const handleSave = () => {
 
 	if (isJumpEnabled.value) {
 		Object.entries(jumpRules.value).forEach(([optionId, sectionId]) => {
-			const option = questionOptions.value.find((opt) => opt.id === optionId);
-			const section = props.sections.find((s) => s.id === sectionId);
+			const option = questionOptions.value.find((opt) => opt.temporaryId === optionId);
+			const section = props.sections.find((s) => s.temporaryId === sectionId);
 
 			if (option && section) {
 				rules.push({
-					id: `${props.question!.id}`,
-					questionId: props.question!.id,
+					id: props.question?.id || '',
+					questionId: props.question?.temporaryId || props.question!.temporaryId,
 					optionId: optionId,
 					optionLabel: option.label,
 					targetSectionId: sectionId,

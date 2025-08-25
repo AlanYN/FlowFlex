@@ -105,12 +105,14 @@
 							<!-- 问卷答案变更详情 -->
 							<div
 								v-else-if="
-									(row.type === 'Answer Update' ||
-										row.type === 'Answer Submit') &&
-									row.answerChanges?.length
+									row.type === 'Answer Update' ||
+									row.type === 'Answer Submit' ||
+									row.type === 'QuestionnaireAnswerUpdate' ||
+									row.type === 'QuestionnaireAnswerSubmit'
 								"
 							>
-								<div class="space-y-2">
+								<!-- 如果有具体变更，显示变更详情 -->
+								<div v-if="row.answerChanges?.length" class="space-y-2">
 									<div
 										v-for="(change, index) in row.answerChanges"
 										:key="index"
@@ -118,6 +120,15 @@
 									>
 										{{ change }}
 									</div>
+								</div>
+								<!-- 如果没有具体变更，显示"没有变化" -->
+								<div
+									v-else
+									class="bg-gray-50 dark:bg-gray-900/20 p-2 rounded text-xs border-l-4 border-gray-400"
+								>
+									<span class="text-gray-600 dark:text-gray-400 italic">
+										No changes
+									</span>
 								</div>
 							</div>
 
@@ -158,6 +169,216 @@
 								</div>
 							</div>
 
+							<!-- Action Execution 详情 -->
+							<div
+								v-else-if="
+									(row.type === 'Action Success' ||
+										row.type === 'Action Failed' ||
+										row.type === 'Action Running' ||
+										row.type === 'Action Pending' ||
+										row.type === 'Action Cancelled' ||
+										row.type === 'ActionExecutionSuccess' ||
+										row.type === 'ActionExecutionFailed' ||
+										row.type === 'ActionExecutionRunning' ||
+										row.type === 'ActionExecutionPending' ||
+										row.type === 'ActionExecutionCancelled' ||
+										row.type === 'Stage Action' ||
+										row.type === 'Task Action' ||
+										row.type === 'Question Action') &&
+									row.actionInfo
+								"
+							>
+								<div
+									:class="getActionExecutionBgClass(row.type)"
+									class="p-3 rounded-md border-l-4"
+								>
+									<div class="text-sm">
+										<div
+											class="font-semibold mb-2 flex items-center justify-between"
+										>
+											<span class="text-gray-800 dark:text-gray-200">
+												{{ row.actionInfo.actionName }}
+											</span>
+											<span
+												:class="getActionExecutionStatusClass(row.type)"
+												class="px-2 py-1 rounded text-xs font-medium"
+											>
+												{{ getActionExecutionStatusText(row.type) }}
+											</span>
+										</div>
+
+										<!-- 显示 operationTitle -->
+										<div v-if="row.operationTitle" class="mb-2">
+											<div
+												class="text-gray-800 dark:text-gray-200 text-sm font-medium"
+											>
+												{{ row.operationTitle }}
+											</div>
+										</div>
+
+										<!-- 显示 operationDescription -->
+										<div v-if="row.operationDescription" class="mb-3">
+											<div
+												class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"
+											>
+												{{ row.operationDescription }}
+											</div>
+										</div>
+
+										<div class="space-y-1 text-xs">
+											<!-- 显示 Action 来源 -->
+											<div
+												v-if="getActionSource(row.type)"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Source:</span>
+												<span
+													:class="getActionSourceClass(row.type)"
+													class="px-2 py-1 rounded text-xs font-medium"
+												>
+													{{ getActionSource(row.type) }}
+												</span>
+											</div>
+											<div class="flex items-center">
+												<span class="text-gray-500 mr-2">Type:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ row.actionInfo.actionType }}
+												</span>
+											</div>
+											<!-- 执行状态 -->
+											<div
+												v-if="row.actionInfo.executionStatus"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Status:</span>
+												<span
+													:class="
+														getExecutionStatusClass(
+															row.actionInfo.executionStatus
+														)
+													"
+													class="px-2 py-1 rounded text-xs font-medium"
+												>
+													{{ row.actionInfo.executionStatus }}
+												</span>
+											</div>
+
+											<!-- 执行时间范围 -->
+											<div
+												v-if="row.actionInfo.startedAt"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Started:</span>
+												<span
+													class="text-gray-700 dark:text-gray-300 text-xs"
+												>
+													{{ formatDateTime(row.actionInfo.startedAt) }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.completedAt"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Completed:</span>
+												<span
+													class="text-gray-700 dark:text-gray-300 text-xs"
+												>
+													{{ formatDateTime(row.actionInfo.completedAt) }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.duration"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Duration:</span>
+												<span class="text-gray-700 dark:text-gray-300">
+													{{ formatDuration(row.actionInfo.duration) }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.executionId"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">
+													Execution ID:
+												</span>
+												<span
+													class="text-gray-700 dark:text-gray-300 font-mono text-xs"
+												>
+													{{ row.actionInfo.executionId }}
+												</span>
+											</div>
+											<!-- 显示执行输出摘要 -->
+											<div
+												v-if="
+													getExecutionOutputSummary(
+														row.actionInfo.executionOutput
+													)
+												"
+												class="mt-2"
+											>
+												<div class="text-gray-500 text-xs mb-1">
+													Output:
+												</div>
+												<div
+													class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
+												>
+													{{
+														getExecutionOutputSummary(
+															row.actionInfo.executionOutput
+														)
+													}}
+												</div>
+											</div>
+
+											<!-- 显示执行输入摘要 -->
+											<div
+												v-if="
+													getExecutionInputSummary(
+														row.actionInfo.executionInput
+													)
+												"
+												class="mt-2"
+											>
+												<div class="text-gray-500 text-xs mb-1">Input:</div>
+												<div
+													class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
+												>
+													{{
+														getExecutionInputSummary(
+															row.actionInfo.executionInput
+														)
+													}}
+												</div>
+											</div>
+
+											<!-- 错误信息显示 -->
+											<div v-if="row.actionInfo.errorMessage" class="mt-2">
+												<div class="text-red-600 dark:text-red-400 text-xs">
+													<span class="font-medium">Error:</span>
+													{{ row.actionInfo.errorMessage }}
+												</div>
+											</div>
+
+											<!-- 错误堆栈跟踪（只在有错误时显示） -->
+											<div v-if="row.actionInfo.errorStackTrace" class="mt-1">
+												<details class="text-red-500 text-xs">
+													<summary
+														class="cursor-pointer hover:text-red-700"
+													>
+														Stack Trace
+													</summary>
+													<pre
+														class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
+														>{{ row.actionInfo.errorStackTrace }}</pre
+													>
+												</details>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
 							<!-- 默认显示（简化的标题） -->
 							<div v-else class="text-gray-700 dark:text-gray-300">
 								{{ getSimplifiedTitle(row) }}
@@ -169,10 +390,14 @@
 				<el-table-column label="Updated By" width="150">
 					<template #default="{ row }">
 						<span
+							v-if="row.updatedBy && row.updatedBy.trim() !== ''"
 							class="text-gray-900 dark:text-white-100 truncate"
 							:title="row.updatedBy"
 						>
-							{{ row.updatedBy || defaultStr }}
+							{{ row.updatedBy }}
+						</span>
+						<span v-else class="text-gray-400 dark:text-gray-500 text-sm italic">
+							<!-- 系统操作不显示操作者 -->
 						</span>
 					</template>
 				</el-table-column>
@@ -193,12 +418,13 @@
 						<el-icon class="text-4xl mb-2">
 							<Document />
 						</el-icon>
-						<div class="text-lg mb-2">No change records found</div>
+						<div v-if="!props.stageId" class="text-lg mb-2">Please select a stage</div>
+						<div v-else class="text-lg mb-2">No change records found</div>
 						<div class="text-sm">
 							{{
-								props.stageId
-									? 'No changes recorded for this stage yet.'
-									: 'No changes recorded for this onboarding yet.'
+								!props.stageId
+									? 'Change logs require a stage selection. Please select a stage to view its change history.'
+									: 'No changes recorded for this stage yet.'
 							}}
 						</div>
 					</div>
@@ -267,6 +493,7 @@ interface ProcessedChange extends ChangeLogItem {
 	}>;
 	taskInfo?: any;
 	fileInfo?: any;
+	actionInfo?: any;
 }
 
 const processedChanges = ref<ProcessedChange[]>([]); // 修正类型
@@ -277,15 +504,24 @@ const processedChanges = ref<ProcessedChange[]>([]); // 修正类型
 const loadChangeLogs = async () => {
 	if (!props.onboardingId) return;
 
+	// stageId 现在是必填参数，如果没有则不加载数据
+	if (!props.stageId) {
+		console.warn('⚠️ Change logs loading skipped: stageId is required parameter');
+		changes.value = [];
+		processedChanges.value = [];
+		total.value = 0;
+		return;
+	}
+
 	// 防止重复请求
 	if (loading.value) return;
 
 	loading.value = true;
 
 	try {
-		// 使用真实API调用
+		// stageId 是必填参数，确保API调用格式统一
 		const apiParams = {
-			stageId: props.stageId ? String(props.stageId) : undefined,
+			stageId: String(props.stageId), // 必填参数
 			pageIndex: currentPage.value,
 			pageSize: pageSize.value,
 		};
@@ -295,20 +531,23 @@ const loadChangeLogs = async () => {
 			// 映射API数据到组件期望的格式
 			let rawItems = response.data.items || [];
 
-			changes.value = rawItems.map((item: any) => ({
-				id: item.id,
-				type: item.operationType, // 使用operationType作为type
-				details: item.operationDescription || item.operationTitle || '', // 详细描述
-				operationTitle: item.operationTitle, // 保留原始标题
-				beforeData: item.beforeData,
-				afterData: item.afterData,
-				changedFields: item.changedFields || [],
-				updatedBy: item.operatorName || 'Unknown', // 操作人
-				dateTime: item.operationTime || item.createDate || '', // 操作时间
-				extendedInfo: item.extendedData, // 扩展信息
-				stageId: item.stageId, // 添加 stageId 映射
-				onboardingId: item.onboardingId, // 也添加 onboardingId 以备后用
-			}));
+			changes.value = rawItems.map((item: any) => {
+				return {
+					id: item.id,
+					type: item.operationType, // 使用operationType作为type
+					details: item.operationDescription || item.operationTitle || '', // 详细描述
+					operationTitle: item.operationTitle, // 保留原始标题
+					operationDescription: item.operationDescription, // 保留原始描述
+					beforeData: item.beforeData,
+					afterData: item.afterData,
+					changedFields: item.changedFields || [],
+					updatedBy: item.operatorName || '', // 操作人，空字符串表示系统操作
+					dateTime: item.operationTime || item.createDate || '', // 操作时间
+					extendedInfo: item.extendedData, // 扩展信息
+					stageId: item.stageId, // 添加 stageId 映射
+					onboardingId: item.onboardingId, // 也添加 onboardingId 以备后用
+				};
+			});
 
 			// 处理变更数据
 			await processChangesData();
@@ -349,6 +588,8 @@ const processChangesData = async () => {
 
 		// 根据类型解析不同的变更信息
 		const operationType = change.type;
+		let actionInfo: any = null;
+
 		switch (operationType) {
 			case 'Answer Update':
 			case 'QuestionnaireAnswerUpdate':
@@ -359,10 +600,11 @@ const processChangesData = async () => {
 						change.afterData,
 						change // Pass the current change to identify the questionnaire
 					);
+					// 如果解析成功但没有发现变化，保持空数组（不添加默认消息）
 				} catch (error) {
 					console.warn('Enhanced parsing failed, using basic parsing:', error);
-					// 回退到基本解析
-					answerChanges = ['问卷答案已更新'];
+					// 回退到基本解析，只在真正解析失败时使用
+					answerChanges = ['Questionnaire answer updated'];
 				}
 				break;
 
@@ -394,6 +636,22 @@ const processChangesData = async () => {
 				fileInfo = extractFileInfo(change.extendedInfo);
 				break;
 
+			case 'Action Success':
+			case 'Action Failed':
+			case 'Action Running':
+			case 'Action Pending':
+			case 'Action Cancelled':
+			case 'ActionExecutionSuccess':
+			case 'ActionExecutionFailed':
+			case 'ActionExecutionRunning':
+			case 'ActionExecutionPending':
+			case 'ActionExecutionCancelled':
+			case 'StageActionExecution':
+			case 'TaskActionExecution':
+			case 'QuestionActionExecution':
+				actionInfo = extractActionInfo(change);
+				break;
+
 			case 'Completion':
 			case 'Update':
 			case 'StageTransition':
@@ -402,11 +660,11 @@ const processChangesData = async () => {
 				break;
 
 			default:
-				console.log('Unknown change type:', operationType);
+				console.log('change type:', operationType);
 				break;
 		}
 
-		processedData.push({
+		const processedItem = {
 			...change,
 			type: typeInfo.label,
 			typeIcon: typeInfo.icon,
@@ -415,7 +673,10 @@ const processChangesData = async () => {
 			fieldChanges,
 			taskInfo,
 			fileInfo,
-		});
+			actionInfo,
+		};
+
+		processedData.push(processedItem);
 	}
 
 	processedChanges.value = processedData;
@@ -859,6 +1120,46 @@ const getGridAnswerLabels = (
 	return labels.filter(Boolean);
 };
 
+// 解析短答网格单行（或多行）答案为 “行:值” 列表字符串
+const getShortAnswerGridRowSummary = (response: any, questionConfig: any): string => {
+	const parsed = parseResponseText(response?.responseText || '');
+	if (!parsed || Object.keys(parsed).length === 0) {
+		return 'No answer';
+	}
+
+	// 建立 rowId -> label 的映射
+	const rowIdToLabel = new Map<string, string>();
+	if (questionConfig?.rows && Array.isArray(questionConfig.rows)) {
+		questionConfig.rows.forEach((r: any) => rowIdToLabel.set(r.id, r.label));
+	}
+
+	const rows: Array<{ label: string; value: string }> = [];
+	Object.entries(parsed).forEach(([key, val]) => {
+		const parts = key.split('_');
+		const rowPart = parts.find((p) => p.startsWith('row-')) || '';
+		const label = rowIdToLabel.get(rowPart) || rowPart.replace('row-', '');
+		const value = String(val ?? '').trim();
+		if (label && value) {
+			rows.push({ label, value });
+		}
+	});
+
+	// 兜底：如果解析不到 rowPart，尝试从 question 文本中取行号
+	if (rows.length === 0) {
+		const firstVal = Object.values(parsed)[0];
+		let rowLabel = '';
+		if (typeof response?.question === 'string') {
+			const match = response.question.match(/-\s*(\d+)\s*$/);
+			if (match) rowLabel = match[1];
+		}
+		if (rowLabel && firstVal) {
+			return `${rowLabel}:${String(firstVal)}`;
+		}
+	}
+
+	return rows.map((r) => `${r.label}:${r.value}`).join(' ');
+};
+
 // 检查是否有有效答案
 const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
@@ -972,6 +1273,9 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 			);
 			return gridLabels.join(', ');
 
+		case 'short_answer_grid':
+			return getShortAnswerGridRowSummary(response, questionConfig);
+
 		case 'date':
 			return formatAnswerDate(answer, 'date');
 		case 'time':
@@ -985,7 +1289,7 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 						if (typeof file === 'object' && file && file.name) {
 							return file.name;
 						}
-						return 'Unknown file';
+						return 'file';
 					});
 					return `Files: ${fileNames.join(', ')}`;
 				} else if (typeof answer === 'object' && answer && answer.name) {
@@ -1159,23 +1463,7 @@ const formatFileSize = (bytes: number): string => {
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// --- US date/time formatting helpers for answer values ---
-const formatDateUS = (dateString: string): string => {
-	if (!dateString) return '';
-	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) return dateString;
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const year = date.getFullYear();
-		const hours = String(date.getHours()).padStart(2, '0');
-		const minutes = String(date.getMinutes()).padStart(2, '0');
-		const seconds = String(date.getSeconds()).padStart(2, '0');
-		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-	} catch {
-		return dateString;
-	}
-};
+// --- Date/time formatting helpers for answer values ---
 
 const formatAnswerDate = (dateStr: any, questionType?: string): string => {
 	if (!dateStr) return '';
@@ -1234,12 +1522,34 @@ const getTagType = (type: string): string => {
 		case 'File Upload':
 			return 'info';
 		case 'Task Complete':
+		case 'Action Success':
+		case 'ActionExecutionSuccess':
 			return 'success';
 		case 'Task Incomplete':
 		case 'ChecklistTaskUncomplete':
 			return 'warning';
 		case 'Field Change':
 		case 'StaticFieldValueChange':
+			return 'warning';
+		case 'Action Failed':
+		case 'ActionExecutionFailed':
+			return 'danger';
+		case 'Action Running':
+		case 'Action Pending':
+		case 'ActionExecutionRunning':
+		case 'ActionExecutionPending':
+			return 'info';
+		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
+			return 'warning';
+		case 'Stage Action':
+		case 'StageActionExecution':
+			return 'info';
+		case 'Task Action':
+		case 'TaskActionExecution':
+			return 'success';
+		case 'Question Action':
+		case 'QuestionActionExecution':
 			return 'warning';
 		default:
 			return 'info';
@@ -1268,12 +1578,361 @@ const getSimplifiedTitle = (row: any): string => {
 	return row.type || 'Change';
 };
 
+// ActionExecution 相关辅助函数
+const extractActionInfo = (change: any): any => {
+	// 从 extendedData 或 change 对象中提取 Action 执行信息
+	try {
+		// 尝试从 operationTitle 和 operationDescription 中提取信息
+		const actionName = extractActionNameFromTitle(change.operationTitle || change.details);
+		const actionType = extractActionTypeFromDescription(
+			change.operationDescription || change.details
+		);
+
+		// 解析 extendedData 获取详细的执行信息
+		const extendedInfo = parseExtendedData(change.extendedInfo || change.extendedData);
+
+		return {
+			actionName: actionName || 'Action',
+			actionType: actionType || extendedInfo.actionType || '',
+			executionId: extendedInfo.executionId || extractExecutionId(change.extendedData),
+			duration: extendedInfo.durationMs || extractDuration(change.extendedData),
+			executionStatus: extendedInfo.executionStatus,
+			startedAt: extendedInfo.startedAt,
+			completedAt: extendedInfo.completedAt,
+			triggerContext: extendedInfo.triggerContext || change.extendedData || '',
+			executionInput: extendedInfo.executionInput,
+			executionOutput: extendedInfo.executionOutput,
+			errorMessage: extendedInfo.errorMessage || extractErrorMessage(change),
+			errorStackTrace: extendedInfo.errorStackTrace,
+			executorInfo: extendedInfo.executorInfo,
+		};
+	} catch (error) {
+		console.warn('Failed to extract action info:', error);
+		return {
+			actionName: 'Action',
+			actionType: '',
+			executionId: '',
+			duration: null,
+			executionStatus: '',
+			triggerContext: '',
+			errorMessage: '',
+		};
+	}
+};
+
+// 解析 extendedData 获取详细的 action execution 信息
+const parseExtendedData = (extendedData: string): any => {
+	if (!extendedData) return {};
+
+	try {
+		const data = typeof extendedData === 'string' ? JSON.parse(extendedData) : extendedData;
+		return {
+			actionCode: data.actionCode,
+			actionType: data.actionType,
+			executionId: data.executionId,
+			executionStatus: data.executionStatus,
+			startedAt: data.startedAt,
+			completedAt: data.completedAt,
+			durationMs: data.durationMs,
+			triggerContext: data.triggerContext,
+			executionInput: data.executionInput,
+			executionOutput: data.executionOutput,
+			errorMessage: data.errorMessage,
+			errorStackTrace: data.errorStackTrace,
+			executorInfo: data.executorInfo,
+		};
+	} catch (error) {
+		console.warn('Failed to parse extended data:', error);
+		return {};
+	}
+};
+
+const extractActionNameFromTitle = (title: string): string => {
+	if (!title) return '';
+
+	// 匹配 "Action Executed: ActionName" 或 "Action Failed: ActionName" 等格式
+	const match = title.match(/Action\s+(?:Executed|Failed|Running|Pending|Cancelled):\s*(.+)/i);
+	return match ? match[1].trim() : title;
+};
+
+const extractActionTypeFromDescription = (description: string): string => {
+	if (!description) return '';
+
+	// 匹配描述中的 Action 类型，如 "Python action completed successfully"
+	const match = description.match(/(\w+)\s+action/i);
+	return match ? match[1] : '';
+};
+
+const extractExecutionId = (extendedData: string): string => {
+	if (!extendedData) return '';
+
+	// 尝试提取执行ID
+	try {
+		// 如果是 JSON 字符串，解析并查找 executionId
+		if (extendedData.includes('{')) {
+			const data = JSON.parse(extendedData);
+			return data.executionId || data.ExecutionId || '';
+		}
+
+		// 如果是简单字符串，查找包含ID的部分
+		const match = extendedData.match(/execution[_\s]*id[:\s]*([^\s,]+)/i);
+		return match ? match[1] : '';
+	} catch {
+		return '';
+	}
+};
+
+const extractDuration = (extendedData: string): number | null => {
+	if (!extendedData) return null;
+
+	// 查找持续时间信息
+	const match = extendedData.match(/duration[:\s]*(\d+)/i);
+	return match ? parseInt(match[1], 10) : null;
+};
+
+const extractErrorMessage = (change: any): string => {
+	// 从多个可能的位置提取错误信息
+	return (
+		change.errorMessage ||
+		change.error_message ||
+		(change.details && change.details.includes('failed') ? change.details : '') ||
+		''
+	);
+};
+
+const formatDuration = (durationMs: number): string => {
+	if (durationMs < 1000) {
+		return `${durationMs}ms`;
+	} else if (durationMs < 60000) {
+		return `${(durationMs / 1000).toFixed(1)}s`;
+	} else {
+		const minutes = Math.floor(durationMs / 60000);
+		const seconds = Math.floor((durationMs % 60000) / 1000);
+		return `${minutes}m ${seconds}s`;
+	}
+};
+
+const getActionExecutionBgClass = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+		case 'ActionExecutionSuccess':
+			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
+		case 'Action Failed':
+		case 'ActionExecutionFailed':
+			return 'bg-red-50 dark:bg-red-900/20 border-red-400';
+		case 'Action Running':
+		case 'ActionExecutionRunning':
+			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
+		case 'Action Pending':
+		case 'ActionExecutionPending':
+			return 'bg-orange-50 dark:bg-orange-900/20 border-orange-400';
+		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
+			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
+		case 'StageActionExecution':
+			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
+		case 'TaskActionExecution':
+			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
+		case 'QuestionActionExecution':
+			return 'bg-purple-50 dark:bg-purple-900/20 border-purple-400';
+		default:
+			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
+	}
+};
+
+const getActionExecutionStatusClass = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+		case 'ActionExecutionSuccess':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'Action Failed':
+		case 'ActionExecutionFailed':
+			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
+		case 'Action Running':
+		case 'ActionExecutionRunning':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'Action Pending':
+		case 'ActionExecutionPending':
+			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
+		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+		case 'StageActionExecution':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'TaskActionExecution':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'QuestionActionExecution':
+			return 'bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100';
+		default:
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	}
+};
+
+const getActionExecutionStatusText = (type: string): string => {
+	switch (type) {
+		case 'Action Success':
+		case 'ActionExecutionSuccess':
+			return 'Success';
+		case 'Action Failed':
+		case 'ActionExecutionFailed':
+			return 'Failed';
+		case 'Action Running':
+		case 'ActionExecutionRunning':
+			return 'Running';
+		case 'Action Pending':
+		case 'ActionExecutionPending':
+			return 'Pending';
+		case 'Action Cancelled':
+		case 'ActionExecutionCancelled':
+			return 'Cancelled';
+		case 'StageActionExecution':
+			return 'Stage Action';
+		case 'TaskActionExecution':
+			return 'Task Action';
+		case 'QuestionActionExecution':
+			return 'Question Action';
+		default:
+			return '';
+	}
+};
+
+// 获取 Action 执行来源
+const getActionSource = (type: string): string => {
+	switch (type) {
+		case 'StageActionExecution':
+			return 'Stage';
+		case 'TaskActionExecution':
+			return 'Task';
+		case 'QuestionActionExecution':
+			return 'Question';
+		default:
+			return '';
+	}
+};
+
+// 获取 Action 来源的样式类
+const getActionSourceClass = (type: string): string => {
+	switch (type) {
+		case 'StageActionExecution':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'TaskActionExecution':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'QuestionActionExecution':
+			return 'bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100';
+		default:
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	}
+};
+
+// 获取执行状态的样式类
+const getExecutionStatusClass = (status: string): string => {
+	if (!status) return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+
+	const statusLower = status.toLowerCase();
+	switch (statusLower) {
+		case 'success':
+		case 'completed':
+		case 'finished':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'failed':
+		case 'error':
+		case 'exception':
+			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
+		case 'running':
+		case 'executing':
+		case 'in_progress':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'pending':
+		case 'waiting':
+		case 'queued':
+			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
+		case 'cancelled':
+		case 'aborted':
+		case 'terminated':
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+		default:
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	}
+};
+
+// 获取执行输出摘要
+const getExecutionOutputSummary = (executionOutput: any): string => {
+	if (!executionOutput) return '';
+
+	try {
+		const output =
+			typeof executionOutput === 'string' ? JSON.parse(executionOutput) : executionOutput;
+		const summaryParts: string[] = [];
+
+		// 提取关键信息
+		if (output.success !== undefined) {
+			summaryParts.push(`Success: ${output.success}`);
+		}
+
+		if (output.status) {
+			summaryParts.push(`Status: ${output.status}`);
+		}
+
+		if (output.message) {
+			const message =
+				output.message.length > 100
+					? output.message.substring(0, 100) + '...'
+					: output.message;
+			summaryParts.push(`Message: ${message}`);
+		}
+
+		if (output.result !== undefined) {
+			const result =
+				typeof output.result === 'object'
+					? JSON.stringify(output.result).substring(0, 100) + '...'
+					: String(output.result);
+			summaryParts.push(`Result: ${result}`);
+		}
+
+		return summaryParts.join(' | ');
+	} catch (error) {
+		// 如果解析失败，返回原始字符串的前100个字符
+		const str = String(executionOutput);
+		return str.length > 100 ? str.substring(0, 100) + '...' : str;
+	}
+};
+
+// 获取执行输入摘要
+const getExecutionInputSummary = (executionInput: any): string => {
+	if (!executionInput) return '';
+
+	try {
+		const input =
+			typeof executionInput === 'string' ? JSON.parse(executionInput) : executionInput;
+		const summaryParts: string[] = [];
+
+		// 提取关键输入参数
+		Object.keys(input).forEach((key) => {
+			if (summaryParts.length < 3) {
+				// 最多显示3个参数
+				const value = input[key];
+				const valueStr =
+					typeof value === 'object'
+						? JSON.stringify(value).substring(0, 50) + '...'
+						: String(value);
+				summaryParts.push(`${key}: ${valueStr}`);
+			}
+		});
+
+		return summaryParts.join(' | ');
+	} catch (error) {
+		// 如果解析失败，返回原始字符串的前100个字符
+		const str = String(executionInput);
+		return str.length > 100 ? str.substring(0, 100) + '...' : str;
+	}
+};
+
 // 监听属性变化并加载数据
 watch(
 	() => [props.onboardingId, props.stageId],
 	(newValues) => {
 		const [newOnboardingId, newStageId] = newValues || [];
-		if (newOnboardingId || newStageId) {
+		if (newOnboardingId && newStageId) {
 			// 重置分页到第一页
 			currentPage.value = 1;
 			loadChangeLogs();
@@ -1284,7 +1943,7 @@ watch(
 
 // 组件挂载时加载数据
 onMounted(() => {
-	if (props.onboardingId) {
+	if (props.onboardingId && props.stageId) {
 		loadChangeLogs();
 	}
 });
