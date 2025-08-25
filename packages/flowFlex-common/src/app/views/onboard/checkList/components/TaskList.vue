@@ -503,6 +503,7 @@ const onActionSave = async (actionResult) => {
 				checklistId: props.checklist.id,
 				actionId: actionResult.id,
 				actionName: actionResult.name,
+				actionMappingId: actionResult?.actionMappingId,
 			});
 			if (updateResponse.code === '200') {
 				ElMessage.success(t('sys.api.operationSuccess'));
