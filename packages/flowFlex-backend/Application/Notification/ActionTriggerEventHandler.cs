@@ -38,6 +38,8 @@ namespace Application.Notification
                     notification.TriggerEventType,
                     notification.ContextData,
                     notification.UserId,
+                    notification.WorkflowId,
+                    notification.StageId,
                     cancellationToken);
             }
             catch (Exception ex)

@@ -4177,7 +4177,8 @@ Remember: Your goal is to collect enough detailed information to create a compre
             var allowedLibraries = new[]
             {
                 "json", "datetime", "math", "random", "re", "string", "sys", "time", "traceback",
-                "uuid", "os", "base64", "hashlib", "hmac", "binascii", "collections", "functools", "operator", "itertools"
+                "uuid", "os", "base64", "hashlib", "hmac", "binascii", "collections", "functools",
+                "operator", "itertools","urllib.request","urllib.parse"
             };
 
             foreach (var library in allowedLibraries)

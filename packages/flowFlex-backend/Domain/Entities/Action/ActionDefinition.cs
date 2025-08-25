@@ -54,5 +54,8 @@ namespace FlowFlex.Domain.Entities.Action
         /// </summary>
         [SugarColumn(ColumnName = "is_enabled")]
         public bool IsEnabled { get; set; } = true;
+
+        [SugarColumn(ColumnName = "is_tools")]
+        public bool IsTools { get; set; } = false;
     }
 }

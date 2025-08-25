@@ -64,7 +64,8 @@ namespace FlowFlex.Application.Services.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null)
         {
             var (data, total) = await _actionDefinitionRepository.GetPagedAsync(pageIndex,
                 pageSize,
@@ -73,7 +74,8 @@ namespace FlowFlex.Application.Services.Action
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
-                isAssignmentWorkflow);
+                isAssignmentWorkflow,
+                isTools);
 
             // Get ActionDefinition DTO list
             var actionDtos = _mapper.Map<List<ActionDefinitionDto>>(data);
@@ -232,7 +234,7 @@ namespace FlowFlex.Application.Services.Action
         {
             if (string.IsNullOrWhiteSpace(sourceCode))
                 return false;
-                
+
             var mainPattern = @"def\s+main\s*\(([^)]*)\)(?:\s*->\s*[^:]*)?\s*:";
             var match = Regex.Match(sourceCode, mainPattern, RegexOptions.IgnoreCase);
 

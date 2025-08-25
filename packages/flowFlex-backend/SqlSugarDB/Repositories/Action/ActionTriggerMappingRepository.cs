@@ -29,14 +29,22 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         /// <summary>
         /// Get mappings for a specific trigger
         /// </summary>
-        public async Task<List<ActionTriggerMapping>> GetMappingsForTriggerAsync(string triggerSourceType, long triggerSourceId, string triggerEventType, CancellationToken cancellationToken = default)
+        public async Task<List<ActionTriggerMapping>> GetMappingsForTriggerAsync(
+            string triggerSourceType,
+            long triggerSourceId,
+            string triggerEventType,
+            long? workflowId = null,
+            long? stageId = null,
+            CancellationToken cancellationToken = default)
         {
             return await db.Queryable<ActionTriggerMapping>()
-                .Where(x => x.TriggerType == triggerSourceType
-                         && x.TriggerSourceId == triggerSourceId
+                .Where(x => x.TriggerSourceId == triggerSourceId
                          && x.TriggerEvent == triggerEventType
                          && x.IsEnabled
                          && x.IsValid)
+                .WhereIF(!string.IsNullOrEmpty(triggerSourceType), x => x.TriggerType == triggerSourceType)
+                .WhereIF(workflowId.HasValue, x => x.WorkFlowId == workflowId.Value || SqlFunc.IsNullOrEmpty(x.WorkFlowId))
+                .WhereIF(stageId.HasValue, x => x.StageId == stageId.Value || SqlFunc.IsNullOrEmpty(x.StageId))
                 .OrderBy(x => x.ExecutionOrder)
                 .ToListAsync();
         }
