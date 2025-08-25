@@ -270,7 +270,7 @@
 					size="small"
 					@click="handleTest"
 					:loading="testing"
-					:disabled="!formConfig.url || disabled"
+					:disabled="!formConfig.url"
 				>
 					Test Request
 				</el-button>
