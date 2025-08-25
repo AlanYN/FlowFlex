@@ -243,6 +243,7 @@ namespace FlowFlex.WebApi.Extensions
             // Register AI services
             services.AddScoped<IAIModelConfigRepository, AIModelConfigRepository>();
             services.AddScoped<IAIModelConfigService, AIModelConfigService>();
+            services.AddScoped<FlowFlex.Domain.Repository.OW.IAIPromptHistoryRepository, FlowFlex.SqlSugarDB.Repositories.OW.AIPromptHistoryRepository>();
 
             // Auto-register services based on lifetime marker interfaces
             RegisterServicesByLifetime(services);

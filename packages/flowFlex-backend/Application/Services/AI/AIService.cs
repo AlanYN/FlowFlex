@@ -15,6 +15,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
+using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.Application.Services.AI
 {
@@ -36,6 +37,9 @@ namespace FlowFlex.Application.Services.AI
         private readonly IChecklistTaskService _checklistTaskService;
         private readonly IComponentMappingService _componentMappingService;
         private readonly IStageRepository _stageRepository;
+        private readonly IAIPromptHistoryRepository _aiPromptHistoryRepository;
+        private readonly IOperatorContextService _operatorContextService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public AIService(
             IOptions<AIOptions> aiOptions,
@@ -50,7 +54,10 @@ namespace FlowFlex.Application.Services.AI
             IQuestionnaireRepository questionnaireRepository,
             IChecklistTaskService checklistTaskService,
             IComponentMappingService componentMappingService,
-            IStageRepository stageRepository)
+            IStageRepository stageRepository,
+            IAIPromptHistoryRepository aiPromptHistoryRepository,
+            IOperatorContextService operatorContextService,
+            IHttpContextAccessor httpContextAccessor)
         {
             _aiOptions = aiOptions.Value;
             _logger = logger;
@@ -65,10 +72,17 @@ namespace FlowFlex.Application.Services.AI
             _checklistTaskService = checklistTaskService;
             _componentMappingService = componentMappingService;
             _stageRepository = stageRepository;
+            _aiPromptHistoryRepository = aiPromptHistoryRepository;
+            _operatorContextService = operatorContextService;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AIWorkflowGenerationResult> GenerateWorkflowAsync(AIWorkflowGenerationInput input)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse aiResponse = null;
+            
             try
             {
                 _logger.LogInformation("Generating workflow from natural language with enhanced context");
@@ -100,8 +114,28 @@ namespace FlowFlex.Application.Services.AI
 
                 await _mcpService.StoreContextAsync(contextId, JsonSerializer.Serialize(input), contextMetadata);
 
-                var prompt = BuildWorkflowGenerationPrompt(input);
-                var aiResponse = await CallAIProviderAsync(prompt, input.ModelId, input.ModelProvider, input.ModelName);
+                prompt = BuildWorkflowGenerationPrompt(input);
+                aiResponse = await CallAIProviderAsync(prompt, input.ModelId, input.ModelProvider, input.ModelName);
+
+                // Save prompt history to database (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var metadata = JsonSerializer.Serialize(new 
+                        { 
+                            sessionId = input.SessionId,
+                            conversationHistoryCount = input.ConversationHistory?.Count ?? 0,
+                            contextId = contextId
+                        });
+                        await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null, 
+                            prompt, aiResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save workflow generation prompt history");
+                    }
+                });
 
                 if (!aiResponse.Success)
                 {
@@ -129,6 +163,35 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating workflow from description: {Description}", input.Description);
+                
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            var metadata = JsonSerializer.Serialize(new 
+                            { 
+                                sessionId = input.SessionId,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null, 
+                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed workflow generation prompt history");
+                        }
+                    });
+                }
+                
                 return new AIWorkflowGenerationResult
                 {
                     Success = false,
@@ -140,12 +203,36 @@ namespace FlowFlex.Application.Services.AI
 
         public async Task<AIQuestionnaireGenerationResult> GenerateQuestionnaireAsync(AIQuestionnaireGenerationInput input)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse aiResponse = null;
+            
             try
             {
                 _logger.LogInformation("Generating questionnaire for purpose: {Purpose}", input.Purpose);
 
-                var prompt = BuildQuestionnaireGenerationPrompt(input);
-                var aiResponse = await CallAIProviderAsync(prompt);
+                prompt = BuildQuestionnaireGenerationPrompt(input);
+                aiResponse = await CallAIProviderAsync(prompt);
+
+                // Save prompt history to database (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var metadata = JsonSerializer.Serialize(new 
+                        { 
+                            purpose = input.Purpose,
+                            targetAudience = input.TargetAudience,
+                            estimatedQuestions = input.EstimatedQuestions
+                        });
+                        await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null, 
+                            prompt, aiResponse, startTime, null, null, null, metadata);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save questionnaire generation prompt history");
+                    }
+                });
 
                 if (!aiResponse.Success)
                 {
@@ -165,6 +252,35 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating questionnaire: {Purpose}", input.Purpose);
+                
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            var metadata = JsonSerializer.Serialize(new 
+                            { 
+                                purpose = input.Purpose,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null, 
+                                prompt, failedResponse, startTime, null, null, null, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed questionnaire generation prompt history");
+                        }
+                    });
+                }
+                
                 return new AIQuestionnaireGenerationResult
                 {
                     Success = false,
@@ -176,12 +292,36 @@ namespace FlowFlex.Application.Services.AI
 
         public async Task<AIChecklistGenerationResult> GenerateChecklistAsync(AIChecklistGenerationInput input)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse aiResponse = null;
+            
             try
             {
                 _logger.LogInformation("Generating checklist for process: {ProcessName}", input.ProcessName);
 
-                var prompt = BuildChecklistGenerationPrompt(input);
-                var aiResponse = await CallAIProviderAsync(prompt);
+                prompt = BuildChecklistGenerationPrompt(input);
+                aiResponse = await CallAIProviderAsync(prompt);
+
+                // Save prompt history to database (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var metadata = JsonSerializer.Serialize(new 
+                        { 
+                            processName = input.ProcessName,
+                            team = input.Team,
+                            requiredStepsCount = input.RequiredSteps?.Count ?? 0
+                        });
+                        await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null, 
+                            prompt, aiResponse, startTime, null, null, null, metadata);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save checklist generation prompt history");
+                    }
+                });
 
                 if (!aiResponse.Success)
                 {
@@ -201,6 +341,35 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating checklist: {ProcessName}", input.ProcessName);
+                
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            var metadata = JsonSerializer.Serialize(new 
+                            { 
+                                processName = input.ProcessName,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null, 
+                                prompt, failedResponse, startTime, null, null, null, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed checklist generation prompt history");
+                        }
+                    });
+                }
+                
                 return new AIChecklistGenerationResult
                 {
                     Success = false,
@@ -212,6 +381,9 @@ namespace FlowFlex.Application.Services.AI
 
         public async IAsyncEnumerable<AIWorkflowStreamResult> StreamGenerateWorkflowAsync(AIWorkflowGenerationInput input)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            
             _logger.LogInformation("Starting streaming workflow generation: {Description}", input.Description);
 
             yield return new AIWorkflowStreamResult
@@ -228,456 +400,522 @@ namespace FlowFlex.Application.Services.AI
                 IsComplete = false
             };
 
-            // 尝试使用真正的流式AI调用
-            var prompt = BuildWorkflowGenerationPrompt(input);
-            var streamingContent = new StringBuilder();
-            var hasReceivedContent = false;
-
-            // 构建聊天消息格式
-            var messages = new List<object>
+            // 使用Channel生产者-消费者模式，避免在try/catch中使用yield
+            var channel = System.Threading.Channels.Channel.CreateUnbounded<AIWorkflowStreamResult>();
+            _ = Task.Run(async () =>
             {
-                new { role = "system", content = "You are an AI workflow assistant that generates detailed business workflows." },
-                new { role = "user", content = prompt }
-            };
+                await ProduceWorkflowStreamAsync(input, startTime, channel.Writer);
+            });
 
-            // 获取用户配置
-            AIModelConfig userConfig = null;
-            if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
+            await foreach (var result in channel.Reader.ReadAllAsync())
             {
-                userConfig = await _configService.GetConfigByIdAsync(modelId);
+                yield return result;
             }
+        }
 
-            // 智能模型选择：优先使用快速模型
-            if (userConfig != null)
+        private async Task ProduceWorkflowStreamAsync(AIWorkflowGenerationInput input, DateTime startTime, System.Threading.Channels.ChannelWriter<AIWorkflowStreamResult> writer)
+        {
+            var streamingContent = new StringBuilder();
+            string prompt = null;
+            try
             {
-                var progressSent = false;
-                var streamStartTime = DateTime.UtcNow;
+                // 尝试使用真正的流式AI调用
+                prompt = BuildWorkflowGenerationPrompt(input);
+                var hasReceivedContent = false;
 
-                // 发送初始进度消息
-                yield return new AIWorkflowStreamResult
+                // 构建聊天消息格式
+                var messages = new List<object>
                 {
-                    Type = "progress",
-                    Message = "Generating workflow structure...",
-                    IsComplete = false
+                    new { role = "system", content = "You are an AI workflow assistant that generates detailed business workflows." },
+                    new { role = "user", content = prompt }
                 };
-                progressSent = true;
-                _logger.LogInformation("✅ Initial progress message sent");
 
-                // 根据模型类型选择处理方式
-                if (userConfig.Provider?.ToLower() == "openai")
+                // 获取用户配置
+                AIModelConfig userConfig = null;
+                if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
                 {
-                    _logger.LogInformation("🚀 Using OpenAI TRUE streaming - real-time progress updates");
-
-                    var lastProgressLength = 0;
-                    var lastProgressTime = DateTime.UtcNow;
-
-                    // 真正的流式处理：实时输出有意义的进度更新
-                    await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
-                    {
-                        if (!string.IsNullOrEmpty(chunk))
-                        {
-                            streamingContent.Append(chunk);
-                            hasReceivedContent = true;
-
-                            var now = DateTime.UtcNow;
-                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
-                            var lengthDifference = streamingContent.Length - lastProgressLength;
-
-                            // 条件：每收集50个字符或每2秒更新一次进度
-                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
-                            {
-                                yield return new AIWorkflowStreamResult
-                                {
-                                    Type = "progress",
-                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
-                                    IsComplete = false
-                                };
-
-                                lastProgressLength = streamingContent.Length;
-                                lastProgressTime = now;
-
-                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
-                                    streamingContent.Length, timeSinceLastProgress);
-                            }
-                        }
-                    }
-
-                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
-                    _logger.LogInformation("🏁 OpenAI TRUE stream completed: {Length} chars in {Duration}ms",
-                        streamingContent.Length, totalDuration);
-                }
-                else if (userConfig.Provider?.ToLower() == "deepseek")
-                {
-                    _logger.LogInformation("🚀 Using DeepSeek TRUE streaming - real-time progress updates");
-
-                    var lastProgressLength = 0;
-                    var lastProgressTime = DateTime.UtcNow;
-
-                    // 真正的流式处理：实时输出有意义的进度更新
-                    await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
-                    {
-                        if (!string.IsNullOrEmpty(chunk))
-                        {
-                            streamingContent.Append(chunk);
-                            hasReceivedContent = true;
-
-                            var now = DateTime.UtcNow;
-                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
-                            var lengthDifference = streamingContent.Length - lastProgressLength;
-
-                            // 条件：每收集50个字符或每2秒更新一次进度
-                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
-                            {
-                                yield return new AIWorkflowStreamResult
-                                {
-                                    Type = "progress",
-                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
-                                    IsComplete = false
-                                };
-
-                                lastProgressLength = streamingContent.Length;
-                                lastProgressTime = now;
-
-                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
-                                    streamingContent.Length, timeSinceLastProgress);
-                            }
-                        }
-                    }
-
-                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
-                    _logger.LogInformation("🏁 DeepSeek TRUE stream completed: {Length} chars in {Duration}ms",
-                        streamingContent.Length, totalDuration);
-                }
-                else
-                {
-                    // 其他模型使用真正的流式处理
-                    _logger.LogInformation("🚀 Using {Provider} TRUE streaming - real-time progress updates", userConfig.Provider);
-
-                    var lastProgressLength = 0;
-                    var lastProgressTime = DateTime.UtcNow;
-
-                    // 真正的流式处理：实时输出有意义的进度更新，45秒超时+重试
-                    using var streamTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-
-                    await foreach (var chunk in CallAIProviderForStreamChatAsync(messages, userConfig).WithCancellation(streamTimeoutCts.Token))
-                    {
-                        if (!string.IsNullOrEmpty(chunk))
-                        {
-                            streamingContent.Append(chunk);
-                            hasReceivedContent = true;
-
-                            var now = DateTime.UtcNow;
-                            var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
-                            var lengthDifference = streamingContent.Length - lastProgressLength;
-
-                            // 条件：每收集50个字符或每2秒更新一次进度
-                            if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
-                            {
-                                yield return new AIWorkflowStreamResult
-                                {
-                                    Type = "progress",
-                                    Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
-                                    IsComplete = false
-                                };
-
-                                lastProgressLength = streamingContent.Length;
-                                lastProgressTime = now;
-
-                                _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
-                                    streamingContent.Length, timeSinceLastProgress);
-                            }
-                        }
-                    }
-
-                    var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
-                    _logger.LogInformation("🏁 {Provider} TRUE stream completed: {Length} chars in {Duration}ms",
-                        userConfig.Provider, streamingContent.Length, totalDuration);
+                    userConfig = await _configService.GetConfigByIdAsync(modelId);
                 }
 
-                // 流式完成后立即开始解析
-                if (hasReceivedContent)
+                // 智能模型选择：优先使用快速模型
+                if (userConfig != null)
                 {
-                    yield return new AIWorkflowStreamResult
+                    var streamStartTime = DateTime.UtcNow;
+
+                    // 发送初始进度消息
+                    await writer.WriteAsync(new AIWorkflowStreamResult
                     {
                         Type = "progress",
-                        Message = "Parsing workflow structure...",
+                        Message = "Generating workflow structure...",
                         IsComplete = false
-                    };
+                    });
+                    _logger.LogInformation("✅ Initial progress message sent");
 
-                    // 解析AI响应
-                    _logger.LogInformation("🔍 Starting to parse AI response, content length: {Length}", streamingContent.Length);
-                    var parseStartTime = DateTime.UtcNow;
-                    var streamResult = ParseWorkflowGenerationResponse(streamingContent.ToString());
-                    var parseEndTime = DateTime.UtcNow;
-                    _logger.LogInformation("✅ Parsing completed in {Duration}ms", (parseEndTime - parseStartTime).TotalMilliseconds);
-
-                    if (streamResult?.GeneratedWorkflow != null)
+                    // 根据模型类型选择处理方式
+                    if (userConfig.Provider?.ToLower() == "openai")
                     {
-                        _logger.LogInformation("🎯 About to yield workflow and {Count} stages", streamResult.Stages?.Count ?? 0);
+                        _logger.LogInformation("🚀 Using OpenAI TRUE streaming - real-time progress updates");
 
-                        yield return new AIWorkflowStreamResult
-                        {
-                            Type = "workflow",
-                            Data = streamResult.GeneratedWorkflow,
-                            Message = "Workflow basic information generated",
-                            IsComplete = false
-                        };
+                        var lastProgressLength = 0;
+                        var lastProgressTime = DateTime.UtcNow;
 
-                        var stageStartTime = DateTime.UtcNow;
-                        var stageCount = 0;
-                        foreach (var stage in streamResult.Stages)
+                        await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
                         {
-                            yield return new AIWorkflowStreamResult
+                            if (!string.IsNullOrEmpty(chunk))
                             {
-                                Type = "stage",
-                                Data = stage,
-                                Message = $"Stage '{stage.Name}' generated",
-                                IsComplete = false
-                            };
-                            stageCount++;
+                                streamingContent.Append(chunk);
+                                hasReceivedContent = true;
 
-                            // 每处理10个stage记录一次
-                            if (stageCount % 10 == 0)
-                            {
-                                _logger.LogInformation("📊 Processed {Count} stages so far...", stageCount);
-                            }
-                        }
-                        var stageEndTime = DateTime.UtcNow;
-                        _logger.LogInformation("✅ All {Count} stages yielded in {Duration}ms", stageCount, (stageEndTime - stageStartTime).TotalMilliseconds);
+                                var now = DateTime.UtcNow;
+                                var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                                var lengthDifference = streamingContent.Length - lastProgressLength;
 
-                        // AI生成质量分析 - 优化后的统计逻辑
-                        var checklistCount = streamResult.Checklists?.Count ?? 0;
-                        var questionnaireCount = streamResult.Questionnaires?.Count ?? 0;
-                        stageCount = streamResult.Stages.Count;
-
-                        // 快速质量评估：计算有效组件比例
-                        var effectiveChecklists = streamResult.Checklists?.Count(c => c?.Tasks?.Count > 0) ?? 0;
-                        var effectiveQuestionnaires = streamResult.Questionnaires?.Count(q => q?.Questions?.Count > 0) ?? 0;
-                        var qualityScore = stageCount > 0 ? ((effectiveChecklists + effectiveQuestionnaires) * 50.0) / stageCount : 0;
-
-                        _logger.LogInformation("📈 AI生成质量: {QualityScore:F1}% - 有效组件 {EffectiveChecklists}/{ChecklistCount} checklists, {EffectiveQuestionnaires}/{QuestionnaireCount} questionnaires",
-                            qualityScore, effectiveChecklists, checklistCount, effectiveQuestionnaires, questionnaireCount);
-
-                        // 确保每个stage都有完整的checklist和questionnaire
-                        streamResult.Checklists ??= new List<AIChecklistGenerationResult>();
-                        streamResult.Questionnaires ??= new List<AIQuestionnaireGenerationResult>();
-
-                        var supplementStartTime = DateTime.UtcNow;
-                        var supplementCount = 0;
-
-                        // 智能补充缺失的组件 - 优化性能，减少不必要的fallback创建
-                        stageCount = streamResult.Stages.Count;
-                        checklistCount = streamResult.Checklists?.Count ?? 0;
-                        questionnaireCount = streamResult.Questionnaires?.Count ?? 0;
-
-                        // 快速检查：如果AI完整生成了所有组件，跳过补充逻辑
-                        var hasCompleteGeneration = checklistCount >= stageCount && questionnaireCount >= stageCount &&
-                            streamResult.Checklists.Take(stageCount).All(c => c?.Tasks?.Count > 0) &&
-                            streamResult.Questionnaires.Take(stageCount).All(q => q?.Questions?.Count > 0);
-
-                        if (hasCompleteGeneration)
-                        {
-                            _logger.LogInformation("🎯 AI完整生成所有组件，跳过补充逻辑 - {ChecklistCount} checklists, {QuestionnaireCount} questionnaires",
-                                checklistCount, questionnaireCount);
-                        }
-                        else
-                        {
-                            // 只有在确实缺失组件时才进行补充
-                            _logger.LogInformation("🔧 检测到组件缺失，开始智能补充 - 现有: {ChecklistCount}/{StageCount} checklists, {QuestionnaireCount}/{StageCount} questionnaires",
-                                checklistCount, stageCount, questionnaireCount, stageCount);
-
-                            for (int i = 0; i < stageCount; i++)
-                            {
-                                var stage = streamResult.Stages[i];
-
-                                // 智能检查checklist: 确保索引范围内且有有效任务
-                                if (i >= checklistCount || streamResult.Checklists[i]?.Tasks?.Count == 0)
+                                if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
                                 {
-                                    // 只在完全缺失时创建空结构，避免覆盖有效的AI生成内容
-                                    if (i >= checklistCount)
+                                    await writer.WriteAsync(new AIWorkflowStreamResult
                                     {
-                                        streamResult.Checklists.Add(GenerateFallbackChecklist(stage));
-                                        supplementCount++;
-                                        _logger.LogDebug("➕ 为stage {StageIndex}-{StageName} 添加空checklist", i, stage.Name);
-                                    }
-                                }
+                                        Type = "progress",
+                                        Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
+                                        IsComplete = false
+                                    });
 
-                                // 智能检查questionnaire: 确保索引范围内且有有效问题
-                                if (i >= questionnaireCount || streamResult.Questionnaires[i]?.Questions?.Count == 0)
-                                {
-                                    // 只在完全缺失时创建空结构
-                                    if (i >= questionnaireCount)
-                                    {
-                                        streamResult.Questionnaires.Add(GenerateFallbackQuestionnaire(stage));
-                                        supplementCount++;
-                                        _logger.LogDebug("➕ 为stage {StageIndex}-{StageName} 添加空questionnaire", i, stage.Name);
-                                    }
+                                    lastProgressLength = streamingContent.Length;
+                                    lastProgressTime = now;
+
+                                    _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
+                                        streamingContent.Length, timeSinceLastProgress);
                                 }
                             }
                         }
 
-                        if (supplementCount > 0)
+                        var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                        _logger.LogInformation("🏁 OpenAI TRUE stream completed: {Length} chars in {Duration}ms",
+                            streamingContent.Length, totalDuration);
+                    }
+                    else if (userConfig.Provider?.ToLower() == "deepseek")
+                    {
+                        _logger.LogInformation("🚀 Using DeepSeek TRUE streaming - real-time progress updates");
+
+                        var lastProgressLength = 0;
+                        var lastProgressTime = DateTime.UtcNow;
+
+                        await foreach (var chunk in CallDeepSeekStreamAsync(messages, userConfig))
                         {
-                            _logger.LogWarning("⚠️ AI生成不完整，补充了{SupplementCount}个空结构 ({Duration:F1}ms) - 最终{ChecklistCount} checklists + {QuestionnaireCount} questionnaires",
-                                supplementCount,
-                                (DateTime.UtcNow - supplementStartTime).TotalMilliseconds,
-                                streamResult.Checklists.Count,
-                                streamResult.Questionnaires.Count);
-                        }
-                        else
-                        {
-                            _logger.LogInformation("🎯 AI生成完美：无需补充任何组件");
+                            if (!string.IsNullOrEmpty(chunk))
+                            {
+                                streamingContent.Append(chunk);
+                                hasReceivedContent = true;
+
+                                var now = DateTime.UtcNow;
+                                var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                                var lengthDifference = streamingContent.Length - lastProgressLength;
+
+                                if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                                {
+                                    await writer.WriteAsync(new AIWorkflowStreamResult
+                                    {
+                                        Type = "progress",
+                                        Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
+                                        IsComplete = false
+                                    });
+
+                                    lastProgressLength = streamingContent.Length;
+                                    lastProgressTime = now;
+
+                                    _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
+                                        streamingContent.Length, timeSinceLastProgress);
+                                }
+                            }
                         }
 
-                        var completeStartTime = DateTime.UtcNow;
-                        yield return new AIWorkflowStreamResult
-                        {
-                            Type = "complete",
-                            Data = streamResult,
-                            Message = "Workflow generation completed with AI-powered components",
-                            IsComplete = true
-                        };
-                        var completeEndTime = DateTime.UtcNow;
-                        _logger.LogInformation("🏁 Complete message yielded in {Duration}ms", (completeEndTime - completeStartTime).TotalMilliseconds);
-
-                        _logger.LogInformation("🎉 StreamGenerateWorkflowAsync about to exit successfully");
-                        yield break;
+                        var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                        _logger.LogInformation("🏁 DeepSeek TRUE stream completed: {Length} chars in {Duration}ms",
+                            streamingContent.Length, totalDuration);
                     }
                     else
                     {
-                        // AI解析失败，先尝试修复JSON，再使用快速fallback生成
-                        _logger.LogWarning("AI response parsing failed, attempting JSON repair and fallback generation");
+                        _logger.LogInformation("🚀 Using {Provider} TRUE streaming - real-time progress updates", userConfig.Provider);
 
-                        var fallbackStartTime = DateTime.UtcNow;
-                        var fallbackResult = TryRepairAndParseWorkflow(streamingContent.ToString());
+                        var lastProgressLength = 0;
+                        var lastProgressTime = DateTime.UtcNow;
 
-                        if (fallbackResult == null)
+                        using var streamTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+
+                        await foreach (var chunk in CallAIProviderForStreamChatAsync(messages, userConfig).WithCancellation(streamTimeoutCts.Token))
                         {
-                            fallbackResult = GenerateFallbackWorkflow(streamingContent.ToString());
+                            if (!string.IsNullOrEmpty(chunk))
+                            {
+                                streamingContent.Append(chunk);
+                                hasReceivedContent = true;
+
+                                var now = DateTime.UtcNow;
+                                var timeSinceLastProgress = (now - lastProgressTime).TotalMilliseconds;
+                                var lengthDifference = streamingContent.Length - lastProgressLength;
+
+                                if (lengthDifference >= 50 || timeSinceLastProgress >= 2000)
+                                {
+                                    await writer.WriteAsync(new AIWorkflowStreamResult
+                                    {
+                                        Type = "progress",
+                                        Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
+                                        IsComplete = false
+                                    });
+
+                                    lastProgressLength = streamingContent.Length;
+                                    lastProgressTime = now;
+
+                                    _logger.LogInformation("📊 Progress update: {Length} chars, {Duration}ms since last",
+                                        streamingContent.Length, timeSinceLastProgress);
+                                }
+                            }
                         }
 
-                        if (fallbackResult?.Stages?.Any() == true)
-                        {
-                            _logger.LogInformation("🔄 Fallback workflow generated with {Count} stages", fallbackResult.Stages.Count);
+                        var totalDuration = (DateTime.UtcNow - streamStartTime).TotalMilliseconds;
+                        _logger.LogInformation("🏁 {Provider} TRUE stream completed: {Length} chars in {Duration}ms",
+                            userConfig.Provider, streamingContent.Length, totalDuration);
+                    }
 
-                            yield return new AIWorkflowStreamResult
+                    // 流式完成后立即开始解析
+                    if (hasReceivedContent)
+                    {
+                        await writer.WriteAsync(new AIWorkflowStreamResult
+                        {
+                            Type = "progress",
+                            Message = "Parsing workflow structure...",
+                            IsComplete = false
+                        });
+
+                        _logger.LogInformation("🔍 Starting to parse AI response, content length: {Length}", streamingContent.Length);
+                        var parseStartTime = DateTime.UtcNow;
+                        var streamResult = ParseWorkflowGenerationResponse(streamingContent.ToString());
+                        var parseEndTime = DateTime.UtcNow;
+                        _logger.LogInformation("✅ Parsing completed in {Duration}ms", (parseEndTime - parseStartTime).TotalMilliseconds);
+
+                        if (streamResult?.GeneratedWorkflow != null)
+                        {
+                            _logger.LogInformation("🎯 About to yield workflow and {Count} stages", streamResult.Stages?.Count ?? 0);
+
+                            await writer.WriteAsync(new AIWorkflowStreamResult
                             {
                                 Type = "workflow",
-                                Data = fallbackResult.GeneratedWorkflow,
-                                Message = "Workflow generated using optimized fallback",
+                                Data = streamResult.GeneratedWorkflow,
+                                Message = "Workflow basic information generated",
                                 IsComplete = false
-                            };
+                            });
 
-                            foreach (var stage in fallbackResult.Stages)
+                            var stageStartTime = DateTime.UtcNow;
+                            var stageCount = 0;
+                            foreach (var stage in streamResult.Stages)
                             {
-                                yield return new AIWorkflowStreamResult
+                                await writer.WriteAsync(new AIWorkflowStreamResult
                                 {
                                     Type = "stage",
                                     Data = stage,
                                     Message = $"Stage '{stage.Name}' generated",
                                     IsComplete = false
-                                };
+                                });
+                                stageCount++;
+
+                                if (stageCount % 10 == 0)
+                                {
+                                    _logger.LogInformation("📊 Processed {Count} stages so far...", stageCount);
+                                }
+                            }
+                            var stageEndTime = DateTime.UtcNow;
+                            _logger.LogInformation("✅ All {Count} stages yielded in {Duration}ms", stageCount, (stageEndTime - stageStartTime).TotalMilliseconds);
+
+                            // AI生成质量分析
+                            var checklistCount = streamResult.Checklists?.Count ?? 0;
+                            var questionnaireCount = streamResult.Questionnaires?.Count ?? 0;
+                            stageCount = streamResult.Stages.Count;
+
+                            var effectiveChecklists = streamResult.Checklists?.Count(c => c?.Tasks?.Count > 0) ?? 0;
+                            var effectiveQuestionnaires = streamResult.Questionnaires?.Count(q => q?.Questions?.Count > 0) ?? 0;
+                            var qualityScore = stageCount > 0 ? ((effectiveChecklists + effectiveQuestionnaires) * 50.0) / stageCount : 0;
+
+                            _logger.LogInformation("📈 AI生成质量: {QualityScore:F1}% - 有效组件 {EffectiveChecklists}/{ChecklistCount} checklists, {EffectiveQuestionnaires}/{QuestionnaireCount} questionnaires",
+                                qualityScore, effectiveChecklists, checklistCount, effectiveQuestionnaires, questionnaireCount);
+
+                            // 确保每个stage都有完整的组件
+                            streamResult.Checklists ??= new List<AIChecklistGenerationResult>();
+                            streamResult.Questionnaires ??= new List<AIQuestionnaireGenerationResult>();
+
+                            var supplementStartTime = DateTime.UtcNow;
+                            var supplementCount = 0;
+
+                            stageCount = streamResult.Stages.Count;
+                            checklistCount = streamResult.Checklists?.Count ?? 0;
+                            questionnaireCount = streamResult.Questionnaires?.Count ?? 0;
+
+                            var hasCompleteGeneration = checklistCount >= stageCount && questionnaireCount >= stageCount &&
+                                streamResult.Checklists.Take(stageCount).All(c => c?.Tasks?.Count > 0) &&
+                                streamResult.Questionnaires.Take(stageCount).All(q => q?.Questions?.Count > 0);
+
+                            if (hasCompleteGeneration)
+                            {
+                                _logger.LogInformation("🎯 AI完整生成所有组件，跳过补充逻辑 - {ChecklistCount} checklists, {QuestionnaireCount} questionnaires",
+                                    checklistCount, questionnaireCount);
+                            }
+                            else
+                            {
+                                _logger.LogInformation("🔧 检测到组件缺失，开始智能补充 - 现有: {ChecklistCount}/{StageCount} checklists, {QuestionnaireCount}/{StageCount} questionnaires",
+                                    checklistCount, stageCount, questionnaireCount, stageCount);
+
+                                for (int i = 0; i < stageCount; i++)
+                                {
+                                    var stage = streamResult.Stages[i];
+
+                                    if (i >= checklistCount || streamResult.Checklists[i]?.Tasks?.Count == 0)
+                                    {
+                                        if (i >= checklistCount)
+                                        {
+                                            streamResult.Checklists.Add(GenerateFallbackChecklist(stage));
+                                            supplementCount++;
+                                            _logger.LogDebug("➕ 为stage {StageIndex}-{StageName} 添加空checklist", i, stage.Name);
+                                        }
+                                    }
+
+                                    if (i >= questionnaireCount || streamResult.Questionnaires[i]?.Questions?.Count == 0)
+                                    {
+                                        if (i >= questionnaireCount)
+                                        {
+                                            streamResult.Questionnaires.Add(GenerateFallbackQuestionnaire(stage));
+                                            supplementCount++;
+                                            _logger.LogDebug("➕ 为stage {StageIndex}-{StageName} 添加空questionnaire", i, stage.Name);
+                                        }
+                                    }
+                                }
                             }
 
-                            yield return new AIWorkflowStreamResult
+                            if (supplementCount > 0)
+                            {
+                                _logger.LogWarning("⚠️ AI生成不完整，补充了{SupplementCount}个空结构 ({Duration:F1}ms) - 最终{ChecklistCount} checklists + {QuestionnaireCount} questionnaires",
+                                    supplementCount,
+                                    (DateTime.UtcNow - supplementStartTime).TotalMilliseconds,
+                                    streamResult.Checklists.Count,
+                                    streamResult.Questionnaires.Count);
+                            }
+                            else
+                            {
+                                _logger.LogInformation("🎯 AI生成完美：无需补充任何组件");
+                            }
+
+                            await writer.WriteAsync(new AIWorkflowStreamResult
                             {
                                 Type = "complete",
-                                Data = fallbackResult,
-                                Message = $"Workflow generation completed in {(DateTime.UtcNow - fallbackStartTime).TotalMilliseconds}ms",
+                                Data = streamResult,
+                                Message = "Workflow generation completed with AI-powered components",
                                 IsComplete = true
-                            };
-                            yield break;
-                        }
+                            });
 
-                        yield return new AIWorkflowStreamResult
+                            // Save successful streaming prompt history (fire-and-forget)
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var response = new AIProviderResponse
+                                    {
+                                        Success = true,
+                                        Content = streamingContent.ToString()
+                                    };
+                                    var metadata = JsonSerializer.Serialize(new
+                                    {
+                                        sessionId = input.SessionId,
+                                        conversationHistoryCount = input.ConversationHistory?.Count ?? 0,
+                                        streamingMode = true,
+                                        contentLength = streamingContent.Length
+                                    });
+                                    await SavePromptHistoryAsync("WorkflowGenerationStream", "Workflow", null, null,
+                                        prompt, response, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Failed to save streaming workflow generation prompt history");
+                                }
+                            });
+
+                            _logger.LogInformation("🎉 StreamGenerateWorkflowAsync about to exit successfully");
+                            return;
+                        }
+                        else
                         {
-                            Type = "error",
-                            Message = "AI generation failed and fallback unsuccessful",
-                            IsComplete = true
-                        };
-                        yield break;
+                            _logger.LogWarning("AI response parsing failed, attempting JSON repair and fallback generation");
+
+                            var fallbackStartTime = DateTime.UtcNow;
+                            var fallbackResult = TryRepairAndParseWorkflow(streamingContent.ToString());
+
+                            if (fallbackResult == null)
+                            {
+                                fallbackResult = GenerateFallbackWorkflow(streamingContent.ToString());
+                            }
+
+                            if (fallbackResult?.Stages?.Any() == true)
+                            {
+                                _logger.LogInformation("🔄 Fallback workflow generated with {Count} stages", fallbackResult.Stages.Count);
+
+                                await writer.WriteAsync(new AIWorkflowStreamResult
+                                {
+                                    Type = "workflow",
+                                    Data = fallbackResult.GeneratedWorkflow,
+                                    Message = "Workflow generated using optimized fallback",
+                                    IsComplete = false
+                                });
+
+                                foreach (var stage in fallbackResult.Stages)
+                                {
+                                    await writer.WriteAsync(new AIWorkflowStreamResult
+                                    {
+                                        Type = "stage",
+                                        Data = stage,
+                                        Message = $"Stage '{stage.Name}' generated",
+                                        IsComplete = false
+                                    });
+                                }
+
+                                await writer.WriteAsync(new AIWorkflowStreamResult
+                                {
+                                    Type = "complete",
+                                    Data = fallbackResult,
+                                    Message = $"Workflow generation completed in {(DateTime.UtcNow - fallbackStartTime).TotalMilliseconds}ms",
+                                    IsComplete = true
+                                });
+                                return;
+                            }
+
+                            await writer.WriteAsync(new AIWorkflowStreamResult
+                            {
+                                Type = "error",
+                                Message = "AI generation failed and fallback unsuccessful",
+                                IsComplete = true
+                            });
+                            return;
+                        }
                     }
-                }
-            }
-            else
-            {
-                // 回退到非流式API
-                var aiResponse = await CallAIProviderAsync(prompt);
-                if (aiResponse.Success)
-                {
-                    streamingContent.Append(aiResponse.Content);
-                    hasReceivedContent = true;
                 }
                 else
                 {
-                    yield return new AIWorkflowStreamResult
+                    // 回退到非流式API
+                    var aiResponse = await CallAIProviderAsync(prompt);
+                    if (aiResponse.Success)
+                    {
+                        streamingContent.Append(aiResponse.Content);
+                        hasReceivedContent = true;
+                    }
+                    else
+                    {
+                        await writer.WriteAsync(new AIWorkflowStreamResult
+                        {
+                            Type = "error",
+                            Message = aiResponse.ErrorMessage ?? "AI service call failed",
+                            IsComplete = true
+                        });
+                        return;
+                    }
+                }
+
+                if (!hasReceivedContent)
+                {
+                    await writer.WriteAsync(new AIWorkflowStreamResult
                     {
                         Type = "error",
-                        Message = aiResponse.ErrorMessage ?? "AI service call failed",
+                        Message = "No content received from AI service",
                         IsComplete = true
-                    };
-                    yield break;
+                    });
+                    return;
                 }
-            }
 
-            if (!hasReceivedContent)
-            {
-                yield return new AIWorkflowStreamResult
+                await writer.WriteAsync(new AIWorkflowStreamResult
                 {
-                    Type = "error",
-                    Message = "No content received from AI service",
-                    IsComplete = true
-                };
-                yield break;
-            }
-
-            yield return new AIWorkflowStreamResult
-            {
-                Type = "progress",
-                Message = "Parsing workflow structure...",
-                IsComplete = false
-            };
-
-            // 解析AI响应（非流式路径）
-            var result = ParseWorkflowGenerationResponse(streamingContent.ToString());
-
-            if (result?.GeneratedWorkflow != null)
-            {
-                yield return new AIWorkflowStreamResult
-                {
-                    Type = "workflow",
-                    Data = result.GeneratedWorkflow,
-                    Message = "Workflow basic information generated",
+                    Type = "progress",
+                    Message = "Parsing workflow structure...",
                     IsComplete = false
-                };
+                });
 
-                foreach (var stage in result.Stages)
+                // 解析AI响应（非流式路径）
+                var result = ParseWorkflowGenerationResponse(streamingContent.ToString());
+
+                if (result?.GeneratedWorkflow != null)
                 {
-                    yield return new AIWorkflowStreamResult
+                    await writer.WriteAsync(new AIWorkflowStreamResult
                     {
-                        Type = "stage",
-                        Data = stage,
-                        Message = $"Stage '{stage.Name}' generated",
+                        Type = "workflow",
+                        Data = result.GeneratedWorkflow,
+                        Message = "Workflow basic information generated",
                         IsComplete = false
-                    };
+                    });
+
+                    foreach (var stage in result.Stages)
+                    {
+                        await writer.WriteAsync(new AIWorkflowStreamResult
+                        {
+                            Type = "stage",
+                            Data = stage,
+                            Message = $"Stage '{stage.Name}' generated",
+                            IsComplete = false
+                        });
+                    }
+
+                    await writer.WriteAsync(new AIWorkflowStreamResult
+                    {
+                        Type = "complete",
+                        Data = result,
+                        Message = "Workflow generation completed",
+                        IsComplete = true
+                    });
+                }
+                else
+                {
+                    await writer.WriteAsync(new AIWorkflowStreamResult
+                    {
+                        Type = "error",
+                        Message = "Unable to parse AI-generated workflow structure",
+                        IsComplete = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in streaming workflow generation: {Description}", input.Description);
+
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            var metadata = JsonSerializer.Serialize(new
+                            {
+                                description = input.Description,
+                                streamingMode = true,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("WorkflowGenerationStream", "Workflow", null, null,
+                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed streaming workflow generation prompt history");
+                        }
+                    });
                 }
 
-                yield return new AIWorkflowStreamResult
-                {
-                    Type = "complete",
-                    Data = result,
-                    Message = "Workflow generation completed",
-                    IsComplete = true
-                };
-            }
-            else
-            {
-                yield return new AIWorkflowStreamResult
+                await writer.WriteAsync(new AIWorkflowStreamResult
                 {
                     Type = "error",
-                    Message = "Unable to parse AI-generated workflow structure",
+                    Message = $"Workflow generation failed: {ex.Message}",
                     IsComplete = true
-                };
+                });
+            }
+            finally
+            {
+                writer.TryComplete();
             }
         }
 
@@ -969,11 +1207,15 @@ namespace FlowFlex.Application.Services.AI
 
         public async Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse aiResponse = null;
+            
             try
             {
                 _logger.LogInformation("Parsing requirements from natural language");
 
-                var prompt = $"""
+                prompt = $"""
                 Please analyze the following natural language description and extract structured requirement information:
 
                 Description: {naturalLanguage}
@@ -988,7 +1230,26 @@ namespace FlowFlex.Application.Services.AI
                 Please return the results in JSON format.
                 """;
 
-                var aiResponse = await CallAIProviderAsync(prompt);
+                aiResponse = await CallAIProviderAsync(prompt);
+
+                // Save prompt history to database (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var metadata = JsonSerializer.Serialize(new 
+                        { 
+                            naturalLanguageLength = naturalLanguage?.Length ?? 0,
+                            inputText = naturalLanguage?.Substring(0, Math.Min(200, naturalLanguage?.Length ?? 0))
+                        });
+                        await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                            prompt, aiResponse, startTime, null, null, null, metadata);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save requirements parsing prompt history");
+                    }
+                });
 
                 if (!aiResponse.Success)
                 {
@@ -1019,6 +1280,35 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error parsing requirements");
+                
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            var metadata = JsonSerializer.Serialize(new 
+                            { 
+                                naturalLanguageLength = naturalLanguage?.Length ?? 0,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                                prompt, failedResponse, startTime, null, null, null, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed requirements parsing prompt history");
+                        }
+                    });
+                }
+                
                 return new AIRequirementsParsingResult
                 {
                     Success = false,
@@ -1029,11 +1319,15 @@ namespace FlowFlex.Application.Services.AI
 
         public async Task<AIRequirementsParsingResult> ParseRequirementsAsync(string naturalLanguage, string? modelProvider, string? modelName, string? modelId)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse aiResponse = null;
+            
             try
             {
                 _logger.LogInformation("Parsing requirements with explicit model override: Provider={Provider}, Model={ModelName}, Id={ModelId}", modelProvider, modelName, modelId);
 
-                var prompt = $"""
+                prompt = $"""
                 Please analyze the following natural language description and extract structured requirement information:
 
                 Description: {naturalLanguage}
@@ -1048,7 +1342,28 @@ namespace FlowFlex.Application.Services.AI
                 Please return the results in JSON format.
                 """;
 
-                var aiResponse = await CallAIProviderAsync(prompt, modelId, modelProvider, modelName);
+                aiResponse = await CallAIProviderAsync(prompt, modelId, modelProvider, modelName);
+
+                // Save prompt history to database (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var metadata = JsonSerializer.Serialize(new 
+                        { 
+                            naturalLanguageLength = naturalLanguage?.Length ?? 0,
+                            inputText = naturalLanguage?.Substring(0, Math.Min(200, naturalLanguage?.Length ?? 0)),
+                            explicitModelOverride = true
+                        });
+                        await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                            prompt, aiResponse, startTime, modelProvider, modelName, modelId, metadata);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save requirements parsing prompt history");
+                    }
+                });
+
                 if (!aiResponse.Success)
                 {
                     return new AIRequirementsParsingResult
@@ -1077,6 +1392,36 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error parsing requirements with override");
+                
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            var metadata = JsonSerializer.Serialize(new 
+                            { 
+                                naturalLanguageLength = naturalLanguage?.Length ?? 0,
+                                explicitModelOverride = true,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                                prompt, failedResponse, startTime, modelProvider, modelName, modelId, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed requirements parsing prompt history");
+                        }
+                    });
+                }
+                
                 return new AIRequirementsParsingResult
                 {
                     Success = false,
@@ -1129,18 +1474,48 @@ namespace FlowFlex.Application.Services.AI
                 switch (provider)
                 {
                     case "zhipuai":
-                        return await CallZhipuAIAsync(prompt, effectiveModelId, effectiveModelName);
+                        {
+                            var r = await CallZhipuAIAsync(prompt, effectiveModelId, effectiveModelName);
+                            r.Provider = "zhipuai";
+                            r.ModelName = effectiveModelName ?? string.Empty;
+                            r.ModelId = effectiveModelId ?? string.Empty;
+                            return r;
+                        }
                     case "openai":
-                        return await CallOpenAIAsync(prompt, effectiveModelId, effectiveModelName);
+                        {
+                            var r = await CallOpenAIAsync(prompt, effectiveModelId, effectiveModelName);
+                            r.Provider = "openai";
+                            r.ModelName = effectiveModelName ?? string.Empty;
+                            r.ModelId = effectiveModelId ?? string.Empty;
+                            return r;
+                        }
                     case "claude":
                     case "anthropic":
-                        return await CallClaudeAsync(prompt, effectiveModelId, effectiveModelName);
+                        {
+                            var r = await CallClaudeAsync(prompt, effectiveModelId, effectiveModelName);
+                            r.Provider = "claude";
+                            r.ModelName = effectiveModelName ?? string.Empty;
+                            r.ModelId = effectiveModelId ?? string.Empty;
+                            return r;
+                        }
                     case "deepseek":
-                        return await CallDeepSeekAsync(prompt, effectiveModelId, effectiveModelName);
+                        {
+                            var r = await CallDeepSeekAsync(prompt, effectiveModelId, effectiveModelName);
+                            r.Provider = "deepseek";
+                            r.ModelName = effectiveModelName ?? string.Empty;
+                            r.ModelId = effectiveModelId ?? string.Empty;
+                            return r;
+                        }
                     default:
                         // Try to call using generic OpenAI-compatible API
                         _logger.LogInformation("Unknown provider {Provider}, attempting to use OpenAI-compatible API", provider);
-                        return await CallGenericOpenAICompatibleAsync(prompt, effectiveModelId, effectiveModelName, provider);
+                        {
+                            var r = await CallGenericOpenAICompatibleAsync(prompt, effectiveModelId, effectiveModelName, provider);
+                            r.Provider = provider;
+                            r.ModelName = effectiveModelName ?? string.Empty;
+                            r.ModelId = effectiveModelId ?? string.Empty;
+                            return r;
+                        }
                 }
             }
             catch (Exception ex)
@@ -2526,6 +2901,10 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         /// </summary>
         public async Task<AIChatResponse> SendChatMessageAsync(AIChatInput input)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse response = null;
+            
             try
             {
                 _logger.LogInformation("Processing AI chat message for session: {SessionId}", input.SessionId);
@@ -2542,7 +2921,30 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                     }
                 );
 
-                var response = await CallAIProviderForChatAsync(input);
+                // Build prompt for history tracking
+                prompt = BuildChatPrompt(input);
+                response = await CallAIProviderForChatAsync(input);
+
+                // Save prompt history to database (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var metadata = JsonSerializer.Serialize(new 
+                        { 
+                            sessionId = input.SessionId,
+                            mode = input.Mode,
+                            messageCount = input.Messages?.Count ?? 0,
+                            lastMessage = input.Messages?.LastOrDefault()?.Content?.Substring(0, Math.Min(200, input.Messages?.LastOrDefault()?.Content?.Length ?? 0))
+                        });
+                        await SavePromptHistoryAsync("ChatMessage", "Chat", null, null, 
+                            prompt, response, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save chat message prompt history");
+                    }
+                });
 
                 if (response.Success)
                 {
@@ -2560,6 +2962,37 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in AI chat processing for session: {SessionId}", input.SessionId);
+                
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            var metadata = JsonSerializer.Serialize(new 
+                            { 
+                                sessionId = input.SessionId,
+                                mode = input.Mode,
+                                messageCount = input.Messages?.Count ?? 0,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("ChatMessage", "Chat", null, null, 
+                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed chat message prompt history");
+                        }
+                    });
+                }
+                
                 return GenerateErrorChatResponse(input, ex.Message);
             }
         }
@@ -2569,6 +3002,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
         /// </summary>
         public async IAsyncEnumerable<AIChatStreamResult> StreamChatAsync(AIChatInput input)
         {
+            var startTime = DateTime.UtcNow;
             var sessionId = input.SessionId;
 
             yield return new AIChatStreamResult
@@ -2579,26 +3013,140 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 SessionId = sessionId
             };
 
-            // 实时流式传输每个数据块
-            await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
+            // 使用Channel生产者-消费者模式，避免在try/catch中使用yield
+            var channel = System.Threading.Channels.Channel.CreateUnbounded<AIChatStreamResult>();
+            _ = Task.Run(async () =>
             {
-                yield return new AIChatStreamResult
-                {
-                    Type = "delta",
-                    Content = chunk,
-                    IsComplete = false,
-                    SessionId = sessionId
-                };
-            }
+                await ProduceChatStreamAsync(input, startTime, channel.Writer);
+            });
 
-            // 发送完成信号
-            yield return new AIChatStreamResult
+            await foreach (var result in channel.Reader.ReadAllAsync())
             {
-                Type = "complete",
-                Content = "",
-                IsComplete = true,
-                SessionId = sessionId
-            };
+                yield return result;
+            }
+        }
+
+        private async Task ProduceChatStreamAsync(AIChatInput input, DateTime startTime, System.Threading.Channels.ChannelWriter<AIChatStreamResult> writer)
+        {
+            var streamingContent = new StringBuilder();
+            string prompt = null;
+            var sessionId = input.SessionId;
+
+            try
+            {
+                // Build prompt for logging
+                prompt = GetChatSystemPrompt(input.Mode, input.Messages.LastOrDefault()?.Content ?? "");
+                foreach (var message in input.Messages.TakeLast(5))
+                {
+                    prompt += $"\n{message.Role}: {message.Content}";
+                }
+
+                // 实时流式传输每个数据块
+                await foreach (var chunk in CallAIProviderForStreamChatAsync(input))
+                {
+                    if (!string.IsNullOrEmpty(chunk))
+                    {
+                        streamingContent.Append(chunk);
+                    }
+
+                    await writer.WriteAsync(new AIChatStreamResult
+                    {
+                        Type = "delta",
+                        Content = chunk,
+                        IsComplete = false,
+                        SessionId = sessionId
+                    });
+                }
+
+                // 发送完成信号
+                await writer.WriteAsync(new AIChatStreamResult
+                {
+                    Type = "complete",
+                    Content = "",
+                    IsComplete = true,
+                    SessionId = sessionId
+                });
+
+                // Save successful chat prompt history (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var response = new AIProviderResponse
+                        {
+                            Success = true,
+                            Content = streamingContent.ToString(),
+                            Provider = input.ModelProvider ?? "Unknown",
+                            ModelName = input.ModelName ?? "Unknown",
+                            ModelId = input.ModelId ?? "Unknown"
+                        };
+                        var metadata = JsonSerializer.Serialize(new
+                        {
+                            sessionId = input.SessionId,
+                            mode = input.Mode,
+                            messageCount = input.Messages?.Count ?? 0,
+                            streamingMode = true,
+                            contentLength = streamingContent.Length
+                        });
+                        await SavePromptHistoryAsync("ChatMessageStream", "Chat", null, null,
+                            prompt, response, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save streaming chat prompt history");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in streaming chat for session: {SessionId}", sessionId);
+
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = "",
+                                Provider = input.ModelProvider ?? "Unknown",
+                                ModelName = input.ModelName ?? "Unknown",
+                                ModelId = input.ModelId ?? "Unknown"
+                            };
+                            var metadata = JsonSerializer.Serialize(new
+                            {
+                                sessionId = input.SessionId,
+                                mode = input.Mode,
+                                messageCount = input.Messages?.Count ?? 0,
+                                streamingMode = true,
+                                error = ex.Message
+                            });
+                            await SavePromptHistoryAsync("ChatMessageStream", "Chat", null, null,
+                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed streaming chat prompt history");
+                        }
+                    });
+                }
+
+                await writer.WriteAsync(new AIChatStreamResult
+                {
+                    Type = "error",
+                    Content = $"Stream error: {ex.Message}",
+                    IsComplete = true,
+                    SessionId = sessionId
+                });
+            }
+            finally
+            {
+                writer.TryComplete();
+            }
         }
 
         private async Task<AIProviderResponse> CallAIProviderForChatAsync(AIChatInput input)
@@ -5276,15 +5824,33 @@ Make questions relevant to the project context and stage objectives.";
         /// <returns>Generated stage summary</returns>
         public async Task<AIStageSummaryResult> GenerateStageSummaryAsync(AIStageSummaryInput input)
         {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse aiResponse = null;
+            
             try
             {
                 _logger.LogInformation("Generating AI summary for stage {StageId}: {StageName}", input.StageId, input.StageName);
 
                 // Build the summary generation prompt
-                var prompt = BuildStageSummaryPrompt(input);
+                prompt = BuildStageSummaryPrompt(input);
 
                 // Try AI providers with fallback strategy
-                var aiResponse = await CallAIProviderWithFallbackForSummaryAsync(prompt, input.ModelId);
+                aiResponse = await CallAIProviderWithFallbackForSummaryAsync(prompt, input.ModelId);
+
+                // Save prompt history to database (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId, 
+                            prompt, aiResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save prompt history for stage {StageId}", input.StageId);
+                    }
+                });
 
                 if (!aiResponse.Success)
                 {
@@ -5305,6 +5871,30 @@ Make questions relevant to the project context and stage objectives.";
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating AI summary for stage {StageId}: {Error}", input.StageId, ex.Message);
+                
+                // Save failed prompt history (fire-and-forget)
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var failedResponse = new AIProviderResponse
+                            {
+                                Success = false,
+                                ErrorMessage = ex.Message,
+                                Content = ""
+                            };
+                            await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId, 
+                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            _logger.LogWarning(saveEx, "Failed to save failed prompt history for stage {StageId}", input.StageId);
+                        }
+                    });
+                }
+                
                 return new AIStageSummaryResult
                 {
                     Success = false,
@@ -5460,6 +6050,19 @@ Make questions relevant to the project context and stage objectives.";
 
             promptBuilder.AppendLine();
 
+            // Check if we have any actual data to analyze
+            bool hasTaskData = input.ChecklistTasks.Any();
+            bool hasQuestionData = input.QuestionnaireQuestions.Any();
+            bool hasFieldData = input.StaticFields.Any();
+
+            if (!hasTaskData && !hasQuestionData && !hasFieldData)
+            {
+                promptBuilder.AppendLine("=== Data Status ===");
+                promptBuilder.AppendLine("No checklist tasks, questionnaire responses, or field data available for this stage.");
+                promptBuilder.AppendLine("This appears to be a stage without configured components or data collection.");
+                promptBuilder.AppendLine();
+            }
+
             // Add checklist tasks information
             if (input.ChecklistTasks.Any())
             {
@@ -5469,15 +6072,26 @@ Make questions relevant to the project context and stage objectives.";
                 var requiredTasks = input.ChecklistTasks.Count(t => t.IsRequired);
                 var completedRequiredTasks = input.ChecklistTasks.Count(t => t.IsRequired && t.IsCompleted);
 
-                // 移除详细统计信息，仅在任务列表中显示完成状态
+                // Provide completion statistics for accurate assessment
+                promptBuilder.AppendLine($"Completion Status: {completedTasks}/{totalTasks} tasks completed ({(totalTasks > 0 ? (decimal)completedTasks / totalTasks * 100 : 0):F0}%)");
+                if (requiredTasks > 0)
+                {
+                    promptBuilder.AppendLine($"Required Tasks: {completedRequiredTasks}/{requiredTasks} completed");
+                }
+                promptBuilder.AppendLine();
 
                 promptBuilder.AppendLine("Tasks:");
                 foreach (var task in input.ChecklistTasks)
                 {
-                    promptBuilder.AppendLine($"- [{(task.IsCompleted ? "✓" : "○")}] {task.TaskName}");
+                    var priority = task.IsRequired ? " [Required]" : "";
+                    promptBuilder.AppendLine($"- [{(task.IsCompleted ? "✓" : "○")}] {task.TaskName}{priority}");
                     if (task.IsCompleted && !string.IsNullOrEmpty(task.CompletionNotes))
                     {
                         promptBuilder.AppendLine($"  Notes: {task.CompletionNotes}");
+                    }
+                    else if (!task.IsCompleted && task.IsRequired)
+                    {
+                        promptBuilder.AppendLine($"  Status: Pending (Required)");
                     }
                 }
                 promptBuilder.AppendLine();
@@ -5492,20 +6106,26 @@ Make questions relevant to the project context and stage objectives.";
                 var requiredQuestions = input.QuestionnaireQuestions.Count(q => q.IsRequired);
                 var answeredRequiredQuestions = input.QuestionnaireQuestions.Count(q => q.IsRequired && q.IsAnswered);
 
-                //promptBuilder.AppendLine($"Total Questions: {totalQuestions}");
-                //promptBuilder.AppendLine($"Answered Questions: {answeredQuestions}");
-                //promptBuilder.AppendLine($"Required Questions: {requiredQuestions}");
-                //promptBuilder.AppendLine($"Answered Required Questions: {answeredRequiredQuestions}");
-                //promptBuilder.AppendLine($"Completion Rate: {(totalQuestions > 0 ? (decimal)answeredQuestions / totalQuestions * 100 : 0):F1}%");
-                //promptBuilder.AppendLine();
+                // Provide completion statistics for accurate assessment
+                promptBuilder.AppendLine($"Response Status: {answeredQuestions}/{totalQuestions} questions answered ({(totalQuestions > 0 ? (decimal)answeredQuestions / totalQuestions * 100 : 0):F0}%)");
+                if (requiredQuestions > 0)
+                {
+                    promptBuilder.AppendLine($"Required Questions: {answeredRequiredQuestions}/{requiredQuestions} answered");
+                }
+                promptBuilder.AppendLine();
 
                 promptBuilder.AppendLine("Questions:");
                 foreach (var question in input.QuestionnaireQuestions)
                 {
-                    promptBuilder.AppendLine($"- [{(question.IsAnswered ? "✓" : "○")}] {question.QuestionText}");
+                    var priority = question.IsRequired ? " [Required]" : "";
+                    promptBuilder.AppendLine($"- [{(question.IsAnswered ? "✓" : "○")}] {question.QuestionText}{priority}");
                     if (question.IsAnswered && question.Answer != null)
                     {
                         promptBuilder.AppendLine($"  Answer: {question.Answer}");
+                    }
+                    else if (!question.IsAnswered && question.IsRequired)
+                    {
+                        promptBuilder.AppendLine($"  Status: Pending (Required)");
                     }
                 }
                 promptBuilder.AppendLine();
@@ -5522,18 +6142,52 @@ Make questions relevant to the project context and stage objectives.";
                 promptBuilder.AppendLine();
             }
 
-            // Simple summary requirements (pure text, <= 150 words)
+            // Enhanced summary requirements with data-driven guidance
             promptBuilder.AppendLine("=== Summary Requirements ===");
-            promptBuilder.AppendLine("Provide a concise summary in maximum 150 words covering key findings and progress:");
-            promptBuilder.AppendLine("- Current completion status");
-            promptBuilder.AppendLine("- Key findings or issues identified");
-            promptBuilder.AppendLine("- Next steps or recommendations");
-            promptBuilder.AppendLine();
-            promptBuilder.AppendLine("Output Rules:");
-            promptBuilder.AppendLine("- Plain text only, no formatting");
-            promptBuilder.AppendLine("- Maximum 150 words");
-            promptBuilder.AppendLine("- Focus on actionable insights");
-            promptBuilder.AppendLine("- No instructional phrases or meta-commentary");
+            if (hasTaskData || hasQuestionData || hasFieldData)
+            {
+                promptBuilder.AppendLine("Provide a comprehensive stage summary in maximum 150 words with two paragraphs:");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("First Paragraph - Stage Function:");
+                promptBuilder.AppendLine("   - Describe the main purpose and core activities of this stage");
+                promptBuilder.AppendLine("   - Explain what this stage aims to accomplish");
+                promptBuilder.AppendLine("   - Outline the key areas of focus and primary deliverables");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("Second Paragraph - Progress Status:");
+                promptBuilder.AppendLine("   - Report actual completion rates (use specific percentages and counts shown above)");
+                promptBuilder.AppendLine("   - Highlight completed achievements and pending requirements");
+                promptBuilder.AppendLine("   - Identify any critical issues or blockers from incomplete required items");
+                promptBuilder.AppendLine("   - Recommend immediate next steps based on remaining work");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("Output Rules:");
+                promptBuilder.AppendLine("- Write as two natural paragraphs without section titles or labels");
+                promptBuilder.AppendLine("- Start with stage function/content, then progress status");
+                promptBuilder.AppendLine("- Base summary ONLY on the provided data above");
+                promptBuilder.AppendLine("- Use specific numbers and completion rates shown");
+                promptBuilder.AppendLine("- Plain text only, no formatting or headings");
+                promptBuilder.AppendLine("- Maximum 150 words total");
+                promptBuilder.AppendLine("- Do NOT invent information not present in the data");
+            }
+            else
+            {
+                promptBuilder.AppendLine("Provide a stage summary in maximum 150 words with two paragraphs:");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("First Paragraph - Stage Function:");
+                promptBuilder.AppendLine("   - Describe the intended purpose and activities of this stage");
+                promptBuilder.AppendLine("   - Explain what this stage is designed to accomplish");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("Second Paragraph - Current Status:");
+                promptBuilder.AppendLine("   - Note that no specific tasks or questions are currently configured");
+                promptBuilder.AppendLine("   - Suggest what components might be needed to make this stage actionable");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("Output Rules:");
+                promptBuilder.AppendLine("- Write as two natural paragraphs without section titles or labels");
+                promptBuilder.AppendLine("- Start with stage function/content, then current status");
+                promptBuilder.AppendLine("- Do NOT invent completion percentages or fake data");
+                promptBuilder.AppendLine("- Plain text only, no formatting or headings");
+                promptBuilder.AppendLine("- Maximum 150 words");
+                promptBuilder.AppendLine("- Be honest about the lack of configured activities");
+            }
 
             return promptBuilder.ToString();
         }
@@ -5877,6 +6531,132 @@ Make questions relevant to the project context and stage objectives.";
             public bool Success { get; set; }
             public string Content { get; set; } = string.Empty;
             public string ErrorMessage { get; set; } = string.Empty;
+            public string TokenUsage { get; set; } = string.Empty;
+            public string Provider { get; set; } = string.Empty;
+            public string ModelName { get; set; } = string.Empty;
+            public string ModelId { get; set; } = string.Empty;
+        }
+
+        /// <summary>
+        /// Save AI prompt history to database
+        /// </summary>
+        private async Task SavePromptHistoryAsync(string promptType, string entityType, long? entityId, long? onboardingId,
+            string promptContent, AIProviderResponse response, DateTime startTime, string modelProvider = null, 
+            string modelName = null, string modelId = null, string metadata = null)
+        {
+            try
+            {
+                var responseTime = (int)(DateTime.UtcNow - startTime).TotalMilliseconds;
+                object tokenUsageObj;
+                object metadataObj;
+                try
+                {
+                    tokenUsageObj = string.IsNullOrWhiteSpace(response?.TokenUsage)
+                        ? new { }
+                        : System.Text.Json.JsonSerializer.Deserialize<object>(response.TokenUsage);
+                }
+                catch
+                {
+                    tokenUsageObj = new { };
+                }
+                try
+                {
+                    metadataObj = string.IsNullOrWhiteSpace(metadata)
+                        ? new { }
+                        : System.Text.Json.JsonSerializer.Deserialize<object>(metadata);
+                }
+                catch
+                {
+                    metadataObj = new { };
+                }
+                
+                var promptHistory = new AIPromptHistory
+                {
+                    PromptType = promptType ?? "Unknown",
+                    EntityType = entityType ?? "Unknown",
+                    EntityId = entityId,
+                    OnboardingId = onboardingId,
+                    ModelProvider = !string.IsNullOrEmpty(response?.Provider) ? response.Provider : (!string.IsNullOrEmpty(modelProvider) ? modelProvider : "Unknown"),
+                    ModelName = !string.IsNullOrEmpty(response?.ModelName) ? response.ModelName : (modelName ?? "Unknown"),
+                    ModelId = !string.IsNullOrEmpty(response?.ModelId) ? response.ModelId : (modelId ?? "Unknown"),
+                    PromptContent = promptContent ?? "",
+                    ResponseContent = response?.Content ?? "",
+                    IsSuccess = response?.Success ?? false,
+                    ErrorMessage = response?.ErrorMessage ?? "",
+                    ResponseTimeMs = responseTime,
+                    TokenUsage = tokenUsageObj,
+                    Metadata = metadataObj,
+                    UserId = _operatorContextService?.GetOperatorId() ?? 0,
+                    UserName = _operatorContextService?.GetOperatorDisplayName() ?? "",
+                    IpAddress = GetClientIpAddress(),
+                    UserAgent = GetUserAgent(),
+                    CreateBy = _operatorContextService?.GetOperatorDisplayName() ?? "",
+                    ModifyBy = _operatorContextService?.GetOperatorDisplayName() ?? "",
+                    CreateUserId = _operatorContextService?.GetOperatorId() ?? 0,
+                    ModifyUserId = _operatorContextService?.GetOperatorId() ?? 0,
+                    CreateDate = DateTimeOffset.Now,
+                    ModifyDate = DateTimeOffset.Now,
+                    IsValid = true
+                };
+
+                // Initialize ID
+                promptHistory.InitNewId();
+
+                // Save to database
+                await _aiPromptHistoryRepository.InsertAsync(promptHistory);
+                
+                _logger.LogDebug("Saved AI prompt history for {PromptType} - {EntityType}:{EntityId}", 
+                    promptType, entityType, entityId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save AI prompt history: {Error}", ex.Message);
+                // Don't throw - this is a background operation
+            }
+        }
+
+        private string GetClientIpAddress()
+        {
+            try
+            {
+                var httpContext = _httpContextAccessor?.HttpContext;
+                if (httpContext?.Connection?.RemoteIpAddress != null)
+                {
+                    return httpContext.Connection.RemoteIpAddress.ToString();
+                }
+
+                // Check for forwarded IPs from proxies/load balancers
+                var forwardedFor = httpContext?.Request?.Headers["X-Forwarded-For"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(forwardedFor))
+                {
+                    return forwardedFor.Split(',').FirstOrDefault()?.Trim() ?? "";
+                }
+
+                var realIp = httpContext?.Request?.Headers["X-Real-IP"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(realIp))
+                {
+                    return realIp;
+                }
+
+                return "";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private string GetUserAgent()
+        {
+            try
+            {
+                var httpContext = _httpContextAccessor?.HttpContext;
+                return httpContext?.Request?.Headers["User-Agent"].FirstOrDefault() ?? "";
+            }
+            catch
+            {
+                return "";
+            }
         }
 
         #endregion

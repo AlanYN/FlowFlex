@@ -112,8 +112,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Query onboarding list with pagination (POST method)
         /// Supports comma-separated values for leadId, leadName, and updatedBy fields
-        /// All text search queries are case-insensitive
-        /// Example: {"leadId": "11,22,33", "leadName": "company1,company2", "updatedBy": "user1,user2"}
+        /// All text search queries are case-insensitive and support fuzzy matching
+        /// leadId supports fuzzy search (partial matching)
+        /// Example: {"leadId": "c", "leadName": "company1,company2", "updatedBy": "user1,user2"}
         /// </summary>
         [HttpPost("query")]
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]

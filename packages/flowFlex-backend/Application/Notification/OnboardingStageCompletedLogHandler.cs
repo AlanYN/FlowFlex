@@ -172,6 +172,10 @@ namespace FlowFlex.Application.Notification
 
                 await _mediator.Publish(actionTriggerEvent);
 
+
+                // 这里通过stage的compose获取checklist的task，question 对应的action，发送ActionTriggerEvent
+
+
                 _logger.LogDebug("已发布 ActionTriggerEvent: SourceType={SourceType}, SourceId={SourceId}, EventType={EventType}, OriginalEventId={OriginalEventId}",
                     actionTriggerEvent.TriggerSourceType,
                     actionTriggerEvent.TriggerSourceId,

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
+using FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
@@ -37,6 +38,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStagesProgressSyncService _stagesProgressSyncService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
+        private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
         private readonly IAIService _aiService;
         private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
         private readonly UserContext _userContext;
@@ -45,7 +47,7 @@ namespace FlowFlex.Application.Service.OW
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -53,6 +55,7 @@ namespace FlowFlex.Application.Service.OW
             _stagesProgressSyncService = stagesProgressSyncService;
             _checklistService = checklistService;
             _questionnaireService = questionnaireService;
+            _questionnaireAnswerService = questionnaireAnswerService;
             _aiService = aiService;
             _checklistTaskCompletionRepository = checklistTaskCompletionRepository;
             _userContext = userContext;
@@ -1046,6 +1049,7 @@ namespace FlowFlex.Application.Service.OW
                 var aiInput = new AIStageSummaryInput
                 {
                     StageId = stageId,
+                    OnboardingId = onboardingId,
                     StageName = stage.Name,
                     StageDescription = stage.Description ?? "",
                     Language = summaryOptions.Language,
@@ -1576,25 +1580,113 @@ namespace FlowFlex.Application.Service.OW
                             
                             if (questionnaire?.Sections != null && questionnaire.Sections.Any())
                             {
+                                // Get questionnaire answers if onboarding context is available
+                                QuestionnaireAnswerOutputDto? questionnaireAnswer = null;
+                                if (onboardingId.HasValue)
+                                {
+                                    try
+                                    {
+                                        questionnaireAnswer = await _questionnaireAnswerService.GetAnswerAsync(onboardingId.Value, stageId);
+                                        Console.WriteLine($"[DEBUG] Retrieved questionnaire answer for onboarding {onboardingId.Value}, stage {stageId}: {questionnaireAnswer != null}");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[WARNING] Could not load questionnaire answer: {ex.Message}");
+                                    }
+                                }
+
                                 var questionInfos = questionnaire.Sections
                                     .SelectMany(section => section.Questions)
-                                    .Select(question => new AISummaryQuestionInfo
+                                    .Select(question => 
                                     {
-                                        QuestionId = long.TryParse(question.Id, out var qId) ? qId : 0,
-                                        QuestionText = question.Text ?? "",
-                                        QuestionType = question.Type ?? "",
-                                        IsRequired = question.IsRequired,
-                                        IsAnswered = false, // No answer status without onboarding context
-                                        Answer = null,
-                                        Category = questionnaire.Name ?? "Questionnaire"
+                                        var qId = long.TryParse(question.Id, out var parsedId) ? parsedId : 0;
+                                        var isAnswered = false;
+                                        string? answer = null;
+
+                                        // Check if this question has an answer
+                                        if (questionnaireAnswer?.AnswerJson != null)
+                                        {
+                                            try
+                                            {
+                                                using var answersDoc = JsonDocument.Parse(questionnaireAnswer.AnswerJson);
+                                                var answersRoot = answersDoc.RootElement;
+                                                
+                                                // Check if it has responses array structure
+                                                if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
+                                                {
+                                                    // Search through responses array for matching questionId
+                                                    foreach (var responseElement in responsesElement.EnumerateArray())
+                                                    {
+                                                        if (responseElement.TryGetProperty("questionId", out var qIdElement))
+                                                        {
+                                                            var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
+                                                            if (responseQuestionId == question.Id)
+                                                            {
+                                                                // Found matching question, check if it has an answer
+                                                                if (responseElement.TryGetProperty("answer", out var answerElement) && 
+                                                                    !string.IsNullOrEmpty(answerElement.GetString()))
+                                                                {
+                                                                    isAnswered = true;
+                                                                    answer = answerElement.GetString();
+                                                                }
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    // Fallback: old simple structure (questionId -> answer mapping)
+                                                    if (answersRoot.TryGetProperty(question.Id, out var answerElement))
+                                                    {
+                                                        isAnswered = true;
+                                                        answer = answerElement.ValueKind == JsonValueKind.String 
+                                                            ? answerElement.GetString() 
+                                                            : answerElement.ToString();
+                                                    }
+                                                }
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Console.WriteLine($"[WARNING] Failed to parse answers JSON for question {question.Id}: {ex.Message}");
+                                            }
+                                        }
+
+                                        return new AISummaryQuestionInfo
+                                        {
+                                            QuestionId = qId,
+                                            QuestionText = question.Text ?? "",
+                                            QuestionType = question.Type ?? "",
+                                            IsRequired = question.IsRequired,
+                                            IsAnswered = isAnswered,
+                                            Answer = answer,
+                                            Category = questionnaire.Name ?? "Questionnaire"
+                                        };
                                     }).ToList();
 
                                 aiInput.QuestionnaireQuestions.AddRange(questionInfos);
-                                Console.WriteLine($"[DEBUG] Added {questionInfos.Count} questions from questionnaire {questionnaire.Name}");
+                                var answeredCount = questionInfos.Count(q => q.IsAnswered);
+                                Console.WriteLine($"[DEBUG] Added {questionInfos.Count} questions from questionnaire {questionnaire.Name}, {answeredCount} answered");
                             }
                             else
                             {
                                 Console.WriteLine($"[DEBUG] Questionnaire {questionnaireId} has no sections or is null");
+                                
+                                // Get questionnaire answers if onboarding context is available (for StructureJson fallback)
+                                QuestionnaireAnswerOutputDto? questionnaireAnswer = null;
+                                if (onboardingId.HasValue)
+                                {
+                                    try
+                                    {
+                                        questionnaireAnswer = await _questionnaireAnswerService.GetAnswerAsync(onboardingId.Value, stageId);
+                                        Console.WriteLine($"[DEBUG] Retrieved questionnaire answer for fallback parsing: {questionnaireAnswer != null}");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[WARNING] Could not load questionnaire answer for fallback: {ex.Message}");
+                                    }
+                                }
+                                
                                 // Fallback: parse StructureJson if available
                                 if (!string.IsNullOrWhiteSpace(questionnaire?.StructureJson))
                                 {
@@ -1616,14 +1708,67 @@ namespace FlowFlex.Application.Service.OW
                                                         var type = qEl.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "";
                                                         var required = qEl.TryGetProperty("required", out var reqEl) ? (reqEl.ValueKind == JsonValueKind.True) : (qEl.TryGetProperty("isRequired", out var req2El) && req2El.ValueKind == JsonValueKind.True);
 
+                                                        var questionId = long.TryParse(idStr, out var qid) ? qid : 0;
+                                                        var isAnswered = false;
+                                                        string? answer = null;
+
+                                                        // Check if this question has an answer
+                                                        if (questionnaireAnswer?.AnswerJson != null && !string.IsNullOrEmpty(idStr))
+                                                        {
+                                                            try
+                                                            {
+                                                                using var answersDoc = JsonDocument.Parse(questionnaireAnswer.AnswerJson);
+                                                                var answersRoot = answersDoc.RootElement;
+                                                                
+                                                                // Check if it has responses array structure
+                                                                if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
+                                                                {
+                                                                    // Search through responses array for matching questionId
+                                                                    foreach (var responseElement in responsesElement.EnumerateArray())
+                                                                    {
+                                                                        if (responseElement.TryGetProperty("questionId", out var qIdElement))
+                                                                        {
+                                                                            var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
+                                                                            if (responseQuestionId == idStr)
+                                                                            {
+                                                                                // Found matching question, check if it has an answer
+                                                                                if (responseElement.TryGetProperty("answer", out var answerElement) && 
+                                                                                    !string.IsNullOrEmpty(answerElement.GetString()))
+                                                                                {
+                                                                                    isAnswered = true;
+                                                                                    answer = answerElement.GetString();
+                                                                                }
+                                                                                break;
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    // Fallback: old simple structure (questionId -> answer mapping)
+                                                                    if (answersRoot.TryGetProperty(idStr, out var answerElement))
+                                                                    {
+                                                                        isAnswered = true;
+                                                                        answer = answerElement.ValueKind == JsonValueKind.String 
+                                                                            ? answerElement.GetString() 
+                                                                            : answerElement.ToString();
+                                                                    }
+                                                                }
+                                                            }
+                                                            catch (Exception ex)
+                                                            {
+                                                                Console.WriteLine($"[WARNING] Failed to parse answers JSON for question {idStr}: {ex.Message}");
+                                                            }
+                                                        }
+
                                                         parsedQuestions.Add(new AISummaryQuestionInfo
                                                         {
-                                                            QuestionId = long.TryParse(idStr, out var qid) ? qid : 0,
+                                                            QuestionId = questionId,
                                                             QuestionText = text ?? "",
                                                             QuestionType = type ?? "",
                                                             IsRequired = required,
-                                                            IsAnswered = false,
-                                                            Answer = null,
+                                                            IsAnswered = isAnswered,
+                                                            Answer = answer,
                                                             Category = questionnaire.Name ?? "Questionnaire"
                                                         });
                                                     }
