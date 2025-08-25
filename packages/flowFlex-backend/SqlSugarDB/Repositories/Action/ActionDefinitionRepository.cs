@@ -74,7 +74,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null)
         {
             RefAsync<int> totalCount = 0;
 
@@ -92,6 +93,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             {
                 query = query.Where(x => x.ActionName.Contains(keyword) || x.ActionCode.Contains(keyword));
             }
+
+            query.WhereIF(isTools.HasValue, x => x.IsTools == isTools.Value);
 
             var triggerTypeFilters = new[]
             {

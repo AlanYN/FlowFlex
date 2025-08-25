@@ -37,5 +37,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Whether the action is enabled
         /// </summary>
         public bool IsEnabled { get; set; }
+
+        public bool IsTools { get; set; }
     }
 }

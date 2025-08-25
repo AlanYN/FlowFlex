@@ -60,6 +60,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="isAssignmentStage"></param>
         /// <param name="isAssignmentChecklist"></param>
         /// <param name="isAssignmentQuestionnaire"></param>
+        /// <param name="isTools"></param>
         /// <returns></returns>
         [HttpGet("definitions")]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionDefinitionDto>>>((int)HttpStatusCode.OK)]
@@ -70,7 +71,8 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null)
         {
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
                 actionType,
@@ -79,7 +81,8 @@ namespace FlowFlex.WebApi.Controllers.Action
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
-                isAssignmentWorkflow);
+                isAssignmentWorkflow,
+                isTools);
             return Success(result);
         }
 
