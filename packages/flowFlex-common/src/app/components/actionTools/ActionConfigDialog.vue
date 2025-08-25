@@ -64,6 +64,7 @@
 									>
 										Select Existing Tool
 									</label>
+
 									<el-select
 										v-model="selectedToolId"
 										placeholder="Please select an existing tool"
@@ -577,10 +578,8 @@ const onSave = async () => {
 			};
 			const res = await addMappingAction(params);
 			if (res.code == '200') {
-				ElMessage.success('Action added successfully');
 				emit('saveSuccess', {
 					...formData,
-					...res.data,
 				});
 				visible.value = false;
 			} else {
