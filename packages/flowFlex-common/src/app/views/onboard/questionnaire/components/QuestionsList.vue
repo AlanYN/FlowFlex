@@ -318,7 +318,7 @@ import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
-import { getActionDetail, deleteMappingAction } from '@/apis/action';
+import { getActionDetail } from '@/apis/action';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
@@ -578,19 +578,8 @@ const removeAction = async (id, callback) => {
 						instance.confirmButtonText = 'Activating...';
 
 						try {
-							// 调用激活工作流API
-							const res = await deleteMappingAction(id);
-
-							if (res.code === '200') {
-								ElMessage.success(t('sys.api.operationSuccess'));
-								callback && callback();
-								done(); // 关闭对话框
-							} else {
-								ElMessage.error(res.msg || t('sys.api.operationFailed'));
-								// 恢复按钮状态
-								instance.confirmButtonLoading = false;
-								instance.confirmButtonText = 'Delete';
-							}
+							callback && callback();
+							done(); // 关闭对话框
 						} catch (error) {
 							ElMessage.error(t('sys.api.operationFailed'));
 							// 恢复按钮状态
