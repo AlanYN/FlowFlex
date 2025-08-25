@@ -296,6 +296,9 @@ const formatDate = (dateString: string | null): string => {
 	border: 1px solid #e5e7eb;
 	transition: all 0.2s ease;
 	cursor: pointer;
+	/* 确保卡片不会被内容撑开 */
+	min-width: 0;
+	overflow: hidden;
 
 	&:hover:not(.completed) {
 		border-color: #3b82f6;
@@ -342,6 +345,8 @@ const formatDate = (dateString: string | null): string => {
 .item-content {
 	flex: 1;
 	min-width: 0;
+	/* 确保内容不会撑开父容器 */
+	overflow: hidden;
 }
 
 .item-title {
@@ -350,6 +355,11 @@ const formatDate = (dateString: string | null): string => {
 	margin: 0 0 4px 0;
 	color: #1f2937;
 	transition: all 0.2s ease;
+	/* 处理长文本，防止撑开容器 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
 
 	.completed & {
 		text-decoration: line-through;
@@ -362,6 +372,11 @@ const formatDate = (dateString: string | null): string => {
 	margin: 0 0 8px 0;
 	color: #6b7280;
 	line-height: 1.4;
+	/* 限制描述文本最多显示3行 */
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
 }
 
 .completion-info {
@@ -370,6 +385,9 @@ const formatDate = (dateString: string | null): string => {
 	gap: 6px;
 	font-size: 12px;
 	color: #10b981;
+	/* 确保完成信息不会撑开容器 */
+	min-width: 0;
+	overflow: hidden;
 }
 
 .completion-icon {
@@ -379,6 +397,10 @@ const formatDate = (dateString: string | null): string => {
 
 .completion-text {
 	font-size: 12px;
+	/* 防止长邮箱地址撑开容器 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .item-status {

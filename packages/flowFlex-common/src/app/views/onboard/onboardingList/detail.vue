@@ -50,9 +50,9 @@
 		</div>
 
 		<!-- 主要内容区域 -->
-		<div class="flex gap-6">
+		<div class="flex w-full gap-6">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
-			<div class="flex-[2]">
+			<div class="flex-[2] min-w-0 overflow-hidden">
 				<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
 					<div
 						class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
@@ -60,7 +60,7 @@
 						<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 					</div>
 				</div>
-				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
+				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4 w-full">
 					<div class="space-y-6 mt-4">
 						<!-- AI Summary 展示（当前阶段） -->
 						<div
@@ -351,7 +351,7 @@
 			</div>
 
 			<!-- 右侧进度和笔记 (1/3 宽度) -->
-			<div class="flex-1">
+			<div class="flex-1 flex-shrink-0">
 				<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
 					<div class="space-y-6">
 						<!-- OnboardingProgress组件 -->
