@@ -97,8 +97,12 @@
 <script setup lang="ts">
 import { defaultStr } from '@/settings/projectSetting';
 import { Check } from '@element-plus/icons-vue';
+import { ElMessageBox } from 'element-plus';
 import { computed } from 'vue';
 import { ChecklistData, TaskData } from '#/onboard';
+import { useI18n } from '@/hooks/useI18n';
+
+const { t } = useI18n();
 
 // Props
 interface Props {
@@ -138,11 +142,37 @@ const overallCompletionRate = computed(() => {
 });
 
 // 方法
-const toggleTask = (task: TaskData) => {
-	emit('taskToggled', {
-		...task,
-		isCompleted: !task.isCompleted,
-	});
+const toggleTask = async (task: TaskData) => {
+	if (task.isCompleted) {
+		// 当任务已完成时，需要确认是否撤销
+		try {
+			await ElMessageBox.confirm(
+				'Are you sure you want to undo this completed task? This action will mark the task as incomplete.',
+				'Confirm Undo Task',
+				{
+					confirmButtonText: t('sys.app.confirmText'),
+					cancelButtonText: t('sys.app.cancelText'),
+					type: 'warning',
+					showClose: true,
+				}
+			);
+
+			// 用户确认后执行撤销操作
+			emit('taskToggled', {
+				...task,
+				isCompleted: !task.isCompleted,
+			});
+		} catch (error) {
+			// 用户取消操作，不执行任何操作
+			console.log('User cancelled the undo operation');
+		}
+	} else {
+		// 任务未完成时，直接标记为完成
+		emit('taskToggled', {
+			...task,
+			isCompleted: !task.isCompleted,
+		});
+	}
 };
 
 // 格式化日期显示
