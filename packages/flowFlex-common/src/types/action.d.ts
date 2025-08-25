@@ -11,7 +11,7 @@ export interface ActionDefinition {
 	triggerMappings?: TriggerMapping[];
 	workflowId: string | null;
 	triggerSourceId: string | null;
-	triggerType: number | null;
+	triggerType: string | null;
 }
 
 export interface TriggerMapping {
