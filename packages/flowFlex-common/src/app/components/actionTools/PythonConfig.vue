@@ -10,6 +10,7 @@
 				title="Python Script"
 				description="Write your Python code here. Check the 'Context Structure' tab in Variables Panel above for the complete context parameter definition."
 				height="400px"
+				:readOnly="disabled"
 			/>
 		</div>
 
@@ -23,6 +24,7 @@
 						size="small"
 						@click="showAICodeGenerator"
 						:icon="Star"
+						:disabled="disabled"
 					>
 						AI Generate
 					</el-button>
@@ -31,7 +33,7 @@
 						size="small"
 						@click="handleTest"
 						:loading="testing"
-						:disabled="!sourceCode || isCodeEditorLoading"
+						:disabled="!sourceCode || isCodeEditorLoading || disabled"
 					>
 						Test Run
 					</el-button>
@@ -86,6 +88,7 @@ interface Props {
 		token: string;
 	};
 	idEditing?: boolean;
+	disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
