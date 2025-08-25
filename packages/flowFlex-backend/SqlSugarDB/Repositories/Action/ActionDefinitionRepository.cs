@@ -104,7 +104,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
 
             query.WhereIF(isTools.HasValue, x => x.IsTools == isTools.Value);
 
-            query.WhereIF(isTools.HasValue && !isTools.Value, x => x.CreateUserId == _userContext.UserId.ToString());
+            query.WhereIF(isTools.HasValue && !isTools.Value, x => x.CreateUserId == _userContext.UserId);
 
             var triggerTypeFilters = new[]
             {
@@ -303,3 +303,4 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
     }
 
 }
+
