@@ -274,8 +274,8 @@ const httpConfigRef = ref(); // For getting HTTP config component reference
 const leftPanelVisible = ref(false); // Controls the visibility of the left variables panel
 
 // 配置模式状态
-type ConfigMode = 'useExisting' | 'createTool' | 'createAction';
-const configMode = ref<ConfigMode>('useExisting'); // 配置模式
+type ConfigMode = 'useExisting' | 'createAction';
+const configMode = ref<ConfigMode>('useExisting'); // 配置模式，默认使用已有工具
 const useExistingTool = computed(() => configMode.value === 'useExisting'); // 是否使用已有工具
 const selectedToolId = ref(''); // 选中的工具 ID
 const loadingExistingTools = ref(false); // 加载已有工具列表状态
@@ -326,11 +326,8 @@ const shouldDisableFields = computed(() => {
 	if (configMode.value === 'createAction') {
 		return false; // 创建普通 Action，允许编辑
 	}
-	if (configMode.value === 'createTool') {
-		return false; // 创建新工具，允许编辑
-	}
 	if (configMode.value === 'useExisting') {
-		return selectedToolId.value !== ''; // 选择了具体工具后才禁用
+		return true; // 使用已有工具时，表单应该被禁用
 	}
 
 	return false;
@@ -449,11 +446,6 @@ const handleConfigModeChange = async (mode: ConfigMode) => {
 		await loadExistingTools();
 		formData.isTools = true;
 		resetFormData();
-	} else if (mode === 'createTool') {
-		// 创建新工具：清空列表，设置为工具模式
-		existingToolsList.value = [];
-		formData.isTools = true;
-		resetFormData();
 	} else if (mode === 'createAction') {
 		// 创建普通 Action：清空列表，设置为非工具模式
 		existingToolsList.value = [];
@@ -569,9 +561,9 @@ const onSave = async () => {
 		await formRef.value.validate();
 		saving.value = true;
 
-		// 根据配置模式进行不同处理
-		if (configMode.value === 'useExisting') {
-			// 使用已有工具：创建映射关系
+		// 判断是编辑模式还是新建模式，以及是否使用已有工具
+		if (!props.action && configMode.value === 'useExisting') {
+			// 新建模式 + 使用已有工具：创建映射关系
 			if (!selectedToolId.value) {
 				ElMessage.error('Please select an existing tool');
 				return;
@@ -594,7 +586,7 @@ const onSave = async () => {
 				res?.msg && ElMessage.error(res?.msg);
 			}
 		} else {
-			// 创建新工具或普通 Action：验证并保存
+			// 编辑模式 或 新建模式下的创建新工具/普通Action：验证并保存
 			if (formData.type === 'python' && !formData.actionConfig.sourceCode) {
 				ElMessage.error('Please enter Python script code');
 				return;
