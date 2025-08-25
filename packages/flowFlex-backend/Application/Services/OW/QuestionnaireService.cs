@@ -1306,18 +1306,18 @@ namespace FlowFlex.Application.Service.OW
     /// <summary>
     /// Create ActionTriggerMapping for Option Action
     /// </summary>
-    private async Task CreateOptionActionTriggerMappingAsync(long actionDefinitionId, string optionId, string optionValue, string questionnaireName)
+    private async Task CreateOptionActionTriggerMappingAsync(long actionDefinitionId, long optionIdLong, string optionValue, string questionnaireName)
     {
         try
         {
             var createMappingDto = new CreateActionTriggerMappingDto
             {
                 ActionDefinitionId = actionDefinitionId,
-                TriggerType = "Option",
-                TriggerSourceId = long.TryParse(optionId, out var oId) ? oId : 0,
+                TriggerType = "Question",
+                TriggerSourceId = optionIdLong,
                 WorkFlowId = 0, // This should be determined from context
                 StageId = 0,    // This should be determined from context
-                TriggerEvent = "Selected",
+                TriggerEvent = "Completed",
                 ExecutionOrder = 1,
                 IsEnabled = true,
                 TriggerConditions = $"{{\"optionValue\": \"{optionValue}\"}}" // Store option value for trigger condition
@@ -1469,8 +1469,9 @@ namespace FlowFlex.Application.Service.OW
             // Extract action ID and option information
             var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
             var optionValue = option.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
-            var optionId = option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : 
-                          option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : null;
+            // 优先使用正式的 id，如果没有再使用 temporaryId
+            var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : 
+                          option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
 
             if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(optionId))
                 return;
@@ -1478,19 +1479,17 @@ namespace FlowFlex.Application.Service.OW
             if (!long.TryParse(actionId, out var actionIdLong))
                 return;
 
-            // For temporaryId options, we need to handle them differently since they don't have numeric IDs yet
-            long optionIdLong = 0;
-            if (!long.TryParse(optionId, out optionIdLong))
+            // Only process options with valid numeric IDs
+            if (!long.TryParse(optionId, out var optionIdLong))
             {
-                // This is a temporaryId, we'll use a hash or generate a temporary mapping
-                Console.WriteLine($"Option has temporaryId '{optionId}', skipping ActionTriggerMapping check for now");
+                Console.WriteLine($"Option has non-numeric ID '{optionId}', skipping ActionTriggerMapping creation");
                 return;
             }
 
             // Check if ActionTriggerMapping already exists
             var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(optionIdLong);
             var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong && 
-                                                      m.TriggerType == "Option" && 
+                                                      m.TriggerType == "Question" && 
                                                       m.TriggerSourceId == optionIdLong);
 
             if (!hasMapping)
@@ -1498,7 +1497,7 @@ namespace FlowFlex.Application.Service.OW
                 Console.WriteLine($"Creating missing ActionTriggerMapping for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
                 
                 // Create the missing ActionTriggerMapping
-                await CreateOptionActionTriggerMappingAsync(actionIdLong, optionId, optionValue, questionnaireName);
+                await CreateOptionActionTriggerMappingAsync(actionIdLong, optionIdLong, optionValue, questionnaireName);
             }
             else
             {

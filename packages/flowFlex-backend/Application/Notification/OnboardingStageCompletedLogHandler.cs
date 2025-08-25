@@ -9,6 +9,7 @@ using System.Text.Json;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 
 namespace FlowFlex.Application.Notification
 {
@@ -498,75 +499,81 @@ namespace FlowFlex.Application.Notification
                             {
                                 foreach (var question in allQuestions)
                                 {
-                                    // 只为有 Action 的 question 创建 ActionTriggerEvent
-                                    if (question.Action == null || string.IsNullOrWhiteSpace(question.Action.Id))
-                                    {
-                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 没有配置 Action，跳过发布 ActionTriggerEvent", 
-                                            question.Id, question.Title ?? question.Question);
-                                        continue;
-                                    }
-
                                     // 检查 question 是否已回答
                                     var isAnswered = CheckIfQuestionIsAnswered(questionnaireAnswer.AnswerJson, question.Id);
                                     if (!isAnswered)
                                     {
-                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 尚未回答，跳过发布 ActionTriggerEvent", 
+                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 尚未回答，跳过处理", 
                                             question.Id, question.Title ?? question.Question);
                                         continue;
                                     }
-                                    // 为每个 question 创建 ActionTriggerEvent
-                                    var questionContextData = new
+
+                                    // 处理 Question 的 Action（如果有的话）
+                                    if (question.Action != null && !string.IsNullOrWhiteSpace(question.Action.Id))
                                     {
-                                        // 包含原始上下文数据
-                                        ((dynamic)contextData).OnboardingId,
-                                        ((dynamic)contextData).LeadId,
-                                        ((dynamic)contextData).WorkflowId,
-                                        ((dynamic)contextData).WorkflowName,
-                                        ((dynamic)contextData).CompletedStageId,
-                                        ((dynamic)contextData).CompletedStageName,
-                                        ((dynamic)contextData).NextStageId,
-                                        ((dynamic)contextData).NextStageName,
-                                        ((dynamic)contextData).CompletionRate,
-                                        ((dynamic)contextData).IsFinalStage,
-                                        ((dynamic)contextData).BusinessContext,
-                                        ((dynamic)contextData).Components,
-                                        ((dynamic)contextData).TenantId,
-                                        ((dynamic)contextData).Source,
-                                        ((dynamic)contextData).Priority,
-                                        ((dynamic)contextData).OriginalEventId,
-                                        
-                                        // 添加 question 相关的上下文数据
-                                        QuestionnaireId = questionnaire.Id,
-                                        QuestionnaireName = questionnaire.Name,
-                                        QuestionnaireCategory = questionnaire.Category,
-                                        QuestionnaireVersion = questionnaire.Version,
-                                        SectionId = section.Id,
-                                        SectionName = section.Name,
-                                        SectionTitle = section.Title,
-                                        SectionDescription = section.Description,
-                                        SectionOrder = section.Order,
-                                        QuestionId = question.Id,
-                                        QuestionTitle = question.Title,
-                                        QuestionText = question.Question,
-                                        QuestionType = question.Type,
-                                        QuestionIsRequired = question.Required,
-                                        QuestionOrder = question.Order,
-                                        QuestionActionId = question.Action.Id,
-                                        QuestionActionName = question.Action.Name
-                                    };
+                                        // 为每个 question 创建 ActionTriggerEvent
+                                        var questionContextData = new
+                                        {
+                                            // 包含原始上下文数据
+                                            ((dynamic)contextData).OnboardingId,
+                                            ((dynamic)contextData).LeadId,
+                                            ((dynamic)contextData).WorkflowId,
+                                            ((dynamic)contextData).WorkflowName,
+                                            ((dynamic)contextData).CompletedStageId,
+                                            ((dynamic)contextData).CompletedStageName,
+                                            ((dynamic)contextData).NextStageId,
+                                            ((dynamic)contextData).NextStageName,
+                                            ((dynamic)contextData).CompletionRate,
+                                            ((dynamic)contextData).IsFinalStage,
+                                            ((dynamic)contextData).BusinessContext,
+                                            ((dynamic)contextData).Components,
+                                            ((dynamic)contextData).TenantId,
+                                            ((dynamic)contextData).Source,
+                                            ((dynamic)contextData).Priority,
+                                            ((dynamic)contextData).OriginalEventId,
+                                            
+                                            // 添加 question 相关的上下文数据
+                                            QuestionnaireId = questionnaire.Id,
+                                            QuestionnaireName = questionnaire.Name,
+                                            QuestionnaireCategory = questionnaire.Category,
+                                            QuestionnaireVersion = questionnaire.Version,
+                                            SectionId = section.Id,
+                                            SectionName = section.Name,
+                                            SectionTitle = section.Title,
+                                            SectionDescription = section.Description,
+                                            SectionOrder = section.Order,
+                                            QuestionId = question.Id,
+                                            QuestionTitle = question.Title,
+                                            QuestionText = question.Question,
+                                            QuestionType = question.Type,
+                                            QuestionIsRequired = question.Required,
+                                            QuestionOrder = question.Order,
+                                            QuestionActionId = question.Action.Id,
+                                            QuestionActionName = question.Action.Name
+                                        };
 
-                                    var questionActionTriggerEvent = new ActionTriggerEvent(
-                                        triggerSourceType: "",
-                                        triggerSourceId: long.TryParse(question.Id, out long questionIdLong) ? questionIdLong : 0,
-                                        triggerEventType: "Completed",
-                                        contextData: questionContextData,
-                                        userId: currentUserId > 0 ? currentUserId : null
-                                    );
+                                        var questionActionTriggerEvent = new ActionTriggerEvent(
+                                            triggerSourceType: "",
+                                            triggerSourceId: long.TryParse(question.Id, out long questionIdLong) ? questionIdLong : 0,
+                                            triggerEventType: "Completed",
+                                            contextData: questionContextData,
+                                            userId: currentUserId > 0 ? currentUserId : null
+                                        );
 
-                                    await _mediator.Publish(questionActionTriggerEvent);
+                                        await _mediator.Publish(questionActionTriggerEvent);
 
-                                    _logger.LogDebug("已发布 Question ActionTriggerEvent: QuestionId={QuestionId}, QuestionTitle={QuestionTitle}, QuestionActionId={QuestionActionId}, QuestionnaireId={QuestionnaireId}, StageId={StageId}",
-                                        question.Id, question.Title ?? question.Question, question.Action.Id, questionnaire.Id, eventData.CompletedStageId);
+                                        _logger.LogDebug("已发布 Question ActionTriggerEvent: QuestionId={QuestionId}, QuestionTitle={QuestionTitle}, QuestionActionId={QuestionActionId}, QuestionnaireId={QuestionnaireId}, StageId={StageId}",
+                                            question.Id, question.Title ?? question.Question, question.Action.Id, questionnaire.Id, eventData.CompletedStageId);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 没有配置 Action，跳过发布 Question ActionTriggerEvent", 
+                                            question.Id, question.Title ?? question.Question);
+                                    }
+                                
+                                    // 处理 question 的 options，为选中的有 action 的 option 发布 ActionTriggerEvent
+                                    // 这个处理独立于 question 是否有 action
+                                    await ProcessQuestionOptionsAsync(question, questionnaire, section, questionnaireAnswer.AnswerJson, contextData, currentUserId, eventData.CompletedStageId);
                                 }
                             }
                         }
@@ -626,8 +633,7 @@ namespace FlowFlex.Application.Notification
                                 // 找到匹配的 question，检查是否有答案
                                 if (responseElement.TryGetProperty("answer", out var answerElement))
                                 {
-                                    var answer = answerElement.GetString();
-                                    return !string.IsNullOrEmpty(answer);
+                                    return HasValidAnswer(answerElement);
                                 }
                                 break;
                             }
@@ -639,8 +645,7 @@ namespace FlowFlex.Application.Notification
                     // 检查直接属性结构 (question ID 作为属性名)
                     if (answersRoot.TryGetProperty(questionId, out var answerProperty))
                     {
-                        var answer = answerProperty.GetString();
-                        return !string.IsNullOrEmpty(answer);
+                        return HasValidAnswer(answerProperty);
                     }
                 }
 
@@ -652,6 +657,312 @@ namespace FlowFlex.Application.Notification
                 return false;
             }
         }
+
+        /// <summary>
+        /// 处理 question 的 options，为选中的有 action 的 option 发布 ActionTriggerEvent
+        /// </summary>
+        private async Task ProcessQuestionOptionsAsync(QuestionnaireQuestion question, QuestionnaireOutputDto questionnaire, QuestionnaireSection section, string answerJson, object contextData, long currentUserId, long stageId)
+        {
+            try
+            {
+                // 检查 question 是否有 options
+                if (question.Options == null || !question.Options.Any())
+                {
+                    return;
+                }
+
+                // 获取 question 的答案，确定哪些 option 被选中
+                var selectedOptionValues = GetSelectedOptionValues(answerJson, question.Id);
+                if (!selectedOptionValues.Any())
+                {
+                    _logger.LogDebug("Question {QuestionId} 没有选中的 options", question.Id);
+                    return;
+                }
+
+                _logger.LogDebug("Question {QuestionId} 找到 {Count} 个选中的 options: [{SelectedOptions}]", 
+                    question.Id, selectedOptionValues.Count, string.Join(", ", selectedOptionValues));
+
+                // 解析 options 并处理有 action 的选中项
+                foreach (var optionObj in question.Options)
+                {
+                    try
+                    {
+                        // 将 option object 转换为 JsonElement 进行解析
+                        var optionJson = JsonSerializer.Serialize(optionObj);
+                        using var optionDoc = JsonDocument.Parse(optionJson);
+                        var optionElement = optionDoc.RootElement;
+
+                        // 提取 option 的基本信息
+                        var optionValue = optionElement.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
+                        var optionLabel = optionElement.TryGetProperty("label", out var labelEl) ? labelEl.GetString() : null;
+                        var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : 
+                                      optionElement.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
+
+                        // 检查这个 option 是否被选中
+                        if (string.IsNullOrWhiteSpace(optionValue) || !selectedOptionValues.Contains(optionValue))
+                        {
+                            continue;
+                        }
+
+                        // 检查 option 是否有 action
+                        if (!optionElement.TryGetProperty("action", out var actionElement))
+                        {
+                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 没有配置 Action，跳过发布 ActionTriggerEvent", 
+                                optionValue, optionLabel);
+                            continue;
+                        }
+
+                        var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
+                        var actionName = actionElement.TryGetProperty("name", out var actionNameEl) ? actionNameEl.GetString() : null;
+
+                        if (string.IsNullOrWhiteSpace(actionId))
+                        {
+                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 的 Action 没有配置 ID，跳过发布 ActionTriggerEvent", 
+                                optionValue, optionLabel);
+                            continue;
+                        }
+
+                        // 为选中的 option 创建 ActionTriggerEvent
+                        var optionContextData = new
+                        {
+                            // 包含原始上下文数据
+                            ((dynamic)contextData).OnboardingId,
+                            ((dynamic)contextData).LeadId,
+                            ((dynamic)contextData).WorkflowId,
+                            ((dynamic)contextData).WorkflowName,
+                            ((dynamic)contextData).CompletedStageId,
+                            ((dynamic)contextData).CompletedStageName,
+                            ((dynamic)contextData).NextStageId,
+                            ((dynamic)contextData).NextStageName,
+                            ((dynamic)contextData).CompletionRate,
+                            ((dynamic)contextData).IsFinalStage,
+                            ((dynamic)contextData).BusinessContext,
+                            ((dynamic)contextData).Components,
+                            ((dynamic)contextData).TenantId,
+                            ((dynamic)contextData).Source,
+                            ((dynamic)contextData).Priority,
+                            ((dynamic)contextData).OriginalEventId,
+                            
+                            // 添加 questionnaire 相关的上下文数据
+                            QuestionnaireId = questionnaire.Id,
+                            QuestionnaireName = questionnaire.Name,
+                            QuestionnaireCategory = questionnaire.Category,
+                            QuestionnaireVersion = questionnaire.Version,
+                            SectionId = section.Id,
+                            SectionName = section.Name,
+                            SectionTitle = section.Title,
+                            SectionDescription = section.Description,
+                            SectionOrder = section.Order,
+                            QuestionId = question.Id,
+                            QuestionTitle = question.Title,
+                            QuestionText = question.Question,
+                            QuestionType = question.Type,
+                            QuestionIsRequired = question.Required,
+                            QuestionOrder = question.Order,
+                            
+                            // 添加 option 相关的上下文数据
+                            OptionId = optionId,
+                            OptionValue = optionValue,
+                            OptionLabel = optionLabel,
+                            OptionActionId = actionId,
+                            OptionActionName = actionName
+                        };
+
+                        // 只处理有效的数字 ID
+                        if (string.IsNullOrWhiteSpace(optionId) || !long.TryParse(optionId, out var optionIdLong))
+                        {
+                            _logger.LogDebug("Option has non-numeric ID '{OptionId}', skipping ActionTriggerEvent", optionId);
+                            continue;
+                        }
+
+                        var optionActionTriggerEvent = new ActionTriggerEvent(
+                            triggerSourceType: "",
+                            triggerSourceId: optionIdLong,
+                            triggerEventType: "Completed",
+                            contextData: optionContextData,
+                            userId: currentUserId > 0 ? currentUserId : null
+                        );
+
+                        await _mediator.Publish(optionActionTriggerEvent);
+
+                        _logger.LogDebug("已发布 Option ActionTriggerEvent: OptionId={OptionId}, OptionValue={OptionValue}, OptionLabel={OptionLabel}, OptionActionId={OptionActionId}, QuestionId={QuestionId}, QuestionnaireId={QuestionnaireId}, StageId={StageId}",
+                            optionId, optionValue, optionLabel, actionId, question.Id, questionnaire.Id, stageId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "处理 option 时发生错误: QuestionId={QuestionId}", question.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理 Question {QuestionId} 的 options 时发生错误", question.Id);
+            }
+        }
+
+        /// <summary>
+        /// 获取 question 的选中 option 值列表
+        /// </summary>
+        private List<string> GetSelectedOptionValues(string answerJson, string questionId)
+        {
+            var selectedValues = new List<string>();
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(answerJson) || string.IsNullOrWhiteSpace(questionId))
+                {
+                    return selectedValues;
+                }
+
+                using var answersDoc = JsonDocument.Parse(answerJson);
+                var answersRoot = answersDoc.RootElement;
+
+                // 检查是否有 responses 数组结构
+                if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var responseElement in responsesElement.EnumerateArray())
+                    {
+                        if (responseElement.TryGetProperty("questionId", out var qIdElement))
+                        {
+                            var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
+                            if (responseQuestionId == questionId)
+                            {
+                                // 找到匹配的 question，提取选中的 option 值
+                                if (responseElement.TryGetProperty("answer", out var answerElement))
+                                {
+                                    selectedValues.AddRange(ParseAnswerToOptionValues(answerElement));
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // 检查直接属性结构 (question ID 作为属性名)
+                    if (answersRoot.TryGetProperty(questionId, out var answerProperty))
+                    {
+                        selectedValues.AddRange(ParseAnswerToOptionValues(answerProperty));
+                    }
+                }
+
+                return selectedValues;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "解析 answerJson 时发生错误: QuestionId={QuestionId}", questionId);
+                return selectedValues;
+            }
+        }
+
+        /// <summary>
+        /// 检查JsonElement是否包含有效答案（支持字符串、数组、数字、布尔类型）
+        /// </summary>
+        private bool HasValidAnswer(JsonElement answerElement)
+        {
+            try
+            {
+                switch (answerElement.ValueKind)
+                {
+                    case JsonValueKind.String:
+                        var stringValue = answerElement.GetString();
+                        return !string.IsNullOrWhiteSpace(stringValue);
+
+                    case JsonValueKind.Array:
+                        // 数组类型（多选题），检查是否有非空元素
+                        foreach (var item in answerElement.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.String)
+                            {
+                                var value = item.GetString();
+                                if (!string.IsNullOrWhiteSpace(value))
+                                {
+                                    return true;
+                                }
+                            }
+                            else if (item.ValueKind != JsonValueKind.Null)
+                            {
+                                return true; // 非空非字符串值也算有效答案
+                            }
+                        }
+                        return false;
+
+                    case JsonValueKind.Number:
+                        return true; // 数字类型都算有效答案
+
+                    case JsonValueKind.True:
+                    case JsonValueKind.False:
+                        return true; // 布尔类型都算有效答案
+
+                    case JsonValueKind.Null:
+                        return false; // null值算无效答案
+
+                    default:
+                        // 其他类型（Object等），如果不是null就算有效
+                        return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "检查答案有效性时发生错误");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 解析答案值为 option 值列表（支持单选、多选）
+        /// </summary>
+        private List<string> ParseAnswerToOptionValues(JsonElement answerElement)
+        {
+            var values = new List<string>();
+
+            try
+            {
+                switch (answerElement.ValueKind)
+                {
+                    case JsonValueKind.String:
+                        // 单选情况
+                        var singleValue = answerElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(singleValue))
+                        {
+                            values.Add(singleValue);
+                        }
+                        break;
+
+                    case JsonValueKind.Array:
+                        // 多选情况
+                        foreach (var item in answerElement.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.String)
+                            {
+                                var value = item.GetString();
+                                if (!string.IsNullOrWhiteSpace(value))
+                                {
+                                    values.Add(value);
+                                }
+                            }
+                        }
+                        break;
+
+                    default:
+                        // 其他类型（如数字、布尔等），转换为字符串
+                        var rawValue = answerElement.GetRawText();
+                        if (!string.IsNullOrWhiteSpace(rawValue))
+                        {
+                            values.Add(rawValue.Trim('"'));
+                        }
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "解析答案值时发生错误");
+            }
+
+            return values;
+        }
+
+
     }
 
     /// <summary>

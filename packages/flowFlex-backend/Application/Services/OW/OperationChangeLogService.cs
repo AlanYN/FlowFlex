@@ -1825,36 +1825,8 @@ namespace FlowFlex.Application.Services.OW
                 // Additionally, get operation logs for all tasks and questions in this stage
                 await CollectTaskAndQuestionOperationLogsAsync(stageId, onboardingId, operationType, allLogs);
 
-                if (includeActionExecutions)
-                {
-                    try
-                    {
-                        // Get stage components using lazy service resolution to avoid circular dependency
-                        var stageService = _serviceProvider.GetRequiredService<IStageService>();
-                        var stageComponents = await stageService.GetComponentsAsync(stageId);
-                        _logger.LogDebug("Found {Count} components for stage {StageId}", stageComponents.Count, stageId);
-
-                        // Collect source IDs with their types for proper operationType assignment
-                        var sourceIdTypes = new Dictionary<long, string>();
-
-                        // Add stage itself for stage-level actions
-                        sourceIdTypes.Add(stageId, "Stage");
-
-                        // Process stage components to collect all task and question IDs with types
-                        await CollectAllSourceIdsFromStageComponentsAsync(stageComponents, sourceIdTypes);
-
-                        _logger.LogDebug("Total source IDs for action executions: {Count} - [{SourceIds}]", 
-                            sourceIdTypes.Count, string.Join(", ", sourceIdTypes.Keys));
-
-                        // Get action executions for all collected source IDs with proper operationType
-                        // Since they all use the same API: /api/action/v1/executions/trigger-source/{sourceId}/search
-                        await CollectActionExecutionsForAllSourceIdsAsync(sourceIdTypes, allLogs, onboardingId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to process stage components for action executions, continuing without component actions");
-                    }
-                }
+                // Action executions are now collected through CollectOperationLogsForQuestionsAsync and CollectOperationLogsForTasksAsync
+                // to avoid duplication and provide better control over question vs option actions
 
                 // Sort all logs by operation time (descending)
                 allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
@@ -1914,7 +1886,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Collect task and question IDs from stage components
+        /// Collect task and question IDs from stage components (including option IDs as question action sources)
         /// </summary>
         private async Task CollectTaskAndQuestionIdsAsync(List<StageComponent> stageComponents, List<long> taskIds, List<long> questionIds)
         {
@@ -1944,7 +1916,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Collect question IDs from questionnaire components
+                // Collect question IDs from questionnaire components (using HashSet to avoid duplicates)
                 var questionnaireComponents = stageComponents.Where(c => c.Key == "questionnaires").ToList();
                 if (questionnaireComponents.Any())
                 {
@@ -1957,6 +1929,9 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var questionnaireService = _serviceProvider.GetRequiredService<IQuestionnaireService>();
                         var questionnaires = await questionnaireService.GetByIdsAsync(questionnaireIdsList);
+                        
+                        // Use HashSet to prevent duplicate IDs
+                        var uniqueQuestionIds = new HashSet<long>();
                         
                         foreach (var questionnaire in questionnaires)
                         {
@@ -1980,9 +1955,36 @@ namespace FlowFlex.Application.Services.OW
 
                                     foreach (var question in allQuestions)
                                     {
+                                        // 添加question ID
                                         if (long.TryParse(question.Id, out long questionIdLong))
                                         {
-                                            questionIds.Add(questionIdLong);
+                                            uniqueQuestionIds.Add(questionIdLong);
+                                        }
+
+                                        // 添加option IDs（option的action作为question action处理）
+                                        if (question.Options?.Any() == true)
+                                        {
+                                            foreach (var option in question.Options)
+                                            {
+                                                // 解析option对象获取ID
+                                                var optionJson = JsonSerializer.Serialize(option);
+                                                using var optionDoc = JsonDocument.Parse(optionJson);
+                                                var optionElement = optionDoc.RootElement;
+
+                                                // 检查option是否有action
+                                                if (optionElement.TryGetProperty("action", out var actionElement))
+                                                {
+                                                    // 优先使用正式的id，如果没有则跳过
+                                                    var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+                                                    
+                                                    if (!string.IsNullOrWhiteSpace(optionId) && long.TryParse(optionId, out long optionIdLong))
+                                                    {
+                                                        uniqueQuestionIds.Add(optionIdLong); // 将option ID作为question ID处理
+                                                        _logger.LogDebug("Added option ID {OptionId} as question action source for questionnaire {QuestionnaireId}", 
+                                                            optionIdLong, questionnaire.Id);
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1992,6 +1994,9 @@ namespace FlowFlex.Application.Services.OW
                                 _logger.LogError(ex, "Error parsing StructureJson for questionnaire {QuestionnaireId}", questionnaire.Id);
                             }
                         }
+                        
+                        // Add unique IDs to the questionIds list
+                        questionIds.AddRange(uniqueQuestionIds);
                     }
                 }
             }
@@ -2037,7 +2042,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Collect operation logs for questions
+        /// Collect operation logs for questions (including option action executions as question actions)
         /// </summary>
         private async Task CollectOperationLogsForQuestionsAsync(List<long> questionIds, long? onboardingId, OperationTypeEnum? operationType, List<OperationChangeLogOutputDto> allLogs)
         {
@@ -2045,6 +2050,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 foreach (var questionId in questionIds)
                 {
+                    // Get traditional operation logs for questions
                     var questionLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Question.ToString(), questionId);
 
                     // Apply filters
@@ -2061,9 +2067,48 @@ namespace FlowFlex.Application.Services.OW
                     // Convert to DTOs and add to allLogs
                     var questionLogDtos = questionLogs.Select(MapToOutputDto).ToList();
                     allLogs.AddRange(questionLogDtos);
+
+                    // Get action execution logs for this question/option ID (treating option actions as question actions)
+                    try
+                    {
+                        // Prepare JSON conditions for filtering by onboardingId if provided
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            questionId, 1, 1000, jsonConditions);
+
+                        // Convert action executions to change log DTOs (treating all as "Question" type)
+                        var actionExecutionDtos = actionExecutionsResult.Data
+                            .Select(ae => MapActionExecutionToChangeLogDto(ae, "Question"))
+                            .ToList();
+                        allLogs.AddRange(actionExecutionDtos);
+
+                        if (actionExecutionDtos.Any())
+                        {
+                            _logger.LogDebug("Added {Count} action executions for sourceId {SourceId} as question actions", 
+                                actionExecutionDtos.Count, questionId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for sourceId {SourceId}, continuing without action logs", questionId);
+                        // Continue without action executions rather than failing the entire request
+                    }
                 }
 
-                _logger.LogDebug("Collected operation logs for {QuestionCount} questions", questionIds.Count);
+                _logger.LogDebug("Collected operation logs for {QuestionCount} questions/options", questionIds.Count);
             }
             catch (Exception ex)
             {
