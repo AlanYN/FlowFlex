@@ -52,7 +52,7 @@
 				>
 					<template #item="{ element: task }">
 						<div
-							class="flex items-center gap-3 p-3 transition-all duration-200 border border-transparent rounded-lg task-item"
+							class="flex items-center gap-3 p-3 transition-all duration-200 border border-transparent rounded-lg task-item max-w-full"
 							:class="{
 								'task-disabled':
 									isDragging && draggingChecklistId !== props.checklist.id,
@@ -78,8 +78,10 @@
 
 							<!-- 正常显示模式 -->
 							<template v-if="!(editingTask && editingTask.id === task.id)">
-								<div class="flex items-center flex-1">
-									<div class="text-sm text-gray-900 truncate whitespace-nowrap">
+								<div class="flex items-center flex-1 min-w-0">
+									<div
+										class="text-sm text-gray-900 truncate whitespace-nowrap max-w-full"
+									>
 										{{ task.name }}
 									</div>
 									<!-- Action 绑定状态图标 -->
