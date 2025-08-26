@@ -165,6 +165,22 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="modelUsed">AI model used</param>
         /// <returns>Success status</returns>
         Task<bool> UpdateStageAISummaryIfEmptyAsync(long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed);
+
+        /// <summary>
+        /// Validate and repair data consistency between stage components and mappings
+        /// </summary>
+        /// <param name="stageId">Stage ID to validate</param>
+        /// <param name="autoRepair">Whether to automatically repair inconsistencies</param>
+        /// <returns>Validation result</returns>
+        Task<StageConsistencyResult> ValidateAndRepairConsistencyAsync(long stageId, bool autoRepair = true);
+
+        /// <summary>
+        /// Batch validate and repair data consistency for multiple stages
+        /// </summary>
+        /// <param name="stageIds">Stage IDs to validate</param>
+        /// <param name="autoRepair">Whether to automatically repair inconsistencies</param>
+        /// <returns>Validation results for all stages</returns>
+        Task<List<StageConsistencyResult>> BatchValidateAndRepairConsistencyAsync(List<long> stageIds, bool autoRepair = true);
     }
 
     /// <summary>

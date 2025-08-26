@@ -19,6 +19,7 @@ using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Application.Services.OW.Extensions;
 using System.Text.RegularExpressions;
+using SqlSugar;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -43,11 +44,12 @@ namespace FlowFlex.Application.Service.OW
         private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
         private readonly UserContext _userContext;
         private readonly IComponentMappingService _mappingService;
+        private readonly ISqlSugarClient _db;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -60,187 +62,206 @@ namespace FlowFlex.Application.Service.OW
             _checklistTaskCompletionRepository = checklistTaskCompletionRepository;
             _userContext = userContext;
             _mappingService = mappingService;
+            _db = db;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
         {
-            // Validate if workflow exists
-            var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
-            if (workflow == null)
+            // Use transaction to ensure data consistency
+            var result = await _db.Ado.UseTranAsync(async () =>
             {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {input.WorkflowId} not found");
-            }
-
-            // Validate stage name uniqueness within workflow
-            if (await _stageRepository.ExistsNameInWorkflowAsync(input.WorkflowId, input.Name))
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, $"Stage name '{input.Name}' already exists in this workflow");
-            }
-
-            var entity = _mapper.Map<Stage>(input);
-
-            // If no order specified, automatically set to last
-            if (entity.Order == 0)
-            {
-                entity.Order = await _stageRepository.GetNextOrderAsync(input.WorkflowId);
-            }
-
-            // Initialize create information with proper ID and timestamps
-            entity.InitCreateInfo(_userContext);
-
-            await _stageRepository.InsertAsync(entity);
-
-            // Sync component mappings if the new stage has components
-            if (input.Components != null && input.Components.Any())
-            {
-                var hasChecklist = input.Components.Any(c => c.Key == "checklist" && c.ChecklistIds?.Any() == true);
-                var hasQuestionnaires = input.Components.Any(c => c.Key == "questionnaires" && c.QuestionnaireIds?.Any() == true);
-
-                if (hasChecklist || hasQuestionnaires)
+                // Validate if workflow exists
+                var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
+                if (workflow == null)
                 {
-                    try
+                    throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {input.WorkflowId} not found");
+                }
+
+                // Validate stage name uniqueness within workflow
+                if (await _stageRepository.ExistsNameInWorkflowAsync(input.WorkflowId, input.Name))
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError, $"Stage name '{input.Name}' already exists in this workflow");
+                }
+
+                var entity = _mapper.Map<Stage>(input);
+
+                // If no order specified, automatically set to last
+                if (entity.Order == 0)
+                {
+                    entity.Order = await _stageRepository.GetNextOrderAsync(input.WorkflowId);
+                }
+
+                // Initialize create information with proper ID and timestamps
+                entity.InitCreateInfo(_userContext);
+
+                await _stageRepository.InsertAsync(entity);
+
+                // Sync component mappings within the same transaction
+                if (input.Components != null && input.Components.Any())
+                {
+                    var hasChecklist = input.Components.Any(c => c.Key == "checklist" && c.ChecklistIds?.Any() == true);
+                    var hasQuestionnaires = input.Components.Any(c => c.Key == "questionnaires" && c.QuestionnaireIds?.Any() == true);
+
+                    if (hasChecklist || hasQuestionnaires)
                     {
-                        await _mappingService.SyncStageMappingsAsync(entity.Id);
-                        Console.WriteLine($"[StageService] Synced stage mappings for new stage {entity.Id}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[StageService] Error syncing stage mappings for new stage {entity.Id}: {ex.Message}");
+                        try
+                        {
+                            await _mappingService.SyncStageMappingsInTransactionAsync(entity.Id, _db);
+                            Console.WriteLine($"[StageService] Synced stage mappings for new stage {entity.Id} within transaction");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[StageService] Error syncing stage mappings for new stage {entity.Id}: {ex.Message}");
+                            throw; // Re-throw to rollback transaction
+                        }
                     }
                 }
-            }
 
-            // Create new WorkflowVersion (after adding stage) - Disabled automatic version creation
-            // await CreateWorkflowVersionForStageChangeAsync(entity.WorkflowId, $"Stage '{entity.Name}' created");
-
-            return entity.Id;
+                return entity.Id;
+            });
+            return result.Data;
         }
 
         /// <summary>
-        /// Update stage
+        /// Update stage with transaction support and data consistency validation
         /// </summary>
         public async Task<bool> UpdateAsync(long id, StageInputDto input)
         {
-            // Get current stage information
-            var stage = await _stageRepository.GetByIdAsync(id);
-            if (stage == null)
+            // Use transaction to ensure data consistency
+            var transactionResult = await _db.Ado.UseTranAsync(async () =>
             {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
-            }
-
-            // Validate stage name uniqueness within workflow (excluding current stage)
-            if (await _stageRepository.IsNameExistsInWorkflowAsync(input.WorkflowId, input.Name, id))
-            {
-                throw new CRMException(ErrorCodeEnum.CustomError,
-                    $"Stage name '{input.Name}' already exists in this workflow");
-            }
-
-            // Extract old components for sync comparison (before mapping)
-            List<StageComponent> oldComponents = new List<StageComponent>();
-
-            if (!string.IsNullOrEmpty(stage.ComponentsJson))
-            {
-                try
+                // Get current stage information
+                var stage = await _stageRepository.GetByIdAsync(id);
+                if (stage == null)
                 {
-                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
                 }
-                catch (JsonException)
+
+                // Validate stage name uniqueness within workflow (excluding current stage)
+                if (await _stageRepository.IsNameExistsInWorkflowAsync(input.WorkflowId, input.Name, id))
                 {
-                    oldComponents = new List<StageComponent>();
+                    throw new CRMException(ErrorCodeEnum.CustomError,
+                        $"Stage name '{input.Name}' already exists in this workflow");
                 }
-            }
 
-            var oldChecklistIds = oldComponents
-                .Where(c => c.Key == "checklist")
-                .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                .Distinct()
-                .ToList();
+                // Extract old components for sync comparison (before mapping)
+                List<StageComponent> oldComponents = new List<StageComponent>();
 
-            var oldQuestionnaireIds = oldComponents
-                .Where(c => c.Key == "questionnaires")
-                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
-                .Distinct()
-                .ToList();
+                if (!string.IsNullOrEmpty(stage.ComponentsJson))
+                {
+                    try
+                    {
+                        oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
+                    }
+                    catch (JsonException)
+                    {
+                        oldComponents = new List<StageComponent>();
+                    }
+                }
 
-            // Fill component names before mapping
-            if (input.Components != null && input.Components.Any())
-            {
-                await FillComponentNamesAsync(input.Components);
-            }
-
-            // Map update data
-            _mapper.Map(input, stage);
-
-            // Extract new components for sync comparison (after mapping)
-            var newChecklistIds = new List<long>();
-            var newQuestionnaireIds = new List<long>();
-
-            if (input.Components != null && input.Components.Any())
-            {
-                newChecklistIds = input.Components
+                var oldChecklistIds = oldComponents
                     .Where(c => c.Key == "checklist")
                     .SelectMany(c => c.ChecklistIds ?? new List<long>())
                     .Distinct()
+                    .OrderBy(x => x)
                     .ToList();
 
-                newQuestionnaireIds = input.Components
+                var oldQuestionnaireIds = oldComponents
                     .Where(c => c.Key == "questionnaires")
                     .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
                     .Distinct()
+                    .OrderBy(x => x)
                     .ToList();
-            }
 
-            // Initialize update information with proper timestamps
-            stage.InitUpdateInfo(_userContext);
-
-            // Update database
-            var result = await _stageRepository.UpdateAsync(stage);
-
-            if (result)
-            {
-                // Check if there are actual changes to sync
-                var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
-                var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
-
-                // Sync component mappings if there are changes
-                if (hasChecklistChanges || hasQuestionnaireChanges)
+                // Fill component names before mapping
+                if (input.Components != null && input.Components.Any())
                 {
-                    try
-                    {
-                        await _mappingService.SyncStageMappingsAsync(id);
-                        Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after update");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
-                    }
-
-                    // Trigger async AI summary generation if components changed
-                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                    await FillComponentNamesAsync(input.Components);
                 }
 
-                            // Assignment sync is no longer needed as assignments are managed through Stage Components only
+                // Map update data
+                _mapper.Map(input, stage);
 
-                // Cache cleanup removed
+                // Extract new components for sync comparison (after mapping)
+                var newChecklistIds = new List<long>();
+                var newQuestionnaireIds = new List<long>();
 
-                // Operation logging removed - Stage management operations should not use IOperationChangeLogService
-
-                // Sync stages progress for all onboardings in this workflow
-                // This is done asynchronously to avoid impacting the main operation
-                _ = Task.Run(async () =>
+                if (input.Components != null && input.Components.Any())
                 {
-                    try
-                    {
-                        await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stage.WorkflowId, id);
-                    }
-                    catch
-                    {
-                        // Ignore sync errors to avoid impacting the main operation
-                    }
-                });
-            }
+                    newChecklistIds = input.Components
+                        .Where(c => c.Key == "checklist")
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .Distinct()
+                        .OrderBy(x => x)
+                        .ToList();
 
-            return result;
+                    newQuestionnaireIds = input.Components
+                        .Where(c => c.Key == "questionnaires")
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .Distinct()
+                        .OrderBy(x => x)
+                        .ToList();
+                }
+
+                // Initialize update information with proper timestamps
+                stage.InitUpdateInfo(_userContext);
+
+                // Update database within transaction
+                var result = await _stageRepository.UpdateAsync(stage);
+
+                if (result)
+                {
+                    // Check if mappings need synchronization using the new method
+                    var needsSync = await _mappingService.NeedsSyncAsync(id, newChecklistIds, newQuestionnaireIds);
+
+                    // Sync component mappings if there are changes within the same transaction
+                    if (needsSync)
+                    {
+                        try
+                        {
+                            await _mappingService.SyncStageMappingsInTransactionAsync(id, _db);
+                            Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after update within transaction");
+
+                            // Validate data consistency after sync
+                            var isConsistent = await _mappingService.ValidateStageComponentConsistencyAsync(id);
+                            if (!isConsistent)
+                            {
+                                Console.WriteLine($"[StageService] WARNING: Data inconsistency detected after sync for stage {id}");
+                                // Could throw exception to rollback transaction if strict consistency is required
+                                // throw new CRMException(ErrorCodeEnum.SystemError, "Data consistency validation failed after mapping sync");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[StageService] Data consistency validated for stage {id}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
+                            throw; // Re-throw to rollback transaction
+                        }
+
+                        // Trigger async AI summary generation if components changed (outside transaction)
+                        _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                    }
+
+                    // Sync stages progress for all onboardings in this workflow (outside transaction)
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stage.WorkflowId, id);
+                        }
+                        catch
+                        {
+                            // Ignore sync errors to avoid impacting the main operation
+                        }
+                    });
+                }
+
+                return result;
+            });
+            return transactionResult.Data;
         }
 
         /// <summary>
@@ -619,125 +640,100 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Update stage components configuration
+        /// Update stage components configuration with transaction support
         /// </summary>
         public async Task<bool> UpdateComponentsAsync(long id, UpdateStageComponentsInputDto input)
         {
-            var entity = await _stageRepository.GetByIdAsync(id);
-            if (entity == null)
+            // Use transaction to ensure data consistency
+            var transactionResult = await _db.Ado.UseTranAsync(async () =>
             {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
-            }
-
-            // Validate components
-            var validComponentKeys = new[] { "fields", "checklist", "questionnaires", "files" };
-            var invalidComponents = input.Components.Where(c => !validComponentKeys.Contains(c.Key)).ToList();
-            if (invalidComponents.Any())
-            {
-                var invalidKeys = string.Join(", ", invalidComponents.Select(c => c.Key));
-                throw new CRMException(ErrorCodeEnum.BusinessError, $"Invalid component keys: {invalidKeys}. Valid keys are: {string.Join(", ", validComponentKeys)}");
-            }
-
-            // Validate order uniqueness
-            var duplicateOrders = input.Components.GroupBy(c => c.Order).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-            if (duplicateOrders.Any())
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, $"Duplicate order values found: {string.Join(", ", duplicateOrders)}");
-            }
-
-            // Ensure all components have proper default values and fill names
-            await FillComponentNamesAsync(input.Components);
-
-            // Get old components for comparison
-            List<StageComponent> oldComponents = new List<StageComponent>();
-            if (!string.IsNullOrEmpty(entity.ComponentsJson))
-            {
-                try
+                var entity = await _stageRepository.GetByIdAsync(id);
+                if (entity == null)
                 {
-                    oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(entity.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
                 }
-                catch (JsonException)
+
+                // Validate components
+                var validComponentKeys = new[] { "fields", "checklist", "questionnaires", "files" };
+                var invalidComponents = input.Components.Where(c => !validComponentKeys.Contains(c.Key)).ToList();
+                if (invalidComponents.Any())
                 {
-                    oldComponents = new List<StageComponent>();
+                    var invalidKeys = string.Join(", ", invalidComponents.Select(c => c.Key));
+                    throw new CRMException(ErrorCodeEnum.BusinessError, $"Invalid component keys: {invalidKeys}. Valid keys are: {string.Join(", ", validComponentKeys)}");
                 }
-            }
 
-            // Extract old and new IDs for sync
-            var oldChecklistIds = oldComponents
-                .Where(c => c.Key == "checklist")
-                .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                .Distinct()
-                .ToList();
-
-            var newChecklistIds = input.Components
-                .Where(c => c.Key == "checklist")
-                .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                .Distinct()
-                .ToList();
-
-            var oldQuestionnaireIds = oldComponents
-                .Where(c => c.Key == "questionnaires")
-                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
-                .Distinct()
-                .ToList();
-
-            var newQuestionnaireIds = input.Components
-                .Where(c => c.Key == "questionnaires")
-                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
-                .Distinct()
-                .ToList();
-
-            // Update components
-            // ComponentsJson 将由 AutoMapper 的 SerializeComponents 统一生成，避免重复/多层序列化
-            entity.Components = input.Components;
-            entity.InitUpdateInfo(_userContext);
-
-            var result = await _stageRepository.UpdateAsync(entity);
-
-            if (result)
-            {
-                // Check if there are actual changes to sync
-                var hasChecklistChanges = !oldChecklistIds.SequenceEqual(newChecklistIds);
-                var hasQuestionnaireChanges = !oldQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
-
-                // Sync component mappings if there are changes
-                if (hasChecklistChanges || hasQuestionnaireChanges)
+                // Validate order uniqueness
+                var duplicateOrders = input.Components.GroupBy(c => c.Order).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicateOrders.Any())
                 {
-                    try
+                    throw new CRMException(ErrorCodeEnum.BusinessError, $"Duplicate order values found: {string.Join(", ", duplicateOrders)}");
+                }
+
+                // Ensure all components have proper default values and fill names
+                await FillComponentNamesAsync(input.Components);
+
+                // Extract new IDs for sync comparison
+                var newChecklistIds = input.Components
+                    .Where(c => c.Key == "checklist")
+                    .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList();
+
+                var newQuestionnaireIds = input.Components
+                    .Where(c => c.Key == "questionnaires")
+                    .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList();
+
+                // Update components
+                // ComponentsJson 将由 AutoMapper 的 SerializeComponents 统一生成，避免重复/多层序列化
+                entity.Components = input.Components;
+                entity.InitUpdateInfo(_userContext);
+
+                var result = await _stageRepository.UpdateAsync(entity);
+
+                if (result)
+                {
+                    // Check if mappings need synchronization
+                    var needsSync = await _mappingService.NeedsSyncAsync(id, newChecklistIds, newQuestionnaireIds);
+
+                    // Sync component mappings if there are changes within the same transaction
+                    if (needsSync)
                     {
-                        await _mappingService.SyncStageMappingsAsync(id);
-                        Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after component update");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
-                    }
+                        try
+                        {
+                            await _mappingService.SyncStageMappingsInTransactionAsync(id, _db);
+                            Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after component update within transaction");
 
-                    // Trigger async AI summary generation for component updates
-                    _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                            // Validate data consistency after sync
+                            var isConsistent = await _mappingService.ValidateStageComponentConsistencyAsync(id);
+                            if (!isConsistent)
+                            {
+                                Console.WriteLine($"[StageService] WARNING: Data inconsistency detected after component update sync for stage {id}");
+                                // Could throw exception to rollback transaction if strict consistency is required
+                                // throw new CRMException(ErrorCodeEnum.SystemError, "Data consistency validation failed after component mapping sync");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[StageService] Data consistency validated for stage {id} after component update");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
+                            throw; // Re-throw to rollback transaction
+                        }
+
+                        // Trigger async AI summary generation for component updates (outside transaction)
+                        _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                    }
                 }
 
-                // Assignment sync is no longer needed as assignments are managed through Stage Components only
-
-                // Log operation
-                // Removed operation logging - not relevant for stage management operations
-                // await _operationLogService.LogOperationAsync(
-                //OperationTypeEnum.OnboardingStatusChange,
-                //BusinessModuleEnum.Stage,
-                //id,
-                //null, // onboardingId
-                //null, // stageId
-                //"Stage Components Update",
-                //"Stage components configuration updated",
-                //null, // beforeData
-                //JsonSerializer.Serialize(input.Components), // afterData
-                //new List<string> { "Components" },
-                //null, // extendedData
-                //OperationStatusEnum.Success
-                // );
-            }
-
-            return result;
+                return result;
+            });
+            return transactionResult.Data;
         }
 
         /// <summary>
@@ -1857,6 +1853,118 @@ namespace FlowFlex.Application.Service.OW
                 Console.WriteLine($"❌ Failed to update AI summary for stage {stageId}: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Validate and repair data consistency between stage components and mappings
+        /// </summary>
+        /// <param name="stageId">Stage ID to validate</param>
+        /// <param name="autoRepair">Whether to automatically repair inconsistencies</param>
+        /// <returns>Validation result</returns>
+        public async Task<StageConsistencyResult> ValidateAndRepairConsistencyAsync(long stageId, bool autoRepair = true)
+        {
+            var result = new StageConsistencyResult
+            {
+                StageId = stageId,
+                IsConsistent = false,
+                ValidationTime = DateTime.UtcNow
+            };
+
+            try
+            {
+                // First validate using the mapping service
+                var isConsistent = await _mappingService.ValidateStageComponentConsistencyAsync(stageId);
+                result.IsConsistent = isConsistent;
+
+                if (!isConsistent && autoRepair)
+                {
+                    // Attempt to repair by re-syncing mappings within a transaction
+                    result.RepairAttempted = true;
+                    
+                    await _db.Ado.UseTranAsync(async () =>
+                    {
+                        try
+                        {
+                            await _mappingService.SyncStageMappingsInTransactionAsync(stageId, _db);
+                            
+                            // Re-validate after repair
+                            var isConsistentAfterRepair = await _mappingService.ValidateStageComponentConsistencyAsync(stageId);
+                            result.IsConsistent = isConsistentAfterRepair;
+                            result.RepairSuccessful = isConsistentAfterRepair;
+
+                            if (isConsistentAfterRepair)
+                            {
+                                Console.WriteLine($"[StageService] Successfully repaired data consistency for stage {stageId}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[StageService] Failed to repair data consistency for stage {stageId}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.RepairSuccessful = false;
+                            result.RepairError = ex.Message;
+                            Console.WriteLine($"[StageService] Error during consistency repair for stage {stageId}: {ex.Message}");
+                            throw; // Re-throw to rollback transaction
+                        }
+                    });
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ValidationError = ex.Message;
+                Console.WriteLine($"[StageService] Error validating consistency for stage {stageId}: {ex.Message}");
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Batch validate and repair data consistency for multiple stages
+        /// </summary>
+        /// <param name="stageIds">Stage IDs to validate</param>
+        /// <param name="autoRepair">Whether to automatically repair inconsistencies</param>
+        /// <returns>Validation results for all stages</returns>
+        public async Task<List<StageConsistencyResult>> BatchValidateAndRepairConsistencyAsync(List<long> stageIds, bool autoRepair = true)
+        {
+            var results = new List<StageConsistencyResult>();
+
+            foreach (var stageId in stageIds)
+            {
+                try
+                {
+                    var result = await ValidateAndRepairConsistencyAsync(stageId, autoRepair);
+                    results.Add(result);
+
+                    // Small delay between validations to avoid overwhelming the database
+                    await Task.Delay(100);
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new StageConsistencyResult
+                    {
+                        StageId = stageId,
+                        IsConsistent = false,
+                        ValidationError = ex.Message,
+                        ValidationTime = DateTime.UtcNow
+                    });
+                }
+            }
+
+            // Log summary
+            var totalStages = results.Count;
+            var consistentStages = results.Count(r => r.IsConsistent);
+            var repairedStages = results.Count(r => r.RepairSuccessful == true);
+            
+            Console.WriteLine($"[StageService] Batch consistency validation completed:");
+            Console.WriteLine($"  Total stages: {totalStages}");
+            Console.WriteLine($"  Consistent stages: {consistentStages}");
+            Console.WriteLine($"  Repaired stages: {repairedStages}");
+            Console.WriteLine($"  Failed repairs: {results.Count(r => r.RepairAttempted && r.RepairSuccessful != true)}");
+
+            return results;
         }
     }
 }

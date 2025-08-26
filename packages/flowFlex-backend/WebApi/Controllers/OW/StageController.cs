@@ -9,6 +9,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using Item.Internal.StandardApi.Response;
 using System.Linq.Dynamic.Core;
 using System;
+using System.Linq;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -591,6 +592,37 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         #endregion
+
+        #region Data Consistency Management
+
+        /// <summary>
+        /// Validate stage data consistency between components and mappings
+        /// </summary>
+        [HttpPost("{id}/validate-consistency")]
+        [ProducesResponseType<SuccessResponse<StageConsistencyResult>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ValidateConsistency(long id, [FromQuery] bool autoRepair = true)
+        {
+            var result = await _stageService.ValidateAndRepairConsistencyAsync(id, autoRepair);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Batch validate stage data consistency for multiple stages
+        /// </summary>
+        [HttpPost("batch/validate-consistency")]
+        [ProducesResponseType<SuccessResponse<List<StageConsistencyResult>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> BatchValidateConsistency([FromBody] BatchValidateConsistencyRequest request)
+        {
+            if (request.StageIds == null || !request.StageIds.Any())
+            {
+                return BadRequest("StageIds cannot be empty");
+            }
+
+            var results = await _stageService.BatchValidateAndRepairConsistencyAsync(request.StageIds, request.AutoRepair);
+            return Success(results);
+        }
+
+        #endregion
     }
 
     #region Request Models
@@ -682,5 +714,22 @@ namespace FlowFlex.WebApi.Controllers.OW
     }
 
     #endregion
+
+    /// <summary>
+    /// Batch validate consistency request
+    /// </summary>
+    public class BatchValidateConsistencyRequest
+    {
+        /// <summary>
+        /// Stage IDs to validate
+        /// </summary>
+        [Required]
+        public List<long> StageIds { get; set; }
+
+        /// <summary>
+        /// Whether to automatically repair inconsistencies
+        /// </summary>
+        public bool AutoRepair { get; set; } = true;
+    }
 
 }
