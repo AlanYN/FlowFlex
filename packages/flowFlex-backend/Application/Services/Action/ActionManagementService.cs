@@ -389,10 +389,18 @@ namespace FlowFlex.Application.Services.Action
                 throw new InvalidOperationException("Mapping already exists for this action and trigger");
             }
 
+            // Ensure TriggerEvent has a valid value - default to "Completed" if not provided or empty
+            if (string.IsNullOrWhiteSpace(dto.TriggerEvent))
+            {
+                dto.TriggerEvent = "Completed";
+                _logger.LogDebug("TriggerEvent was null/empty, defaulting to 'Completed' for mapping: ActionDefinitionId={ActionDefinitionId}, TriggerSourceId={TriggerSourceId}",
+                    dto.ActionDefinitionId, dto.TriggerSourceId);
+            }
+
             var entity = _mapper.Map<ActionTriggerMapping>(dto);
 
             await _actionTriggerMappingRepository.InsertAsync(entity);
-            _logger.LogInformation("Created action trigger mapping: {MappingId}", entity.Id);
+            _logger.LogInformation("Created action trigger mapping: {MappingId} with TriggerEvent: {TriggerEvent}", entity.Id, entity.TriggerEvent);
 
             return _mapper.Map<ActionTriggerMappingDto>(entity);
         }

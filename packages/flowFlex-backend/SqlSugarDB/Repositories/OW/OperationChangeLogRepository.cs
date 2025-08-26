@@ -157,5 +157,79 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             var result = await insertable.ExecuteCommandAsync();
             return result > 0;
         }
+
+        /// <summary>
+        /// Get operation logs by multiple business IDs and module (batch query to avoid N+1 problem)
+        /// </summary>
+        public async Task<List<OperationChangeLog>> GetByBusinessIdsAsync(string businessModule, List<long> businessIds, long? onboardingId = null)
+        {
+            if (businessIds == null || !businessIds.Any())
+                return new List<OperationChangeLog>();
+
+            var predicate = Expressionable.Create<OperationChangeLog>();
+            predicate.And(x => x.BusinessModule == businessModule && businessIds.Contains(x.BusinessId) && x.IsValid);
+            predicate.AndIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value);
+
+            return await base.GetListAsync(predicate.ToExpression(), x => x.OperationTime, OrderByType.Desc);
+        }
+
+        /// <summary>
+        /// Get operation logs with pagination for stage components (optimized for large datasets)
+        /// </summary>
+        public async Task<(List<OperationChangeLog> logs, int totalCount)> GetStageComponentLogsPaginatedAsync(
+            long? onboardingId, 
+            long stageId, 
+            List<long> taskIds, 
+            List<long> questionIds, 
+            string operationType, 
+            int pageIndex, 
+            int pageSize)
+        {
+            try
+            {
+                // Create complex query with UNION to combine all relevant logs
+                var query = base.db.UnionAll(
+                    // Stage-level logs
+                    base.db.Queryable<OperationChangeLog>()
+                        .Where(x => x.StageId == stageId && x.IsValid)
+                        .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                        .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
+                    
+                    // Task logs (if taskIds provided)
+                    taskIds != null && taskIds.Any() ? 
+                        base.db.Queryable<OperationChangeLog>()
+                            .Where(x => x.BusinessModule == "Task" && taskIds.Contains(x.BusinessId) && x.IsValid)
+                            .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                            .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType) :
+                        base.db.Queryable<OperationChangeLog>().Where(x => false), // Empty query if no task IDs
+                    
+                    // Question logs (if questionIds provided)
+                    questionIds != null && questionIds.Any() ? 
+                        base.db.Queryable<OperationChangeLog>()
+                            .Where(x => x.BusinessModule == "Question" && questionIds.Contains(x.BusinessId) && x.IsValid)
+                            .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                            .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType) :
+                        base.db.Queryable<OperationChangeLog>().Where(x => false) // Empty query if no question IDs
+                );
+
+                // Get total count
+                var totalCount = await query.CountAsync();
+
+                // Apply pagination and sorting
+                var logs = await query
+                    .OrderByDescending(x => x.OperationTime)
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return (logs, totalCount);
+            }
+            catch (Exception ex)
+            {
+                // Log error and return empty result
+                // In production, you might want to use ILogger here
+                return (new List<OperationChangeLog>(), 0);
+            }
+        }
     }
 }

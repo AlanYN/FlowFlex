@@ -72,8 +72,8 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromQuery] int pageSize = 20,
             [FromQuery] bool includeActionExecutions = true)
         {
-            // Use new method to get stage components logs (includes tasks and questions action executions)
-            var result = await _operationChangeLogService.GetOperationLogsByStageComponentsAsync(
+            // Use optimized method for better performance (database-level pagination)
+            var result = await _operationChangeLogService.GetOperationLogsByStageComponentsOptimizedAsync(
                 stageId,
                 onboardingId,
                 null,

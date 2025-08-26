@@ -1791,6 +1791,71 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Get operation log list for stage components (OPTIMIZED VERSION with database-level pagination)
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsOptimizedAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                // Step 1: Collect task and question IDs in a single batch operation
+                var (taskIds, questionIds) = await GetTaskAndQuestionIdsBatchAsync(stageId);
+                
+                _logger.LogInformation("Collected {TaskCount} tasks and {QuestionCount} questions for stage {StageId}. TaskIds: [{TaskIds}], QuestionIds: [{QuestionIds}]", 
+                    taskIds.Count, questionIds.Count, stageId, 
+                    string.Join(", ", taskIds), string.Join(", ", questionIds));
+
+                // Step 2: Use optimized repository method to get paginated results from database
+                var (logs, totalCount) = await _operationChangeLogRepository.GetStageComponentLogsPaginatedAsync(
+                    onboardingId, 
+                    stageId, 
+                    taskIds, 
+                    questionIds, 
+                    operationType?.ToString(),
+                    pageIndex, 
+                    pageSize);
+
+                // Step 3: Convert to DTOs (only for current page data)
+                var operationLogDtos = logs.Select(MapToOutputDto).ToList();
+
+                // Step 4: Optionally add action executions for current page only
+                if (includeActionExecutions)
+                {
+                    // Create source ID type mapping for proper action execution categorization
+                    var sourceIdTypes = new Dictionary<long, string>();
+                    sourceIdTypes[stageId] = "Stage"; // Stage itself
+                    
+                    foreach (var taskId in taskIds)
+                    {
+                        sourceIdTypes[taskId] = "Task";
+                    }
+                    
+                    foreach (var questionId in questionIds)
+                    {
+                        sourceIdTypes[questionId] = "Question";
+                    }
+                    
+                    await AddActionExecutionsBatchOptimizedAsync(operationLogDtos, sourceIdTypes, onboardingId);
+                }
+
+                _logger.LogDebug("Returned {Count} operation logs from {TotalCount} total for stage {StageId}", 
+                    operationLogDtos.Count, totalCount, stageId);
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = operationLogDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting optimized operation logs for stage components {StageId}", stageId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
         /// Get operation log list for stage components (all related tasks and questions)
         /// </summary>
         public async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
@@ -2214,7 +2279,203 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
+        /// <summary>
+        /// Optimized method to get task and question IDs in batch operations
+        /// </summary>
+        private async Task<(List<long> taskIds, List<long> questionIds)> GetTaskAndQuestionIdsBatchAsync(long stageId)
+        {
+            var taskIds = new List<long>();
+            var questionIds = new List<long>();
 
+            try
+            {
+                // Get stage components once
+                var stageService = _serviceProvider.GetRequiredService<IStageService>();
+                var stageComponents = await stageService.GetComponentsAsync(stageId);
+
+                // Collect task IDs from checklist components
+                var checklistComponents = stageComponents.Where(c => c.Key == "checklist").ToList();
+                if (checklistComponents.Any())
+                {
+                    var checklistIdsList = checklistComponents
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    if (checklistIdsList.Any())
+                    {
+                        var checklistService = _serviceProvider.GetRequiredService<IChecklistService>();
+                        var checklists = await checklistService.GetByIdsAsync(checklistIdsList);
+                        
+                        foreach (var checklist in checklists)
+                        {
+                            if (checklist.Tasks?.Any() == true)
+                            {
+                                taskIds.AddRange(checklist.Tasks.Select(t => t.Id));
+                            }
+                        }
+                    }
+                }
+
+                // Collect question IDs from questionnaire components
+                var questionnaireComponents = stageComponents.Where(c => c.Key == "questionnaires").ToList();
+                if (questionnaireComponents.Any())
+                {
+                    var questionnaireIdsList = questionnaireComponents
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .Distinct()
+                        .ToList();
+
+                    if (questionnaireIdsList.Any())
+                    {
+                        var questionnaireService = _serviceProvider.GetRequiredService<IQuestionnaireService>();
+                        var questionnaires = await questionnaireService.GetByIdsAsync(questionnaireIdsList);
+                        
+                        var uniqueQuestionIds = new HashSet<long>();
+                        
+                        foreach (var questionnaire in questionnaires)
+                        {
+                            if (string.IsNullOrWhiteSpace(questionnaire.StructureJson)) continue;
+
+                            try
+                            {
+                                var structureData = JsonSerializer.Deserialize<QuestionnaireStructure>(
+                                    questionnaire.StructureJson, 
+                                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                                if (structureData?.Sections?.Any() != true) continue;
+
+                                foreach (var section in structureData.Sections)
+                                {
+                                    var allQuestions = new List<QuestionnaireQuestion>();
+                                    if (section.Items?.Any() == true) allQuestions.AddRange(section.Items);
+                                    if (section.Questions?.Any() == true) allQuestions.AddRange(section.Questions);
+                                    
+                                    allQuestions = allQuestions.GroupBy(q => q.Id).Select(g => g.First()).ToList();
+
+                                    foreach (var question in allQuestions)
+                                    {
+                                        if (long.TryParse(question.Id, out long questionIdLong))
+                                        {
+                                            uniqueQuestionIds.Add(questionIdLong);
+                                        }
+
+                                        // Add option IDs as well for action executions
+                                        if (question.Options?.Any() == true)
+                                        {
+                                            foreach (var option in question.Options)
+                                            {
+                                                var optionJson = JsonSerializer.Serialize(option);
+                                                using var optionDoc = JsonDocument.Parse(optionJson);
+                                                var optionElement = optionDoc.RootElement;
+
+                                                if (optionElement.TryGetProperty("action", out var actionElement))
+                                                {
+                                                    var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+                                                    
+                                                    if (!string.IsNullOrWhiteSpace(optionId) && long.TryParse(optionId, out long optionIdLong))
+                                                    {
+                                                        uniqueQuestionIds.Add(optionIdLong);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to parse questionnaire structure for questionnaire {QuestionnaireId}", questionnaire.Id);
+                            }
+                        }
+
+                        questionIds.AddRange(uniqueQuestionIds);
+                    }
+                }
+
+                return (taskIds.Distinct().ToList(), questionIds.Distinct().ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error collecting task and question IDs for stage {StageId}", stageId);
+                return (new List<long>(), new List<long>());
+            }
+        }
+
+        /// <summary>
+        /// Add action executions in batch for better performance with proper source type mapping
+        /// </summary>
+        private async Task AddActionExecutionsBatchOptimizedAsync(List<OperationChangeLogOutputDto> operationLogDtos, Dictionary<long, string> sourceIdTypes, long? onboardingId)
+        {
+            try
+            {
+                if (!sourceIdTypes.Any()) return;
+
+                _logger.LogInformation("Fetching action executions for {Count} source IDs: [{SourceIds}] with types: [{SourceTypes}]", 
+                    sourceIdTypes.Count, 
+                    string.Join(", ", sourceIdTypes.Keys),
+                    string.Join(", ", sourceIdTypes.Select(kvp => $"{kvp.Key}:{kvp.Value}")));
+
+                // Process action executions for all source IDs
+                foreach (var kvp in sourceIdTypes)
+                {
+                    var sourceId = kvp.Key;
+                    var sourceType = kvp.Value;
+                    
+                    try
+                    {
+                        List<JsonQueryCondition> jsonConditions = null;
+                        if (onboardingId.HasValue)
+                        {
+                            jsonConditions = new List<JsonQueryCondition>
+                            {
+                                new JsonQueryCondition
+                                {
+                                    JsonPath = "OnboardingId",
+                                    Operator = "=",
+                                    Value = onboardingId.Value.ToString()
+                                }
+                            };
+                        }
+
+                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                            sourceId, 1, 1000, jsonConditions);
+
+                        if (actionExecutionsResult?.Data?.Any() == true)
+                        {
+                            var actionExecutionDtos = actionExecutionsResult.Data
+                                .Select(ae => MapActionExecutionToChangeLogDto(ae, sourceType))
+                                .ToList();
+                            
+                            operationLogDtos.AddRange(actionExecutionDtos);
+                            
+                            _logger.LogInformation("Added {Count} action executions for {SourceType} sourceId {SourceId}", 
+                                actionExecutionDtos.Count, sourceType, sourceId);
+                        }
+                        else
+                        {
+                            _logger.LogDebug("No action executions found for {SourceType} sourceId {SourceId}", 
+                                sourceType, sourceId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}", 
+                            sourceType, sourceId);
+                    }
+                }
+
+                _logger.LogInformation("Total action executions added: {Count}", 
+                    operationLogDtos.Count(dto => dto.OperationType.Contains("ActionExecution")));
+
+                // Re-sort by operation time
+                operationLogDtos.Sort((x, y) => y.OperationTime.CompareTo(x.OperationTime));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding action executions in batch");
+            }
+        }
 
         #endregion
     }
