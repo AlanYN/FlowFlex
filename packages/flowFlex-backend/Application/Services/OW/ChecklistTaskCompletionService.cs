@@ -231,7 +231,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     /// <summary>
     /// Toggle task completion
     /// </summary>
-    public async Task<bool> ToggleTaskCompletionAsync(long onboardingId, long taskId, bool isCompleted, string completionNotes = "")
+    public async Task<bool> ToggleTaskCompletionAsync(long onboardingId, long taskId, bool isCompleted, string completionNotes = "", string filesJson = "[]")
     {
         // Simplified validation: only check if onboarding exists
         var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
@@ -254,7 +254,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             ChecklistId = task.ChecklistId,
             TaskId = taskId,
             IsCompleted = isCompleted,
-            CompletionNotes = completionNotes
+            CompletionNotes = completionNotes,
+            FilesJson = filesJson
         };
 
         return await SaveTaskCompletionAsync(input);

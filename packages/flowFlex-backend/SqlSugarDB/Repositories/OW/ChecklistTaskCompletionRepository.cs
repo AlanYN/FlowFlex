@@ -68,6 +68,7 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
             existing.IsCompleted = completion.IsCompleted;
             existing.CompletedTime = completion.CompletedTime;
             existing.CompletionNotes = completion.CompletionNotes;
+            existing.FilesJson = completion.FilesJson; // 添加FilesJson字段更新
             existing.StageId = completion.StageId;
             existing.ModifyDate = DateTimeOffset.Now;
             existing.ModifyBy = completion.ModifyBy;

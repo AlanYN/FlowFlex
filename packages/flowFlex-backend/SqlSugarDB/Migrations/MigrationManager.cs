@@ -72,7 +72,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250122000023_AddPortalPermissionToStage", (Action)(() => Migration_20250122000023_AddPortalPermissionToStage.Up(_db))),
                     ("20250122000024_AddActionFieldsToChecklistTask", (Action)(() => _20250122000024_AddActionFieldsToChecklistTask.Up(_db))),
                     ("20250125000001_AddActionMappingIdToChecklistTask", (Action)(() => _20250125000001_AddActionMappingIdToChecklistTask.Up(_db))),
-                    ("20250125000002_CreateAIPromptHistoryTable", (Action)(() => CreateAIPromptHistoryTable_20250125000001.Up(_db)))
+                    ("20250125000002_CreateAIPromptHistoryTable", (Action)(() => CreateAIPromptHistoryTable_20250125000001.Up(_db))),
+                    ("20250125000003_CreateChecklistTaskNoteTable", (Action)(() => _20250125000002_CreateChecklistTaskNoteTable.Up(_db))),
+                    ("20250125000004_FixChecklistTaskNoteModifiedFields", (Action)(() => _20250125000003_FixChecklistTaskNoteModifiedFields.Up(_db))),
+                    ("20250125000005_AddFilesJsonToChecklistTaskCompletion", (Action)(() => _20250125000004_AddFilesJsonToChecklistTaskCompletion.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
