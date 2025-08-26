@@ -1292,5 +1292,79 @@ namespace FlowFlex.Application.Services.OW
             var user = await _userRepository.GetFirstAsync(u => u.Email == email);
             return _mapper.Map<UserDto>(user);
         }
+
+        public async Task<UserDto> GetUserByIdAsync(long userId)
+        {
+            try
+            {
+                _logger.LogInformation("GetUserByIdAsync called with userId: {UserId}", userId);
+
+                if (userId <= 0)
+                {
+                    _logger.LogWarning("Invalid userId provided: {UserId}", userId);
+                    throw new CRMException(HttpStatusCode.BadRequest, "User ID must be greater than 0");
+                }
+
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found with ID: {UserId}", userId);
+                    return null;
+                }
+
+                var userDto = _mapper.Map<UserDto>(user);
+                _logger.LogInformation("GetUserByIdAsync completed successfully for userId: {UserId}", userId);
+                
+                return userDto;
+            }
+            catch (CRMException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting user by ID: {UserId}", userId);
+                throw new CRMException(HttpStatusCode.InternalServerError,
+                    "An error occurred while retrieving the user. Please try again.");
+            }
+        }
+
+        public async Task<List<UserDto>> GetUsersByIdsAsync(List<long> userIds)
+        {
+            try
+            {
+                _logger.LogInformation("GetUsersByIdsAsync called with {Count} user IDs", userIds?.Count ?? 0);
+
+                if (userIds == null || userIds.Count == 0)
+                {
+                    _logger.LogWarning("Empty or null userIds list provided");
+                    return new List<UserDto>();
+                }
+
+                // Filter and deduplicate valid IDs
+                var validUserIds = userIds.Where(id => id > 0).Distinct().ToList();
+                if (validUserIds.Count == 0)
+                {
+                    _logger.LogWarning("No valid user IDs found in the provided list");
+                    return new List<UserDto>();
+                }
+
+                _logger.LogInformation("Querying {ValidCount} valid user IDs", validUserIds.Count);
+
+                var users = await _userRepository.GetListAsync(u => validUserIds.Contains(u.Id));
+                var userDtos = _mapper.Map<List<UserDto>>(users);
+
+                _logger.LogInformation("GetUsersByIdsAsync completed successfully. Found {FoundCount} users out of {RequestedCount} requested",
+                    userDtos.Count, validUserIds.Count);
+
+                return userDtos;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting users by IDs");
+                throw new CRMException(HttpStatusCode.InternalServerError,
+                    "An error occurred while retrieving the users. Please try again.");
+            }
+        }
     }
 }
