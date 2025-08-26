@@ -205,5 +205,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="modelUsed">AI model used</param>
         /// <returns>Success status</returns>
         Task<bool> UpdateOnboardingStageAISummaryAsync(long onboardingId, long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed);
+
+        /// <summary>
+        /// Save a specific stage in onboarding's stagesProgress
+        /// Updates the stage's IsSaved, SaveTime, and SavedById fields
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID to save</param>
+        /// <returns>Success status</returns>
+        Task<bool> SaveStageAsync(long onboardingId, long stageId);
     }
 }

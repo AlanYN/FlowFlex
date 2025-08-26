@@ -49,7 +49,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
                 .ForMember(dest => dest.AiSummaryConfidence, opt => opt.MapFrom(src => src.AiSummaryConfidence))
                 .ForMember(dest => dest.AiSummaryModel, opt => opt.MapFrom(src => src.AiSummaryModel))
-                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData));
+                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData))
+                // Save fields
+                .ForMember(dest => dest.IsSaved, opt => opt.MapFrom(src => src.IsSaved))
+                .ForMember(dest => dest.SaveTime, opt => opt.MapFrom(src => src.SaveTime))
+                .ForMember(dest => dest.SavedById, opt => opt.MapFrom(src => src.SavedById))
+                .ForMember(dest => dest.SavedBy, opt => opt.MapFrom(src => src.SavedBy));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()
@@ -57,7 +62,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
-                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components));
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components))
+                // Save fields
+                .ForMember(dest => dest.IsSaved, opt => opt.MapFrom(src => src.IsSaved))
+                .ForMember(dest => dest.SaveTime, opt => opt.MapFrom(src => src.SaveTime))
+                .ForMember(dest => dest.SavedById, opt => opt.MapFrom(src => src.SavedById))
+                .ForMember(dest => dest.SavedBy, opt => opt.MapFrom(src => src.SavedBy));
 
             // ѯӳ
             CreateMap<OnboardingQueryRequest, Onboarding>()

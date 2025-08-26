@@ -853,14 +853,14 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => x.CurrentStageId == request.CurrentStageId.Value);
                 }
 
-                // Support comma-separated Lead IDs
+                // Support comma-separated Lead IDs with fuzzy matching
                 if (!string.IsNullOrEmpty(request.LeadId) && request.LeadId != "string")
                 {
                     var leadIds = request.GetLeadIdsList();
                     if (leadIds.Any())
                     {
-                        // Use OR condition to match any of the lead IDs with exact match (case-insensitive)
-                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower() == id.ToLower()));
+                        // Use OR condition to match any of the lead IDs with fuzzy matching (case-insensitive)
+                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower().Contains(id.ToLower())));
                     }
                 }
 
@@ -5217,6 +5217,51 @@ namespace FlowFlex.Application.Services.OW
             {
                 Console.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Save a specific stage in onboarding's stagesProgress
+        /// Updates the stage's IsSaved, SaveTime, and SavedById fields
+        /// </summary>
+        public async Task<bool> SaveStageAsync(long onboardingId, long stageId)
+        {
+            try
+            {
+                // Get current onboarding
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Load stages progress from JSON
+                LoadStagesProgressFromJson(onboarding);
+
+                // Find the stage progress entry
+                var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+                if (stageProgress == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage {stageId} not found in onboarding {onboardingId}");
+                }
+
+                // Update save fields
+                stageProgress.IsSaved = true;
+                stageProgress.SaveTime = DateTimeOffset.UtcNow;
+                stageProgress.SavedById = GetCurrentUserId()?.ToString();
+                stageProgress.SavedBy = GetCurrentUserName();
+
+                // Save stages progress back to JSON
+                onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
+
+                // Update in database
+                var result = await SafeUpdateOnboardingAsync(onboarding);
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to save stage {stageId} in onboarding {onboardingId}: {ex.Message}");
             }
         }
 

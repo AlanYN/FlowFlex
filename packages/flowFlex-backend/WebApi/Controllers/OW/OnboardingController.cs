@@ -601,6 +601,24 @@ namespace FlowFlex.WebApi.Controllers.OW
             bool result = await _onboardingService.SyncStagesProgressAsync(id);
             return Success(result);
         }
+
+        /// <summary>
+        /// Save a specific stage in onboarding's stagesProgress
+        /// Updates the stage's IsSaved, SaveTime, and SavedById fields
+        /// </summary>
+        [HttpPost("{id}/save")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SaveStageAsync(long id, [FromBody] SaveOnboardingStageDto input)
+        {
+            // Validate that the onboarding ID in URL matches the DTO
+            if (input.OnboardingId != id)
+            {
+                return BadRequest("Onboarding ID in URL does not match the ID in request body");
+            }
+
+            bool result = await _onboardingService.SaveStageAsync(input.OnboardingId, input.StageId);
+            return Success(result);
+        }
     }
 
     /// <summary>

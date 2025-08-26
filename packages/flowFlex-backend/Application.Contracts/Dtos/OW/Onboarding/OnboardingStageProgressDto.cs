@@ -85,6 +85,26 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool IsCurrent { get; set; }
 
         /// <summary>
+        /// 是否已保存
+        /// </summary>
+        public bool IsSaved { get; set; }
+
+        /// <summary>
+        /// 保存时间
+        /// </summary>
+        public DateTimeOffset? SaveTime { get; set; }
+
+        /// <summary>
+        /// 保存人ID
+        /// </summary>
+        public string SavedById { get; set; }
+
+        /// <summary>
+        /// 保存人姓名/邮箱
+        /// </summary>
+        public string SavedBy { get; set; }
+
+        /// <summary>
         /// Visible in Portal - Controls whether this stage is visible in the portal
         /// </summary>
         public bool VisibleInPortal { get; set; } = true;
