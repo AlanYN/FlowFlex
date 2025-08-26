@@ -44,7 +44,7 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
     public async Task<long> CreateNoteAsync(ChecklistTaskNoteInputDto input)
     {
         // Validate task exists
-        var task = await _taskRepository.GetFirstAsync(x => x.Id == input.TaskId && x.IsActive);
+        var task = await _taskRepository.GetFirstAsync(x => x.Id == input.TaskId);
         if (task == null)
         {
             throw new CRMException(ErrorCodeEnum.DataNotFound, "Task not found");
