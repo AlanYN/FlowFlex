@@ -72,9 +72,22 @@
 									defaultStr
 								}}
 								on
-								{{ formatDate(task.completedDate) || defaultStr }}
+								{{ timeZoneConvert(task?.completedDate || '') || defaultStr }}
 							</span>
 						</div>
+					</div>
+
+					<!-- 任务操作按钮 -->
+					<div class="item-actions">
+						<el-button
+							type="primary"
+							size="small"
+							text
+							class="details-button"
+							@click.stop="openTaskDetails(task)"
+						>
+							Details
+						</el-button>
 					</div>
 
 					<!-- 任务状态 -->
@@ -91,6 +104,15 @@
 				</div>
 			</template>
 		</div>
+
+		<!-- 任务详情弹窗 -->
+		<TaskDetailsDialog
+			v-model:visible="dialogVisible"
+			:task="selectedTask"
+			:onboarding-id="onboardingId"
+			:stage-id="stageId"
+			@update:task="handleTaskUpdate"
+		/>
 	</div>
 </template>
 
@@ -98,9 +120,11 @@
 import { defaultStr } from '@/settings/projectSetting';
 import { Check } from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { ChecklistData, TaskData } from '#/onboard';
 import { useI18n } from '@/hooks/useI18n';
+import TaskDetailsDialog from './TaskDetailsDialog.vue';
+import { timeZoneConvert } from '@/hooks/time';
 
 const { t } = useI18n();
 
@@ -108,6 +132,8 @@ const { t } = useI18n();
 interface Props {
 	checklistData?: ChecklistData[] | null;
 	loading?: boolean;
+	onboardingId: string;
+	stageId: string;
 }
 
 const props = defineProps<Props>();
@@ -115,6 +141,7 @@ const props = defineProps<Props>();
 // Events
 const emit = defineEmits<{
 	taskToggled: [task: TaskData];
+	refreshChecklist: [onboardingId: string, stageId: string];
 }>();
 
 // 计算总任务数
@@ -140,6 +167,10 @@ const overallCompletionRate = computed(() => {
 	const rate = (totalCompletedTasks.value / totalTasks.value) * 100;
 	return Math.min(Math.round(rate), 100);
 });
+
+// 任务详情弹窗相关
+const dialogVisible = ref(false);
+const selectedTask = ref<TaskData | null>(null);
 
 // 方法
 const toggleTask = async (task: TaskData) => {
@@ -175,25 +206,16 @@ const toggleTask = async (task: TaskData) => {
 	}
 };
 
-// 格式化日期显示
-const formatDate = (dateString: string | null): string => {
-	if (!dateString) return '';
-	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) {
-			return '';
-		}
-		// Format as MM/dd/yyyy HH:mm:ss (US format)
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const year = date.getFullYear();
-		const hours = String(date.getHours()).padStart(2, '0');
-		const minutes = String(date.getMinutes()).padStart(2, '0');
-		const seconds = String(date.getSeconds()).padStart(2, '0');
-		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-	} catch {
-		return '';
-	}
+// 打开任务详情弹窗
+const openTaskDetails = (task: TaskData) => {
+	selectedTask.value = task;
+	dialogVisible.value = true;
+};
+
+// 处理任务详情更新
+const handleTaskUpdate = () => {
+	emit('refreshChecklist', props.onboardingId, props.stageId);
+	dialogVisible.value = false;
 };
 </script>
 
@@ -376,6 +398,7 @@ const formatDate = (dateString: string | null): string => {
 	overflow: hidden;
 	display: -webkit-box;
 	-webkit-line-clamp: 3;
+	line-clamp: 3;
 	-webkit-box-orient: vertical;
 }
 
@@ -401,6 +424,25 @@ const formatDate = (dateString: string | null): string => {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.item-actions {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.details-button {
+	padding: 4px 12px;
+	font-size: 12px;
+	border-radius: 4px;
+	transition: all 0.2s ease;
+
+	&:hover {
+		background-color: var(--el-color-primary-light-9);
+		color: var(--el-color-primary);
+	}
 }
 
 .item-status {

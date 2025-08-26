@@ -345,10 +345,12 @@
 													component?.checklistIds &&
 													component.checklistIds?.length > 0
 												"
+												:stage-id="activeStage"
 												:loading="checkLoading"
 												:checklist-data="
 													getChecklistDataForComponent(component)
 												"
+												:onboarding-id="onboardingId"
 												@task-toggled="handleTaskToggled"
 											/>
 
