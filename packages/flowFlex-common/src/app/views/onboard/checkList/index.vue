@@ -157,7 +157,7 @@
 				</div>
 			</template>
 
-			<el-form :model="formData" label-position="top" class="space-y-4">
+			<el-form :model="formData" label-position="top" class="space-y-4 p-1">
 				<el-form-item label="Checklist Name" required>
 					<el-input v-model="formData.name" :placeholder="dialogConfig.namePlaceholder" />
 				</el-form-item>
