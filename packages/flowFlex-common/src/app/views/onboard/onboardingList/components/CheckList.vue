@@ -28,13 +28,10 @@
 		</div>
 
 		<!-- 所有检查项列表 -->
-		<div class="checklist-items" v-loading="loading">
+		<div class="checklist-items py-4" v-loading="loading">
 			<!-- 遍历所有checklist中的任务 -->
 			<template v-for="checklist in checklistData || []" :key="checklist.id">
 				<!-- 可选：显示每个checklist的分组标题 -->
-				<div v-if="checklist.name" class="checklist-group-title">
-					{{ checklist.name }}
-				</div>
 
 				<!-- 该checklist下的所有任务 -->
 				<div
@@ -43,18 +40,24 @@
 					class="checklist-item-card rounded-md"
 				>
 					<!-- 任务内容 -->
-					<div class="item-content p-6" :class="{ completed: task.isCompleted }">
-						<h4 v-if="task.name" class="item-title">
-							{{ task.name }}
-						</h4>
+					<div class="item-content px-4 py-2" :class="{ completed: task.isCompleted }">
+						<div class="flex items-center gap-2 mb-1">
+							<icon
+								icon="material-symbols:check-circle-outline-rounded"
+								style="color: #10b981"
+								class="text-xl"
+								v-if="task.isCompleted"
+							/>
+							<h4 v-if="task.name" class="item-title bolck">
+								{{ task.name }}
+							</h4>
+						</div>
+
 						<p v-if="task.description" class="item-description">
 							{{ task.description }}
 						</p>
 						<div class="flex gap-3">
-							<div
-								class="flex items-center gap-1 flex-shrink-0"
-								v-if="task.assigneeName"
-							>
+							<div class="flex items-center gap-1 flex-shrink-0">
 								<!-- Assignee 缩写 -->
 								<icon
 									icon="material-symbols:person-2-outline"
@@ -62,26 +65,24 @@
 								/>
 								<span
 									class="text-xs font-medium text-primary-500"
-									:title="task.assigneeName"
+									:title="task.assigneeName || defaultStr"
 								>
-									{{ getAssigneeInitials(task.assigneeName) }}
+									{{ getAssigneeInitials(task.assigneeName) || defaultStr }}
 								</span>
 							</div>
 							<div
 								class="flex items-center gap-1 flex-shrink-0"
 								style="color: #47b064"
-								v-if="task?.filesCount"
 							>
 								<icon icon="iconoir:attachment" />
-								{{ task?.filesCount }}
+								{{ task?.filesCount || 0 }}
 							</div>
 							<div
 								class="flex items-center gap-1 flex-shrink-0"
 								style="color: #ed6f2d"
-								v-if="task?.notesCount"
 							>
 								<icon icon="mynaui:message" />
-								{{ task?.notesCount }}
+								{{ task?.notesCount || 0 }}
 							</div>
 						</div>
 					</div>
@@ -124,6 +125,7 @@ import { computed, ref } from 'vue';
 import { ChecklistData, TaskData } from '#/onboard';
 import { useI18n } from '@/hooks/useI18n';
 import TaskDetailsDialog from './TaskDetailsDialog.vue';
+import { defaultStr } from '@/settings/projectSetting';
 
 const { t } = useI18n();
 
@@ -400,7 +402,6 @@ const getAssigneeInitials = (fullName) => {
 .item-title {
 	font-size: 16px;
 	font-weight: 600;
-	margin: 0 0 8px 0;
 	color: #1f2937;
 	line-height: 1.5;
 	/* 处理长文本，防止撑开容器 */
