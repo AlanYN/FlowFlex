@@ -388,17 +388,19 @@
 					</p>
 				</div>
 			</template>
-			<StageForm
-				v-if="dialogVisible.stageForm"
-				:stage="currentStage"
-				:is-editing="isEditingStage"
-				:loading="isEditingStage ? loading.updateStage : loading.createStage"
-				:checklists="checklists"
-				:questionnaires="questionnaires"
-				:workflow-id="workflow?.id || ''"
-				@submit="submitStage"
-				@cancel="dialogVisible.stageForm = false"
-			/>
+			<div class="p-1">
+				<StageForm
+					v-if="dialogVisible.stageForm"
+					:stage="currentStage"
+					:is-editing="isEditingStage"
+					:loading="isEditingStage ? loading.updateStage : loading.createStage"
+					:checklists="checklists"
+					:questionnaires="questionnaires"
+					:workflow-id="workflow?.id || ''"
+					@submit="submitStage"
+					@cancel="dialogVisible.stageForm = false"
+				/>
+			</div>
 		</el-dialog>
 
 		<!-- 合并阶段对话框 -->
