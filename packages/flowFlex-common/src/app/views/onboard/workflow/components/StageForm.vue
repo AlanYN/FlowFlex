@@ -121,7 +121,7 @@
 			</TabPane>
 		</PrototypeTabs>
 
-		<div class="form-actions">
+		<div class="form-actions mr-4">
 			<el-button @click="$emit('cancel')">Cancel</el-button>
 			<el-button
 				type="primary"
@@ -323,7 +323,7 @@ const emit = defineEmits(['submit', 'cancel']);
 }
 .color-grid {
 	display: grid;
-	grid-template-columns: repeat(10, 1fr);
+	grid-template-columns: repeat(12, 1fr);
 	gap: 12px;
 }
 .color-option {
