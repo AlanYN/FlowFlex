@@ -20,7 +20,7 @@
 						{{ task.isCompleted ? 'Completed' : 'Pending' }}
 					</el-tag>
 				</div>
-				<div v-if="task.isCompleted" class="task-info-item">
+				<div class="task-info-item">
 					<span class="info-label">Assignee:</span>
 					<span class="info-value">
 						{{ task.assigneeName || defaultStr }}

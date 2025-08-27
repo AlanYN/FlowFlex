@@ -126,16 +126,12 @@
 			:width="bigDialogWidth"
 			:close-on-click-modal="false"
 		>
-			<div class="task-dialog-content">
+			<el-scrollbar max-height="70vh">
 				<!-- Task列表内容 -->
 				<div v-if="currentChecklist">
-					<TaskList
-						ref="taskListRef"
-						:checklist="currentChecklist"
-						@task-updated="handleTaskUpdated"
-					/>
+					<TaskList ref="taskListRef" :checklist="currentChecklist" />
 				</div>
-			</div>
+			</el-scrollbar>
 			<template #footer>
 				<div class="flex justify-end">
 					<el-button @click="closeTaskDialog">Close</el-button>
@@ -553,14 +549,8 @@ const closeTaskDialog = () => {
 	nextTick(() => {
 		showTaskDialog.value = false;
 		currentChecklist.value = null;
+		loadChecklists();
 	});
-};
-
-// 处理任务更新事件
-const handleTaskUpdated = async (checklistId: string) => {
-	// 任务是独立管理的，不需要重新加载checklist数据
-	// 只需要重新加载checklist列表以更新totalTasks等统计信息
-	await loadChecklists();
 };
 
 // 处理表格选择变化

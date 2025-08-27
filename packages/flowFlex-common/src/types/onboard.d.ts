@@ -433,6 +433,8 @@ export interface TaskData {
 	isActive: boolean;
 	createDate: string;
 	createBy: string;
+	filesCount: number;
+	notesCount: number;
 }
 
 // API返回的Checklist数据结构

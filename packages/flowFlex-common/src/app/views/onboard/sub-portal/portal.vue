@@ -209,7 +209,7 @@
 					<!-- 主要内容区域 -->
 					<div class="flex gap-6">
 						<!-- 左侧阶段详情 (2/3 宽度) -->
-						<div class="flex-[2]">
+						<div class="flex-[2] min-w-0 overflow-hidden">
 							<div
 								class="rounded-md el-card is-always-shadow rounded-md el-card__header"
 							>
@@ -977,6 +977,10 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 								completedBy: completedTask.modifyBy || completedTask.createBy,
 								completedTime:
 									completedTask.completedTime || completedTask.modifyDate,
+								filesJson: completedTask?.filesJson,
+								assigneeName: completedTask?.assigneeName,
+								filesCount: completedTask?.filesCount,
+								notesCount: completedTask?.notesCount,
 							});
 						}
 					});
@@ -997,6 +1001,10 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 						completedBy:
 							completionInfo?.completedBy || task.assigneeName || task.createBy,
 						completedDate: completionInfo?.completedTime || task.completedDate,
+						filesJson: completionInfo?.filesJson,
+						assigneeName: completionInfo?.assigneeName || task?.assigneeName,
+						filesCount: completionInfo?.filesCount || task?.filesCount,
+						notesCount: completionInfo?.notesCount || task?.notesCount,
 					};
 				});
 

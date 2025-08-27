@@ -12,29 +12,8 @@
 
 		<!-- 任务已加载完成时显示 -->
 		<div v-if="tasksLoaded">
-			<div class="flex items-center justify-between mb-4">
+			<div class="flex items-center mb-4">
 				<h4 class="text-sm font-medium text-gray-900">Tasks</h4>
-				<div class="flex items-center space-x-2">
-					<el-button
-						@click="showAddTaskDialog(props.checklist)"
-						type="primary"
-						:icon="Plus"
-					>
-						Add Task
-					</el-button>
-				</div>
-			</div>
-
-			<!-- 添加任务输入框 -->
-			<div v-if="addingTaskTo === props.checklist.id" class="flex gap-2 mb-4">
-				<el-input
-					v-model="newTaskText"
-					placeholder="New task..."
-					@keyup.enter="addTask(props.checklist.id)"
-					class="flex-1"
-				/>
-				<el-button @click="addTask(props.checklist.id)" type="primary">Add</el-button>
-				<el-button @click="cancelAddTask">Cancel</el-button>
 			</div>
 
 			<!-- 任务列表 -->
@@ -78,21 +57,52 @@
 
 							<!-- 正常显示模式 -->
 							<template v-if="!(editingTask && editingTask.id === task.id)">
-								<div class="flex items-center flex-1 min-w-0">
-									<div
-										class="text-sm text-gray-900 truncate whitespace-nowrap max-w-full"
-									>
-										{{ task.name }}
+								<div class="flex items-center justify-between flex-1 min-w-0 gap-2">
+									<!-- Task name -->
+									<div class="flex-1 min-w-0 pr-3">
+										<span class="text-sm text-gray-900 truncate block">
+											{{ task.name }}
+										</span>
 									</div>
-									<!-- Action 绑定状态图标 -->
-									<el-tag
-										v-if="task.actionId"
-										type="success"
-										size="small"
-										class="ml-2"
+
+									<!-- Right side items -->
+									<div
+										class="flex items-center gap-1 flex-shrink-0"
+										v-if="task.assigneeName"
 									>
-										{{ task.actionName }}
-									</el-tag>
+										<!-- Assignee 缩写 -->
+										<icon
+											icon="material-symbols:person-2-outline"
+											style="color: var(--primary-500)"
+										/>
+										<span
+											class="text-xs font-medium text-primary-500"
+											:title="task.assigneeName"
+										>
+											{{ getAssigneeInitials(task.assigneeName) }}
+										</span>
+
+										<!-- Action 绑定状态图标 -->
+										<el-tag v-if="task.actionId" type="success" size="small">
+											{{ task.actionName }}
+										</el-tag>
+									</div>
+									<div
+										class="flex items-center gap-1 flex-shrink-0"
+										style="color: #47b064"
+										v-if="task?.filesCount"
+									>
+										<icon icon="iconoir:attachment" />
+										{{ task?.filesCount }}
+									</div>
+									<div
+										class="flex items-center gap-1 flex-shrink-0"
+										style="color: #ed6f2d"
+										v-if="task?.notesCount"
+									>
+										<icon icon="mynaui:message" />
+										{{ task?.notesCount }}
+									</div>
 								</div>
 								<div class="flex items-center space-x-1">
 									<el-dropdown placement="bottom">
@@ -148,15 +158,29 @@
 
 							<!-- 编辑模式 -->
 							<template v-else>
-								<div class="flex-1 pr-2">
-									<el-input
-										:model-value="taskFormData.name"
-										@update:model-value="
-											(val) => updateTaskFormData('name', val)
-										"
-										placeholder="Task name"
-										size="small"
-									/>
+								<div class="flex items-center gap-2 flex-1 pr-2">
+									<div class="flex-1 min-w-0">
+										<el-input
+											:model-value="taskFormData.name"
+											@update:model-value="
+												(val) => updateTaskFormData('name', val)
+											"
+											placeholder="Task name"
+											size="small"
+										/>
+									</div>
+									<div class="flex-1 flex-shrink-0">
+										<flowflex-user-selector
+											ref="editTaskAssigneeSelectorRef"
+											:model-value="taskFormData.assigneeId"
+											@update:model-value="
+												(val) => updateTaskFormData('assigneeId', val)
+											"
+											placeholder="Select assignee"
+											:clearable="true"
+											size="small"
+										/>
+									</div>
 								</div>
 								<div class="flex items-center gap-1">
 									<el-button
@@ -176,6 +200,53 @@
 				<p class="text-sm">
 					No tasks added yet. Click the "Add Task" button to add a task.
 				</p>
+			</div>
+
+			<!-- 添加任务表单 -->
+			<div
+				v-if="addingTaskTo === props.checklist.id"
+				class="border border-gray-200 rounded-lg p-2 mt-4 bg-gray-50"
+			>
+				<div class="">
+					<div class="flex items-center gap-3">
+						<div class="flex-1 min-w-0 flex flex-col gap-2">
+							<div class="">task name</div>
+							<el-input
+								v-model="newTaskText"
+								placeholder="Enter task name..."
+								@keyup.enter="addTask(props.checklist.id)"
+							/>
+						</div>
+						<div class="flex-1 min-w-0 flex-shrink-0 flex flex-col gap-2">
+							<div class="">Assignee</div>
+							<flowflex-user-selector
+								ref="newTaskAssigneeSelectorRef"
+								v-model="newTaskAssignee"
+								placeholder="Select assignee"
+								:clearable="true"
+							/>
+						</div>
+					</div>
+					<div class="flex justify-end mt-2">
+						<el-button @click="cancelAddTask" :icon="Close" size="small" />
+						<el-button
+							@click="addTask(props.checklist.id)"
+							type="primary"
+							:icon="Plus"
+							size="small"
+						/>
+					</div>
+				</div>
+			</div>
+
+			<!-- Add Task 按钮 -->
+			<div class="mt-4 flex justify-end">
+				<el-button
+					@click="showAddTaskDialog(props.checklist)"
+					type="primary"
+					:icon="Plus"
+					size="default"
+				/>
 			</div>
 		</div>
 
@@ -209,6 +280,7 @@ import {
 } from '@/apis/ow/checklist';
 import { useI18n } from '@/hooks/useI18n';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
 
 const props = defineProps({
@@ -233,11 +305,16 @@ const taskFormData = ref({
 	description: '',
 	estimatedMinutes: 0,
 	isRequired: false,
+	assigneeId: null,
+	assigneeName: '',
 });
 const addingTaskTo = ref(null);
 const newTaskText = ref('');
+const newTaskAssignee = ref(null);
 const isDragging = ref(false);
 const draggingChecklistId = ref(null);
+const newTaskAssigneeSelectorRef = ref(null);
+const editTaskAssigneeSelectorRef = ref(null);
 
 // 加载任务数据
 const loadTasks = async () => {
@@ -274,6 +351,7 @@ const showAddTaskDialog = (checklist) => {
 const cancelAddTask = () => {
 	addingTaskTo.value = null;
 	newTaskText.value = '';
+	newTaskAssignee.value = null;
 };
 
 // 添加任务
@@ -281,12 +359,23 @@ const addTask = async (checklistId) => {
 	if (!newTaskText.value.trim()) return;
 
 	try {
+		// 获取assignee的用户信息（如果选择了的话）
+		let assigneeName = null;
+		if (newTaskAssignee.value) {
+			assigneeName = getAssigneeNameFromSelector(
+				newTaskAssigneeSelectorRef,
+				newTaskAssignee.value
+			);
+		}
+
 		const taskData = formatTaskForApi({
 			checklistId: checklistId,
 			name: newTaskText.value.trim(),
 			description: '',
 			isRequired: false,
 			order: tasks.value.length,
+			assigneeId: newTaskAssignee.value,
+			assigneeName: assigneeName,
 		});
 
 		await createChecklistTask(taskData);
@@ -341,13 +430,7 @@ const deleteTask = async (checklistId, taskId) => {
 // 编辑任务
 const editTask = (checklistId, task) => {
 	editingTask.value = task;
-	taskFormData.value = {
-		name: task.name,
-		description: task.description || '',
-		estimatedMinutes: task.estimatedMinutes || 0,
-		isRequired: task.isRequired || false,
-		...task,
-	};
+	taskFormData.value = task;
 };
 
 // 取消任务编辑
@@ -358,6 +441,8 @@ const cancelTaskEdit = () => {
 		description: '',
 		estimatedMinutes: 0,
 		isRequired: false,
+		assigneeId: null,
+		assigneeName: '',
 	};
 };
 
@@ -366,6 +451,15 @@ const saveTaskEdit = async () => {
 	if (!editingTask.value) return;
 
 	try {
+		// 获取assignee的用户信息（如果选择了的话）
+		let assigneeName = null;
+		if (taskFormData.value.assigneeId) {
+			assigneeName = getAssigneeNameFromSelector(
+				editTaskAssigneeSelectorRef,
+				taskFormData.value.assigneeId
+			);
+		}
+
 		const taskData = formatTaskForApi({
 			...editingTask.value,
 			checklistId: props.checklist.id,
@@ -373,6 +467,8 @@ const saveTaskEdit = async () => {
 			description: taskFormData.value.description,
 			estimatedMinutes: taskFormData.value.estimatedMinutes,
 			isRequired: taskFormData.value.isRequired,
+			assigneeId: taskFormData.value.assigneeId,
+			assigneeName: assigneeName,
 		});
 
 		await updateChecklistTask(editingTask.value.id, taskData);
@@ -381,7 +477,7 @@ const saveTaskEdit = async () => {
 		// 重新加载任务数据
 		await loadTasks();
 		// 通知父组件更新checklist数据
-		emit('task-updated', props.checklist.id);
+		// emit('task-updated', props.checklist.id);
 		cancelTaskEdit();
 	} catch (err) {
 		ElMessage.error(t('sys.api.operationFailed'));
@@ -449,6 +545,40 @@ const updateTaskFormData = (field, value) => {
 	taskFormData.value[field] = value;
 };
 
+// 获取分配人姓名的缩写
+const getAssigneeInitials = (fullName) => {
+	if (!fullName) return '';
+
+	const names = fullName.trim().split(/\s+/);
+	if (names.length === 1) {
+		// 单个名字，取前两个字符
+		return names[0].substring(0, 2).toUpperCase();
+	} else {
+		// 多个名字，取每个名字的首字母
+		return names
+			.map((name) => name.charAt(0).toUpperCase())
+			.join('')
+			.substring(0, 3); // 最多3个字母
+	}
+};
+
+// 从 FlowflexUser 组件获取选中用户的姓名
+const getAssigneeNameFromSelector = (selectorRef, assigneeId) => {
+	if (!selectorRef.value || !assigneeId) return null;
+
+	try {
+		const selectedData = selectorRef.value.getSelectedData();
+		if (selectedData && selectedData.name) {
+			return selectedData.name;
+		}
+		// 如果无法从组件获取，使用用户ID作为fallback
+		return selectorRef.value.getUserNameById(assigneeId) || `User-${assigneeId}`;
+	} catch (error) {
+		console.warn('Failed to get assignee name from selector:', error);
+		return `User-${assigneeId}`;
+	}
+};
+
 const resetTaskList = () => {
 	tasks.value = [];
 	tasksLoaded.value = false;
@@ -458,6 +588,8 @@ const resetTaskList = () => {
 		description: '',
 		estimatedMinutes: 0,
 		isRequired: false,
+		assigneeId: null,
+		assigneeName: '',
 	};
 };
 
@@ -472,7 +604,7 @@ const currentActionTask = ref(null); // 当前正在操作 action 的任务
 const openActionEditor = async (task) => {
 	currentActionTask.value = task; // 使用新的变量存储当前操作的任务
 	actionEditorVisible.value = true;
-
+	console.log(task);
 	// 如果任务已经绑定了 action，获取 action 详情
 	if (task.actionId) {
 		try {
@@ -510,7 +642,6 @@ const onActionSave = async (actionResult) => {
 			if (updateResponse.code === '200') {
 				ElMessage.success(t('sys.api.operationSuccess'));
 				await loadTasks();
-				emit('task-updated', props.checklist.id);
 			} else {
 				ElMessage.error(t('sys.api.operationFailed'));
 			}
@@ -628,6 +759,7 @@ defineExpose({
 	border-radius: 8px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	position: relative;
+	cursor: pointer;
 }
 
 .task-item:hover:not(.task-disabled):not(.task-sorting) {
@@ -641,11 +773,13 @@ defineExpose({
 .task-disabled {
 	opacity: 0.6;
 	filter: grayscale(0.3);
+	cursor: not-allowed;
 }
 
 .task-sorting {
 	transition: all 0.3s ease;
 	transform: scale(0.98);
+	cursor: grabbing;
 }
 
 /* 拖拽手柄样式 */

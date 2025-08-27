@@ -191,9 +191,6 @@
 
 	// 按钮相关初始化
 	.el-button {
-		&:hover {
-			@apply border-primary-100 bg-primary-100;
-		}
 		&.is-disabled {
 			@apply border-primary-200 bg-primary-200;
 			&:hover,
@@ -215,24 +212,13 @@
 
 	.el-button.el-button--primary:not(.is-link) {
 		@apply text-white border-primary-500 bg-primary-500;
-		&:hover {
-			@apply bg-primary-500 border-primary-500 text-white-100;
-		}
 		&.is-disabled {
 			@apply border-primary-300 bg-primary-200;
-			&:hover,
-			&:focus {
-				@apply border-primary-300 bg-primary-300 text-white-100;
-			}
 		}
 	}
 
 	.el-button--info {
 		@apply text-gray-100;
-		&:hover,
-		&:focus {
-			@apply bg-primary-500 border-primary-500 text-white-100;
-		}
 	}
 	// 切换开管相关初始化
 	.el-switch {

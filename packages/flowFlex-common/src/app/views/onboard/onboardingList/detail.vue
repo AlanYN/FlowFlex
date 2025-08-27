@@ -667,6 +667,8 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 									completedTask.completedTime || completedTask.modifyDate,
 								filesJson: completedTask?.filesJson,
 								assigneeName: completedTask?.assigneeName,
+								filesCount: completedTask?.filesCount,
+								notesCount: completedTask?.notesCount,
 							});
 						}
 					});
@@ -690,7 +692,9 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 							completionInfo?.completedBy || task.assigneeName || task.createBy,
 						completedDate: completionInfo?.completedTime || task.completedDate,
 						filesJson: completionInfo?.filesJson,
-						assigneeName: completionInfo?.assigneeName,
+						assigneeName: completionInfo?.assigneeName || task?.assigneeName,
+						filesCount: completionInfo?.filesCount || task?.filesCount,
+						notesCount: completionInfo?.notesCount || task?.notesCount,
 					};
 				});
 
