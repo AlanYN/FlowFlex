@@ -6026,8 +6026,8 @@ Make questions relevant to the project context and stage objectives.";
         private string BuildStageSummaryPrompt(AIStageSummaryInput input)
         {
             var promptBuilder = new StringBuilder();
+            promptBuilder.AppendLine("Generate a concise stage summary in English.");
 
-            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
             promptBuilder.AppendLine("=== Stage Summary Generation Task ===");
             promptBuilder.AppendLine($"Stage Name: {input.StageName}");

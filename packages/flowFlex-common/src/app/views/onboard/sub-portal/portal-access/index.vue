@@ -481,14 +481,62 @@ const retryVerification = () => {
 
 // Continue with current logged user
 const useContinueWithCurrentUser = async () => {
-	if (!currentLoggedUser.value?.email) {
+	console.log('useContinueWithCurrentUser called');
+	console.log('currentLoggedUser:', currentLoggedUser.value);
+
+	const userEmail = currentLoggedUser.value?.email || currentLoggedUser.value?.userName;
+
+	if (!userEmail) {
+		console.error('No email found in currentLoggedUser:', currentLoggedUser.value);
 		ElMessage.error('Current user email not found');
 		return;
 	}
 
-	// Set email to current user's email and verify
-	form.value.email = currentLoggedUser.value.email;
-	await handleVerify();
+	console.log('Using email for verification:', userEmail);
+
+	try {
+		loading.value = true;
+
+		// 只使用短URL验证
+		const shortUrlId = route.params.shortUrlId as string;
+
+		if (!shortUrlId) {
+			ElMessage.error('Invalid invitation link');
+			return;
+		}
+
+		// 使用短URL验证
+		const response = (await userInvitationApi.verifyPortalAccessByShortUrl(shortUrlId, {
+			email: userEmail,
+		})) as any;
+		const verificationData = response.data || response;
+
+		if (verificationData.isValid) {
+			// Store portal access token
+			localStorage.setItem('portal_access_token', verificationData.accessToken);
+			localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
+
+			// 邮箱验证成功后，自动内部注册并跳转（无需密码）
+			form.value.email = userEmail; // Set form email for registration flow
+			await handleAutoRegisterAndRedirect();
+		} else {
+			if (verificationData.isExpired) {
+				verificationState.value = 'expired';
+			} else {
+				verificationState.value = 'error';
+				errorMessage.value = verificationData.errorMessage || 'Verification failed';
+				errorDescription.value = getErrorDescription(verificationData.errorMessage);
+			}
+		}
+	} catch (error) {
+		verificationState.value = 'error';
+		errorMessage.value = 'Connection Error';
+		errorDescription.value =
+			'Unable to verify your invitation. Please check your internet connection and try again.';
+		console.error('Verification error:', error);
+	} finally {
+		loading.value = false;
+	}
 };
 
 // Switch to email form

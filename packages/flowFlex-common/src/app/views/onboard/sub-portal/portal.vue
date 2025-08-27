@@ -345,7 +345,7 @@
 												>
 													<div class="ai-content-wrapper">
 														<p
-															class="whitespace-pre-line text-sm leading-7 text-gray-800 dark:text-gray-100"
+															class="break-words word-wrap text-sm leading-7 text-gray-800 dark:text-gray-100 overflow-hidden"
 															:class="{
 																'ai-streaming': aiSummaryLoading,
 															}"
@@ -1731,6 +1731,10 @@ button:hover {
 .ai-content-wrapper {
 	position: relative;
 	border-radius: 8px;
+	width: 100%;
+	max-width: 100%;
+	overflow-wrap: break-word;
+	word-break: break-word;
 }
 
 .ai-streaming {
@@ -1991,5 +1995,13 @@ button:hover {
 			linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #06b6d4 50%, #10b981 75%, #3b82f6 100%)
 				border-box;
 	}
+}
+
+/* 文字溢出处理 */
+.word-wrap {
+	word-wrap: break-word;
+	-webkit-hyphens: auto;
+	-moz-hyphens: auto;
+	hyphens: auto;
 }
 </style>

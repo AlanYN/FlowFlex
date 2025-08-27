@@ -64,12 +64,26 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
 
         if (existing != null)
         {
-            // Update existing
+            // Update existing - only update isCompleted and completion time, preserve other data
             existing.IsCompleted = completion.IsCompleted;
-            existing.CompletedTime = completion.CompletedTime;
-            existing.CompletionNotes = completion.CompletionNotes;
-            existing.FilesJson = completion.FilesJson; // 添加FilesJson字段更新
-            existing.StageId = completion.StageId;
+            existing.CompletedTime = completion.IsCompleted ? (completion.CompletedTime ?? DateTimeOffset.Now) : null;
+            
+            // Only update other fields if they have meaningful values
+            if (!string.IsNullOrEmpty(completion.CompletionNotes))
+            {
+                existing.CompletionNotes = completion.CompletionNotes;
+            }
+            
+            if (!string.IsNullOrEmpty(completion.FilesJson) && completion.FilesJson != "[]")
+            {
+                existing.FilesJson = completion.FilesJson;
+            }
+            
+            if (completion.StageId.HasValue)
+            {
+                existing.StageId = completion.StageId;
+            }
+            
             existing.ModifyDate = DateTimeOffset.Now;
             existing.ModifyBy = completion.ModifyBy;
             existing.ModifyUserId = completion.ModifyUserId;
@@ -137,5 +151,30 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
         return await db.Queryable<ChecklistTaskCompletion>()
             .Where(x => taskIds.Contains(x.TaskId) && x.IsValid)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Update only completion status without modifying other data
+    /// </summary>
+    public async Task<bool> UpdateCompletionStatusOnlyAsync(long onboardingId, long taskId, bool isCompleted, string modifyBy, long? modifyUserId = null)
+    {
+        var existing = await GetTaskCompletionAsync(onboardingId, taskId);
+
+        if (existing != null)
+        {
+            // Only update completion status and related timestamp
+            existing.IsCompleted = isCompleted;
+            existing.CompletedTime = isCompleted ? DateTimeOffset.Now : null;
+            existing.ModifyDate = DateTimeOffset.Now;
+            existing.ModifyBy = modifyBy;
+            if (modifyUserId.HasValue)
+            {
+                existing.ModifyUserId = modifyUserId.Value;
+            }
+
+            return await UpdateAsync(existing);
+        }
+
+        return false; // Record not found
     }
 }

@@ -172,7 +172,7 @@
 									<div v-if="currentAISummary" class="ai-summary-content">
 										<div class="ai-content-wrapper">
 											<p
-												class="whitespace-pre-line text-sm leading-7 text-gray-800 dark:text-gray-100"
+												class="break-words word-wrap text-sm leading-7 text-gray-800 dark:text-gray-100 overflow-hidden"
 												:class="{ 'ai-streaming': aiSummaryLoading }"
 											>
 												{{ currentAISummary }}
@@ -1404,6 +1404,10 @@ onMounted(async () => {
 .ai-content-wrapper {
 	position: relative;
 	border-radius: 8px;
+	width: 100%;
+	max-width: 100%;
+	overflow-wrap: break-word;
+	word-break: break-word;
 }
 
 .ai-streaming {
@@ -1690,6 +1694,14 @@ onMounted(async () => {
 
 :deep(.el-scrollbar:hover .el-scrollbar__bar) {
 	opacity: 1;
+}
+
+/* 文字溢出处理 */
+.word-wrap {
+	word-wrap: break-word;
+	-webkit-hyphens: auto;
+	-moz-hyphens: auto;
+	hyphens: auto;
 }
 
 /* 响应式设计 */
