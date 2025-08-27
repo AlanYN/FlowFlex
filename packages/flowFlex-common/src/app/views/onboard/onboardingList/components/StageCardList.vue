@@ -95,14 +95,24 @@
 									<div class="text-xs text-gray-500 mb-1">
 										{{ lead.leadId }}
 									</div>
-									<div class="grid grid-cols-2 gap-2 text-xs mb-2 text-gray-600">
+									<div class="grid grid-cols-1 gap-2 text-xs mb-2 text-gray-600">
 										<div class="flex items-center">
 											<el-icon class="mr-1 text-gray-500">
 												<Calendar />
 											</el-icon>
 											<span>
 												Start:
+<<<<<<< Updated upstream
 												{{ formatDate(lead.startDate) || defaultStr }}
+=======
+												{{
+													timeZoneConvert(
+														lead.currentStageStartTime,
+														false,
+														projectTenMinutesSsecondsDate
+													)
+												}}
+>>>>>>> Stashed changes
 											</span>
 										</div>
 										<div class="flex items-center">
@@ -110,10 +120,20 @@
 												<Calendar />
 											</el-icon>
 											<span>
+<<<<<<< Updated upstream
 												ETA:
 												{{
 													formatDate(lead.estimatedCompletionDate) ||
 													defaultStr
+=======
+												End:
+												{{
+													timeZoneConvert(
+														lead.currentStageEndTime,
+														false,
+														projectTenMinutesSsecondsDate
+													)
+>>>>>>> Stashed changes
 												}}
 											</span>
 										</div>
@@ -192,7 +212,12 @@
 import { PropType } from 'vue';
 import { ArrowRight, User, Calendar, Warning } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
+<<<<<<< Updated upstream
 import { defaultStr } from '@/settings/projectSetting';
+=======
+import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { timeZoneConvert } from '@/hooks/time';
+>>>>>>> Stashed changes
 
 defineProps({
 	loading: {
@@ -374,22 +399,6 @@ html.dark {
 		background-color: var(--black-200) !important;
 		border-top: 1px solid #4a5568 !important;
 		color: #9ca3af !important;
-	}
-
-	/* 空状态区域 */
-	.bg-gray-50 {
-		@apply bg-black-200 !important;
-	}
-
-	/* 文本颜色调整 */
-	.text-gray-700,
-	.text-gray-600,
-	.text-gray-900 {
-		@apply text-white-100 !important;
-	}
-
-	.text-gray-500 {
-		@apply text-gray-300 !important;
 	}
 }
 </style>
