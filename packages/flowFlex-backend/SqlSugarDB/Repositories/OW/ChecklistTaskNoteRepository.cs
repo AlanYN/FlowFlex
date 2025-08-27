@@ -117,5 +117,15 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
             return notes.GroupBy(x => x.TaskId)
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
+
+        /// <summary>
+        /// Count notes by task ID (without onboarding filter)
+        /// </summary>
+        public async Task<int> CountByTaskIdAsync(long taskId)
+        {
+            return await base.db.Queryable<ChecklistTaskNote>()
+                .Where(x => x.TaskId == taskId && !x.IsDeleted)
+                .CountAsync();
+        }
     }
 }

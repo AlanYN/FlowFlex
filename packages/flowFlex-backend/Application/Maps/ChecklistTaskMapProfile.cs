@@ -16,7 +16,9 @@ namespace FlowFlex.Application.Maps
             CreateMap<ChecklistTask, ChecklistTaskOutputDto>()
                 .ForMember(dest => dest.OrderIndex, opt => opt.MapFrom(src => src.Order))
                 .ForMember(dest => dest.CompletedAt, opt => opt.MapFrom(src => src.CompletedDate))
-                .ForMember(dest => dest.Assignee, opt => opt.MapFrom(src => ParseAssigneeJson(src.AssigneeJson)));
+                .ForMember(dest => dest.Assignee, opt => opt.MapFrom(src => ParseAssigneeJson(src.AssigneeJson)))
+                .ForMember(dest => dest.FilesCount, opt => opt.Ignore()) // Will be set in service layer
+                .ForMember(dest => dest.NotesCount, opt => opt.Ignore()); // Will be set in service layer
 
             // ChecklistTaskInputDto to ChecklistTask entity
             CreateMap<ChecklistTaskInputDto, ChecklistTask>()

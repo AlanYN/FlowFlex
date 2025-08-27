@@ -125,4 +125,17 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
 
         return (totalTasks, completedCount);
     }
+
+    /// <summary>
+    /// Get task completions by task IDs
+    /// </summary>
+    public async Task<List<ChecklistTaskCompletion>> GetByTaskIdsAsync(List<long> taskIds)
+    {
+        if (taskIds == null || !taskIds.Any())
+            return new List<ChecklistTaskCompletion>();
+
+        return await db.Queryable<ChecklistTaskCompletion>()
+            .Where(x => taskIds.Contains(x.TaskId) && x.IsValid)
+            .ToListAsync();
+    }
 }

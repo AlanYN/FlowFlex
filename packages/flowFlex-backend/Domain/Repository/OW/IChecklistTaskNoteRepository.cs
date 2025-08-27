@@ -46,4 +46,9 @@ public interface IChecklistTaskNoteRepository : IBaseRepository<ChecklistTaskNot
     /// Batch get notes for multiple tasks
     /// </summary>
     Task<Dictionary<long, List<ChecklistTaskNote>>> BatchGetNotesByTasksAsync(List<long> taskIds, long onboardingId);
+
+    /// <summary>
+    /// Count notes by task ID (without onboarding filter)
+    /// </summary>
+    Task<int> CountByTaskIdAsync(long taskId);
 }
