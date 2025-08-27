@@ -261,7 +261,7 @@ namespace FlowFlex.Application.Service.OW
                         }
 
                         // Trigger async AI summary generation if components changed (outside transaction)
-                        _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                        //_ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                     }
 
                     // Sync stages progress for all onboardings in this workflow (outside transaction)
@@ -749,7 +749,7 @@ namespace FlowFlex.Application.Service.OW
                         }
 
                         // Trigger async AI summary generation for component updates (outside transaction)
-                        _ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                        //_ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                     }
                 }
 
@@ -2050,6 +2050,7 @@ namespace FlowFlex.Application.Service.OW
                  Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
 
                  // Parse existing components in this stage
+                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {stage.ComponentsJson ?? "NULL"}");
                  var existingComponents = await GetStageComponentsFromEntity(stage);
                  if (existingComponents == null || !existingComponents.Any())
                  {
@@ -2112,31 +2113,185 @@ namespace FlowFlex.Application.Service.OW
          /// <returns>List of stage components</returns>
          private async Task<List<StageComponent>> GetStageComponentsFromEntity(Stage stage)
          {
+             Console.WriteLine($"[StageService] GetStageComponentsFromEntity for stage {stage.Id}: ComponentsJson = {stage.ComponentsJson ?? "NULL"}");
+             
              if (string.IsNullOrEmpty(stage.ComponentsJson))
+             {
+                 Console.WriteLine($"[StageService] Stage {stage.Id} has empty ComponentsJson, returning empty list");
                  return new List<StageComponent>();
+             }
 
              try
              {
                  // Handle double-escaped JSON string
                  var jsonString = stage.ComponentsJson;
+                 Console.WriteLine($"[StageService] Original JSON: {jsonString}");
                  
-                 // If the string starts and ends with quotes, it's likely double-escaped
-                 if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                 // Multiple levels of escaping may exist, so unescape repeatedly
+                 int iterations = 0;
+                 while (jsonString.StartsWith("\"") && jsonString.EndsWith("\"") && iterations < 5)
                  {
                      // Remove outer quotes and unescape
                      jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
+                     Console.WriteLine($"[StageService] After unescaping iteration {iterations + 1}: {jsonString}");
+                     iterations++;
                  }
 
                  // Clean problematic escape sequences
                  var cleanedJson = CleanJsonString(jsonString);
+                 Console.WriteLine($"[StageService] After cleaning: {cleanedJson}");
                  
-                 // Deserialize components
-                 var components = JsonSerializer.Deserialize<List<StageComponent>>(cleanedJson, _jsonOptions);
+                 // Try manual parsing first as System.Text.Json is having issues
+                 var components = ManualParseStageComponents(cleanedJson);
+                 Console.WriteLine($"[StageService] Manually parsed {components?.Count ?? 0} components");
+                 
+                 if (components != null && components.Any())
+                 {
+                     // Log the first component for debugging
+                     var firstComponent = components.First();
+                     Console.WriteLine($"[StageService] First component: Key={firstComponent.Key}, ChecklistIds=[{string.Join(",", firstComponent.ChecklistIds ?? new List<long>())}], QuestionnaireIds=[{string.Join(",", firstComponent.QuestionnaireIds ?? new List<long>())}]");
+                 }
+                 
                  return components ?? new List<StageComponent>();
              }
-             catch (JsonException)
+             catch (JsonException ex)
              {
                  // If JSON parsing fails, return empty list
+                 Console.WriteLine($"[StageService] JSON parsing failed for stage {stage.Id}: {ex.Message}");
+                 return new List<StageComponent>();
+             }
+         }
+
+         /// <summary>
+         /// Manual parse stage components from JSON string
+         /// </summary>
+         /// <param name="jsonString">JSON string to parse</param>
+         /// <returns>List of stage components</returns>
+         private List<StageComponent> ManualParseStageComponents(string jsonString)
+         {
+             try
+             {
+                 Console.WriteLine($"[StageService] Manual parsing JSON: {jsonString}");
+                 
+                 using var doc = JsonDocument.Parse(jsonString);
+                 var root = doc.RootElement;
+                 
+                 Console.WriteLine($"[StageService] Root element kind: {root.ValueKind}");
+                 
+                 if (root.ValueKind != JsonValueKind.Array)
+                 {
+                     Console.WriteLine($"[StageService] Root is not an array, returning empty list");
+                     return new List<StageComponent>();
+                 }
+
+                 var components = new List<StageComponent>();
+                 var arrayLength = root.GetArrayLength();
+                 Console.WriteLine($"[StageService] Array length: {arrayLength}");
+                 
+                 foreach (var element in root.EnumerateArray())
+                 {
+                     Console.WriteLine($"[StageService] Processing element: {element}");
+                     var component = new StageComponent();
+                     
+                     if (element.TryGetProperty("Key", out var keyProp))
+                     {
+                         component.Key = keyProp.GetString() ?? "";
+                         Console.WriteLine($"[StageService] Found Key: {component.Key}");
+                     }
+                     
+                     if (element.TryGetProperty("Order", out var orderProp))
+                     {
+                         component.Order = orderProp.TryGetInt32(out var order) ? order : 0;
+                         Console.WriteLine($"[StageService] Found Order: {component.Order}");
+                     }
+                     
+                     if (element.TryGetProperty("IsEnabled", out var enabledProp))
+                     {
+                         component.IsEnabled = enabledProp.ValueKind == JsonValueKind.True;
+                         Console.WriteLine($"[StageService] Found IsEnabled: {component.IsEnabled}");
+                     }
+                     
+                     if (element.TryGetProperty("Configuration", out var configProp) && configProp.ValueKind != JsonValueKind.Null)
+                         component.Configuration = configProp.GetString();
+                     
+                     // Parse StaticFields
+                     if (element.TryGetProperty("StaticFields", out var staticFieldsProp) && staticFieldsProp.ValueKind == JsonValueKind.Array)
+                     {
+                         component.StaticFields = staticFieldsProp.EnumerateArray()
+                             .Select(x => x.GetString() ?? "")
+                             .ToList();
+                         Console.WriteLine($"[StageService] Found StaticFields: {component.StaticFields?.Count ?? 0} items");
+                     }
+                     else
+                     {
+                         component.StaticFields = new List<string>();
+                     }
+                     
+                     // Parse ChecklistIds
+                     if (element.TryGetProperty("ChecklistIds", out var checklistIdsProp) && checklistIdsProp.ValueKind == JsonValueKind.Array)
+                     {
+                         component.ChecklistIds = checklistIdsProp.EnumerateArray()
+                             .Select(x => x.TryGetInt64(out var id) ? id : 0)
+                             .Where(id => id > 0)
+                             .ToList();
+                         Console.WriteLine($"[StageService] Found ChecklistIds: [{string.Join(",", component.ChecklistIds ?? new List<long>())}]");
+                     }
+                     else
+                     {
+                         component.ChecklistIds = new List<long>();
+                         Console.WriteLine($"[StageService] No ChecklistIds found in element");
+                     }
+                     
+                     // Parse QuestionnaireIds
+                     if (element.TryGetProperty("QuestionnaireIds", out var questionnaireIdsProp) && questionnaireIdsProp.ValueKind == JsonValueKind.Array)
+                     {
+                         component.QuestionnaireIds = questionnaireIdsProp.EnumerateArray()
+                             .Select(x => x.TryGetInt64(out var id) ? id : 0)
+                             .Where(id => id > 0)
+                             .ToList();
+                         Console.WriteLine($"[StageService] Found QuestionnaireIds: [{string.Join(",", component.QuestionnaireIds ?? new List<long>())}]");
+                     }
+                     else
+                     {
+                         component.QuestionnaireIds = new List<long>();
+                         Console.WriteLine($"[StageService] No QuestionnaireIds found in element");
+                     }
+                     
+                     // Parse ChecklistNames
+                     if (element.TryGetProperty("ChecklistNames", out var checklistNamesProp) && checklistNamesProp.ValueKind == JsonValueKind.Array)
+                     {
+                         component.ChecklistNames = checklistNamesProp.EnumerateArray()
+                             .Select(x => x.GetString() ?? "")
+                             .ToList();
+                     }
+                     else
+                     {
+                         component.ChecklistNames = new List<string>();
+                     }
+                     
+                     // Parse QuestionnaireNames
+                     if (element.TryGetProperty("QuestionnaireNames", out var questionnaireNamesProp) && questionnaireNamesProp.ValueKind == JsonValueKind.Array)
+                     {
+                         component.QuestionnaireNames = questionnaireNamesProp.EnumerateArray()
+                             .Select(x => x.GetString() ?? "")
+                             .ToList();
+                     }
+                     else
+                     {
+                         component.QuestionnaireNames = new List<string>();
+                     }
+                     
+                     Console.WriteLine($"[StageService] Created component: Key={component.Key}, ChecklistIds count={component.ChecklistIds?.Count ?? 0}, QuestionnaireIds count={component.QuestionnaireIds?.Count ?? 0}");
+                     components.Add(component);
+                 }
+                 
+                 Console.WriteLine($"[StageService] Manual parsing completed: {components.Count} components");
+                 return components;
+             }
+             catch (Exception ex)
+             {
+                 Console.WriteLine($"[StageService] Manual parsing failed: {ex.Message}");
+                 Console.WriteLine($"[StageService] Stack trace: {ex.StackTrace}");
                  return new List<StageComponent>();
              }
          }

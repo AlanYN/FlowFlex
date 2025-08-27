@@ -46,5 +46,10 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get task completions by task IDs
         /// </summary>
         Task<List<ChecklistTaskCompletion>> GetByTaskIdsAsync(List<long> taskIds);
+
+        /// <summary>
+        /// Update only completion status without modifying other data
+        /// </summary>
+        Task<bool> UpdateCompletionStatusOnlyAsync(long onboardingId, long taskId, bool isCompleted, string modifyBy, long? modifyUserId = null);
     }
 }

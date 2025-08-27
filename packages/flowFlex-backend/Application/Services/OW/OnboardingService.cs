@@ -3846,6 +3846,7 @@ namespace FlowFlex.Application.Services.OW
                         StageOrder = sequentialOrder,
                         EstimatedDays = stage.EstimatedDuration,
                         VisibleInPortal = stage.VisibleInPortal,
+                        PortalPermission = stage.PortalPermission,
                         AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
                         ComponentsJson = stage.ComponentsJson,
                         Components = stage.Components
@@ -4546,6 +4547,7 @@ namespace FlowFlex.Application.Services.OW
                         stageProgress.StageDescription = stage.Description;
                         stageProgress.EstimatedDays = stage.EstimatedDuration;
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
+                        stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
                         stageProgress.ComponentsJson = stage.ComponentsJson;
                         stageProgress.Components = stage.Components;
