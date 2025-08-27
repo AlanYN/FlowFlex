@@ -123,7 +123,7 @@
 		<el-dialog v-model="showTaskDialog" :width="bigDialogWidth" :close-on-click-modal="false">
 			<template #header>
 				<div class="w-[750px] truncate text-2xl font-bold">
-					Tasks - {{ currentChecklist?.name }}
+					{{ currentChecklist?.name }}
 				</div>
 			</template>
 			<el-scrollbar max-height="70vh">
