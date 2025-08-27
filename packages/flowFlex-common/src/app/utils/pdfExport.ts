@@ -14,6 +14,8 @@ interface DrawTextOptions {
 	color?: string; // CSS color string like '#000000'
 	fontWeight?: 'normal' | 'bold';
 	fontFamilyOverride?: string; // Optional font family override
+	maxWidthMm?: number; // Maximum width for text wrapping
+	lineSpacingMm?: number; // Line spacing for multi-line text
 }
 
 /**
@@ -91,6 +93,153 @@ const drawTextWithCJK = async (
 	const yTopMm = yMm - (heightMm - baselineAdjustMm);
 
 	pdf.addImage(dataUrl, 'PNG', xMm, yTopMm, widthMm, heightMm, undefined, 'FAST');
+};
+
+/**
+ * Break text into lines that fit within maxWidth
+ */
+const breakTextIntoLines = (
+	ctx: CanvasRenderingContext2D,
+	text: string,
+	maxWidthPx: number
+): string[] => {
+	const words = text.split(' ');
+	const lines: string[] = [];
+	let currentLine = '';
+
+	for (const word of words) {
+		const testLine = currentLine ? `${currentLine} ${word}` : word;
+		const metrics = ctx.measureText(testLine);
+
+		if (metrics.width <= maxWidthPx) {
+			currentLine = testLine;
+		} else {
+			if (currentLine) {
+				lines.push(currentLine);
+				currentLine = word;
+			} else {
+				// Single word is too long, break it character by character
+				const chars = word.split('');
+				let charLine = '';
+				for (const char of chars) {
+					const testCharLine = charLine + char;
+					if (ctx.measureText(testCharLine).width <= maxWidthPx) {
+						charLine = testCharLine;
+					} else {
+						if (charLine) lines.push(charLine);
+						charLine = char;
+					}
+				}
+				if (charLine) currentLine = charLine;
+			}
+		}
+	}
+
+	if (currentLine) {
+		lines.push(currentLine);
+	}
+
+	return lines.length > 0 ? lines : [text];
+};
+
+/**
+ * Draw text with CJK support and automatic line wrapping
+ */
+const drawTextWithCJKWrapped = async (
+	pdf: any,
+	text: string,
+	xMm: number,
+	yMm: number,
+	opts: DrawTextOptions = {}
+): Promise<number> => {
+	// Returns the height used in mm
+	const fontSizePt = opts.fontSizePt ?? 12;
+	const fontWeight = opts.fontWeight ?? 'normal';
+	const maxWidthMm = opts.maxWidthMm;
+	const lineSpacingMm = opts.lineSpacingMm ?? 1.2 * (fontSizePt * 0.352778); // Default line spacing
+	const fontFamily =
+		opts.fontFamilyOverride ||
+		"Arial, 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK', 'WenQuanYi Micro Hei', 'Heiti SC', 'Source Han Sans SC', sans-serif";
+
+	// If no max width specified or text doesn't contain CJK and is short, use simple rendering
+	if (!maxWidthMm || (!containsCJK(text) && text.length < 50)) {
+		if (!containsCJK(text)) {
+			pdf.text(text, xMm, yMm);
+		} else {
+			await drawTextWithCJK(pdf, text, xMm, yMm, opts);
+		}
+		return lineSpacingMm;
+	}
+
+	// Convert measurements
+	const ptToPx = (pt: number) => (pt * 96) / 72;
+	const mmToPx = (mm: number) => (mm * 96) / 25.4;
+
+	const fontSizePx = Math.max(10, ptToPx(fontSizePt));
+	const maxWidthPx = mmToPx(maxWidthMm);
+
+	// Create canvas for text measurement
+	const canvas = document.createElement('canvas');
+	const ctx = canvas.getContext('2d');
+	if (!ctx) {
+		pdf.text(text, xMm, yMm);
+		return lineSpacingMm;
+	}
+
+	ctx.font = `${fontWeight} ${fontSizePx}px ${fontFamily}`;
+
+	// Break text into lines
+	const lines = breakTextIntoLines(ctx, text, maxWidthPx);
+
+	// Draw each line
+	let currentY = yMm;
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (containsCJK(line)) {
+			await drawTextWithCJK(pdf, line, xMm, currentY, opts);
+		} else {
+			pdf.text(line, xMm, currentY);
+		}
+		if (i < lines.length - 1) {
+			currentY += lineSpacingMm;
+		}
+	}
+
+	return lines.length * lineSpacingMm;
+};
+
+/**
+ * Calculate the height needed for text with wrapping
+ */
+const calculateTextHeight = async (
+	text: string,
+	maxWidthMm: number,
+	fontSizePt: number
+): Promise<number> => {
+	const fontFamily =
+		"Arial, 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK', 'WenQuanYi Micro Hei', 'Heiti SC', 'Source Han Sans SC', sans-serif";
+	const lineSpacingMm = 1.2 * (fontSizePt * 0.352778); // Default line spacing
+
+	// Convert measurements
+	const ptToPx = (pt: number) => (pt * 96) / 72;
+	const mmToPx = (mm: number) => (mm * 96) / 25.4;
+
+	const fontSizePx = Math.max(10, ptToPx(fontSizePt));
+	const maxWidthPx = mmToPx(maxWidthMm);
+
+	// Create canvas for text measurement
+	const canvas = document.createElement('canvas');
+	const ctx = canvas.getContext('2d');
+	if (!ctx) {
+		return lineSpacingMm;
+	}
+
+	ctx.font = `normal ${fontSizePx}px ${fontFamily}`;
+
+	// Break text into lines and count them
+	const lines = breakTextIntoLines(ctx, text, maxWidthPx);
+
+	return lines.length * lineSpacingMm;
 };
 
 /**
@@ -331,43 +480,41 @@ const addTasksTable = async (
 	pageWidth: number
 ): Promise<void> => {
 	let y = startY;
+	const taskColumnWidth = pageWidth - 2 * margin - 15; // Available width for task text
+	const minRowHeight = 8; // Minimum row height
+
+	const drawTableHeader = (yPos: number) => {
+		pdf.setFillColor(52, 71, 103);
+		pdf.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+		pdf.setTextColor(255, 255, 255);
+		pdf.setFontSize(12);
+		pdf.text('Task', margin + 20, yPos + 5.5);
+		pdf.setDrawColor(255, 255, 255);
+		pdf.setLineWidth(0.1);
+		pdf.line(margin + 15, yPos, margin + 15, yPos + 8);
+		return yPos + 8;
+	};
 
 	if (tasks && tasks.length > 0) {
 		// 表格头部
-		pdf.setFillColor(52, 71, 103);
-		pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
-
-		pdf.setTextColor(255, 255, 255);
-		pdf.setFontSize(12);
-		pdf.text('Task', margin + 20, y + 5.5);
-
-		// 绘制表格头部列分隔线
-		pdf.setDrawColor(255, 255, 255);
-		pdf.setLineWidth(0.1);
-		pdf.line(margin + 15, y, margin + 15, y + 8);
-
-		y += 8;
+		y = drawTableHeader(y);
 		pdf.setTextColor(0, 0, 0);
 		pdf.setFontSize(11);
 
 		// 添加任务行
 		for (let index = 0; index < tasks.length; index++) {
 			const task = tasks[index];
+			const taskName = String(task.name || `Task ${index + 1}`);
+
+			// 计算文本高度
+			const textHeight = await calculateTextHeight(taskName, taskColumnWidth, 12);
+			const rowHeight = Math.max(minRowHeight, textHeight + 2); // Add padding
+
 			// 检查是否需要新页面
-			if (y > 250) {
+			if (y + rowHeight > 280) {
 				pdf.addPage();
 				y = 20;
-
-				// 重新添加表格头部
-				pdf.setFillColor(52, 71, 103);
-				pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
-				pdf.setTextColor(255, 255, 255);
-				pdf.setFontSize(12);
-				pdf.text('Task', margin + 20, y + 5.5);
-				pdf.setDrawColor(255, 255, 255);
-				pdf.setLineWidth(0.1);
-				pdf.line(margin + 15, y, margin + 15, y + 8);
-				y += 8;
+				y = drawTableHeader(y);
 				pdf.setTextColor(0, 0, 0);
 				pdf.setFontSize(11);
 			}
@@ -375,26 +522,29 @@ const addTasksTable = async (
 			// 绘制表格行背景（交替颜色）
 			if (index % 2 === 1) {
 				pdf.setFillColor(245, 247, 250);
-				pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+				pdf.rect(margin, y, pageWidth - 2 * margin, rowHeight, 'F');
 			}
 
 			// 绘制表格边框
 			pdf.setDrawColor(209, 213, 219);
 			pdf.setLineWidth(0.1);
-			pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'S');
-			pdf.line(margin + 15, y, margin + 15, y + 8);
+			pdf.rect(margin, y, pageWidth - 2 * margin, rowHeight, 'S');
+			pdf.line(margin + 15, y, margin + 15, y + rowHeight);
 
-			// 添加序号和任务名称
-			const taskName = String(task.name || `Task ${index + 1}`);
+			// 添加序号
 			pdf.setTextColor(0, 0, 0);
 			pdf.setFontSize(12);
-			pdf.text(`${index + 1}`, margin + 6, y + 5.5);
-			await drawTextWithCJK(pdf, taskName, margin + 20, y + 5.5, {
+			pdf.text(`${index + 1}`, margin + 6, y + rowHeight / 2 + 2);
+
+			// 添加任务名称（支持换行）
+			await drawTextWithCJKWrapped(pdf, taskName, margin + 20, y + 4, {
 				fontSizePt: 12,
 				color: '#000000',
+				maxWidthMm: taskColumnWidth,
+				lineSpacingMm: 4,
 			});
 
-			y += 8;
+			y += rowHeight;
 		}
 	} else {
 		// 空状态表格
