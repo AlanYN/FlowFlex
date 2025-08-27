@@ -367,6 +367,7 @@ const getAssigneeInitials = (fullName) => {
 	min-width: 0;
 	/* 确保内容不会撑开父容器 */
 	overflow: hidden;
+	background-color: #fffbeb;
 
 	&.completed {
 		background-color: #f0fdf4;

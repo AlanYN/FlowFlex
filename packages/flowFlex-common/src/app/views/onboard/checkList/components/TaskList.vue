@@ -492,12 +492,21 @@ const saveTaskEdit = async () => {
 
 		await updateChecklistTask(editingTask.value.id, taskData);
 		ElMessage.success(t('sys.api.operationSuccess'));
-		editingTask.value = null;
-		originalTaskData.value = null;
 		// 重新加载任务数据
 		await loadTasks();
 		// 通知父组件更新checklist数据
 		// emit('task-updated', props.checklist.id);
+		// 成功保存后清理编辑状态
+		editingTask.value = null;
+		originalTaskData.value = null;
+		taskFormData.value = {
+			name: '',
+			description: '',
+			estimatedMinutes: 0,
+			isRequired: false,
+			assigneeId: null,
+			assigneeName: '',
+		};
 	} catch {
 		cancelTaskEdit();
 	}

@@ -119,7 +119,7 @@
 												End:
 												{{
 													timeZoneConvert(
-														lead.currentStageEndTime,
+														lead?.currentStageEndTime,
 														false,
 														projectTenMinutesSsecondsDate
 													)
