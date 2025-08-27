@@ -381,6 +381,32 @@ export interface ChecklistTaskCompletionOutputDto {
 	createBy: string;
 }
 
+// 任务附件数据结构
+export interface TaskAttachment {
+	id: string;
+	name: string;
+	size?: number;
+	url?: string;
+	uploadDate?: string;
+	uploadBy?: string;
+}
+
+// 任务笔记数据结构
+export interface TaskNote {
+	content: string;
+	createdAt: string;
+	createdBy: string;
+	createdByName: string;
+	id: string;
+	isDeleted: boolean;
+	isPinned: boolean;
+	modifiedAt: string;
+	noteType: string;
+	onboardingId: string;
+	priority: string;
+	taskId: string;
+}
+
 // 任务数据结构
 export interface TaskData {
 	id: string;
@@ -407,6 +433,8 @@ export interface TaskData {
 	isActive: boolean;
 	createDate: string;
 	createBy: string;
+	filesCount: number;
+	notesCount: number;
 }
 
 // API返回的Checklist数据结构

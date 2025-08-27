@@ -121,9 +121,6 @@
 	// 按钮相关初始化
 	.el-button {
 		// @apply text-white-100 bg-primary-200;
-		&:hover {
-			@apply border-primary-500 bg-primary-200 text-white;
-		}
 		&.is-disabled {
 			@apply border-gray-600 bg-gray-600;
 			&:hover,

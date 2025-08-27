@@ -73,6 +73,10 @@ const Api = (id?: string | number) => {
 
 		filedForm: `${globSetting.apiProName}/ow/static-field-values/${globSetting.apiVersion}/onboarding/${id}`,
 		staticFieldValuesByOnboarding: `${globSetting.apiProName}/ow/static-field-values/${globSetting.apiVersion}/by-onboarding/${id}`,
+
+		onboardingTaskNote: `${globSetting.apiProName}/ow/checklist-task-notes/${globSetting.apiVersion}`,
+
+		checklistTaskFile: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/upload-file`,
 	};
 };
 
@@ -737,4 +741,55 @@ export function getCheckListIds(params: any) {
 
 export function getQuestionIds(params: any) {
 	return defHttp.post({ url: `${Api().questionIds}`, params });
+}
+
+export function getOnboardingTaskNoteList(onboardingId: string, taskId: string) {
+	return defHttp.get({
+		url: `${Api().onboardingTaskNote}/task/${taskId}/onboarding/${onboardingId}`,
+	});
+}
+
+export function saveOnboardingTaskNote(params: {
+	taskId: string;
+	onboardingId: string;
+	content: string;
+}) {
+	return defHttp.post({
+		url: `${Api().onboardingTaskNote}`,
+		params,
+	});
+}
+
+export function deleteOnboardingTaskNote(id: string) {
+	return defHttp.delete({
+		url: `${Api().onboardingTaskNote}/${id}`,
+	});
+}
+
+export function editOnboardingTaskNote(
+	id: string,
+	params: {
+		taskId: string;
+		onboardingId: string;
+		content: string;
+	}
+) {
+	return defHttp.put({
+		url: `${Api().onboardingTaskNote}/${id}`,
+		params,
+	});
+}
+
+export function uploadCheckListTaskFile(
+	onboardingId: string,
+	params: any,
+	onUploadProgress?: (progressEvent: any) => void
+) {
+	return defHttp.uploadFile(
+		{
+			url: `${Api(onboardingId).onboardingFiles}`,
+			onUploadProgress,
+		},
+		params
+	);
 }
