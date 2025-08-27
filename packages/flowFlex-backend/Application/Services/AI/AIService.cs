@@ -1,21 +1,22 @@
-using Microsoft.Extensions.Options;
+using DocumentFormat.OpenXml.Spreadsheet;
+using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
+using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
+using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
+using FlowFlex.Application.Contracts.Dtos.OW.Stage;
+using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
+using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Domain.Shared;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using FlowFlex.Application.Contracts.IServices;
-using FlowFlex.Application.Contracts.Options;
-using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
-using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
-using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
-using FlowFlex.Application.Contracts.Dtos.OW.Stage;
-using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
-
-using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Domain.Repository.OW;
-using Microsoft.AspNetCore.Http;
+using static FastExpressionCompiler.ExpressionCompiler;
 
 namespace FlowFlex.Application.Services.AI
 {
@@ -82,7 +83,7 @@ namespace FlowFlex.Application.Services.AI
             var startTime = DateTime.UtcNow;
             string prompt = null;
             AIProviderResponse aiResponse = null;
-            
+
             try
             {
                 _logger.LogInformation("Generating workflow from natural language with enhanced context");
@@ -122,13 +123,13 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
-                        var metadata = JsonSerializer.Serialize(new 
-                        { 
+                        var metadata = JsonSerializer.Serialize(new
+                        {
                             sessionId = input.SessionId,
                             conversationHistoryCount = input.ConversationHistory?.Count ?? 0,
                             contextId = contextId
                         });
-                        await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null, 
+                        await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null,
                             prompt, aiResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
                     }
                     catch (Exception ex)
@@ -163,7 +164,7 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating workflow from description: {Description}", input.Description);
-                
+
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
@@ -177,12 +178,12 @@ namespace FlowFlex.Application.Services.AI
                                 ErrorMessage = ex.Message,
                                 Content = ""
                             };
-                            var metadata = JsonSerializer.Serialize(new 
-                            { 
+                            var metadata = JsonSerializer.Serialize(new
+                            {
                                 sessionId = input.SessionId,
                                 error = ex.Message
                             });
-                            await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null, 
+                            await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null,
                                 prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
                         }
                         catch (Exception saveEx)
@@ -191,7 +192,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     });
                 }
-                
+
                 return new AIWorkflowGenerationResult
                 {
                     Success = false,
@@ -206,7 +207,7 @@ namespace FlowFlex.Application.Services.AI
             var startTime = DateTime.UtcNow;
             string prompt = null;
             AIProviderResponse aiResponse = null;
-            
+
             try
             {
                 _logger.LogInformation("Generating questionnaire for purpose: {Purpose}", input.Purpose);
@@ -219,13 +220,13 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
-                        var metadata = JsonSerializer.Serialize(new 
-                        { 
+                        var metadata = JsonSerializer.Serialize(new
+                        {
                             purpose = input.Purpose,
                             targetAudience = input.TargetAudience,
                             estimatedQuestions = input.EstimatedQuestions
                         });
-                        await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null, 
+                        await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null,
                             prompt, aiResponse, startTime, null, null, null, metadata);
                     }
                     catch (Exception ex)
@@ -252,7 +253,7 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating questionnaire: {Purpose}", input.Purpose);
-                
+
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
@@ -266,12 +267,12 @@ namespace FlowFlex.Application.Services.AI
                                 ErrorMessage = ex.Message,
                                 Content = ""
                             };
-                            var metadata = JsonSerializer.Serialize(new 
-                            { 
+                            var metadata = JsonSerializer.Serialize(new
+                            {
                                 purpose = input.Purpose,
                                 error = ex.Message
                             });
-                            await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null, 
+                            await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null,
                                 prompt, failedResponse, startTime, null, null, null, metadata);
                         }
                         catch (Exception saveEx)
@@ -280,7 +281,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     });
                 }
-                
+
                 return new AIQuestionnaireGenerationResult
                 {
                     Success = false,
@@ -295,7 +296,7 @@ namespace FlowFlex.Application.Services.AI
             var startTime = DateTime.UtcNow;
             string prompt = null;
             AIProviderResponse aiResponse = null;
-            
+
             try
             {
                 _logger.LogInformation("Generating checklist for process: {ProcessName}", input.ProcessName);
@@ -308,13 +309,13 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
-                        var metadata = JsonSerializer.Serialize(new 
-                        { 
+                        var metadata = JsonSerializer.Serialize(new
+                        {
                             processName = input.ProcessName,
                             team = input.Team,
                             requiredStepsCount = input.RequiredSteps?.Count ?? 0
                         });
-                        await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null, 
+                        await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null,
                             prompt, aiResponse, startTime, null, null, null, metadata);
                     }
                     catch (Exception ex)
@@ -341,7 +342,7 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating checklist: {ProcessName}", input.ProcessName);
-                
+
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
@@ -355,12 +356,12 @@ namespace FlowFlex.Application.Services.AI
                                 ErrorMessage = ex.Message,
                                 Content = ""
                             };
-                            var metadata = JsonSerializer.Serialize(new 
-                            { 
+                            var metadata = JsonSerializer.Serialize(new
+                            {
                                 processName = input.ProcessName,
                                 error = ex.Message
                             });
-                            await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null, 
+                            await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null,
                                 prompt, failedResponse, startTime, null, null, null, metadata);
                         }
                         catch (Exception saveEx)
@@ -369,7 +370,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     });
                 }
-                
+
                 return new AIChecklistGenerationResult
                 {
                     Success = false,
@@ -383,7 +384,7 @@ namespace FlowFlex.Application.Services.AI
         {
             var startTime = DateTime.UtcNow;
             string prompt = null;
-            
+
             _logger.LogInformation("Starting streaming workflow generation: {Description}", input.Description);
 
             yield return new AIWorkflowStreamResult
@@ -1210,7 +1211,7 @@ namespace FlowFlex.Application.Services.AI
             var startTime = DateTime.UtcNow;
             string prompt = null;
             AIProviderResponse aiResponse = null;
-            
+
             try
             {
                 _logger.LogInformation("Parsing requirements from natural language");
@@ -1237,12 +1238,12 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
-                        var metadata = JsonSerializer.Serialize(new 
-                        { 
+                        var metadata = JsonSerializer.Serialize(new
+                        {
                             naturalLanguageLength = naturalLanguage?.Length ?? 0,
                             inputText = naturalLanguage?.Substring(0, Math.Min(200, naturalLanguage?.Length ?? 0))
                         });
-                        await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                        await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
                             prompt, aiResponse, startTime, null, null, null, metadata);
                     }
                     catch (Exception ex)
@@ -1280,7 +1281,7 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error parsing requirements");
-                
+
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
@@ -1294,12 +1295,12 @@ namespace FlowFlex.Application.Services.AI
                                 ErrorMessage = ex.Message,
                                 Content = ""
                             };
-                            var metadata = JsonSerializer.Serialize(new 
-                            { 
+                            var metadata = JsonSerializer.Serialize(new
+                            {
                                 naturalLanguageLength = naturalLanguage?.Length ?? 0,
                                 error = ex.Message
                             });
-                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
                                 prompt, failedResponse, startTime, null, null, null, metadata);
                         }
                         catch (Exception saveEx)
@@ -1308,7 +1309,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     });
                 }
-                
+
                 return new AIRequirementsParsingResult
                 {
                     Success = false,
@@ -1322,7 +1323,7 @@ namespace FlowFlex.Application.Services.AI
             var startTime = DateTime.UtcNow;
             string prompt = null;
             AIProviderResponse aiResponse = null;
-            
+
             try
             {
                 _logger.LogInformation("Parsing requirements with explicit model override: Provider={Provider}, Model={ModelName}, Id={ModelId}", modelProvider, modelName, modelId);
@@ -1349,13 +1350,13 @@ namespace FlowFlex.Application.Services.AI
                 {
                     try
                     {
-                        var metadata = JsonSerializer.Serialize(new 
-                        { 
+                        var metadata = JsonSerializer.Serialize(new
+                        {
                             naturalLanguageLength = naturalLanguage?.Length ?? 0,
                             inputText = naturalLanguage?.Substring(0, Math.Min(200, naturalLanguage?.Length ?? 0)),
                             explicitModelOverride = true
                         });
-                        await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                        await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
                             prompt, aiResponse, startTime, modelProvider, modelName, modelId, metadata);
                     }
                     catch (Exception ex)
@@ -1392,7 +1393,7 @@ namespace FlowFlex.Application.Services.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error parsing requirements with override");
-                
+
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
@@ -1406,13 +1407,13 @@ namespace FlowFlex.Application.Services.AI
                                 ErrorMessage = ex.Message,
                                 Content = ""
                             };
-                            var metadata = JsonSerializer.Serialize(new 
-                            { 
+                            var metadata = JsonSerializer.Serialize(new
+                            {
                                 naturalLanguageLength = naturalLanguage?.Length ?? 0,
                                 explicitModelOverride = true,
                                 error = ex.Message
                             });
-                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null, 
+                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
                                 prompt, failedResponse, startTime, modelProvider, modelName, modelId, metadata);
                         }
                         catch (Exception saveEx)
@@ -1421,7 +1422,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     });
                 }
-                
+
                 return new AIRequirementsParsingResult
                 {
                     Success = false,
@@ -2904,7 +2905,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var startTime = DateTime.UtcNow;
             string prompt = null;
             AIProviderResponse response = null;
-            
+
             try
             {
                 _logger.LogInformation("Processing AI chat message for session: {SessionId}", input.SessionId);
@@ -2930,14 +2931,14 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 {
                     try
                     {
-                        var metadata = JsonSerializer.Serialize(new 
-                        { 
+                        var metadata = JsonSerializer.Serialize(new
+                        {
                             sessionId = input.SessionId,
                             mode = input.Mode,
                             messageCount = input.Messages?.Count ?? 0,
                             lastMessage = input.Messages?.LastOrDefault()?.Content?.Substring(0, Math.Min(200, input.Messages?.LastOrDefault()?.Content?.Length ?? 0))
                         });
-                        await SavePromptHistoryAsync("ChatMessage", "Chat", null, null, 
+                        await SavePromptHistoryAsync("ChatMessage", "Chat", null, null,
                             prompt, response, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
                     }
                     catch (Exception ex)
@@ -2962,7 +2963,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in AI chat processing for session: {SessionId}", input.SessionId);
-                
+
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
@@ -2976,14 +2977,14 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                                 ErrorMessage = ex.Message,
                                 Content = ""
                             };
-                            var metadata = JsonSerializer.Serialize(new 
-                            { 
+                            var metadata = JsonSerializer.Serialize(new
+                            {
                                 sessionId = input.SessionId,
                                 mode = input.Mode,
                                 messageCount = input.Messages?.Count ?? 0,
                                 error = ex.Message
                             });
-                            await SavePromptHistoryAsync("ChatMessage", "Chat", null, null, 
+                            await SavePromptHistoryAsync("ChatMessage", "Chat", null, null,
                                 prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
                         }
                         catch (Exception saveEx)
@@ -2992,7 +2993,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                         }
                     });
                 }
-                
+
                 return GenerateErrorChatResponse(input, ex.Message);
             }
         }
@@ -5647,7 +5648,7 @@ Make questions relevant to the project context and stage objectives.";
                 }
 
                 // Now update stage components to link the created checklists and questionnaires
-                
+
                 for (int i = 0; i < createdStages.Count; i++)
                 {
                     var stage = createdStages[i];
@@ -5660,7 +5661,7 @@ Make questions relevant to the project context and stage objectives.";
                         var checklistName = checklists[i].GeneratedChecklist.Name;
                         var checklistEntities = await _checklistRepository.GetByNameAsync(checklistName);
                         var checklistEntity = checklistEntities?.FirstOrDefault();
-                        
+
                         if (checklistEntity != null)
                         {
                             stageComponents.Add(new
@@ -5685,7 +5686,7 @@ Make questions relevant to the project context and stage objectives.";
                         var questionnaireName = questionnaires[i].GeneratedQuestionnaire.Name;
                         // Use LINQ query to find questionnaire by name
                         var questionnaireEntity = await _questionnaireRepository.GetFirstAsync(q => q.Name == questionnaireName && q.IsValid);
-                        
+
                         if (questionnaireEntity != null)
                         {
                             // If we already have a checklist component, add questionnaire to a new component
@@ -5722,8 +5723,8 @@ Make questions relevant to the project context and stage objectives.";
                             {
                                 stageEntity.ComponentsJson = JsonSerializer.Serialize(stageComponents);
                                 await _stageRepository.UpdateAsync(stageEntity);
-                                
-                                _logger.LogInformation("✅ Updated stage {StageId} components with {ComponentCount} components", 
+
+                                _logger.LogInformation("✅ Updated stage {StageId} components with {ComponentCount} components",
                                     stage.Id, stageComponents.Count);
                             }
                         }
@@ -5828,7 +5829,7 @@ Make questions relevant to the project context and stage objectives.";
             var startTime = DateTime.UtcNow;
             string prompt = null;
             AIProviderResponse aiResponse = null;
-            
+
             try
             {
                 _logger.LogInformation("Generating AI summary for stage {StageId}: {StageName}", input.StageId, input.StageName);
@@ -5844,7 +5845,7 @@ Make questions relevant to the project context and stage objectives.";
                 {
                     try
                     {
-                        await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId, 
+                        await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId,
                             prompt, aiResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId);
                     }
                     catch (Exception ex)
@@ -5872,7 +5873,7 @@ Make questions relevant to the project context and stage objectives.";
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating AI summary for stage {StageId}: {Error}", input.StageId, ex.Message);
-                
+
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
@@ -5886,7 +5887,7 @@ Make questions relevant to the project context and stage objectives.";
                                 ErrorMessage = ex.Message,
                                 Content = ""
                             };
-                            await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId, 
+                            await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId,
                                 prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId);
                         }
                         catch (Exception saveEx)
@@ -5895,7 +5896,7 @@ Make questions relevant to the project context and stage objectives.";
                         }
                     });
                 }
-                
+
                 return new AIStageSummaryResult
                 {
                     Success = false,
@@ -6026,19 +6027,7 @@ Make questions relevant to the project context and stage objectives.";
         {
             var promptBuilder = new StringBuilder();
 
-            // Determine effective language: explicit -> auto-detect from input content
-            var effectiveLanguage = DetermineEffectiveLanguage(input);
-
-            // Set language instruction
-            if (effectiveLanguage == "zh-CN")
-            {
-                promptBuilder.AppendLine("用中文生成简洁的阶段总结。");
-            }
-            else
-            {
-                promptBuilder.AppendLine("Generate a concise stage summary in English.");
-            }
-
+            promptBuilder.AppendLine("Output the result according to the language input by the user.");
             promptBuilder.AppendLine();
             promptBuilder.AppendLine("=== Stage Summary Generation Task ===");
             promptBuilder.AppendLine($"Stage Name: {input.StageName}");
@@ -6540,7 +6529,7 @@ Make questions relevant to the project context and stage objectives.";
         /// Save AI prompt history to database
         /// </summary>
         private async Task SavePromptHistoryAsync(string promptType, string entityType, long? entityId, long? onboardingId,
-            string promptContent, AIProviderResponse response, DateTime startTime, string modelProvider = null, 
+            string promptContent, AIProviderResponse response, DateTime startTime, string modelProvider = null,
             string modelName = null, string modelId = null, string metadata = null)
         {
             try
@@ -6568,7 +6557,7 @@ Make questions relevant to the project context and stage objectives.";
                 {
                     metadataObj = new { };
                 }
-                
+
                 var promptHistory = new AIPromptHistory
                 {
                     PromptType = promptType ?? "Unknown",
@@ -6603,8 +6592,8 @@ Make questions relevant to the project context and stage objectives.";
 
                 // Save to database
                 await _aiPromptHistoryRepository.InsertAsync(promptHistory);
-                
-                _logger.LogDebug("Saved AI prompt history for {PromptType} - {EntityType}:{EntityId}", 
+
+                _logger.LogDebug("Saved AI prompt history for {PromptType} - {EntityType}:{EntityId}",
                     promptType, entityType, entityId);
             }
             catch (Exception ex)

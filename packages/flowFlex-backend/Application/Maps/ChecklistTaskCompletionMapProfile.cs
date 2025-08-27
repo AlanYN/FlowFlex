@@ -40,7 +40,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
                 .ForMember(dest => dest.ModifyDate, opt => opt.MapFrom(src => src.ModifyDate))
-                .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy));
+                .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy))
+                .ForMember(dest => dest.FilesCount, opt => opt.Ignore()) // Will be filled by service
+                .ForMember(dest => dest.NotesCount, opt => opt.Ignore()); // Will be filled by service
         }
     }
 }

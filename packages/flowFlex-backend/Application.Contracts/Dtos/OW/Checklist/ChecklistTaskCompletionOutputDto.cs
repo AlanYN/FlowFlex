@@ -81,4 +81,14 @@ public class ChecklistTaskCompletionOutputDto
     /// 修改人
     /// </summary>
     public string ModifyBy { get; set; }
+
+    /// <summary>
+    /// 文件数量
+    /// </summary>
+    public int FilesCount { get; set; }
+
+    /// <summary>
+    /// 笔记数量
+    /// </summary>
+    public int NotesCount { get; set; }
 }

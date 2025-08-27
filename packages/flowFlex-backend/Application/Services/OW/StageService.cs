@@ -91,6 +91,12 @@ namespace FlowFlex.Application.Service.OW
                     entity.Order = await _stageRepository.GetNextOrderAsync(input.WorkflowId);
                 }
 
+                // Validate component uniqueness within the same workflow
+                if (input.Components != null && input.Components.Any())
+                {
+                    await ValidateComponentUniquenessInWorkflowAsync(input.WorkflowId, null, input.Components);
+                }
+
                 // Initialize create information with proper ID and timestamps
                 entity.InitCreateInfo(_userContext);
 
@@ -127,31 +133,50 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<bool> UpdateAsync(long id, StageInputDto input)
         {
+            // Get current stage information first (outside transaction for validation)
+            var stage = await _stageRepository.GetByIdAsync(id);
+            if (stage == null)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
+            }
+
+            // Validate stage name uniqueness within workflow (excluding current stage)
+            if (await _stageRepository.IsNameExistsInWorkflowAsync(stage.WorkflowId, input.Name, id))
+            {
+                throw new CRMException(ErrorCodeEnum.CustomError,
+                    $"Stage name '{input.Name}' already exists in this workflow");
+            }
+
+            // Fill component names before validation
+            if (input.Components != null && input.Components.Any())
+            {
+                await FillComponentNamesAsync(input.Components);
+            }
+
+            // Validate component uniqueness within the same workflow (exclude current stage) - BEFORE transaction
+            if (input.Components != null && input.Components.Any())
+            {
+                await ValidateComponentUniquenessInWorkflowAsync(stage.WorkflowId, id, input.Components);
+            }
+
             // Use transaction to ensure data consistency
             var transactionResult = await _db.Ado.UseTranAsync(async () =>
             {
-                // Get current stage information
-                var stage = await _stageRepository.GetByIdAsync(id);
-                if (stage == null)
+                // Re-get stage information inside transaction (to ensure consistency)
+                var stageInTransaction = await _stageRepository.GetByIdAsync(id);
+                if (stageInTransaction == null)
                 {
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
-                }
-
-                // Validate stage name uniqueness within workflow (excluding current stage)
-                if (await _stageRepository.IsNameExistsInWorkflowAsync(input.WorkflowId, input.Name, id))
-                {
-                    throw new CRMException(ErrorCodeEnum.CustomError,
-                        $"Stage name '{input.Name}' already exists in this workflow");
                 }
 
                 // Extract old components for sync comparison (before mapping)
                 List<StageComponent> oldComponents = new List<StageComponent>();
 
-                if (!string.IsNullOrEmpty(stage.ComponentsJson))
+                if (!string.IsNullOrEmpty(stageInTransaction.ComponentsJson))
                 {
                     try
                     {
-                        oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stage.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
+                        oldComponents = JsonSerializer.Deserialize<List<StageComponent>>(stageInTransaction.ComponentsJson, _jsonOptions) ?? new List<StageComponent>();
                     }
                     catch (JsonException)
                     {
@@ -173,14 +198,8 @@ namespace FlowFlex.Application.Service.OW
                     .OrderBy(x => x)
                     .ToList();
 
-                // Fill component names before mapping
-                if (input.Components != null && input.Components.Any())
-                {
-                    await FillComponentNamesAsync(input.Components);
-                }
-
                 // Map update data
-                _mapper.Map(input, stage);
+                _mapper.Map(input, stageInTransaction);
 
                 // Extract new components for sync comparison (after mapping)
                 var newChecklistIds = new List<long>();
@@ -204,10 +223,10 @@ namespace FlowFlex.Application.Service.OW
                 }
 
                 // Initialize update information with proper timestamps
-                stage.InitUpdateInfo(_userContext);
+                stageInTransaction.InitUpdateInfo(_userContext);
 
                 // Update database within transaction
-                var result = await _stageRepository.UpdateAsync(stage);
+                var result = await _stageRepository.UpdateAsync(stageInTransaction);
 
                 if (result)
                 {
@@ -250,7 +269,7 @@ namespace FlowFlex.Application.Service.OW
                     {
                         try
                         {
-                            await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stage.WorkflowId, id);
+                            await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stageInTransaction.WorkflowId, id);
                         }
                         catch
                         {
@@ -671,6 +690,9 @@ namespace FlowFlex.Application.Service.OW
 
                 // Ensure all components have proper default values and fill names
                 await FillComponentNamesAsync(input.Components);
+
+                // Validate component uniqueness within the same workflow (exclude current stage)
+                await ValidateComponentUniquenessInWorkflowAsync(entity.WorkflowId, id, input.Components);
 
                 // Extract new IDs for sync comparison
                 var newChecklistIds = input.Components
@@ -1964,7 +1986,203 @@ namespace FlowFlex.Application.Service.OW
             Console.WriteLine($"  Repaired stages: {repairedStages}");
             Console.WriteLine($"  Failed repairs: {results.Count(r => r.RepairAttempted && r.RepairSuccessful != true)}");
 
-            return results;
-        }
-    }
-}
+                         return results;
+         }
+
+         /// <summary>
+         /// Validate that checklist and questionnaire components are unique within the same workflow across different stages
+         /// </summary>
+         /// <param name="workflowId">Workflow ID</param>
+         /// <param name="currentStageId">Current stage ID to exclude from validation (null for new stage)</param>
+         /// <param name="components">Components to validate</param>
+         private async Task ValidateComponentUniquenessInWorkflowAsync(long workflowId, long? currentStageId, List<StageComponent> components)
+         {
+             Console.WriteLine($"[StageService] ValidateComponentUniquenessInWorkflowAsync called - WorkflowId: {workflowId}, CurrentStageId: {currentStageId}");
+             
+             if (components == null || !components.Any())
+             {
+                 Console.WriteLine($"[StageService] No components to validate, returning");
+                 return;
+             }
+
+             // Extract checklist and questionnaire IDs from components
+             var checklistIds = components
+                 .Where(c => c.Key == "checklist")
+                 .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                 .Distinct()
+                 .ToList();
+
+             var questionnaireIds = components
+                 .Where(c => c.Key == "questionnaires")
+                 .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                 .Distinct()
+                 .ToList();
+
+             Console.WriteLine($"[StageService] Found {checklistIds.Count} checklist IDs: [{string.Join(", ", checklistIds)}]");
+             Console.WriteLine($"[StageService] Found {questionnaireIds.Count} questionnaire IDs: [{string.Join(", ", questionnaireIds)}]");
+
+             if (!checklistIds.Any() && !questionnaireIds.Any())
+             {
+                 Console.WriteLine($"[StageService] No checklist or questionnaire IDs to validate, returning");
+                 return;
+             }
+
+             // Get all other stages in the same workflow
+             var allStagesInWorkflow = await _stageRepository.GetByWorkflowIdAsync(workflowId);
+             if (allStagesInWorkflow == null || !allStagesInWorkflow.Any())
+             {
+                 Console.WriteLine($"[StageService] No stages found in workflow {workflowId}, returning");
+                 return;
+             }
+
+             Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
+
+             // Check each stage for conflicts
+             foreach (var stage in allStagesInWorkflow)
+             {
+                 // Skip current stage
+                 if (currentStageId.HasValue && stage.Id == currentStageId.Value)
+                 {
+                     Console.WriteLine($"[StageService] Skipping current stage {stage.Id} ({stage.Name})");
+                     continue;
+                 }
+
+                 Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
+
+                 // Parse existing components in this stage
+                 var existingComponents = await GetStageComponentsFromEntity(stage);
+                 if (existingComponents == null || !existingComponents.Any())
+                 {
+                     Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping");
+                     continue;
+                 }
+
+                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
+
+                 // Extract existing checklist and questionnaire IDs
+                 var existingChecklistIds = existingComponents
+                     .Where(c => c.Key == "checklist")
+                     .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                     .ToHashSet();
+
+                 var existingQuestionnaireIds = existingComponents
+                     .Where(c => c.Key == "questionnaires")
+                     .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                     .ToHashSet();
+
+                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing checklist IDs: [{string.Join(", ", existingChecklistIds)}]");
+                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing questionnaire IDs: [{string.Join(", ", existingQuestionnaireIds)}]");
+
+                 // Check for checklist conflicts
+                 var conflictingChecklists = checklistIds.Where(id => existingChecklistIds.Contains(id)).ToList();
+                 if (conflictingChecklists.Any())
+                 {
+                     Console.WriteLine($"[StageService] CONFLICT DETECTED! Checklist(s) [{string.Join(", ", conflictingChecklists)}] already exist in stage '{stage.Name}'");
+                     
+                     // Get checklist names for better error message
+                     var conflictingChecklistNames = await GetChecklistNamesByIds(conflictingChecklists);
+                     var namesDisplay = conflictingChecklistNames.Any() ? string.Join("、", conflictingChecklistNames) : string.Join(", ", conflictingChecklists);
+                     
+                     throw new CRMException(ErrorCodeEnum.BusinessError, 
+                         $"Checklist '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
+                 }
+
+                 // Check for questionnaire conflicts
+                 var conflictingQuestionnaires = questionnaireIds.Where(id => existingQuestionnaireIds.Contains(id)).ToList();
+                 if (conflictingQuestionnaires.Any())
+                 {
+                     Console.WriteLine($"[StageService] CONFLICT DETECTED! Questionnaire(s) [{string.Join(", ", conflictingQuestionnaires)}] already exist in stage '{stage.Name}'");
+                     
+                     // Get questionnaire names for better error message
+                     var conflictingQuestionnaireNames = await GetQuestionnaireNamesByIds(conflictingQuestionnaires);
+                     var namesDisplay = conflictingQuestionnaireNames.Any() ? string.Join("、", conflictingQuestionnaireNames) : string.Join(", ", conflictingQuestionnaires);
+                     
+                     throw new CRMException(ErrorCodeEnum.BusinessError, 
+                         $"Questionnaire '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
+                 }
+
+                 Console.WriteLine($"[StageService] No conflicts found with stage {stage.Id} ({stage.Name})");
+             }
+         }
+
+         /// <summary>
+         /// Get stage components from stage entity, handling JSON parsing
+         /// </summary>
+         /// <param name="stage">Stage entity</param>
+         /// <returns>List of stage components</returns>
+         private async Task<List<StageComponent>> GetStageComponentsFromEntity(Stage stage)
+         {
+             if (string.IsNullOrEmpty(stage.ComponentsJson))
+                 return new List<StageComponent>();
+
+             try
+             {
+                 // Handle double-escaped JSON string
+                 var jsonString = stage.ComponentsJson;
+                 
+                 // If the string starts and ends with quotes, it's likely double-escaped
+                 if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                 {
+                     // Remove outer quotes and unescape
+                     jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
+                 }
+
+                 // Clean problematic escape sequences
+                 var cleanedJson = CleanJsonString(jsonString);
+                 
+                 // Deserialize components
+                 var components = JsonSerializer.Deserialize<List<StageComponent>>(cleanedJson, _jsonOptions);
+                 return components ?? new List<StageComponent>();
+             }
+             catch (JsonException)
+             {
+                 // If JSON parsing fails, return empty list
+                 return new List<StageComponent>();
+             }
+         }
+
+         /// <summary>
+         /// Get checklist names by IDs
+         /// </summary>
+         /// <param name="checklistIds">Checklist IDs</param>
+         /// <returns>List of checklist names</returns>
+         private async Task<List<string>> GetChecklistNamesByIds(List<long> checklistIds)
+         {
+             if (checklistIds == null || !checklistIds.Any())
+                 return new List<string>();
+
+             try
+             {
+                 var checklists = await _checklistService.GetByIdsAsync(checklistIds);
+                 return checklists?.Select(c => c.Name).Where(name => !string.IsNullOrEmpty(name)).ToList() ?? new List<string>();
+             }
+             catch (Exception ex)
+             {
+                 Console.WriteLine($"[StageService] Error getting checklist names: {ex.Message}");
+                 return new List<string>();
+             }
+         }
+
+         /// <summary>
+         /// Get questionnaire names by IDs
+         /// </summary>
+         /// <param name="questionnaireIds">Questionnaire IDs</param>
+         /// <returns>List of questionnaire names</returns>
+         private async Task<List<string>> GetQuestionnaireNamesByIds(List<long> questionnaireIds)
+         {
+             if (questionnaireIds == null || !questionnaireIds.Any())
+                 return new List<string>();
+
+             try
+             {
+                 var questionnaires = await _questionnaireService.GetByIdsAsync(questionnaireIds);
+                 return questionnaires?.Select(q => q.Name).Where(name => !string.IsNullOrEmpty(name)).ToList() ?? new List<string>();
+             }
+             catch (Exception ex)
+             {
+                 Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
+                 return new List<string>();
+             }
+         }
+     }
+ }
