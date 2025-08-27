@@ -60,6 +60,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="isAssignmentStage"></param>
         /// <param name="isAssignmentChecklist"></param>
         /// <param name="isAssignmentQuestionnaire"></param>
+        /// <param name="isTools"></param>
         /// <returns></returns>
         [HttpGet("definitions")]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionDefinitionDto>>>((int)HttpStatusCode.OK)]
@@ -70,7 +71,8 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null)
         {
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
                 actionType,
@@ -79,7 +81,8 @@ namespace FlowFlex.WebApi.Controllers.Action
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
-                isAssignmentWorkflow);
+                isAssignmentWorkflow,
+                isTools);
             return Success(result);
         }
 
@@ -269,7 +272,8 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <summary>
         /// Create new action trigger mapping
         /// </summary>
-        /// <param name="dto">Create action trigger mapping DTO</param>
+        /// <param name="dto">Create action trigger mapping DTO. 
+        /// TriggerEvent defaults to "Completed" if not provided.</param>
         /// <returns>Created action trigger mapping</returns>
         [HttpPost("mappings")]
         [ProducesResponseType<SuccessResponse<ActionTriggerMappingDto>>((int)HttpStatusCode.Created)]
@@ -294,14 +298,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <returns>Success status</returns>
         [HttpDelete("mappings/{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> DeleteActionTriggerMapping(long id)
         {
             var result = await _actionManagementService.DeleteActionTriggerMappingAsync(id);
-            if (!result)
-            {
-                return NotFound();
-            }
             return Success(result);
         }
 

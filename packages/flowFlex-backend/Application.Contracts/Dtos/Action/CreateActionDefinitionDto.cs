@@ -52,5 +52,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Trigger type (optional - for creating trigger mapping)
         /// </summary>
         public TriggerTypeEnum? TriggerType { get; set; }
+
+        public bool IsTools { get; set; } = false;
     }
 }

@@ -24,6 +24,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IChecklistRepository _checklistRepository;
     private readonly IChecklistService _checklistService;
     private readonly IOperationChangeLogService _operationChangeLogService;
+    private readonly IChecklistTaskNoteRepository _noteRepository;
+    private readonly IChecklistTaskCompletionRepository _completionRepository;
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
 
@@ -32,6 +34,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IChecklistRepository checklistRepository,
         IChecklistService checklistService,
         IOperationChangeLogService operationChangeLogService,
+        IChecklistTaskNoteRepository noteRepository,
+        IChecklistTaskCompletionRepository completionRepository,
         IMapper mapper,
         UserContext userContext)
     {
@@ -39,6 +43,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _checklistRepository = checklistRepository;
         _checklistService = checklistService;
         _operationChangeLogService = operationChangeLogService;
+        _noteRepository = noteRepository;
+        _completionRepository = completionRepository;
         _mapper = mapper;
         _userContext = userContext;
     }
@@ -69,8 +75,9 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         var entity = _mapper.Map<ChecklistTask>(input);
 
-        // Set default values
-        entity.Order = input.Order > 0 ? input.Order : await GetNextOrderAsync(input.ChecklistId);
+        // Set default values - force OrderIndex to be max+1 for new tasks
+        int nextOrder = await GetNextOrderAsync(input.ChecklistId);
+        entity.Order = nextOrder; // Always use max+1 for new tasks
         entity.Status = string.IsNullOrEmpty(entity.Status) ? "Pending" : entity.Status;
         entity.IsCompleted = false;
 
@@ -172,13 +179,20 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
     /// <summary>
     /// Get tasks by checklist ID
-    /// Returns tasks with ActionId and ActionName fields populated
+    /// Returns tasks with ActionId and ActionName fields populated, including files and notes count
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetListByChecklistIdAsync(long checklistId)
     {
         var tasks = await _checklistTaskRepository.GetByChecklistIdAsync(checklistId);
-        return _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+        var taskDtos = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+        
+        // Fill files and notes count for each task
+        await FillFilesAndNotesCountAsync(taskDtos);
+        
+        return taskDtos;
     }
+
+
 
     /// <summary>
     /// Complete a task
@@ -533,5 +547,80 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         recursionStack.Remove(currentTaskId);
         return false;
+    }
+
+    /// <summary>
+    /// Fill files and notes count for task DTOs
+    /// </summary>
+    private async Task FillFilesAndNotesCountAsync(List<ChecklistTaskOutputDto> taskDtos)
+    {
+        if (taskDtos == null || !taskDtos.Any())
+            return;
+
+        var taskIds = taskDtos.Select(t => t.Id).ToList();
+
+        // Get files count from ChecklistTaskCompletion
+        var completions = await _completionRepository.GetByTaskIdsAsync(taskIds);
+        var filesCountMap = new Dictionary<long, int>();
+        
+        foreach (var completion in completions)
+        {
+            var filesCount = GetFilesCountFromJson(completion.FilesJson);
+            if (filesCountMap.ContainsKey(completion.TaskId))
+            {
+                filesCountMap[completion.TaskId] += filesCount;
+            }
+            else
+            {
+                filesCountMap[completion.TaskId] = filesCount;
+            }
+        }
+
+        // Get notes count from ChecklistTaskNote
+        var notesCountMap = await GetNotesCountByTaskIdsAsync(taskIds);
+
+        // Fill the counts in DTOs
+        foreach (var taskDto in taskDtos)
+        {
+            taskDto.FilesCount = filesCountMap.GetValueOrDefault(taskDto.Id, 0);
+            taskDto.NotesCount = notesCountMap.GetValueOrDefault(taskDto.Id, 0);
+        }
+    }
+
+    /// <summary>
+    /// Get notes count by task IDs
+    /// </summary>
+    private async Task<Dictionary<long, int>> GetNotesCountByTaskIdsAsync(List<long> taskIds)
+    {
+        var notesCountMap = new Dictionary<long, int>();
+        
+        foreach (var taskId in taskIds)
+        {
+            var count = await _noteRepository.CountByTaskIdAsync(taskId);
+            notesCountMap[taskId] = count;
+        }
+        
+        return notesCountMap;
+    }
+
+    /// <summary>
+    /// Get files count from FilesJson string
+    /// </summary>
+    private int GetFilesCountFromJson(string? filesJson)
+    {
+        if (string.IsNullOrEmpty(filesJson) || filesJson == "[]")
+        {
+            return 0;
+        }
+
+        try
+        {
+            var files = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(filesJson);
+            return files?.Length ?? 0;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return 0;
+        }
     }
 }

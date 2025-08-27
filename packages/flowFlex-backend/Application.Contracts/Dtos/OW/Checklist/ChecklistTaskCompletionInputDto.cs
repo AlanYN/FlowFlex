@@ -48,6 +48,11 @@ public class ChecklistTaskCompletionInputDto
     [StringLength(500)]
     public string CompletionNotes { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 相关文件JSON（文件信息数组的JSON字符串）
+    /// </summary>
+    public string FilesJson { get; set; } = "[]";
+
     // 支持字符串形式的ID输入，用于处理JavaScript大整数精度丢失问题
 
     /// <summary>

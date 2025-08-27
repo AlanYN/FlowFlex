@@ -73,6 +73,28 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         public bool IsCurrent { get; set; } = false;
 
+        /// <summary>
+        /// Is Saved - Indicates if the stage has been saved by user
+        /// </summary>
+        public bool IsSaved { get; set; } = false;
+
+        /// <summary>
+        /// Save Time - When the stage was saved
+        /// </summary>
+        public DateTimeOffset? SaveTime { get; set; }
+
+        /// <summary>
+        /// Saved By ID - ID of the user who saved the stage
+        /// </summary>
+        [StringLength(100)]
+        public string SavedById { get; set; }
+
+        /// <summary>
+        /// Saved By - Name/Email of the user who saved the stage
+        /// </summary>
+        [StringLength(100)]
+        public string SavedBy { get; set; }
+
         // === Below fields are dynamically populated from Stage entity and not stored in JSON ===
         
         /// <summary>

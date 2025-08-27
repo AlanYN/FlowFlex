@@ -395,5 +395,112 @@ namespace FlowFlex.WebApi.Controllers.OW
             var treeStructure = await _userService.GetUserTreeAsync();
             return Success(treeStructure);
         }
+
+        /// <summary>
+        /// Get user by ID
+        /// </summary>
+        /// <param name="id">User ID</param>
+        /// <returns>User DTO</returns>
+        [HttpGet("{id}")]
+        [Authorize]
+        [ProducesResponseType<SuccessResponse<UserDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        [ProducesResponseType(typeof(ErrorResponse), 404)]
+        public async Task<IActionResult> GetUserById([FromRoute] long id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest("User ID must be greater than 0");
+            }
+
+            var user = await _userService.GetUserByIdAsync(id);
+            if (user == null)
+            {
+                return NotFound($"User with ID {id} not found");
+            }
+
+            return Success(user);
+        }
+
+        /// <summary>
+        /// Get users by multiple IDs
+        /// </summary>
+        /// <param name="ids">Comma-separated user IDs</param>
+        /// <returns>List of User DTOs</returns>
+        [HttpGet("by-ids")]
+        [Authorize]
+        [ProducesResponseType<SuccessResponse<List<UserDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> GetUsersByIds([FromQuery] string ids)
+        {
+            if (string.IsNullOrWhiteSpace(ids))
+            {
+                return BadRequest("IDs parameter is required");
+            }
+
+            try
+            {
+                var userIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                 .Select(id => long.Parse(id.Trim()))
+                                 .Where(id => id > 0)
+                                 .Distinct()
+                                 .ToList();
+
+                if (userIds.Count == 0)
+                {
+                    return BadRequest("At least one valid ID must be provided");
+                }
+
+                if (userIds.Count > 100)
+                {
+                    return BadRequest("Cannot query more than 100 users at once");
+                }
+
+                var users = await _userService.GetUsersByIdsAsync(userIds);
+                return Success(users);
+            }
+            catch (FormatException)
+            {
+                return BadRequest("Invalid ID format. Please provide comma-separated numeric IDs");
+            }
+            catch (OverflowException)
+            {
+                return BadRequest("One or more IDs are too large");
+            }
+        }
+
+        /// <summary>
+        /// Get users by multiple IDs (POST method for large ID lists)
+        /// </summary>
+        /// <param name="userIds">List of user IDs</param>
+        /// <returns>List of User DTOs</returns>
+        [HttpPost("by-ids")]
+        [Authorize]
+        [ProducesResponseType<SuccessResponse<List<UserDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> GetUsersByIdsPost([FromBody] List<long> userIds)
+        {
+            if (userIds == null || userIds.Count == 0)
+            {
+                return BadRequest("User IDs list cannot be empty");
+            }
+
+            var validUserIds = userIds.Where(id => id > 0).Distinct().ToList();
+            if (validUserIds.Count == 0)
+            {
+                return BadRequest("At least one valid ID must be provided");
+            }
+
+            if (validUserIds.Count > 100)
+            {
+                return BadRequest("Cannot query more than 100 users at once");
+            }
+
+            var users = await _userService.GetUsersByIdsAsync(validUserIds);
+            return Success(users);
+        }
     }
 }

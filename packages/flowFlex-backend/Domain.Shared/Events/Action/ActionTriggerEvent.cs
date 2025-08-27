@@ -32,6 +32,10 @@ namespace FlowFlex.Domain.Shared.Events.Action
         /// </summary>
         public long? UserId { get; set; }
 
+        public long? WorkflowId { get; set; }
+
+        public long? StageId { get; set; }
+
         /// <summary>
         /// Timestamp when the event occurred
         /// </summary>
@@ -42,7 +46,9 @@ namespace FlowFlex.Domain.Shared.Events.Action
             long triggerSourceId,
             string triggerEventType,
             object contextData = null,
-            long? userId = null)
+            long? userId = null,
+            long? workflowId = null,
+            long? stageId = null)
         {
             TriggerSourceType = triggerSourceType;
             TriggerSourceId = triggerSourceId;
@@ -50,6 +56,8 @@ namespace FlowFlex.Domain.Shared.Events.Action
             ContextData = contextData;
             UserId = userId;
             TriggeredAt = DateTime.UtcNow;
+            WorkflowId = workflowId;
+            StageId = stageId;
         }
     }
 }

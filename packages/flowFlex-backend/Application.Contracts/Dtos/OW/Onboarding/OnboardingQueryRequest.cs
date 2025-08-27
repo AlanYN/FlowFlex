@@ -40,7 +40,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public long? CurrentStageId { get; set; }
 
         /// <summary>
-        /// Filter by lead ID (supports comma-separated values)
+        /// Filter by lead ID (supports comma-separated values and fuzzy matching)
         /// </summary>
         public string? LeadId { get; set; }
 

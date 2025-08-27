@@ -435,9 +435,15 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {id} not found");
             }
 
+            // Determine base name and ensure uniqueness
+            var baseName = string.IsNullOrWhiteSpace(input.Name)
+                ? $"{originalWorkflow.Name} (Copy)"
+                : input.Name;
+            var uniqueName = await EnsureUniqueWorkflowNameAsync(baseName);
+
             var duplicatedWorkflow = new Workflow
             {
-                Name = input.Name,
+                Name = uniqueName,
                 Description = input.Description ?? originalWorkflow.Description,
                 StartDate = input.StartDate ?? originalWorkflow.StartDate,
                 EndDate = input.EndDate ?? originalWorkflow.EndDate,
@@ -738,6 +744,28 @@ namespace FlowFlex.Application.Service.OW
             
             // For regular user updates, allow IsDefault changes
             return true;
+        }
+
+        /// <summary>
+        /// Ensure unique workflow name by appending number suffix if needed
+        /// </summary>
+        private async Task<string> EnsureUniqueWorkflowNameAsync(string baseName)
+        {
+            var originalName = baseName;
+            var counter = 1;
+            var currentName = baseName;
+
+            while (true)
+            {
+                var exists = await _workflowRepository.ExistsNameAsync(currentName);
+                if (!exists)
+                {
+                    return currentName;
+                }
+
+                counter++;
+                currentName = $"{originalName} ({counter})";
+            }
         }
 
         // 缓存相关方法已移除

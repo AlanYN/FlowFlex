@@ -112,8 +112,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Query onboarding list with pagination (POST method)
         /// Supports comma-separated values for leadId, leadName, and updatedBy fields
-        /// All text search queries are case-insensitive
-        /// Example: {"leadId": "11,22,33", "leadName": "company1,company2", "updatedBy": "user1,user2"}
+        /// All text search queries are case-insensitive and support fuzzy matching
+        /// leadId supports fuzzy search (partial matching)
+        /// Example: {"leadId": "c", "leadName": "company1,company2", "updatedBy": "user1,user2"}
         /// </summary>
         [HttpPost("query")]
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
@@ -598,6 +599,24 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> SyncStagesProgressAsync(long id)
         {
             bool result = await _onboardingService.SyncStagesProgressAsync(id);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Save a specific stage in onboarding's stagesProgress
+        /// Updates the stage's IsSaved, SaveTime, and SavedById fields
+        /// </summary>
+        [HttpPost("{id}/save")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SaveStageAsync(long id, [FromBody] SaveOnboardingStageDto input)
+        {
+            // Validate that the onboarding ID in URL matches the DTO
+            if (input.OnboardingId != id)
+            {
+                return BadRequest("Onboarding ID in URL does not match the ID in request body");
+            }
+
+            bool result = await _onboardingService.SaveStageAsync(input.OnboardingId, input.StageId);
             return Success(result);
         }
     }

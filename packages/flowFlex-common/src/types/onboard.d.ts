@@ -34,7 +34,6 @@ export interface OnboardingItem {
 	currentStageId: string;
 	currentStageName: string;
 	currentStageOrder: number;
-	currentStageStartTime: string;
 	id: string;
 	isActive: boolean;
 	isOverdue: boolean;
@@ -46,12 +45,13 @@ export interface OnboardingItem {
 	modifyBy: string;
 	modifyDate: string;
 	priority: string;
-	startDate: string;
 	workflowName: string;
 	timelineDays: number;
 	workflowId: string;
 	stagesProgress: StageInfo[];
-	estimatedCompletionDate: string;
+	currentStageStartTime: string;
+	currentStageEndTime: string;
+	currentStageEstimatedDays: string;
 }
 
 export interface SearchParams {
@@ -381,6 +381,32 @@ export interface ChecklistTaskCompletionOutputDto {
 	createBy: string;
 }
 
+// 任务附件数据结构
+export interface TaskAttachment {
+	id: string;
+	name: string;
+	size?: number;
+	url?: string;
+	uploadDate?: string;
+	uploadBy?: string;
+}
+
+// 任务笔记数据结构
+export interface TaskNote {
+	content: string;
+	createdAt: string;
+	createdBy: string;
+	createdByName: string;
+	id: string;
+	isDeleted: boolean;
+	isPinned: boolean;
+	modifiedAt: string;
+	noteType: string;
+	onboardingId: string;
+	priority: string;
+	taskId: string;
+}
+
 // 任务数据结构
 export interface TaskData {
 	id: string;
@@ -407,6 +433,8 @@ export interface TaskData {
 	isActive: boolean;
 	createDate: string;
 	createBy: string;
+	filesCount: number;
+	notesCount: number;
 }
 
 // API返回的Checklist数据结构

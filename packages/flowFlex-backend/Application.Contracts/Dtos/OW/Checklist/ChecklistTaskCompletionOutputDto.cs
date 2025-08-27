@@ -53,6 +53,11 @@ public class ChecklistTaskCompletionOutputDto
     public string CompletionNotes { get; set; }
 
     /// <summary>
+    /// 相关文件JSON（文件信息数组的JSON字符串）
+    /// </summary>
+    public string FilesJson { get; set; }
+
+    /// <summary>
     /// 提交来源
     /// </summary>
     public string Source { get; set; }
@@ -76,4 +81,14 @@ public class ChecklistTaskCompletionOutputDto
     /// 修改人
     /// </summary>
     public string ModifyBy { get; set; }
+
+    /// <summary>
+    /// 文件数量
+    /// </summary>
+    public int FilesCount { get; set; }
+
+    /// <summary>
+    /// 笔记数量
+    /// </summary>
+    public int NotesCount { get; set; }
 }

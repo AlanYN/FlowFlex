@@ -66,6 +66,8 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// </summary>
         public DateTime UpdatedAt { get; set; }
 
+        public bool IsTools { get; set; }
+
         /// <summary>
         /// Trigger mappings with related entity details
         /// </summary>

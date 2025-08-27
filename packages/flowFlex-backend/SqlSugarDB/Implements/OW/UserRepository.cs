@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using FlowFlex.Domain.Entities.OW;
+﻿using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
-using FlowFlex.SqlSugarDB.Context;
 using FlowFlex.Domain.Shared;
 using SqlSugar;
 using Microsoft.AspNetCore.Http;
@@ -14,11 +9,11 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// <summary>
     /// User repository implementation
     /// </summary>
-    public class UserRepository : OwBaseRepository<User>, IUserRepository, IScopedService
+    public class UserRepository : BaseRepository<User>, IUserRepository, IScopedService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public UserRepository(ISqlSugarContext context, IHttpContextAccessor httpContextAccessor) : base(context)
+        public UserRepository(ISqlSugarClient context, IHttpContextAccessor httpContextAccessor) : base(context)
         {
             _httpContextAccessor = httpContextAccessor;
         }
@@ -30,7 +25,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>User</returns>
         public async Task<User> GetByEmailAsync(string email)
         {
-            return await _db.Queryable<User>()
+            return await db.Queryable<User>()
                 .Where(u => u.Email == email && u.IsValid)
                 .FirstAsync();
         }
@@ -44,7 +39,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<User> GetByEmailAndTenantAsync(string email, string tenantId)
         {
             // Disable global filters to query across tenants
-            return await _db.Queryable<User>()
+            return await db.Queryable<User>()
                 .ClearFilter<User>() // Clear tenant filters
                 .Where(u => u.Email == email && u.TenantId == tenantId && u.IsValid)
                 .FirstAsync();
@@ -59,7 +54,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<User> GetByEmailAndAppCodeAsync(string email, string appCode)
         {
             // Disable global filters to query across all tenants
-            return await _db.Queryable<User>()
+            return await db.Queryable<User>()
                 .ClearFilter<User>() // Clear all filters
                 .Where(u => u.Email == email && u.AppCode == appCode && u.IsValid)
                 .OrderBy(u => u.CreateDate) // Get the first created user
@@ -73,7 +68,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>Whether exists</returns>
         public async Task<bool> EmailExistsAsync(string email)
         {
-            return await _db.Queryable<User>()
+            return await db.Queryable<User>()
                 .AnyAsync(u => u.Email == email && u.IsValid);
         }
 
@@ -86,7 +81,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<bool> EmailExistsInTenantAsync(string email, string tenantId)
         {
             // Disable global filters to query across tenants
-            return await _db.Queryable<User>()
+            return await db.Queryable<User>()
                 .ClearFilter<User>() // Clear tenant filters
                 .AnyAsync(u => u.Email == email && u.TenantId == tenantId && u.IsValid);
         }
@@ -100,7 +95,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>Whether update successful</returns>
         public async Task<bool> UpdateLastLoginInfoAsync(long userId, DateTimeOffset loginTime, string loginIp)
         {
-            var result = await _db.Updateable<User>()
+            var result = await db.Updateable<User>()
                 .SetColumns(u => new User
                 {
                     LastLoginDate = loginTime,
@@ -121,7 +116,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <returns>Whether update successful</returns>
         public async Task<bool> UpdateEmailVerificationStatusAsync(long userId, bool verified)
         {
-            var result = await _db.Updateable<User>()
+            var result = await db.Updateable<User>()
                 .SetColumns(u => new User
                 {
                     EmailVerified = verified,
@@ -149,7 +144,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             string sortDirection = "desc")
         {
             // Global tenant and app filters will be applied automatically by AppTenantFilter
-            var query = _db.Queryable<User>()
+            var query = db.Queryable<User>()
                 .Where(u => u.IsValid);
 
             // Search text filter (search in username and email)
@@ -234,7 +229,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<List<User>> GetUsersWithoutTeamAsync()
         {
             // Global tenant and app filters will be applied automatically by AppTenantFilter
-            return await _db.Queryable<User>()
+            return await db.Queryable<User>()
                 .Where(u => u.IsValid && (u.Team == null || u.Team == ""))
                 .ToListAsync();
         }
@@ -244,7 +239,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<bool> UpdateUserTeamAsync(long userId, string team)
         {
-            var result = await _db.Updateable<User>()
+            var result = await db.Updateable<User>()
                 .SetColumns(u => new User
                 {
                     Team = team,

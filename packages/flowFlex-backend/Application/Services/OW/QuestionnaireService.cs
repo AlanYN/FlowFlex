@@ -18,6 +18,8 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.Action;
 using SqlSugar;
 
 namespace FlowFlex.Application.Service.OW
@@ -39,6 +41,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IOperatorContextService _operatorContextService;
         private readonly UserContext _userContext;
         private readonly IComponentMappingService _mappingService;
+        private readonly IActionManagementService _actionManagementService;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
@@ -46,7 +49,8 @@ namespace FlowFlex.Application.Service.OW
             IStageRepository stageRepository,
             UserContext userContext,
             IOperatorContextService operatorContextService,
-            IComponentMappingService mappingService)
+            IComponentMappingService mappingService,
+            IActionManagementService actionManagementService)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
@@ -54,6 +58,7 @@ namespace FlowFlex.Application.Service.OW
             _mappingService = mappingService;
             _userContext = userContext;
             _operatorContextService = operatorContextService;
+            _actionManagementService = actionManagementService;
         }
         private static string TryUnwrapComponentsJson(string json)
         {
@@ -122,6 +127,9 @@ namespace FlowFlex.Application.Service.OW
                 // Normalize IDs in structure JSON to use snowflake IDs
                 input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
                 
+                // No longer create Actions automatically
+                // input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
+                
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid questionnaire structure JSON");
@@ -185,6 +193,9 @@ namespace FlowFlex.Application.Service.OW
                 // Normalize IDs in structure JSON to use snowflake IDs
                 input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
                 
+                // No longer create Actions automatically
+                // input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
+                
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid questionnaire structure JSON");
@@ -215,6 +226,12 @@ namespace FlowFlex.Application.Service.OW
             await CalculateQuestionStatistics(entity, input.Sections);
 
             var result = await _questionnaireRepository.UpdateAsync(entity);
+
+            // Ensure ActionTriggerMappings exist for all Questions with Action IDs
+            await EnsureQuestionActionTriggerMappingsExistAsync(entity);
+
+            // No longer update Action configurations automatically
+            // await UpdateExistingQuestionActionConfigurationsAsync(entity);
 
             // Sections module removed; ignore input.Sections to keep compatibility
 
@@ -1246,5 +1263,255 @@ namespace FlowFlex.Application.Service.OW
         
         return matchingStages;
         }
+
+
+
+
+
+
+
+
+
+    /// <summary>
+    /// Create ActionTriggerMapping for Question Action
+    /// </summary>
+    private async Task CreateQuestionActionTriggerMappingAsync(long actionDefinitionId, string questionId, string questionnaireName)
+    {
+        try
+        {
+            var createMappingDto = new CreateActionTriggerMappingDto
+            {
+                ActionDefinitionId = actionDefinitionId,
+                TriggerType = "Question",
+                TriggerSourceId = long.TryParse(questionId, out var qId) ? qId : 0,
+                WorkFlowId = 0, // This should be determined from context
+                StageId = 0,    // This should be determined from context
+                TriggerEvent = "Completed",
+                ExecutionOrder = 1,
+                IsEnabled = true
+            };
+
+            await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to create action trigger mapping for question: {ex.Message}");
+        }
+    }
+
+
+
+
+
+    /// <summary>
+    /// Create ActionTriggerMapping for Option Action
+    /// </summary>
+    private async Task CreateOptionActionTriggerMappingAsync(long actionDefinitionId, long optionIdLong, string optionValue, string questionnaireName)
+    {
+        try
+        {
+            var createMappingDto = new CreateActionTriggerMappingDto
+            {
+                ActionDefinitionId = actionDefinitionId,
+                TriggerType = "Question",
+                TriggerSourceId = optionIdLong,
+                WorkFlowId = 0, // This should be determined from context
+                StageId = 0,    // This should be determined from context
+                TriggerEvent = "Completed",
+                ExecutionOrder = 1,
+                IsEnabled = true,
+                TriggerConditions = $"{{\"optionValue\": \"{optionValue}\"}}" // Store option value for trigger condition
+            };
+
+            await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to create action trigger mapping for option: {ex.Message}");
+        }
+    }
+
+  
+    /// <summary>
+    /// Ensure ActionTriggerMappings exist for all Questions with Action IDs in the Questionnaire
+    /// </summary>
+    private async Task EnsureQuestionActionTriggerMappingsExistAsync(Questionnaire questionnaire)
+    {
+        if (questionnaire?.Structure == null)
+            return;
+
+        try
+        {
+            var structureJson = questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None);
+            using var document = JsonDocument.Parse(structureJson);
+            var root = document.RootElement;
+
+            if (root.TryGetProperty("sections", out var sectionsElement))
+            {
+                foreach (var section in sectionsElement.EnumerateArray())
+                {
+                    await ProcessSectionForActionMappingsAsync(section, questionnaire.Name);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to ensure Question ActionTriggerMappings for questionnaire '{questionnaire.Name}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Process a section to ensure ActionTriggerMappings for its questions
+    /// </summary>
+    private async Task ProcessSectionForActionMappingsAsync(JsonElement section, string questionnaireName)
+    {
+        // Check both "items" and "questions" arrays for Questions
+        await ProcessQuestionArrayForMappingsAsync(section, "items", questionnaireName);
+        await ProcessQuestionArrayForMappingsAsync(section, "questions", questionnaireName);
+    }
+
+    /// <summary>
+    /// Process a question array to ensure ActionTriggerMappings
+    /// </summary>
+    private async Task ProcessQuestionArrayForMappingsAsync(JsonElement section, string arrayName, string questionnaireName)
+    {
+        if (section.TryGetProperty(arrayName, out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var question in questionsElement.EnumerateArray())
+            {
+                await EnsureSingleQuestionActionMappingAsync(question, questionnaireName);
+                
+                // Also check options for action mappings
+                await EnsureQuestionOptionsActionMappingsAsync(question, questionnaireName);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ensure ActionTriggerMapping exists for a single Question if it has an Action ID
+    /// </summary>
+    private async Task EnsureSingleQuestionActionMappingAsync(JsonElement question, string questionnaireName)
+    {
+        try
+        {
+            // Check if this is a question with action
+            if (!question.TryGetProperty("action", out var actionElement))
+                return;
+
+            // Extract action ID and question ID
+            var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
+            var questionId = question.TryGetProperty("id", out var questionIdEl) ? questionIdEl.GetString() : null;
+
+            if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(questionId))
+                return;
+
+            if (!long.TryParse(actionId, out var actionIdLong) || !long.TryParse(questionId, out var questionIdLong))
+                return;
+
+            // Check if ActionTriggerMapping already exists
+            var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(questionIdLong);
+            var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong && 
+                                                      m.TriggerType == "Question" && 
+                                                      m.TriggerSourceId == questionIdLong);
+
+            if (!hasMapping)
+            {
+                Console.WriteLine($"Creating missing ActionTriggerMapping for Question {questionIdLong} and Action {actionIdLong}");
+                
+                // Create the missing ActionTriggerMapping
+                await CreateQuestionActionTriggerMappingAsync(actionIdLong, questionId, questionnaireName);
+            }
+            else
+            {
+                Console.WriteLine($"ActionTriggerMapping already exists for Question {questionIdLong} and Action {actionIdLong}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to ensure ActionTriggerMapping for question: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Ensure ActionTriggerMappings exist for all Options with Action IDs in a Question
+    /// </summary>
+    private async Task EnsureQuestionOptionsActionMappingsAsync(JsonElement question, string questionnaireName)
+    {
+        try
+        {
+            // Check if question has options array
+            if (!question.TryGetProperty("options", out var optionsElement) || 
+                optionsElement.ValueKind != JsonValueKind.Array)
+                return;
+
+            foreach (var option in optionsElement.EnumerateArray())
+            {
+                await EnsureSingleOptionActionMappingAsync(option, questionnaireName);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to ensure Option ActionTriggerMappings for question: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Ensure ActionTriggerMapping exists for a single Option if it has an Action ID
+    /// </summary>
+    private async Task EnsureSingleOptionActionMappingAsync(JsonElement option, string questionnaireName)
+    {
+        try
+        {
+            // Check if this is an option with action
+            if (!option.TryGetProperty("action", out var actionElement))
+                return;
+
+            // Extract action ID and option information
+            var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
+            var optionValue = option.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
+            // 优先使用正式的 id，如果没有再使用 temporaryId
+            var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : 
+                          option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
+
+            if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(optionId))
+                return;
+
+            if (!long.TryParse(actionId, out var actionIdLong))
+                return;
+
+            // Only process options with valid numeric IDs
+            if (!long.TryParse(optionId, out var optionIdLong))
+            {
+                Console.WriteLine($"Option has non-numeric ID '{optionId}', skipping ActionTriggerMapping creation");
+                return;
+            }
+
+            // Check if ActionTriggerMapping already exists
+            var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(optionIdLong);
+            var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong && 
+                                                      m.TriggerType == "Question" && 
+                                                      m.TriggerSourceId == optionIdLong);
+
+            if (!hasMapping)
+            {
+                Console.WriteLine($"Creating missing ActionTriggerMapping for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+                
+                // Create the missing ActionTriggerMapping
+                await CreateOptionActionTriggerMappingAsync(actionIdLong, optionIdLong, optionValue, questionnaireName);
+            }
+            else
+            {
+                Console.WriteLine($"ActionTriggerMapping already exists for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to ensure ActionTriggerMapping for option: {ex.Message}");
+        }
+    }
+
+
+
+
     }
 }

@@ -113,10 +113,10 @@ const leads: AppRouteModule = {
 		},
 		{
 			path: 'actions',
-			name: 'Actions',
+			name: 'Tools',
 			component: () => import('@/views/actions/index.vue'),
 			meta: {
-				title: t('sys.router.actions'),
+				title: t('sys.router.tools'),
 				ordinal: 6,
 				hidden: false,
 				status: true,

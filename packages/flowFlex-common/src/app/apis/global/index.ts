@@ -1,6 +1,7 @@
 import { defHttp } from '@/apis/axios';
 
 import { useGlobSetting } from '@/settings';
+import { FlowflexUser } from '#/golbal';
 
 const globSetting = useGlobSetting();
 
@@ -16,6 +17,8 @@ const Api = (id?: string | number) => {
 		delete: `${globSetting.apiProName}/modules/${globSetting.apiVersion}/${id}/datas/batch`,
 
 		sendEmailCode: `${globSetting.apiProName}/ow/users/send-verification-code`,
+
+		flowflexUser: `${globSetting.apiProName}/ow/users/tree`,
 	};
 };
 
@@ -50,4 +53,17 @@ export function fileAttachment(params, onDownloadProgress?: (progressEvent) => v
 
 export function sendEmail(params) {
 	return defHttp.post({ url: `${Api().sendEmailCode}`, params });
+}
+
+export function getFlowflexUser(params: {
+	pageIndex?: number;
+	pageSize?: number;
+	searchText?: string;
+	team?: string;
+}): Promise<{
+	code: string;
+	msg: string;
+	data: FlowflexUser[];
+}> {
+	return defHttp.get({ url: `${Api().flowflexUser}`, params });
 }

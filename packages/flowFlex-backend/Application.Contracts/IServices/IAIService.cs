@@ -530,6 +530,11 @@ namespace FlowFlex.Application.Contracts.IServices
         public long StageId { get; set; }
 
         /// <summary>
+        /// Onboarding ID (optional, for context-specific summaries)
+        /// </summary>
+        public long? OnboardingId { get; set; }
+
+        /// <summary>
         /// Stage name
         /// </summary>
         public string StageName { get; set; } = string.Empty;

@@ -29,6 +29,8 @@ namespace FlowFlex.Application.Services.Action
             string triggerEventType,
             object contextData = null,
             long? userId = null,
+            long? workflowId = null,
+            long? stageId = null,
             CancellationToken cancellationToken = default)
         {
             try
@@ -38,6 +40,8 @@ namespace FlowFlex.Application.Services.Action
                     triggerSourceType,
                     triggerSourceId,
                     triggerEventType,
+                    workflowId,
+                    stageId,
                     cancellationToken);
 
                 if (!actionMappings.Any())

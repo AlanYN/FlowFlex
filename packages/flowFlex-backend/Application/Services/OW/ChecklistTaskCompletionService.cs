@@ -19,6 +19,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
 {
     private readonly IChecklistTaskCompletionRepository _completionRepository;
     private readonly IChecklistTaskRepository _taskRepository;
+    private readonly IChecklistTaskNoteRepository _noteRepository;
     private readonly IOnboardingRepository _onboardingRepository;
     private readonly IStageRepository _stageRepository;
 
@@ -30,6 +31,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     public ChecklistTaskCompletionService(
     IChecklistTaskCompletionRepository completionRepository,
     IChecklistTaskRepository taskRepository,
+    IChecklistTaskNoteRepository noteRepository,
     IOnboardingRepository onboardingRepository,
     IStageRepository stageRepository,
     
@@ -40,6 +42,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     {
         _completionRepository = completionRepository;
         _taskRepository = taskRepository;
+        _noteRepository = noteRepository;
         _onboardingRepository = onboardingRepository;
         _stageRepository = stageRepository;
 
@@ -213,7 +216,12 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     public async Task<List<ChecklistTaskCompletionOutputDto>> GetByOnboardingAndStageAsync(long onboardingId, long stageId)
     {
         var completions = await _completionRepository.GetByOnboardingAndStageAsync(onboardingId, stageId);
-        return _mapper.Map<List<ChecklistTaskCompletionOutputDto>>(completions);
+        var completionDtos = _mapper.Map<List<ChecklistTaskCompletionOutputDto>>(completions);
+        
+        // Fill files and notes count for each completion
+        await FillFilesAndNotesCountAsync(completionDtos, onboardingId);
+        
+        return completionDtos;
     }
 
     /// <summary>
@@ -231,7 +239,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     /// <summary>
     /// Toggle task completion
     /// </summary>
-    public async Task<bool> ToggleTaskCompletionAsync(long onboardingId, long taskId, bool isCompleted, string completionNotes = "")
+    public async Task<bool> ToggleTaskCompletionAsync(long onboardingId, long taskId, bool isCompleted, string completionNotes = "", string filesJson = "[]")
     {
         // Simplified validation: only check if onboarding exists
         var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
@@ -254,7 +262,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             ChecklistId = task.ChecklistId,
             TaskId = taskId,
             IsCompleted = isCompleted,
-            CompletionNotes = completionNotes
+            CompletionNotes = completionNotes,
+            FilesJson = filesJson
         };
 
         return await SaveTaskCompletionAsync(input);
@@ -591,5 +600,44 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         }
 
         return tenantId;
+    }
+
+    /// <summary>
+    /// Fill files and notes count for completion DTOs
+    /// </summary>
+    private async Task FillFilesAndNotesCountAsync(List<ChecklistTaskCompletionOutputDto> completionDtos, long onboardingId)
+    {
+        if (completionDtos == null || !completionDtos.Any())
+            return;
+
+        foreach (var completionDto in completionDtos)
+        {
+            // Get files count from FilesJson
+            completionDto.FilesCount = GetFilesCountFromJson(completionDto.FilesJson);
+
+            // Get notes count from ChecklistTaskNote
+            completionDto.NotesCount = await _noteRepository.CountNotesAsync(completionDto.TaskId, onboardingId, false);
+        }
+    }
+
+    /// <summary>
+    /// Get files count from FilesJson string
+    /// </summary>
+    private int GetFilesCountFromJson(string? filesJson)
+    {
+        if (string.IsNullOrEmpty(filesJson) || filesJson == "[]")
+        {
+            return 0;
+        }
+
+        try
+        {
+            var files = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(filesJson);
+            return files?.Length ?? 0;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return 0;
+        }
     }
 }

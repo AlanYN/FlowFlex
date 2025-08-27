@@ -16,8 +16,8 @@ using System.Reflection;
 using System.Text;
 using FlowFlex.Application.Client;
 using Item.Redis.Extensions;
-using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Application.Contracts.IServices.OW;
+using WebApi.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -206,6 +206,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 }
 
                 await accessTokenService.UpdateTokenUsageAsync(jti);
+
+                await TokenValidatedHandler.OnTokenValidated(context);
             }
             catch (Exception ex)
             {

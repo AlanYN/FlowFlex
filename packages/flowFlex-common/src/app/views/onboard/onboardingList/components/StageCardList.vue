@@ -95,14 +95,20 @@
 									<div class="text-xs text-gray-500 mb-1">
 										{{ lead.leadId }}
 									</div>
-									<div class="grid grid-cols-2 gap-2 text-xs mb-2 text-gray-600">
+									<div class="grid grid-cols-1 gap-2 text-xs mb-2 text-gray-600">
 										<div class="flex items-center">
 											<el-icon class="mr-1 text-gray-500">
 												<Calendar />
 											</el-icon>
 											<span>
 												Start:
-												{{ formatDate(lead.startDate) || defaultStr }}
+												{{
+													timeZoneConvert(
+														lead.currentStageStartTime,
+														false,
+														projectTenMinutesSsecondsDate
+													)
+												}}
 											</span>
 										</div>
 										<div class="flex items-center">
@@ -110,10 +116,13 @@
 												<Calendar />
 											</el-icon>
 											<span>
-												ETA:
+												End:
 												{{
-													formatDate(lead.estimatedCompletionDate) ||
-													defaultStr
+													timeZoneConvert(
+														lead?.currentStageEndTime,
+														false,
+														projectTenMinutesSsecondsDate
+													)
 												}}
 											</span>
 										</div>
@@ -122,12 +131,11 @@
 										<el-tag
 											:type="getPriorityTagType(lead.priority)"
 											size="small"
-											class="text-white"
 										>
 											{{ lead.priority }}
 										</el-tag>
 										<span
-											v-if="isOverdue(lead.estimatedCompletionDate)"
+											v-if="isOverdue(lead.currentStageEndTime)"
 											class="text-red-500 flex items-center"
 										>
 											<el-icon class="mr-1"><Warning /></el-icon>
@@ -141,7 +149,7 @@
 								class="pipeline-lead-button rounded-md"
 								:class="[
 									getPriorityBorderClass(lead.priority),
-									isOverdue(lead.estimatedCompletionDate) ? 'border-red-500' : '',
+									isOverdue(lead.currentStageEndTime) ? 'border-red-500' : '',
 								]"
 								@click="handleEdit(lead.id)"
 							>
@@ -150,7 +158,7 @@
 								</span>
 								<div class="flex items-center ml-1">
 									<el-icon
-										v-if="isOverdue(lead.estimatedCompletionDate)"
+										v-if="isOverdue(lead.currentStageEndTime)"
 										class="text-red-500 mr-1"
 									>
 										<Warning />
@@ -192,7 +200,8 @@
 import { PropType } from 'vue';
 import { ArrowRight, User, Calendar, Warning } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
-import { defaultStr } from '@/settings/projectSetting';
+import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { timeZoneConvert } from '@/hooks/time';
 
 defineProps({
 	loading: {
@@ -205,10 +214,6 @@ defineProps({
 	},
 	groupedLeads: {
 		type: Object as PropType<Record<string, OnboardingItem[]>>,
-		required: true,
-	},
-	formatDate: {
-		type: Function,
 		required: true,
 	},
 	isOverdue: {
@@ -374,22 +379,6 @@ html.dark {
 		background-color: var(--black-200) !important;
 		border-top: 1px solid #4a5568 !important;
 		color: #9ca3af !important;
-	}
-
-	/* 空状态区域 */
-	.bg-gray-50 {
-		@apply bg-black-200 !important;
-	}
-
-	/* 文本颜色调整 */
-	.text-gray-700,
-	.text-gray-600,
-	.text-gray-900 {
-		@apply text-white-100 !important;
-	}
-
-	.text-gray-500 {
-		@apply text-gray-300 !important;
 	}
 }
 </style>

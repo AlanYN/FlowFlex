@@ -146,4 +146,10 @@ public class ChecklistTask : EntityBaseCreateInfo
     [StringLength(200)]
     [SugarColumn(ColumnName = "action_name")]
     public string ActionName { get; set; }
+
+    /// <summary>
+    /// Action Trigger Mapping ID (Associated ActionTriggerMapping Primary Key)
+    /// </summary>
+    [SugarColumn(ColumnName = "action_mapping_id")]
+    public long? ActionMappingId { get; set; }
 }

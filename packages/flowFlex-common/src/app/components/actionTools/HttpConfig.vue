@@ -9,12 +9,14 @@
 						@update:model-value="setUrl"
 						placeholder="Enter URL, type '/' to insert variables"
 						class="w-full"
+						:disabled="disabled"
 					>
 						<template #prepend>
 							<el-select
 								:model-value="formConfig.method"
 								@update:model-value="setMethod"
 								style="width: 115px"
+								:disabled="disabled"
 							>
 								<el-option label="GET" value="GET" />
 								<el-option label="POST" value="POST" />
@@ -49,18 +51,21 @@
 									placeholder="Type '/' to insert variables"
 									class="param-input"
 									@update:model-value="updateHeaderKey(index, $event)"
+									:disabled="disabled"
 								/>
 								<variable-auto-complete
 									v-model="header.value"
 									placeholder="Type '/' to insert variables"
 									class="param-input"
 									@update:model-value="updateHeaderValue(index, $event)"
+									:disabled="disabled"
 								/>
 								<el-button
 									type="danger"
 									text
 									@click="removeHeader(index)"
 									class="param-delete"
+									:disabled="disabled"
 								>
 									<el-icon><Delete /></el-icon>
 								</el-button>
@@ -88,18 +93,21 @@
 									placeholder="Type '/' to insert variables"
 									class="param-input"
 									@update:model-value="updateParamKey(index, $event)"
+									:disabled="disabled"
 								/>
 								<variable-auto-complete
 									v-model="param.value"
 									placeholder="Type '/' to insert variables"
 									class="param-input"
 									@update:model-value="updateParamValue(index, $event)"
+									:disabled="disabled"
 								/>
 								<el-button
 									type="danger"
 									text
 									@click="removeParam(index)"
 									class="param-delete"
+									:disabled="disabled"
 								>
 									<el-icon><Delete /></el-icon>
 								</el-button>
@@ -116,6 +124,7 @@
 							:model-value="formConfig.bodyType"
 							@update:model-value="setBodyType"
 							class="body-type-group"
+							:disabled="disabled"
 						>
 							<el-radio value="none">none</el-radio>
 							<el-radio value="form-data">form-data</el-radio>
@@ -151,12 +160,14 @@
 											placeholder="Type '/' to insert variables"
 											class="param-input"
 											@update:model-value="updateFormDataKey(index, $event)"
+											:disabled="disabled"
 										/>
 										<variable-auto-complete
 											v-model="item.value"
 											placeholder="Type '/' to insert variables"
 											class="param-input"
 											@update:model-value="updateFormDataValue(index, $event)"
+											:disabled="disabled"
 										/>
 										<el-button
 											type="danger"
@@ -164,6 +175,7 @@
 											@click="removeFormData(index)"
 											class="param-delete"
 											v-if="formConfig.formDataList.length > 1"
+											:disabled="disabled"
 										>
 											<el-icon><Delete /></el-icon>
 										</el-button>
@@ -192,6 +204,7 @@
 											placeholder="Type '/' to insert variables"
 											class="param-input"
 											@update:model-value="updateUrlEncodedKey(index, $event)"
+											:disabled="disabled"
 										/>
 										<variable-auto-complete
 											v-model="item.value"
@@ -200,6 +213,7 @@
 											@update:model-value="
 												updateUrlEncodedValue(index, $event)
 											"
+											:disabled="disabled"
 										/>
 										<el-button
 											type="danger"
@@ -207,6 +221,7 @@
 											@click="removeUrlEncoded(index)"
 											class="param-delete"
 											v-if="formConfig.urlEncodedList.length > 1"
+											:disabled="disabled"
 										>
 											<el-icon><Delete /></el-icon>
 										</el-button>
@@ -221,6 +236,7 @@
 										:model-value="formConfig.rawFormat"
 										@update:model-value="setRawFormat"
 										class="raw-format-select"
+										:disabled="disabled"
 									>
 										<el-option label="JSON" value="json" />
 										<el-option label="Text" value="text" />
@@ -236,6 +252,7 @@
 									:rows="8"
 									placeholder="Enter your content here, type '/' to insert variables..."
 									class="font-mono text-sm raw-textarea"
+									:disabled="disabled"
 								/>
 							</div>
 						</div>
@@ -313,6 +330,7 @@ interface Props {
 		token: string;
 	};
 	idEditing?: boolean;
+	disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {

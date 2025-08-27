@@ -120,22 +120,18 @@
 		</div>
 
 		<!-- Task列表弹窗 -->
-		<el-dialog
-			v-model="showTaskDialog"
-			:title="`Tasks - ${currentChecklist?.name || ''}`"
-			:width="dialogWidth"
-			:close-on-click-modal="false"
-		>
-			<div class="task-dialog-content">
+		<el-dialog v-model="showTaskDialog" :width="bigDialogWidth" :close-on-click-modal="false">
+			<template #header>
+				<div class="w-[750px] truncate text-2xl font-bold">
+					Tasks - {{ currentChecklist?.name }}
+				</div>
+			</template>
+			<el-scrollbar max-height="70vh">
 				<!-- Task列表内容 -->
 				<div v-if="currentChecklist">
-					<TaskList
-						ref="taskListRef"
-						:checklist="currentChecklist"
-						@task-updated="handleTaskUpdated"
-					/>
+					<TaskList ref="taskListRef" :checklist="currentChecklist" />
 				</div>
-			</div>
+			</el-scrollbar>
 			<template #footer>
 				<div class="flex justify-end">
 					<el-button @click="closeTaskDialog">Close</el-button>
@@ -157,7 +153,7 @@
 				</div>
 			</template>
 
-			<el-form :model="formData" label-position="top" class="space-y-4">
+			<el-form :model="formData" label-position="top" class="space-y-4 p-1">
 				<el-form-item label="Checklist Name" required>
 					<el-input v-model="formData.name" :placeholder="dialogConfig.namePlaceholder" />
 				</el-form-item>
@@ -223,7 +219,7 @@ import TaskList from './components/TaskList.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import { Checklist } from '#/checklist';
-import { dialogWidth } from '@/settings/projectSetting';
+import { dialogWidth, bigDialogWidth } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 
@@ -553,14 +549,8 @@ const closeTaskDialog = () => {
 	nextTick(() => {
 		showTaskDialog.value = false;
 		currentChecklist.value = null;
+		loadChecklists();
 	});
-};
-
-// 处理任务更新事件
-const handleTaskUpdated = async (checklistId: string) => {
-	// 任务是独立管理的，不需要重新加载checklist数据
-	// 只需要重新加载checklist列表以更新totalTasks等统计信息
-	await loadChecklists();
 };
 
 // 处理表格选择变化
@@ -594,12 +584,11 @@ const exportChecklistItem = async (checklist: Checklist) => {
 			},
 			{ workflows: workflows.value, stages: stages.value },
 			{
-				headerTitle: 'UNIS',
+				headerTitle: '',
 				headerSubtitle: 'Warehousing Solutions',
 				showHeader: true,
 				showAssignments: true,
 				showTaskTable: true,
-				filename: `${checklist.name?.replace(/[^\w\s-]/g, '_') || 'checklist'}.pdf`,
 			}
 		);
 		activeDropdown.value = null;

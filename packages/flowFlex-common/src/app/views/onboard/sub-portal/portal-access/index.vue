@@ -35,6 +35,67 @@
 					<p class="text-gray-600">Verifying your invitation, please wait...</p>
 				</div>
 
+				<!-- User Already Logged In State -->
+				<div v-if="verificationState === 'userLoggedIn'" class="space-y-4">
+					<div class="text-center mb-6">
+						<div
+							class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3"
+						>
+							<svg
+								class="w-8 h-8 text-yellow-600"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 14.5c-.77.833.192 2.5 1.732 2.5z"
+								/>
+							</svg>
+						</div>
+						<h3 class="text-lg font-semibold text-gray-800">User Already Logged In</h3>
+						<p class="text-gray-600 mb-4">
+							You are currently logged in as
+							<span class="font-semibold text-blue-600">
+								{{ currentLoggedUser?.email || currentLoggedUser?.userName }}
+							</span>
+						</p>
+						<p class="text-sm text-gray-500">
+							Using the portal access will replace your current login session. You can
+							choose to continue with your current account or enter a different email
+							address.
+						</p>
+					</div>
+
+					<div class="space-y-3">
+						<el-button
+							type="primary"
+							size="large"
+							class="w-full"
+							@click="useContinueWithCurrentUser"
+							:loading="loading"
+						>
+							Continue with
+							{{ currentLoggedUser?.email || currentLoggedUser?.userName }}
+						</el-button>
+
+						<el-button size="large" class="w-full" @click="switchToEmailForm">
+							Use Different Email Address
+						</el-button>
+
+						<el-button
+							type="text"
+							size="small"
+							class="w-full text-gray-500"
+							@click="logoutAndContinue"
+						>
+							Logout Current User
+						</el-button>
+					</div>
+				</div>
+
 				<!-- Form State -->
 				<div v-if="verificationState === 'form' && !loading" class="space-y-4">
 					<div class="text-center mb-6">
@@ -80,6 +141,16 @@
 							:loading="loading"
 						>
 							Verify Access
+						</el-button>
+
+						<el-button
+							v-if="currentLoggedUser"
+							type="text"
+							size="small"
+							class="w-full text-gray-500 mt-2"
+							@click="backToUserSelection"
+						>
+							← Back to User Selection
 						</el-button>
 					</el-form>
 				</div>
@@ -204,10 +275,11 @@ const formRef = ref<FormInstance>();
 // States
 const loading = ref(false);
 const registering = ref(false);
-const verificationState = ref<'form' | 'success' | 'error' | 'expired'>('form');
+const verificationState = ref<'form' | 'success' | 'error' | 'expired' | 'userLoggedIn'>('form');
 const successMessage = ref('');
 const errorMessage = ref('');
 const errorDescription = ref('');
+const currentLoggedUser = ref<any>(null);
 
 // Form data
 const form = ref({
@@ -407,6 +479,91 @@ const retryVerification = () => {
 	form.value.email = '';
 };
 
+// Continue with current logged user
+const useContinueWithCurrentUser = async () => {
+	console.log('useContinueWithCurrentUser called');
+	console.log('currentLoggedUser:', currentLoggedUser.value);
+
+	const userEmail = currentLoggedUser.value?.email || currentLoggedUser.value?.userName;
+
+	if (!userEmail) {
+		console.error('No email found in currentLoggedUser:', currentLoggedUser.value);
+		ElMessage.error('Current user email not found');
+		return;
+	}
+
+	console.log('Using email for verification:', userEmail);
+
+	try {
+		loading.value = true;
+
+		// 只使用短URL验证
+		const shortUrlId = route.params.shortUrlId as string;
+
+		if (!shortUrlId) {
+			ElMessage.error('Invalid invitation link');
+			return;
+		}
+
+		// 使用短URL验证
+		const response = (await userInvitationApi.verifyPortalAccessByShortUrl(shortUrlId, {
+			email: userEmail,
+		})) as any;
+		const verificationData = response.data || response;
+
+		if (verificationData.isValid) {
+			// Store portal access token
+			localStorage.setItem('portal_access_token', verificationData.accessToken);
+			localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
+
+			// 邮箱验证成功后，自动内部注册并跳转（无需密码）
+			form.value.email = userEmail; // Set form email for registration flow
+			await handleAutoRegisterAndRedirect();
+		} else {
+			if (verificationData.isExpired) {
+				verificationState.value = 'expired';
+			} else {
+				verificationState.value = 'error';
+				errorMessage.value = verificationData.errorMessage || 'Verification failed';
+				errorDescription.value = getErrorDescription(verificationData.errorMessage);
+			}
+		}
+	} catch (error) {
+		verificationState.value = 'error';
+		errorMessage.value = 'Connection Error';
+		errorDescription.value =
+			'Unable to verify your invitation. Please check your internet connection and try again.';
+		console.error('Verification error:', error);
+	} finally {
+		loading.value = false;
+	}
+};
+
+// Switch to email form
+const switchToEmailForm = () => {
+	verificationState.value = 'form';
+	form.value.email = '';
+};
+
+// Back to user selection
+const backToUserSelection = () => {
+	if (currentLoggedUser.value) {
+		verificationState.value = 'userLoggedIn';
+	} else {
+		verificationState.value = 'form';
+	}
+};
+
+// Logout current user and continue
+const logoutAndContinue = () => {
+	const userStore = useUserStore();
+	userStore.logout();
+	currentLoggedUser.value = null;
+	verificationState.value = 'form';
+	form.value.email = '';
+	ElMessage.success('Successfully logged out. Please enter your email to continue.');
+};
+
 // Check if current user matches the invitation email
 const checkCurrentUserAndAutoLogin = async () => {
 	const shortUrlId = route.params.shortUrlId as string;
@@ -428,13 +585,17 @@ const checkCurrentUserAndAutoLogin = async () => {
 	console.log('Portal Access - User Info Full:', JSON.stringify(currentUserInfo, null, 2));
 
 	// Try to get email from user info or parse from token
-	let userEmail = currentUserInfo?.email;
+	let userEmail = currentUserInfo?.email || currentUserInfo?.userName;
 	if (!userEmail && currentToken) {
 		try {
 			const parsedToken = parseJWT(currentToken);
 			userEmail =
 				parsedToken?.email ||
-				parsedToken?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'];
+				parsedToken?.[
+					'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'
+				] ||
+				parsedToken?.username ||
+				parsedToken?.sub;
 			console.log('Portal Access - Email from token:', userEmail);
 		} catch (error) {
 			console.error('Portal Access - Failed to parse token:', error);
@@ -442,39 +603,51 @@ const checkCurrentUserAndAutoLogin = async () => {
 	}
 
 	// If user is already logged in
-	if (currentToken && userEmail) {
-		console.log('Portal Access - Auto-verification starting for user:', userEmail);
-		try {
-			loading.value = true;
+	if (currentToken && (userEmail || currentUserInfo)) {
+		console.log('Portal Access - Current user detected:', userEmail);
 
-			// 使用短URL验证
-			const response = (await userInvitationApi.verifyPortalAccessByShortUrl(shortUrlId, {
-				email: userEmail,
-			})) as any;
-			const verificationData = response.data || response;
+		// Store current user info for display
+		currentLoggedUser.value = {
+			email: userEmail,
+			userName: currentUserInfo?.userName || userEmail,
+			...currentUserInfo,
+		};
 
-			if (verificationData.isValid) {
-				// Store portal access token and onboarding ID
-				localStorage.setItem('portal_access_token', verificationData.accessToken);
-				localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
+		// Show user logged in state instead of auto-verification
+		verificationState.value = 'userLoggedIn';
 
-				// Auto redirect without requiring additional login
-				verificationState.value = 'success';
-				successMessage.value = 'Welcome back! Redirecting to customer portal...';
+		// Optional: Try auto-verification in background for exact email match
+		if (userEmail) {
+			try {
+				loading.value = true;
 
-				setTimeout(() => {
-					redirectToCustomerPortal();
-				}, 1000);
-			} else {
-				// Current user doesn't match the invitation, show form
-				verificationState.value = 'form';
+				// 使用短URL验证当前用户邮箱是否匹配
+				const response = (await userInvitationApi.verifyPortalAccessByShortUrl(shortUrlId, {
+					email: userEmail,
+				})) as any;
+				const verificationData = response.data || response;
+
+				if (verificationData.isValid) {
+					// Store portal access token and onboarding ID
+					localStorage.setItem('portal_access_token', verificationData.accessToken);
+					localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
+
+					// Auto redirect without requiring additional confirmation if email matches exactly
+					verificationState.value = 'success';
+					successMessage.value =
+						'Welcome back! Email verified. Redirecting to customer portal...';
+
+					setTimeout(() => {
+						redirectToCustomerPortal();
+					}, 1500);
+					return;
+				}
+			} catch (error) {
+				console.error('Background auto-verification error:', error);
+				// Continue to show user selection even if auto-verification fails
+			} finally {
+				loading.value = false;
 			}
-		} catch (error) {
-			console.error('Auto-verification error:', error);
-			// If auto-verification fails, show the form
-			verificationState.value = 'form';
-		} finally {
-			loading.value = false;
 		}
 	} else {
 		// No current user, show the form

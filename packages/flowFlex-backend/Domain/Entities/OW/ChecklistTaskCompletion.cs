@@ -65,6 +65,12 @@ public class ChecklistTaskCompletion : EntityBaseCreateInfo
     public string CompletionNotes { get; set; } = string.Empty;
 
     /// <summary>
+    /// Related Files JSON (File information array as JSON string)
+    /// </summary>
+    [SugarColumn(ColumnName = "files_json", ColumnDataType = "text", IsNullable = true)]
+    public string? FilesJson { get; set; } = "[]";
+
+    /// <summary>
     /// Submission Source
     /// </summary>
     [StringLength(50)]

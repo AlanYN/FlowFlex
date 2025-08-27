@@ -317,6 +317,207 @@ namespace FlowFlex.Application.Service.OW
             }
         }
 
+        /// <summary>
+        /// Sync stage mappings within transaction (for data consistency)
+        /// </summary>
+        public async Task SyncStageMappingsInTransactionAsync(long stageId, ISqlSugarClient transaction)
+        {
+            var stage = await transaction.Queryable<Stage>().Where(s => s.Id == stageId).FirstAsync();
+            if (stage == null) return;
+
+            Console.WriteLine($"[ComponentMappingService] Syncing mappings for stage {stageId} within transaction");
+
+            // Delete existing mappings for this stage within transaction
+            await transaction.Deleteable<QuestionnaireStageMapping>()
+                .Where(m => m.StageId == stageId)
+                .ExecuteCommandAsync();
+
+            await transaction.Deleteable<ChecklistStageMapping>()
+                .Where(m => m.StageId == stageId)
+                .ExecuteCommandAsync();
+
+            // Parse and create new mappings
+            if (!string.IsNullOrEmpty(stage.ComponentsJson))
+            {
+                try
+                {
+                    var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
+                    var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, JsonOptions);
+
+                    foreach (var component in components ?? new List<StageComponent>())
+                    {
+                        // Sync questionnaire mappings
+                        if (component.Key == "questionnaires" && component.QuestionnaireIds?.Any() == true)
+                        {
+                            var questionnaireMappings = component.QuestionnaireIds.Select(qId => 
+                            {
+                                var mapping = new QuestionnaireStageMapping
+                                {
+                                    QuestionnaireId = qId,
+                                    StageId = stage.Id,
+                                    WorkflowId = stage.WorkflowId,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                };
+                                
+                                // Initialize snowflake ID and entity info
+                                mapping.InitCreateInfo(_userContext);
+                                
+                                return mapping;
+                            }).ToList();
+
+                            await transaction.Insertable(questionnaireMappings).ExecuteCommandAsync();
+                            Console.WriteLine($"[ComponentMappingService] Synced {questionnaireMappings.Count} questionnaire mappings for stage {stageId} in transaction");
+                        }
+
+                        // Sync checklist mappings
+                        if (component.Key == "checklist" && component.ChecklistIds?.Any() == true)
+                        {
+                            var checklistMappings = component.ChecklistIds.Select(cId => 
+                            {
+                                var mapping = new ChecklistStageMapping
+                                {
+                                    ChecklistId = cId,
+                                    StageId = stage.Id,
+                                    WorkflowId = stage.WorkflowId,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                };
+                                
+                                // Initialize snowflake ID and entity info
+                                mapping.InitCreateInfo(_userContext);
+                                
+                                return mapping;
+                            }).ToList();
+
+                            await transaction.Insertable(checklistMappings).ExecuteCommandAsync();
+                            Console.WriteLine($"[ComponentMappingService] Synced {checklistMappings.Count} checklist mappings for stage {stageId} in transaction");
+                        }
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"[ComponentMappingService] Error parsing ComponentsJson for stage {stageId} in transaction: {ex.Message}");
+                    throw; // Re-throw to rollback transaction
+                }
+            }
+        }
+
+        /// <summary>
+        /// Validate data consistency between stage components and mappings
+        /// </summary>
+        public async Task<bool> ValidateStageComponentConsistencyAsync(long stageId)
+        {
+            try
+            {
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null) return false;
+
+                // Get IDs from stage components
+                var componentChecklistIds = new List<long>();
+                var componentQuestionnaireIds = new List<long>();
+
+                if (!string.IsNullOrEmpty(stage.ComponentsJson))
+                {
+                    try
+                    {
+                        var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
+                        var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, JsonOptions);
+
+                        componentChecklistIds = components?
+                            .Where(c => c.Key == "checklist")
+                            .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                            .Distinct()
+                            .OrderBy(x => x)
+                            .ToList() ?? new List<long>();
+
+                        componentQuestionnaireIds = components?
+                            .Where(c => c.Key == "questionnaires")
+                            .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                            .Distinct()
+                            .OrderBy(x => x)
+                            .ToList() ?? new List<long>();
+                    }
+                    catch (JsonException)
+                    {
+                        Console.WriteLine($"[ComponentMappingService] Invalid ComponentsJson for stage {stageId}");
+                        return false;
+                    }
+                }
+
+                // Get IDs from mapping tables
+                var mappingChecklistIds = await _db.Queryable<ChecklistStageMapping>()
+                    .Where(m => m.StageId == stageId && m.IsValid == true)
+                    .Select(m => m.ChecklistId)
+                    .ToListAsync();
+                mappingChecklistIds = mappingChecklistIds.Distinct().OrderBy(x => x).ToList();
+
+                var mappingQuestionnaireIds = await _db.Queryable<QuestionnaireStageMapping>()
+                    .Where(m => m.StageId == stageId && m.IsValid == true)
+                    .Select(m => m.QuestionnaireId)
+                    .ToListAsync();
+                mappingQuestionnaireIds = mappingQuestionnaireIds.Distinct().OrderBy(x => x).ToList();
+
+                // Compare collections
+                var checklistsMatch = componentChecklistIds.SequenceEqual(mappingChecklistIds);
+                var questionnairesMatch = componentQuestionnaireIds.SequenceEqual(mappingQuestionnaireIds);
+
+                if (!checklistsMatch || !questionnairesMatch)
+                {
+                    Console.WriteLine($"[ComponentMappingService] Data inconsistency detected for stage {stageId}:");
+                    Console.WriteLine($"  Component Checklists: [{string.Join(", ", componentChecklistIds)}]");
+                    Console.WriteLine($"  Mapping Checklists: [{string.Join(", ", mappingChecklistIds)}]");
+                    Console.WriteLine($"  Component Questionnaires: [{string.Join(", ", componentQuestionnaireIds)}]");
+                    Console.WriteLine($"  Mapping Questionnaires: [{string.Join(", ", mappingQuestionnaireIds)}]");
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ComponentMappingService] Error validating consistency for stage {stageId}: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if stage mappings need synchronization
+        /// </summary>
+        public async Task<bool> NeedsSyncAsync(long stageId, List<long> newChecklistIds, List<long> newQuestionnaireIds)
+        {
+            try
+            {
+                // Get current mapping IDs
+                var currentChecklistIds = await _db.Queryable<ChecklistStageMapping>()
+                    .Where(m => m.StageId == stageId && m.IsValid == true)
+                    .Select(m => m.ChecklistId)
+                    .ToListAsync();
+                currentChecklistIds = currentChecklistIds.Distinct().OrderBy(x => x).ToList();
+
+                var currentQuestionnaireIds = await _db.Queryable<QuestionnaireStageMapping>()
+                    .Where(m => m.StageId == stageId && m.IsValid == true)
+                    .Select(m => m.QuestionnaireId)
+                    .ToListAsync();
+                currentQuestionnaireIds = currentQuestionnaireIds.Distinct().OrderBy(x => x).ToList();
+
+                // Sort new IDs for comparison
+                newChecklistIds = newChecklistIds?.Distinct().OrderBy(x => x).ToList() ?? new List<long>();
+                newQuestionnaireIds = newQuestionnaireIds?.Distinct().OrderBy(x => x).ToList() ?? new List<long>();
+
+                // Compare collections
+                var checklistsChanged = !currentChecklistIds.SequenceEqual(newChecklistIds);
+                var questionnairesChanged = !currentQuestionnaireIds.SequenceEqual(newQuestionnaireIds);
+
+                return checklistsChanged || questionnairesChanged;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ComponentMappingService] Error checking sync needs for stage {stageId}: {ex.Message}");
+                return true; // Assume sync is needed on error
+            }
+        }
+
         private static string TryUnwrapComponentsJson(string json)
         {
             if (string.IsNullOrWhiteSpace(json)) return json;

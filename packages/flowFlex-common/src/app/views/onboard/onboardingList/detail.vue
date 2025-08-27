@@ -50,9 +50,9 @@
 		</div>
 
 		<!-- 主要内容区域 -->
-		<div class="flex gap-6">
+		<div class="flex w-full gap-6">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
-			<div class="flex-[2]">
+			<div class="flex-[2] min-w-0 overflow-hidden">
 				<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
 					<div
 						class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
@@ -60,7 +60,7 @@
 						<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 					</div>
 				</div>
-				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
+				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4 w-full">
 					<div class="space-y-6 mt-4">
 						<!-- AI Summary 展示（当前阶段） -->
 						<div
@@ -113,7 +113,7 @@
 												<h3
 													class="ai-title font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400"
 												>
-													AI Smart Summary
+													AI Summary
 												</h3>
 												<div class="flex items-center space-x-2 mt-1">
 													<div
@@ -172,7 +172,7 @@
 									<div v-if="currentAISummary" class="ai-summary-content">
 										<div class="ai-content-wrapper">
 											<p
-												class="whitespace-pre-line text-sm leading-7 text-gray-800 dark:text-gray-100"
+												class="break-words word-wrap text-sm leading-7 text-gray-800 dark:text-gray-100 overflow-hidden"
 												:class="{ 'ai-streaming': aiSummaryLoading }"
 											>
 												{{ currentAISummary }}
@@ -307,8 +307,11 @@
 										component.checklistIds?.length > 0
 									"
 									:loading="checkLoading"
+									:stage-id="activeStage"
 									:checklist-data="getChecklistDataForComponent(component)"
+									:onboarding-id="onboardingId"
 									@task-toggled="handleTaskToggled"
+									@refresh-checklist="loadCheckListData"
 								/>
 
 								<!-- 问卷组件 -->
@@ -351,7 +354,7 @@
 			</div>
 
 			<!-- 右侧进度和笔记 (1/3 宽度) -->
-			<div class="flex-1">
+			<div class="flex-1 flex-shrink-0">
 				<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
 					<div class="space-y-6">
 						<!-- OnboardingProgress组件 -->
@@ -662,6 +665,10 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 								completedBy: completedTask.modifyBy || completedTask.createBy,
 								completedTime:
 									completedTask.completedTime || completedTask.modifyDate,
+								filesJson: completedTask?.filesJson,
+								assigneeName: completedTask?.assigneeName,
+								filesCount: completedTask?.filesCount,
+								notesCount: completedTask?.notesCount,
 							});
 						}
 					});
@@ -684,6 +691,10 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 						completedBy:
 							completionInfo?.completedBy || task.assigneeName || task.createBy,
 						completedDate: completionInfo?.completedTime || task.completedDate,
+						filesJson: completionInfo?.filesJson,
+						assigneeName: completionInfo?.assigneeName || task?.assigneeName,
+						filesCount: completionInfo?.filesCount || task?.filesCount,
+						notesCount: completionInfo?.notesCount || task?.notesCount,
 					};
 				});
 
@@ -1392,10 +1403,11 @@ onMounted(async () => {
 /* AI内容样式 */
 .ai-content-wrapper {
 	position: relative;
-	padding: 1rem;
-	background: rgba(59, 130, 246, 0.02);
 	border-radius: 8px;
-	border-left: 3px solid #3b82f6;
+	width: 100%;
+	max-width: 100%;
+	overflow-wrap: break-word;
+	word-break: break-word;
 }
 
 .ai-streaming {
@@ -1682,6 +1694,14 @@ onMounted(async () => {
 
 :deep(.el-scrollbar:hover .el-scrollbar__bar) {
 	opacity: 1;
+}
+
+/* 文字溢出处理 */
+.word-wrap {
+	word-wrap: break-word;
+	-webkit-hyphens: auto;
+	-moz-hyphens: auto;
+	hyphens: auto;
 }
 
 /* 响应式设计 */

@@ -48,5 +48,5 @@ public interface IChecklistTaskCompletionService : IScopedService
     /// <summary>
     /// Toggle task completion
     /// </summary>
-    Task<bool> ToggleTaskCompletionAsync(long onboardingId, long taskId, bool isCompleted, string completionNotes = "");
+    Task<bool> ToggleTaskCompletionAsync(long onboardingId, long taskId, bool isCompleted, string completionNotes = "", string filesJson = "[]");
 }

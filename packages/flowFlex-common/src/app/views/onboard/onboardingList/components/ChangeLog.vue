@@ -181,7 +181,10 @@
 										row.type === 'ActionExecutionFailed' ||
 										row.type === 'ActionExecutionRunning' ||
 										row.type === 'ActionExecutionPending' ||
-										row.type === 'ActionExecutionCancelled') &&
+										row.type === 'ActionExecutionCancelled' ||
+										row.type === 'Stage Action' ||
+										row.type === 'Task Action' ||
+										row.type === 'Question Action') &&
 									row.actionInfo
 								"
 							>
@@ -223,10 +226,64 @@
 										</div>
 
 										<div class="space-y-1 text-xs">
+											<!-- 显示 Action 来源 -->
+											<div
+												v-if="getActionSource(row.type)"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Source:</span>
+												<span
+													:class="getActionSourceClass(row.type)"
+													class="px-2 py-1 rounded text-xs font-medium"
+												>
+													{{ getActionSource(row.type) }}
+												</span>
+											</div>
 											<div class="flex items-center">
 												<span class="text-gray-500 mr-2">Type:</span>
 												<span class="text-gray-700 dark:text-gray-300">
 													{{ row.actionInfo.actionType }}
+												</span>
+											</div>
+											<!-- 执行状态 -->
+											<div
+												v-if="row.actionInfo.executionStatus"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Status:</span>
+												<span
+													:class="
+														getExecutionStatusClass(
+															row.actionInfo.executionStatus
+														)
+													"
+													class="px-2 py-1 rounded text-xs font-medium"
+												>
+													{{ row.actionInfo.executionStatus }}
+												</span>
+											</div>
+
+											<!-- 执行时间范围 -->
+											<div
+												v-if="row.actionInfo.startedAt"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Started:</span>
+												<span
+													class="text-gray-700 dark:text-gray-300 text-xs"
+												>
+													{{ formatDateTime(row.actionInfo.startedAt) }}
+												</span>
+											</div>
+											<div
+												v-if="row.actionInfo.completedAt"
+												class="flex items-center"
+											>
+												<span class="text-gray-500 mr-2">Completed:</span>
+												<span
+													class="text-gray-700 dark:text-gray-300 text-xs"
+												>
+													{{ formatDateTime(row.actionInfo.completedAt) }}
 												</span>
 											</div>
 											<div
@@ -251,20 +308,71 @@
 													{{ row.actionInfo.executionId }}
 												</span>
 											</div>
+											<!-- 显示执行输出摘要 -->
 											<div
-												v-if="row.actionInfo.triggerContext"
-												class="flex items-center"
+												v-if="
+													getExecutionOutputSummary(
+														row.actionInfo.executionOutput
+													)
+												"
+												class="mt-2"
 											>
-												<span class="text-gray-500 mr-2">Context:</span>
-												<span class="text-gray-700 dark:text-gray-300">
-													{{ row.actionInfo.triggerContext }}
-												</span>
+												<div class="text-gray-500 text-xs mb-1">
+													Output:
+												</div>
+												<div
+													class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
+												>
+													{{
+														getExecutionOutputSummary(
+															row.actionInfo.executionOutput
+														)
+													}}
+												</div>
 											</div>
+
+											<!-- 显示执行输入摘要 -->
+											<div
+												v-if="
+													getExecutionInputSummary(
+														row.actionInfo.executionInput
+													)
+												"
+												class="mt-2"
+											>
+												<div class="text-gray-500 text-xs mb-1">Input:</div>
+												<div
+													class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
+												>
+													{{
+														getExecutionInputSummary(
+															row.actionInfo.executionInput
+														)
+													}}
+												</div>
+											</div>
+
+											<!-- 错误信息显示 -->
 											<div v-if="row.actionInfo.errorMessage" class="mt-2">
 												<div class="text-red-600 dark:text-red-400 text-xs">
 													<span class="font-medium">Error:</span>
 													{{ row.actionInfo.errorMessage }}
 												</div>
+											</div>
+
+											<!-- 错误堆栈跟踪（只在有错误时显示） -->
+											<div v-if="row.actionInfo.errorStackTrace" class="mt-1">
+												<details class="text-red-500 text-xs">
+													<summary
+														class="cursor-pointer hover:text-red-700"
+													>
+														Stack Trace
+													</summary>
+													<pre
+														class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
+														>{{ row.actionInfo.errorStackTrace }}</pre
+													>
+												</details>
 											</div>
 										</div>
 									</div>
@@ -538,6 +646,9 @@ const processChangesData = async () => {
 			case 'ActionExecutionRunning':
 			case 'ActionExecutionPending':
 			case 'ActionExecutionCancelled':
+			case 'StageActionExecution':
+			case 'TaskActionExecution':
+			case 'QuestionActionExecution':
 				actionInfo = extractActionInfo(change);
 				break;
 
@@ -549,11 +660,11 @@ const processChangesData = async () => {
 				break;
 
 			default:
-				console.log('Unknown change type:', operationType);
+				console.log('change type:', operationType);
 				break;
 		}
 
-		processedData.push({
+		const processedItem = {
 			...change,
 			type: typeInfo.label,
 			typeIcon: typeInfo.icon,
@@ -563,7 +674,9 @@ const processChangesData = async () => {
 			taskInfo,
 			fileInfo,
 			actionInfo,
-		});
+		};
+
+		processedData.push(processedItem);
 	}
 
 	processedChanges.value = processedData;
@@ -1176,7 +1289,7 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 						if (typeof file === 'object' && file && file.name) {
 							return file.name;
 						}
-						return 'Unknown file';
+						return 'file';
 					});
 					return `Files: ${fileNames.join(', ')}`;
 				} else if (typeof answer === 'object' && answer && answer.name) {
@@ -1429,6 +1542,15 @@ const getTagType = (type: string): string => {
 		case 'Action Cancelled':
 		case 'ActionExecutionCancelled':
 			return 'warning';
+		case 'Stage Action':
+		case 'StageActionExecution':
+			return 'info';
+		case 'Task Action':
+		case 'TaskActionExecution':
+			return 'success';
+		case 'Question Action':
+		case 'QuestionActionExecution':
+			return 'warning';
 		default:
 			return 'info';
 	}
@@ -1466,24 +1588,62 @@ const extractActionInfo = (change: any): any => {
 			change.operationDescription || change.details
 		);
 
+		// 解析 extendedData 获取详细的执行信息
+		const extendedInfo = parseExtendedData(change.extendedInfo || change.extendedData);
+
 		return {
-			actionName: actionName || 'Unknown Action',
-			actionType: actionType || 'Unknown',
-			executionId: extractExecutionId(change.extendedData),
-			duration: extractDuration(change.extendedData),
-			triggerContext: change.extendedData || '',
-			errorMessage: extractErrorMessage(change),
+			actionName: actionName || 'Action',
+			actionType: actionType || extendedInfo.actionType || '',
+			executionId: extendedInfo.executionId || extractExecutionId(change.extendedData),
+			duration: extendedInfo.durationMs || extractDuration(change.extendedData),
+			executionStatus: extendedInfo.executionStatus,
+			startedAt: extendedInfo.startedAt,
+			completedAt: extendedInfo.completedAt,
+			triggerContext: extendedInfo.triggerContext || change.extendedData || '',
+			executionInput: extendedInfo.executionInput,
+			executionOutput: extendedInfo.executionOutput,
+			errorMessage: extendedInfo.errorMessage || extractErrorMessage(change),
+			errorStackTrace: extendedInfo.errorStackTrace,
+			executorInfo: extendedInfo.executorInfo,
 		};
 	} catch (error) {
 		console.warn('Failed to extract action info:', error);
 		return {
-			actionName: 'Unknown Action',
-			actionType: 'Unknown',
+			actionName: 'Action',
+			actionType: '',
 			executionId: '',
 			duration: null,
+			executionStatus: '',
 			triggerContext: '',
 			errorMessage: '',
 		};
+	}
+};
+
+// 解析 extendedData 获取详细的 action execution 信息
+const parseExtendedData = (extendedData: string): any => {
+	if (!extendedData) return {};
+
+	try {
+		const data = typeof extendedData === 'string' ? JSON.parse(extendedData) : extendedData;
+		return {
+			actionCode: data.actionCode,
+			actionType: data.actionType,
+			executionId: data.executionId,
+			executionStatus: data.executionStatus,
+			startedAt: data.startedAt,
+			completedAt: data.completedAt,
+			durationMs: data.durationMs,
+			triggerContext: data.triggerContext,
+			executionInput: data.executionInput,
+			executionOutput: data.executionOutput,
+			errorMessage: data.errorMessage,
+			errorStackTrace: data.errorStackTrace,
+			executorInfo: data.executorInfo,
+		};
+	} catch (error) {
+		console.warn('Failed to parse extended data:', error);
+		return {};
 	}
 };
 
@@ -1569,6 +1729,12 @@ const getActionExecutionBgClass = (type: string): string => {
 		case 'Action Cancelled':
 		case 'ActionExecutionCancelled':
 			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
+		case 'StageActionExecution':
+			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
+		case 'TaskActionExecution':
+			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
+		case 'QuestionActionExecution':
+			return 'bg-purple-50 dark:bg-purple-900/20 border-purple-400';
 		default:
 			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
 	}
@@ -1591,6 +1757,12 @@ const getActionExecutionStatusClass = (type: string): string => {
 		case 'Action Cancelled':
 		case 'ActionExecutionCancelled':
 			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+		case 'StageActionExecution':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'TaskActionExecution':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'QuestionActionExecution':
+			return 'bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100';
 		default:
 			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
 	}
@@ -1613,8 +1785,145 @@ const getActionExecutionStatusText = (type: string): string => {
 		case 'Action Cancelled':
 		case 'ActionExecutionCancelled':
 			return 'Cancelled';
+		case 'StageActionExecution':
+			return 'Stage Action';
+		case 'TaskActionExecution':
+			return 'Task Action';
+		case 'QuestionActionExecution':
+			return 'Question Action';
 		default:
-			return 'Unknown';
+			return '';
+	}
+};
+
+// 获取 Action 执行来源
+const getActionSource = (type: string): string => {
+	switch (type) {
+		case 'StageActionExecution':
+			return 'Stage';
+		case 'TaskActionExecution':
+			return 'Task';
+		case 'QuestionActionExecution':
+			return 'Question';
+		default:
+			return '';
+	}
+};
+
+// 获取 Action 来源的样式类
+const getActionSourceClass = (type: string): string => {
+	switch (type) {
+		case 'StageActionExecution':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'TaskActionExecution':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'QuestionActionExecution':
+			return 'bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100';
+		default:
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	}
+};
+
+// 获取执行状态的样式类
+const getExecutionStatusClass = (status: string): string => {
+	if (!status) return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+
+	const statusLower = status.toLowerCase();
+	switch (statusLower) {
+		case 'success':
+		case 'completed':
+		case 'finished':
+			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+		case 'failed':
+		case 'error':
+		case 'exception':
+			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
+		case 'running':
+		case 'executing':
+		case 'in_progress':
+			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
+		case 'pending':
+		case 'waiting':
+		case 'queued':
+			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
+		case 'cancelled':
+		case 'aborted':
+		case 'terminated':
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+		default:
+			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	}
+};
+
+// 获取执行输出摘要
+const getExecutionOutputSummary = (executionOutput: any): string => {
+	if (!executionOutput) return '';
+
+	try {
+		const output =
+			typeof executionOutput === 'string' ? JSON.parse(executionOutput) : executionOutput;
+		const summaryParts: string[] = [];
+
+		// 提取关键信息
+		if (output.success !== undefined) {
+			summaryParts.push(`Success: ${output.success}`);
+		}
+
+		if (output.status) {
+			summaryParts.push(`Status: ${output.status}`);
+		}
+
+		if (output.message) {
+			const message =
+				output.message.length > 100
+					? output.message.substring(0, 100) + '...'
+					: output.message;
+			summaryParts.push(`Message: ${message}`);
+		}
+
+		if (output.result !== undefined) {
+			const result =
+				typeof output.result === 'object'
+					? JSON.stringify(output.result).substring(0, 100) + '...'
+					: String(output.result);
+			summaryParts.push(`Result: ${result}`);
+		}
+
+		return summaryParts.join(' | ');
+	} catch (error) {
+		// 如果解析失败，返回原始字符串的前100个字符
+		const str = String(executionOutput);
+		return str.length > 100 ? str.substring(0, 100) + '...' : str;
+	}
+};
+
+// 获取执行输入摘要
+const getExecutionInputSummary = (executionInput: any): string => {
+	if (!executionInput) return '';
+
+	try {
+		const input =
+			typeof executionInput === 'string' ? JSON.parse(executionInput) : executionInput;
+		const summaryParts: string[] = [];
+
+		// 提取关键输入参数
+		Object.keys(input).forEach((key) => {
+			if (summaryParts.length < 3) {
+				// 最多显示3个参数
+				const value = input[key];
+				const valueStr =
+					typeof value === 'object'
+						? JSON.stringify(value).substring(0, 50) + '...'
+						: String(value);
+				summaryParts.push(`${key}: ${valueStr}`);
+			}
+		});
+
+		return summaryParts.join(' | ');
+	} catch (error) {
+		// 如果解析失败，返回原始字符串的前100个字符
+		const str = String(executionInput);
+		return str.length > 100 ? str.substring(0, 100) + '...' : str;
 	}
 };
 
@@ -1623,7 +1932,7 @@ watch(
 	() => [props.onboardingId, props.stageId],
 	(newValues) => {
 		const [newOnboardingId, newStageId] = newValues || [];
-		if (newOnboardingId || newStageId) {
+		if (newOnboardingId && newStageId) {
 			// 重置分页到第一页
 			currentPage.value = 1;
 			loadChangeLogs();
@@ -1634,7 +1943,7 @@ watch(
 
 // 组件挂载时加载数据
 onMounted(() => {
-	if (props.onboardingId) {
+	if (props.onboardingId && props.stageId) {
 		loadChangeLogs();
 	}
 });

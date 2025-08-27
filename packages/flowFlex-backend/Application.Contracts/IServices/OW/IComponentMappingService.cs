@@ -41,5 +41,20 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Get checklist IDs by workflow and/or stage from mapping table (ultra-fast)
         /// </summary>
         Task<List<long>> GetChecklistIdsByWorkflowStageAsync(long? workflowId = null, long? stageId = null);
+
+        /// <summary>
+        /// Sync stage mappings within transaction (for data consistency)
+        /// </summary>
+        Task SyncStageMappingsInTransactionAsync(long stageId, SqlSugar.ISqlSugarClient transaction);
+
+        /// <summary>
+        /// Validate data consistency between stage components and mappings
+        /// </summary>
+        Task<bool> ValidateStageComponentConsistencyAsync(long stageId);
+
+        /// <summary>
+        /// Check if stage mappings need synchronization
+        /// </summary>
+        Task<bool> NeedsSyncAsync(long stageId, List<long> newChecklistIds, List<long> newQuestionnaireIds);
     }
 }

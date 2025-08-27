@@ -13,7 +13,15 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
     /// </summary>
     public class ActionDefinitionRepository : BaseRepository<ActionDefinition>, IActionDefinitionRepository
     {
-        public ActionDefinitionRepository(ISqlSugarClient dbContext) : base(dbContext) { }
+        private readonly UserContext _userContext;
+
+        public ActionDefinitionRepository(
+            UserContext userContext,
+            ISqlSugarClient dbContext
+            ) : base(dbContext)
+        {
+            _userContext = userContext;
+        }
 
         /// <summary>
         /// Get action definitions by action type
@@ -74,7 +82,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null)
         {
             RefAsync<int> totalCount = 0;
 
@@ -92,6 +101,10 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             {
                 query = query.Where(x => x.ActionName.Contains(keyword) || x.ActionCode.Contains(keyword));
             }
+
+            query.WhereIF(isTools.HasValue, x => x.IsTools == isTools.Value);
+
+            query.WhereIF(isTools.HasValue && !isTools.Value, x => x.CreateUserId == Convert.ToInt64(_userContext.UserId));
 
             var triggerTypeFilters = new[]
             {
@@ -288,4 +301,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             return await query.ToListAsync();
         }
     }
+
 }
+
+

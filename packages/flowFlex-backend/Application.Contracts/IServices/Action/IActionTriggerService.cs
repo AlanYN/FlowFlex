@@ -15,6 +15,8 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// <param name="triggerEventType">Trigger event type (Completed, Created, etc.)</param>
         /// <param name="contextData">Additional context data</param>
         /// <param name="userId">User ID who triggered the event</param>
+        /// <param name="workflowId"></param>
+        /// <param name="stageId"></param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Task representing the asynchronous operation</returns>
         Task ExecuteActionsForTriggerAsync(
@@ -23,6 +25,8 @@ namespace FlowFlex.Application.Contracts.IServices.Action
             string triggerEventType,
             object contextData = null,
             long? userId = null,
+            long? workflowId = null,
+            long? stageId = null,
             CancellationToken cancellationToken = default);
     }
 }

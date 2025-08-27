@@ -28,82 +28,113 @@
 		</div>
 
 		<!-- 所有检查项列表 -->
-		<div class="checklist-items" v-loading="loading">
+		<div class="checklist-items py-4" v-loading="loading">
 			<!-- 遍历所有checklist中的任务 -->
 			<template v-for="checklist in checklistData || []" :key="checklist.id">
 				<!-- 可选：显示每个checklist的分组标题 -->
-				<div v-if="checklist.name" class="checklist-group-title">
-					{{ checklist.name }}
-					<span class="group-task-count">({{ checklist.tasks?.length || 0 }} tasks)</span>
-				</div>
 
 				<!-- 该checklist下的所有任务 -->
 				<div
 					v-for="task in checklist.tasks"
 					:key="task.id"
 					class="checklist-item-card rounded-md"
-					:class="{ completed: task.isCompleted }"
 				>
-					<!-- 任务复选框 -->
-					<div class="item-checkbox rounded-md" @click.stop="toggleTask(task)">
-						<el-icon v-if="task.isCompleted" class="check-icon">
-							<Check />
-						</el-icon>
-					</div>
-
 					<!-- 任务内容 -->
-					<div class="item-content" @click.stop="toggleTask(task)">
-						<h4 v-if="task.name" class="item-title">
-							{{ task.name }}
-						</h4>
+					<div class="item-content px-4 py-2" :class="{ completed: task.isCompleted }">
+						<div class="flex items-center gap-2 mb-1">
+							<icon
+								icon="material-symbols:check-circle-outline-rounded"
+								style="color: #10b981"
+								class="text-xl"
+								v-if="task.isCompleted"
+							/>
+							<h4 v-if="task.name" class="item-title bolck">
+								{{ task.name }}
+							</h4>
+						</div>
+
 						<p v-if="task.description" class="item-description">
 							{{ task.description }}
 						</p>
-
-						<!-- 完成信息 - 只在任务完成时显示 -->
-						<div v-if="task.isCompleted" class="completion-info">
-							<el-icon class="completion-icon"><Check /></el-icon>
-							<span class="completion-text">
-								Completed by
-								{{
-									task.completedBy ||
-									task.assigneeName ||
-									task.createBy ||
-									defaultStr
-								}}
-								on
-								{{ formatDate(task.completedDate) || defaultStr }}
-							</span>
+						<div class="flex gap-3">
+							<div class="flex items-center gap-1 flex-shrink-0">
+								<!-- Assignee 缩写 -->
+								<icon
+									icon="material-symbols:person-2-outline"
+									style="color: var(--primary-500)"
+								/>
+								<span
+									class="text-xs font-medium text-primary-500"
+									:title="task.assigneeName || defaultStr"
+								>
+									{{ getAssigneeInitials(task.assigneeName) || defaultStr }}
+								</span>
+							</div>
+							<div
+								class="flex items-center gap-1 flex-shrink-0"
+								style="color: #47b064"
+							>
+								<icon icon="iconoir:attachment" />
+								{{ task?.filesCount || 0 }}
+							</div>
+							<div
+								class="flex items-center gap-1 flex-shrink-0"
+								style="color: #ed6f2d"
+							>
+								<icon icon="mynaui:message" />
+								{{ task?.notesCount || 0 }}
+							</div>
 						</div>
 					</div>
 
-					<!-- 任务状态 -->
-					<div class="item-status">
-						<el-tag
-							v-if="task.isCompleted"
-							type="success"
-							size="small"
-							class="status-tag"
+					<!-- 任务操作按钮 -->
+					<div class="task-actions">
+						<el-button
+							class="action-button details-button"
+							@click.stop="openTaskDetails(task)"
+							color="#e6f1fa"
 						>
-							Complete
-						</el-tag>
+							Details
+						</el-button>
+						<el-button
+							:type="task.isCompleted ? 'danger' : 'success'"
+							class="action-button complete-button"
+							@click.stop="toggleTask(task)"
+						>
+							{{ task.isCompleted ? 'Cancel' : 'Done' }}
+						</el-button>
 					</div>
 				</div>
 			</template>
 		</div>
+
+		<!-- 任务详情弹窗 -->
+		<TaskDetailsDialog
+			v-model:visible="dialogVisible"
+			:task="selectedTask"
+			:onboarding-id="onboardingId"
+			:stage-id="stageId"
+			@update:task="handleTaskUpdate"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { defaultStr } from '@/settings/projectSetting';
-import { Check } from '@element-plus/icons-vue';
-import { computed } from 'vue';
+import { ElMessageBox } from 'element-plus';
+import { computed, ref } from 'vue';
 import { ChecklistData, TaskData } from '#/onboard';
+import { useI18n } from '@/hooks/useI18n';
+import TaskDetailsDialog from './TaskDetailsDialog.vue';
+import { defaultStr } from '@/settings/projectSetting';
+
+const { t } = useI18n();
 
 // Props
 interface Props {
 	checklistData?: ChecklistData[] | null;
 	loading?: boolean;
+	onboardingId: string;
+	stageId: string;
 }
 
 const props = defineProps<Props>();
@@ -111,6 +142,7 @@ const props = defineProps<Props>();
 // Events
 const emit = defineEmits<{
 	taskToggled: [task: TaskData];
+	refreshChecklist: [onboardingId: string, stageId: string];
 }>();
 
 // 计算总任务数
@@ -137,32 +169,85 @@ const overallCompletionRate = computed(() => {
 	return Math.min(Math.round(rate), 100);
 });
 
+// 任务详情弹窗相关
+const dialogVisible = ref(false);
+const selectedTask = ref<TaskData | null>(null);
+
 // 方法
-const toggleTask = (task: TaskData) => {
-	emit('taskToggled', {
-		...task,
-		isCompleted: !task.isCompleted,
-	});
+const toggleTask = async (task: TaskData) => {
+	if (task.isCompleted) {
+		// 当任务已完成时，需要确认是否撤销
+		try {
+			await ElMessageBox.confirm(
+				'Are you sure you want to undo this completed task? This action will mark the task as incomplete.',
+				'Confirm Undo Task',
+				{
+					confirmButtonText: t('sys.app.confirmText'),
+					cancelButtonText: t('sys.app.cancelText'),
+					type: 'warning',
+					showClose: true,
+				}
+			);
+
+			// 用户确认后执行撤销操作
+			emit('taskToggled', {
+				...task,
+				isCompleted: !task.isCompleted,
+			});
+		} catch (error) {
+			// 用户取消操作，不执行任何操作
+			console.log('User cancelled the undo operation');
+		}
+	} else {
+		try {
+			await ElMessageBox.confirm(
+				'Are you sure you want to complete this task? This action will mark the task as completed.',
+				'Confirm Complete Task',
+				{
+					confirmButtonText: t('sys.app.confirmText'),
+					cancelButtonText: t('sys.app.cancelText'),
+					type: 'warning',
+					showClose: true,
+				}
+			);
+			// 任务未完成时，直接标记为完成
+			emit('taskToggled', {
+				...task,
+				isCompleted: !task.isCompleted,
+			});
+		} catch (error) {
+			// 用户取消操作，不执行任何操作
+			console.log('User cancelled the undo operation');
+		}
+	}
 };
 
-// 格式化日期显示
-const formatDate = (dateString: string | null): string => {
-	if (!dateString) return '';
-	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) {
-			return '';
-		}
-		// Format as MM/dd/yyyy HH:mm:ss (US format)
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const year = date.getFullYear();
-		const hours = String(date.getHours()).padStart(2, '0');
-		const minutes = String(date.getMinutes()).padStart(2, '0');
-		const seconds = String(date.getSeconds()).padStart(2, '0');
-		return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-	} catch {
-		return '';
+// 打开任务详情弹窗
+const openTaskDetails = (task: TaskData) => {
+	selectedTask.value = task;
+	dialogVisible.value = true;
+};
+
+// 处理任务详情更新
+const handleTaskUpdate = () => {
+	emit('refreshChecklist', props.onboardingId, props.stageId);
+	dialogVisible.value = false;
+};
+
+// 获取分配人姓名的缩写
+const getAssigneeInitials = (fullName) => {
+	if (!fullName) return '';
+
+	const names = fullName.trim().split(/\s+/);
+	if (names.length === 1) {
+		// 单个名字，取前两个字符
+		return names[0].substring(0, 2).toUpperCase();
+	} else {
+		// 多个名字，取每个名字的首字母
+		return names
+			.map((name) => name.charAt(0).toUpperCase())
+			.join('')
+			.substring(0, 3); // 最多3个字母
 	}
 };
 </script>
@@ -256,74 +341,95 @@ const formatDate = (dateString: string | null): string => {
 	gap: 8px;
 }
 
-/* 每个检查项卡片 - 灰色背景 */
+/* 每个检查项卡片 - 现代化布局 */
 .checklist-item-card {
 	display: flex;
-	align-items: flex-start;
-	gap: 12px;
-	padding: 16px;
-	background-color: #f9fafb;
+	align-items: stretch;
+	justify-content: space-between;
+	background-color: #ffffff;
 	border: 1px solid #e5e7eb;
+	border-radius: 8px;
 	transition: all 0.2s ease;
-	cursor: pointer;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	/* 确保卡片不会被内容撑开 */
+	min-width: 0;
+	overflow: hidden;
 
-	&:hover:not(.completed) {
-		border-color: #3b82f6;
-		background-color: var(--primary-10);
-		box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+	&:hover {
+		border-color: #d1d5db;
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+		transform: translateY(-1px);
 	}
-
-	&.completed {
-		border: 2px solid #10b981;
-		background-color: #ecfdf5;
-
-		&:hover {
-			border-color: #10b981;
-			background-color: #ecfdf5;
-			box-shadow: none;
-		}
-	}
-}
-
-.item-checkbox {
-	width: 20px;
-	height: 20px;
-	border: 2px solid #d1d5db;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	margin-top: 2px;
-	transition: all 0.2s ease;
-	background-color: white;
-
-	.completed & {
-		background-color: #10b981;
-		border-color: #10b981;
-	}
-}
-
-.check-icon {
-	color: white;
-	font-size: 14px;
-	font-weight: bold;
 }
 
 .item-content {
 	flex: 1;
 	min-width: 0;
+	/* 确保内容不会撑开父容器 */
+	overflow: hidden;
+	background-color: #fffbeb;
+
+	&.completed {
+		background-color: #f0fdf4;
+		border-color: #bbf7d0;
+
+		&:hover {
+			border-color: #bbf7d0;
+			box-shadow: 0 4px 6px rgba(34, 197, 94, 0.1);
+		}
+	}
+}
+
+/* 重置 Element Plus 按钮默认样式并撑满高度 */
+.action-button {
+	flex: 1;
+	border-radius: 0 !important;
+	margin: 0 !important;
+
+	&.complete-button {
+		border-top-right-radius: 0 !important;
+		border-bottom-right-radius: 0 !important;
+	}
+
+	&.details-button {
+		border-top-right-radius: 8px !important;
+		border-bottom-right-radius: 8px !important;
+		border-left: none !important;
+	}
+}
+
+/* 深度选择器确保按钮内部元素也撑满 */
+.task-actions {
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+	align-self: stretch;
+
+	:deep(.el-button) {
+		width: 80px;
+		height: 100% !important;
+		display: flex !important;
+		align-items: center !important;
+		justify-content: center !important;
+		border-radius: inherit !important;
+	}
 }
 
 .item-title {
 	font-size: 16px;
 	font-weight: 600;
-	margin: 0 0 4px 0;
 	color: #1f2937;
-	transition: all 0.2s ease;
+	line-height: 1.5;
+	/* 处理长文本，防止撑开容器 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
 
 	.completed & {
-		text-decoration: line-through;
-		color: #6b7280;
+		color: #10b981;
 	}
 }
 
@@ -332,6 +438,12 @@ const formatDate = (dateString: string | null): string => {
 	margin: 0 0 8px 0;
 	color: #6b7280;
 	line-height: 1.4;
+	/* 限制描述文本最多显示3行 */
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	-webkit-box-orient: vertical;
 }
 
 .completion-info {
@@ -340,6 +452,9 @@ const formatDate = (dateString: string | null): string => {
 	gap: 6px;
 	font-size: 12px;
 	color: #10b981;
+	/* 确保完成信息不会撑开容器 */
+	min-width: 0;
+	overflow: hidden;
 }
 
 .completion-icon {
@@ -349,23 +464,12 @@ const formatDate = (dateString: string | null): string => {
 
 .completion-text {
 	font-size: 12px;
+	/* 防止长邮箱地址撑开容器 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.item-status {
-	flex-shrink: 0;
-}
-
-.status-tag {
-	background-color: #10b981;
-	border-color: #10b981;
-	color: white;
-
-	:deep(.el-tag__content) {
-		color: white;
-	}
-}
-
-/* 暗色主题适配 */
 .dark {
 	.checklist-container {
 		background-color: var(--black-400);
@@ -397,21 +501,21 @@ const formatDate = (dateString: string | null): string => {
 	.checklist-item-card {
 		background-color: var(--black-300);
 		border-color: var(--black-200);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 
-		&:hover:not(.completed) {
-			background-color: var(--black-200);
-			border-color: #3b82f6;
-			box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+		&:hover {
+			border-color: var(--black-100);
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+			transform: translateY(-1px);
 		}
 
 		&.completed {
-			border-color: #10b981;
 			background-color: rgba(16, 185, 129, 0.1);
+			border-color: rgba(16, 185, 129, 0.3);
 
 			&:hover {
-				border-color: #10b981;
-				background-color: rgba(16, 185, 129, 0.1);
-				box-shadow: none;
+				border-color: rgba(16, 185, 129, 0.4);
+				box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
 			}
 		}
 	}
@@ -420,22 +524,12 @@ const formatDate = (dateString: string | null): string => {
 		color: var(--white-100);
 
 		.completed & {
-			color: var(--gray-400);
+			color: #34d399;
 		}
 	}
 
 	.item-description {
 		color: var(--gray-300);
-	}
-
-	.item-checkbox {
-		border-color: var(--black-200);
-		background-color: var(--black-400);
-
-		.completed & {
-			background-color: #10b981;
-			border-color: #10b981;
-		}
 	}
 }
 
@@ -451,8 +545,19 @@ const formatDate = (dateString: string | null): string => {
 	}
 
 	.checklist-item-card {
-		padding: 12px;
-		gap: 8px;
+		padding: 16px;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.item-content {
+		margin-right: 0;
+		margin-bottom: 12px;
+	}
+
+	.item-actions {
+		width: 100%;
+		justify-content: flex-end;
 	}
 
 	.item-title {

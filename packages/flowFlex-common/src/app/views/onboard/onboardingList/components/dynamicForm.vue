@@ -597,7 +597,7 @@ import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
 import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
-import { ElNotification } from 'element-plus';
+// import { ElNotification } from 'element-plus';
 import {
 	projectDate,
 	notesPageTextraMaxLength,
@@ -1227,17 +1227,17 @@ const goToPreviousSection = () => {
 };
 
 const goToNextSection = async () => {
-	const { isValid, errors } = await validateForm(currentSectionIndex.value);
-	if (!isValid) {
-		const errorHtml = errors.map((error) => `<p>${error}</p>`).join('');
-		ElNotification({
-			title: 'Please complete all required fields',
-			dangerouslyUseHTMLString: true,
-			message: errorHtml,
-			type: 'warning',
-		});
-		return;
-	}
+	// const { isValid, errors } = await validateForm(currentSectionIndex.value);
+	// if (!isValid) {
+	// 	const errorHtml = errors.map((error) => `<p>${error}</p>`).join('');
+	// 	ElNotification({
+	// 		title: 'Please complete all required fields',
+	// 		dangerouslyUseHTMLString: true,
+	// 		message: errorHtml,
+	// 		type: 'warning',
+	// 	});
+	// 	return;
+	// }
 	// 检查是否有跳转规则需要应用
 	const targetSectionId = getJumpTargetSection();
 

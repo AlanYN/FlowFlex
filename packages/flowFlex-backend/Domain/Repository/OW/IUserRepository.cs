@@ -1,13 +1,11 @@
-using System;
-using System.Threading.Tasks;
-using FlowFlex.Domain.Entities.OW;
+﻿using FlowFlex.Domain.Entities.OW;
 
 namespace FlowFlex.Domain.Repository.OW
 {
     /// <summary>
     /// User repository interface
     /// </summary>
-    public interface IUserRepository : IOwBaseRepository<User>
+    public interface IUserRepository : IBaseRepository<User>
     {
         /// <summary>
         /// Get user by email

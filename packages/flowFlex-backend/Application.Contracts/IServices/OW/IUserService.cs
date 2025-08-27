@@ -1,5 +1,4 @@
-using System.Threading.Tasks;
-using FlowFlex.Application.Contracts.Dtos.OW.User;
+﻿using FlowFlex.Application.Contracts.Dtos.OW.User;
 
 namespace FlowFlex.Application.Contracts.IServices.OW
 {
@@ -123,5 +122,21 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <returns>Tree structure with teams and users</returns>
         Task<List<UserTreeNodeDto>> GetUserTreeAsync();
+
+        Task<UserDto> GetUserByEmail(string email);
+
+        /// <summary>
+        /// Get User by ID
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>User DTO</returns>
+        Task<UserDto> GetUserByIdAsync(long userId);
+
+        /// <summary>
+        /// Get Users by IDs
+        /// </summary>
+        /// <param name="userIds">List of User IDs</param>
+        /// <returns>List of User DTOs</returns>
+        Task<List<UserDto>> GetUsersByIdsAsync(List<long> userIds);
     }
 }

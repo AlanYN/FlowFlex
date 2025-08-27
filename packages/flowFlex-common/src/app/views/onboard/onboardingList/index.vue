@@ -178,20 +178,57 @@
 								</el-tag>
 							</template>
 						</el-table-column>
-						<el-table-column label="Timeline" width="180" sortable="custom">
+						<el-table-column label="Start Date" width="150" sortable="custom">
 							<template #default="{ row }">
 								<div class="text-xs space-y-1">
 									<div class="flex items-center">
-										<span class="font-medium mr-1">Start:</span>
 										<span
 											class="table-cell-content flex-1"
-											:title="formatDate(row.startDate) || defaultStr"
+											:title="
+												timeZoneConvert(
+													row.currentStageStartTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											"
 										>
-											{{ formatDate(row.startDate) || defaultStr }}
+											{{
+												timeZoneConvert(
+													row.currentStageStartTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											}}
+										</span>
+									</div>
+								</div>
+							</template>
+						</el-table-column>
+						<el-table-column label="End Date" width="150" sortable="custom">
+							<template #default="{ row }">
+								<div class="text-xs space-y-1">
+									<div class="flex items-center">
+										<span
+											class="table-cell-content flex-1"
+											:title="
+												timeZoneConvert(
+													row.currentStageEndTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											"
+										>
+											{{
+												timeZoneConvert(
+													row.currentStageEndTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											}}
 										</span>
 									</div>
 									<div
-										v-if="isOverdue(row.estimatedCompletionDate)"
+										v-if="isOverdue(row.currentStageEndTime)"
 										class="flex items-center text-red-500"
 									>
 										<el-icon class="mr-1"><Warning /></el-icon>
@@ -294,7 +331,6 @@
 					:loading="loading"
 					:active-stages="activeStages"
 					:grouped-leads="groupedLeads"
-					:format-date="formatDate"
 					:is-overdue="isOverdue"
 					:get-priority-tag-type="getPriorityTagType"
 					:get-priority-border-class="getPriorityBorderClass"
@@ -759,21 +795,6 @@ const isOverdue = (eta: string | null) => {
 	return etaDate < today;
 };
 
-const formatDate = (dateString: string | null) => {
-	if (!dateString) return '';
-	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) return '';
-		return date.toLocaleDateString('en-US', {
-			month: '2-digit',
-			day: '2-digit',
-			year: 'numeric',
-		});
-	} catch {
-		return '';
-	}
-};
-
 const formatDateTime = (dateString: string | null) => {
 	if (!dateString) return defaultStr;
 	try {
@@ -793,8 +814,7 @@ const getStageCountByPriority = (stage: string, priority: string) => {
 
 const getStageOverdueCount = (stage: string) => {
 	return (
-		groupedLeads.value[stage]?.filter((item) => isOverdue(item.estimatedCompletionDate))
-			.length || 0
+		groupedLeads.value[stage]?.filter((item) => isOverdue(item.currentStageEndTime)).length || 0
 	);
 };
 

@@ -111,5 +111,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         /// </summary>
         [StringLength(200)]
         public string ActionName { get; set; }
+
+        /// <summary>
+        /// 动作触发映射ID
+        /// </summary>
+        public long? ActionMappingId { get; set; }
     }
 }

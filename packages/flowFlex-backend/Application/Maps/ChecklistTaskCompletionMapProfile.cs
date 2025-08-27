@@ -21,7 +21,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.FilesJson, opt => opt.MapFrom(src => src.FilesJson)); // 显式映射FilesJson字段
 
             // 实体到输出DTO的映射
             CreateMap<ChecklistTaskCompletion, ChecklistTaskCompletionOutputDto>()
@@ -34,11 +35,14 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsCompleted, opt => opt.MapFrom(src => src.IsCompleted))
                 .ForMember(dest => dest.CompletedTime, opt => opt.MapFrom(src => src.CompletedTime))
                 .ForMember(dest => dest.CompletionNotes, opt => opt.MapFrom(src => src.CompletionNotes))
+                .ForMember(dest => dest.FilesJson, opt => opt.MapFrom(src => src.FilesJson))
                 .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
                 .ForMember(dest => dest.ModifyDate, opt => opt.MapFrom(src => src.ModifyDate))
-                .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy));
+                .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy))
+                .ForMember(dest => dest.FilesCount, opt => opt.Ignore()) // Will be filled by service
+                .ForMember(dest => dest.NotesCount, opt => opt.Ignore()); // Will be filled by service
         }
     }
 }

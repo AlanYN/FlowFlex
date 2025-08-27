@@ -22,6 +22,7 @@ using System.Linq.Expressions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Utils;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -45,6 +46,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -65,7 +67,8 @@ namespace FlowFlex.Application.Services.OW
             IStaticFieldValueService staticFieldValueService,
             IChecklistService checklistService,
             IQuestionnaireService questionnaireService,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IServiceScopeFactory serviceScopeFactory)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -82,6 +85,7 @@ namespace FlowFlex.Application.Services.OW
             _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
+            _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
         }
 
         /// <summary>
@@ -849,14 +853,14 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => x.CurrentStageId == request.CurrentStageId.Value);
                 }
 
-                // Support comma-separated Lead IDs
+                // Support comma-separated Lead IDs with fuzzy matching
                 if (!string.IsNullOrEmpty(request.LeadId) && request.LeadId != "string")
                 {
                     var leadIds = request.GetLeadIdsList();
                     if (leadIds.Any())
                     {
-                        // Use OR condition to match any of the lead IDs with exact match (case-insensitive)
-                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower() == id.ToLower()));
+                        // Use OR condition to match any of the lead IDs with fuzzy matching (case-insensitive)
+                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower().Contains(id.ToLower())));
                     }
                 }
 
@@ -2918,7 +2922,23 @@ namespace FlowFlex.Application.Services.OW
                 }
                 catch { }
 
-                await _mediator.Publish(onboardingStageCompletedEvent);
+                // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // 创建新的作用域来避免 ServiceProvider disposed 错误
+                        using var scope = _serviceScopeFactory.CreateScope();
+                        var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+                        await scopedMediator.Publish(onboardingStageCompletedEvent);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 记录错误但不影响主流程
+                        // TODO: 可以考虑添加重试机制或者使用消息队列
+                        // 这里可以添加日志记录，但要确保不抛出异常
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -2989,8 +3009,24 @@ namespace FlowFlex.Application.Services.OW
                     onboardingStageCompletedEvent.BusinessContext["Components.RequiredFieldsCount"] = componentsPayload2?.RequiredFields?.Count ?? 0;
                 }
                 catch { }
-                // Debug logging handled by structured logging
-                await _mediator.Publish(onboardingStageCompletedEvent);
+                
+                // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // 创建新的作用域来避免 ServiceProvider disposed 错误
+                        using var scope = _serviceScopeFactory.CreateScope();
+                        var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+                        await scopedMediator.Publish(onboardingStageCompletedEvent);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 记录错误但不影响主流程
+                        // TODO: 可以考虑添加重试机制或者使用消息队列
+                        // 这里可以添加日志记录，但要确保不抛出异常
+                    }
+                });
 
                 // Debug logging handled by structured logging
             }
@@ -3810,6 +3846,7 @@ namespace FlowFlex.Application.Services.OW
                         StageOrder = sequentialOrder,
                         EstimatedDays = stage.EstimatedDuration,
                         VisibleInPortal = stage.VisibleInPortal,
+                        PortalPermission = stage.PortalPermission,
                         AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
                         ComponentsJson = stage.ComponentsJson,
                         Components = stage.Components
@@ -4510,6 +4547,7 @@ namespace FlowFlex.Application.Services.OW
                         stageProgress.StageDescription = stage.Description;
                         stageProgress.EstimatedDays = stage.EstimatedDuration;
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
+                        stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
                         stageProgress.ComponentsJson = stage.ComponentsJson;
                         stageProgress.Components = stage.Components;
@@ -5181,6 +5219,51 @@ namespace FlowFlex.Application.Services.OW
             {
                 Console.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Save a specific stage in onboarding's stagesProgress
+        /// Updates the stage's IsSaved, SaveTime, and SavedById fields
+        /// </summary>
+        public async Task<bool> SaveStageAsync(long onboardingId, long stageId)
+        {
+            try
+            {
+                // Get current onboarding
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Load stages progress from JSON
+                LoadStagesProgressFromJson(onboarding);
+
+                // Find the stage progress entry
+                var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+                if (stageProgress == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage {stageId} not found in onboarding {onboardingId}");
+                }
+
+                // Update save fields
+                stageProgress.IsSaved = true;
+                stageProgress.SaveTime = DateTimeOffset.UtcNow;
+                stageProgress.SavedById = GetCurrentUserId()?.ToString();
+                stageProgress.SavedBy = GetCurrentUserName();
+
+                // Save stages progress back to JSON
+                onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
+
+                // Update in database
+                var result = await SafeUpdateOnboardingAsync(onboarding);
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to save stage {stageId} in onboarding {onboardingId}: {ex.Message}");
             }
         }
 
