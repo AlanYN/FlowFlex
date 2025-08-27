@@ -213,7 +213,7 @@
 				<div class="">
 					<div class="flex items-center gap-3">
 						<div class="flex-1 min-w-0 flex flex-col gap-2">
-							<div class="">task name</div>
+							<div class="">Task name</div>
 							<el-input
 								v-model="newTaskText"
 								placeholder="Enter task name..."
@@ -303,6 +303,7 @@ const { t } = useI18n();
 const tasks = ref([]);
 const tasksLoaded = ref(false);
 const editingTask = ref(null);
+const originalTaskData = ref(null); // 保存原始任务数据的副本
 const taskFormData = ref({
 	name: '',
 	description: '',
@@ -433,12 +434,27 @@ const deleteTask = async (checklistId, taskId) => {
 // 编辑任务
 const editTask = (checklistId, task) => {
 	editingTask.value = task;
-	taskFormData.value = task;
+	// 创建原始任务数据的深拷贝以备恢复使用
+	originalTaskData.value = JSON.parse(JSON.stringify(task));
+	// 创建编辑表单数据的深拷贝，避免直接修改原始数据
+	taskFormData.value = JSON.parse(JSON.stringify(task));
 };
 
 // 取消任务编辑
 const cancelTaskEdit = () => {
+	// 如果有原始数据，恢复到原始状态
+	if (originalTaskData.value && editingTask.value) {
+		// 在tasks数组中找到对应的任务并恢复数据
+		const taskIndex = tasks.value.findIndex((task) => task.id === editingTask.value.id);
+		if (taskIndex !== -1) {
+			// 恢复原始数据到tasks数组中
+			tasks.value[taskIndex] = JSON.parse(JSON.stringify(originalTaskData.value));
+		}
+	}
+
+	// 重置编辑状态
 	editingTask.value = null;
+	originalTaskData.value = null;
 	taskFormData.value = {
 		name: '',
 		description: '',
@@ -476,12 +492,12 @@ const saveTaskEdit = async () => {
 
 		await updateChecklistTask(editingTask.value.id, taskData);
 		ElMessage.success(t('sys.api.operationSuccess'));
-
+		editingTask.value = null;
+		originalTaskData.value = null;
 		// 重新加载任务数据
 		await loadTasks();
 		// 通知父组件更新checklist数据
 		// emit('task-updated', props.checklist.id);
-		cancelTaskEdit();
 	} catch {
 		cancelTaskEdit();
 	}
@@ -585,6 +601,7 @@ const resetTaskList = () => {
 	tasks.value = [];
 	tasksLoaded.value = false;
 	editingTask.value = null;
+	originalTaskData.value = null; // 也重置原始数据
 	taskFormData.value = {
 		name: '',
 		description: '',

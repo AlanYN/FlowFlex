@@ -122,7 +122,7 @@ import { ref, computed, watch } from 'vue';
 import { Check, Clock, ArrowDown, ArrowUp } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
 import { timeZoneConvert } from '@/hooks/time';
-import { defaultStr } from '@/settings/projectSetting';
+import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 
 // Props
 interface Props {
@@ -150,7 +150,7 @@ const stages = computed(() => {
 		...stage,
 		title: stage.stageName, // 使用 name 作为 title
 		completed: stage.isCompleted,
-		date: timeZoneConvert(stage?.completionTime || ''),
+		date: timeZoneConvert(stage?.completionTime || '', false, projectTenMinutesSsecondsDate),
 		assignee: stage.defaultAssignedGroup || defaultStr,
 		completedBy: stage.completedBy,
 	}));

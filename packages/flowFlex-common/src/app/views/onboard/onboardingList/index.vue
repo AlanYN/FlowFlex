@@ -178,29 +178,53 @@
 								</el-tag>
 							</template>
 						</el-table-column>
-						<el-table-column label="Start Date" width="180" sortable="custom">
+						<el-table-column label="Start Date" width="150" sortable="custom">
 							<template #default="{ row }">
 								<div class="text-xs space-y-1">
 									<div class="flex items-center">
 										<span
 											class="table-cell-content flex-1"
-											:title="timeZoneConvert(row.currentStageStartTime)"
+											:title="
+												timeZoneConvert(
+													row.currentStageStartTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											"
 										>
-											{{ timeZoneConvert(row.currentStageStartTime) }}
+											{{
+												timeZoneConvert(
+													row.currentStageStartTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											}}
 										</span>
 									</div>
 								</div>
 							</template>
 						</el-table-column>
-						<el-table-column label="End Date" width="180" sortable="custom">
+						<el-table-column label="End Date" width="150" sortable="custom">
 							<template #default="{ row }">
 								<div class="text-xs space-y-1">
 									<div class="flex items-center">
 										<span
 											class="table-cell-content flex-1"
-											:title="timeZoneConvert(row.currentStageEndTime)"
+											:title="
+												timeZoneConvert(
+													row.currentStageEndTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											"
 										>
-											{{ timeZoneConvert(row.currentStageEndTime) }}
+											{{
+												timeZoneConvert(
+													row.currentStageEndTime,
+													false,
+													projectTenMinutesSsecondsDate
+												)
+											}}
 										</span>
 									</div>
 									<div
