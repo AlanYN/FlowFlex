@@ -50,11 +50,7 @@
 						<p v-if="task.description" class="item-description">
 							{{ task.description }}
 						</p>
-					</div>
-
-					<div class="flex-1 flex justify-between">
-						<!-- 任务操作按钮 -->
-						<div class="flex items-center justify-center gap-3">
+						<div class="flex gap-3">
 							<div
 								class="flex items-center gap-1 flex-shrink-0"
 								v-if="task.assigneeName"
@@ -88,23 +84,24 @@
 								{{ task?.notesCount }}
 							</div>
 						</div>
-						<div class="task-actions">
-							<el-button
-								type="primary"
-								plain
-								class="action-button details-button"
-								@click.stop="openTaskDetails(task)"
-							>
-								Details
-							</el-button>
-							<el-button
-								:type="task.isCompleted ? 'success' : ''"
-								class="action-button complete-button"
-								@click.stop="toggleTask(task)"
-							>
-								{{ task.isCompleted ? 'Completed' : 'Complete' }}
-							</el-button>
-						</div>
+					</div>
+
+					<!-- 任务操作按钮 -->
+					<div class="task-actions">
+						<el-button
+							class="action-button details-button"
+							@click.stop="openTaskDetails(task)"
+							color="#e6f1fa"
+						>
+							Details
+						</el-button>
+						<el-button
+							:type="task.isCompleted ? 'danger' : 'success'"
+							class="action-button complete-button"
+							@click.stop="toggleTask(task)"
+						>
+							{{ task.isCompleted ? 'Cancel' : 'Done' }}
+						</el-button>
 					</div>
 				</div>
 			</template>
@@ -351,7 +348,6 @@ const getAssigneeInitials = (fullName) => {
 .item-content {
 	flex: 1;
 	min-width: 0;
-	margin-right: 16px;
 	/* 确保内容不会撑开父容器 */
 	overflow: hidden;
 
