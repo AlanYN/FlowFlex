@@ -122,7 +122,7 @@
 		<!-- Task列表弹窗 -->
 		<el-dialog
 			v-model="showTaskDialog"
-			:title="`Tasks - ${currentChecklist?.name || ''}`"
+			:title="currentChecklist?.name || ''"
 			:width="bigDialogWidth"
 			:close-on-click-modal="false"
 		>
