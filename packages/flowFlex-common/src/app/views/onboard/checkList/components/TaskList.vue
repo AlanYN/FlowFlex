@@ -332,9 +332,9 @@ const loadTasks = async () => {
 				...task,
 				completed: task.isCompleted || task.completed || false,
 				estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
-				order: task.orderIndex !== undefined ? task.orderIndex : task.order || 0,
+				orderIndex: task.orderIndex,
 			}))
-			.sort((a, b) => (a.order || 0) - (b.order || 0));
+			.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
 		tasks.value = processedTasks;
 		tasksLoaded.value = true;
@@ -377,7 +377,7 @@ const addTask = async (checklistId) => {
 			name: newTaskText.value.trim(),
 			description: '',
 			isRequired: false,
-			order: tasks.value.length,
+			orderIndex: tasks.value.length,
 			assigneeId: newTaskAssignee.value,
 			assigneeName: assigneeName,
 		});
@@ -528,7 +528,7 @@ const onTaskDragChange = async (checklistId, event) => {
 		// 获取重新排序后的任务列表
 		const reorderedTasks = tasks.value.map((task, index) => ({
 			...task,
-			order: index,
+			orderIndex: index,
 		}));
 
 		// 更新后端数据 - 为每个任务分配新的顺序号
@@ -536,7 +536,7 @@ const onTaskDragChange = async (checklistId, event) => {
 			const updatedTask = formatTaskForApi({
 				...task,
 				checklistId: checklistId,
-				order: index,
+				orderIndex: index,
 			});
 			return updateChecklistTask(task.id, updatedTask);
 		});

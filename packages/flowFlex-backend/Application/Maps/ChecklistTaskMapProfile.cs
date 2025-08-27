@@ -23,7 +23,7 @@ namespace FlowFlex.Application.Maps
             // ChecklistTaskInputDto to ChecklistTask entity
             CreateMap<ChecklistTaskInputDto, ChecklistTask>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.Order, opt => opt.Ignore()) // Order will be set in service layer to max+1
+                .ForMember(dest => dest.Order, opt => opt.MapFrom(src => src.OrderIndex)) // Map OrderIndex to Order field
                 .ForMember(dest => dest.CompletedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.CompletionNotes, opt => opt.Ignore())
                 .ForMember(dest => dest.ActualHours, opt => opt.Ignore())

@@ -75,9 +75,9 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         var entity = _mapper.Map<ChecklistTask>(input);
 
-        // Set default values - force OrderIndex to be max+1 for new tasks
+        // Set default values - force Order to be max+1 for new tasks (ignore input OrderIndex)
         int nextOrder = await GetNextOrderAsync(input.ChecklistId);
-        entity.Order = nextOrder; // Always use max+1 for new tasks
+        entity.Order = nextOrder; // Always use max+1 for new tasks, ignore input OrderIndex
         entity.Status = string.IsNullOrEmpty(entity.Status) ? "Pending" : entity.Status;
         entity.IsCompleted = false;
 
