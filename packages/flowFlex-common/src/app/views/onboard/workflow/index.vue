@@ -315,6 +315,7 @@
 								deleteStage: loading.deleteStage,
 								sortStages: loading.sortStages,
 							}"
+							:userList="userList"
 							@edit="(stage) => editStage(stage)"
 							@delete="(stageId) => deleteStage(stageId)"
 							@drag-start="onDragStart"
@@ -575,6 +576,8 @@ import StagesList from './components/StagesList.vue';
 import NewWorkflowForm from './components/NewWorkflowForm.vue';
 import StageForm from './components/StageForm.vue';
 import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
+import { getFlowflexUser } from '@/apis/global';
+import { FlowflexUser } from '#/golbal';
 
 const { t } = useI18n();
 
@@ -734,6 +737,9 @@ const setCurrentWorkflow = async (workflowId: string | number) => {
 const fetchStages = async (workflowId: string | number) => {
 	try {
 		loading.stages = true;
+		if (!userList.value || userList.value.length <= 0) {
+			await getUserGroup();
+		}
 		const res = await getStagesByWorkflow(workflowId);
 		if (res.code === '200' && workflow.value) {
 			workflow.value.stages = res.data || [];
@@ -1396,6 +1402,18 @@ const resetCombineStagesForm = () => {
 	combinedStageName.value = '';
 	combinedStageGroup.value = '';
 	combinedStageDuration.value = 1;
+};
+
+const userList = ref<FlowflexUser[]>([]);
+const getUserGroup = async () => {
+	try {
+		const res = await getFlowflexUser({});
+		if (res.code == '200') {
+			userList.value = res.data || [];
+		}
+	} catch {
+		userList.value = [];
+	}
 };
 </script>
 

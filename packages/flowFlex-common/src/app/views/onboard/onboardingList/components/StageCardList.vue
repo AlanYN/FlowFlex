@@ -102,9 +102,6 @@
 											</el-icon>
 											<span>
 												Start:
-<<<<<<< Updated upstream
-												{{ formatDate(lead.startDate) || defaultStr }}
-=======
 												{{
 													timeZoneConvert(
 														lead.currentStageStartTime,
@@ -112,7 +109,6 @@
 														projectTenMinutesSsecondsDate
 													)
 												}}
->>>>>>> Stashed changes
 											</span>
 										</div>
 										<div class="flex items-center">
@@ -120,20 +116,13 @@
 												<Calendar />
 											</el-icon>
 											<span>
-<<<<<<< Updated upstream
-												ETA:
-												{{
-													formatDate(lead.estimatedCompletionDate) ||
-													defaultStr
-=======
 												End:
 												{{
 													timeZoneConvert(
-														lead.currentStageEndTime,
+														lead?.currentStageEndTime,
 														false,
 														projectTenMinutesSsecondsDate
 													)
->>>>>>> Stashed changes
 												}}
 											</span>
 										</div>
@@ -212,12 +201,8 @@
 import { PropType } from 'vue';
 import { ArrowRight, User, Calendar, Warning } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
-<<<<<<< Updated upstream
-import { defaultStr } from '@/settings/projectSetting';
-=======
 import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
->>>>>>> Stashed changes
 
 defineProps({
 	loading: {

@@ -494,11 +494,6 @@ const saveTaskEdit = async () => {
 		await loadTasks();
 		// 通知父组件更新checklist数据
 		// emit('task-updated', props.checklist.id);
-<<<<<<< Updated upstream
-		cancelTaskEdit();
-	} catch (err) {
-		ElMessage.error(t('sys.api.operationFailed'));
-=======
 		// 成功保存后清理编辑状态
 		editingTask.value = null;
 		originalTaskData.value = null;
@@ -511,7 +506,6 @@ const saveTaskEdit = async () => {
 			assigneeName: '',
 		};
 	} catch {
->>>>>>> Stashed changes
 		cancelTaskEdit();
 	}
 };

@@ -178,22 +178,13 @@
 								</el-tag>
 							</template>
 						</el-table-column>
-<<<<<<< Updated upstream
-						<el-table-column label="Timeline" width="180" sortable="custom">
-=======
 						<el-table-column label="Start Date" width="150" sortable="custom">
->>>>>>> Stashed changes
 							<template #default="{ row }">
 								<div class="text-xs space-y-1">
 									<div class="flex items-center">
 										<span class="font-medium mr-1">Start:</span>
 										<span
 											class="table-cell-content flex-1"
-<<<<<<< Updated upstream
-											:title="formatDate(row.startDate) || defaultStr"
-										>
-											{{ formatDate(row.startDate) || defaultStr }}
-=======
 											:title="
 												timeZoneConvert(
 													row.currentStageStartTime,
@@ -235,7 +226,6 @@
 													projectTenMinutesSsecondsDate
 												)
 											}}
->>>>>>> Stashed changes
 										</span>
 									</div>
 									<div
