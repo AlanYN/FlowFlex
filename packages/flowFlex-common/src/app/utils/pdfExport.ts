@@ -1,6 +1,111 @@
 import { ElMessage } from 'element-plus';
 
 /**
+ * Detect if string contains CJK characters
+ */
+const containsCJK = (text: string): boolean => {
+	if (!text) return false;
+	// CJK Unified Ideographs + Extensions + common symbols used with CJK
+	return /[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/.test(text);
+};
+
+interface DrawTextOptions {
+	fontSizePt?: number; // PDF font size in pt
+	color?: string; // CSS color string like '#000000'
+	fontWeight?: 'normal' | 'bold';
+	fontFamilyOverride?: string; // Optional font family override
+}
+
+/**
+ * Draw text with CJK support. Falls back to pdf.text when no CJK is present.
+ * For CJK, it renders to a canvas using system/web fonts, then embeds as an image.
+ */
+const drawTextWithCJK = async (
+	pdf: any,
+	text: string,
+	xMm: number,
+	yMm: number,
+	opts: DrawTextOptions = {}
+): Promise<void> => {
+	const fontSizePt = opts.fontSizePt ?? 12;
+	const color = opts.color ?? '#000000';
+	const fontWeight = opts.fontWeight ?? 'normal';
+	const fontFamily =
+		opts.fontFamilyOverride ||
+		"Arial, 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK', 'WenQuanYi Micro Hei', 'Heiti SC', 'Source Han Sans SC', sans-serif";
+
+	// If text does NOT contain CJK, use native text to preserve existing behavior exactly
+	if (!containsCJK(text)) {
+		pdf.text(text, xMm, yMm);
+		return;
+	}
+
+	// Convert pt->px for canvas rendering. 1pt = 1.3333px at 96 DPI
+	const ptToPx = (pt: number) => (pt * 96) / 72;
+	const pxToMm = (px: number) => (px * 25.4) / 96; // 96 DPI assumption
+
+	const fontSizePx = Math.max(10, ptToPx(fontSizePt));
+
+	// Create a temporary canvas for exact text rasterization
+	const canvas = document.createElement('canvas');
+	const ctx = canvas.getContext('2d');
+	if (!ctx) {
+		// Fallback if canvas is unavailable
+		pdf.text(text, xMm, yMm);
+		return;
+	}
+
+	ctx.font = `${fontWeight} ${fontSizePx}px ${fontFamily}`;
+	const metrics = ctx.measureText(text);
+	const textWidthPx = Math.ceil(metrics.width) + 2; // slight padding
+	const lineHeightPx = Math.ceil(fontSizePx * 1.25);
+
+	canvas.width = Math.max(1, textWidthPx);
+	canvas.height = Math.max(1, lineHeightPx);
+
+	// High-DPI scaling for sharper text
+	const scale = window.devicePixelRatio || 1;
+	if (scale !== 1) {
+		canvas.width = Math.ceil(canvas.width * scale);
+		canvas.height = Math.ceil(canvas.height * scale);
+		ctx.scale(scale, scale);
+	}
+
+	// Re-apply font after scaling
+	ctx.font = `${fontWeight} ${fontSizePx}px ${fontFamily}`;
+	ctx.textBaseline = 'alphabetic';
+	ctx.fillStyle = color;
+
+	// Clear and render
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.fillText(text, 0, fontSizePx);
+
+	const dataUrl = canvas.toDataURL('image/png');
+
+	// Convert canvas size to mm for PDF placement
+	const widthMm = pxToMm(textWidthPx);
+	const heightMm = pxToMm(lineHeightPx);
+
+	// Adjust y so that the image baseline aligns approximately with jsPDF text baseline
+	const baselineAdjustMm = pxToMm(lineHeightPx - fontSizePx); // approx descender space
+	const yTopMm = yMm - (heightMm - baselineAdjustMm);
+
+	pdf.addImage(dataUrl, 'PNG', xMm, yTopMm, widthMm, heightMm, undefined, 'FAST');
+};
+
+/**
+ * Sanitize filename but keep CJK characters. Removes Windows illegal characters.
+ */
+export const sanitizeFilenameKeepCJK = (raw: string | undefined | null): string => {
+	const base = (raw ?? 'checklist')
+		.replace(/[\\/:*?"<>|]/g, '')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.replace(/[. ]+$/g, '');
+	return base || 'checklist';
+};
+
+/**
  * PDF导出配置接口
  */
 export interface PdfExportConfig {
@@ -55,7 +160,7 @@ export const exportChecklistToPdf = async (
 		showHeader: true,
 		showAssignments: true,
 		showTaskTable: true,
-		filename: `${checklist.name?.replace(/[^\w\s-]/g, '_') || 'checklist'}.pdf`,
+		filename: `${sanitizeFilenameKeepCJK(checklist.name)}.pdf`,
 		...config,
 	};
 
@@ -122,11 +227,18 @@ const exportPdfWithJsPDF = async (
 		pdf.setTextColor(255, 255, 255);
 		pdf.setFontSize(20);
 		if (config.headerTitle) {
-			pdf.text(config.headerTitle, margin, 20);
+			await drawTextWithCJK(pdf, String(config.headerTitle), margin, 20, {
+				fontSizePt: 20,
+				color: '#FFFFFF',
+				fontWeight: 'bold',
+			});
 		}
 		pdf.setFontSize(16);
 		if (config.headerSubtitle) {
-			pdf.text(config.headerSubtitle, margin + 60, 20);
+			await drawTextWithCJK(pdf, String(config.headerSubtitle), margin + 60, 20, {
+				fontSizePt: 16,
+				color: '#FFFFFF',
+			});
 		}
 
 		pdf.setTextColor(0, 0, 0);
@@ -136,20 +248,30 @@ const exportPdfWithJsPDF = async (
 	// 添加清单名称作为主标题
 	pdf.setFontSize(18);
 	const checklistName = String(checklist.name || 'Untitled');
-	pdf.text(checklistName, margin, y);
+	await drawTextWithCJK(pdf, checklistName, margin, y, {
+		fontSizePt: 18,
+		color: '#000000',
+		fontWeight: 'bold',
+	});
 	y += 15;
 
 	// 添加基本信息
 	pdf.setFontSize(12);
 	if (checklist.description) {
 		const description = String(checklist.description);
-		pdf.text(`Description: ${description}`, margin, y);
+		await drawTextWithCJK(pdf, `Description: ${description}`, margin, y, {
+			fontSizePt: 12,
+			color: '#000000',
+		});
 		y += 8;
 	}
 
 	if (checklist.team) {
 		const team = String(checklist.team);
-		pdf.text(`Team: ${team}`, margin, y);
+		await drawTextWithCJK(pdf, `Team: ${team}`, margin, y, {
+			fontSizePt: 12,
+			color: '#000000',
+		});
 		y += 8;
 	}
 
@@ -161,11 +283,14 @@ const exportPdfWithJsPDF = async (
 
 		if (assignmentsText && assignmentsText !== 'No assignments specified') {
 			const assignmentLines = assignmentsText.split(', ');
-			assignmentLines.forEach((line) => {
+			for (const line of assignmentLines) {
 				const cleanLine = line.replace(/→/g, ' -> ');
-				pdf.text(`  ${cleanLine}`, margin + 5, y);
+				await drawTextWithCJK(pdf, `  ${cleanLine}`, margin + 5, y, {
+					fontSizePt: 12,
+					color: '#000000',
+				});
 				y += 5;
-			});
+			}
 		} else {
 			pdf.text('  No assignments specified', margin + 5, y);
 			y += 5;
@@ -179,8 +304,19 @@ const exportPdfWithJsPDF = async (
 		await addTasksTable(pdf, tasks, margin, y, pageWidth);
 	}
 
-	// 保存PDF
-	pdf.save(config.filename!);
+	// 保存PDF（使用 Blob + a[download]，确保中文文件名）
+	const pdfBlob: Blob = pdf.output('blob');
+	const pdfUrl = URL.createObjectURL(pdfBlob);
+	const a = document.createElement('a');
+	a.href = pdfUrl;
+	a.download = config.filename!;
+	a.style.display = 'none';
+	document.body.appendChild(a);
+	a.click();
+	setTimeout(() => {
+		document.body.removeChild(a);
+		URL.revokeObjectURL(pdfUrl);
+	}, 100);
 	ElMessage.success('PDF exported successfully');
 };
 
@@ -215,7 +351,8 @@ const addTasksTable = async (
 		pdf.setFontSize(11);
 
 		// 添加任务行
-		tasks.forEach((task, index) => {
+		for (let index = 0; index < tasks.length; index++) {
+			const task = tasks[index];
 			// 检查是否需要新页面
 			if (y > 250) {
 				pdf.addPage();
@@ -252,10 +389,13 @@ const addTasksTable = async (
 			pdf.setTextColor(0, 0, 0);
 			pdf.setFontSize(12);
 			pdf.text(`${index + 1}`, margin + 6, y + 5.5);
-			pdf.text(taskName, margin + 20, y + 5.5);
+			await drawTextWithCJK(pdf, taskName, margin + 20, y + 5.5, {
+				fontSizePt: 12,
+				color: '#000000',
+			});
 
 			y += 8;
-		});
+		}
 	} else {
 		// 空状态表格
 		pdf.setFillColor(52, 71, 103);

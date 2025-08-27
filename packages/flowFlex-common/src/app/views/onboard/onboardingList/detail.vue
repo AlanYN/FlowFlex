@@ -113,7 +113,7 @@
 												<h3
 													class="ai-title font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400"
 												>
-													AI Smart Summary
+													AI Summary
 												</h3>
 												<div class="flex items-center space-x-2 mt-1">
 													<div
@@ -1392,10 +1392,7 @@ onMounted(async () => {
 /* AI内容样式 */
 .ai-content-wrapper {
 	position: relative;
-	padding: 1rem;
-	background: rgba(59, 130, 246, 0.02);
 	border-radius: 8px;
-	border-left: 3px solid #3b82f6;
 }
 
 .ai-streaming {

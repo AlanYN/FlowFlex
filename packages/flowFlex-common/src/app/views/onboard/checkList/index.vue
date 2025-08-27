@@ -594,12 +594,11 @@ const exportChecklistItem = async (checklist: Checklist) => {
 			},
 			{ workflows: workflows.value, stages: stages.value },
 			{
-				headerTitle: 'UNIS',
+				headerTitle: '',
 				headerSubtitle: 'Warehousing Solutions',
 				showHeader: true,
 				showAssignments: true,
 				showTaskTable: true,
-				filename: `${checklist.name?.replace(/[^\w\s-]/g, '_') || 'checklist'}.pdf`,
 			}
 		);
 		activeDropdown.value = null;

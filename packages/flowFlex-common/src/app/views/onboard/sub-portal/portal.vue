@@ -224,75 +224,229 @@
 									<!-- AI Summary 展示（当前阶段） -->
 									<div
 										v-if="showAISummarySection"
-										class="bg-white dark:bg-black-300 rounded-md p-4"
+										class="ai-summary-container relative overflow-hidden ml-2"
 									>
-										<div class="flex justify-between items-center mb-2">
-											<div class="text-sm text-gray-500">AI Summary</div>
-											<el-button
-												:icon="Refresh"
-												size="small"
-												circle
-												:loading="aiSummaryLoading"
-												@click="refreshAISummary"
-												title="Refresh AI Summary"
-											/>
-										</div>
+										<!-- AI装饰性背景元素 -->
+										<div class="ai-bg-decoration"></div>
+										<div class="ai-circuit-pattern"></div>
 
-										<!-- AI Summary content (always visible if exists) -->
-										<div v-if="currentAISummary" class="ai-summary-content">
-											<p
-												class="whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-200"
-												:class="{ streaming: aiSummaryLoading }"
+										<!-- 主要内容区域 -->
+										<div
+											class="relative z-10 bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 backdrop-blur-sm rounded-lg ai-gradient-border shadow-lg"
+										>
+											<!-- Header区域 -->
+											<div
+												class="ai-summary-header px-6 py-4 border-b border-blue-200/50 dark:border-blue-400/20"
 											>
-												{{ currentAISummary }}
-												<span
-													v-if="aiSummaryLoading"
-													class="typing-indicator"
+												<div class="flex items-center justify-between">
+													<div class="flex items-center space-x-3">
+														<!-- AI图标 -->
+														<div class="ai-icon-container">
+															<div class="ai-icon">
+																<svg
+																	width="24"
+																	height="24"
+																	viewBox="0 0 24 24"
+																	fill="none"
+																	xmlns="http://www.w3.org/2000/svg"
+																>
+																	<path
+																		d="M12 2L13.09 5.5L16 6L13.09 6.5L12 10L10.91 6.5L8 6L10.91 5.5L12 2Z"
+																		fill="currentColor"
+																	/>
+																	<path
+																		d="M18 8L18.82 10.5L21 11L18.82 11.5L18 14L17.18 11.5L15 11L17.18 10.5L18 8Z"
+																		fill="currentColor"
+																	/>
+																	<path
+																		d="M6 14L6.82 16.5L9 17L6.82 17.5L6 20L5.18 17.5L3 17L5.18 16.5L6 14Z"
+																		fill="currentColor"
+																	/>
+																</svg>
+															</div>
+															<div class="ai-pulse-ring"></div>
+														</div>
+
+														<!-- 标题和状态 -->
+														<div>
+															<h3
+																class="ai-title font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400"
+															>
+																AI Summary
+															</h3>
+															<div
+																class="flex items-center space-x-2 mt-1"
+															>
+																<div
+																	v-if="aiSummaryLoading"
+																	class="ai-status-badge generating"
+																>
+																	<div class="status-dot"></div>
+																	<span class="text-xs">
+																		Generating...
+																	</span>
+																</div>
+																<div
+																	v-else-if="currentAISummary"
+																	class="ai-status-badge ready"
+																>
+																	<div class="status-dot"></div>
+																	<span class="text-xs">
+																		Ready
+																	</span>
+																</div>
+																<div
+																	v-else
+																	class="ai-status-badge idle"
+																>
+																	<div class="status-dot"></div>
+																	<span class="text-xs">
+																		Idle
+																	</span>
+																</div>
+																<!-- 时间戳移到Ready状态后面 -->
+																<div
+																	v-if="
+																		currentAISummaryGeneratedAt &&
+																		currentAISummary
+																	"
+																	class="text-xs text-gray-400 dark:text-gray-500 ml-2"
+																>
+																	Generated:
+																	{{
+																		formatUsDate(
+																			currentAISummaryGeneratedAt
+																		)
+																	}}
+																</div>
+															</div>
+														</div>
+													</div>
+
+													<!-- 刷新按钮 -->
+													<el-button
+														:icon="Refresh"
+														size="small"
+														circle
+														:loading="aiSummaryLoading"
+														@click="refreshAISummary"
+														title="Regenerate AI Summary"
+														class="ai-refresh-btn"
+													/>
+												</div>
+											</div>
+
+											<!-- 内容区域 -->
+											<div class="ai-summary-body px-6 py-4">
+												<!-- AI Summary content (always visible if exists) -->
+												<div
+													v-if="currentAISummary"
+													class="ai-summary-content"
 												>
-													|
-												</span>
-											</p>
-										</div>
+													<div class="ai-content-wrapper">
+														<p
+															class="whitespace-pre-line text-sm leading-7 text-gray-800 dark:text-gray-100"
+															:class="{
+																'ai-streaming': aiSummaryLoading,
+															}"
+														>
+															{{ currentAISummary }}
+															<span
+																v-if="aiSummaryLoading"
+																class="ai-typing-cursor"
+															>
+																|
+															</span>
+														</p>
+													</div>
+												</div>
 
-										<!-- Loading state (only when no content yet) -->
-										<div
-											v-else-if="aiSummaryLoading"
-											class="flex items-center space-x-2 py-4"
-										>
-											<el-icon class="is-loading text-lg text-primary-500">
-												<Loading />
-											</el-icon>
-											<span class="text-sm text-gray-500">
-												{{ aiSummaryLoadingText }}
-											</span>
-										</div>
+												<!-- Loading state (only when no content yet) -->
+												<div
+													v-else-if="aiSummaryLoading"
+													class="ai-loading-state"
+												>
+													<div class="ai-loading-animation">
+														<div class="loading-brain">
+															<div class="brain-wave"></div>
+															<div class="brain-wave"></div>
+															<div class="brain-wave"></div>
+														</div>
+													</div>
+													<div class="ai-loading-text">
+														<div
+															class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+														>
+															AI is analyzing your data
+														</div>
+														<div
+															class="text-xs text-gray-500 dark:text-gray-400"
+														>
+															{{ aiSummaryLoadingText }}
+														</div>
+													</div>
+													<div class="ai-loading-progress">
+														<div class="progress-bar"></div>
+													</div>
+												</div>
 
-										<!-- Empty state -->
-										<div v-else class="text-sm text-gray-400 italic py-2">
-											No AI summary available. Click refresh to generate.
-										</div>
+												<!-- Empty state -->
+												<div v-else class="ai-empty-state">
+													<div class="empty-icon">
+														<svg
+															width="48"
+															height="48"
+															viewBox="0 0 24 24"
+															fill="none"
+															xmlns="http://www.w3.org/2000/svg"
+														>
+															<path
+																d="M12 2L13.09 5.5L16 6L13.09 6.5L12 10L10.91 6.5L8 6L10.91 5.5L12 2Z"
+																fill="currentColor"
+																opacity="0.3"
+															/>
+															<path
+																d="M18 8L18.82 10.5L21 11L18.82 11.5L18 14L17.18 11.5L15 11L17.18 10.5L18 8Z"
+																fill="currentColor"
+																opacity="0.3"
+															/>
+															<path
+																d="M6 14L6.82 16.5L9 17L6.82 17.5L6 20L5.18 17.5L3 17L5.18 16.5L6 14Z"
+																fill="currentColor"
+																opacity="0.3"
+															/>
+														</svg>
+													</div>
+													<div
+														class="text-sm text-gray-500 dark:text-gray-400 mb-1"
+													>
+														No AI insights available
+													</div>
+													<div
+														class="text-xs text-gray-400 dark:text-gray-500"
+													>
+														Click the refresh button to generate
+														intelligent summary
+													</div>
+												</div>
 
-										<!-- Loading indicator when streaming content -->
-										<div
-											v-if="aiSummaryLoading && currentAISummary"
-											class="flex items-center space-x-2 py-2 mt-2"
-										>
-											<el-icon class="is-loading text-sm text-primary-500">
-												<Loading />
-											</el-icon>
-											<span class="text-xs text-gray-500">
-												{{ aiSummaryLoadingText }}
-											</span>
-										</div>
-
-										<div
-											v-if="currentAISummaryGeneratedAt"
-											class="mt-1 text-xs text-gray-400"
-										>
-											<span>
-												Generated at:
-												{{ formatUsDate(currentAISummaryGeneratedAt) }}
-											</span>
+												<!-- Loading indicator when streaming content -->
+												<div
+													v-if="aiSummaryLoading && currentAISummary"
+													class="ai-streaming-indicator"
+												>
+													<div class="streaming-dots">
+														<div class="dot"></div>
+														<div class="dot"></div>
+														<div class="dot"></div>
+													</div>
+													<span
+														class="text-xs text-blue-600 dark:text-blue-400 ml-2"
+													>
+														{{ aiSummaryLoadingText }}
+													</span>
+												</div>
+											</div>
 										</div>
 									</div>
 									<!-- Stage Details 加载状态 -->
@@ -657,7 +811,7 @@ const sortedComponents = computed(() => {
 	});
 });
 
-// AI Summary 状态与工具
+// AI Summary相关状态
 const aiSummaryLoading = ref(false);
 const aiSummaryLoadingText = ref('Generating AI summary...');
 const currentAISummary = ref('');
@@ -793,6 +947,7 @@ const refreshAISummary = async () => {
 };
 
 const checkAndGenerateAISummary = async () => {
+	// 检查当前阶段是否有AI Summary，如果没有则自动生成
 	if (!onboardingActiveStageInfo.value?.aiSummary && !aiSummaryLoading.value) {
 		await refreshAISummary();
 	}
@@ -883,6 +1038,9 @@ const processOnboardingData = (responseData: any) => {
 	onboardingActiveStageInfo.value = workflowStages.value.find(
 		(stage) => stage.stageId === newStageId
 	);
+
+	// 更新AI Summary显示
+	updateAISummaryFromStageInfo();
 
 	return newStageId;
 };
@@ -1388,21 +1546,358 @@ button:hover {
 	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-/* AI Summary Streaming Styles */
-.ai-summary-content .streaming {
+/* AI Summary 容器样式 */
+.ai-summary-container {
+	position: relative;
+	margin-bottom: 1.5rem;
+}
+
+/* AI渐变边框 */
+.ai-gradient-border {
+	position: relative;
+	border: 2px solid transparent;
+	background:
+		linear-gradient(white, white) padding-box,
+		linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #06b6d4 50%, #10b981 75%, #3b82f6 100%)
+			border-box;
+	animation: ai-border-flow 4s ease-in-out infinite;
+	box-shadow:
+		0 0 20px rgba(59, 130, 246, 0.15),
+		0 0 40px rgba(139, 92, 246, 0.1),
+		0 4px 24px rgba(0, 0, 0, 0.1);
+	transition: all 0.3s ease;
+}
+
+.ai-gradient-border:hover {
+	box-shadow:
+		0 0 30px rgba(59, 130, 246, 0.25),
+		0 0 60px rgba(139, 92, 246, 0.15),
+		0 8px 32px rgba(0, 0, 0, 0.15);
+	transform: translateY(-1px);
+}
+
+.dark .ai-gradient-border {
+	background:
+		linear-gradient(135deg, rgb(51, 65, 85), rgb(30, 41, 59)) padding-box,
+		linear-gradient(135deg, #60a5fa 0%, #a78bfa 25%, #22d3ee 50%, #34d399 75%, #60a5fa 100%)
+			border-box;
+	box-shadow:
+		0 0 25px rgba(96, 165, 250, 0.2),
+		0 0 50px rgba(167, 139, 250, 0.12),
+		0 4px 28px rgba(0, 0, 0, 0.3);
+}
+
+.dark .ai-gradient-border:hover {
+	box-shadow:
+		0 0 35px rgba(96, 165, 250, 0.3),
+		0 0 70px rgba(167, 139, 250, 0.18),
+		0 8px 36px rgba(0, 0, 0, 0.4);
+}
+
+/* AI装饰性背景 */
+.ai-bg-decoration {
+	position: absolute;
+	top: -10px;
+	right: -10px;
+	width: 100px;
+	height: 100px;
+	background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+	border-radius: 50%;
+	pointer-events: none;
+	animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.ai-circuit-pattern {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-image: linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+		linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+	background-size: 20px 20px;
+	pointer-events: none;
+	opacity: 0.5;
+}
+
+/* AI图标容器 */
+.ai-icon-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ai-icon {
+	width: 32px;
+	height: 32px;
+	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	position: relative;
+	z-index: 2;
+	box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+	animation: float 3s ease-in-out infinite;
+}
+
+.ai-pulse-ring {
+	position: absolute;
+	width: 40px;
+	height: 40px;
+	border: 2px solid rgba(59, 130, 246, 0.4);
+	border-radius: 50%;
+	animation: pulse-ring 2s linear infinite;
+}
+
+/* AI标题 */
+.ai-title {
+	font-size: 16px;
+	letter-spacing: 0.5px;
+}
+
+/* 状态徽章 */
+.ai-status-badge {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border-radius: 12px;
+	font-weight: 500;
+
+	.status-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		margin-right: 4px;
+		animation: status-pulse 2s ease-in-out infinite;
+	}
+
+	&.generating {
+		background: rgba(245, 158, 11, 0.1);
+		color: #f59e0b;
+
+		.status-dot {
+			background: #f59e0b;
+		}
+	}
+
+	&.ready {
+		background: rgba(34, 197, 94, 0.1);
+		color: #22c55e;
+
+		.status-dot {
+			background: #22c55e;
+		}
+	}
+
+	&.idle {
+		background: rgba(107, 114, 128, 0.1);
+		color: #6b7280;
+
+		.status-dot {
+			background: #6b7280;
+		}
+	}
+}
+
+/* 刷新按钮 */
+.ai-refresh-btn {
+	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+	border: none;
+	color: white;
+	transition: all 0.3s ease;
+
+	&:hover {
+		transform: translateY(-1px);
+		box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+	}
+}
+
+/* AI内容样式 */
+.ai-content-wrapper {
+	position: relative;
+	border-radius: 8px;
+}
+
+.ai-streaming {
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		rgba(59, 130, 246, 0.1) 50%,
+		rgba(59, 130, 246, 0.08) 50%,
 		transparent 100%
 	);
 	background-size: 200% 100%;
-	animation: shimmer 2s infinite;
+	animation: ai-shimmer 2s infinite;
+	border-radius: 6px;
 	padding: 8px;
-	border-radius: 4px;
 }
 
-@keyframes shimmer {
+.ai-typing-cursor {
+	color: #3b82f6;
+	font-weight: bold;
+	animation: typing-blink 1s infinite;
+}
+
+/* 加载状态 */
+.ai-loading-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem;
+	text-align: center;
+}
+
+.ai-loading-animation {
+	margin-bottom: 1rem;
+}
+
+.loading-brain {
+	width: 48px;
+	height: 48px;
+	position: relative;
+
+	.brain-wave {
+		position: absolute;
+		width: 100%;
+		height: 4px;
+		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%);
+		border-radius: 2px;
+		animation: brain-wave-animation 1.5s ease-in-out infinite;
+
+		&:nth-child(1) {
+			top: 12px;
+			animation-delay: 0s;
+		}
+
+		&:nth-child(2) {
+			top: 22px;
+			animation-delay: 0.3s;
+		}
+
+		&:nth-child(3) {
+			top: 32px;
+			animation-delay: 0.6s;
+		}
+	}
+}
+
+.ai-loading-progress {
+	width: 100%;
+	max-width: 200px;
+	height: 3px;
+	background: rgba(59, 130, 246, 0.1);
+	border-radius: 2px;
+	overflow: hidden;
+	margin-top: 1rem;
+
+	.progress-bar {
+		height: 100%;
+		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+		border-radius: 2px;
+		animation: progress-flow 2s ease-in-out infinite;
+	}
+}
+
+/* 空状态 */
+.ai-empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem;
+	text-align: center;
+
+	.empty-icon {
+		margin-bottom: 1rem;
+		color: #9ca3af;
+		opacity: 0.7;
+		animation: float 4s ease-in-out infinite;
+	}
+}
+
+/* 流式指示器 */
+.ai-streaming-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px;
+	margin-top: 8px;
+	background: rgba(59, 130, 246, 0.05);
+	border-radius: 6px;
+}
+
+.streaming-dots {
+	display: flex;
+	gap: 4px;
+
+	.dot {
+		width: 4px;
+		height: 4px;
+		background: #3b82f6;
+		border-radius: 50%;
+		animation: dot-bounce 1.4s ease-in-out infinite both;
+
+		&:nth-child(1) {
+			animation-delay: -0.32s;
+		}
+		&:nth-child(2) {
+			animation-delay: -0.16s;
+		}
+		&:nth-child(3) {
+			animation-delay: 0s;
+		}
+	}
+}
+
+/* 动画定义 */
+@keyframes pulse-glow {
+	0%,
+	100% {
+		opacity: 0.5;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.8;
+		transform: scale(1.1);
+	}
+}
+
+@keyframes pulse-ring {
+	0% {
+		transform: scale(0.8);
+		opacity: 1;
+	}
+	100% {
+		transform: scale(1.4);
+		opacity: 0;
+	}
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(0px);
+	}
+	50% {
+		transform: translateY(-4px);
+	}
+}
+
+@keyframes status-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+@keyframes ai-shimmer {
 	0% {
 		background-position: -200% 0;
 	}
@@ -1411,13 +1906,7 @@ button:hover {
 	}
 }
 
-.typing-indicator {
-	animation: blink 1s infinite;
-	color: #3b82f6;
-	font-weight: bold;
-}
-
-@keyframes blink {
+@keyframes typing-blink {
 	0%,
 	50% {
 		opacity: 1;
@@ -1425,6 +1914,71 @@ button:hover {
 	51%,
 	100% {
 		opacity: 0;
+	}
+}
+
+@keyframes brain-wave-animation {
+	0%,
+	100% {
+		transform: scaleX(0.5);
+		opacity: 0.5;
+	}
+	50% {
+		transform: scaleX(1);
+		opacity: 1;
+	}
+}
+
+@keyframes progress-flow {
+	0% {
+		transform: translateX(-100%);
+	}
+	100% {
+		transform: translateX(200%);
+	}
+}
+
+@keyframes dot-bounce {
+	0%,
+	80%,
+	100% {
+		transform: scale(0);
+	}
+	40% {
+		transform: scale(1);
+	}
+}
+
+@keyframes ai-border-flow {
+	0% {
+		background:
+			linear-gradient(white, white) padding-box,
+			linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #06b6d4 50%, #10b981 75%, #3b82f6 100%)
+				border-box;
+	}
+	25% {
+		background:
+			linear-gradient(white, white) padding-box,
+			linear-gradient(135deg, #10b981 0%, #3b82f6 25%, #8b5cf6 50%, #06b6d4 75%, #10b981 100%)
+				border-box;
+	}
+	50% {
+		background:
+			linear-gradient(white, white) padding-box,
+			linear-gradient(135deg, #06b6d4 0%, #10b981 25%, #3b82f6 50%, #8b5cf6 75%, #06b6d4 100%)
+				border-box;
+	}
+	75% {
+		background:
+			linear-gradient(white, white) padding-box,
+			linear-gradient(135deg, #8b5cf6 0%, #06b6d4 25%, #10b981 50%, #3b82f6 75%, #8b5cf6 100%)
+				border-box;
+	}
+	100% {
+		background:
+			linear-gradient(white, white) padding-box,
+			linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #06b6d4 50%, #10b981 75%, #3b82f6 100%)
+				border-box;
 	}
 }
 </style>
