@@ -199,11 +199,26 @@ const toggleTask = async (task: TaskData) => {
 			console.log('User cancelled the undo operation');
 		}
 	} else {
-		// 任务未完成时，直接标记为完成
-		emit('taskToggled', {
-			...task,
-			isCompleted: !task.isCompleted,
-		});
+		try {
+			await ElMessageBox.confirm(
+				'Are you sure you want to complete this task? This action will mark the task as completed.',
+				'Confirm Complete Task',
+				{
+					confirmButtonText: t('sys.app.confirmText'),
+					cancelButtonText: t('sys.app.cancelText'),
+					type: 'warning',
+					showClose: true,
+				}
+			);
+			// 任务未完成时，直接标记为完成
+			emit('taskToggled', {
+				...task,
+				isCompleted: !task.isCompleted,
+			});
+		} catch (error) {
+			// 用户取消操作，不执行任何操作
+			console.log('User cancelled the undo operation');
+		}
 	}
 };
 
