@@ -241,8 +241,9 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
             
-            // 包含关联的 Stages
-            query = query.Includes(x => x.Stages.Where(s => s.IsValid == true).ToList());
+            // 移除Includes预加载Stage数据以优化性能
+            // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
+            // query = query.Includes(x => x.Stages.Where(s => s.IsValid == true).ToList());
             
             // 执行查询
             var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();

@@ -1349,7 +1349,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Store the generated AI summary (placeholder for future database storage)
+        /// Store the generated AI summary - AI摘要字段已从Stage实体中移除
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <param name="summaryResult">AI summary result</param>
@@ -1358,110 +1358,14 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                // Update Stage entity with AI summary data
-                var stage = await _stageRepository.GetByIdAsync(stageId);
-                if (stage != null)
-                {
-                    // Update AI summary fields
-                    stage.AiSummary = summaryResult.Summary;
-                    stage.AiSummaryGeneratedAt = DateTime.UtcNow;
-                    stage.AiSummaryConfidence = (decimal?)summaryResult.ConfidenceScore;
-                    stage.AiSummaryModel = summaryResult.ModelUsed;
-
-                    // Store detailed AI summary data as JSON
-                    var detailedData = new
-                    {
-                        breakdown = summaryResult.Breakdown,
-                        keyInsights = summaryResult.KeyInsights,
-                        recommendations = summaryResult.Recommendations,
-                        completionStatus = summaryResult.CompletionStatus,
-                        trigger = trigger,
-                        generatedAt = DateTime.UtcNow
-                    };
-                    stage.AiSummaryData = JsonSerializer.Serialize(detailedData);
-
-                    // Save to database
-                    await _stageRepository.UpdateAsync(stage);
-
-                    // Log successful storage
-                    // Removed operation logging - not relevant for stage management operations
-                    // await _operationLogService.LogOperationAsync(
-                    //OperationTypeEnum.OnboardingStatusChange,
-                    //            BusinessModuleEnum.Stage,
-                    //            stageId,
-                    //            null,
-                    //            null,
-                    //            "AI Summary Stored",
-                    //            $"AI summary successfully stored in database. Trigger: {trigger}",
-                    //            null,
-                    //            JsonSerializer.Serialize(new
-                    //            {
-                    //                stageId,
-                    //                trigger,
-                    //                summaryLength = summaryResult.Summary?.Length ?? 0,
-                    //                confidenceScore = summaryResult.ConfidenceScore,
-                    //                modelUsed = summaryResult.ModelUsed,
-                    //                hasBreakdown = summaryResult.Breakdown != null,
-                    //                keyInsightsCount = summaryResult.KeyInsights?.Count ?? 0,
-                    //                recommendationsCount = summaryResult.Recommendations?.Count ?? 0,
-                    //                storedAt = DateTime.UtcNow
-                    //            }),
-                    //            new List<string> { "AISummaryStorage", "DatabaseUpdate" },
-                    //            null,
-                    //            OperationStatusEnum.Success
-                    //        );
-                }
-                else
-                {
-                    // Stage not found - log error
-                    // Removed operation logging - not relevant for stage management operations
-                    // await _operationLogService.LogOperationAsync(
-                    //OperationTypeEnum.OnboardingStatusChange,
-                    //            BusinessModuleEnum.Stage,
-                    //            stageId,
-                    //            null,
-                    //            null,
-                    //            "AI Summary Storage Failed",
-                    //            $"Stage with ID {stageId} not found when trying to store AI summary",
-                    //            null,
-                    //            JsonSerializer.Serialize(new { stageId, trigger, error = "Stage not found" }),
-                    //            new List<string> { "AISummaryStorage", "Error" },
-                    //            null,
-                    //            OperationStatusEnum.Failed
-                    //        );
-                }
+                // AI摘要字段已从Stage实体中移除
+                // Stage不再存储AI摘要数据，所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+                Console.WriteLine($"StoreStageSummaryAsync: Stage {stageId} - AI summary storage skipped (fields removed from Stage entity)");
+                // 所有AI摘要数据现在仅存储在Onboarding的StageProgress中
             }
             catch (Exception ex)
             {
-                // Log storage failure but don't crash the background task
-                try
-                {
-                    // Removed operation logging - not relevant for stage management operations
-                    // await _operationLogService.LogOperationAsync(
-                    //OperationTypeEnum.OnboardingStatusChange,
-                    //            BusinessModuleEnum.Stage,
-                    //            stageId,
-                    //            null,
-                    //            null,
-                    //            "AI Summary Storage Error",
-                    //            $"Failed to store AI summary in database: {ex.Message}",
-                    //            null,
-                    //            JsonSerializer.Serialize(new
-                    //            {
-                    //                stageId,
-                    //                trigger,
-                    //                error = ex.Message,
-                    //                stackTrace = ex.StackTrace
-                    //            }),
-                    //            new List<string> { "AISummaryStorage", "Exception" },
-                    //            null,
-                    //            OperationStatusEnum.Failed
-                    //        );
-                }
-                catch
-                {
-                    // If even logging fails, just ignore to prevent infinite loops
-                }
+                Console.WriteLine($"StoreStageSummaryAsync: Exception occurred but ignored - {ex.Message}");
             }
         }
 
@@ -1834,47 +1738,10 @@ namespace FlowFlex.Application.Service.OW
         /// <returns>Success status</returns>
         public async Task<bool> UpdateStageAISummaryIfEmptyAsync(long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed)
         {
-            try
-            {
-                // Get current stage
-                var stage = await _stageRepository.GetByIdAsync(stageId);
-                if (stage == null)
-                {
-                    Console.WriteLine($"Stage {stageId} not found for AI summary update");
-                    return false;
-                }
-
-                // Only update if AI summary is currently empty (backfill only)
-                if (!string.IsNullOrWhiteSpace(stage.AiSummary))
-                {
-                    Console.WriteLine($"Stage {stageId} already has AI summary, skipping backfill");
-                    return true; // Return true since it's not an error
-                }
-
-                // Update AI summary fields
-                stage.AiSummary = aiSummary;
-                stage.AiSummaryGeneratedAt = generatedAt;
-                stage.AiSummaryConfidence = (decimal?)confidence;
-                stage.AiSummaryModel = modelUsed;
-                stage.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    trigger = "Stream API backfill",
-                    generatedAt = generatedAt,
-                    confidence = confidence,
-                    model = modelUsed
-                });
-
-                // Save to database
-                var result = await _stageRepository.UpdateAsync(stage);
-                Console.WriteLine($"✅ Successfully backfilled AI summary for stage {stageId}");
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Failed to update AI summary for stage {stageId}: {ex.Message}");
-                return false;
-            }
+            // AI摘要字段已从Stage实体中移除
+            // Stage不再存储AI摘要数据，所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+            Console.WriteLine($"UpdateStageAISummaryIfEmptyAsync: Stage {stageId} - AI summary fields removed from Stage entity");
+            return true; // 返回true避免破坏现有流程
         }
 
         /// <summary>

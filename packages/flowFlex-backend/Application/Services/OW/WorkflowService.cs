@@ -315,7 +315,16 @@ namespace FlowFlex.Application.Service.OW
             // Temporarily disable expired workflow processing to avoid concurrent database operations
             // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
-            return _mapper.Map<List<WorkflowOutputDto>>(list);
+            var result = _mapper.Map<List<WorkflowOutputDto>>(list);
+            
+            // 为了优化性能，工作流列表接口不返回Stage数据
+            // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
+            foreach (var workflow in result)
+            {
+                workflow.Stages = new List<StageOutputDto>();
+            }
+            
+            return result;
         }
 
         /// <summary>
@@ -352,6 +361,13 @@ namespace FlowFlex.Application.Service.OW
                 {
                     // Debug logging handled by structured logging
                     return new List<WorkflowOutputDto>();
+                }
+
+                // 为了优化性能，工作流列表接口不返回Stage数据
+                // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
+                foreach (var workflow in result)
+                {
+                    workflow.Stages = new List<StageOutputDto>();
                 }
 
                 stopwatch.Stop();

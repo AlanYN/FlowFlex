@@ -47,12 +47,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
                 .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy))
                 .ForMember(dest => dest.CreateUserId, opt => opt.MapFrom(src => src.CreateUserId))
-                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId))
-                .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
-                .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))
-                .ForMember(dest => dest.AiSummaryConfidence, opt => opt.MapFrom(src => src.AiSummaryConfidence))
-                .ForMember(dest => dest.AiSummaryModel, opt => opt.MapFrom(src => src.AiSummaryModel))
-                .ForMember(dest => dest.AiSummaryData, opt => opt.MapFrom(src => src.AiSummaryData));
+                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId));
 
             // InputDto to Entity mapping
             CreateMap<StageInputDto, Stage>()

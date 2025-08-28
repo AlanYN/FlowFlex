@@ -394,34 +394,49 @@ const exportPdfWithJsPDF = async (
 		y = 45;
 	}
 
-	// 添加清单名称作为主标题
+	// 添加清单名称作为主标题（支持换行）
 	pdf.setFontSize(18);
 	const checklistName = String(checklist.name || 'Untitled');
-	await drawTextWithCJK(pdf, checklistName, margin, y, {
+	const titleMaxWidth = pageWidth - 2 * margin; // 标题可用宽度
+	const titleHeight = await drawTextWithCJKWrapped(pdf, checklistName, margin, y, {
 		fontSizePt: 18,
 		color: '#000000',
 		fontWeight: 'bold',
+		maxWidthMm: titleMaxWidth,
+		lineSpacingMm: 6,
 	});
-	y += 15;
+	y += Math.max(15, titleHeight + 5); // 动态调整间距
 
 	// 添加基本信息
 	pdf.setFontSize(12);
+	const infoMaxWidth = pageWidth - 2 * margin; // 信息可用宽度
+
 	if (checklist.description) {
 		const description = String(checklist.description);
-		await drawTextWithCJK(pdf, `Description: ${description}`, margin, y, {
-			fontSizePt: 12,
-			color: '#000000',
-		});
-		y += 8;
+		const descHeight = await drawTextWithCJKWrapped(
+			pdf,
+			`Description: ${description}`,
+			margin,
+			y,
+			{
+				fontSizePt: 12,
+				color: '#000000',
+				maxWidthMm: infoMaxWidth,
+				lineSpacingMm: 4,
+			}
+		);
+		y += Math.max(8, descHeight + 2);
 	}
 
 	if (checklist.team) {
 		const team = String(checklist.team);
-		await drawTextWithCJK(pdf, `Team: ${team}`, margin, y, {
+		const teamHeight = await drawTextWithCJKWrapped(pdf, `Team: ${team}`, margin, y, {
 			fontSizePt: 12,
 			color: '#000000',
+			maxWidthMm: infoMaxWidth,
+			lineSpacingMm: 4,
 		});
-		y += 8;
+		y += Math.max(8, teamHeight + 2);
 	}
 
 	// 处理assignments信息（如果配置启用）
@@ -434,11 +449,19 @@ const exportPdfWithJsPDF = async (
 			const assignmentLines = assignmentsText.split(', ');
 			for (const line of assignmentLines) {
 				const cleanLine = line.replace(/→/g, ' -> ');
-				await drawTextWithCJK(pdf, `  ${cleanLine}`, margin + 5, y, {
-					fontSizePt: 12,
-					color: '#000000',
-				});
-				y += 5;
+				const assignHeight = await drawTextWithCJKWrapped(
+					pdf,
+					`  ${cleanLine}`,
+					margin + 5,
+					y,
+					{
+						fontSizePt: 12,
+						color: '#000000',
+						maxWidthMm: infoMaxWidth - 5,
+						lineSpacingMm: 4,
+					}
+				);
+				y += Math.max(5, assignHeight + 1);
 			}
 		} else {
 			pdf.text('  No assignments specified', margin + 5, y);

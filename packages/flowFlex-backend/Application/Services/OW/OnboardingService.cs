@@ -4551,15 +4551,8 @@ namespace FlowFlex.Application.Services.OW
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
                         stageProgress.ComponentsJson = stage.ComponentsJson;
                         stageProgress.Components = stage.Components;
-                        // AI Summary 回填策略：仅当 Onboarding 的该阶段为空时，采用 Stage 的AI字段做一次性填充，不覆盖已有值
-                        if (string.IsNullOrWhiteSpace(stageProgress.AiSummary) && !string.IsNullOrWhiteSpace(stage.AiSummary))
-                        {
-                            stageProgress.AiSummary = stage.AiSummary;
-                            stageProgress.AiSummaryGeneratedAt = stage.AiSummaryGeneratedAt;
-                            stageProgress.AiSummaryConfidence = stage.AiSummaryConfidence;
-                            stageProgress.AiSummaryModel = stage.AiSummaryModel;
-                            stageProgress.AiSummaryData = stage.AiSummaryData;
-                        }
+                        // AI Summary 回填策略已移除：Stage不再包含AI摘要字段
+                        // AI摘要数据现在仅存储在Onboarding的StageProgress中
 
                         // Backfill: If stage is completed but Onboarding's AI Summary is still empty, trigger async generation once
                         if (stageProgress.IsCompleted && string.IsNullOrWhiteSpace(stageProgress.AiSummary))

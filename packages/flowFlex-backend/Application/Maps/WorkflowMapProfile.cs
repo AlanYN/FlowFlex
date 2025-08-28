@@ -30,7 +30,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy))
                 .ForMember(dest => dest.CreateUserId, opt => opt.MapFrom(src => src.CreateUserId))
                 .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId))
-                .ForMember(dest => dest.Stages, opt => opt.MapFrom(src => src.Stages));
+                // 为了优化性能，工作流列表接口不返回Stage数据
+                // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
+                .ForMember(dest => dest.Stages, opt => opt.Ignore());
 
             // Input DTO to Workflow entity mapping
             CreateMap<WorkflowInputDto, Workflow>()

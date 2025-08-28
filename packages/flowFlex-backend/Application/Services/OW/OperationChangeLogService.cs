@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -36,6 +37,12 @@ namespace FlowFlex.Application.Services.OW
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMapper _mapper;
         private readonly IServiceProvider _serviceProvider; // 使用 IServiceProvider 来延迟解析服务，避免循环依赖
+        
+        // Cache to store source IDs that have no action executions to avoid repeated queries
+        private static readonly ConcurrentDictionary<string, DateTime> _emptySourceIdCache = new();
+        private static readonly TimeSpan _cacheExpiration = TimeSpan.FromHours(2); // Increased cache time for better performance
+        private const int _maxCacheSize = 20000; // Increased cache size for better hit rate
+        private static DateTime _lastCacheCleanup = DateTime.UtcNow;
 
         public OperationChangeLogService(
             IOperationChangeLogRepository operationChangeLogRepository,
@@ -693,6 +700,125 @@ namespace FlowFlex.Application.Services.OW
         }
 
         #region Private Methods
+
+        /// <summary>
+        /// Check if a source ID is in the empty results cache and still valid
+        /// </summary>
+        private bool IsSourceIdCachedAsEmpty(long sourceId, long? onboardingId)
+        {
+            var cacheKey = $"{sourceId}_{onboardingId ?? 0}";
+            if (_emptySourceIdCache.TryGetValue(cacheKey, out var cachedTime))
+            {
+                if (DateTime.UtcNow - cachedTime < _cacheExpiration)
+                {
+                    return true;
+                }
+                else
+                {
+                    // Remove expired entry
+                    _emptySourceIdCache.TryRemove(cacheKey, out _);
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Add a source ID to the empty results cache with improved cache management
+        /// </summary>
+        private void CacheSourceIdAsEmpty(long sourceId, long? onboardingId)
+        {
+            var cacheKey = $"{sourceId}_{onboardingId ?? 0}";
+            
+            // Periodic cache cleanup (every hour)
+            if (DateTime.UtcNow - _lastCacheCleanup > TimeSpan.FromHours(1))
+            {
+                PerformCacheCleanup();
+            }
+            
+            // Prevent cache from growing too large
+            if (_emptySourceIdCache.Count >= _maxCacheSize)
+            {
+                // Remove oldest 25% of entries (improved LRU simulation)
+                var entriesToRemove = _maxCacheSize / 4;
+                var oldestEntries = _emptySourceIdCache
+                    .OrderBy(kvp => kvp.Value)
+                    .Take(entriesToRemove)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+                
+                foreach (var key in oldestEntries)
+                {
+                    _emptySourceIdCache.TryRemove(key, out _);
+                }
+                
+                _logger.LogDebug("Removed {Count} oldest cache entries to prevent overflow", oldestEntries.Count);
+            }
+            
+            _emptySourceIdCache.TryAdd(cacheKey, DateTime.UtcNow);
+        }
+
+        /// <summary>
+        /// Perform periodic cache cleanup to remove expired entries
+        /// </summary>
+        private void PerformCacheCleanup()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var expiredKeys = _emptySourceIdCache
+                    .Where(kvp => now - kvp.Value > _cacheExpiration)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+
+                var removedCount = 0;
+                foreach (var key in expiredKeys)
+                {
+                    if (_emptySourceIdCache.TryRemove(key, out _))
+                    {
+                        removedCount++;
+                    }
+                }
+
+                _lastCacheCleanup = now;
+                
+                if (removedCount > 0)
+                {
+                    _logger.LogDebug("Cache cleanup completed: removed {ExpiredCount} expired entries, {ActiveCount} entries remain", 
+                        removedCount, _emptySourceIdCache.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error during cache cleanup");
+            }
+        }
+
+        /// <summary>
+        /// Log batch query optimization statistics for performance monitoring
+        /// </summary>
+        private void LogBatchQueryOptimizationStats(int totalSourceIds, int cachedSourceIds, int processedSourceIds, int foundExecutions)
+        {
+            var cacheHitRate = totalSourceIds > 0 ? (cachedSourceIds * 100.0 / totalSourceIds) : 0;
+            var executionFoundRate = processedSourceIds > 0 ? (foundExecutions * 100.0 / processedSourceIds) : 0;
+
+            if (cachedSourceIds > totalSourceIds * 0.5) // More than 50% cache hit rate
+            {
+                _logger.LogInformation("Excellent cache performance: {CacheHitRate:F1}% cache hit rate ({CachedCount}/{TotalCount} source IDs cached)", 
+                    cacheHitRate, cachedSourceIds, totalSourceIds);
+            }
+            else if (processedSourceIds > 100 && foundExecutions == 0)
+            {
+                _logger.LogInformation("Suggestion: Consider implementing bulk query optimization for {ProcessedCount} source IDs with no executions found. " +
+                    "Cache hit rate: {CacheHitRate:F1}%", processedSourceIds, cacheHitRate);
+            }
+
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug("Batch query stats: Total={TotalSourceIds}, Cached={CachedSourceIds} ({CacheHitRate:F1}%), " +
+                    "Processed={ProcessedSourceIds}, Found={FoundExecutions} ({ExecutionFoundRate:F1}%)",
+                    totalSourceIds, cachedSourceIds, cacheHitRate, processedSourceIds, foundExecutions, executionFoundRate);
+            }
+        }
 
         /// <summary>
         /// 使用专门的JSONB处理方法插入操作日志
@@ -2219,59 +2345,125 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Collect action executions for all source IDs using the unified API
         /// All source IDs (stage, task, question) use the same API: /api/action/v1/executions/trigger-source/{sourceId}/search
+        /// OPTIMIZED: Use batch querying, bulk caching, and early exit for better performance
         /// </summary>
         private async Task CollectActionExecutionsForAllSourceIdsAsync(Dictionary<long, string> sourceIdTypes, List<OperationChangeLogOutputDto> allLogs, long? onboardingId)
         {
             try
             {
                 var totalActionExecutions = 0;
-
-                foreach (var kvp in sourceIdTypes)
+                var skippedFromCache = 0;
+                var batchSize = 20; // Increased batch size for better efficiency
+                
+                // Pre-filter out cached empty source IDs
+                var uncachedSourceIds = sourceIdTypes.Where(kvp => !IsSourceIdCachedAsEmpty(kvp.Key, onboardingId))
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                
+                skippedFromCache = sourceIdTypes.Count - uncachedSourceIds.Count;
+                
+                if (uncachedSourceIds.Count == 0)
                 {
-                    var sourceId = kvp.Key;
-                    var sourceType = kvp.Value;
+                    _logger.LogInformation("All {TotalCount} source IDs are cached as empty, skipping API calls", sourceIdTypes.Count);
+                    return;
+                }
 
-                    try
+                var sourceIdBatches = uncachedSourceIds.Keys.Select((id, index) => new { id, index })
+                    .GroupBy(x => x.index / batchSize)
+                    .Select(g => g.Select(x => x.id).ToList())
+                    .ToList();
+
+                _logger.LogInformation("Processing {UncachedSourceIds} uncached source IDs (skipped {CachedCount} cached) in {BatchCount} batches of {BatchSize}",
+                    uncachedSourceIds.Count, skippedFromCache, sourceIdBatches.Count, batchSize);
+
+                var emptySourceIds = new List<long>(); // Collect empty source IDs for bulk caching
+
+                foreach (var batch in sourceIdBatches)
+                {
+                    var batchTasks = batch.Select(async sourceId =>
                     {
-                        // Prepare JSON conditions for filtering by onboardingId if provided
-                        List<JsonQueryCondition> jsonConditions = null;
-                        if (onboardingId.HasValue)
+                        var sourceType = uncachedSourceIds[sourceId];
+                        try
                         {
-                            jsonConditions = new List<JsonQueryCondition>
+                            // Prepare JSON conditions for filtering by onboardingId if provided
+                            List<JsonQueryCondition> jsonConditions = null;
+                            if (onboardingId.HasValue)
                             {
-                                new JsonQueryCondition
+                                jsonConditions = new List<JsonQueryCondition>
                                 {
-                                    JsonPath = "OnboardingId",
-                                    Operator = "=",
-                                    Value = onboardingId.Value.ToString()
+                                    new JsonQueryCondition
+                                    {
+                                        JsonPath = "OnboardingId",
+                                        Operator = "=",
+                                        Value = onboardingId.Value.ToString()
+                                    }
+                                };
+                            }
+
+                            // Call the unified API: /api/action/v1/executions/trigger-source/{sourceId}/search
+                            var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
+                                sourceId, 1, 1000, jsonConditions);
+
+                            if (actionExecutionsResult?.Data?.Any() == true)
+                            {
+                                var actionExecutionDtos = actionExecutionsResult.Data
+                                    .Select(ae => MapActionExecutionToChangeLogDto(ae, sourceType))
+                                    .ToList();
+
+                                if (_logger.IsEnabled(LogLevel.Debug))
+                                {
+                                    _logger.LogDebug("Found {Count} {SourceType} action executions for sourceId {SourceId}", 
+                                        actionExecutionDtos.Count, sourceType, sourceId);
                                 }
-                            };
+                                
+                                return new { SourceId = sourceId, Results = actionExecutionDtos, IsEmpty = false };
+                            }
+                            else
+                            {
+                                return new { SourceId = sourceId, Results = new List<OperationChangeLogOutputDto>(), IsEmpty = true };
+                            }
                         }
-
-                        // Call the unified API: /api/action/v1/executions/trigger-source/{sourceId}/search
-                        var actionExecutionsResult = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
-                            sourceId, 1, 1000, jsonConditions);
-
-                        if (actionExecutionsResult.Data.Any())
+                        catch (Exception ex)
                         {
-                            var actionExecutionDtos = actionExecutionsResult.Data
-                                .Select(ae => MapActionExecutionToChangeLogDto(ae, sourceType))
-                                .ToList();
-                            allLogs.AddRange(actionExecutionDtos);
-
-                            totalActionExecutions += actionExecutionDtos.Count;
-                            _logger.LogDebug("Added {Count} {SourceType} action executions for sourceId {SourceId}", 
-                                actionExecutionDtos.Count, sourceType, sourceId);
+                            _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}, continuing", sourceType, sourceId);
+                            return new { SourceId = sourceId, Results = new List<OperationChangeLogOutputDto>(), IsEmpty = true };
                         }
-                    }
-                    catch (Exception ex)
+                    });
+
+                    var batchResults = await Task.WhenAll(batchTasks);
+                    
+                    foreach (var result in batchResults)
                     {
-                        _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}, continuing", sourceType, sourceId);
+                        if (result.IsEmpty)
+                        {
+                            emptySourceIds.Add(result.SourceId);
+                        }
+                        else if (result.Results.Any())
+                        {
+                            allLogs.AddRange(result.Results);
+                            totalActionExecutions += result.Results.Count;
+                        }
                     }
                 }
 
-                _logger.LogInformation("Total action executions collected: {TotalCount} from {SourceIdCount} source IDs", 
-                    totalActionExecutions, sourceIdTypes.Count);
+                // Bulk cache empty source IDs
+                if (emptySourceIds.Any())
+                {
+                    foreach (var sourceId in emptySourceIds)
+                    {
+                        CacheSourceIdAsEmpty(sourceId, onboardingId);
+                    }
+                    
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                    {
+                        _logger.LogDebug("Cached {EmptyCount} source IDs as empty for future optimization", emptySourceIds.Count);
+                    }
+                }
+
+                _logger.LogInformation("Action execution collection completed: {TotalCount} executions from {ProcessedCount} source IDs ({CachedCount} cached, {EmptyCount} newly cached as empty)", 
+                    totalActionExecutions, uncachedSourceIds.Count, skippedFromCache, emptySourceIds.Count);
+
+                // Log optimization statistics
+                LogBatchQueryOptimizationStats(sourceIdTypes.Count, skippedFromCache, uncachedSourceIds.Count, totalActionExecutions);
             }
             catch (Exception ex)
             {
@@ -2393,7 +2585,14 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                return (taskIds.Distinct().ToList(), questionIds.Distinct().ToList());
+                // Remove duplicate IDs and apply smart filtering to reduce unnecessary queries
+                var filteredTaskIds = taskIds.Distinct().ToList();
+                var filteredQuestionIds = questionIds.Distinct().ToList();
+                
+                _logger.LogInformation("Collected {TaskCount} unique task IDs and {QuestionCount} unique question IDs for stage {StageId}", 
+                    filteredTaskIds.Count, filteredQuestionIds.Count, stageId);
+
+                return (filteredTaskIds, filteredQuestionIds);
             }
             catch (Exception ex)
             {
@@ -2404,6 +2603,7 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Add action executions in batch for better performance with proper source type mapping
+        /// OPTIMIZED: Use parallel processing and reduce logging noise
         /// </summary>
         private async Task AddActionExecutionsBatchOptimizedAsync(List<OperationChangeLogOutputDto> operationLogDtos, Dictionary<long, string> sourceIdTypes, long? onboardingId)
         {
@@ -2411,17 +2611,31 @@ namespace FlowFlex.Application.Services.OW
             {
                 if (!sourceIdTypes.Any()) return;
 
-                _logger.LogInformation("Fetching action executions for {Count} source IDs: [{SourceIds}] with types: [{SourceTypes}]", 
-                    sourceIdTypes.Count, 
-                    string.Join(", ", sourceIdTypes.Keys),
-                    string.Join(", ", sourceIdTypes.Select(kvp => $"{kvp.Key}:{kvp.Value}")));
+                // Pre-filter cached empty source IDs
+                var uncachedSourceIds = sourceIdTypes.Where(kvp => !IsSourceIdCachedAsEmpty(kvp.Key, onboardingId))
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
-                // Process action executions for all source IDs
-                foreach (var kvp in sourceIdTypes)
+                var skippedFromCache = sourceIdTypes.Count - uncachedSourceIds.Count;
+                
+                if (uncachedSourceIds.Count == 0)
+                {
+                    _logger.LogInformation("All {TotalCount} source IDs are cached as empty, skipping API calls", sourceIdTypes.Count);
+                    return;
+                }
+
+                _logger.LogInformation("Fetching action executions for {UncachedCount} uncached source IDs (skipped {CachedCount} cached)", 
+                    uncachedSourceIds.Count, skippedFromCache);
+
+                var emptySourceIds = new List<long>(); // Collect empty source IDs for bulk caching
+
+                // Use controlled concurrent processing to avoid overwhelming the database
+                var semaphore = new SemaphoreSlim(8, 8); // Increased concurrency limit
+                var actionExecutionTasks = uncachedSourceIds.Select(async kvp =>
                 {
                     var sourceId = kvp.Key;
                     var sourceType = kvp.Value;
                     
+                    await semaphore.WaitAsync();
                     try
                     {
                         List<JsonQueryCondition> jsonConditions = null;
@@ -2447,26 +2661,67 @@ namespace FlowFlex.Application.Services.OW
                                 .Select(ae => MapActionExecutionToChangeLogDto(ae, sourceType))
                                 .ToList();
                             
-                            operationLogDtos.AddRange(actionExecutionDtos);
+                            if (_logger.IsEnabled(LogLevel.Debug))
+                            {
+                                _logger.LogDebug("Found {Count} action executions for {SourceType} sourceId {SourceId}", 
+                                    actionExecutionDtos.Count, sourceType, sourceId);
+                            }
                             
-                            _logger.LogInformation("Added {Count} action executions for {SourceType} sourceId {SourceId}", 
-                                actionExecutionDtos.Count, sourceType, sourceId);
+                            return new { SourceId = sourceId, Results = actionExecutionDtos, IsEmpty = false };
                         }
                         else
                         {
-                            _logger.LogDebug("No action executions found for {SourceType} sourceId {SourceId}", 
-                                sourceType, sourceId);
+                            return new { SourceId = sourceId, Results = new List<OperationChangeLogOutputDto>(), IsEmpty = true };
                         }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}", 
                             sourceType, sourceId);
+                        return new { SourceId = sourceId, Results = new List<OperationChangeLogOutputDto>(), IsEmpty = true };
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                });
+
+                var allActionExecutions = await Task.WhenAll(actionExecutionTasks);
+                
+                // Process results and collect empty source IDs
+                var totalAdded = 0;
+                foreach (var result in allActionExecutions)
+                {
+                    if (result.IsEmpty)
+                    {
+                        emptySourceIds.Add(result.SourceId);
+                    }
+                    else if (result.Results.Any())
+                    {
+                        operationLogDtos.AddRange(result.Results);
+                        totalAdded += result.Results.Count;
                     }
                 }
 
-                _logger.LogInformation("Total action executions added: {Count}", 
-                    operationLogDtos.Count(dto => dto.OperationType.Contains("ActionExecution")));
+                // Bulk cache empty source IDs
+                if (emptySourceIds.Any())
+                {
+                    foreach (var sourceId in emptySourceIds)
+                    {
+                        CacheSourceIdAsEmpty(sourceId, onboardingId);
+                    }
+                    
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                    {
+                        _logger.LogDebug("Cached {EmptyCount} source IDs as empty for future optimization", emptySourceIds.Count);
+                    }
+                }
+
+                _logger.LogInformation("Batch action execution collection completed: {TotalCount} executions from {ProcessedCount} source IDs ({CachedCount} cached, {EmptyCount} newly cached as empty)", 
+                    totalAdded, uncachedSourceIds.Count, skippedFromCache, emptySourceIds.Count);
+
+                // Log optimization statistics
+                LogBatchQueryOptimizationStats(sourceIdTypes.Count, skippedFromCache, uncachedSourceIds.Count, totalAdded);
 
                 // Re-sort by operation time
                 operationLogDtos.Sort((x, y) => y.OperationTime.CompareTo(x.OperationTime));
