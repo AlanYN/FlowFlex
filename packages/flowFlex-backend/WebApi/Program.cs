@@ -340,7 +340,11 @@ builder.Services.AddGlobalExceptionHandling();
 
 builder.Services.AddClient(builder.Configuration);
 
-// Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces
+// Register background task processing service
+builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();
+builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTaskService>();
+
+// Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces  
 // Only register services that are not auto-registered or need special configuration
 
 var app = builder.Build();

@@ -205,12 +205,17 @@ namespace FlowFlex.Infrastructure.Exceptions
         /// </summary>
         public static ApiResponse<object> ToApiResponse(this ArgumentException argException)
         {
+            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.BadRequest,
                 Message = "Invalid request parameters",
                 Msg = "Invalid request parameters",
-                Data = new { Details = argException.Message, ErrorType = "ArgumentError" }
+                Data = new { 
+                    Details = isDevelopment ? argException.Message : "Invalid parameter provided",
+                    ErrorType = "ArgumentError" 
+                }
             };
         }
 
@@ -297,9 +302,10 @@ namespace FlowFlex.Infrastructure.Exceptions
         {
             var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
             
+            // In production, never expose detailed error information
             var message = isDevelopment && !string.IsNullOrEmpty(exception.Message) 
                 ? $"Server error: {exception.Message}"
-                : "An internal server error occurred";
+                : "An internal server error occurred. Please contact support if the problem persists.";
 
             return new ApiResponse<object>
             {
@@ -309,7 +315,8 @@ namespace FlowFlex.Infrastructure.Exceptions
                 Data = isDevelopment ? new 
                 { 
                     ExceptionType = exception.GetType().Name,
-                    StackTrace = exception.StackTrace?.Split('\n').Take(5).ToArray(),
+                    // Only show top 3 stack trace lines to avoid info overload
+                    StackTrace = exception.StackTrace?.Split('\n').Take(3).Select(line => line.Trim()).ToArray(),
                     ErrorType = "InternalError"
                 } : new 
                 { 

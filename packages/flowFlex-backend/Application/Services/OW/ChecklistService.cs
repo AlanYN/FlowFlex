@@ -22,6 +22,7 @@ using FlowFlex.Domain.Repository.OW;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
+using FlowFlex.Infrastructure.Services;
 
 namespace FlowFlex.Application.Service.OW;
 
@@ -37,6 +38,7 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
     private readonly IComponentMappingService _mappingService;
+    private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -45,7 +47,8 @@ public class ChecklistService : IChecklistService, IScopedService
         IStageRepository stageRepository,
         UserContext userContext,
         IOperatorContextService operatorContextService,
-        IComponentMappingService mappingService)
+        IComponentMappingService mappingService,
+        IBackgroundTaskQueue backgroundTaskQueue)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -54,6 +57,7 @@ public class ChecklistService : IChecklistService, IScopedService
         _stageRepository = stageRepository;
         _userContext = userContext;
         _operatorContextService = operatorContextService;
+        _backgroundTaskQueue = backgroundTaskQueue;
     }
 
     /// <summary>
@@ -156,16 +160,16 @@ public class ChecklistService : IChecklistService, IScopedService
         {
             try
             {
-                // Use background task to avoid blocking the main operation
-                _ = Task.Run(async () =>
+                // Use background task queue for safe async processing
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
                         await _mappingService.NotifyChecklistNameChangeAsync(id, input.Name);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Console.WriteLine($"[ChecklistService] Error syncing checklist name change: {ex.Message}");
+                        // Error already logged by BackgroundTaskService
                         // Don't throw to avoid breaking the background task
                     }
                 });

@@ -6,6 +6,22 @@ namespace FlowFlex.Infrastructure;
 
 public class SqlFuncExternalHelper
 {
+    /// <summary>
+    /// Sanitize LIKE value to prevent SQL injection
+    /// </summary>
+    private static string SanitizeLikeValue(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
+        
+        // Escape special LIKE characters and prevent SQL injection
+        return input
+            .Replace("'", "''")           // Escape single quotes
+            .Replace("%", "\\%")          // Escape LIKE wildcard
+            .Replace("_", "\\_")          // Escape LIKE single character wildcard
+            .Replace("\\", "\\\\");       // Escape backslash
+    }
+
     public static List<SqlFuncExternal> GetSqlFuncs()
     {
         var iLike = new SqlFuncExternal()
@@ -15,13 +31,15 @@ public class SqlFuncExternalHelper
             {
                 if (dbType == DbType.PostgreSQL)
                 {
-                    var value = expInfo.Args[1].MemberValue?.ToString()?.ToCheckField();
-                    if (value != null)
+                    var value = SanitizeLikeValue(expInfo.Args[1].MemberValue?.ToString());
+                    if (!string.IsNullOrEmpty(value))
                     {
-                        return string.Format(" {0} ILike '%{1}%' ", $"{expInfo.Args[0].MemberName}", value);
+                        var paramName = $"@p{expContext.Index}";
+                        expContext.Parameters.Add(new SugarParameter(paramName, $"%{value}%"));
+                        return $" {expInfo.Args[0].MemberName} ILIKE {paramName} ";
                     }
                     else
-                        return string.Format(" {0} ILike '%%' ", $"{expInfo.Args[0].MemberName}");
+                        return $" {expInfo.Args[0].MemberName} ILIKE '%%' ";
                 }
                 else
                     throw new NotImplementedException();
@@ -35,14 +53,16 @@ public class SqlFuncExternalHelper
             {
                 if (dbType == DbType.PostgreSQL)
                 {
-                    var value = expInfo.Args[1].MemberValue?.ToString()?.ToCheckField();
+                    var value = SanitizeLikeValue(expInfo.Args[1].MemberValue?.ToString());
                     var type = expInfo.Args.Count == 3 ? expInfo.Args[2].MemberValue : string.Empty;
-                    if (value != null)
+                    if (!string.IsNullOrEmpty(value))
                     {
-                        return string.Format(" {0} ILike '%{1}%' ", $"{expInfo.Args[0].MemberName}::text", value);
+                        var paramName = $"@p{expContext.Index}";
+                        expContext.Parameters.Add(new SugarParameter(paramName, $"%{value}%"));
+                        return $" {expInfo.Args[0].MemberName}::text ILIKE {paramName} ";
                     }
                     else
-                        return string.Format(" {0} ILike '%%' ", $"{expInfo.Args[0].MemberName}::text");
+                        return $" {expInfo.Args[0].MemberName}::text ILIKE '%%' ";
                 }
                 else
                     throw new NotImplementedException();
