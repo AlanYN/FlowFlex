@@ -17,6 +17,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly ISqlSugarClient _db;
         private readonly IStageRepository _stageRepository;
         private readonly UserContext _userContext;
+        private readonly IStageComponentNameSyncService _nameSync;
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -24,11 +25,12 @@ namespace FlowFlex.Application.Service.OW
             NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
         };
 
-        public ComponentMappingService(ISqlSugarClient db, IStageRepository stageRepository, UserContext userContext)
+        public ComponentMappingService(ISqlSugarClient db, IStageRepository stageRepository, UserContext userContext, IStageComponentNameSyncService nameSync = null)
         {
             _db = db;
             _stageRepository = stageRepository;
             _userContext = userContext;
+            _nameSync = nameSync; // Optional to avoid circular dependency
         }
 
         /// <summary>
@@ -533,8 +535,114 @@ namespace FlowFlex.Application.Service.OW
                     if (inner.StartsWith("[") || inner.StartsWith("{")) return inner;
                 }
             }
-            catch { }
+            catch {             }
             return current;
+        }
+
+        /// <summary>
+        /// Notify component name changes to sync service
+        /// High-performance method to trigger stage component name updates
+        /// </summary>
+        public async Task NotifyChecklistNameChangeAsync(long checklistId, string newName)
+        {
+            if (_nameSync != null)
+            {
+                try
+                {
+                    await _nameSync.SyncChecklistNameChangeAsync(checklistId, newName);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ComponentMappingService] Error in checklist name sync notification: {ex.Message}");
+                    // Don't throw to avoid breaking the main operation
+                }
+            }
+        }
+
+        /// <summary>
+        /// Notify component name changes to sync service
+        /// High-performance method to trigger stage component name updates
+        /// </summary>
+        public async Task NotifyQuestionnaireNameChangeAsync(long questionnaireId, string newName)
+        {
+            if (_nameSync != null)
+            {
+                try
+                {
+                    await _nameSync.SyncQuestionnaireNameChangeAsync(questionnaireId, newName);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ComponentMappingService] Error in questionnaire name sync notification: {ex.Message}");
+                    // Don't throw to avoid breaking the main operation
+                }
+            }
+        }
+
+        /// <summary>
+        /// Batch notify multiple component name changes for better performance
+        /// </summary>
+        public async Task BatchNotifyChecklistNameChangesAsync(Dictionary<long, string> nameChanges)
+        {
+            if (_nameSync != null && nameChanges?.Any() == true)
+            {
+                try
+                {
+                    await _nameSync.BatchSyncChecklistNameChangesAsync(nameChanges);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ComponentMappingService] Error in batch checklist name sync notification: {ex.Message}");
+                    // Don't throw to avoid breaking the main operation
+                }
+            }
+        }
+
+        /// <summary>
+        /// Batch notify multiple component name changes for better performance
+        /// </summary>
+        public async Task BatchNotifyQuestionnaireNameChangesAsync(Dictionary<long, string> nameChanges)
+        {
+            if (_nameSync != null && nameChanges?.Any() == true)
+            {
+                try
+                {
+                    await _nameSync.BatchSyncQuestionnaireNameChangesAsync(nameChanges);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ComponentMappingService] Error in batch questionnaire name sync notification: {ex.Message}");
+                    // Don't throw to avoid breaking the main operation
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get all stages that use a specific checklist (delegated to name sync service)
+        /// </summary>
+        public async Task<List<long>> GetStagesUsingChecklistFastAsync(long checklistId)
+        {
+            if (_nameSync != null)
+            {
+                return await _nameSync.GetStagesUsingChecklistAsync(checklistId);
+            }
+            
+            // Fallback to direct mapping query
+            return await GetChecklistIdsByWorkflowStageAsync(null, null);
+        }
+
+        /// <summary>
+        /// Get all stages that use a specific questionnaire (delegated to name sync service)  
+        /// </summary>
+        public async Task<List<long>> GetStagesUsingQuestionnaireFastAsync(long questionnaireId)
+        {
+            if (_nameSync != null)
+            {
+                return await _nameSync.GetStagesUsingQuestionnaireAsync(questionnaireId);
+            }
+            
+            // Fallback to direct mapping query
+            return await GetQuestionnaireIdsByWorkflowStageAsync(null, null);
         }
     }
 }

@@ -151,7 +151,31 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var result = await _checklistRepository.UpdateAsync(entity);
 
-        // Sync service is no longer needed as assignments are managed through Stage Components
+        // If name changed, sync the new name to all related stages
+        if (result && originalName != input.Name)
+        {
+            try
+            {
+                // Use background task to avoid blocking the main operation
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _mappingService.NotifyChecklistNameChangeAsync(id, input.Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ChecklistService] Error syncing checklist name change: {ex.Message}");
+                        // Don't throw to avoid breaking the background task
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ChecklistService] Error starting checklist name sync background task: {ex.Message}");
+                // Don't throw to avoid breaking the main operation
+            }
+        }
 
         return result;
     }
@@ -324,6 +348,10 @@ public class ChecklistService : IChecklistService, IScopedService
                     TaskType = task.TaskType,
                     IsRequired = task.IsRequired,
                     AssignedTeam = input.TargetTeam ?? task.AssignedTeam,
+                    // Copy assignee information
+                    AssigneeId = task.AssigneeId,
+                    AssigneeName = task.AssigneeName,
+                    AssigneeJson = task.AssigneeJson,
                     Priority = task.Priority,
                     Order = task.Order,
                     EstimatedHours = task.EstimatedHours,
