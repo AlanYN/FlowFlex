@@ -2,13 +2,13 @@
 	<div class="bg-gray-50">
 		<!-- Header and Action Area -->
 		<div class="actions-header">
-			<h1 class="title">Actions</h1>
+			<h1 class="title">Tools</h1>
 			<div class="actions">
 				<el-button class="new-action-btn" type="primary" @click="handleCreateAction">
 					<el-icon>
 						<Plus />
 					</el-icon>
-					<span>New Action</span>
+					<span>New Tool</span>
 				</el-button>
 				<el-button @click="handleExport" :loading="exportLoading">
 					<el-icon>
@@ -32,7 +32,7 @@
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 							<div class="space-y-2">
 								<label class="text-sm font-medium text-primary-500">
-									Action ID or Action Name
+									Tool ID or Tool Name
 								</label>
 								<el-input
 									v-model="searchForm.keyword"
@@ -98,8 +98,8 @@
 						v-loading="loading"
 					>
 						<el-table-column type="selection" width="55" />
-						<el-table-column prop="actionCode" label="Action ID" width="120" />
-						<el-table-column prop="name" label="Action Name" min-width="200" />
+						<el-table-column prop="actionCode" label="Tool ID" width="120" />
+						<el-table-column prop="name" label="Tool Name" min-width="200" />
 						<el-table-column prop="actionType" label="Type" width="150">
 							<template #default="{ row }">
 								<el-tag class="type-tag">
@@ -155,8 +155,8 @@
 						v-loading="loading"
 					>
 						<el-table-column type="selection" width="55" />
-						<el-table-column prop="actionCode" label="Action ID" width="120" />
-						<el-table-column prop="name" label="Action Name" min-width="200" />
+						<el-table-column prop="actionCode" label="Tool ID" width="120" />
+						<el-table-column prop="name" label="Tool Name" min-width="200" />
 						<el-table-column prop="actionType" label="Type" width="150">
 							<template #default="{ row }">
 								<el-tag class="type-tag">
@@ -256,7 +256,7 @@ const searchForm = reactive({
 const activeTab = ref('tools');
 const tabsConfig = ref([
 	{ label: 'Tools', value: 'tools', icon: markRaw(TableViewIcon) },
-	{ label: 'My Action', value: 'myAction', icon: markRaw(TableViewIcon) },
+	{ label: 'My Tools', value: 'myAction', icon: markRaw(TableViewIcon) },
 ]);
 
 // Pagination
