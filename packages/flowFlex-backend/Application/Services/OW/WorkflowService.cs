@@ -310,7 +310,16 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete workflow with existing stages");
             }
 
-            return await _workflowRepository.DeleteAsync(entity);
+            var result = await _workflowRepository.DeleteAsync(entity);
+            
+            // Clear related cache after successful deletion
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                _cache.Remove(cacheKey);
+            }
+            
+            return result;
         }
 
         public async Task<WorkflowOutputDto> GetByIdAsync(long id)
@@ -431,7 +440,12 @@ namespace FlowFlex.Application.Service.OW
             entity.Status = "active";
             var result = await _workflowRepository.UpdateAsync(entity);
 
-            // Cache cleanup removed
+            // Clear related cache after successful activation
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                _cache.Remove(cacheKey);
+            }
 
             return result;
         }
@@ -448,7 +462,12 @@ namespace FlowFlex.Application.Service.OW
             entity.Status = "inactive";
             var result = await _workflowRepository.UpdateAsync(entity);
 
-            // Cache cleanup removed
+            // Clear related cache after successful deactivation
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                _cache.Remove(cacheKey);
+            }
 
             return result;
         }
@@ -552,6 +571,10 @@ namespace FlowFlex.Application.Service.OW
                     if (updated)
                     {
                         processedCount++;
+
+                        // Clear related cache after successful update
+                        var cacheKey = $"workflow:get_by_id:{workflow.Id}:{workflow.AppCode}";
+                        _cache.Remove(cacheKey);
 
                         // 记录日志
                         // Debug logging handled by structured logging has been set to inactive due to expiration. End Date: {workflow.EndDate}");
@@ -684,7 +707,9 @@ namespace FlowFlex.Application.Service.OW
                         Name = stageInput.Name,
                         Description = stageInput.Description,
                         DefaultAssignedGroup = stageInput.DefaultAssignedGroup,
-                        DefaultAssignee = stageInput.DefaultAssignee,
+                        DefaultAssignee = stageInput.DefaultAssignee != null && stageInput.DefaultAssignee.Any() 
+                            ? string.Join(",", stageInput.DefaultAssignee) 
+                            : null,
                         EstimatedDuration = stageInput.EstimatedDuration,
                         Order = stageInput.Order,
                         ChecklistId = stageInput.ChecklistId,
@@ -728,6 +753,13 @@ namespace FlowFlex.Application.Service.OW
             workflow.InitUpdateInfo(_userContext);
             AuditHelper.ApplyModifyAudit(workflow, _operatorContextService);
             var result = await _workflowRepository.UpdateAsync(workflow);
+
+            // Clear related cache after successful version creation
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                _cache.Remove(cacheKey);
+            }
 
             // Create version history record (including stage snapshot) after updating workflow
             var reason = !string.IsNullOrEmpty(changeReason)

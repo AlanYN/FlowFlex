@@ -171,6 +171,17 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
 
+        // Clear related cache after successful deletion
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            _cache.Remove(cacheKey);
+            
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            _cache.Remove(checklistCacheKey);
+        }
+
         // Update checklist completion rate
         await _checklistService.CalculateCompletionAsync(task.ChecklistId);
 
@@ -254,6 +265,17 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
 
+        // Clear related cache after successful completion
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            _cache.Remove(cacheKey);
+            
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            _cache.Remove(checklistCacheKey);
+        }
+
         // Log the operation
         if (result)
         {
@@ -312,6 +334,17 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         task.InitUpdateInfo(_userContext);
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
+
+        // Clear related cache after successful uncomplete
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            _cache.Remove(cacheKey);
+            
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            _cache.Remove(checklistCacheKey);
+        }
 
         // Log the operation
         if (result)
@@ -430,7 +463,16 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             }
         }
 
-        return await _checklistTaskRepository.UpdateOrderAsync(checklistId, taskOrders);
+        var result = await _checklistTaskRepository.UpdateOrderAsync(checklistId, taskOrders);
+        
+        // Clear related cache after successful order update
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}:{_userContext.AppCode}";
+            _cache.Remove(cacheKey);
+        }
+        
+        return result;
     }
 
     /// <summary>
@@ -448,7 +490,20 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         task.AssigneeName = assigneeName;
         task.ModifyDate = DateTimeOffset.UtcNow;
 
-        return await _checklistTaskRepository.UpdateAsync(task);
+        var result = await _checklistTaskRepository.UpdateAsync(task);
+        
+        // Clear related cache after successful assignment
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            _cache.Remove(cacheKey);
+            
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            _cache.Remove(checklistCacheKey);
+        }
+        
+        return result;
     }
 
     /// <summary>
@@ -488,7 +543,20 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         task.InitUpdateInfo(_userContext);
 
-        return await _checklistTaskRepository.UpdateAsync(task);
+        var result = await _checklistTaskRepository.UpdateAsync(task);
+        
+        // Clear related cache after successful assignee update
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            _cache.Remove(cacheKey);
+            
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            _cache.Remove(checklistCacheKey);
+        }
+        
+        return result;
     }
 
     /// <summary>

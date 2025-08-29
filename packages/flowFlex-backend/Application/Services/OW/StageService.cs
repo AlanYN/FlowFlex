@@ -309,7 +309,10 @@ namespace FlowFlex.Application.Service.OW
             if (entity.InternalName != input.InternalName) return true;
             if (entity.Description != input.Description) return true;
             if (entity.DefaultAssignedGroup != input.DefaultAssignedGroup) return true;
-            if (entity.DefaultAssignee != input.DefaultAssignee) return true;
+            var inputDefaultAssigneeString = input.DefaultAssignee != null && input.DefaultAssignee.Any() 
+                ? string.Join(",", input.DefaultAssignee) 
+                : null;
+            if (entity.DefaultAssignee != inputDefaultAssigneeString) return true;
             if (entity.EstimatedDuration != input.EstimatedDuration) return true;
             if (entity.Order != input.Order) return true;
             if (entity.ChecklistId != input.ChecklistId) return true;
@@ -346,6 +349,10 @@ namespace FlowFlex.Application.Service.OW
 
             if (deleteResult)
             {
+                // Clear related cache after successful deletion
+                var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
+                _cache.Remove(cacheKey);
+                
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
                 // Background task queued
@@ -463,6 +470,10 @@ namespace FlowFlex.Application.Service.OW
 
             if (result)
             {
+                // Clear related cache after successful sort
+                var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{input.WorkflowId}";
+                _cache.Remove(cacheKey);
+                
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
                 // Background task queued
@@ -533,6 +544,10 @@ namespace FlowFlex.Application.Service.OW
             // Delete original stages
             await _stageRepository.BatchDeleteAsync(input.StageIds);
 
+            // Clear related cache after successful stage combination
+            var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
+            _cache.Remove(cacheKey);
+
             // Create new WorkflowVersion (after stage combination) - Disabled automatic version creation
             // await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stages combined into '{input.NewStageName}'");
 
@@ -563,7 +578,16 @@ namespace FlowFlex.Application.Service.OW
             }
 
             entity.Color = color;
-            return await _stageRepository.UpdateAsync(entity);
+            var result = await _stageRepository.UpdateAsync(entity);
+            
+            // Clear related cache after successful color update
+            if (result)
+            {
+                var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{entity.WorkflowId}";
+                _cache.Remove(cacheKey);
+            }
+            
+            return result;
         }
 
 
@@ -786,6 +810,13 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
 
+                // Clear related cache after successful components update
+                if (result)
+                {
+                    var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{entity.WorkflowId}";
+                    _cache.Remove(cacheKey);
+                }
+                
                 return result;
             });
             return transactionResult.Data;

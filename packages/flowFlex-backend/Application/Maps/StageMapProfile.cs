@@ -5,6 +5,7 @@ using FlowFlex.Domain.Shared.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Linq;
+using System;
 
 namespace FlowFlex.Application.Maps
 {
@@ -30,7 +31,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.InternalName, opt => opt.MapFrom(src => src.InternalName))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.DefaultAssignedGroup, opt => opt.MapFrom(src => src.DefaultAssignedGroup))
-                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => src.DefaultAssignee))
+                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => ConvertAssigneeStringToList(src.DefaultAssignee)))
                 .ForMember(dest => dest.EstimatedDuration, opt => opt.MapFrom(src => src.EstimatedDuration))
                 .ForMember(dest => dest.Order, opt => opt.MapFrom(src => src.Order))
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
@@ -57,7 +58,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.InternalName, opt => opt.MapFrom(src => src.InternalName))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.DefaultAssignedGroup, opt => opt.MapFrom(src => src.DefaultAssignedGroup))
-                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => src.DefaultAssignee))
+                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => ConvertAssigneeListToString(src.DefaultAssignee)))
                 .ForMember(dest => dest.EstimatedDuration, opt => opt.MapFrom(src => src.EstimatedDuration))
                 .ForMember(dest => dest.Order, opt => opt.MapFrom(src => src.Order))
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
@@ -202,6 +203,33 @@ namespace FlowFlex.Application.Maps
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Convert List of assignee IDs to comma-separated string for database storage
+        /// </summary>
+        private static string ConvertAssigneeListToString(List<string> assigneeList)
+        {
+            if (assigneeList == null || !assigneeList.Any())
+                return null;
+
+            // Join with comma separator, limit to 100 characters to respect StringLength constraint
+            var result = string.Join(",", assigneeList);
+            return result.Length > 100 ? result.Substring(0, 100) : result;
+        }
+
+        /// <summary>
+        /// Convert comma-separated string to List of assignee IDs
+        /// </summary>
+        private static List<string> ConvertAssigneeStringToList(string assigneeString)
+        {
+            if (string.IsNullOrWhiteSpace(assigneeString))
+                return new List<string>();
+
+            return assigneeString.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(s => s.Trim())
+                                .Where(s => !string.IsNullOrWhiteSpace(s))
+                                .ToList();
         }
     }
 }
