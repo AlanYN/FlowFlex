@@ -878,10 +878,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 	if (presentQuestionIndex != undefined && presentQuestionIndex != null) {
 		vailSection = [questionnaire.sections[presentQuestionIndex]];
 	} else {
-		vailSection = questionnaire.sections.slice(
-			currentSectionIndex.value,
-			questionnaire.sections.length
-		);
+		vailSection = questionnaire.sections;
 	}
 
 	vailSection.forEach((section: any, sIndex: number) => {
@@ -907,9 +904,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}
@@ -933,9 +928,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}
@@ -952,9 +945,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}
@@ -962,9 +953,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 						const value = formData.value[question.id];
 						if ((typeof value === 'number' && value < 1) || !value) {
 							isValid = false;
-							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-								qIdx + 1
-							}`;
+							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 							errors.push(errorMsg);
 						}
 					} else if (question.type == 'linear_scale') {
@@ -975,9 +964,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							value == undefined
 						) {
 							isValid = false;
-							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-								qIdx + 1
-							}`;
+							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 							errors.push(errorMsg);
 						}
 					} else {
@@ -994,9 +981,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 
 							if (isEmpty) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}

@@ -293,17 +293,15 @@
 													marginRight: '8px',
 												}"
 											/>
-											<div>
-												<span class="text-xs text-muted-foreground">
+											<div class="flex items-center gap-2">
+												<div class="text-xs text-muted-foreground">
 													Assignee:
-												</span>
-												<span class="font-medium">
-													{{
-														getAssigneeDisplayName(
-															element.defaultAssignee
-														)
-													}}
-												</span>
+												</div>
+												<FlowflexUserAssign
+													v-model="element.defaultAssignee"
+													selection-type="user"
+													readonly
+												/>
 											</div>
 										</div>
 										<div class="flex items-center">
@@ -361,6 +359,7 @@ import {
 import { Icon } from '@iconify/vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { Stage } from '#/onboard';
+import FlowflexUserAssign from '@/components/form/flowflexUser/index.vue';
 // 导入静态字段配置
 import staticFieldConfig from '../static-field.json';
 import { defaultStr } from '@/settings/projectSetting';
@@ -661,36 +660,6 @@ const getPortalPermissionTooltip = (permission?: number) => {
 		return 'Completable in portal';
 	}
 	return 'Viewable only in portal';
-};
-
-// 根据userList映射Assignee
-const getAssigneeDisplayName = (defaultAssignee: string) => {
-	if (!defaultAssignee || !props.userList?.length) {
-		return defaultAssignee || 'Not assigned';
-	}
-
-	// 扁平化用户列表，包括团队中的子用户
-	const flattenUsers = (users: FlowflexUser[]): FlowflexUser[] => {
-		const result: FlowflexUser[] = [];
-		users.forEach((user) => {
-			result.push(user);
-			if (user.children && user.children.length > 0) {
-				result.push(...flattenUsers(user.children));
-			}
-		});
-		return result;
-	};
-
-	const allUsers = flattenUsers(props.userList);
-
-	// 尝试多种匹配方式
-	const foundUser = allUsers.find((user) => {
-		// 1. 精确匹配用户ID
-		if (user.id === defaultAssignee) return true;
-		return false;
-	});
-
-	return foundUser ? foundUser.name : defaultAssignee || 'Not assigned';
 };
 </script>
 

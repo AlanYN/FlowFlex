@@ -57,25 +57,16 @@
 
 					<div class="flex items-center gap-2 w-full">
 						<el-form-item
-							label="Assigned User Group"
-							prop="defaultAssignedGroup"
-							class="w-1/2"
+							label="Default Assignee"
+							prop="defaultAssignee"
+							class="w-full"
 						>
-							<FlowflexUser
-								v-model="formData.defaultAssignedGroup"
-								placeholder="Select user group"
-								:multiple="false"
-								:clearable="true"
-								team-only
-							/>
-						</el-form-item>
-
-						<el-form-item label="Default Assignee" prop="defaultAssignee" class="w-1/2">
 							<FlowflexUser
 								v-model="formData.defaultAssignee"
 								placeholder="Select default assignee"
 								:multiple="false"
 								:clearable="true"
+								selection-type="user"
 							/>
 						</el-form-item>
 					</div>

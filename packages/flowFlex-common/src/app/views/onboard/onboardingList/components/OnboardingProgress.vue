@@ -102,10 +102,17 @@
 								>
 									<span
 										class="completion-info-text"
-										:title="`Completed by ${stage.completedBy} on ${stage.date}`"
+										:title="
+											stage.showSaveOrComplete
+												? `Save by ${stage.savedBy} on ${stage.saveTime}`
+												: `Completed by ${stage.completedBy} on ${stage.date}`
+										"
 									>
-										Completed by {{ stage.completedBy }} on
-										{{ stage.date }}
+										{{
+											stage.showSaveOrComplete
+												? `Save by ${stage.savedBy} on ${stage.saveTime}`
+												: `Completed by ${stage.completedBy} on ${stage.date}`
+										}}
 									</span>
 								</div>
 							</div>
@@ -143,6 +150,30 @@ const emit = defineEmits<{
 const isOpen = ref(true);
 const showAllStages = ref(true);
 
+// 判断显示保存还是完成状态的函数
+const getSaveOrCompleteFlag = (completionTime: string, saveTime: string): boolean => {
+	// 如果没有保存时间或完成时间，返回false
+	if (!saveTime || !completionTime) {
+		return false;
+	}
+
+	try {
+		const saveDate = new Date(saveTime);
+		const completeDate = new Date(completionTime);
+
+		// 验证日期是否有效
+		if (isNaN(saveDate.getTime()) || isNaN(completeDate.getTime())) {
+			return false;
+		}
+
+		// 如果saveTime的时间比completionTime更大，则显示保存状态
+		return saveDate > completeDate;
+	} catch (error) {
+		console.error('Error comparing times:', error);
+		return false;
+	}
+};
+
 // 计算属性
 const stages = computed(() => {
 	// 根据传入的工作流阶段和当前业务数据设置阶段完成状态
@@ -151,8 +182,10 @@ const stages = computed(() => {
 		title: stage.stageName, // 使用 name 作为 title
 		completed: stage.isCompleted,
 		date: timeZoneConvert(stage?.completionTime || '', false, projectTenMinutesSsecondsDate),
+		saveTime: timeZoneConvert(stage?.saveTime || '', false, projectTenMinutesSsecondsDate),
 		assignee: stage.defaultAssignedGroup || defaultStr,
 		completedBy: stage.completedBy,
+		showSaveOrComplete: getSaveOrCompleteFlag(stage?.completionTime, stage?.saveTime),
 	}));
 });
 

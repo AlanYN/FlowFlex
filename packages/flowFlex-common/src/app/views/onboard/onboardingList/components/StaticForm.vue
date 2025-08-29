@@ -290,6 +290,7 @@
 					placeholder="Select default assignee"
 					:multiple="false"
 					:clearable="true"
+					:max-count="0"
 				/>
 			</el-form-item>
 
@@ -437,7 +438,7 @@ const formData = reactive({
 
 	// Account Holder Information
 	accountHolderCategory: '',
-	assignee: '',
+	assignee: [],
 	assigneeEmail: '',
 	assigneePhone: '',
 	assigneeLocation: '',

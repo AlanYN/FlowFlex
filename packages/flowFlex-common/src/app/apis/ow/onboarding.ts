@@ -22,6 +22,7 @@ const Api = (id?: string | number) => {
 		onboardingUpdateCompletionRate: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/update-completion-rate`,
 		onboardingSetPriority: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/set-priority`,
 		onboardingBatchUpdateStatus: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/batch-update-status`,
+		onboardingSave: `${globSetting.apiProName}/ow/onboardings//${globSetting.apiVersion}/${id}/save`,
 
 		// Lead同步相关API
 		leadSyncShouldCreate: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/should-create`,
@@ -275,6 +276,16 @@ export function setOnboardingPriority(id: string | number, priority: string) {
  */
 export function batchUpdateStatus(params: any) {
 	return defHttp.post({ url: `${Api().onboardingBatchUpdateStatus}`, params });
+}
+
+export function onboardingSave(
+	onboardingId: string,
+	params: {
+		onboardingId: string;
+		stageId: string;
+	}
+) {
+	return defHttp.post({ url: `${Api(onboardingId).onboardingSave}`, params });
 }
 
 // ========================= Lead同步相关接口 =========================
