@@ -51,6 +51,9 @@
 										<el-radio value="useExisting" :disabled="props.isEditing">
 											<span class="text-sm">Use tool</span>
 										</el-radio>
+										<el-radio value="myAction" :disabled="props.isEditing">
+											<span class="text-sm">My action</span>
+										</el-radio>
 										<el-radio value="createAction" :disabled="props.isEditing">
 											<span class="text-sm">Create new action</span>
 										</el-radio>
@@ -191,13 +194,13 @@
 									/>
 								</div>
 
-								<el-form-item prop="IsTools" v-if="!shouldDisableFields">
+								<!-- <el-form-item prop="IsTools" v-if="!shouldDisableFields">
 									<el-checkbox
 										v-model="formData.isTools"
-										label="Is Tools"
+										label="Is Tool"
 										:disabled="shouldDisableFields"
 									/>
-								</el-form-item>
+								</el-form-item> -->
 							</el-form>
 						</el-scrollbar>
 					</div>
@@ -290,7 +293,7 @@ const formData = reactive<ActionItem>({
 	type: 'python',
 	description: '',
 	condition: 'Stage Completed',
-	isTools: true, // 新建时默认为 true（工具模式），允许用户选择
+	isTools: false, // 新建时默认为 true（工具模式），允许用户选择
 	actionConfig: {},
 });
 
@@ -409,7 +412,7 @@ const resetForm = () => {
 	formData.name = '';
 	formData.type = 'python';
 	formData.description = '';
-	formData.isTools = true; // 新建时默认为工具模式
+	formData.isTools = false; // 新建时默认为工具模式
 	visible.value = false;
 	formData.actionConfig = getDefaultConfig('python');
 	testResult.value = null;
