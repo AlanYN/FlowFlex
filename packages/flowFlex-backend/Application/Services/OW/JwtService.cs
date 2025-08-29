@@ -290,7 +290,7 @@ namespace FlowFlex.Application.Services.OW
             if (httpContext == null) return string.Empty;
 
             var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
-            
+
             // Check for forwarded IP (when behind proxy/load balancer)
             if (httpContext.Request.Headers.ContainsKey("X-Forwarded-For"))
             {
@@ -426,8 +426,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Try multiple username claim types
                 var usernameClaim = jwtToken.Claims.FirstOrDefault(x =>
-                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" || 
-                    x.Type == "name" || x.Type == "given_name" || x.Type == "sub" || 
+                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" ||
+                    x.Type == "name" || x.Type == "given_name" || x.Type == "sub" ||
                     x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 result.Username = usernameClaim?.Value;
 
@@ -446,7 +446,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Try to parse data as JSON
                         var dataJson = JsonSerializer.Deserialize<JsonElement>(dataClaim.Value);
-                        
+
                         // Check for email in data
                         if (dataJson.TryGetProperty("user_name", out var userName) && userName.ValueKind == JsonValueKind.String)
                         {
@@ -455,7 +455,7 @@ namespace FlowFlex.Application.Services.OW
                                 result.Username = userName.GetString();
                                 _logger.LogInformation("Extracted username from data.user_name: {Username}", result.Username);
                             }
-                            
+
                             // If still no email, use username from data
                             if (string.IsNullOrWhiteSpace(result.Email))
                             {
@@ -480,7 +480,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // For third-party tokens, we consider them valid if we can extract basic info and they're not expired
                 result.IsValid = !string.IsNullOrWhiteSpace(result.Email) && !result.IsExpired;
-                
+
                 if (!result.IsValid && string.IsNullOrWhiteSpace(result.Email))
                 {
                     result.ErrorMessage = "Email not found in token claims and no username available as fallback";
@@ -490,7 +490,7 @@ namespace FlowFlex.Application.Services.OW
                     result.ErrorMessage = "Token has expired";
                 }
 
-                _logger.LogInformation("Parsed third-party token - Issuer: {Issuer}, Email: {Email}, Valid: {IsValid}", 
+                _logger.LogInformation("Parsed third-party token - Issuer: {Issuer}, Email: {Email}, Valid: {IsValid}",
                     result.Issuer, result.Email, result.IsValid);
             }
             catch (Exception ex)
@@ -565,8 +565,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Try multiple username claim types
                 var usernameClaim = jwtToken.Claims.FirstOrDefault(x =>
-                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" || 
-                    x.Type == "name" || x.Type == "given_name" || x.Type == "sub" || 
+                    x.Type == "username" || x.Type == "userName" || x.Type == "preferred_username" ||
+                    x.Type == "name" || x.Type == "given_name" || x.Type == "sub" ||
                     x.Type == JwtRegisteredClaimNames.Sub || x.Type == ClaimTypes.NameIdentifier);
                 result.Username = usernameClaim?.Value;
 
@@ -585,7 +585,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Try to parse data as JSON
                         var dataJson = JsonSerializer.Deserialize<JsonElement>(dataClaim.Value);
-                        
+
                         // Check for email in data
                         if (dataJson.TryGetProperty("user_name", out var userName) && userName.ValueKind == JsonValueKind.String)
                         {
@@ -594,7 +594,7 @@ namespace FlowFlex.Application.Services.OW
                                 result.Username = userName.GetString();
                                 _logger.LogInformation("Extracted username from data.user_name: {Username}", result.Username);
                             }
-                            
+
                             // If still no email, use username from data
                             if (string.IsNullOrWhiteSpace(result.Email))
                             {

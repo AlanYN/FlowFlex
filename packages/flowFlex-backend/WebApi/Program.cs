@@ -340,6 +340,9 @@ builder.Services.AddGlobalExceptionHandling();
 
 builder.Services.AddClient(builder.Configuration);
 
+// Register memory cache for performance optimization
+builder.Services.AddMemoryCache();
+
 // Register background task processing service
 builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();
 builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTaskService>();
@@ -348,6 +351,10 @@ builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTas
 // Only register services that are not auto-registered or need special configuration
 
 var app = builder.Build();
+
+// Configure global logger for performance improvement (replace Console.WriteLine)
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+FlowFlex.Infrastructure.Extensions.LoggingExtensions.SetLogger(logger);
 
 // Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())

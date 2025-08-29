@@ -266,7 +266,7 @@ namespace FlowFlex.Application.Notification
 
                 // 获取 stage components
                 var stageComponents = await _stageService.GetComponentsAsync(eventData.CompletedStageId);
-                
+
                 if (stageComponents == null || !stageComponents.Any())
                 {
                     _logger.LogDebug("Stage {StageId} 没有配置组件", eventData.CompletedStageId);
@@ -299,7 +299,7 @@ namespace FlowFlex.Application.Notification
             {
                 // 获取所有 checklist 组件
                 var checklistComponents = stageComponents.Where(c => c.Key == "checklist").ToList();
-                
+
                 if (!checklistComponents.Any())
                 {
                     _logger.LogDebug("Stage {StageId} 没有 checklist 组件", eventData.CompletedStageId);
@@ -318,16 +318,16 @@ namespace FlowFlex.Application.Notification
                     return;
                 }
 
-                _logger.LogDebug("Stage {StageId} 找到 {Count} 个 checklist IDs: [{ChecklistIds}]", 
+                _logger.LogDebug("Stage {StageId} 找到 {Count} 个 checklist IDs: [{ChecklistIds}]",
                     eventData.CompletedStageId, checklistIds.Count, string.Join(", ", checklistIds));
 
                 // 批量获取 checklists
                 var checklists = await _checklistService.GetByIdsAsync(checklistIds);
-                
+
                 // 获取当前 onboarding 和 stage 的所有任务完成状态
                 var taskCompletions = await _checklistTaskCompletionService.GetByOnboardingAndStageAsync(eventData.OnboardingId, eventData.CompletedStageId);
                 var taskCompletionMap = taskCompletions.ToDictionary(tc => tc.TaskId, tc => tc.IsCompleted);
-                
+
                 foreach (var checklist in checklists)
                 {
                     if (checklist.Tasks != null && checklist.Tasks.Any())
@@ -337,7 +337,7 @@ namespace FlowFlex.Application.Notification
                             // 只为有 ActionId 的 task 创建 ActionTriggerEvent
                             if (!task.ActionId.HasValue)
                             {
-                                _logger.LogDebug("Task {TaskId} ({TaskName}) 没有配置 ActionId，跳过发布 ActionTriggerEvent", 
+                                _logger.LogDebug("Task {TaskId} ({TaskName}) 没有配置 ActionId，跳过发布 ActionTriggerEvent",
                                     task.Id, task.Name);
                                 continue;
                             }
@@ -346,7 +346,7 @@ namespace FlowFlex.Application.Notification
                             var isCompleted = taskCompletionMap.ContainsKey(task.Id) && taskCompletionMap[task.Id];
                             if (!isCompleted)
                             {
-                                _logger.LogDebug("Task {TaskId} ({TaskName}) 尚未完成，跳过发布 ActionTriggerEvent", 
+                                _logger.LogDebug("Task {TaskId} ({TaskName}) 尚未完成，跳过发布 ActionTriggerEvent",
                                     task.Id, task.Name);
                                 continue;
                             }
@@ -371,7 +371,7 @@ namespace FlowFlex.Application.Notification
                                 ((dynamic)contextData).Source,
                                 ((dynamic)contextData).Priority,
                                 ((dynamic)contextData).OriginalEventId,
-                                
+
                                 // 添加 task 相关的上下文数据
                                 ChecklistId = checklist.Id,
                                 ChecklistName = checklist.Name,
@@ -403,7 +403,7 @@ namespace FlowFlex.Application.Notification
                     }
                 }
 
-                _logger.LogDebug("完成处理 checklist 组件: StageId={StageId}, ChecklistCount={ChecklistCount}", 
+                _logger.LogDebug("完成处理 checklist 组件: StageId={StageId}, ChecklistCount={ChecklistCount}",
                     eventData.CompletedStageId, checklists.Count);
             }
             catch (Exception ex)
@@ -421,7 +421,7 @@ namespace FlowFlex.Application.Notification
             {
                 // 获取所有 questionnaire 组件
                 var questionnaireComponents = stageComponents.Where(c => c.Key == "questionnaires").ToList();
-                
+
                 if (!questionnaireComponents.Any())
                 {
                     _logger.LogDebug("Stage {StageId} 没有 questionnaire 组件", eventData.CompletedStageId);
@@ -440,18 +440,18 @@ namespace FlowFlex.Application.Notification
                     return;
                 }
 
-                _logger.LogDebug("Stage {StageId} 找到 {Count} 个 questionnaire IDs: [{QuestionnaireIds}]", 
+                _logger.LogDebug("Stage {StageId} 找到 {Count} 个 questionnaire IDs: [{QuestionnaireIds}]",
                     eventData.CompletedStageId, questionnaireIds.Count, string.Join(", ", questionnaireIds));
 
                 // 批量获取 questionnaires
                 var questionnaires = await _questionnaireService.GetByIdsAsync(questionnaireIds);
-                
+
                 foreach (var questionnaire in questionnaires)
                 {
                     // 解析 StructureJson 获取实际的 sections 和 questions
                     if (string.IsNullOrWhiteSpace(questionnaire.StructureJson))
                     {
-                        _logger.LogDebug("Questionnaire {QuestionnaireId} ({QuestionnaireName}) 没有 StructureJson 数据，跳过处理", 
+                        _logger.LogDebug("Questionnaire {QuestionnaireId} ({QuestionnaireName}) 没有 StructureJson 数据，跳过处理",
                             questionnaire.Id, questionnaire.Name);
                         continue;
                     }
@@ -460,7 +460,7 @@ namespace FlowFlex.Application.Notification
                     var questionnaireAnswer = await _questionnaireAnswerService.GetAnswerAsync(eventData.OnboardingId, eventData.CompletedStageId);
                     if (questionnaireAnswer?.AnswerJson == null)
                     {
-                        _logger.LogDebug("Questionnaire {QuestionnaireId} 在 Onboarding {OnboardingId} Stage {StageId} 中没有答案数据，跳过处理", 
+                        _logger.LogDebug("Questionnaire {QuestionnaireId} 在 Onboarding {OnboardingId} Stage {StageId} 中没有答案数据，跳过处理",
                             questionnaire.Id, eventData.OnboardingId, eventData.CompletedStageId);
                         continue;
                     }
@@ -474,7 +474,7 @@ namespace FlowFlex.Application.Notification
 
                         if (structureData?.Sections == null || !structureData.Sections.Any())
                         {
-                            _logger.LogDebug("Questionnaire {QuestionnaireId} ({QuestionnaireName}) 的 StructureJson 中没有 sections，跳过处理", 
+                            _logger.LogDebug("Questionnaire {QuestionnaireId} ({QuestionnaireName}) 的 StructureJson 中没有 sections，跳过处理",
                                 questionnaire.Id, questionnaire.Name);
                             continue;
                         }
@@ -503,7 +503,7 @@ namespace FlowFlex.Application.Notification
                                     var isAnswered = CheckIfQuestionIsAnswered(questionnaireAnswer.AnswerJson, question.Id);
                                     if (!isAnswered)
                                     {
-                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 尚未回答，跳过处理", 
+                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 尚未回答，跳过处理",
                                             question.Id, question.Title ?? question.Question);
                                         continue;
                                     }
@@ -531,7 +531,7 @@ namespace FlowFlex.Application.Notification
                                             ((dynamic)contextData).Source,
                                             ((dynamic)contextData).Priority,
                                             ((dynamic)contextData).OriginalEventId,
-                                            
+
                                             // 添加 question 相关的上下文数据
                                             QuestionnaireId = questionnaire.Id,
                                             QuestionnaireName = questionnaire.Name,
@@ -567,10 +567,10 @@ namespace FlowFlex.Application.Notification
                                     }
                                     else
                                     {
-                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 没有配置 Action，跳过发布 Question ActionTriggerEvent", 
+                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 没有配置 Action，跳过发布 Question ActionTriggerEvent",
                                             question.Id, question.Title ?? question.Question);
                                     }
-                                
+
                                     // 处理 question 的 options，为选中的有 action 的 option 发布 ActionTriggerEvent
                                     // 这个处理独立于 question 是否有 action
                                     await ProcessQuestionOptionsAsync(question, questionnaire, section, questionnaireAnswer.AnswerJson, contextData, currentUserId, eventData.CompletedStageId);
@@ -584,7 +584,7 @@ namespace FlowFlex.Application.Notification
                     }
                 }
 
-                _logger.LogDebug("完成处理 questionnaire 组件: StageId={StageId}, QuestionnaireCount={QuestionnaireCount}", 
+                _logger.LogDebug("完成处理 questionnaire 组件: StageId={StageId}, QuestionnaireCount={QuestionnaireCount}",
                     eventData.CompletedStageId, questionnaires.Count);
             }
             catch (Exception ex)
@@ -679,7 +679,7 @@ namespace FlowFlex.Application.Notification
                     return;
                 }
 
-                _logger.LogDebug("Question {QuestionId} 找到 {Count} 个选中的 options: [{SelectedOptions}]", 
+                _logger.LogDebug("Question {QuestionId} 找到 {Count} 个选中的 options: [{SelectedOptions}]",
                     question.Id, selectedOptionValues.Count, string.Join(", ", selectedOptionValues));
 
                 // 解析 options 并处理有 action 的选中项
@@ -695,7 +695,7 @@ namespace FlowFlex.Application.Notification
                         // 提取 option 的基本信息
                         var optionValue = optionElement.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
                         var optionLabel = optionElement.TryGetProperty("label", out var labelEl) ? labelEl.GetString() : null;
-                        var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : 
+                        var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() :
                                       optionElement.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
 
                         // 检查这个 option 是否被选中
@@ -707,7 +707,7 @@ namespace FlowFlex.Application.Notification
                         // 检查 option 是否有 action
                         if (!optionElement.TryGetProperty("action", out var actionElement))
                         {
-                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 没有配置 Action，跳过发布 ActionTriggerEvent", 
+                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 没有配置 Action，跳过发布 ActionTriggerEvent",
                                 optionValue, optionLabel);
                             continue;
                         }
@@ -717,7 +717,7 @@ namespace FlowFlex.Application.Notification
 
                         if (string.IsNullOrWhiteSpace(actionId))
                         {
-                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 的 Action 没有配置 ID，跳过发布 ActionTriggerEvent", 
+                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 的 Action 没有配置 ID，跳过发布 ActionTriggerEvent",
                                 optionValue, optionLabel);
                             continue;
                         }
@@ -742,7 +742,7 @@ namespace FlowFlex.Application.Notification
                             ((dynamic)contextData).Source,
                             ((dynamic)contextData).Priority,
                             ((dynamic)contextData).OriginalEventId,
-                            
+
                             // 添加 questionnaire 相关的上下文数据
                             QuestionnaireId = questionnaire.Id,
                             QuestionnaireName = questionnaire.Name,
@@ -759,7 +759,7 @@ namespace FlowFlex.Application.Notification
                             QuestionType = question.Type,
                             QuestionIsRequired = question.Required,
                             QuestionOrder = question.Order,
-                            
+
                             // 添加 option 相关的上下文数据
                             OptionId = optionId,
                             OptionValue = optionValue,

@@ -155,7 +155,7 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
 
         // Save file using file storage service
         var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
-        
+
         if (!storageResult.Success)
         {
             return BadRequest($"File upload failed: {storageResult.ErrorMessage}");
@@ -164,8 +164,8 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
         // Get current gateway/host information
         var request = HttpContext.Request;
         var gateway = $"{request.Scheme}://{request.Host}";
-        var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
-            ? storageResult.AccessUrl 
+        var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
+            ? storageResult.AccessUrl
             : $"{gateway}{storageResult.AccessUrl}";
 
         // Create comprehensive response
@@ -264,8 +264,8 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
             }
 
             // Success case
-            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
-                ? storageResult.AccessUrl 
+            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
+                ? storageResult.AccessUrl
                 : $"{gateway}{storageResult.AccessUrl}";
 
             response.Success = storageResult.Success;

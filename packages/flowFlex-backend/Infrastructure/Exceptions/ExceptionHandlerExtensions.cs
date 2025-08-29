@@ -23,10 +23,10 @@ namespace FlowFlex.Infrastructure.Exceptions
         public static ApiResponse<object> ToApiResponse(this Exception exception, HttpContext context = null, IApplicationLogger logger = null)
         {
             var errorId = Guid.NewGuid().ToString("N")[..8];
-            
+
             // Determine log level based on exception type
             var logLevel = GetLogLevel(exception);
-            
+
             // Log the exception with appropriate level and context
             if (logger != null && context != null)
             {
@@ -157,21 +157,21 @@ namespace FlowFlex.Infrastructure.Exceptions
             };
 
             var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            
+
             return new ApiResponse<object>
             {
                 Code = (int)statusCode,
                 Message = message,
                 Msg = message,
-                Data = isDevelopment ? new 
-                { 
+                Data = isDevelopment ? new
+                {
                     SqlState = pgException.SqlState,
                     ConstraintName = pgException.ConstraintName,
                     TableName = pgException.TableName,
                     Detail = pgException.Detail,
                     ErrorType = "DatabaseError"
-                } : new 
-                { 
+                } : new
+                {
                     ErrorType = "DatabaseError",
                     SqlState = pgException.SqlState
                 }
@@ -206,15 +206,16 @@ namespace FlowFlex.Infrastructure.Exceptions
         public static ApiResponse<object> ToApiResponse(this ArgumentException argException)
         {
             var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            
+
             return new ApiResponse<object>
             {
                 Code = (int)HttpStatusCode.BadRequest,
                 Message = "Invalid request parameters",
                 Msg = "Invalid request parameters",
-                Data = new { 
+                Data = new
+                {
                     Details = isDevelopment ? argException.Message : "Invalid parameter provided",
-                    ErrorType = "ArgumentError" 
+                    ErrorType = "ArgumentError"
                 }
             };
         }
@@ -226,8 +227,8 @@ namespace FlowFlex.Infrastructure.Exceptions
         /// <param name="userFriendlyMessage">User-friendly message</param>
         /// <param name="statusCode">HTTP status code</param>
         /// <returns>Simplified API response</returns>
-        public static ApiResponse<object> ToSimpleResponse(this Exception exception, 
-            string userFriendlyMessage, 
+        public static ApiResponse<object> ToSimpleResponse(this Exception exception,
+            string userFriendlyMessage,
             HttpStatusCode statusCode = HttpStatusCode.BadRequest)
         {
             return new ApiResponse<object>
@@ -254,7 +255,7 @@ namespace FlowFlex.Infrastructure.Exceptions
         private static string GetStringLengthMessage(PostgresException pgException)
         {
             var errorDetail = pgException.Detail ?? pgException.MessageText ?? "";
-            
+
             // Extract numeric limit using regex
             var match = System.Text.RegularExpressions.Regex.Match(errorDetail, @"varying\((\d+)\)");
             if (match.Success && int.TryParse(match.Groups[1].Value, out int limit))
@@ -282,7 +283,7 @@ namespace FlowFlex.Infrastructure.Exceptions
             {
                 Code = (int)HttpStatusCode.RequestTimeout,
                 Message = "Request timeout",
-                Msg = "Request timeout", 
+                Msg = "Request timeout",
                 Data = new { ErrorType = "Timeout" }
             };
         }
@@ -301,9 +302,9 @@ namespace FlowFlex.Infrastructure.Exceptions
         private static ApiResponse<object> CreateGenericErrorResponse(Exception exception)
         {
             var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            
+
             // In production, never expose detailed error information
-            var message = isDevelopment && !string.IsNullOrEmpty(exception.Message) 
+            var message = isDevelopment && !string.IsNullOrEmpty(exception.Message)
                 ? $"Server error: {exception.Message}"
                 : "An internal server error occurred. Please contact support if the problem persists.";
 
@@ -312,15 +313,15 @@ namespace FlowFlex.Infrastructure.Exceptions
                 Code = (int)HttpStatusCode.InternalServerError,
                 Message = message,
                 Msg = message,
-                Data = isDevelopment ? new 
-                { 
+                Data = isDevelopment ? new
+                {
                     ExceptionType = exception.GetType().Name,
                     // Only show top 3 stack trace lines to avoid info overload
                     StackTrace = exception.StackTrace?.Split('\n').Take(3).Select(line => line.Trim()).ToArray(),
                     ErrorType = "InternalError"
-                } : new 
-                { 
-                    ErrorType = "InternalError" 
+                } : new
+                {
+                    ErrorType = "InternalError"
                 }
             };
         }

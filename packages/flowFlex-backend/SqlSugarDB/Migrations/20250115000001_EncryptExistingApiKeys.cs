@@ -51,20 +51,20 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     {
                         // 检查是否已经是加密的（简单检查：Base64格式且长度合理）
                         var isAlreadyEncrypted = IsLikelyEncrypted(config.ApiKey);
-                        
+
                         if (!isAlreadyEncrypted)
                         {
                             var originalApiKey = config.ApiKey;
-                            
+
                             // 加密API Key
                             config.ApiKey = EncryptString(originalApiKey);
-                            
+
                             // 更新数据库
                             db.Updateable<AIModelConfig>()
                                 .SetColumns(c => new AIModelConfig { ApiKey = config.ApiKey })
                                 .Where(c => c.Id == config.Id)
                                 .ExecuteCommand();
-                            
+
                             encryptedCount++;
                             Console.WriteLine($"Encrypted API key for configuration ID: {config.Id}, Provider: {config.Provider}");
                         }
@@ -94,7 +94,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             Console.WriteLine("API Key encryption migration rollback is not implemented for security reasons.");
             Console.WriteLine("If you need to rollback, please restore from a database backup taken before the migration.");
-            
+
             // 出于安全考虑，不提供自动解密功能
             // 如果需要回滚，应该从备份恢复数据库
         }
@@ -161,11 +161,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
             {
                 // 检查是否是有效的Base64字符串
                 var buffer = Convert.FromBase64String(apiKey);
-                
+
                 // 加密后的字符串通常会比较长（至少32字符）
                 // 且包含Base64字符
-                return apiKey.Length >= 32 && 
-                       buffer.Length >= 16 && 
+                return apiKey.Length >= 32 &&
+                       buffer.Length >= 16 &&
                        !apiKey.Contains(" ") &&
                        !apiKey.StartsWith("sk-") && // OpenAI API key格式
                        !apiKey.StartsWith("glm-") && // ZhipuAI API key格式

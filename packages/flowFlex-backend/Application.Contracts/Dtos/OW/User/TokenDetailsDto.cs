@@ -50,4 +50,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// </summary>
         public string UserAgent { get; set; } = string.Empty;
     }
-} 
+}

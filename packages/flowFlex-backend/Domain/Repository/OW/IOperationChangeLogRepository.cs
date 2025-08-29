@@ -109,12 +109,12 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="pageSize">Page size</param>
         /// <returns>Paginated operation log list</returns>
         Task<(List<OperationChangeLog> logs, int totalCount)> GetStageComponentLogsPaginatedAsync(
-            long? onboardingId, 
-            long stageId, 
-            List<long> taskIds, 
-            List<long> questionIds, 
-            string operationType, 
-            int pageIndex, 
+            long? onboardingId,
+            long stageId,
+            List<long> taskIds,
+            List<long> questionIds,
+            string operationType,
+            int pageIndex,
             int pageSize);
     }
 }

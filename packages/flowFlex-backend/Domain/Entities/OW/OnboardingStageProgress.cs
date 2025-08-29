@@ -40,9 +40,9 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// End Time - Estimated end time based on StartTime + EstimatedDays (UTC)
         /// </summary>
-        public DateTimeOffset? EndTime 
-        { 
-            get 
+        public DateTimeOffset? EndTime
+        {
+            get
             {
                 if (StartTime.HasValue && EstimatedDays.HasValue && EstimatedDays > 0)
                 {
@@ -96,7 +96,7 @@ namespace FlowFlex.Domain.Entities.OW
         public string SavedBy { get; set; }
 
         // === Below fields are dynamically populated from Stage entity and not stored in JSON ===
-        
+
         /// <summary>
         /// Stage Name (from Stage entity) - Not stored in JSON
         /// </summary>
@@ -125,9 +125,9 @@ namespace FlowFlex.Domain.Entities.OW
         /// Actual Days (calculated) - Not stored in JSON
         /// </summary>
         [JsonIgnore]
-        public int? ActualDays 
-        { 
-            get 
+        public int? ActualDays
+        {
+            get
             {
                 if (StartTime.HasValue && CompletionTime.HasValue)
                 {
@@ -193,7 +193,7 @@ namespace FlowFlex.Domain.Entities.OW
         public string AiSummaryData { get; set; }
 
         // === Legacy fields for backward compatibility - will be removed in future versions ===
-        
+
         /// <summary>
         /// Last Updated Time
         /// </summary>

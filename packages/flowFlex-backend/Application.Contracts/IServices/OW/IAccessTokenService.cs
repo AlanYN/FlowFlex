@@ -20,8 +20,8 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="userAgent">User agent</param>
         /// <param name="revokeOtherTokens">Whether to revoke other user tokens</param>
         /// <returns>Token ID</returns>
-        Task<long> RecordTokenAsync(string jti, long userId, string userEmail, string tokenHash, 
-            DateTimeOffset expiresAt, string tokenType = "login", string ipAddress = "", string userAgent = "", 
+        Task<long> RecordTokenAsync(string jti, long userId, string userEmail, string tokenHash,
+            DateTimeOffset expiresAt, string tokenType = "login", string ipAddress = "", string userAgent = "",
             bool revokeOtherTokens = true);
 
         /// <summary>
@@ -67,4 +67,4 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Number of tokens cleaned up</returns>
         Task<int> CleanupExpiredTokensAsync();
     }
-} 
+}

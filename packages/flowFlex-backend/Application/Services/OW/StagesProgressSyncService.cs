@@ -40,7 +40,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                _logger.LogInformation("Starting sync after stage update for workflow {WorkflowId}, stage {StageId}", 
+                _logger.LogInformation("Starting sync after stage update for workflow {WorkflowId}, stage {StageId}",
                     workflowId, updatedStageId);
 
                 // Get all active onboardings for this workflow
@@ -60,15 +60,15 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await SyncSingleOnboardingInternalAsync(onboarding);
                         syncedCount++;
-                        
-                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId}", 
+
+                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId}",
                             onboarding.Id);
                     }
                     catch (Exception ex)
                     {
                         failedCount++;
-                        _logger.LogWarning(ex, 
-                            "Failed to sync stages progress for onboarding {OnboardingId} after stage update", 
+                        _logger.LogWarning(ex,
+                            "Failed to sync stages progress for onboarding {OnboardingId} after stage update",
                             onboarding.Id);
 
                         // Log the error but continue with other onboardings
@@ -84,7 +84,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during sync after stage update for workflow {WorkflowId}", workflowId);
-                throw new CRMException(ErrorCodeEnum.SystemError, 
+                throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Failed to sync stages progress after stage update: {ex.Message}");
             }
         }
@@ -96,7 +96,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                _logger.LogInformation("Starting sync after stage deletion for workflow {WorkflowId}, deleted stage {StageId}", 
+                _logger.LogInformation("Starting sync after stage deletion for workflow {WorkflowId}, deleted stage {StageId}",
                     workflowId, deletedStageId);
 
                 // Get all active onboardings for this workflow
@@ -116,19 +116,19 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Remove the deleted stage from stages progress
                         await RemoveDeletedStageFromProgressAsync(onboarding.Id, deletedStageId);
-                        
+
                         // Sync the remaining stages progress
                         await SyncSingleOnboardingInternalAsync(onboarding);
                         syncedCount++;
-                        
-                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId} after stage deletion", 
+
+                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId} after stage deletion",
                             onboarding.Id);
                     }
                     catch (Exception ex)
                     {
                         failedCount++;
-                        _logger.LogWarning(ex, 
-                            "Failed to sync stages progress for onboarding {OnboardingId} after stage deletion", 
+                        _logger.LogWarning(ex,
+                            "Failed to sync stages progress for onboarding {OnboardingId} after stage deletion",
                             onboarding.Id);
 
 
@@ -144,7 +144,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during sync after stage deletion for workflow {WorkflowId}", workflowId);
-                throw new CRMException(ErrorCodeEnum.SystemError, 
+                throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Failed to sync stages progress after stage deletion: {ex.Message}");
             }
         }
@@ -156,7 +156,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                _logger.LogInformation("Starting sync after stages sorting for workflow {WorkflowId}, affected stages: {StageIds}", 
+                _logger.LogInformation("Starting sync after stages sorting for workflow {WorkflowId}, affected stages: {StageIds}",
                     workflowId, string.Join(",", stageIds));
 
                 // Get all active onboardings for this workflow
@@ -176,15 +176,15 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await SyncSingleOnboardingInternalAsync(onboarding);
                         syncedCount++;
-                        
-                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId} after stages sorting", 
+
+                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId} after stages sorting",
                             onboarding.Id);
                     }
                     catch (Exception ex)
                     {
                         failedCount++;
-                        _logger.LogWarning(ex, 
-                            "Failed to sync stages progress for onboarding {OnboardingId} after stages sorting", 
+                        _logger.LogWarning(ex,
+                            "Failed to sync stages progress for onboarding {OnboardingId} after stages sorting",
                             onboarding.Id);
 
 
@@ -200,7 +200,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during sync after stages sorting for workflow {WorkflowId}", workflowId);
-                throw new CRMException(ErrorCodeEnum.SystemError, 
+                throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Failed to sync stages progress after stages sorting: {ex.Message}");
             }
         }
@@ -213,7 +213,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 _logger.LogInformation(
-                    "Starting sync after stages combination for workflow {WorkflowId}, deleted stages: {DeletedStageIds}, new stage: {NewStageId}", 
+                    "Starting sync after stages combination for workflow {WorkflowId}, deleted stages: {DeletedStageIds}, new stage: {NewStageId}",
                     workflowId, string.Join(",", deletedStageIds), newStageId);
 
                 // Get all active onboardings for this workflow
@@ -233,19 +233,19 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Remove deleted stages and handle the combined stage logic
                         await HandleStagesCombinationAsync(onboarding.Id, deletedStageIds, newStageId);
-                        
+
                         // Sync the updated stages progress
                         await SyncSingleOnboardingInternalAsync(onboarding);
                         syncedCount++;
-                        
-                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId} after stages combination", 
+
+                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId} after stages combination",
                             onboarding.Id);
                     }
                     catch (Exception ex)
                     {
                         failedCount++;
-                        _logger.LogWarning(ex, 
-                            "Failed to sync stages progress for onboarding {OnboardingId} after stages combination", 
+                        _logger.LogWarning(ex,
+                            "Failed to sync stages progress for onboarding {OnboardingId} after stages combination",
                             onboarding.Id);
 
 
@@ -261,7 +261,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during sync after stages combination for workflow {WorkflowId}", workflowId);
-                throw new CRMException(ErrorCodeEnum.SystemError, 
+                throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Failed to sync stages progress after stages combination: {ex.Message}");
             }
         }
@@ -340,14 +340,14 @@ namespace FlowFlex.Application.Services.OW
                         .ToList();
 
                     onboarding.StagesProgress = updatedProgress;
-                    
+
                     // Update the JSON as well - this should be handled by the service layer
                     // For now, we'll let the sync method handle the JSON serialization
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to remove deleted stage {StageId} from onboarding {OnboardingId}", 
+                _logger.LogError(ex, "Failed to remove deleted stage {StageId} from onboarding {OnboardingId}",
                     deletedStageId, onboardingId);
                 throw;
             }
@@ -378,7 +378,7 @@ namespace FlowFlex.Application.Services.OW
 
                     // Determine the status for the new combined stage based on the combined stages
                     var newStageStatus = DetermineCombinedStageStatus(combinedStages);
-                    
+
                     // The new stage will be added during the sync process
                     // We just need to remove the old ones here
                     onboarding.StagesProgress = updatedProgress;
@@ -429,13 +429,13 @@ namespace FlowFlex.Application.Services.OW
                 // Load current stages progress from JSON
                 var currentProgress = LoadStagesProgressFromJson(onboarding);
 
-                _logger.LogDebug("Loaded {ProgressCount} stages progress entries for onboarding {OnboardingId}", 
+                _logger.LogDebug("Loaded {ProgressCount} stages progress entries for onboarding {OnboardingId}",
                     currentProgress.Count, onboarding.Id);
 
                 // Sync with current workflow stages
                 var updatedProgress = SyncProgressWithStages(currentProgress, stages);
 
-                _logger.LogDebug("Synced to {UpdatedCount} stages progress entries for onboarding {OnboardingId}", 
+                _logger.LogDebug("Synced to {UpdatedCount} stages progress entries for onboarding {OnboardingId}",
                     updatedProgress.Count, onboarding.Id);
 
                 // Update the onboarding entity
@@ -467,7 +467,7 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                _logger.LogDebug("Deserializing stages progress JSON for onboarding {OnboardingId}: {Json}", 
+                _logger.LogDebug("Deserializing stages progress JSON for onboarding {OnboardingId}: {Json}",
                     onboarding.Id, onboarding.StagesProgressJson);
 
                 var options = new JsonSerializerOptions
@@ -478,16 +478,16 @@ namespace FlowFlex.Application.Services.OW
 
                 var progress = System.Text.Json.JsonSerializer.Deserialize<List<Domain.Entities.OW.OnboardingStageProgress>>(
                     onboarding.StagesProgressJson, options);
-                
+
                 var validProgress = progress ?? new List<Domain.Entities.OW.OnboardingStageProgress>();
-                
-                _logger.LogDebug("Successfully deserialized {Count} progress entries for onboarding {OnboardingId}", 
+
+                _logger.LogDebug("Successfully deserialized {Count} progress entries for onboarding {OnboardingId}",
                     validProgress.Count, onboarding.Id);
 
                 // Log details of each progress entry for debugging
                 foreach (var item in validProgress)
                 {
-                    _logger.LogDebug("Progress entry: StageId={StageId}, Status={Status}, IsCompleted={IsCompleted}", 
+                    _logger.LogDebug("Progress entry: StageId={StageId}, Status={Status}, IsCompleted={IsCompleted}",
                         item.StageId, item.Status, item.IsCompleted);
                 }
 
@@ -495,7 +495,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to deserialize stages progress JSON for onboarding {OnboardingId}. JSON: {Json}", 
+                _logger.LogWarning(ex, "Failed to deserialize stages progress JSON for onboarding {OnboardingId}. JSON: {Json}",
                     onboarding.Id, onboarding.StagesProgressJson);
                 return new List<Domain.Entities.OW.OnboardingStageProgress>();
             }
@@ -508,11 +508,11 @@ namespace FlowFlex.Application.Services.OW
         /// Completed stages will remain completed after synchronization.
         /// </summary>
         private List<Domain.Entities.OW.OnboardingStageProgress> SyncProgressWithStages(
-            List<Domain.Entities.OW.OnboardingStageProgress> currentProgress, 
+            List<Domain.Entities.OW.OnboardingStageProgress> currentProgress,
             List<Domain.Entities.OW.Stage> stages)
         {
             var orderedStages = stages.OrderBy(s => s.Order).ToList();
-            
+
             // Filter out invalid progress entries (StageId = 0 or duplicates) and create dictionary safely
             var invalidEntries = currentProgress.Where(p => p.StageId <= 0).ToList();
             if (invalidEntries.Any())
@@ -525,11 +525,11 @@ namespace FlowFlex.Application.Services.OW
                 .GroupBy(p => p.StageId)
                 .Where(g => g.Count() > 1)
                 .ToList();
-            
+
             if (duplicateGroups.Any())
             {
-                _logger.LogWarning("Found {DuplicateGroupCount} duplicate StageId groups: {StageIds}", 
-                    duplicateGroups.Count, 
+                _logger.LogWarning("Found {DuplicateGroupCount} duplicate StageId groups: {StageIds}",
+                    duplicateGroups.Count,
                     string.Join(", ", duplicateGroups.Select(g => g.Key)));
             }
 
@@ -537,7 +537,7 @@ namespace FlowFlex.Application.Services.OW
                 .Where(p => p.StageId > 0)  // Filter out invalid stage IDs
                 .GroupBy(p => p.StageId)    // Group by StageId to handle duplicates
                 .ToDictionary(g => g.Key, g => g.First()); // Take first entry for each StageId
-            
+
             var syncedProgress = new List<Domain.Entities.OW.OnboardingStageProgress>();
 
             for (int i = 0; i < orderedStages.Count; i++)
@@ -551,11 +551,11 @@ namespace FlowFlex.Application.Services.OW
                     // This ensures that completed stages remain completed after sync
                     var originalStatus = existingProgress.Status;
                     var originalIsCompleted = existingProgress.IsCompleted;
-                    
+
                     existingProgress.StageOrder = sequentialOrder;
                     syncedProgress.Add(existingProgress);
-                    
-                    _logger.LogDebug("Preserved existing progress for Stage {StageId}: Status={Status}, IsCompleted={IsCompleted}, Order updated to {NewOrder}", 
+
+                    _logger.LogDebug("Preserved existing progress for Stage {StageId}: Status={Status}, IsCompleted={IsCompleted}, Order updated to {NewOrder}",
                         stage.Id, originalStatus, originalIsCompleted, sequentialOrder);
                 }
                 else
@@ -640,14 +640,14 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Log but don't fail the main update
                         _logger.LogWarning(progressEx, "Warning: Failed to update stages_progress_json for onboarding {OnboardingId}", onboarding.Id);
-                        
+
                         // Try alternative approach with parameter substitution
                         try
                         {
                             var escapedJson = stagesProgressJson.Replace("'", "''");
                             var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {onboarding.Id}";
                             await db.Ado.ExecuteCommandAsync(directSql);
-                            
+
                             _logger.LogDebug("Successfully updated stages_progress_json with direct SQL for onboarding {OnboardingId}", onboarding.Id);
                         }
                         catch (Exception directEx)

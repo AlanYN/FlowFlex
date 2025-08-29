@@ -103,7 +103,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
         public async Task<int> CleanupOldRecordsAsync(int daysToKeep = 30)
         {
             var cutoffDate = DateTimeOffset.Now.AddDays(-daysToKeep);
-            
+
             return await db.Updateable<AIPromptHistory>()
                 .SetColumns(x => x.IsValid == false)
                 .SetColumns(x => x.ModifyDate == DateTimeOffset.Now)

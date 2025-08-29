@@ -169,4 +169,4 @@ namespace FlowFlex.Application.Contracts.Options
         public bool EnableSemanticSearch { get; set; } = true;
         public string EmbeddingModel { get; set; } = "text-embedding-ada-002";
     }
-} 
+}

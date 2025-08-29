@@ -55,12 +55,12 @@ namespace FlowFlex.WebApi.Middlewares
                     UserAgent = context.Request.Headers["User-Agent"].ToString(),
                     RequestTime = DateTimeOffset.UtcNow
                 };
-                
+
                 context.Items["AppContext"] = appContext;
-                
+
                 // 确保AppContext正确设置
                 _logger.LogInformation($"[AppIsolationMiddleware] AppContext set: AppCode={appContext.AppCode}, TenantId={appContext.TenantId}, RequestId={appContext.RequestId}");
-                
+
                 // 确保请求头包含正确的租户ID和应用代码
                 EnsureHeaders(context, appContext);
 
@@ -111,13 +111,13 @@ namespace FlowFlex.WebApi.Middlewares
         private async Task<string> ExtractAppCodeAsync(HttpContext context)
         {
             _logger.LogDebug("[AppIsolationMiddleware] Starting AppCode extraction");
-            
+
             // 记录所有请求头，用于调试
             foreach (var header in context.Request.Headers)
             {
                 _logger.LogDebug($"[AppIsolationMiddleware] Request header: {header.Key}={header.Value}");
             }
-            
+
             // 1. Get from X-App-Code header
             var appCode = context.Request.Headers["X-App-Code"].FirstOrDefault();
             if (!string.IsNullOrEmpty(appCode))
@@ -151,7 +151,7 @@ namespace FlowFlex.WebApi.Middlewares
                 {
                     _logger.LogDebug($"[AppIsolationMiddleware] JWT claim: {claim.Type}={claim.Value}");
                 }
-                
+
                 var appCodeClaim = context.User?.FindFirst("appCode");
                 if (!string.IsNullOrEmpty(appCodeClaim?.Value))
                 {

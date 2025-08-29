@@ -107,13 +107,13 @@ namespace FlowFlex.Infrastructure.Services.Security
         {
             try
             {
-                if (string.IsNullOrEmpty(_securityOptions.EncryptionKey) || 
+                if (string.IsNullOrEmpty(_securityOptions.EncryptionKey) ||
                     string.IsNullOrEmpty(_securityOptions.EncryptionIV))
                 {
                     return false;
                 }
 
-                if (_securityOptions.EncryptionKey.Length != 32 || 
+                if (_securityOptions.EncryptionKey.Length != 32 ||
                     _securityOptions.EncryptionIV.Length != 16)
                 {
                     return false;

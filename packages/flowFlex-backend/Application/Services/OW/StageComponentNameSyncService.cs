@@ -52,7 +52,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Get all stages that use this checklist through mapping table
                 var stageIds = await GetStagesUsingChecklistAsync(checklistId);
-                
+
                 if (!stageIds.Any())
                 {
                     return 0;
@@ -77,7 +77,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Get all stages that use this questionnaire through mapping table
                 var stageIds = await GetStagesUsingQuestionnaireAsync(questionnaireId);
-                
+
                 if (!stageIds.Any())
                 {
                     return 0;
@@ -263,13 +263,13 @@ namespace FlowFlex.Application.Service.OW
                 {
                     // Update stage components
                     stage.Components = components;
-                    
+
                     // CRITICAL: Also update ComponentsJson field since Components is ignored in database mapping
                     stage.ComponentsJson = JsonSerializer.Serialize(components, JsonOptions);
-                    
+
                     stage.InitUpdateInfo(_userContext);
                     await _stageRepository.UpdateAsync(stage);
-                    
+
                     return true;
                 }
 
@@ -436,10 +436,10 @@ namespace FlowFlex.Application.Service.OW
                     if (updated)
                     {
                         stage.Components = components;
-                        
+
                         // CRITICAL: Also update ComponentsJson field since Components is ignored in database mapping
                         stage.ComponentsJson = JsonSerializer.Serialize(components, JsonOptions);
-                        
+
                         stage.InitUpdateInfo(_userContext);
                         stagesToUpdate.Add(stage);
                     }

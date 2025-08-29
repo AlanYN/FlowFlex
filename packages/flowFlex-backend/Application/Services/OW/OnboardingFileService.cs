@@ -25,7 +25,7 @@ namespace FlowFlex.Application.Services.OW
     public class OnboardingFileService : IOnboardingFileService, IScopedService
     {
         private readonly IOnboardingFileRepository _onboardingFileRepository;
-    
+
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IAttachmentService _attachmentService;
@@ -36,7 +36,7 @@ namespace FlowFlex.Application.Services.OW
 
         public OnboardingFileService(
             IOnboardingFileRepository onboardingFileRepository,
-    
+
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
             IAttachmentService attachmentService,
@@ -46,7 +46,7 @@ namespace FlowFlex.Application.Services.OW
             UserContext userContext)
         {
             _onboardingFileRepository = onboardingFileRepository;
-    
+
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
             _attachmentService = attachmentService;
@@ -140,7 +140,7 @@ namespace FlowFlex.Application.Services.OW
                     StoragePath = attachment.AccessUrl,
                     UploadedById = _userContext.UserId,
                     UploadedByName = _userContext.UserName,
-                UploadedDate = DateTimeOffset.UtcNow,
+                    UploadedDate = DateTimeOffset.UtcNow,
                     Status = "Active",
                     Version = 1,
                     SortOrder = 0
@@ -343,7 +343,7 @@ namespace FlowFlex.Application.Services.OW
                 onboardingFile.Status = "Deleted";
                 onboardingFile.ModifyBy = _userContext.UserId;
                 onboardingFile.ModifyUserId = long.Parse(_userContext.UserId);
-            onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
+                onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _onboardingFileRepository.UpdateAsync(onboardingFile);
 
@@ -431,7 +431,7 @@ namespace FlowFlex.Application.Services.OW
 
                 onboardingFile.ModifyBy = _userContext.UserId;
                 onboardingFile.ModifyUserId = long.Parse(_userContext.UserId);
-            onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
+                onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _onboardingFileRepository.UpdateAsync(onboardingFile);
 

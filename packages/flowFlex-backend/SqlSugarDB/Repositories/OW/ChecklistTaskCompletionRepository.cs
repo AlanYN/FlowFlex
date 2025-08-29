@@ -67,23 +67,23 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
             // Update existing - only update isCompleted and completion time, preserve other data
             existing.IsCompleted = completion.IsCompleted;
             existing.CompletedTime = completion.IsCompleted ? (completion.CompletedTime ?? DateTimeOffset.Now) : null;
-            
+
             // Only update other fields if they have meaningful values
             if (!string.IsNullOrEmpty(completion.CompletionNotes))
             {
                 existing.CompletionNotes = completion.CompletionNotes;
             }
-            
+
             if (!string.IsNullOrEmpty(completion.FilesJson) && completion.FilesJson != "[]")
             {
                 existing.FilesJson = completion.FilesJson;
             }
-            
+
             if (completion.StageId.HasValue)
             {
                 existing.StageId = completion.StageId;
             }
-            
+
             existing.ModifyDate = DateTimeOffset.Now;
             existing.ModifyBy = completion.ModifyBy;
             existing.ModifyUserId = completion.ModifyUserId;

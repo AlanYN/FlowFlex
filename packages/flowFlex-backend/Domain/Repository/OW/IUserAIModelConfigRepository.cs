@@ -74,4 +74,4 @@ namespace FlowFlex.Domain.Repository.OW
         /// <returns>操作结果</returns>
         Task<bool> UpdateAvailabilityAsync(long configId, bool isAvailable);
     }
-} 
+}

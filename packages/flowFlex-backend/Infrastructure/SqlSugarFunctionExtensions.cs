@@ -13,7 +13,7 @@ public class SqlFuncExternalHelper
     {
         if (string.IsNullOrEmpty(input))
             return string.Empty;
-        
+
         // Escape special LIKE characters and prevent SQL injection
         return input
             .Replace("'", "''")           // Escape single quotes

@@ -161,7 +161,7 @@ namespace FlowFlex.Application.Services.OW
 
         public string GetFileUrl(string filePath)
         {
-                return $"{_options.FileUrlPrefix}/{filePath.Replace("\\", "/")}";
+            return $"{_options.FileUrlPrefix}/{filePath.Replace("\\", "/")}";
         }
 
         public async Task<FileValidationResult> ValidateFileAsync(IFormFile file)

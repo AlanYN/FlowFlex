@@ -27,4 +27,4 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [Required(ErrorMessage = "AuthorizationToken is required")]
         public string AuthorizationToken { get; set; } = string.Empty;
     }
-} 
+}

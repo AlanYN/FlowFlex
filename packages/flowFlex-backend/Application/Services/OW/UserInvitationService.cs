@@ -93,8 +93,8 @@ namespace FlowFlex.Application.Services.OW
                         existingInvitation.Status = "Pending";
                         existingInvitation.SendCount += 1;
                         existingInvitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
-                            request.OnboardingId, 
-                            email, 
+                            request.OnboardingId,
+                            email,
                             existingInvitation.InvitationToken);
                         existingInvitation.InvitationUrl = GenerateShortInvitationUrl(existingInvitation.ShortUrlId, onboarding.TenantId ?? "DEFAULT", onboarding.AppCode ?? "DEFAULT", request.BaseUrl);
                         existingInvitation.ModifyDate = GetCurrentTimeWithTimeZone();
@@ -133,8 +133,8 @@ namespace FlowFlex.Application.Services.OW
                         };
 
                         invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
-                            request.OnboardingId, 
-                            email, 
+                            request.OnboardingId,
+                            email,
                             invitation.InvitationToken);
                         invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding.TenantId ?? "DEFAULT", onboarding.AppCode ?? "DEFAULT", request.BaseUrl);
 
@@ -228,8 +228,8 @@ namespace FlowFlex.Application.Services.OW
                 invitation.Status = "Pending";
                 invitation.SendCount += 1;
                 invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
-                    request.OnboardingId, 
-                    request.Email, 
+                    request.OnboardingId,
+                    request.Email,
                     invitation.InvitationToken);
                 invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding?.TenantId ?? "DEFAULT", onboarding?.AppCode ?? "DEFAULT", request.BaseUrl);
                 invitation.ModifyDate = GetCurrentTimeWithTimeZone();
@@ -400,12 +400,12 @@ namespace FlowFlex.Application.Services.OW
 
                 // Get onboarding to access tenant information
                 var onboarding = await _onboardingRepository.GetByIdAsync(invitation.OnboardingId);
-                
+
                 // Generate short invitation URL using short URL ID
                 var invitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId ?? "", onboarding?.TenantId ?? "DEFAULT", onboarding?.AppCode ?? "DEFAULT", baseUrl);
 
-                return new 
-                { 
+                return new
+                {
                     invitationUrl = invitationUrl,
                     status = invitation.Status,
                     email = invitation.Email,
@@ -492,10 +492,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Generate access token with details for database tracking
                 var tokenDetails = _jwtService.GenerateTokenWithDetails(
-                    user.Id, 
-                    user.Email, 
-                    user.Username, 
-                    user.TenantId ?? "DEFAULT", 
+                    user.Id,
+                    user.Email,
+                    user.Username,
+                    user.TenantId ?? "DEFAULT",
                     "portal-access"
                 );
 
@@ -594,7 +594,7 @@ namespace FlowFlex.Application.Services.OW
             var chinaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
             var utcNow = DateTime.UtcNow;
             var chinaTime = TimeZoneInfo.ConvertTimeFromUtc(utcNow, chinaTimeZone);
-            
+
             // Create DateTimeOffset with +08:00 offset
             return new DateTimeOffset(chinaTime, TimeSpan.FromHours(8));
         }

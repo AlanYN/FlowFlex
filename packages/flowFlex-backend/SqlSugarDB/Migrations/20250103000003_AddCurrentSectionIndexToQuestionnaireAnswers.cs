@@ -32,7 +32,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (!columnExists)
                 {
                     Console.WriteLine("Adding current_section_index column to ff_questionnaire_answers table...");
-                    
+
                     // 添加列
                     db.Ado.ExecuteCommand(@"
                         ALTER TABLE ff_questionnaire_answers 
@@ -43,7 +43,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     // 为新列创建索引以提高查询性能
                     Console.WriteLine("Creating index on current_section_index...");
-                    
+
                     var indexExists = db.Ado.GetDataTable(@"
                         SELECT indexname 
                         FROM pg_indexes 
@@ -86,10 +86,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("Rolling back AddCurrentSectionIndexToQuestionnaireAnswers migration...");
-                
+
                 // 先删除索引
                 Console.WriteLine("Dropping index on current_section_index...");
-                
+
                 db.Ado.ExecuteCommand(@"
                     DROP INDEX IF EXISTS idx_ff_questionnaire_answers_current_section_index;
                 ");
@@ -106,19 +106,19 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 {
                     // 删除列
                     Console.WriteLine("Removing current_section_index column...");
-                    
+
                     db.Ado.ExecuteCommand(@"
                         ALTER TABLE ff_questionnaire_answers 
                         DROP COLUMN current_section_index;
                     ");
-                    
+
                     Console.WriteLine("Column current_section_index removed successfully.");
                 }
                 else
                 {
                     Console.WriteLine("current_section_index column does not exist, skipping removal.");
                 }
-                
+
                 Console.WriteLine("AddCurrentSectionIndexToQuestionnaireAnswers migration rollback completed.");
             }
             catch (Exception ex)
@@ -128,4 +128,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

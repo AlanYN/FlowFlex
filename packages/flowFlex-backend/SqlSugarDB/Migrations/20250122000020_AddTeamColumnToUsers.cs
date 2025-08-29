@@ -23,7 +23,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (!columnExists)
                 {
                     Console.WriteLine("[AddTeamColumnToUsers] Adding Team column to ff_users table...");
-                    
+
                     // Add Team column
                     db.Ado.ExecuteCommand(@"
                         ALTER TABLE ff_users 

@@ -24,7 +24,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             {
                 // Ensure table exists
                 await EnsureTableExistsAsync();
-                
+
                 // Use InsertAsync method instead which is more reliable
                 var result = await _db.Insertable(token).ExecuteReturnEntityAsync();
                 return result.Id;
@@ -47,7 +47,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             {
                 // Check if table exists
                 var tableExists = _db.DbMaintenance.IsAnyTable("ff_access_tokens", false);
-                
+
                 if (!tableExists)
                 {
                     // Create table using SqlSugar code first
@@ -193,4 +193,4 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             };
         }
     }
-} 
+}

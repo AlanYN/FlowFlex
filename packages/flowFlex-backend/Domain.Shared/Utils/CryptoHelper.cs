@@ -43,7 +43,7 @@ namespace FlowFlex.Domain.Shared.Utils
             {
                 var decryptedJson = DecryptString(encryptedToken);
                 var data = JsonSerializer.Deserialize<PortalAccessDataInternal>(decryptedJson);
-                
+
                 if (data == null)
                     return null;
 
@@ -97,7 +97,7 @@ namespace FlowFlex.Domain.Shared.Utils
         private static string EncryptString(string plainText, string? key = null)
         {
             key ??= DefaultKey;
-            
+
             using var aes = Aes.Create();
             aes.Key = DeriveKeyFromPassword(key, aes.KeySize / 8);
             aes.GenerateIV();
@@ -128,7 +128,7 @@ namespace FlowFlex.Domain.Shared.Utils
         private static string DecryptString(string cipherText, string? key = null)
         {
             key ??= DefaultKey;
-            
+
             // Restore base64 padding
             cipherText = cipherText.Replace("_", "/").Replace("-", "+");
             while (cipherText.Length % 4 != 0)
@@ -151,7 +151,7 @@ namespace FlowFlex.Domain.Shared.Utils
             using var msDecrypt = new MemoryStream(cipher);
             using var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read);
             using var srDecrypt = new StreamReader(csDecrypt);
-            
+
             return srDecrypt.ReadToEnd();
         }
 
@@ -190,4 +190,4 @@ namespace FlowFlex.Domain.Shared.Utils
         public DateTimeOffset ExpiryTime { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
     }
-} 
+}

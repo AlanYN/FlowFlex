@@ -44,7 +44,7 @@ namespace FlowFlex.Application.Service.OW
 
                 // Get all stages in the workflow
                 var stages = await _stageRepository.GetListAsync(s => s.WorkflowId == workflowId && s.IsValid);
-                
+
                 foreach (var stage in stages)
                 {
                     await SyncStageMappingsAsync(stage.Id);
@@ -91,7 +91,7 @@ namespace FlowFlex.Application.Service.OW
                         // Sync questionnaire mappings
                         if (component.Key == "questionnaires" && component.QuestionnaireIds?.Any() == true)
                         {
-                            var questionnaireMappings = component.QuestionnaireIds.Select(qId => 
+                            var questionnaireMappings = component.QuestionnaireIds.Select(qId =>
                             {
                                 var mapping = new QuestionnaireStageMapping
                                 {
@@ -101,10 +101,10 @@ namespace FlowFlex.Application.Service.OW
                                     CreatedAt = DateTime.UtcNow,
                                     UpdatedAt = DateTime.UtcNow
                                 };
-                                
+
                                 // Initialize snowflake ID and entity info like Stage does
                                 mapping.InitCreateInfo(_userContext);
-                                
+
                                 return mapping;
                             }).ToList();
 
@@ -115,7 +115,7 @@ namespace FlowFlex.Application.Service.OW
                         // Sync checklist mappings
                         if (component.Key == "checklist" && component.ChecklistIds?.Any() == true)
                         {
-                            var checklistMappings = component.ChecklistIds.Select(cId => 
+                            var checklistMappings = component.ChecklistIds.Select(cId =>
                             {
                                 var mapping = new ChecklistStageMapping
                                 {
@@ -125,10 +125,10 @@ namespace FlowFlex.Application.Service.OW
                                     CreatedAt = DateTime.UtcNow,
                                     UpdatedAt = DateTime.UtcNow
                                 };
-                                
+
                                 // Initialize snowflake ID and entity info like Stage does
                                 mapping.InitCreateInfo(_userContext);
-                                
+
                                 return mapping;
                             }).ToList();
 
@@ -159,7 +159,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 await SyncStageMappingsAsync(stage.Id);
                 processedStages++;
-                
+
                 if (processedStages % 10 == 0)
                 {
                     Console.WriteLine($"[ComponentMappingService] Progress: {processedStages}/{totalStages} stages processed");
@@ -175,14 +175,14 @@ namespace FlowFlex.Application.Service.OW
         public async Task<Dictionary<long, List<(long WorkflowId, long StageId)>>> GetQuestionnaireAssignmentsAsync(List<long> questionnaireIds)
         {
             var result = new Dictionary<long, List<(long, long)>>();
-            
+
             if (!questionnaireIds.Any())
                 return result;
 
             try
             {
                 Console.WriteLine($"[ComponentMappingService] Getting assignments from mapping table for {questionnaireIds.Count} questionnaires");
-                
+
                 var mappings = await _db.Queryable<QuestionnaireStageMapping>()
                     .Where(m => questionnaireIds.Contains(m.QuestionnaireId))
                     .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
@@ -214,14 +214,14 @@ namespace FlowFlex.Application.Service.OW
         public async Task<Dictionary<long, List<(long WorkflowId, long StageId)>>> GetChecklistAssignmentsAsync(List<long> checklistIds)
         {
             var result = new Dictionary<long, List<(long, long)>>();
-            
+
             if (!checklistIds.Any())
                 return result;
 
             try
             {
                 Console.WriteLine($"[ComponentMappingService] Getting checklist assignments from mapping table for {checklistIds.Count} checklists");
-                
+
                 var mappings = await _db.Queryable<ChecklistStageMapping>()
                     .Where(m => checklistIds.Contains(m.ChecklistId))
                     .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
@@ -351,7 +351,7 @@ namespace FlowFlex.Application.Service.OW
                         // Sync questionnaire mappings
                         if (component.Key == "questionnaires" && component.QuestionnaireIds?.Any() == true)
                         {
-                            var questionnaireMappings = component.QuestionnaireIds.Select(qId => 
+                            var questionnaireMappings = component.QuestionnaireIds.Select(qId =>
                             {
                                 var mapping = new QuestionnaireStageMapping
                                 {
@@ -361,10 +361,10 @@ namespace FlowFlex.Application.Service.OW
                                     CreatedAt = DateTime.UtcNow,
                                     UpdatedAt = DateTime.UtcNow
                                 };
-                                
+
                                 // Initialize snowflake ID and entity info
                                 mapping.InitCreateInfo(_userContext);
-                                
+
                                 return mapping;
                             }).ToList();
 
@@ -375,7 +375,7 @@ namespace FlowFlex.Application.Service.OW
                         // Sync checklist mappings
                         if (component.Key == "checklist" && component.ChecklistIds?.Any() == true)
                         {
-                            var checklistMappings = component.ChecklistIds.Select(cId => 
+                            var checklistMappings = component.ChecklistIds.Select(cId =>
                             {
                                 var mapping = new ChecklistStageMapping
                                 {
@@ -385,10 +385,10 @@ namespace FlowFlex.Application.Service.OW
                                     CreatedAt = DateTime.UtcNow,
                                     UpdatedAt = DateTime.UtcNow
                                 };
-                                
+
                                 // Initialize snowflake ID and entity info
                                 mapping.InitCreateInfo(_userContext);
-                                
+
                                 return mapping;
                             }).ToList();
 
@@ -525,7 +525,7 @@ namespace FlowFlex.Application.Service.OW
             if (string.IsNullOrWhiteSpace(json)) return json;
             var current = json.Trim();
             if (current.StartsWith("[") || current.StartsWith("{")) return current;
-            
+
             try
             {
                 var inner = JsonSerializer.Deserialize<string>(current);
@@ -535,7 +535,7 @@ namespace FlowFlex.Application.Service.OW
                     if (inner.StartsWith("[") || inner.StartsWith("{")) return inner;
                 }
             }
-            catch {             }
+            catch { }
             return current;
         }
 
@@ -626,7 +626,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 return await _nameSync.GetStagesUsingChecklistAsync(checklistId);
             }
-            
+
             // Fallback to direct mapping query
             return await GetChecklistIdsByWorkflowStageAsync(null, null);
         }
@@ -640,7 +640,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 return await _nameSync.GetStagesUsingQuestionnaireAsync(questionnaireId);
             }
-            
+
             // Fallback to direct mapping query
             return await GetQuestionnaireIdsByWorkflowStageAsync(null, null);
         }

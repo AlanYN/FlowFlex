@@ -133,7 +133,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 var pagedData = await _checklistService.QueryAsync(query);
                 return Success(pagedData);
             }
-            
+
             // Otherwise, use original simple list
             var data = await _checklistService.GetListAsync(team);
             return Success(data);

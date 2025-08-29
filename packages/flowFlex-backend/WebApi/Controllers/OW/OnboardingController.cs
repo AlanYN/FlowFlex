@@ -577,7 +577,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 Status = status,
                 WorkflowId = workflowId,
                 IsActive = isActive,
-                OnboardingIds = !string.IsNullOrEmpty(onboardingIds) 
+                OnboardingIds = !string.IsNullOrEmpty(onboardingIds)
                     ? onboardingIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
                         .Select(id => long.TryParse(id.Trim(), out var parsedId) ? parsedId : 0)
                         .Where(id => id > 0)

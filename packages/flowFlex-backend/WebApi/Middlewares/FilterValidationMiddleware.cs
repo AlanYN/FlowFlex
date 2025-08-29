@@ -23,7 +23,7 @@ namespace FlowFlex.WebApi.Middlewares
         public async Task InvokeAsync(HttpContext context)
         {
             // 检查 AppContext 是否已设置
-            if (context.Items.TryGetValue("AppContext", out var appContextObj) && 
+            if (context.Items.TryGetValue("AppContext", out var appContextObj) &&
                 appContextObj is AppContext appContext)
             {
                 // 验证 AppContext 中的值
@@ -46,16 +46,16 @@ namespace FlowFlex.WebApi.Middlewares
                     context.Request.Path,
                     appContext.AppCode,
                     appContext.TenantId);
-                    
+
                 // 确保请求头中包含这些值
-                if (!context.Request.Headers.ContainsKey("X-App-Code") || 
+                if (!context.Request.Headers.ContainsKey("X-App-Code") ||
                     string.IsNullOrEmpty(context.Request.Headers["X-App-Code"]))
                 {
                     context.Request.Headers["X-App-Code"] = appContext.AppCode;
                     _logger.LogInformation($"[FilterValidationMiddleware] Added X-App-Code header: {appContext.AppCode}");
                 }
-                
-                if (!context.Request.Headers.ContainsKey("X-Tenant-Id") || 
+
+                if (!context.Request.Headers.ContainsKey("X-Tenant-Id") ||
                     string.IsNullOrEmpty(context.Request.Headers["X-Tenant-Id"]))
                 {
                     context.Request.Headers["X-Tenant-Id"] = appContext.TenantId;
@@ -69,7 +69,7 @@ namespace FlowFlex.WebApi.Middlewares
                     "[FilterValidationMiddleware] AppContext not set for request: {Method} {Path}",
                     context.Request.Method,
                     context.Request.Path);
-                
+
                 // 创建默认的 AppContext
                 var defaultAppContext = new AppContext
                 {
@@ -80,16 +80,16 @@ namespace FlowFlex.WebApi.Middlewares
                     UserAgent = context.Request.Headers["User-Agent"].ToString(),
                     RequestTime = System.DateTimeOffset.UtcNow
                 };
-                
+
                 context.Items["AppContext"] = defaultAppContext;
-                
+
                 // 确保请求头包含这些值
                 if (!context.Request.Headers.ContainsKey("X-App-Code"))
                 {
                     context.Request.Headers["X-App-Code"] = "DEFAULT";
                     _logger.LogInformation("[FilterValidationMiddleware] Added default X-App-Code header: DEFAULT");
                 }
-                
+
                 if (!context.Request.Headers.ContainsKey("X-Tenant-Id"))
                 {
                     context.Request.Headers["X-Tenant-Id"] = "DEFAULT";
@@ -107,4 +107,4 @@ namespace FlowFlex.WebApi.Middlewares
             await _next(context);
         }
     }
-} 
+}

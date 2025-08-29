@@ -64,7 +64,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Initialize create info which should set the ID
                 accessToken.InitCreateInfo(_userContext);
-                
+
                 // If ID is still 0, manually set it using timestamp
                 if (accessToken.Id == 0)
                 {
@@ -73,7 +73,7 @@ namespace FlowFlex.Application.Services.OW
 
                 var tokenId = await _accessTokenRepository.CreateAsync(accessToken);
 
-                _logger.LogInformation("Created new access token {TokenId} for user {UserId} with JTI {Jti}", 
+                _logger.LogInformation("Created new access token {TokenId} for user {UserId} with JTI {Jti}",
                     tokenId, userId, jti);
 
                 return tokenId;
@@ -125,7 +125,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var result = await _accessTokenRepository.RevokeTokenAsync(jti, reason);
-                
+
                 if (result)
                 {
                     _logger.LogInformation("Revoked token {Jti} with reason: {Reason}", jti, reason);
@@ -152,8 +152,8 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var revokedCount = await _accessTokenRepository.RevokeUserTokensAsync(userId, null, reason);
-                
-                _logger.LogInformation("Revoked {Count} tokens for user {UserId} with reason: {Reason}", 
+
+                _logger.LogInformation("Revoked {Count} tokens for user {UserId} with reason: {Reason}",
                     revokedCount, userId, reason);
 
                 return revokedCount;
@@ -189,7 +189,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var cleanedCount = await _accessTokenRepository.CleanupExpiredTokensAsync();
-                
+
                 if (cleanedCount > 0)
                 {
                     _logger.LogInformation("Cleaned up {Count} expired tokens", cleanedCount);
@@ -214,4 +214,4 @@ namespace FlowFlex.Application.Services.OW
             return Convert.ToBase64String(hashedBytes);
         }
     }
-} 
+}

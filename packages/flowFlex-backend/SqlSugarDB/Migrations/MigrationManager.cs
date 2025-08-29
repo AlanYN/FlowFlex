@@ -168,14 +168,14 @@ namespace FlowFlex.SqlSugarDB.Migrations
         private Dictionary<string, bool> PreCheckMigrationStatuses(string[] migrationIds)
         {
             var statuses = new Dictionary<string, bool>();
-            
+
             try
             {
                 // Query all migration statuses in one go using IN clause (more compatible)
                 var migrationIdList = string.Join(",", migrationIds.Select(id => $"'{id}'"));
                 var sql = $"SELECT migration_id FROM __migration_history WHERE migration_id IN ({migrationIdList})";
                 var executedMigrations = _db.Ado.SqlQuery<string>(sql);
-                
+
                 foreach (var migrationId in migrationIds)
                 {
                     statuses[migrationId] = executedMigrations.Contains(migrationId);
@@ -189,7 +189,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     statuses[migrationId] = false; // Assume not executed
                 }
             }
-            
+
             return statuses;
         }
 
@@ -207,8 +207,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (!exists)
                 {
                     if (_verboseLogging)
-                {
-                    Console.WriteLine($"[MigrationManager] Executing migration: {migrationId}");
+                    {
+                        Console.WriteLine($"[MigrationManager] Executing migration: {migrationId}");
                     }
 
                     // Execute migration
@@ -219,7 +219,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     if (_verboseLogging)
                     {
-                    Console.WriteLine($"[MigrationManager] Migration {migrationId} completed successfully");
+                        Console.WriteLine($"[MigrationManager] Migration {migrationId} completed successfully");
                     }
                     return true;
                 }
@@ -244,17 +244,17 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("[MigrationManager] Starting migration rollback...");
-                
+
                 // 按照逆序回滚迁移（最新的先回滚）
                 CreateAIPromptHistoryTable_20250125000001.Down(_db);
                 Console.WriteLine("[MigrationManager] Rolled back CreateAIPromptHistoryTable_20250125000001");
-                
+
                 IncreaseAIModelConfigFieldLengths_20250102000001.Down(_db);
                 Console.WriteLine("[MigrationManager] Rolled back IncreaseAIModelConfigFieldLengths_20250102000001");
-                
+
                 AddUserAIModelConfig_20250801000001.Down(_db);
                 Console.WriteLine("[MigrationManager] Rolled back AddUserAIModelConfig_20250801000001");
-                
+
                 // 回滚其他迁移
                 // SeedDemoData_20250101000002.Down(_db);
                 InitialCreate_20250101000000.Down(_db);
@@ -263,7 +263,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 // Clear migration history
                 _db.Ado.ExecuteCommand("DELETE FROM __migration_history");
                 Console.WriteLine("[MigrationManager] Cleared migration history");
-                
+
                 Console.WriteLine("[MigrationManager] Migration rollback completed successfully");
             }
             catch (Exception ex)

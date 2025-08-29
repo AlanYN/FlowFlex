@@ -29,7 +29,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 // 1. When saving stagesProgress, only essential fields are included in JSON
                 // 2. When loading stagesProgress, missing fields are populated from Stage entity
                 // 3. New method EnrichStagesProgressWithStageData() handles the population
-                
+
                 // Add a comment to indicate the migration ran successfully
                 Console.WriteLine("StagesProgress structure simplification completed successfully.");
                 Console.WriteLine("Changes:");
@@ -53,11 +53,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("Rolling back SimplifyStagesProgressStructure migration...");
-                
+
                 // Since this migration only affects application logic and not database schema,
                 // rollback is handled by reverting the application code changes.
                 // No database schema changes to revert.
-                
+
                 Console.WriteLine("SimplifyStagesProgressStructure migration rollback completed.");
             }
             catch (Exception ex)
@@ -67,4 +67,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

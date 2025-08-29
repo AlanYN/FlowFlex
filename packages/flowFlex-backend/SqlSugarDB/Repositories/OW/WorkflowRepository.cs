@@ -152,9 +152,9 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[WorkflowRepository] ExistsNameAsync with name={name}, TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             var query = db.Queryable<Workflow>()
                 .Where(x => x.Name == name && x.IsValid == true)
                 .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode); // 添加租户和应用代码过滤
@@ -197,21 +197,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // 显式添加租户和应用过滤条件
             var query = db.Queryable<Workflow>()
                 .Where(x => x.IsActive == true && x.IsValid == true);
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[WorkflowRepository] GetActiveWorkflowsAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 执行查询
             var result = await query.OrderBy(x => x.Name).ToListAsync();
-            
+
             _logger.LogInformation($"[WorkflowRepository] GetActiveWorkflowsAsync returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -231,25 +231,25 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // 显式添加租户和应用过滤条件
             var query = db.Queryable<Workflow>().Where(x => x.IsValid == true);
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[WorkflowRepository] GetAllWorkflowsAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 移除Includes预加载Stage数据以优化性能
             // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
             // query = query.Includes(x => x.Stages.Where(s => s.IsValid == true).ToList());
-            
+
             // 执行查询
             var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
-            
+
             _logger.LogInformation($"[WorkflowRepository] GetAllWorkflowsAsync returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -269,21 +269,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // 显式添加租户和应用过滤条件
             var query = db.Queryable<Workflow>().Where(x => x.IsValid == true);
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[WorkflowRepository] GetAllOptimizedAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 执行查询
             var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
-            
+
             _logger.LogInformation($"[WorkflowRepository] GetAllOptimizedAsync returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -351,21 +351,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // 显式添加租户和应用过滤条件
             var query = db.Queryable<Workflow>().Where(x => x.IsValid == true);
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[WorkflowRepository] Applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 执行查询
             var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync(cancellationToken);
-            
+
             _logger.LogInformation($"[WorkflowRepository] Query returned {result.Count} workflows with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -375,22 +375,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<List<Workflow>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
         {
             _logger.LogInformation($"[WorkflowRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
-            
+
             // 临时禁用全局过滤器
             db.QueryFilter.ClearAndBackup();
-            
+
             try
             {
                 // 使用显式过滤条件
                 var query = db.Queryable<Workflow>()
                     .Where(x => x.IsValid == true)
                     .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
-                
+
                 // 执行查询
                 var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync();
-                
+
                 _logger.LogInformation($"[WorkflowRepository] Query returned {result.Count} workflows with explicit filters");
-                
+
                 return result;
             }
             finally
