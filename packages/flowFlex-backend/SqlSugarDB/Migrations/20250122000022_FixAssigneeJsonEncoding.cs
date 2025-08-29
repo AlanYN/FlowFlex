@@ -49,7 +49,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         WHERE assignee_json::text LIKE '%\\u5F20\\u4E09%' 
                         OR assignee_json::text LIKE '%\\u5F00\\u53D1\\u56E2\\u961F%';
                     ");
-                    
+
                     Console.WriteLine("[FixAssigneeJsonEncoding] Fixed Unicode escaping in assignee names");
                 }
                 catch (Exception ex)

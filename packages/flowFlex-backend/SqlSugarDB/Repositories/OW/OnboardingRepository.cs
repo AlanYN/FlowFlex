@@ -493,21 +493,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // 显式添加租户和应用过滤条件
             var query = db.Queryable<Onboarding>().Where(x => x.IsValid == true);
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetListAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 执行查询
             var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync(cancellationToken);
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetListAsync returned {result.Count} onboardings with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -531,21 +531,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
                 _logger.LogInformation($"[OnboardingRepository] GetPageListAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
             }
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetPageListAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 添加租户和应用过滤条件
             whereExpressionList.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 调用基类方法
             var result = await base.GetPageListAsync(whereExpressionList, pageIndex, pageSize, orderByExpression, isAsc, selectedColumnExpression, cancellationToken);
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetPageListAsync returned {result.datas.Count} onboardings out of {result.total} total with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -555,22 +555,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<List<Onboarding>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
         {
             _logger.LogInformation($"[OnboardingRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
-            
+
             // 临时禁用全局过滤器
             db.QueryFilter.ClearAndBackup();
-            
+
             try
             {
                 // 使用显式过滤条件
                 var query = db.Queryable<Onboarding>()
                     .Where(x => x.IsValid == true)
                     .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
-                
+
                 // 执行查询
                 var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
-                
+
                 _logger.LogInformation($"[OnboardingRepository] GetListWithExplicitFiltersAsync returned {result.Count} onboardings with explicit filters");
-                
+
                 return result;
             }
             finally

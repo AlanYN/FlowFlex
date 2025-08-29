@@ -70,7 +70,7 @@ public abstract class ControllerBase : Microsoft.AspNetCore.Mvc.ControllerBase
     {
         // 从请求头中获取用户ID
         var userIdHeader = HttpContext.Request.Headers["X-User-Id"].FirstOrDefault();
-        
+
         // 如果请求头中没有用户ID，则从JWT令牌中获取
         if (string.IsNullOrEmpty(userIdHeader))
         {

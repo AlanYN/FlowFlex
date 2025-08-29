@@ -22,7 +22,7 @@ namespace FlowFlex.Application.Services.OW
     public class QuestionnaireAnswerService : IQuestionnaireAnswerService, IScopedService
     {
         private readonly IQuestionnaireAnswerRepository _repository;
-    
+
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IOperationChangeLogService _operationChangeLogService;
@@ -34,7 +34,7 @@ namespace FlowFlex.Application.Services.OW
 
         public QuestionnaireAnswerService(
             IQuestionnaireAnswerRepository repository,
-    
+
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
             IOperationChangeLogService operationChangeLogService,
@@ -45,7 +45,7 @@ namespace FlowFlex.Application.Services.OW
             IOperatorContextService operatorContextService)
         {
             _repository = repository;
-    
+
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
             _operationChangeLogService = operationChangeLogService;

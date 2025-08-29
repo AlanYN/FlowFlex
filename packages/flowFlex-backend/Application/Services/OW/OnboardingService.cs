@@ -1,3 +1,4 @@
+using FlowFlex.Infrastructure.Services;
 using AutoMapper;
 using MediatR;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
@@ -23,6 +24,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Utils;
 using Microsoft.Extensions.DependencyInjection;
+using FlowFlex.Infrastructure.Extensions;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -47,6 +49,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -68,7 +71,8 @@ namespace FlowFlex.Application.Services.OW
             IChecklistService checklistService,
             IQuestionnaireService questionnaireService,
             IOperatorContextService operatorContextService,
-            IServiceScopeFactory serviceScopeFactory)
+            IServiceScopeFactory serviceScopeFactory,
+            IBackgroundTaskQueue backgroundTaskQueue)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -86,6 +90,7 @@ namespace FlowFlex.Application.Services.OW
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
             _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
+            _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
         }
 
         /// <summary>
@@ -486,7 +491,7 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                     // Clear query cache (async execution, doesn't affect main flow)
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
@@ -564,7 +569,7 @@ namespace FlowFlex.Application.Services.OW
                 entity.ModifyDate = DateTimeOffset.UtcNow;
                 entity.ModifyBy = _operatorContextService.GetOperatorDisplayName();
                 entity.ModifyUserId = _operatorContextService.GetOperatorId();
-                                                               // Debug logging handled by structured logging
+                // Debug logging handled by structured logging
                 var result = await SafeUpdateOnboardingAsync(entity);
 
                 // Log onboarding update and clear cache
@@ -586,7 +591,7 @@ namespace FlowFlex.Application.Services.OW
                     });
 
                     // Clear related cache data (async execution, doesn't affect main flow)
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
@@ -779,7 +784,7 @@ namespace FlowFlex.Application.Services.OW
                     var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
                     result.CurrentStageName = stage?.Name;
                     result.CurrentStageEstimatedDays = stage?.EstimatedDuration;
-                    
+
                     // Calculate current stage end time based on start time + estimated days
                     if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
                     {
@@ -1641,7 +1646,7 @@ namespace FlowFlex.Application.Services.OW
                 try
                 {
                     var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
                         if (ai != null && ai.Success)
@@ -1685,7 +1690,7 @@ namespace FlowFlex.Application.Services.OW
                 try
                 {
                     var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
                         if (ai != null && ai.Success)
@@ -1868,7 +1873,7 @@ namespace FlowFlex.Application.Services.OW
             //            sp.AiSummaryConfidence = null;
             //            sp.AiSummaryModel = null;
             //            sp.AiSummaryData = null;
-            //            _ = Task.Run(async () =>
+            //            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
             //            {
             //                try
             //                {
@@ -2187,8 +2192,8 @@ namespace FlowFlex.Application.Services.OW
             await LogOnboardingActionAsync(entity, "Cancel Onboarding", "onboarding_cancel", true, new
             {
                 CancellationReason = reason,
-                                    CancelledAt = DateTimeOffset.UtcNow,
-                    CancelledBy = _operatorContextService.GetOperatorDisplayName()
+                CancelledAt = DateTimeOffset.UtcNow,
+                CancelledBy = _operatorContextService.GetOperatorDisplayName()
             });
 
             return await _onboardingRepository.UpdateStatusAsync(id, "Cancelled");
@@ -2379,10 +2384,10 @@ namespace FlowFlex.Application.Services.OW
         {
             var entities = await _onboardingRepository.GetOverdueListAsync();
             var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-            
+
             // Populate workflow/stage names and calculate current stage end time
             await PopulateOnboardingOutputDtoAsync(results, entities);
-            
+
             return results;
         }
 
@@ -2923,7 +2928,7 @@ namespace FlowFlex.Application.Services.OW
                 catch { }
 
                 // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
-                _ = Task.Run(async () =>
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -3009,9 +3014,9 @@ namespace FlowFlex.Application.Services.OW
                     onboardingStageCompletedEvent.BusinessContext["Components.RequiredFieldsCount"] = componentsPayload2?.RequiredFields?.Count ?? 0;
                 }
                 catch { }
-                
+
                 // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
-                _ = Task.Run(async () =>
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -3044,9 +3049,9 @@ namespace FlowFlex.Application.Services.OW
         {
             var payload = new StageCompletionComponents();
 
-            Console.WriteLine($"[DEBUG] BuildStageCompletionComponentsAsync - OnboardingId: {onboardingId}, StageId: {stageId}");
-            Console.WriteLine($"[DEBUG] Initial stageComponents count: {stageComponents?.Count ?? 0}");
-            Console.WriteLine($"[DEBUG] Initial componentsJson: {(!string.IsNullOrWhiteSpace(componentsJson) ? "Present" : "Missing")}");
+            LoggingExtensions.WriteLine($"[DEBUG] BuildStageCompletionComponentsAsync - OnboardingId: {onboardingId}, StageId: {stageId}");
+            LoggingExtensions.WriteLine($"[DEBUG] Initial stageComponents count: {stageComponents?.Count ?? 0}");
+            LoggingExtensions.WriteLine($"[DEBUG] Initial componentsJson: {(!string.IsNullOrWhiteSpace(componentsJson) ? "Present" : "Missing")}");
 
             // Ensure we have componentsJson from DB if missing
             if (string.IsNullOrWhiteSpace(componentsJson))
@@ -3057,12 +3062,12 @@ namespace FlowFlex.Application.Services.OW
                     if (!string.IsNullOrWhiteSpace(stageEntity?.ComponentsJson))
                     {
                         componentsJson = stageEntity.ComponentsJson;
-                        Console.WriteLine($"[DEBUG] Retrieved componentsJson from DB: {componentsJson.Substring(0, Math.Min(200, componentsJson.Length))}...");
+                        LoggingExtensions.WriteLine($"[DEBUG] Retrieved componentsJson from DB: {componentsJson.Substring(0, Math.Min(200, componentsJson.Length))}...");
                     }
                 }
-                catch (Exception ex) 
-                { 
-                    Console.WriteLine($"[DEBUG] Error retrieving componentsJson from DB: {ex.Message}");
+                catch (Exception ex)
+                {
+                    LoggingExtensions.WriteLine($"[DEBUG] Error retrieving componentsJson from DB: {ex.Message}");
                 }
             }
 
@@ -3072,15 +3077,15 @@ namespace FlowFlex.Application.Services.OW
                 try
                 {
                     stageComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson) ?? new List<StageComponent>();
-                    Console.WriteLine($"[DEBUG] Standard JSON deserialization successful, components count: {stageComponents.Count}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Standard JSON deserialization successful, components count: {stageComponents.Count}");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[DEBUG] Standard JSON deserialization failed: {ex.Message}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Standard JSON deserialization failed: {ex.Message}");
                     // Fallback: parse components from raw JSON with lenient parsing
-                                            var (parsedComponents, parsedStaticFields) = ParseComponentsFromJson(componentsJson);
+                    var (parsedComponents, parsedStaticFields) = ParseComponentsFromJson(componentsJson);
                     stageComponents = parsedComponents;
-                    Console.WriteLine($"[DEBUG] Lenient parsing successful, components count: {stageComponents.Count}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Lenient parsing successful, components count: {stageComponents.Count}");
                 }
             }
 
@@ -3093,21 +3098,21 @@ namespace FlowFlex.Application.Services.OW
                     if (comps != null && comps.Count > 0)
                     {
                         stageComponents = comps;
-                        Console.WriteLine($"[DEBUG] Retrieved components from service, count: {stageComponents.Count}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Retrieved components from service, count: {stageComponents.Count}");
                     }
                 }
-                catch (Exception ex) 
-                { 
-                    Console.WriteLine($"[DEBUG] Error retrieving components from service: {ex.Message}");
+                catch (Exception ex)
+                {
+                    LoggingExtensions.WriteLine($"[DEBUG] Error retrieving components from service: {ex.Message}");
                 }
             }
 
-            Console.WriteLine($"[DEBUG] Final stageComponents count before processing: {stageComponents?.Count ?? 0}");
+            LoggingExtensions.WriteLine($"[DEBUG] Final stageComponents count before processing: {stageComponents?.Count ?? 0}");
 
             // Process components to populate payload
             await ProcessStageComponentsAsync(onboardingId, stageId, stageComponents, componentsJson, payload);
 
-            Console.WriteLine($"[DEBUG] Final payload counts - Checklists: {payload.Checklists.Count}, Questionnaires: {payload.Questionnaires.Count}, TaskCompletions: {payload.TaskCompletions.Count}, RequiredFields: {payload.RequiredFields.Count}");
+            LoggingExtensions.WriteLine($"[DEBUG] Final payload counts - Checklists: {payload.Checklists.Count}, Questionnaires: {payload.Questionnaires.Count}, TaskCompletions: {payload.TaskCompletions.Count}, RequiredFields: {payload.RequiredFields.Count}");
 
             return payload;
         }
@@ -3126,55 +3131,55 @@ namespace FlowFlex.Application.Services.OW
                 string currentJson = componentsJson;
                 JsonDocument currentDoc = null;
                 int unwrapCount = 0;
-                
+
                 while (true)
                 {
                     currentDoc?.Dispose();
                     currentDoc = JsonDocument.Parse(currentJson);
-                    Console.WriteLine($"[DEBUG] JSON unwrap #{unwrapCount}: root type = {currentDoc.RootElement.ValueKind}");
-                    
+                    LoggingExtensions.WriteLine($"[DEBUG] JSON unwrap #{unwrapCount}: root type = {currentDoc.RootElement.ValueKind}");
+
                     if (currentDoc.RootElement.ValueKind == JsonValueKind.Array)
                     {
-                        Console.WriteLine($"[DEBUG] Found JSON array after {unwrapCount} unwraps");
+                        LoggingExtensions.WriteLine($"[DEBUG] Found JSON array after {unwrapCount} unwraps");
                         break;
                     }
                     else if (currentDoc.RootElement.ValueKind == JsonValueKind.String)
                     {
                         currentJson = currentDoc.RootElement.GetString();
-                        Console.WriteLine($"[DEBUG] Unwrapped JSON string, length: {currentJson?.Length}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Unwrapped JSON string, length: {currentJson?.Length}");
                         unwrapCount++;
-                        
+
                         if (unwrapCount > 5) // Prevent infinite loop
                         {
-                            Console.WriteLine($"[ERROR] Too many JSON unwrap levels, stopping at {unwrapCount}");
+                            LoggingExtensions.WriteLine($"[ERROR] Too many JSON unwrap levels, stopping at {unwrapCount}");
                             break;
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"[ERROR] Unexpected JSON root type: {currentDoc.RootElement.ValueKind}");
+                        LoggingExtensions.WriteLine($"[ERROR] Unexpected JSON root type: {currentDoc.RootElement.ValueKind}");
                         break;
                     }
                 }
-                
+
                 if (currentDoc.RootElement.ValueKind == JsonValueKind.Array)
                 {
-                    Console.WriteLine($"[DEBUG] Processing {currentDoc.RootElement.GetArrayLength()} JSON array elements");
+                    LoggingExtensions.WriteLine($"[DEBUG] Processing {currentDoc.RootElement.GetArrayLength()} JSON array elements");
                     int elementIndex = 0;
                     foreach (var elem in currentDoc.RootElement.EnumerateArray())
                     {
-                        Console.WriteLine($"[DEBUG] Element {elementIndex}: Type={elem.ValueKind}");
-                        if (elem.ValueKind != JsonValueKind.Object) 
+                        LoggingExtensions.WriteLine($"[DEBUG] Element {elementIndex}: Type={elem.ValueKind}");
+                        if (elem.ValueKind != JsonValueKind.Object)
                         {
                             elementIndex++;
                             continue;
                         }
-                        
+
                         // Get key with both camelCase and PascalCase support
                         string key = GetJsonProperty(elem, "key", "Key");
-                        Console.WriteLine($"[DEBUG] Element {elementIndex} - Raw JSON: {elem.GetRawText()}");
-                        Console.WriteLine($"[DEBUG] Element {elementIndex} - Extracted key: '{key}'");
-                        if (string.IsNullOrWhiteSpace(key)) 
+                        LoggingExtensions.WriteLine($"[DEBUG] Element {elementIndex} - Raw JSON: {elem.GetRawText()}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Element {elementIndex} - Extracted key: '{key}'");
+                        if (string.IsNullOrWhiteSpace(key))
                         {
                             elementIndex++;
                             continue;
@@ -3244,24 +3249,24 @@ namespace FlowFlex.Application.Services.OW
                                     }
                                 }
                             }
-                            
+
                             // Also populate the StageComponent
                             component.StaticFields = new List<string>(staticFieldNames);
                         }
 
                         // Add component to list after processing all types
                         stageComponents.Add(component);
-                        Console.WriteLine($"[DEBUG] Added component '{key}' to list, total count: {stageComponents.Count}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Added component '{key}' to list, total count: {stageComponents.Count}");
                         elementIndex++;
                     }
                 }
-                Console.WriteLine($"[DEBUG] ParseComponentsFromJson completed - Components: {stageComponents.Count}, StaticFields: {staticFieldNames.Count}");
-                
+                LoggingExtensions.WriteLine($"[DEBUG] ParseComponentsFromJson completed - Components: {stageComponents.Count}, StaticFields: {staticFieldNames.Count}");
+
                 currentDoc?.Dispose();
             }
-            catch (Exception ex) 
-            { 
-                Console.WriteLine($"[ERROR] ParseComponentsFromJson failed: {ex.Message}");
+            catch (Exception ex)
+            {
+                LoggingExtensions.WriteLine($"[ERROR] ParseComponentsFromJson failed: {ex.Message}");
             }
 
             return (stageComponents, staticFieldNames);
@@ -3322,7 +3327,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Get checklist components - prioritize stageComponents, fallback to JSON parsing
                 var checklistComponents = (stageComponents ?? new List<StageComponent>()).Where(c => c.Key == "checklist").ToList();
-                
+
                 if (checklistComponents.Count == 0 && !string.IsNullOrWhiteSpace(componentsJson))
                 {
                     var (parsedComponents, _) = ParseComponentsFromJson(componentsJson);
@@ -3340,7 +3345,7 @@ namespace FlowFlex.Application.Services.OW
                             var checklistName = (component.ChecklistNames != null && component.ChecklistNames.Count > i)
                                 ? component.ChecklistNames[i]
                                 : $"Checklist {checklistId}";
-                            
+
                             // Get detailed checklist information
                             try
                             {
@@ -3400,7 +3405,7 @@ namespace FlowFlex.Application.Services.OW
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[ERROR] Failed to get checklist details for {checklistId}: {ex.Message}");
+                                LoggingExtensions.WriteLine($"[ERROR] Failed to get checklist details for {checklistId}: {ex.Message}");
                                 // Fallback to basic info
                                 payload.Checklists.Add(new ChecklistComponentInfo
                                 {
@@ -3440,7 +3445,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Get questionnaire components - prioritize stageComponents, fallback to JSON parsing
                 var questionnaireComponents = (stageComponents ?? new List<StageComponent>()).Where(c => c.Key == "questionnaires").ToList();
-                
+
                 if (questionnaireComponents.Count == 0 && !string.IsNullOrWhiteSpace(componentsJson))
                 {
                     var (parsedComponents, _) = ParseComponentsFromJson(componentsJson);
@@ -3458,7 +3463,7 @@ namespace FlowFlex.Application.Services.OW
                             var questionnaireName = (component.QuestionnaireNames != null && component.QuestionnaireNames.Count > i)
                                 ? component.QuestionnaireNames[i]
                                 : $"Questionnaire {questionnaireId}";
-                            
+
                             // Get detailed questionnaire information
                             try
                             {
@@ -3494,7 +3499,7 @@ namespace FlowFlex.Application.Services.OW
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[ERROR] Failed to get questionnaire details for {questionnaireId}: {ex.Message}");
+                                LoggingExtensions.WriteLine($"[ERROR] Failed to get questionnaire details for {questionnaireId}: {ex.Message}");
                                 // Fallback to basic info
                                 payload.Questionnaires.Add(new QuestionnaireComponentInfo
                                 {
@@ -3561,10 +3566,10 @@ namespace FlowFlex.Application.Services.OW
                             foreach (var elem in doc.RootElement.EnumerateArray())
                             {
                                 if (elem.ValueKind != JsonValueKind.Object) continue;
-                                
+
                                 string key = GetJsonProperty(elem, "key", "Key");
                                 if (!string.Equals(key, "fields", StringComparison.OrdinalIgnoreCase)) continue;
-                                
+
                                 var sfArr = GetJsonArrayProperty(elem, "staticFields", "StaticFields");
                                 if (sfArr.HasValue)
                                 {
@@ -3589,7 +3594,7 @@ namespace FlowFlex.Application.Services.OW
                 // Load existing field values
                 var fieldValues = await _staticFieldValueService.GetLatestByOnboardingAndStageAsync(onboardingId, stageId);
                 var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                
+
                 foreach (var f in fieldValues)
                 {
                     payload.RequiredFields.Add(new RequiredFieldInfo
@@ -3880,13 +3885,13 @@ namespace FlowFlex.Application.Services.OW
                 LoadStagesProgressFromJson(entity);
 
                 // Debug: Check if stageIds are correctly loaded
-                Console.WriteLine($"[DEBUG] UpdateStagesProgressAsync - After LoadStagesProgressFromJson:");
-                Console.WriteLine($"[DEBUG] StagesProgress count: {entity.StagesProgress?.Count ?? 0}");
+                LoggingExtensions.WriteLine($"[DEBUG] UpdateStagesProgressAsync - After LoadStagesProgressFromJson:");
+                LoggingExtensions.WriteLine($"[DEBUG] StagesProgress count: {entity.StagesProgress?.Count ?? 0}");
                 if (entity.StagesProgress != null)
                 {
                     foreach (var sp in entity.StagesProgress)
                     {
-                        Console.WriteLine($"[DEBUG] StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                        LoggingExtensions.WriteLine($"[DEBUG] StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
                     }
                 }
 
@@ -4000,8 +4005,8 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
                     // Debug: Show input JSON
-                    Console.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Input JSON:");
-                    Console.WriteLine($"[DEBUG] {entity.StagesProgressJson}");
+                    LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Input JSON:");
+                    LoggingExtensions.WriteLine($"[DEBUG] {entity.StagesProgressJson}");
 
                     // Configure JsonSerializer options to handle both formats
                     var options = new JsonSerializerOptions
@@ -4017,10 +4022,10 @@ namespace FlowFlex.Application.Services.OW
                         entity.StagesProgressJson, options) ?? new List<OnboardingStageProgress>();
 
                     // Debug: Show loaded data
-                    Console.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Loaded {entity.StagesProgress.Count} items:");
+                    LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Loaded {entity.StagesProgress.Count} items:");
                     foreach (var sp in entity.StagesProgress)
                     {
-                        Console.WriteLine($"[DEBUG] Loaded StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Loaded StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
                     }
 
                     // Only fix stage order when needed, avoid unnecessary serialization
@@ -4038,7 +4043,7 @@ namespace FlowFlex.Application.Services.OW
             catch (JsonException jsonEx)
             {
                 // Handle JSON parsing errors specifically
-                Console.WriteLine($"JSON parsing error in LoadStagesProgressFromJson: {jsonEx.Message}");
+                LoggingExtensions.WriteLine($"JSON parsing error in LoadStagesProgressFromJson: {jsonEx.Message}");
                 entity.StagesProgress = new List<OnboardingStageProgress>();
             }
             catch (Exception ex)
@@ -4566,7 +4571,7 @@ namespace FlowFlex.Application.Services.OW
                                     IncludeTaskAnalysis = true,
                                     IncludeQuestionnaireInsights = true
                                 };
-                                _ = Task.Run(async () =>
+                                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                                 {
                                     var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
                                     if (ai != null && ai.Success)
@@ -4608,7 +4613,7 @@ namespace FlowFlex.Application.Services.OW
                                         IncludeTaskAnalysis = true,
                                         IncludeQuestionnaireInsights = true
                                     };
-                                    _ = Task.Run(async () =>
+                                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                                     {
                                         var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
                                         if (ai != null && ai.Success)
@@ -4805,7 +4810,7 @@ namespace FlowFlex.Application.Services.OW
                     catch (Exception progressEx)
                     {
                         // Log but don't fail the main update
-                        Console.WriteLine($"Warning: Failed to update stages_progress_json: {progressEx.Message}");
+                        LoggingExtensions.WriteLine($"Warning: Failed to update stages_progress_json: {progressEx.Message}");
                         // Try alternative approach with parameter substitution
                         try
                         {
@@ -4815,7 +4820,7 @@ namespace FlowFlex.Application.Services.OW
                         }
                         catch (Exception directEx)
                         {
-                            Console.WriteLine($"Error: Both parameterized and direct JSONB update failed: {directEx.Message}");
+                            LoggingExtensions.WriteLine($"Error: Both parameterized and direct JSONB update failed: {directEx.Message}");
                         }
                     }
                 }
@@ -4907,10 +4912,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Debug: Check input data before serialization
-                Console.WriteLine($"[DEBUG] SerializeStagesProgress - Input data:");
+                LoggingExtensions.WriteLine($"[DEBUG] SerializeStagesProgress - Input data:");
                 foreach (var sp in stagesProgress)
                 {
-                    Console.WriteLine($"[DEBUG] Input StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Input StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
                 }
 
                 // Serialize OnboardingStageProgress objects with JsonIgnore attributes respected
@@ -4923,8 +4928,8 @@ namespace FlowFlex.Application.Services.OW
                 });
 
                 // Debug: Check final result
-                Console.WriteLine($"[DEBUG] SerializeStagesProgress - Final JSON result:");
-                Console.WriteLine($"[DEBUG] {result}");
+                LoggingExtensions.WriteLine($"[DEBUG] SerializeStagesProgress - Final JSON result:");
+                LoggingExtensions.WriteLine($"[DEBUG] {result}");
 
                 return result;
             }
@@ -4963,10 +4968,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-                
+
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, entities);
-                
+
                 return results;
             }
             catch (Exception ex)
@@ -5002,10 +5007,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-                
+
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, entities);
-                
+
                 return results;
             }
             catch (Exception ex)
@@ -5041,10 +5046,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-                
+
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, entities);
-                
+
                 return results;
             }
             catch (Exception ex)
@@ -5170,7 +5175,7 @@ namespace FlowFlex.Application.Services.OW
                 var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
                 if (onboarding == null)
                 {
-                    Console.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
+                    LoggingExtensions.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
                     return false;
                 }
 
@@ -5181,7 +5186,7 @@ namespace FlowFlex.Application.Services.OW
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
                 if (stageProgress == null)
                 {
-                    Console.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId}");
+                    LoggingExtensions.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId}");
                     return false;
                 }
 
@@ -5204,13 +5209,13 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
-                Console.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
-                
+                LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
+                LoggingExtensions.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
                 return false;
             }
         }
@@ -5251,7 +5256,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
-                
+
                 return result;
             }
             catch (Exception ex)
@@ -5281,7 +5286,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
                     result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
-                    
+
                     // Calculate current stage end time based on start time + estimated days
                     if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
                     {

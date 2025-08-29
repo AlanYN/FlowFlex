@@ -183,16 +183,16 @@ namespace FlowFlex.Application.Contracts.IServices
         public bool IncludeApprovals { get; set; } = true;
         public bool IncludeNotifications { get; set; } = true;
         public int EstimatedDuration { get; set; } = 0;
-        
+
         // AI Model Information
         public string? ModelId { get; set; }
         public string? ModelProvider { get; set; }
         public string? ModelName { get; set; }
-        
+
         // Conversation History Information
         public List<AIChatMessage>? ConversationHistory { get; set; }
         public string? SessionId { get; set; }
-        
+
         // Additional Context Information
         public ConversationMetadata? ConversationMetadata { get; set; }
     }
@@ -435,10 +435,10 @@ namespace FlowFlex.Application.Contracts.IServices
     {
         [Newtonsoft.Json.JsonProperty("role")]
         public string Role { get; set; } = string.Empty; // 'user', 'assistant', 'system'
-        
+
         [Newtonsoft.Json.JsonProperty("content")]
         public string Content { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("timestamp")]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
@@ -450,23 +450,23 @@ namespace FlowFlex.Application.Contracts.IServices
     {
         [Newtonsoft.Json.JsonProperty("messages")]
         public List<AIChatMessage> Messages { get; set; } = new();
-        
+
         [Newtonsoft.Json.JsonProperty("context")]
         public string Context { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("sessionId")]
         public string SessionId { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("mode")]
         public string Mode { get; set; } = "general"; // 'workflow_planning', 'general'
-        
+
         // 添加模型相关字段
         [Newtonsoft.Json.JsonProperty("modelId")]
         public string? ModelId { get; set; }
-        
+
         [Newtonsoft.Json.JsonProperty("modelProvider")]
         public string? ModelProvider { get; set; }
-        
+
         [Newtonsoft.Json.JsonProperty("modelName")]
         public string? ModelName { get; set; }
     }
@@ -501,15 +501,15 @@ namespace FlowFlex.Application.Contracts.IServices
         [Newtonsoft.Json.JsonProperty("type")]
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = string.Empty; // 'delta', 'complete', 'error'
-        
+
         [Newtonsoft.Json.JsonProperty("content")]
         [System.Text.Json.Serialization.JsonPropertyName("content")]
         public string Content { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("isComplete")]
         [System.Text.Json.Serialization.JsonPropertyName("isComplete")]
         public bool IsComplete { get; set; }
-        
+
         [Newtonsoft.Json.JsonProperty("sessionId")]
         [System.Text.Json.Serialization.JsonPropertyName("sessionId")]
         public string SessionId { get; set; } = string.Empty;
@@ -552,10 +552,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Checklist tasks information (alias for compatibility)
         /// </summary>
-        public List<AISummaryTaskInfo> ChecklistTasks 
-        { 
-            get => Tasks; 
-            set => Tasks = value; 
+        public List<AISummaryTaskInfo> ChecklistTasks
+        {
+            get => Tasks;
+            set => Tasks = value;
         }
 
         /// <summary>
@@ -566,10 +566,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Questionnaire questions information (alias for compatibility)
         /// </summary>
-        public List<AISummaryQuestionInfo> QuestionnaireQuestions 
-        { 
-            get => Questions; 
-            set => Questions = value; 
+        public List<AISummaryQuestionInfo> QuestionnaireQuestions
+        {
+            get => Questions;
+            set => Questions = value;
         }
 
         /// <summary>
@@ -646,10 +646,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Task name (alias for TaskTitle)
         /// </summary>
-        public string TaskName 
-        { 
-            get => TaskTitle; 
-            set => TaskTitle = value; 
+        public string TaskName
+        {
+            get => TaskTitle;
+            set => TaskTitle = value;
         }
 
         /// <summary>
@@ -660,10 +660,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Description (alias for TaskDescription)
         /// </summary>
-        public string Description 
-        { 
-            get => TaskDescription; 
-            set => TaskDescription = value; 
+        public string Description
+        {
+            get => TaskDescription;
+            set => TaskDescription = value;
         }
 
         /// <summary>
@@ -893,4 +893,4 @@ namespace FlowFlex.Application.Contracts.IServices
     }
 
     #endregion
-} 
+}

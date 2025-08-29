@@ -15,7 +15,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             // This migration will update existing onboarding records to sync stages progress
             // with the new VisibleInPortal and AttachmentManagementNeeded fields from stages
-            
+
             // First, get all onboarding records that have stages_progress_json
             var onboardings = db.Queryable<dynamic>()
                 .AS("ff_onboarding")
@@ -48,7 +48,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     var stageDict = stages.ToDictionary(
                         s => Convert.ToInt64(s.id),
-                        s => new { 
+                        s => new
+                        {
                             VisibleInPortal = s.visible_in_portal ?? true,
                             AttachmentManagementNeeded = s.attachment_management_needed ?? false,
                             ComponentsJson = s.components_json?.ToString(),
@@ -60,7 +61,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     // Update each stage progress with new fields
                     foreach (var stageProgress in stagesProgress)
                     {
-                        if (stageProgress.TryGetValue("StageId", out object stageIdObj) && 
+                        if (stageProgress.TryGetValue("StageId", out object stageIdObj) &&
                             stageIdObj != null)
                         {
                             if (long.TryParse(stageIdObj.ToString(), out long stageId) &&
@@ -179,4 +180,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

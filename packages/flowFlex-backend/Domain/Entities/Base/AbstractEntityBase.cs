@@ -19,5 +19,5 @@ public abstract class AbstractEntityBase : IdEntityBase, ITenantFilter, IAppFilt
     [IgnoreDisplay]
     [ChangeLogColumn(IsIgnore = true)]
     [SugarColumn(ColumnName = "app_code", IsOnlyIgnoreUpdate = true)]
-    public virtual string AppCode { get; set; }  = string.Empty;
+    public virtual string AppCode { get; set; } = string.Empty;
 }

@@ -58,12 +58,12 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         Task<bool> ValidateStructureAsync(string structureJson);
 
-            /// <summary>
-    /// Get questionnaires by multiple stage IDs (DEPRECATED)
-    /// Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components
-    /// </summary>
-    [Obsolete("This method is deprecated. Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components.")]
-    Task<List<Questionnaire>> GetByStageIdsAsync(List<long> stageIds);
+        /// <summary>
+        /// Get questionnaires by multiple stage IDs (DEPRECATED)
+        /// Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components
+        /// </summary>
+        [Obsolete("This method is deprecated. Use QuestionnaireService.GetByStageIdsAsync() instead, which queries through Stage Components.")]
+        Task<List<Questionnaire>> GetByStageIdsAsync(List<long> stageIds);
 
         /// <summary>
         /// Check if workflow and stage association already exists

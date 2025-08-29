@@ -35,14 +35,14 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     {
                         // Check if column exists first
                         var columnExists = CheckColumnExists(db, "ff_stage", columnName);
-                        
+
                         if (columnExists)
                         {
                             Console.WriteLine($"Dropping column {columnName} from ff_stage table...");
-                            
+
                             var sql = $"ALTER TABLE ff_stage DROP COLUMN IF EXISTS {columnName}";
                             db.Ado.ExecuteCommand(sql);
-                            
+
                             Console.WriteLine($"Successfully dropped column {columnName}");
                         }
                         else
@@ -92,14 +92,14 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     {
                         // Check if column already exists
                         var columnExists = CheckColumnExists(db, "ff_stage", columnName);
-                        
+
                         if (!columnExists)
                         {
                             Console.WriteLine($"Adding column {columnName} to ff_stage table...");
-                            
+
                             var sql = $"ALTER TABLE ff_stage ADD COLUMN {columnName} {columnType}";
                             db.Ado.ExecuteCommand(sql);
-                            
+
                             Console.WriteLine($"Successfully added column {columnName}");
                         }
                         else
@@ -135,7 +135,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     FROM information_schema.columns 
                     WHERE table_name = @tableName 
                     AND column_name = @columnName";
-                
+
                 var result = db.Ado.SqlQuery<int>(sql, new { tableName, columnName }).FirstOrDefault();
                 return result > 0;
             }

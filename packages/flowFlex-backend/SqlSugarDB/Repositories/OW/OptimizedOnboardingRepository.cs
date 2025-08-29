@@ -228,17 +228,17 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
         {
             // 临时禁用全局过滤器
             _db.QueryFilter.ClearAndBackup();
-            
+
             try
             {
                 // 使用显式过滤条件
                 var query = _db.Queryable<Onboarding>()
                     .Where(x => x.IsValid == true)
                     .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
-                
+
                 // 执行查询
                 var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
-                
+
                 return result;
             }
             finally

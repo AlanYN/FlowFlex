@@ -475,7 +475,7 @@ namespace FlowFlex.Application.Services.Action
                 // Filter only valid mappings
                 actionMappings = actionMappings.Where(m => m.IsValid).ToList();
 
-                _logger.LogInformation("Found {Count} ActionTriggerMappings to cleanup for action {ActionId}", 
+                _logger.LogInformation("Found {Count} ActionTriggerMappings to cleanup for action {ActionId}",
                     actionMappings.Count, actionDefinitionId);
 
                 foreach (var mapping in actionMappings)
@@ -494,12 +494,12 @@ namespace FlowFlex.Application.Services.Action
                     mapping.IsValid = false;
                     mapping.ModifyDate = DateTimeOffset.UtcNow;
                     await _actionTriggerMappingRepository.UpdateAsync(mapping);
-                    
-                    _logger.LogDebug("Deleted ActionTriggerMapping {MappingId} (Type: {TriggerType}, SourceId: {TriggerSourceId}) for action {ActionId}", 
+
+                    _logger.LogDebug("Deleted ActionTriggerMapping {MappingId} (Type: {TriggerType}, SourceId: {TriggerSourceId}) for action {ActionId}",
                         mapping.Id, mapping.TriggerType, mapping.TriggerSourceId, actionDefinitionId);
                 }
 
-                _logger.LogInformation("Successfully cleaned up {Count} ActionTriggerMappings for action {ActionId} - Tasks: {TaskCount}, Questions: {QuestionCount}", 
+                _logger.LogInformation("Successfully cleaned up {Count} ActionTriggerMappings for action {ActionId} - Tasks: {TaskCount}, Questions: {QuestionCount}",
                     actionMappings.Count, actionDefinitionId, taskIds.Count, questionIds.Count);
 
                 return (taskIds.Distinct().ToList(), questionIds.Distinct().ToList());
@@ -545,7 +545,7 @@ namespace FlowFlex.Application.Services.Action
                     }
                 }
 
-                _logger.LogInformation("Successfully cleaned up {Count} ChecklistTask action references for action {ActionId} from {TotalIds} provided IDs", 
+                _logger.LogInformation("Successfully cleaned up {Count} ChecklistTask action references for action {ActionId} from {TotalIds} provided IDs",
                     cleanedCount, actionDefinitionId, taskIds.Count);
             }
             catch (Exception ex)
@@ -593,7 +593,7 @@ namespace FlowFlex.Application.Services.Action
                             foreach (var section in sectionsElement.EnumerateArray())
                             {
                                 // Process questions array - only clean matching IDs
-                                hasChanges |= CleanupActionReferencesInTargetedArray(section, structureObj.sections[sectionIndex], 
+                                hasChanges |= CleanupActionReferencesInTargetedArray(section, structureObj.sections[sectionIndex],
                                     "questions", actionDefinitionId, questionIdStrings);
 
                                 // Process subsections if they exist
@@ -602,8 +602,8 @@ namespace FlowFlex.Application.Services.Action
                                     var subsectionIndex = 0;
                                     foreach (var subsection in subsectionsElement.EnumerateArray())
                                     {
-                                        hasChanges |= CleanupActionReferencesInTargetedArray(subsection, 
-                                            structureObj.sections[sectionIndex].subsections[subsectionIndex], 
+                                        hasChanges |= CleanupActionReferencesInTargetedArray(subsection,
+                                            structureObj.sections[sectionIndex].subsections[subsectionIndex],
                                             "questions", actionDefinitionId, questionIdStrings);
                                         subsectionIndex++;
                                     }
@@ -618,18 +618,18 @@ namespace FlowFlex.Application.Services.Action
                             questionnaire.ModifyDate = DateTimeOffset.UtcNow;
                             await _questionnaireRepository.UpdateAsync(questionnaire);
                             updatedCount++;
-                            _logger.LogDebug("Updated questionnaire {QuestionnaireId} to remove targeted action references", 
+                            _logger.LogDebug("Updated questionnaire {QuestionnaireId} to remove targeted action references",
                                 questionnaire.Id);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Error processing questionnaire {QuestionnaireId} for targeted action cleanup", 
+                        _logger.LogWarning(ex, "Error processing questionnaire {QuestionnaireId} for targeted action cleanup",
                             questionnaire.Id);
                     }
                 }
 
-                _logger.LogInformation("Successfully cleaned up action references from {Count} questionnaires for action {ActionId} targeting {TargetCount} question/option IDs", 
+                _logger.LogInformation("Successfully cleaned up action references from {Count} questionnaires for action {ActionId} targeting {TargetCount} question/option IDs",
                     updatedCount, actionDefinitionId, questionIds.Count);
             }
             catch (Exception ex)
@@ -641,7 +641,7 @@ namespace FlowFlex.Application.Services.Action
         /// <summary>
         /// Helper method to clean up action references in question arrays - performance optimized for specific IDs
         /// </summary>
-        private bool CleanupActionReferencesInTargetedArray(JsonElement section, dynamic sectionObj, 
+        private bool CleanupActionReferencesInTargetedArray(JsonElement section, dynamic sectionObj,
             string arrayName, long actionDefinitionId, HashSet<string> targetQuestionIds)
         {
             var hasChanges = false;
@@ -652,14 +652,14 @@ namespace FlowFlex.Application.Services.Action
                 foreach (var question in questionsElement.EnumerateArray())
                 {
                     var questionId = question.TryGetProperty("id", out var questionIdEl) ? questionIdEl.GetString() : null;
-                    
+
                     // Only process if this question ID is in our target list
                     if (!string.IsNullOrEmpty(questionId) && targetQuestionIds.Contains(questionId))
                     {
                         // Check and clean question action
                         if (question.TryGetProperty("action", out var actionElement))
                         {
-                            if (actionElement.TryGetProperty("id", out var actionIdEl) && 
+                            if (actionElement.TryGetProperty("id", out var actionIdEl) &&
                                 actionIdEl.GetString() == actionDefinitionId.ToString())
                             {
                                 sectionObj[arrayName][questionIndex].action = null;
@@ -674,7 +674,7 @@ namespace FlowFlex.Application.Services.Action
                             var optionIndex = 0;
                             foreach (var option in optionsElement.EnumerateArray())
                             {
-                                var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : 
+                                var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() :
                                               option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
 
                                 // Check if this option ID is also in our target list
@@ -682,7 +682,7 @@ namespace FlowFlex.Application.Services.Action
                                 {
                                     if (option.TryGetProperty("action", out var optionActionElement))
                                     {
-                                        if (optionActionElement.TryGetProperty("id", out var optionActionIdEl) && 
+                                        if (optionActionElement.TryGetProperty("id", out var optionActionIdEl) &&
                                             optionActionIdEl.GetString() == actionDefinitionId.ToString())
                                         {
                                             sectionObj[arrayName][questionIndex].options[optionIndex].action = null;

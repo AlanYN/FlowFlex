@@ -25,10 +25,10 @@ namespace FlowFlex.WebApi.Middlewares
 
             // 详细记录租户ID的来源和值
             _logger.LogInformation($"[TenantMiddleware] Request: {context.Request.Method} {context.Request.Path}, TenantId: {tenantId}");
-            
+
             // 记录当前请求的所有头部信息，用于调试
             _logger.LogDebug($"[TenantMiddleware] Request headers: {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
-            
+
             // 记录当前用户的Claims信息，用于调试
             if (context.User?.Identity?.IsAuthenticated == true)
             {

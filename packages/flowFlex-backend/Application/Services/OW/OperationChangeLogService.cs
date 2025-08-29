@@ -37,7 +37,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMapper _mapper;
         private readonly IServiceProvider _serviceProvider; // 使用 IServiceProvider 来延迟解析服务，避免循环依赖
-        
+
         // Cache to store source IDs that have no action executions to avoid repeated queries
         private static readonly ConcurrentDictionary<string, DateTime> _emptySourceIdCache = new();
         private static readonly TimeSpan _cacheExpiration = TimeSpan.FromHours(2); // Increased cache time for better performance
@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Services.OW
                     TaskName = taskName,
                     CompletionNotes = completionNotes,
                     ActualHours = actualHours,
-            CompletedAt = DateTimeOffset.UtcNow
+                    CompletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -129,7 +129,7 @@ namespace FlowFlex.Application.Services.OW
                     TaskId = taskId,
                     TaskName = taskName,
                     Reason = reason,
-            UncompletedAt = DateTimeOffset.UtcNow
+                    UncompletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -195,7 +195,7 @@ namespace FlowFlex.Application.Services.OW
                     AnswerId = answerId,
                     QuestionnaireId = questionnaireId,
                     IsUpdate = isUpdate,
-            SubmittedAt = DateTimeOffset.UtcNow,
+                    SubmittedAt = DateTimeOffset.UtcNow,
                     ChangedFieldsCount = changedFields.Count
                 });
 
@@ -267,7 +267,7 @@ namespace FlowFlex.Application.Services.OW
                     FieldLabel = fieldLabel,
                     DisplayFieldName = displayFieldName,
                     ChangedFieldsCount = changedFields?.Count ?? 0,
-            ChangedAt = DateTimeOffset.UtcNow
+                    ChangedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -315,7 +315,7 @@ namespace FlowFlex.Application.Services.OW
                     FileSizeFormatted = FormatFileSize(fileSize),
                     ContentType = contentType,
                     Category = category,
-            UploadedAt = DateTimeOffset.UtcNow
+                    UploadedAt = DateTimeOffset.UtcNow
                 });
 
                 _logger.LogInformation($"📝 [Log Step 4] Calling LogOperationAsync...");
@@ -366,7 +366,7 @@ namespace FlowFlex.Application.Services.OW
                     FileId = fileId,
                     FileName = fileName,
                     Reason = reason,
-            DeletedAt = DateTimeOffset.UtcNow
+                    DeletedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -415,7 +415,7 @@ namespace FlowFlex.Application.Services.OW
                     FileId = fileId,
                     FileName = fileName,
                     ChangedFieldsCount = changedFields?.Count ?? 0,
-            UpdatedAt = DateTimeOffset.UtcNow
+                    UpdatedAt = DateTimeOffset.UtcNow
                 });
 
                 return await LogOperationAsync(
@@ -484,7 +484,7 @@ namespace FlowFlex.Application.Services.OW
                     ChangedFields = changedFields != null ? JsonSerializer.Serialize(changedFields) : null,
                     OperatorId = GetOperatorId(),
                     OperatorName = GetOperatorDisplayName(),
-            OperationTime = DateTimeOffset.UtcNow,
+                    OperationTime = DateTimeOffset.UtcNow,
                     IpAddress = ipAddress,
                     UserAgent = userAgent,
                     OperationSource = operationSource,
@@ -728,13 +728,13 @@ namespace FlowFlex.Application.Services.OW
         private void CacheSourceIdAsEmpty(long sourceId, long? onboardingId)
         {
             var cacheKey = $"{sourceId}_{onboardingId ?? 0}";
-            
+
             // Periodic cache cleanup (every hour)
             if (DateTime.UtcNow - _lastCacheCleanup > TimeSpan.FromHours(1))
             {
                 PerformCacheCleanup();
             }
-            
+
             // Prevent cache from growing too large
             if (_emptySourceIdCache.Count >= _maxCacheSize)
             {
@@ -745,15 +745,15 @@ namespace FlowFlex.Application.Services.OW
                     .Take(entriesToRemove)
                     .Select(kvp => kvp.Key)
                     .ToList();
-                
+
                 foreach (var key in oldestEntries)
                 {
                     _emptySourceIdCache.TryRemove(key, out _);
                 }
-                
+
                 _logger.LogDebug("Removed {Count} oldest cache entries to prevent overflow", oldestEntries.Count);
             }
-            
+
             _emptySourceIdCache.TryAdd(cacheKey, DateTime.UtcNow);
         }
 
@@ -780,10 +780,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 _lastCacheCleanup = now;
-                
+
                 if (removedCount > 0)
                 {
-                    _logger.LogDebug("Cache cleanup completed: removed {ExpiredCount} expired entries, {ActiveCount} entries remain", 
+                    _logger.LogDebug("Cache cleanup completed: removed {ExpiredCount} expired entries, {ActiveCount} entries remain",
                         removedCount, _emptySourceIdCache.Count);
                 }
             }
@@ -803,7 +803,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (cachedSourceIds > totalSourceIds * 0.5) // More than 50% cache hit rate
             {
-                _logger.LogInformation("Excellent cache performance: {CacheHitRate:F1}% cache hit rate ({CachedCount}/{TotalCount} source IDs cached)", 
+                _logger.LogInformation("Excellent cache performance: {CacheHitRate:F1}% cache hit rate ({CachedCount}/{TotalCount} source IDs cached)",
                     cacheHitRate, cachedSourceIds, totalSourceIds);
             }
             else if (processedSourceIds > 100 && foundExecutions == 0)
@@ -1267,7 +1267,7 @@ namespace FlowFlex.Application.Services.OW
         private OperationChangeLogOutputDto MapActionExecutionToChangeLogDto(ActionExecutionWithActionInfoDto actionExecution, string sourceType = null)
         {
             var dto = MapActionExecutionToChangeLogDto(actionExecution);
-            
+
             // Override operationType based on source type
             if (!string.IsNullOrEmpty(sourceType))
             {
@@ -1290,7 +1290,7 @@ namespace FlowFlex.Application.Services.OW
                         break;
                 }
             }
-            
+
             return dto;
         }
 
@@ -1307,11 +1307,11 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Extract action name and type, fallback to defaults if empty
-            var actionName = !string.IsNullOrEmpty(actionExecution.ActionName) 
-                ? actionExecution.ActionName 
+            var actionName = !string.IsNullOrEmpty(actionExecution.ActionName)
+                ? actionExecution.ActionName
                 : $"Action-{actionExecution.ActionCode}";
-            var actionType = !string.IsNullOrEmpty(actionExecution.ActionType) 
-                ? actionExecution.ActionType 
+            var actionType = !string.IsNullOrEmpty(actionExecution.ActionType)
+                ? actionExecution.ActionType
                 : "Python";
 
             // Generate title and description
@@ -1326,10 +1326,10 @@ namespace FlowFlex.Application.Services.OW
             var extendedData = GenerateActionExtendedData(actionExecution);
 
             // Set operator name with special handling for system operations
-            var operatorName = !string.IsNullOrEmpty(actionExecution.CreatedBy) 
-                ? actionExecution.CreatedBy 
+            var operatorName = !string.IsNullOrEmpty(actionExecution.CreatedBy)
+                ? actionExecution.CreatedBy
                 : "1"; // Default to "1" for system operations
-            
+
             // Convert "1" to empty string as per business requirement
             if (string.Equals(operatorName, "1", StringComparison.OrdinalIgnoreCase))
             {
@@ -1563,8 +1563,8 @@ namespace FlowFlex.Application.Services.OW
                         {
                             summaryParts.Add($"Workflow: {prop.Value}");
                         }
-                        else if (!prop.Name.ToLower().Contains("id") && 
-                                 !prop.Name.ToLower().Contains("event") && 
+                        else if (!prop.Name.ToLower().Contains("id") &&
+                                 !prop.Name.ToLower().Contains("event") &&
                                  !prop.Name.ToLower().Contains("source"))
                         {
                             summaryParts.Add($"{prop.Name}: {prop.Value}");
@@ -1595,19 +1595,19 @@ namespace FlowFlex.Application.Services.OW
                     StartedAt = actionExecution.StartedAt,
                     CompletedAt = actionExecution.CompletedAt,
                     DurationMs = actionExecution.DurationMs,
-                    TriggerContext = !string.IsNullOrEmpty(actionExecution.TriggerContext) 
-                        ? JToken.Parse(actionExecution.TriggerContext) 
+                    TriggerContext = !string.IsNullOrEmpty(actionExecution.TriggerContext)
+                        ? JToken.Parse(actionExecution.TriggerContext)
                         : null,
-                    ExecutionInput = !string.IsNullOrEmpty(actionExecution.ExecutionInput) 
-                        ? JToken.Parse(actionExecution.ExecutionInput) 
+                    ExecutionInput = !string.IsNullOrEmpty(actionExecution.ExecutionInput)
+                        ? JToken.Parse(actionExecution.ExecutionInput)
                         : null,
-                    ExecutionOutput = !string.IsNullOrEmpty(actionExecution.ExecutionOutput) 
-                        ? JToken.Parse(actionExecution.ExecutionOutput) 
+                    ExecutionOutput = !string.IsNullOrEmpty(actionExecution.ExecutionOutput)
+                        ? JToken.Parse(actionExecution.ExecutionOutput)
                         : null,
                     ErrorMessage = actionExecution.ErrorMessage,
                     ErrorStackTrace = actionExecution.ErrorStackTrace,
-                    ExecutorInfo = !string.IsNullOrEmpty(actionExecution.ExecutorInfo) 
-                        ? JToken.Parse(actionExecution.ExecutorInfo) 
+                    ExecutorInfo = !string.IsNullOrEmpty(actionExecution.ExecutorInfo)
+                        ? JToken.Parse(actionExecution.ExecutorInfo)
                         : null
                 };
 
@@ -1620,7 +1620,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to generate extended data for action execution {ExecutionId}", actionExecution.ExecutionId);
-                
+
                 // Fallback to simpler format
                 return JsonSerializer.Serialize(new
                 {
@@ -1689,7 +1689,7 @@ namespace FlowFlex.Application.Services.OW
                 if (output.TryGetValue("stdout", out var stdout) && !string.IsNullOrEmpty(stdout.ToString()))
                 {
                     var stdoutText = stdout.ToString().Trim();
-                    
+
                     // Look for specific patterns in stdout
                     if (stdoutText.Contains("Action completed successfully"))
                     {
@@ -1703,10 +1703,10 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Extract first meaningful line
                         var lines = stdoutText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                        var meaningfulLine = lines.FirstOrDefault(line => 
-                            !line.Trim().StartsWith("===") && 
+                        var meaningfulLine = lines.FirstOrDefault(line =>
+                            !line.Trim().StartsWith("===") &&
                             !string.IsNullOrWhiteSpace(line.Trim()));
-                        
+
                         if (!string.IsNullOrEmpty(meaningfulLine))
                         {
                             if (meaningfulLine.Length > 50)
@@ -1716,9 +1716,9 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                if (output.TryGetValue("stderr", out var stderr) && 
-                    stderr != null && 
-                    !string.IsNullOrEmpty(stderr.ToString()) && 
+                if (output.TryGetValue("stderr", out var stderr) &&
+                    stderr != null &&
+                    !string.IsNullOrEmpty(stderr.ToString()) &&
                     stderr.ToString().ToLower() != "null")
                 {
                     var stderrText = stderr.ToString();
@@ -1925,19 +1925,19 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Step 1: Collect task and question IDs in a single batch operation
                 var (taskIds, questionIds) = await GetTaskAndQuestionIdsBatchAsync(stageId);
-                
-                _logger.LogInformation("Collected {TaskCount} tasks and {QuestionCount} questions for stage {StageId}. TaskIds: [{TaskIds}], QuestionIds: [{QuestionIds}]", 
-                    taskIds.Count, questionIds.Count, stageId, 
+
+                _logger.LogInformation("Collected {TaskCount} tasks and {QuestionCount} questions for stage {StageId}. TaskIds: [{TaskIds}], QuestionIds: [{QuestionIds}]",
+                    taskIds.Count, questionIds.Count, stageId,
                     string.Join(", ", taskIds), string.Join(", ", questionIds));
 
                 // Step 2: Use optimized repository method to get paginated results from database
                 var (logs, totalCount) = await _operationChangeLogRepository.GetStageComponentLogsPaginatedAsync(
-                    onboardingId, 
-                    stageId, 
-                    taskIds, 
-                    questionIds, 
+                    onboardingId,
+                    stageId,
+                    taskIds,
+                    questionIds,
                     operationType?.ToString(),
-                    pageIndex, 
+                    pageIndex,
                     pageSize);
 
                 // Step 3: Convert to DTOs (only for current page data)
@@ -1949,21 +1949,21 @@ namespace FlowFlex.Application.Services.OW
                     // Create source ID type mapping for proper action execution categorization
                     var sourceIdTypes = new Dictionary<long, string>();
                     sourceIdTypes[stageId] = "Stage"; // Stage itself
-                    
+
                     foreach (var taskId in taskIds)
                     {
                         sourceIdTypes[taskId] = "Task";
                     }
-                    
+
                     foreach (var questionId in questionIds)
                     {
                         sourceIdTypes[questionId] = "Question";
                     }
-                    
+
                     await AddActionExecutionsBatchOptimizedAsync(operationLogDtos, sourceIdTypes, onboardingId);
                 }
 
-                _logger.LogDebug("Returned {Count} operation logs from {TotalCount} total for stage {StageId}", 
+                _logger.LogDebug("Returned {Count} operation logs from {TotalCount} total for stage {StageId}",
                     operationLogDtos.Count, totalCount, stageId);
 
                 return new PagedResult<OperationChangeLogOutputDto>
@@ -2067,7 +2067,7 @@ namespace FlowFlex.Application.Services.OW
                 // Get operation logs for all questions
                 await CollectOperationLogsForQuestionsAsync(questionIds, onboardingId, operationType, allLogs);
 
-                _logger.LogDebug("Collected operation logs for {TaskCount} tasks and {QuestionCount} questions", 
+                _logger.LogDebug("Collected operation logs for {TaskCount} tasks and {QuestionCount} questions",
                     taskIds.Count, questionIds.Count);
             }
             catch (Exception ex)
@@ -2096,7 +2096,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var checklistService = _serviceProvider.GetRequiredService<IChecklistService>();
                         var checklists = await checklistService.GetByIdsAsync(checklistIdsList);
-                        
+
                         foreach (var checklist in checklists)
                         {
                             if (checklist.Tasks?.Any() == true)
@@ -2120,10 +2120,10 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var questionnaireService = _serviceProvider.GetRequiredService<IQuestionnaireService>();
                         var questionnaires = await questionnaireService.GetByIdsAsync(questionnaireIdsList);
-                        
+
                         // Use HashSet to prevent duplicate IDs
                         var uniqueQuestionIds = new HashSet<long>();
-                        
+
                         foreach (var questionnaire in questionnaires)
                         {
                             if (string.IsNullOrWhiteSpace(questionnaire.StructureJson)) continue;
@@ -2131,7 +2131,7 @@ namespace FlowFlex.Application.Services.OW
                             try
                             {
                                 var structureData = JsonSerializer.Deserialize<QuestionnaireStructure>(
-                                    questionnaire.StructureJson, 
+                                    questionnaire.StructureJson,
                                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                                 if (structureData?.Sections?.Any() != true) continue;
@@ -2141,7 +2141,7 @@ namespace FlowFlex.Application.Services.OW
                                     var allQuestions = new List<QuestionnaireQuestion>();
                                     if (section.Items?.Any() == true) allQuestions.AddRange(section.Items);
                                     if (section.Questions?.Any() == true) allQuestions.AddRange(section.Questions);
-                                    
+
                                     allQuestions = allQuestions.GroupBy(q => q.Id).Select(g => g.First()).ToList();
 
                                     foreach (var question in allQuestions)
@@ -2167,11 +2167,11 @@ namespace FlowFlex.Application.Services.OW
                                                 {
                                                     // 优先使用正式的id，如果没有则跳过
                                                     var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
-                                                    
+
                                                     if (!string.IsNullOrWhiteSpace(optionId) && long.TryParse(optionId, out long optionIdLong))
                                                     {
                                                         uniqueQuestionIds.Add(optionIdLong); // 将option ID作为question ID处理
-                                                        _logger.LogDebug("Added option ID {OptionId} as question action source for questionnaire {QuestionnaireId}", 
+                                                        _logger.LogDebug("Added option ID {OptionId} as question action source for questionnaire {QuestionnaireId}",
                                                             optionIdLong, questionnaire.Id);
                                                     }
                                                 }
@@ -2185,7 +2185,7 @@ namespace FlowFlex.Application.Services.OW
                                 _logger.LogError(ex, "Error parsing StructureJson for questionnaire {QuestionnaireId}", questionnaire.Id);
                             }
                         }
-                        
+
                         // Add unique IDs to the questionIds list
                         questionIds.AddRange(uniqueQuestionIds);
                     }
@@ -2288,7 +2288,7 @@ namespace FlowFlex.Application.Services.OW
 
                         if (actionExecutionDtos.Any())
                         {
-                            _logger.LogDebug("Added {Count} action executions for sourceId {SourceId} as question actions", 
+                            _logger.LogDebug("Added {Count} action executions for sourceId {SourceId} as question actions",
                                 actionExecutionDtos.Count, questionId);
                         }
                     }
@@ -2331,7 +2331,7 @@ namespace FlowFlex.Application.Services.OW
                     sourceIdTypes.TryAdd(questionId, "Question");
                 }
 
-                _logger.LogDebug("Collected {TaskCount} task IDs and {QuestionCount} question IDs for action executions", 
+                _logger.LogDebug("Collected {TaskCount} task IDs and {QuestionCount} question IDs for action executions",
                     taskIds.Count, questionIds.Count);
             }
             catch (Exception ex)
@@ -2354,13 +2354,13 @@ namespace FlowFlex.Application.Services.OW
                 var totalActionExecutions = 0;
                 var skippedFromCache = 0;
                 var batchSize = 20; // Increased batch size for better efficiency
-                
+
                 // Pre-filter out cached empty source IDs
                 var uncachedSourceIds = sourceIdTypes.Where(kvp => !IsSourceIdCachedAsEmpty(kvp.Key, onboardingId))
                     .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                
+
                 skippedFromCache = sourceIdTypes.Count - uncachedSourceIds.Count;
-                
+
                 if (uncachedSourceIds.Count == 0)
                 {
                     _logger.LogInformation("All {TotalCount} source IDs are cached as empty, skipping API calls", sourceIdTypes.Count);
@@ -2411,10 +2411,10 @@ namespace FlowFlex.Application.Services.OW
 
                                 if (_logger.IsEnabled(LogLevel.Debug))
                                 {
-                                    _logger.LogDebug("Found {Count} {SourceType} action executions for sourceId {SourceId}", 
+                                    _logger.LogDebug("Found {Count} {SourceType} action executions for sourceId {SourceId}",
                                         actionExecutionDtos.Count, sourceType, sourceId);
                                 }
-                                
+
                                 return new { SourceId = sourceId, Results = actionExecutionDtos, IsEmpty = false };
                             }
                             else
@@ -2430,7 +2430,7 @@ namespace FlowFlex.Application.Services.OW
                     });
 
                     var batchResults = await Task.WhenAll(batchTasks);
-                    
+
                     foreach (var result in batchResults)
                     {
                         if (result.IsEmpty)
@@ -2452,14 +2452,14 @@ namespace FlowFlex.Application.Services.OW
                     {
                         CacheSourceIdAsEmpty(sourceId, onboardingId);
                     }
-                    
+
                     if (_logger.IsEnabled(LogLevel.Debug))
                     {
                         _logger.LogDebug("Cached {EmptyCount} source IDs as empty for future optimization", emptySourceIds.Count);
                     }
                 }
 
-                _logger.LogInformation("Action execution collection completed: {TotalCount} executions from {ProcessedCount} source IDs ({CachedCount} cached, {EmptyCount} newly cached as empty)", 
+                _logger.LogInformation("Action execution collection completed: {TotalCount} executions from {ProcessedCount} source IDs ({CachedCount} cached, {EmptyCount} newly cached as empty)",
                     totalActionExecutions, uncachedSourceIds.Count, skippedFromCache, emptySourceIds.Count);
 
                 // Log optimization statistics
@@ -2498,7 +2498,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var checklistService = _serviceProvider.GetRequiredService<IChecklistService>();
                         var checklists = await checklistService.GetByIdsAsync(checklistIdsList);
-                        
+
                         foreach (var checklist in checklists)
                         {
                             if (checklist.Tasks?.Any() == true)
@@ -2522,9 +2522,9 @@ namespace FlowFlex.Application.Services.OW
                     {
                         var questionnaireService = _serviceProvider.GetRequiredService<IQuestionnaireService>();
                         var questionnaires = await questionnaireService.GetByIdsAsync(questionnaireIdsList);
-                        
+
                         var uniqueQuestionIds = new HashSet<long>();
-                        
+
                         foreach (var questionnaire in questionnaires)
                         {
                             if (string.IsNullOrWhiteSpace(questionnaire.StructureJson)) continue;
@@ -2532,7 +2532,7 @@ namespace FlowFlex.Application.Services.OW
                             try
                             {
                                 var structureData = JsonSerializer.Deserialize<QuestionnaireStructure>(
-                                    questionnaire.StructureJson, 
+                                    questionnaire.StructureJson,
                                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                                 if (structureData?.Sections?.Any() != true) continue;
@@ -2542,7 +2542,7 @@ namespace FlowFlex.Application.Services.OW
                                     var allQuestions = new List<QuestionnaireQuestion>();
                                     if (section.Items?.Any() == true) allQuestions.AddRange(section.Items);
                                     if (section.Questions?.Any() == true) allQuestions.AddRange(section.Questions);
-                                    
+
                                     allQuestions = allQuestions.GroupBy(q => q.Id).Select(g => g.First()).ToList();
 
                                     foreach (var question in allQuestions)
@@ -2564,7 +2564,7 @@ namespace FlowFlex.Application.Services.OW
                                                 if (optionElement.TryGetProperty("action", out var actionElement))
                                                 {
                                                     var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
-                                                    
+
                                                     if (!string.IsNullOrWhiteSpace(optionId) && long.TryParse(optionId, out long optionIdLong))
                                                     {
                                                         uniqueQuestionIds.Add(optionIdLong);
@@ -2588,8 +2588,8 @@ namespace FlowFlex.Application.Services.OW
                 // Remove duplicate IDs and apply smart filtering to reduce unnecessary queries
                 var filteredTaskIds = taskIds.Distinct().ToList();
                 var filteredQuestionIds = questionIds.Distinct().ToList();
-                
-                _logger.LogInformation("Collected {TaskCount} unique task IDs and {QuestionCount} unique question IDs for stage {StageId}", 
+
+                _logger.LogInformation("Collected {TaskCount} unique task IDs and {QuestionCount} unique question IDs for stage {StageId}",
                     filteredTaskIds.Count, filteredQuestionIds.Count, stageId);
 
                 return (filteredTaskIds, filteredQuestionIds);
@@ -2616,14 +2616,14 @@ namespace FlowFlex.Application.Services.OW
                     .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
                 var skippedFromCache = sourceIdTypes.Count - uncachedSourceIds.Count;
-                
+
                 if (uncachedSourceIds.Count == 0)
                 {
                     _logger.LogInformation("All {TotalCount} source IDs are cached as empty, skipping API calls", sourceIdTypes.Count);
                     return;
                 }
 
-                _logger.LogInformation("Fetching action executions for {UncachedCount} uncached source IDs (skipped {CachedCount} cached)", 
+                _logger.LogInformation("Fetching action executions for {UncachedCount} uncached source IDs (skipped {CachedCount} cached)",
                     uncachedSourceIds.Count, skippedFromCache);
 
                 var emptySourceIds = new List<long>(); // Collect empty source IDs for bulk caching
@@ -2634,7 +2634,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     var sourceId = kvp.Key;
                     var sourceType = kvp.Value;
-                    
+
                     await semaphore.WaitAsync();
                     try
                     {
@@ -2660,13 +2660,13 @@ namespace FlowFlex.Application.Services.OW
                             var actionExecutionDtos = actionExecutionsResult.Data
                                 .Select(ae => MapActionExecutionToChangeLogDto(ae, sourceType))
                                 .ToList();
-                            
+
                             if (_logger.IsEnabled(LogLevel.Debug))
                             {
-                                _logger.LogDebug("Found {Count} action executions for {SourceType} sourceId {SourceId}", 
+                                _logger.LogDebug("Found {Count} action executions for {SourceType} sourceId {SourceId}",
                                     actionExecutionDtos.Count, sourceType, sourceId);
                             }
-                            
+
                             return new { SourceId = sourceId, Results = actionExecutionDtos, IsEmpty = false };
                         }
                         else
@@ -2676,7 +2676,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}", 
+                        _logger.LogWarning(ex, "Failed to fetch action executions for {SourceType} sourceId {SourceId}",
                             sourceType, sourceId);
                         return new { SourceId = sourceId, Results = new List<OperationChangeLogOutputDto>(), IsEmpty = true };
                     }
@@ -2687,7 +2687,7 @@ namespace FlowFlex.Application.Services.OW
                 });
 
                 var allActionExecutions = await Task.WhenAll(actionExecutionTasks);
-                
+
                 // Process results and collect empty source IDs
                 var totalAdded = 0;
                 foreach (var result in allActionExecutions)
@@ -2710,14 +2710,14 @@ namespace FlowFlex.Application.Services.OW
                     {
                         CacheSourceIdAsEmpty(sourceId, onboardingId);
                     }
-                    
+
                     if (_logger.IsEnabled(LogLevel.Debug))
                     {
                         _logger.LogDebug("Cached {EmptyCount} source IDs as empty for future optimization", emptySourceIds.Count);
                     }
                 }
 
-                _logger.LogInformation("Batch action execution collection completed: {TotalCount} executions from {ProcessedCount} source IDs ({CachedCount} cached, {EmptyCount} newly cached as empty)", 
+                _logger.LogInformation("Batch action execution collection completed: {TotalCount} executions from {ProcessedCount} source IDs ({CachedCount} cached, {EmptyCount} newly cached as empty)",
                     totalAdded, uncachedSourceIds.Count, skippedFromCache, emptySourceIds.Count);
 
                 // Log optimization statistics

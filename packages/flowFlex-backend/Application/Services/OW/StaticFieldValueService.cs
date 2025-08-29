@@ -23,7 +23,7 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly IStaticFieldValueRepository _staticFieldValueRepository;
         private readonly IStageRepository _stageRepository;
-    
+
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IMapper _mapper;
@@ -32,7 +32,7 @@ namespace FlowFlex.Application.Services.OW
         public StaticFieldValueService(
             IStaticFieldValueRepository staticFieldValueRepository,
             IStageRepository stageRepository,
-    
+
             IOnboardingRepository onboardingRepository,
             IOperationChangeLogService operationChangeLogService,
             IMapper mapper,
@@ -40,7 +40,7 @@ namespace FlowFlex.Application.Services.OW
         {
             _staticFieldValueRepository = staticFieldValueRepository;
             _stageRepository = stageRepository;
-    
+
             _onboardingRepository = onboardingRepository;
             _operationChangeLogService = operationChangeLogService;
             _mapper = mapper;

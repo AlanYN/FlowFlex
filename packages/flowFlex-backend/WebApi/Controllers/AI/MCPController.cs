@@ -190,8 +190,8 @@ namespace FlowFlex.WebApi.Controllers.AI
             // Store the result for future reference
             if (result.Success)
             {
-                await _mcpService.StoreContextAsync($"{contextId}_result", 
-                    System.Text.Json.JsonSerializer.Serialize(result), 
+                await _mcpService.StoreContextAsync($"{contextId}_result",
+                    System.Text.Json.JsonSerializer.Serialize(result),
                     new Dictionary<string, object>
                     {
                         { "type", "workflow_generation_result" },
@@ -304,10 +304,10 @@ namespace FlowFlex.WebApi.Controllers.AI
     {
         [Required]
         public string ContextId { get; set; } = string.Empty;
-        
+
         [Required]
         public string Content { get; set; } = string.Empty;
-        
+
         public Dictionary<string, object> Metadata { get; set; } = new();
     }
 
@@ -366,4 +366,4 @@ namespace FlowFlex.WebApi.Controllers.AI
     }
 
     #endregion
-} 
+}

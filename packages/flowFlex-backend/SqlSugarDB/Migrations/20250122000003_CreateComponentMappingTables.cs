@@ -162,7 +162,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                                             {
                                                 // Generate Snowflake ID
                                                 var snowflakeId = GenerateSnowflakeId();
-                                                
+
                                                 db.Ado.ExecuteCommand($@"
                                                     INSERT INTO ff_questionnaire_stage_mapping 
                                                     (id, questionnaire_id, stage_id, workflow_id, tenant_id, app_code, is_valid, created_at, updated_at, create_date, modify_date, create_by, modify_by, create_user_id, modify_user_id)
@@ -188,7 +188,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                                             {
                                                 // Generate Snowflake ID
                                                 var snowflakeId = GenerateSnowflakeId();
-                                                
+
                                                 db.Ado.ExecuteCommand($@"
                                                     INSERT INTO ff_checklist_stage_mapping 
                                                     (id, checklist_id, stage_id, workflow_id, tenant_id, app_code, is_valid, created_at, updated_at, create_date, modify_date, create_by, modify_by, create_user_id, modify_user_id)

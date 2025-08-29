@@ -51,13 +51,13 @@ namespace FlowFlex.WebApi.Controllers.AI
                     return BadRequest("Chat messages are required");
                 }
 
-                _logger.LogInformation("Processing chat message for session: {SessionId}, ModelId: {ModelId}, Provider: {Provider}, Model: {Model}", 
+                _logger.LogInformation("Processing chat message for session: {SessionId}, ModelId: {ModelId}, Provider: {Provider}, Model: {Model}",
                     input.SessionId, input.ModelId, input.ModelProvider, input.ModelName);
 
                 var result = await _aiService.SendChatMessageAsync(input);
-                
+
                 _logger.LogInformation("Chat response generated for session: {SessionId}", input.SessionId);
-                
+
                 return Success(result);
             }
             catch (Exception ex)
@@ -79,23 +79,23 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             // 设置流式响应头
             Response.ContentType = "text/event-stream";
-            Response.Headers.Add("Cache-Control", "no-cache");
-            Response.Headers.Add("Connection", "keep-alive");
-            Response.Headers.Add("Access-Control-Allow-Origin", "*");
-            
+            Response.Headers.Append("Cache-Control", "no-cache");
+            Response.Headers.Append("Connection", "keep-alive");
+            Response.Headers.Append("Access-Control-Allow-Origin", "*");
+
             _logger.LogInformation("Stream chat request received. Input is null: {InputNull}", input == null);
-            
+
             if (input != null)
             {
-                _logger.LogInformation("Input details - Messages count: {MessageCount}, SessionId: {SessionId}, Mode: {Mode}", 
+                _logger.LogInformation("Input details - Messages count: {MessageCount}, SessionId: {SessionId}, Mode: {Mode}",
                     input.Messages?.Count ?? 0, input.SessionId, input.Mode);
             }
-            
+
             if (input == null || input.Messages == null || !input.Messages.Any())
             {
                 _logger.LogWarning("Invalid stream chat input - Input null: {InputNull}, Messages null: {MessagesNull}, Messages empty: {MessagesEmpty}",
                     input == null, input?.Messages == null, input?.Messages?.Any() == false);
-                    
+
                 var errorData = new AIChatStreamResult
                 {
                     Type = "error",
@@ -103,7 +103,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                     IsComplete = true,
                     SessionId = input?.SessionId ?? ""
                 };
-                
+
                 await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(errorData)}\n\n");
                 await Response.Body.FlushAsync();
                 return;
@@ -119,7 +119,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                     await Response.WriteAsync($"data: {jsonData}\n\n");
                     await Response.Body.FlushAsync();
                 }
-                
+
                 // Send completion signal
                 await Response.WriteAsync("data: [DONE]\n\n");
                 await Response.Body.FlushAsync();
@@ -127,7 +127,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in stream chat for session: {SessionId}", input.SessionId);
-                
+
                 var errorData = new AIChatStreamResult
                 {
                     Type = "error",
@@ -135,7 +135,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                     IsComplete = true,
                     SessionId = input.SessionId
                 };
-                
+
                 var jsonData = System.Text.Json.JsonSerializer.Serialize(errorData);
                 await Response.WriteAsync($"data: {jsonData}\n\n");
                 await Response.Body.FlushAsync();
@@ -158,7 +158,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 var userId = GetCurrentUserId();
                 var userConfig = await _configService.GetUserDefaultConfigAsync(userId);
 
-            var status = new AIChatServiceStatus
+                var status = new AIChatServiceStatus
                 {
                     IsAvailable = userConfig?.IsAvailable ?? true,
                     Provider = userConfig?.Provider ?? "ZhipuAI",
@@ -182,14 +182,14 @@ namespace FlowFlex.WebApi.Controllers.AI
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting chat service status");
-                
+
                 // 返回默认状态
                 var defaultStatus = new AIChatServiceStatus
-            {
-                IsAvailable = true,
-                Provider = "ZhipuAI",
-                Model = "glm-4",
-                Features = new List<string>
+                {
+                    IsAvailable = true,
+                    Provider = "ZhipuAI",
+                    Model = "glm-4",
+                    Features = new List<string>
                 {
                     "Real-time Conversation",
                     "Workflow Planning Mode",
@@ -197,10 +197,10 @@ namespace FlowFlex.WebApi.Controllers.AI
                     "Session Management",
                     "Streaming Support"
                 },
-                Version = "1.0.0",
-                LastHealthCheck = DateTime.UtcNow,
-                SupportedModes = new List<string> { "workflow_planning", "general" }
-            };
+                    Version = "1.0.0",
+                    LastHealthCheck = DateTime.UtcNow,
+                    SupportedModes = new List<string> { "workflow_planning", "general" }
+                };
 
                 return Success(defaultStatus);
             }
@@ -224,4 +224,4 @@ namespace FlowFlex.WebApi.Controllers.AI
     }
 
     #endregion
-} 
+}

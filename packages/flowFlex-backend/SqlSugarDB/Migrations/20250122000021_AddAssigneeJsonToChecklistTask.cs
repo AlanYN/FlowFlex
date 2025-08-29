@@ -23,7 +23,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (!columnExists)
                 {
                     Console.WriteLine("[AddAssigneeJsonToChecklistTask] Adding assignee_json column to ff_checklist_task table...");
-                    
+
                     // Add assignee_json column
                     db.Ado.ExecuteCommand(@"
                         ALTER TABLE ff_checklist_task 
@@ -55,7 +55,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 try
                 {
                     Console.WriteLine("[AddAssigneeJsonToChecklistTask] Migrating existing assignee data...");
-                    
+
                     db.Ado.ExecuteCommand(@"
                         UPDATE ff_checklist_task 
                         SET assignee_json = json_build_object(
@@ -68,7 +68,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         WHERE (assignee_id IS NOT NULL OR assignee_name IS NOT NULL OR assigned_team IS NOT NULL)
                         AND assignee_json IS NULL;
                     ");
-                    
+
                     Console.WriteLine("[AddAssigneeJsonToChecklistTask] Existing assignee data migrated successfully");
                 }
                 catch (Exception ex)

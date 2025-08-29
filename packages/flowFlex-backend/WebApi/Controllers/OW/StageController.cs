@@ -11,6 +11,7 @@ using System.Linq.Dynamic.Core;
 using System;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
+using FlowFlex.Infrastructure.Services;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -25,11 +26,13 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IStageService _stageService;
         private readonly IOnboardingService _onboardingService;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
-        public StageController(IStageService stageService, IOnboardingService onboardingService)
+        public StageController(IStageService stageService, IOnboardingService onboardingService, IBackgroundTaskQueue backgroundTaskQueue)
         {
             _stageService = stageService;
             _onboardingService = onboardingService;
+            _backgroundTaskQueue = backgroundTaskQueue;
         }
 
         #region Stage Basic Management Functions
@@ -492,9 +495,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             // 设置流式响应头 - 纯文本流
             Response.ContentType = "text/plain; charset=utf-8";
-            Response.Headers.Add("Cache-Control", "no-cache");
-            Response.Headers.Add("Connection", "keep-alive");
-            Response.Headers.Add("Access-Control-Allow-Origin", "*");
+            Response.Headers.Append("Cache-Control", "no-cache");
+            Response.Headers.Append("Connection", "keep-alive");
+            Response.Headers.Append("Access-Control-Allow-Origin", "*");
 
             try
             {
@@ -530,7 +533,7 @@ namespace FlowFlex.WebApi.Controllers.OW
 
                     // 异步更新数据库 - 不阻塞响应
                     var generatedAt = DateTime.UtcNow;
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
@@ -619,82 +622,82 @@ namespace FlowFlex.WebApi.Controllers.OW
                 return BadRequest("StageIds cannot be empty");
             }
 
-                    var results = await _stageService.BatchValidateAndRepairConsistencyAsync(request.StageIds, request.AutoRepair);
-        return Success(results);
-    }
-
-    /// <summary>
-    /// Manually sync checklist name change to all related stages
-    /// </summary>
-    [HttpPost("sync/checklist-name/{checklistId}")]
-    [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> SyncChecklistNameChange(long checklistId, [FromBody] SyncNameChangeRequest request)
-    {
-        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
-        if (nameSync == null)
-        {
-            return BadRequest("Component name sync service not available");
+            var results = await _stageService.BatchValidateAndRepairConsistencyAsync(request.StageIds, request.AutoRepair);
+            return Success(results);
         }
 
-        var updatedStages = await nameSync.SyncChecklistNameChangeAsync(checklistId, request.NewName);
-        return Success(updatedStages);
-    }
-
-    /// <summary>
-    /// Manually sync questionnaire name change to all related stages
-    /// </summary>
-    [HttpPost("sync/questionnaire-name/{questionnaireId}")]
-    [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> SyncQuestionnaireNameChange(long questionnaireId, [FromBody] SyncNameChangeRequest request)
-    {
-        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
-        if (nameSync == null)
+        /// <summary>
+        /// Manually sync checklist name change to all related stages
+        /// </summary>
+        [HttpPost("sync/checklist-name/{checklistId}")]
+        [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SyncChecklistNameChange(long checklistId, [FromBody] SyncNameChangeRequest request)
         {
-            return BadRequest("Component name sync service not available");
+            var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+            if (nameSync == null)
+            {
+                return BadRequest("Component name sync service not available");
+            }
+
+            var updatedStages = await nameSync.SyncChecklistNameChangeAsync(checklistId, request.NewName);
+            return Success(updatedStages);
         }
 
-        var updatedStages = await nameSync.SyncQuestionnaireNameChangeAsync(questionnaireId, request.NewName);
-        return Success(updatedStages);
-    }
-
-    /// <summary>
-    /// Refresh component names for a specific stage
-    /// </summary>
-    [HttpPost("{id}/refresh-component-names")]
-    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> RefreshStageComponentNames(long id)
-    {
-        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
-        if (nameSync == null)
+        /// <summary>
+        /// Manually sync questionnaire name change to all related stages
+        /// </summary>
+        [HttpPost("sync/questionnaire-name/{questionnaireId}")]
+        [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SyncQuestionnaireNameChange(long questionnaireId, [FromBody] SyncNameChangeRequest request)
         {
-            return BadRequest("Component name sync service not available");
+            var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+            if (nameSync == null)
+            {
+                return BadRequest("Component name sync service not available");
+            }
+
+            var updatedStages = await nameSync.SyncQuestionnaireNameChangeAsync(questionnaireId, request.NewName);
+            return Success(updatedStages);
         }
 
-        var success = await nameSync.RefreshStageComponentNamesAsync(id);
-        return Success(success);
-    }
-
-    /// <summary>
-    /// Validate and fix all stage component names across the system
-    /// </summary>
-    [HttpPost("validate-and-fix-all-component-names")]
-    [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> ValidateAndFixAllComponentNames()
-    {
-        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
-        if (nameSync == null)
+        /// <summary>
+        /// Refresh component names for a specific stage
+        /// </summary>
+        [HttpPost("{id}/refresh-component-names")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> RefreshStageComponentNames(long id)
         {
-            return BadRequest("Component name sync service not available");
+            var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+            if (nameSync == null)
+            {
+                return BadRequest("Component name sync service not available");
+            }
+
+            var success = await nameSync.RefreshStageComponentNamesAsync(id);
+            return Success(success);
         }
 
-        var fixedStages = await nameSync.ValidateAndFixAllStageComponentNamesAsync();
-        return Success(fixedStages);
+        /// <summary>
+        /// Validate and fix all stage component names across the system
+        /// </summary>
+        [HttpPost("validate-and-fix-all-component-names")]
+        [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ValidateAndFixAllComponentNames()
+        {
+            var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+            if (nameSync == null)
+            {
+                return BadRequest("Component name sync service not available");
+            }
+
+            var fixedStages = await nameSync.ValidateAndFixAllStageComponentNamesAsync();
+            return Success(fixedStages);
+        }
+
+
+
+        #endregion
     }
-
-
-
-    #endregion
-}
 
     #region Request Models
 

@@ -92,4 +92,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             Console.WriteLine("Access tokens table dropped successfully");
         }
     }
-} 
+}

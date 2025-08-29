@@ -63,7 +63,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                             SET modified_by_id = NULL 
                             WHERE modified_by_id = '';
                         ");
-                        
+
                         db.Ado.ExecuteCommand(@"
                             UPDATE ff_checklist_task_note 
                             SET modified_by_name = NULL 
@@ -106,7 +106,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                             SET modified_by_id = '' 
                             WHERE modified_by_id IS NULL;
                         ");
-                        
+
                         db.Ado.ExecuteCommand(@"
                             UPDATE ff_checklist_task_note 
                             SET modified_by_name = '' 
@@ -125,7 +125,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                             ALTER TABLE ff_checklist_task_note 
                             ALTER COLUMN modified_by_id SET NOT NULL;
                         ");
-                        
+
                         db.Ado.ExecuteCommand(@"
                             ALTER TABLE ff_checklist_task_note 
                             ALTER COLUMN modified_by_name SET NOT NULL;

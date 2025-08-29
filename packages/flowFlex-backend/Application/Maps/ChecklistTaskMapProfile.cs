@@ -52,7 +52,7 @@ namespace FlowFlex.Application.Maps
             {
                 // Handle double-encoded JSON strings
                 string cleanJson = assigneeJson;
-                
+
                 // If the string starts and ends with triple quotes, it's likely double-encoded
                 if (cleanJson.StartsWith("\"\"\"") && cleanJson.EndsWith("\"\"\""))
                 {

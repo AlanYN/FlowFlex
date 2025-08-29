@@ -14,7 +14,7 @@ namespace FlowFlex.Application.Services.AI
     {
         private readonly MCPOptions _mcpOptions;
         private readonly ILogger<MCPService> _logger;
-        
+
         // In-memory storage for demonstration (should be replaced with persistent storage)
         private readonly ConcurrentDictionary<string, MCPContextResult> _contextStore;
         private readonly ConcurrentDictionary<string, MCPEntity> _entityStore;
@@ -26,7 +26,7 @@ namespace FlowFlex.Application.Services.AI
         {
             _mcpOptions = mcpOptions.Value;
             _logger = logger;
-            
+
             _contextStore = new ConcurrentDictionary<string, MCPContextResult>();
             _entityStore = new ConcurrentDictionary<string, MCPEntity>();
             _relationshipStore = new ConcurrentDictionary<string, MCPRelationship>();
@@ -166,7 +166,7 @@ namespace FlowFlex.Application.Services.AI
         {
             try
             {
-                _logger.LogInformation("Creating relationship: {RelationshipId} ({FromEntityId} -> {ToEntityId})", 
+                _logger.LogInformation("Creating relationship: {RelationshipId} ({FromEntityId} -> {ToEntityId})",
                     relationship.Id, relationship.FromEntityId, relationship.ToEntityId);
 
                 if (string.IsNullOrEmpty(relationship.Id))
@@ -266,7 +266,7 @@ namespace FlowFlex.Application.Services.AI
             // Word matching
             var queryWords = queryLower.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var contentWords = contentLower.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            
+
             var matchingWords = queryWords.Intersect(contentWords).Count();
             if (queryWords.Length > 0)
             {
@@ -315,4 +315,4 @@ namespace FlowFlex.Application.Services.AI
 
         #endregion
     }
-} 
+}

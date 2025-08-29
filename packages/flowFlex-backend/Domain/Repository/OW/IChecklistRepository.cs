@@ -5,14 +5,14 @@ namespace FlowFlex.Domain.Repository.OW
     /// <summary>
     /// Checklist repository interface
     /// </summary>
-public interface IChecklistRepository : IBaseRepository<Checklist>
+    public interface IChecklistRepository : IBaseRepository<Checklist>
     {
         /// <summary>
         /// Get checklists by team
         /// </summary>
         /// <param name="team">Team name</param>
         /// <returns></returns>
-    Task<List<Checklist>> GetByTeamAsync(string team);
+        Task<List<Checklist>> GetByTeamAsync(string team);
 
         /// <summary>
         /// Get checklists by multiple IDs (batch query)

@@ -7,6 +7,8 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
+using Microsoft.Extensions.Caching.Memory;
+using FlowFlex.Infrastructure.Services;
 
 using FlowFlex.Domain.Shared;
 using System.Text.Json;
@@ -45,11 +47,14 @@ namespace FlowFlex.Application.Service.OW
         private readonly UserContext _userContext;
         private readonly IComponentMappingService _mappingService;
         private readonly ISqlSugarClient _db;
+        private readonly IMemoryCache _cache;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
+        private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IMemoryCache cache, IBackgroundTaskQueue backgroundTaskQueue)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -63,6 +68,8 @@ namespace FlowFlex.Application.Service.OW
             _userContext = userContext;
             _mappingService = mappingService;
             _db = db;
+            _cache = cache;
+            _backgroundTaskQueue = backgroundTaskQueue;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -261,11 +268,13 @@ namespace FlowFlex.Application.Service.OW
                         }
 
                         // Trigger async AI summary generation if components changed (outside transaction)
-                        //_ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                        //// Background task queued
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                     }
 
                     // Sync stages progress for all onboardings in this workflow (outside transaction)
-                    _ = Task.Run(async () =>
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
@@ -276,6 +285,13 @@ namespace FlowFlex.Application.Service.OW
                             // Ignore sync errors to avoid impacting the main operation
                         }
                     });
+                }
+
+                // Clear related cache after successful update
+                if (result)
+                {
+                    var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{stageInTransaction.WorkflowId}";
+                    _cache.Remove(cacheKey);
                 }
 
                 return result;
@@ -332,17 +348,18 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
                 {
-                    try
-                    {
-                        await _stagesProgressSyncService.SyncAfterStageDeleteAsync(workflowId, id);
-                    }
-                    catch
-                    {
-                        // Ignore sync errors to avoid impacting the main operation
-                    }
-                });
+                    await _stagesProgressSyncService.SyncAfterStageDeleteAsync(workflowId, id);
+                }
+                catch
+                {
+                    // Ignore sync errors to avoid impacting the main operation
+                }
+            });
             }
 
             return deleteResult;
@@ -356,8 +373,21 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<List<StageOutputDto>> GetListByWorkflowIdAsync(long workflowId)
         {
+            // Use cache for frequently accessed workflow stages
+            var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
+
+            if (_cache.TryGetValue(cacheKey, out List<StageOutputDto> cachedResult))
+            {
+                return cachedResult;
+            }
+
             var list = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-            return _mapper.Map<List<StageOutputDto>>(list);
+            var result = _mapper.Map<List<StageOutputDto>>(list);
+
+            // Cache for 10 minutes
+            _cache.Set(cacheKey, result, STAGE_CACHE_DURATION);
+
+            return result;
         }
 
         /// <summary>
@@ -435,17 +465,18 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
                 {
-                    try
-                    {
-                        await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
-                    }
-                    catch
-                    {
-                        // Ignore sync errors to avoid impacting the main operation
-                    }
-                });
+                    await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
+                }
+                catch
+                {
+                    // Ignore sync errors to avoid impacting the main operation
+                }
+            });
             }
 
             return result;
@@ -507,17 +538,18 @@ namespace FlowFlex.Application.Service.OW
 
             // Sync stages progress for all onboardings in this workflow
             // This is done asynchronously to avoid impacting the main operation
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _stagesProgressSyncService.SyncAfterStagesCombineAsync(workflowId, input.StageIds, newStage.Id);
-                }
-                catch
-                {
-                    // Ignore sync errors to avoid impacting the main operation
-                }
-            });
+            // Background task queued
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+    {
+        try
+        {
+            await _stagesProgressSyncService.SyncAfterStagesCombineAsync(workflowId, input.StageIds, newStage.Id);
+        }
+        catch
+        {
+            // Ignore sync errors to avoid impacting the main operation
+        }
+    });
 
             return newStage.Id;
         }
@@ -749,7 +781,8 @@ namespace FlowFlex.Application.Service.OW
                         }
 
                         // Trigger async AI summary generation for component updates (outside transaction)
-                        //_ = Task.Run(async () => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
+                        //// Background task queued
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token => await GenerateAISummaryInBackgroundAsync(id, "Stage components updated"));
                     }
                 }
 
@@ -781,7 +814,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Handle double-escaped JSON string
                 var jsonString = entity.ComponentsJson;
-                
+
                 // If the string starts and ends with quotes, it's likely double-escaped
                 if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
                 {
@@ -1392,7 +1425,7 @@ namespace FlowFlex.Application.Service.OW
                         .SelectMany(c => c.ChecklistIds ?? new List<long>())
                         .Distinct()
                         .ToList();
-                    
+
                     Console.WriteLine($"[DEBUG] Found {checklistIds.Count} checklist IDs: [{string.Join(", ", checklistIds)}]");
 
                     foreach (var checklistId in checklistIds)
@@ -1402,7 +1435,7 @@ namespace FlowFlex.Application.Service.OW
                             Console.WriteLine($"[DEBUG] Attempting to load checklist {checklistId}");
                             var checklist = await _checklistService.GetByIdAsync(checklistId);
                             Console.WriteLine($"[DEBUG] Checklist loaded: {checklist?.Name}, Tasks count: {checklist?.Tasks?.Count ?? 0}");
-                            
+
                             if (checklist?.Tasks != null && checklist.Tasks.Any())
                             {
                                 // Get task completion status if onboarding context is available
@@ -1426,7 +1459,7 @@ namespace FlowFlex.Application.Service.OW
                                     }
                                 }
 
-                                var taskInfos = checklist.Tasks.Select(task => 
+                                var taskInfos = checklist.Tasks.Select(task =>
                                 {
                                     var hasCompletion = taskCompletionMap.TryGetValue(task.Id, out var completion);
                                     return new AISummaryTaskInfo
@@ -1489,7 +1522,7 @@ namespace FlowFlex.Application.Service.OW
                         .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
                         .Distinct()
                         .ToList();
-                    
+
                     Console.WriteLine($"[DEBUG] Found {questionnaireIds.Count} questionnaire IDs: [{string.Join(", ", questionnaireIds)}]");
 
                     foreach (var questionnaireId in questionnaireIds)
@@ -1499,7 +1532,7 @@ namespace FlowFlex.Application.Service.OW
                             Console.WriteLine($"[DEBUG] Attempting to load questionnaire {questionnaireId}");
                             var questionnaire = await _questionnaireService.GetByIdAsync(questionnaireId);
                             Console.WriteLine($"[DEBUG] Questionnaire loaded: {questionnaire?.Name}, Sections count: {questionnaire?.Sections?.Count ?? 0}");
-                            
+
                             if (questionnaire?.Sections != null && questionnaire.Sections.Any())
                             {
                                 // Get questionnaire answers if onboarding context is available
@@ -1519,7 +1552,7 @@ namespace FlowFlex.Application.Service.OW
 
                                 var questionInfos = questionnaire.Sections
                                     .SelectMany(section => section.Questions)
-                                    .Select(question => 
+                                    .Select(question =>
                                     {
                                         var qId = long.TryParse(question.Id, out var parsedId) ? parsedId : 0;
                                         var isAnswered = false;
@@ -1532,7 +1565,7 @@ namespace FlowFlex.Application.Service.OW
                                             {
                                                 using var answersDoc = JsonDocument.Parse(questionnaireAnswer.AnswerJson);
                                                 var answersRoot = answersDoc.RootElement;
-                                                
+
                                                 // Check if it has responses array structure
                                                 if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
                                                 {
@@ -1545,7 +1578,7 @@ namespace FlowFlex.Application.Service.OW
                                                             if (responseQuestionId == question.Id)
                                                             {
                                                                 // Found matching question, check if it has an answer
-                                                                if (responseElement.TryGetProperty("answer", out var answerElement) && 
+                                                                if (responseElement.TryGetProperty("answer", out var answerElement) &&
                                                                     !string.IsNullOrEmpty(answerElement.GetString()))
                                                                 {
                                                                     isAnswered = true;
@@ -1562,8 +1595,8 @@ namespace FlowFlex.Application.Service.OW
                                                     if (answersRoot.TryGetProperty(question.Id, out var answerElement))
                                                     {
                                                         isAnswered = true;
-                                                        answer = answerElement.ValueKind == JsonValueKind.String 
-                                                            ? answerElement.GetString() 
+                                                        answer = answerElement.ValueKind == JsonValueKind.String
+                                                            ? answerElement.GetString()
                                                             : answerElement.ToString();
                                                     }
                                                 }
@@ -1593,7 +1626,7 @@ namespace FlowFlex.Application.Service.OW
                             else
                             {
                                 Console.WriteLine($"[DEBUG] Questionnaire {questionnaireId} has no sections or is null");
-                                
+
                                 // Get questionnaire answers if onboarding context is available (for StructureJson fallback)
                                 QuestionnaireAnswerOutputDto? questionnaireAnswer = null;
                                 if (onboardingId.HasValue)
@@ -1608,7 +1641,7 @@ namespace FlowFlex.Application.Service.OW
                                         Console.WriteLine($"[WARNING] Could not load questionnaire answer for fallback: {ex.Message}");
                                     }
                                 }
-                                
+
                                 // Fallback: parse StructureJson if available
                                 if (!string.IsNullOrWhiteSpace(questionnaire?.StructureJson))
                                 {
@@ -1641,7 +1674,7 @@ namespace FlowFlex.Application.Service.OW
                                                             {
                                                                 using var answersDoc = JsonDocument.Parse(questionnaireAnswer.AnswerJson);
                                                                 var answersRoot = answersDoc.RootElement;
-                                                                
+
                                                                 // Check if it has responses array structure
                                                                 if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
                                                                 {
@@ -1654,7 +1687,7 @@ namespace FlowFlex.Application.Service.OW
                                                                             if (responseQuestionId == idStr)
                                                                             {
                                                                                 // Found matching question, check if it has an answer
-                                                                                if (responseElement.TryGetProperty("answer", out var answerElement) && 
+                                                                                if (responseElement.TryGetProperty("answer", out var answerElement) &&
                                                                                     !string.IsNullOrEmpty(answerElement.GetString()))
                                                                                 {
                                                                                     isAnswered = true;
@@ -1671,8 +1704,8 @@ namespace FlowFlex.Application.Service.OW
                                                                     if (answersRoot.TryGetProperty(idStr, out var answerElement))
                                                                     {
                                                                         isAnswered = true;
-                                                                        answer = answerElement.ValueKind == JsonValueKind.String 
-                                                                            ? answerElement.GetString() 
+                                                                        answer = answerElement.ValueKind == JsonValueKind.String
+                                                                            ? answerElement.GetString()
                                                                             : answerElement.ToString();
                                                                     }
                                                                 }
@@ -1769,13 +1802,13 @@ namespace FlowFlex.Application.Service.OW
                 {
                     // Attempt to repair by re-syncing mappings within a transaction
                     result.RepairAttempted = true;
-                    
+
                     await _db.Ado.UseTranAsync(async () =>
                     {
                         try
                         {
                             await _mappingService.SyncStageMappingsInTransactionAsync(stageId, _db);
-                            
+
                             // Re-validate after repair
                             var isConsistentAfterRepair = await _mappingService.ValidateStageComponentConsistencyAsync(stageId);
                             result.IsConsistent = isConsistentAfterRepair;
@@ -1846,365 +1879,365 @@ namespace FlowFlex.Application.Service.OW
             var totalStages = results.Count;
             var consistentStages = results.Count(r => r.IsConsistent);
             var repairedStages = results.Count(r => r.RepairSuccessful == true);
-            
+
             Console.WriteLine($"[StageService] Batch consistency validation completed:");
             Console.WriteLine($"  Total stages: {totalStages}");
             Console.WriteLine($"  Consistent stages: {consistentStages}");
             Console.WriteLine($"  Repaired stages: {repairedStages}");
             Console.WriteLine($"  Failed repairs: {results.Count(r => r.RepairAttempted && r.RepairSuccessful != true)}");
 
-                         return results;
-         }
+            return results;
+        }
 
-         /// <summary>
-         /// Validate that checklist and questionnaire components are unique within the same workflow across different stages
-         /// </summary>
-         /// <param name="workflowId">Workflow ID</param>
-         /// <param name="currentStageId">Current stage ID to exclude from validation (null for new stage)</param>
-         /// <param name="components">Components to validate</param>
-         private async Task ValidateComponentUniquenessInWorkflowAsync(long workflowId, long? currentStageId, List<StageComponent> components)
-         {
-             Console.WriteLine($"[StageService] ValidateComponentUniquenessInWorkflowAsync called - WorkflowId: {workflowId}, CurrentStageId: {currentStageId}");
-             
-             if (components == null || !components.Any())
-             {
-                 Console.WriteLine($"[StageService] No components to validate, returning");
-                 return;
-             }
+        /// <summary>
+        /// Validate that checklist and questionnaire components are unique within the same workflow across different stages
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="currentStageId">Current stage ID to exclude from validation (null for new stage)</param>
+        /// <param name="components">Components to validate</param>
+        private async Task ValidateComponentUniquenessInWorkflowAsync(long workflowId, long? currentStageId, List<StageComponent> components)
+        {
+            Console.WriteLine($"[StageService] ValidateComponentUniquenessInWorkflowAsync called - WorkflowId: {workflowId}, CurrentStageId: {currentStageId}");
 
-             // Extract checklist and questionnaire IDs from components
-             var checklistIds = components
-                 .Where(c => c.Key == "checklist")
-                 .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                 .Distinct()
-                 .ToList();
+            if (components == null || !components.Any())
+            {
+                Console.WriteLine($"[StageService] No components to validate, returning");
+                return;
+            }
 
-             var questionnaireIds = components
-                 .Where(c => c.Key == "questionnaires")
-                 .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
-                 .Distinct()
-                 .ToList();
+            // Extract checklist and questionnaire IDs from components
+            var checklistIds = components
+                .Where(c => c.Key == "checklist")
+                .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                .Distinct()
+                .ToList();
 
-             Console.WriteLine($"[StageService] Found {checklistIds.Count} checklist IDs: [{string.Join(", ", checklistIds)}]");
-             Console.WriteLine($"[StageService] Found {questionnaireIds.Count} questionnaire IDs: [{string.Join(", ", questionnaireIds)}]");
+            var questionnaireIds = components
+                .Where(c => c.Key == "questionnaires")
+                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                .Distinct()
+                .ToList();
 
-             if (!checklistIds.Any() && !questionnaireIds.Any())
-             {
-                 Console.WriteLine($"[StageService] No checklist or questionnaire IDs to validate, returning");
-                 return;
-             }
+            Console.WriteLine($"[StageService] Found {checklistIds.Count} checklist IDs: [{string.Join(", ", checklistIds)}]");
+            Console.WriteLine($"[StageService] Found {questionnaireIds.Count} questionnaire IDs: [{string.Join(", ", questionnaireIds)}]");
 
-             // Get all other stages in the same workflow
-             var allStagesInWorkflow = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-             if (allStagesInWorkflow == null || !allStagesInWorkflow.Any())
-             {
-                 Console.WriteLine($"[StageService] No stages found in workflow {workflowId}, returning");
-                 return;
-             }
+            if (!checklistIds.Any() && !questionnaireIds.Any())
+            {
+                Console.WriteLine($"[StageService] No checklist or questionnaire IDs to validate, returning");
+                return;
+            }
 
-             Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
+            // Get all other stages in the same workflow
+            var allStagesInWorkflow = await _stageRepository.GetByWorkflowIdAsync(workflowId);
+            if (allStagesInWorkflow == null || !allStagesInWorkflow.Any())
+            {
+                Console.WriteLine($"[StageService] No stages found in workflow {workflowId}, returning");
+                return;
+            }
 
-             // Check each stage for conflicts
-             foreach (var stage in allStagesInWorkflow)
-             {
-                 // Skip current stage
-                 if (currentStageId.HasValue && stage.Id == currentStageId.Value)
-                 {
-                     Console.WriteLine($"[StageService] Skipping current stage {stage.Id} ({stage.Name})");
-                     continue;
-                 }
+            Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
 
-                 Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
+            // Check each stage for conflicts
+            foreach (var stage in allStagesInWorkflow)
+            {
+                // Skip current stage
+                if (currentStageId.HasValue && stage.Id == currentStageId.Value)
+                {
+                    Console.WriteLine($"[StageService] Skipping current stage {stage.Id} ({stage.Name})");
+                    continue;
+                }
 
-                 // Parse existing components in this stage
-                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {stage.ComponentsJson ?? "NULL"}");
-                 var existingComponents = await GetStageComponentsFromEntity(stage);
-                 if (existingComponents == null || !existingComponents.Any())
-                 {
-                     Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping");
-                     continue;
-                 }
+                Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
 
-                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
+                // Parse existing components in this stage
+                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {stage.ComponentsJson ?? "NULL"}");
+                var existingComponents = await GetStageComponentsFromEntity(stage);
+                if (existingComponents == null || !existingComponents.Any())
+                {
+                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping");
+                    continue;
+                }
 
-                 // Extract existing checklist and questionnaire IDs
-                 var existingChecklistIds = existingComponents
-                     .Where(c => c.Key == "checklist")
-                     .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                     .ToHashSet();
+                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
 
-                 var existingQuestionnaireIds = existingComponents
-                     .Where(c => c.Key == "questionnaires")
-                     .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
-                     .ToHashSet();
+                // Extract existing checklist and questionnaire IDs
+                var existingChecklistIds = existingComponents
+                    .Where(c => c.Key == "checklist")
+                    .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                    .ToHashSet();
 
-                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing checklist IDs: [{string.Join(", ", existingChecklistIds)}]");
-                 Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing questionnaire IDs: [{string.Join(", ", existingQuestionnaireIds)}]");
+                var existingQuestionnaireIds = existingComponents
+                    .Where(c => c.Key == "questionnaires")
+                    .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                    .ToHashSet();
 
-                 // Check for checklist conflicts
-                 var conflictingChecklists = checklistIds.Where(id => existingChecklistIds.Contains(id)).ToList();
-                 if (conflictingChecklists.Any())
-                 {
-                     Console.WriteLine($"[StageService] CONFLICT DETECTED! Checklist(s) [{string.Join(", ", conflictingChecklists)}] already exist in stage '{stage.Name}'");
-                     
-                     // Get checklist names for better error message
-                     var conflictingChecklistNames = await GetChecklistNamesByIds(conflictingChecklists);
-                     var namesDisplay = conflictingChecklistNames.Any() ? string.Join("、", conflictingChecklistNames) : string.Join(", ", conflictingChecklists);
-                     
-                     throw new CRMException(ErrorCodeEnum.BusinessError, 
-                         $"Checklist '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
-                 }
+                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing checklist IDs: [{string.Join(", ", existingChecklistIds)}]");
+                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing questionnaire IDs: [{string.Join(", ", existingQuestionnaireIds)}]");
 
-                 // Check for questionnaire conflicts
-                 var conflictingQuestionnaires = questionnaireIds.Where(id => existingQuestionnaireIds.Contains(id)).ToList();
-                 if (conflictingQuestionnaires.Any())
-                 {
-                     Console.WriteLine($"[StageService] CONFLICT DETECTED! Questionnaire(s) [{string.Join(", ", conflictingQuestionnaires)}] already exist in stage '{stage.Name}'");
-                     
-                     // Get questionnaire names for better error message
-                     var conflictingQuestionnaireNames = await GetQuestionnaireNamesByIds(conflictingQuestionnaires);
-                     var namesDisplay = conflictingQuestionnaireNames.Any() ? string.Join("、", conflictingQuestionnaireNames) : string.Join(", ", conflictingQuestionnaires);
-                     
-                     throw new CRMException(ErrorCodeEnum.BusinessError, 
-                         $"Questionnaire '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
-                 }
+                // Check for checklist conflicts
+                var conflictingChecklists = checklistIds.Where(id => existingChecklistIds.Contains(id)).ToList();
+                if (conflictingChecklists.Any())
+                {
+                    Console.WriteLine($"[StageService] CONFLICT DETECTED! Checklist(s) [{string.Join(", ", conflictingChecklists)}] already exist in stage '{stage.Name}'");
 
-                 Console.WriteLine($"[StageService] No conflicts found with stage {stage.Id} ({stage.Name})");
-             }
-         }
+                    // Get checklist names for better error message
+                    var conflictingChecklistNames = await GetChecklistNamesByIds(conflictingChecklists);
+                    var namesDisplay = conflictingChecklistNames.Any() ? string.Join("、", conflictingChecklistNames) : string.Join(", ", conflictingChecklists);
 
-         /// <summary>
-         /// Get stage components from stage entity, handling JSON parsing
-         /// </summary>
-         /// <param name="stage">Stage entity</param>
-         /// <returns>List of stage components</returns>
-         private async Task<List<StageComponent>> GetStageComponentsFromEntity(Stage stage)
-         {
-             Console.WriteLine($"[StageService] GetStageComponentsFromEntity for stage {stage.Id}: ComponentsJson = {stage.ComponentsJson ?? "NULL"}");
-             
-             if (string.IsNullOrEmpty(stage.ComponentsJson))
-             {
-                 Console.WriteLine($"[StageService] Stage {stage.Id} has empty ComponentsJson, returning empty list");
-                 return new List<StageComponent>();
-             }
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"Checklist '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
+                }
 
-             try
-             {
-                 // Handle double-escaped JSON string
-                 var jsonString = stage.ComponentsJson;
-                 Console.WriteLine($"[StageService] Original JSON: {jsonString}");
-                 
-                 // Multiple levels of escaping may exist, so unescape repeatedly
-                 int iterations = 0;
-                 while (jsonString.StartsWith("\"") && jsonString.EndsWith("\"") && iterations < 5)
-                 {
-                     // Remove outer quotes and unescape
-                     jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
-                     Console.WriteLine($"[StageService] After unescaping iteration {iterations + 1}: {jsonString}");
-                     iterations++;
-                 }
+                // Check for questionnaire conflicts
+                var conflictingQuestionnaires = questionnaireIds.Where(id => existingQuestionnaireIds.Contains(id)).ToList();
+                if (conflictingQuestionnaires.Any())
+                {
+                    Console.WriteLine($"[StageService] CONFLICT DETECTED! Questionnaire(s) [{string.Join(", ", conflictingQuestionnaires)}] already exist in stage '{stage.Name}'");
 
-                 // Clean problematic escape sequences
-                 var cleanedJson = CleanJsonString(jsonString);
-                 Console.WriteLine($"[StageService] After cleaning: {cleanedJson}");
-                 
-                 // Try manual parsing first as System.Text.Json is having issues
-                 var components = ManualParseStageComponents(cleanedJson);
-                 Console.WriteLine($"[StageService] Manually parsed {components?.Count ?? 0} components");
-                 
-                 if (components != null && components.Any())
-                 {
-                     // Log the first component for debugging
-                     var firstComponent = components.First();
-                     Console.WriteLine($"[StageService] First component: Key={firstComponent.Key}, ChecklistIds=[{string.Join(",", firstComponent.ChecklistIds ?? new List<long>())}], QuestionnaireIds=[{string.Join(",", firstComponent.QuestionnaireIds ?? new List<long>())}]");
-                 }
-                 
-                 return components ?? new List<StageComponent>();
-             }
-             catch (JsonException ex)
-             {
-                 // If JSON parsing fails, return empty list
-                 Console.WriteLine($"[StageService] JSON parsing failed for stage {stage.Id}: {ex.Message}");
-                 return new List<StageComponent>();
-             }
-         }
+                    // Get questionnaire names for better error message
+                    var conflictingQuestionnaireNames = await GetQuestionnaireNamesByIds(conflictingQuestionnaires);
+                    var namesDisplay = conflictingQuestionnaireNames.Any() ? string.Join("、", conflictingQuestionnaireNames) : string.Join(", ", conflictingQuestionnaires);
 
-         /// <summary>
-         /// Manual parse stage components from JSON string
-         /// </summary>
-         /// <param name="jsonString">JSON string to parse</param>
-         /// <returns>List of stage components</returns>
-         private List<StageComponent> ManualParseStageComponents(string jsonString)
-         {
-             try
-             {
-                 Console.WriteLine($"[StageService] Manual parsing JSON: {jsonString}");
-                 
-                 using var doc = JsonDocument.Parse(jsonString);
-                 var root = doc.RootElement;
-                 
-                 Console.WriteLine($"[StageService] Root element kind: {root.ValueKind}");
-                 
-                 if (root.ValueKind != JsonValueKind.Array)
-                 {
-                     Console.WriteLine($"[StageService] Root is not an array, returning empty list");
-                     return new List<StageComponent>();
-                 }
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"Questionnaire '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
+                }
 
-                 var components = new List<StageComponent>();
-                 var arrayLength = root.GetArrayLength();
-                 Console.WriteLine($"[StageService] Array length: {arrayLength}");
-                 
-                 foreach (var element in root.EnumerateArray())
-                 {
-                     Console.WriteLine($"[StageService] Processing element: {element}");
-                     var component = new StageComponent();
-                     
-                     if (element.TryGetProperty("Key", out var keyProp))
-                     {
-                         component.Key = keyProp.GetString() ?? "";
-                         Console.WriteLine($"[StageService] Found Key: {component.Key}");
-                     }
-                     
-                     if (element.TryGetProperty("Order", out var orderProp))
-                     {
-                         component.Order = orderProp.TryGetInt32(out var order) ? order : 0;
-                         Console.WriteLine($"[StageService] Found Order: {component.Order}");
-                     }
-                     
-                     if (element.TryGetProperty("IsEnabled", out var enabledProp))
-                     {
-                         component.IsEnabled = enabledProp.ValueKind == JsonValueKind.True;
-                         Console.WriteLine($"[StageService] Found IsEnabled: {component.IsEnabled}");
-                     }
-                     
-                     if (element.TryGetProperty("Configuration", out var configProp) && configProp.ValueKind != JsonValueKind.Null)
-                         component.Configuration = configProp.GetString();
-                     
-                     // Parse StaticFields
-                     if (element.TryGetProperty("StaticFields", out var staticFieldsProp) && staticFieldsProp.ValueKind == JsonValueKind.Array)
-                     {
-                         component.StaticFields = staticFieldsProp.EnumerateArray()
-                             .Select(x => x.GetString() ?? "")
-                             .ToList();
-                         Console.WriteLine($"[StageService] Found StaticFields: {component.StaticFields?.Count ?? 0} items");
-                     }
-                     else
-                     {
-                         component.StaticFields = new List<string>();
-                     }
-                     
-                     // Parse ChecklistIds
-                     if (element.TryGetProperty("ChecklistIds", out var checklistIdsProp) && checklistIdsProp.ValueKind == JsonValueKind.Array)
-                     {
-                         component.ChecklistIds = checklistIdsProp.EnumerateArray()
-                             .Select(x => x.TryGetInt64(out var id) ? id : 0)
-                             .Where(id => id > 0)
-                             .ToList();
-                         Console.WriteLine($"[StageService] Found ChecklistIds: [{string.Join(",", component.ChecklistIds ?? new List<long>())}]");
-                     }
-                     else
-                     {
-                         component.ChecklistIds = new List<long>();
-                         Console.WriteLine($"[StageService] No ChecklistIds found in element");
-                     }
-                     
-                     // Parse QuestionnaireIds
-                     if (element.TryGetProperty("QuestionnaireIds", out var questionnaireIdsProp) && questionnaireIdsProp.ValueKind == JsonValueKind.Array)
-                     {
-                         component.QuestionnaireIds = questionnaireIdsProp.EnumerateArray()
-                             .Select(x => x.TryGetInt64(out var id) ? id : 0)
-                             .Where(id => id > 0)
-                             .ToList();
-                         Console.WriteLine($"[StageService] Found QuestionnaireIds: [{string.Join(",", component.QuestionnaireIds ?? new List<long>())}]");
-                     }
-                     else
-                     {
-                         component.QuestionnaireIds = new List<long>();
-                         Console.WriteLine($"[StageService] No QuestionnaireIds found in element");
-                     }
-                     
-                     // Parse ChecklistNames
-                     if (element.TryGetProperty("ChecklistNames", out var checklistNamesProp) && checklistNamesProp.ValueKind == JsonValueKind.Array)
-                     {
-                         component.ChecklistNames = checklistNamesProp.EnumerateArray()
-                             .Select(x => x.GetString() ?? "")
-                             .ToList();
-                     }
-                     else
-                     {
-                         component.ChecklistNames = new List<string>();
-                     }
-                     
-                     // Parse QuestionnaireNames
-                     if (element.TryGetProperty("QuestionnaireNames", out var questionnaireNamesProp) && questionnaireNamesProp.ValueKind == JsonValueKind.Array)
-                     {
-                         component.QuestionnaireNames = questionnaireNamesProp.EnumerateArray()
-                             .Select(x => x.GetString() ?? "")
-                             .ToList();
-                     }
-                     else
-                     {
-                         component.QuestionnaireNames = new List<string>();
-                     }
-                     
-                     Console.WriteLine($"[StageService] Created component: Key={component.Key}, ChecklistIds count={component.ChecklistIds?.Count ?? 0}, QuestionnaireIds count={component.QuestionnaireIds?.Count ?? 0}");
-                     components.Add(component);
-                 }
-                 
-                 Console.WriteLine($"[StageService] Manual parsing completed: {components.Count} components");
-                 return components;
-             }
-             catch (Exception ex)
-             {
-                 Console.WriteLine($"[StageService] Manual parsing failed: {ex.Message}");
-                 Console.WriteLine($"[StageService] Stack trace: {ex.StackTrace}");
-                 return new List<StageComponent>();
-             }
-         }
+                Console.WriteLine($"[StageService] No conflicts found with stage {stage.Id} ({stage.Name})");
+            }
+        }
 
-         /// <summary>
-         /// Get checklist names by IDs
-         /// </summary>
-         /// <param name="checklistIds">Checklist IDs</param>
-         /// <returns>List of checklist names</returns>
-         private async Task<List<string>> GetChecklistNamesByIds(List<long> checklistIds)
-         {
-             if (checklistIds == null || !checklistIds.Any())
-                 return new List<string>();
+        /// <summary>
+        /// Get stage components from stage entity, handling JSON parsing
+        /// </summary>
+        /// <param name="stage">Stage entity</param>
+        /// <returns>List of stage components</returns>
+        private async Task<List<StageComponent>> GetStageComponentsFromEntity(Stage stage)
+        {
+            Console.WriteLine($"[StageService] GetStageComponentsFromEntity for stage {stage.Id}: ComponentsJson = {stage.ComponentsJson ?? "NULL"}");
 
-             try
-             {
-                 var checklists = await _checklistService.GetByIdsAsync(checklistIds);
-                 return checklists?.Select(c => c.Name).Where(name => !string.IsNullOrEmpty(name)).ToList() ?? new List<string>();
-             }
-             catch (Exception ex)
-             {
-                 Console.WriteLine($"[StageService] Error getting checklist names: {ex.Message}");
-                 return new List<string>();
-             }
-         }
+            if (string.IsNullOrEmpty(stage.ComponentsJson))
+            {
+                Console.WriteLine($"[StageService] Stage {stage.Id} has empty ComponentsJson, returning empty list");
+                return new List<StageComponent>();
+            }
 
-         /// <summary>
-         /// Get questionnaire names by IDs
-         /// </summary>
-         /// <param name="questionnaireIds">Questionnaire IDs</param>
-         /// <returns>List of questionnaire names</returns>
-         private async Task<List<string>> GetQuestionnaireNamesByIds(List<long> questionnaireIds)
-         {
-             if (questionnaireIds == null || !questionnaireIds.Any())
-                 return new List<string>();
+            try
+            {
+                // Handle double-escaped JSON string
+                var jsonString = stage.ComponentsJson;
+                Console.WriteLine($"[StageService] Original JSON: {jsonString}");
 
-             try
-             {
-                 var questionnaires = await _questionnaireService.GetByIdsAsync(questionnaireIds);
-                 return questionnaires?.Select(q => q.Name).Where(name => !string.IsNullOrEmpty(name)).ToList() ?? new List<string>();
-             }
-             catch (Exception ex)
-             {
-                 Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
-                 return new List<string>();
-             }
-         }
-     }
- }
+                // Multiple levels of escaping may exist, so unescape repeatedly
+                int iterations = 0;
+                while (jsonString.StartsWith("\"") && jsonString.EndsWith("\"") && iterations < 5)
+                {
+                    // Remove outer quotes and unescape
+                    jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
+                    Console.WriteLine($"[StageService] After unescaping iteration {iterations + 1}: {jsonString}");
+                    iterations++;
+                }
+
+                // Clean problematic escape sequences
+                var cleanedJson = CleanJsonString(jsonString);
+                Console.WriteLine($"[StageService] After cleaning: {cleanedJson}");
+
+                // Try manual parsing first as System.Text.Json is having issues
+                var components = ManualParseStageComponents(cleanedJson);
+                Console.WriteLine($"[StageService] Manually parsed {components?.Count ?? 0} components");
+
+                if (components != null && components.Any())
+                {
+                    // Log the first component for debugging
+                    var firstComponent = components.First();
+                    Console.WriteLine($"[StageService] First component: Key={firstComponent.Key}, ChecklistIds=[{string.Join(",", firstComponent.ChecklistIds ?? new List<long>())}], QuestionnaireIds=[{string.Join(",", firstComponent.QuestionnaireIds ?? new List<long>())}]");
+                }
+
+                return components ?? new List<StageComponent>();
+            }
+            catch (JsonException ex)
+            {
+                // If JSON parsing fails, return empty list
+                Console.WriteLine($"[StageService] JSON parsing failed for stage {stage.Id}: {ex.Message}");
+                return new List<StageComponent>();
+            }
+        }
+
+        /// <summary>
+        /// Manual parse stage components from JSON string
+        /// </summary>
+        /// <param name="jsonString">JSON string to parse</param>
+        /// <returns>List of stage components</returns>
+        private List<StageComponent> ManualParseStageComponents(string jsonString)
+        {
+            try
+            {
+                Console.WriteLine($"[StageService] Manual parsing JSON: {jsonString}");
+
+                using var doc = JsonDocument.Parse(jsonString);
+                var root = doc.RootElement;
+
+                Console.WriteLine($"[StageService] Root element kind: {root.ValueKind}");
+
+                if (root.ValueKind != JsonValueKind.Array)
+                {
+                    Console.WriteLine($"[StageService] Root is not an array, returning empty list");
+                    return new List<StageComponent>();
+                }
+
+                var components = new List<StageComponent>();
+                var arrayLength = root.GetArrayLength();
+                Console.WriteLine($"[StageService] Array length: {arrayLength}");
+
+                foreach (var element in root.EnumerateArray())
+                {
+                    Console.WriteLine($"[StageService] Processing element: {element}");
+                    var component = new StageComponent();
+
+                    if (element.TryGetProperty("Key", out var keyProp))
+                    {
+                        component.Key = keyProp.GetString() ?? "";
+                        Console.WriteLine($"[StageService] Found Key: {component.Key}");
+                    }
+
+                    if (element.TryGetProperty("Order", out var orderProp))
+                    {
+                        component.Order = orderProp.TryGetInt32(out var order) ? order : 0;
+                        Console.WriteLine($"[StageService] Found Order: {component.Order}");
+                    }
+
+                    if (element.TryGetProperty("IsEnabled", out var enabledProp))
+                    {
+                        component.IsEnabled = enabledProp.ValueKind == JsonValueKind.True;
+                        Console.WriteLine($"[StageService] Found IsEnabled: {component.IsEnabled}");
+                    }
+
+                    if (element.TryGetProperty("Configuration", out var configProp) && configProp.ValueKind != JsonValueKind.Null)
+                        component.Configuration = configProp.GetString();
+
+                    // Parse StaticFields
+                    if (element.TryGetProperty("StaticFields", out var staticFieldsProp) && staticFieldsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        component.StaticFields = staticFieldsProp.EnumerateArray()
+                            .Select(x => x.GetString() ?? "")
+                            .ToList();
+                        Console.WriteLine($"[StageService] Found StaticFields: {component.StaticFields?.Count ?? 0} items");
+                    }
+                    else
+                    {
+                        component.StaticFields = new List<string>();
+                    }
+
+                    // Parse ChecklistIds
+                    if (element.TryGetProperty("ChecklistIds", out var checklistIdsProp) && checklistIdsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        component.ChecklistIds = checklistIdsProp.EnumerateArray()
+                            .Select(x => x.TryGetInt64(out var id) ? id : 0)
+                            .Where(id => id > 0)
+                            .ToList();
+                        Console.WriteLine($"[StageService] Found ChecklistIds: [{string.Join(",", component.ChecklistIds ?? new List<long>())}]");
+                    }
+                    else
+                    {
+                        component.ChecklistIds = new List<long>();
+                        Console.WriteLine($"[StageService] No ChecklistIds found in element");
+                    }
+
+                    // Parse QuestionnaireIds
+                    if (element.TryGetProperty("QuestionnaireIds", out var questionnaireIdsProp) && questionnaireIdsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        component.QuestionnaireIds = questionnaireIdsProp.EnumerateArray()
+                            .Select(x => x.TryGetInt64(out var id) ? id : 0)
+                            .Where(id => id > 0)
+                            .ToList();
+                        Console.WriteLine($"[StageService] Found QuestionnaireIds: [{string.Join(",", component.QuestionnaireIds ?? new List<long>())}]");
+                    }
+                    else
+                    {
+                        component.QuestionnaireIds = new List<long>();
+                        Console.WriteLine($"[StageService] No QuestionnaireIds found in element");
+                    }
+
+                    // Parse ChecklistNames
+                    if (element.TryGetProperty("ChecklistNames", out var checklistNamesProp) && checklistNamesProp.ValueKind == JsonValueKind.Array)
+                    {
+                        component.ChecklistNames = checklistNamesProp.EnumerateArray()
+                            .Select(x => x.GetString() ?? "")
+                            .ToList();
+                    }
+                    else
+                    {
+                        component.ChecklistNames = new List<string>();
+                    }
+
+                    // Parse QuestionnaireNames
+                    if (element.TryGetProperty("QuestionnaireNames", out var questionnaireNamesProp) && questionnaireNamesProp.ValueKind == JsonValueKind.Array)
+                    {
+                        component.QuestionnaireNames = questionnaireNamesProp.EnumerateArray()
+                            .Select(x => x.GetString() ?? "")
+                            .ToList();
+                    }
+                    else
+                    {
+                        component.QuestionnaireNames = new List<string>();
+                    }
+
+                    Console.WriteLine($"[StageService] Created component: Key={component.Key}, ChecklistIds count={component.ChecklistIds?.Count ?? 0}, QuestionnaireIds count={component.QuestionnaireIds?.Count ?? 0}");
+                    components.Add(component);
+                }
+
+                Console.WriteLine($"[StageService] Manual parsing completed: {components.Count} components");
+                return components;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StageService] Manual parsing failed: {ex.Message}");
+                Console.WriteLine($"[StageService] Stack trace: {ex.StackTrace}");
+                return new List<StageComponent>();
+            }
+        }
+
+        /// <summary>
+        /// Get checklist names by IDs
+        /// </summary>
+        /// <param name="checklistIds">Checklist IDs</param>
+        /// <returns>List of checklist names</returns>
+        private async Task<List<string>> GetChecklistNamesByIds(List<long> checklistIds)
+        {
+            if (checklistIds == null || !checklistIds.Any())
+                return new List<string>();
+
+            try
+            {
+                var checklists = await _checklistService.GetByIdsAsync(checklistIds);
+                return checklists?.Select(c => c.Name).Where(name => !string.IsNullOrEmpty(name)).ToList() ?? new List<string>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StageService] Error getting checklist names: {ex.Message}");
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Get questionnaire names by IDs
+        /// </summary>
+        /// <param name="questionnaireIds">Questionnaire IDs</param>
+        /// <returns>List of questionnaire names</returns>
+        private async Task<List<string>> GetQuestionnaireNamesByIds(List<long> questionnaireIds)
+        {
+            if (questionnaireIds == null || !questionnaireIds.Any())
+                return new List<string>();
+
+            try
+            {
+                var questionnaires = await _questionnaireService.GetByIdsAsync(questionnaireIds);
+                return questionnaires?.Select(q => q.Name).Where(name => !string.IsNullOrEmpty(name)).ToList() ?? new List<string>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
+                return new List<string>();
+            }
+        }
+    }
+}

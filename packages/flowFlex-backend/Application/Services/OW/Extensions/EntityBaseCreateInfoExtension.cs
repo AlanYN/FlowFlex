@@ -383,7 +383,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Set tenant and app information from UserContext
             config.TenantId = userContext?.TenantId ?? "DEFAULT";
             config.AppCode = userContext?.AppCode ?? "DEFAULT";
-            
+
             // Set IsValid to true for new records
             config.IsValid = true;
         }

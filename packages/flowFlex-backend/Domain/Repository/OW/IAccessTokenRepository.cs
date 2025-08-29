@@ -84,4 +84,4 @@ namespace FlowFlex.Domain.Repository.OW
         public DateTimeOffset? LastLoginTime { get; set; }
         public string LastLoginIp { get; set; } = string.Empty;
     }
-} 
+}

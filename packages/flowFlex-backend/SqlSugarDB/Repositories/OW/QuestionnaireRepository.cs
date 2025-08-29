@@ -127,9 +127,9 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[QuestionnaireRepository] IsNameExistsAsync with name={name}, category={category}, TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             var query = db.Queryable<Questionnaire>()
                 .Where(x => x.Name == name && x.IsValid == true)
                 .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode); // 添加租户和应用代码过滤
@@ -179,9 +179,9 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[QuestionnaireRepository] GetPagedAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 添加租户和应用过滤条件
             whereExpressions.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
@@ -241,7 +241,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // Calculate total count
             var totalCount = allItems.Count;
-            
+
             _logger.LogInformation($"[QuestionnaireRepository] GetPagedAsync found {totalCount} total questionnaires with TenantId={currentTenantId}, AppCode={currentAppCode}");
 
             // Apply pagination
@@ -249,7 +249,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .Skip((pageIndex - 1) * pageSize)
                 .Take(pageSize)
                 .ToList();
-            
+
             _logger.LogInformation($"[QuestionnaireRepository] GetPagedAsync returned {items.Count} questionnaires for page {pageIndex}");
 
             return (items, totalCount);
@@ -294,7 +294,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     TotalQuestions = totalQuestions,
                     RequiredQuestions = requiredQuestions,
-            ModifyDate = DateTimeOffset.UtcNow
+                    ModifyDate = DateTimeOffset.UtcNow
                 })
                 .Where(x => x.Id == id && x.IsValid == true)
                 .ExecuteCommandAsync();
@@ -449,7 +449,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     TotalQuestions = totalQuestions,
                     RequiredQuestions = requiredQuestions,
-            ModifyDate = DateTimeOffset.UtcNow
+                    ModifyDate = DateTimeOffset.UtcNow
                 })
                 .Where(x => x.Id == questionnaireId && x.IsValid == true)
                 .ExecuteCommandAsync();
@@ -490,21 +490,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // 显式添加租户和应用过滤条件
             var query = db.Queryable<Questionnaire>().Where(x => x.IsValid == true);
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[QuestionnaireRepository] GetListAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 执行查询
             var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync(cancellationToken);
-            
+
             _logger.LogInformation($"[QuestionnaireRepository] GetListAsync returned {result.Count} questionnaires with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -514,22 +514,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<List<Questionnaire>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
         {
             _logger.LogInformation($"[QuestionnaireRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
-            
+
             // 临时禁用全局过滤器
             db.QueryFilter.ClearAndBackup();
-            
+
             try
             {
                 // 使用显式过滤条件
                 var query = db.Queryable<Questionnaire>()
                     .Where(x => x.IsValid == true)
                     .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
-                
+
                 // 执行查询
                 var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
-                
+
                 _logger.LogInformation($"[QuestionnaireRepository] GetListWithExplicitFiltersAsync returned {result.Count} questionnaires with explicit filters");
-                
+
                 return result;
             }
             finally
@@ -614,7 +614,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     {
                         var nameConditions = names.Select((n, i) => $"q.name ILIKE @Name{i}").ToList();
                         whereConditions.Add($"({string.Join(" OR ", nameConditions)})");
-                        
+
                         for (int i = 0; i < names.Count; i++)
                         {
                             parameters.Add(new SugarParameter($"@Name{i}", $"%{names[i]}%"));
@@ -811,7 +811,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
 
-                _logger.LogInformation("[QuestionnaireRepository] GetPagedByIdsAsync - IDs count: {Count}, PageIndex: {PageIndex}, PageSize: {PageSize}", 
+                _logger.LogInformation("[QuestionnaireRepository] GetPagedByIdsAsync - IDs count: {Count}, PageIndex: {PageIndex}, PageSize: {PageSize}",
                     questionnaireIds?.Count ?? 0, pageIndex, pageSize);
 
                 // If no IDs provided, return empty result

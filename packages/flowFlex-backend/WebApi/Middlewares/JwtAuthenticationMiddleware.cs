@@ -156,7 +156,7 @@ namespace FlowFlex.WebApi.Middlewares
             };
 
             var isPublic = publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
-            
+
             return isPublic;
         }
 
@@ -243,7 +243,7 @@ namespace FlowFlex.WebApi.Middlewares
 
                 // Check if token is active in database
                 var isActive = await accessTokenService.ValidateTokenAsync(jti);
-                
+
                 if (isActive)
                 {
                     // Update last used time

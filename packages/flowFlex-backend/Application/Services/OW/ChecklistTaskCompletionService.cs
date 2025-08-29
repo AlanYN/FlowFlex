@@ -34,7 +34,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     IChecklistTaskNoteRepository noteRepository,
     IOnboardingRepository onboardingRepository,
     IStageRepository stageRepository,
-    
+
     IOperationChangeLogService operationChangeLogService,
     IMapper mapper,
     IHttpContextAccessor httpContextAccessor,
@@ -168,7 +168,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             // Set completion time if completed
             if (completion.IsCompleted)
             {
-            completion.CompletedTime = DateTimeOffset.UtcNow;
+                completion.CompletedTime = DateTimeOffset.UtcNow;
             }
             else
             {
@@ -217,10 +217,10 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     {
         var completions = await _completionRepository.GetByOnboardingAndStageAsync(onboardingId, stageId);
         var completionDtos = _mapper.Map<List<ChecklistTaskCompletionOutputDto>>(completions);
-        
+
         // Fill files and notes count for each completion
         await FillFilesAndNotesCountAsync(completionDtos, onboardingId);
-        
+
         return completionDtos;
     }
 
@@ -591,7 +591,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         // If still empty, use default value
         if (string.IsNullOrEmpty(tenantId))
         {
-                            tenantId = "DEFAULT";
+            tenantId = "DEFAULT";
             // Debug logging handled by structured logging
         }
         else

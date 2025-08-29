@@ -13,6 +13,7 @@ using FlowFlex.Domain.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using FlowFlex.Infrastructure.Services;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -41,6 +42,7 @@ namespace FlowFlex.Application.Services.AI
         private readonly IAIPromptHistoryRepository _aiPromptHistoryRepository;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
         public AIService(
             IOptions<AIOptions> aiOptions,
@@ -58,7 +60,8 @@ namespace FlowFlex.Application.Services.AI
             IStageRepository stageRepository,
             IAIPromptHistoryRepository aiPromptHistoryRepository,
             IOperatorContextService operatorContextService,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IBackgroundTaskQueue backgroundTaskQueue)
         {
             _aiOptions = aiOptions.Value;
             _logger = logger;
@@ -76,6 +79,7 @@ namespace FlowFlex.Application.Services.AI
             _aiPromptHistoryRepository = aiPromptHistoryRepository;
             _operatorContextService = operatorContextService;
             _httpContextAccessor = httpContextAccessor;
+            _backgroundTaskQueue = backgroundTaskQueue;
         }
 
         public async Task<AIWorkflowGenerationResult> GenerateWorkflowAsync(AIWorkflowGenerationInput input)
@@ -118,8 +122,8 @@ namespace FlowFlex.Application.Services.AI
                 prompt = BuildWorkflowGenerationPrompt(input);
                 aiResponse = await CallAIProviderAsync(prompt, input.ModelId, input.ModelProvider, input.ModelName);
 
-                // Save prompt history to database (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Save prompt history to database using background task queue
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -168,29 +172,30 @@ namespace FlowFlex.Application.Services.AI
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    sessionId = input.SessionId,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null,
+                                    prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                sessionId = input.SessionId,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null,
-                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed workflow generation prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed workflow generation prompt history");
+                            }
+                        });
                 }
 
                 return new AIWorkflowGenerationResult
@@ -216,7 +221,8 @@ namespace FlowFlex.Application.Services.AI
                 aiResponse = await CallAIProviderAsync(prompt);
 
                 // Save prompt history to database (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -257,29 +263,30 @@ namespace FlowFlex.Application.Services.AI
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    purpose = input.Purpose,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null,
+                                    prompt, failedResponse, startTime, null, null, null, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                purpose = input.Purpose,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null,
-                                prompt, failedResponse, startTime, null, null, null, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed questionnaire generation prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed questionnaire generation prompt history");
+                            }
+                        });
                 }
 
                 return new AIQuestionnaireGenerationResult
@@ -305,7 +312,8 @@ namespace FlowFlex.Application.Services.AI
                 aiResponse = await CallAIProviderAsync(prompt);
 
                 // Save prompt history to database (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -346,29 +354,30 @@ namespace FlowFlex.Application.Services.AI
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    processName = input.ProcessName,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null,
+                                    prompt, failedResponse, startTime, null, null, null, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                processName = input.ProcessName,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null,
-                                prompt, failedResponse, startTime, null, null, null, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed checklist generation prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed checklist generation prompt history");
+                            }
+                        });
                 }
 
                 return new AIChecklistGenerationResult
@@ -403,10 +412,11 @@ namespace FlowFlex.Application.Services.AI
 
             // 使用Channel生产者-消费者模式，避免在try/catch中使用yield
             var channel = System.Threading.Channels.Channel.CreateUnbounded<AIWorkflowStreamResult>();
-            _ = Task.Run(async () =>
-            {
-                await ProduceWorkflowStreamAsync(input, startTime, channel.Writer);
-            });
+            // Background task queued
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+        {
+            await ProduceWorkflowStreamAsync(input, startTime, channel.Writer);
+        });
 
             await foreach (var result in channel.Reader.ReadAllAsync())
             {
@@ -710,30 +720,31 @@ namespace FlowFlex.Application.Services.AI
                             });
 
                             // Save successful streaming prompt history (fire-and-forget)
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    var response = new AIProviderResponse
-                                    {
-                                        Success = true,
-                                        Content = streamingContent.ToString()
-                                    };
-                                    var metadata = JsonSerializer.Serialize(new
-                                    {
-                                        sessionId = input.SessionId,
-                                        conversationHistoryCount = input.ConversationHistory?.Count ?? 0,
-                                        streamingMode = true,
-                                        contentLength = streamingContent.Length
-                                    });
-                                    await SavePromptHistoryAsync("WorkflowGenerationStream", "Workflow", null, null,
-                                        prompt, response, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogWarning(ex, "Failed to save streaming workflow generation prompt history");
-                                }
-                            });
+                            // Background task queued
+                            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                                        {
+                                            try
+                                            {
+                                                var response = new AIProviderResponse
+                                                {
+                                                    Success = true,
+                                                    Content = streamingContent.ToString()
+                                                };
+                                                var metadata = JsonSerializer.Serialize(new
+                                                {
+                                                    sessionId = input.SessionId,
+                                                    conversationHistoryCount = input.ConversationHistory?.Count ?? 0,
+                                                    streamingMode = true,
+                                                    contentLength = streamingContent.Length
+                                                });
+                                                await SavePromptHistoryAsync("WorkflowGenerationStream", "Workflow", null, null,
+                                                    prompt, response, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                _logger.LogWarning(ex, "Failed to save streaming workflow generation prompt history");
+                                            }
+                                        });
 
                             _logger.LogInformation("🎉 StreamGenerateWorkflowAsync about to exit successfully");
                             return;
@@ -881,30 +892,31 @@ namespace FlowFlex.Application.Services.AI
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    description = input.Description,
+                                    streamingMode = true,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("WorkflowGenerationStream", "Workflow", null, null,
+                                    prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                description = input.Description,
-                                streamingMode = true,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("WorkflowGenerationStream", "Workflow", null, null,
-                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed streaming workflow generation prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed streaming workflow generation prompt history");
+                            }
+                        });
                 }
 
                 await writer.WriteAsync(new AIWorkflowStreamResult
@@ -1234,7 +1246,8 @@ namespace FlowFlex.Application.Services.AI
                 aiResponse = await CallAIProviderAsync(prompt);
 
                 // Save prompt history to database (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -1285,29 +1298,30 @@ namespace FlowFlex.Application.Services.AI
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    naturalLanguageLength = naturalLanguage?.Length ?? 0,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
+                                    prompt, failedResponse, startTime, null, null, null, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                naturalLanguageLength = naturalLanguage?.Length ?? 0,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
-                                prompt, failedResponse, startTime, null, null, null, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed requirements parsing prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed requirements parsing prompt history");
+                            }
+                        });
                 }
 
                 return new AIRequirementsParsingResult
@@ -1346,7 +1360,8 @@ namespace FlowFlex.Application.Services.AI
                 aiResponse = await CallAIProviderAsync(prompt, modelId, modelProvider, modelName);
 
                 // Save prompt history to database (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -1397,30 +1412,31 @@ namespace FlowFlex.Application.Services.AI
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    naturalLanguageLength = naturalLanguage?.Length ?? 0,
+                                    explicitModelOverride = true,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
+                                    prompt, failedResponse, startTime, modelProvider, modelName, modelId, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                naturalLanguageLength = naturalLanguage?.Length ?? 0,
-                                explicitModelOverride = true,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("RequirementsParsing", "Requirements", null, null,
-                                prompt, failedResponse, startTime, modelProvider, modelName, modelId, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed requirements parsing prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed requirements parsing prompt history");
+                            }
+                        });
                 }
 
                 return new AIRequirementsParsingResult
@@ -2927,7 +2943,8 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 response = await CallAIProviderForChatAsync(input);
 
                 // Save prompt history to database (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -2967,31 +2984,32 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    sessionId = input.SessionId,
+                                    mode = input.Mode,
+                                    messageCount = input.Messages?.Count ?? 0,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("ChatMessage", "Chat", null, null,
+                                    prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                sessionId = input.SessionId,
-                                mode = input.Mode,
-                                messageCount = input.Messages?.Count ?? 0,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("ChatMessage", "Chat", null, null,
-                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed chat message prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed chat message prompt history");
+                            }
+                        });
                 }
 
                 return GenerateErrorChatResponse(input, ex.Message);
@@ -3016,10 +3034,11 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
 
             // 使用Channel生产者-消费者模式，避免在try/catch中使用yield
             var channel = System.Threading.Channels.Channel.CreateUnbounded<AIChatStreamResult>();
-            _ = Task.Run(async () =>
-            {
-                await ProduceChatStreamAsync(input, startTime, channel.Writer);
-            });
+            // Background task queued
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+        {
+            await ProduceChatStreamAsync(input, startTime, channel.Writer);
+        });
 
             await foreach (var result in channel.Reader.ReadAllAsync())
             {
@@ -3069,7 +3088,8 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 });
 
                 // Save successful chat prompt history (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -3105,35 +3125,36 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = "",
-                                Provider = input.ModelProvider ?? "Unknown",
-                                ModelName = input.ModelName ?? "Unknown",
-                                ModelId = input.ModelId ?? "Unknown"
-                            };
-                            var metadata = JsonSerializer.Serialize(new
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = "",
+                                    Provider = input.ModelProvider ?? "Unknown",
+                                    ModelName = input.ModelName ?? "Unknown",
+                                    ModelId = input.ModelId ?? "Unknown"
+                                };
+                                var metadata = JsonSerializer.Serialize(new
+                                {
+                                    sessionId = input.SessionId,
+                                    mode = input.Mode,
+                                    messageCount = input.Messages?.Count ?? 0,
+                                    streamingMode = true,
+                                    error = ex.Message
+                                });
+                                await SavePromptHistoryAsync("ChatMessageStream", "Chat", null, null,
+                                    prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
+                            }
+                            catch (Exception saveEx)
                             {
-                                sessionId = input.SessionId,
-                                mode = input.Mode,
-                                messageCount = input.Messages?.Count ?? 0,
-                                streamingMode = true,
-                                error = ex.Message
-                            });
-                            await SavePromptHistoryAsync("ChatMessageStream", "Chat", null, null,
-                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed streaming chat prompt history");
-                        }
-                    });
+                                _logger.LogWarning(saveEx, "Failed to save failed streaming chat prompt history");
+                            }
+                        });
                 }
 
                 await writer.WriteAsync(new AIChatStreamResult
@@ -5841,7 +5862,8 @@ Make questions relevant to the project context and stage objectives.";
                 aiResponse = await CallAIProviderWithFallbackForSummaryAsync(prompt, input.ModelId);
 
                 // Save prompt history to database (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -5877,24 +5899,25 @@ Make questions relevant to the project context and stage objectives.";
                 // Save failed prompt history (fire-and-forget)
                 if (!string.IsNullOrEmpty(prompt))
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            var failedResponse = new AIProviderResponse
+                            try
                             {
-                                Success = false,
-                                ErrorMessage = ex.Message,
-                                Content = ""
-                            };
-                            await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId,
-                                prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            _logger.LogWarning(saveEx, "Failed to save failed prompt history for stage {StageId}", input.StageId);
-                        }
-                    });
+                                var failedResponse = new AIProviderResponse
+                                {
+                                    Success = false,
+                                    ErrorMessage = ex.Message,
+                                    Content = ""
+                                };
+                                await SavePromptHistoryAsync("StageSummary", "Stage", input.StageId, input.OnboardingId,
+                                    prompt, failedResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId);
+                            }
+                            catch (Exception saveEx)
+                            {
+                                _logger.LogWarning(saveEx, "Failed to save failed prompt history for stage {StageId}", input.StageId);
+                            }
+                        });
                 }
 
                 return new AIStageSummaryResult

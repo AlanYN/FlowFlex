@@ -147,7 +147,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // Remove AI Summary fields
                 var columnsToRemove = new[] { "ai_summary", "ai_summary_generated_at", "ai_summary_confidence", "ai_summary_model", "ai_summary_data" };
-                
+
                 foreach (var column in columnsToRemove)
                 {
                     try

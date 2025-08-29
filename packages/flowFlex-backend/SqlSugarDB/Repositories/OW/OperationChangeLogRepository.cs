@@ -177,12 +177,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// Get operation logs with pagination for stage components (optimized for large datasets)
         /// </summary>
         public async Task<(List<OperationChangeLog> logs, int totalCount)> GetStageComponentLogsPaginatedAsync(
-            long? onboardingId, 
-            long stageId, 
-            List<long> taskIds, 
-            List<long> questionIds, 
-            string operationType, 
-            int pageIndex, 
+            long? onboardingId,
+            long stageId,
+            List<long> taskIds,
+            List<long> questionIds,
+            string operationType,
+            int pageIndex,
             int pageSize)
         {
             try
@@ -194,17 +194,17 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                         .Where(x => x.StageId == stageId && x.IsValid)
                         .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
                         .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
-                    
+
                     // Task logs (if taskIds provided)
-                    taskIds != null && taskIds.Any() ? 
+                    taskIds != null && taskIds.Any() ?
                         base.db.Queryable<OperationChangeLog>()
                             .Where(x => x.BusinessModule == "Task" && taskIds.Contains(x.BusinessId) && x.IsValid)
                             .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
                             .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType) :
                         base.db.Queryable<OperationChangeLog>().Where(x => false), // Empty query if no task IDs
-                    
+
                     // Question logs (if questionIds provided)
-                    questionIds != null && questionIds.Any() ? 
+                    questionIds != null && questionIds.Any() ?
                         base.db.Queryable<OperationChangeLog>()
                             .Where(x => x.BusinessModule == "Question" && questionIds.Contains(x.BusinessId) && x.IsValid)
                             .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)

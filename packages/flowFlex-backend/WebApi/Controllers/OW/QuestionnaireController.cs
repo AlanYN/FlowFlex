@@ -256,7 +256,7 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             // Save file using file storage service
             var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
-            
+
             if (!storageResult.Success)
             {
                 return BadRequest($"File upload failed: {storageResult.ErrorMessage}");
@@ -265,8 +265,8 @@ namespace FlowFlex.WebApi.Controllers.OW
             // Get current gateway/host information
             var request = HttpContext.Request;
             var gateway = $"{request.Scheme}://{request.Host}";
-            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
-                ? storageResult.AccessUrl 
+            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
+                ? storageResult.AccessUrl
                 : $"{gateway}{storageResult.AccessUrl}";
 
             // Create comprehensive response
@@ -357,8 +357,8 @@ namespace FlowFlex.WebApi.Controllers.OW
                 }
 
                 // Success case
-                var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
-                    ? storageResult.AccessUrl 
+                var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
+                    ? storageResult.AccessUrl
                     : $"{gateway}{storageResult.AccessUrl}";
 
                 response.Success = storageResult.Success;
@@ -384,7 +384,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> DebugFindStagesContainingQuestionnaire(long id)
         {
             var stages = await _questionnaireService.FindStagesContainingQuestionnaireAsync(id);
-            
+
             var result = stages.Select(s => new
             {
                 StageId = s.Id,
@@ -392,7 +392,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 WorkflowId = s.WorkflowId,
                 ComponentsJson = s.ComponentsJson
             }).ToList();
-            
+
             return Success(result);
         }
 

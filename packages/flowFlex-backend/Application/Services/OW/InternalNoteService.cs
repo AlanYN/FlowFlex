@@ -309,7 +309,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         }
 
         note.IsResolved = true;
-            note.ResolvedTime = DateTimeOffset.UtcNow;
+        note.ResolvedTime = DateTimeOffset.UtcNow;
         note.ResolvedBy = resolvedBy;
         note.ResolutionNotes = resolutionNotes;
         note.InitUpdateInfo(_userContext);
@@ -342,7 +342,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         note.ResolvedTime = null;
         note.ResolvedBy = string.Empty;
         note.ResolutionNotes = string.Empty;
-            note.ModifyDate = DateTimeOffset.UtcNow;
+        note.ModifyDate = DateTimeOffset.UtcNow;
         note.ModifyBy = GetCurrentUser();
 
         // Explicitly specify columns to update, excluding StageId to prevent accidental modification

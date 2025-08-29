@@ -24,21 +24,21 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (db.DbMaintenance.IsAnyTable("ff_aimodel_config", false))
                 {
                     Console.WriteLine("Updating AIModelConfig table field lengths...");
-                    
+
                     // 修改api_key字段长度为2000
                     db.Ado.ExecuteCommand(@"
                         ALTER TABLE ff_aimodel_config 
                         ALTER COLUMN api_key TYPE varchar(2000);
                     ");
                     Console.WriteLine("Updated api_key field length to 2000 characters.");
-                    
+
                     // 修改base_url字段长度为1000
                     db.Ado.ExecuteCommand(@"
                         ALTER TABLE ff_aimodel_config 
                         ALTER COLUMN base_url TYPE varchar(1000);
                     ");
                     Console.WriteLine("Updated base_url field length to 1000 characters.");
-                    
+
                     Console.WriteLine("AIModelConfig field lengths updated successfully.");
                 }
                 else
@@ -63,12 +63,12 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("Rolling back IncreaseAIModelConfigFieldLengths migration...");
-                
+
                 // 检查表是否存在
                 if (db.DbMaintenance.IsAnyTable("ff_aimodel_config", false))
                 {
                     Console.WriteLine("Reverting AIModelConfig field lengths...");
-                    
+
                     // 恢复api_key字段长度为500（注意：如果有超长数据会失败）
                     try
                     {
@@ -82,7 +82,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     {
                         Console.WriteLine($"Warning: Could not revert api_key field length (may have data longer than 500 chars): {ex.Message}");
                     }
-                    
+
                     // 恢复base_url字段长度为500
                     try
                     {
@@ -101,7 +101,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 {
                     Console.WriteLine("AIModelConfig table does not exist, skipping field length reversion.");
                 }
-                
+
                 Console.WriteLine("IncreaseAIModelConfigFieldLengths migration rollback completed.");
             }
             catch (Exception ex)

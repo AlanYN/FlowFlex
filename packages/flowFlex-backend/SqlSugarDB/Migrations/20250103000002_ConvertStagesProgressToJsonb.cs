@@ -34,7 +34,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 if (columnExists)
                 {
                     Console.WriteLine("Converting stages_progress_json column to JSONB type...");
-                    
+
                     // Convert the column type from text/json to jsonb
                     // PostgreSQL can automatically convert text to jsonb
                     db.Ado.ExecuteCommand(@"
@@ -47,7 +47,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     // Create GIN index on the JSONB column for better query performance
                     Console.WriteLine("Creating GIN index on stages_progress_json...");
-                    
+
                     var indexExists = db.Ado.GetDataTable(@"
                         SELECT indexname 
                         FROM pg_indexes 
@@ -70,7 +70,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     // Create additional functional indexes for common queries
                     Console.WriteLine("Creating functional indexes for common queries...");
-                    
+
                     // Index for querying by stage status
                     var statusIndexExists = db.Ado.GetDataTable(@"
                         SELECT indexname 
@@ -127,10 +127,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("Rolling back ConvertStagesProgressToJsonb migration...");
-                
+
                 // Drop the indexes first
                 Console.WriteLine("Dropping JSONB indexes...");
-                
+
                 db.Ado.ExecuteCommand(@"
                     DROP INDEX IF EXISTS idx_ff_onboarding_stages_progress_json_gin;
                     DROP INDEX IF EXISTS idx_ff_onboarding_stages_status;
@@ -139,13 +139,13 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // Convert back to text type
                 Console.WriteLine("Converting stages_progress_json back to text type...");
-                
+
                 db.Ado.ExecuteCommand(@"
                     ALTER TABLE ff_onboarding 
                     ALTER COLUMN stages_progress_json TYPE text 
                     USING stages_progress_json::text;
                 ");
-                
+
                 Console.WriteLine("ConvertStagesProgressToJsonb migration rollback completed.");
             }
             catch (Exception ex)
@@ -155,4 +155,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

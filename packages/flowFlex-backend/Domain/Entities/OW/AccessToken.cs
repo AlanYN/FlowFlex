@@ -98,4 +98,4 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "user_agent")]
         public string UserAgent { get; set; } = string.Empty;
     }
-} 
+}

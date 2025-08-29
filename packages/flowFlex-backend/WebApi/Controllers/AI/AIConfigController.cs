@@ -193,18 +193,18 @@ namespace FlowFlex.WebApi.Controllers.AI
             try
             {
                 var result = await _configService.TestConnectionAsync(config);
-                
+
                 // 如果有配置ID，获取更新后的配置状态返回给前端
                 if (config.Id > 0)
                 {
                     var updatedConfig = await _configService.GetConfigByIdAsync(config.Id);
                     if (updatedConfig != null)
                     {
-                        _logger.LogInformation("After test, config ID: {ConfigId} isAvailable: {IsAvailable}", 
+                        _logger.LogInformation("After test, config ID: {ConfigId} isAvailable: {IsAvailable}",
                             config.Id, updatedConfig.IsAvailable);
                     }
                 }
-                
+
                 return Success(result);
             }
             catch (Exception ex)
@@ -364,4 +364,4 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// </summary>
         public string[] SupportedModels { get; set; } = Array.Empty<string>();
     }
-} 
+}

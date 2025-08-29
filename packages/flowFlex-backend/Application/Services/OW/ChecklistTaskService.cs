@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.Extensions.Caching.Memory;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -28,6 +29,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IChecklistTaskCompletionRepository _completionRepository;
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
+    private readonly IMemoryCache _cache;
 
     public ChecklistTaskService(
         IChecklistTaskRepository checklistTaskRepository,
@@ -37,7 +39,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IChecklistTaskNoteRepository noteRepository,
         IChecklistTaskCompletionRepository completionRepository,
         IMapper mapper,
-        UserContext userContext)
+        UserContext userContext,
+        IMemoryCache cache)
     {
         _checklistTaskRepository = checklistTaskRepository;
         _checklistRepository = checklistRepository;
@@ -47,6 +50,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _completionRepository = completionRepository;
         _mapper = mapper;
         _userContext = userContext;
+        _cache = cache;
     }
 
     /// <summary>
@@ -120,6 +124,16 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         var result = await _checklistTaskRepository.UpdateAsync(existingTask);
 
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            _cache.Remove(cacheKey);
+
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{existingTask.ChecklistId}:{_userContext.AppCode}";
+            _cache.Remove(checklistCacheKey);
+        }
+
         // Update checklist completion rate
         await _checklistService.CalculateCompletionAsync(existingTask.ChecklistId);
 
@@ -168,13 +182,19 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     /// </summary>
     public async Task<ChecklistTaskOutputDto> GetByIdAsync(long id)
     {
+        var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+        if (_cache.TryGetValue(cacheKey, out ChecklistTaskOutputDto cachedResult))
+            return cachedResult;
+
         var task = await _checklistTaskRepository.GetByIdAsync(id);
         if (task == null)
         {
             throw new CRMException(ErrorCodeEnum.CustomError, "Task not found");
         }
 
-        return _mapper.Map<ChecklistTaskOutputDto>(task);
+        var result = _mapper.Map<ChecklistTaskOutputDto>(task);
+        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(10));
+        return result;
     }
 
     /// <summary>
@@ -183,12 +203,17 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetListByChecklistIdAsync(long checklistId)
     {
+        var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}:{_userContext.AppCode}";
+        if (_cache.TryGetValue(cacheKey, out List<ChecklistTaskOutputDto> cachedResult))
+            return cachedResult;
+
         var tasks = await _checklistTaskRepository.GetByChecklistIdAsync(checklistId);
         var taskDtos = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
-        
+
         // Fill files and notes count for each task
         await FillFilesAndNotesCountAsync(taskDtos);
-        
+
+        _cache.Set(cacheKey, taskDtos, TimeSpan.FromMinutes(10));
         return taskDtos;
     }
 
@@ -221,7 +246,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         var checklist = await _checklistRepository.GetByIdAsync(task.ChecklistId);
 
         task.IsCompleted = true;
-            task.CompletedDate = input.CompletedDate ?? DateTimeOffset.UtcNow;
+        task.CompletedDate = input.CompletedDate ?? DateTimeOffset.UtcNow;
         task.CompletionNotes = input.CompletionNotes;
         task.ActualHours = input.ActualHours;
         task.Status = "Completed";
@@ -421,7 +446,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         task.AssigneeId = assigneeId;
         task.AssigneeName = assigneeName;
-            task.ModifyDate = DateTimeOffset.UtcNow;
+        task.ModifyDate = DateTimeOffset.UtcNow;
 
         return await _checklistTaskRepository.UpdateAsync(task);
     }
@@ -443,7 +468,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             task.AssigneeId = assignee.UserId;
             task.AssigneeName = assignee.Name;
             task.AssignedTeam = assignee.Team;
-            
+
             // Serialize to JSON with proper options
             var options = new System.Text.Json.JsonSerializerOptions
             {
@@ -562,7 +587,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         // Get files count from ChecklistTaskCompletion
         var completions = await _completionRepository.GetByTaskIdsAsync(taskIds);
         var filesCountMap = new Dictionary<long, int>();
-        
+
         foreach (var completion in completions)
         {
             var filesCount = GetFilesCountFromJson(completion.FilesJson);
@@ -593,13 +618,13 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private async Task<Dictionary<long, int>> GetNotesCountByTaskIdsAsync(List<long> taskIds)
     {
         var notesCountMap = new Dictionary<long, int>();
-        
+
         foreach (var taskId in taskIds)
         {
             var count = await _noteRepository.CountByTaskIdAsync(taskId);
             notesCountMap[taskId] = count;
         }
-        
+
         return notesCountMap;
     }
 
