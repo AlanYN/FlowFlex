@@ -56,5 +56,35 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Check if stage mappings need synchronization
         /// </summary>
         Task<bool> NeedsSyncAsync(long stageId, List<long> newChecklistIds, List<long> newQuestionnaireIds);
+
+        /// <summary>
+        /// Notify checklist name change for synchronization
+        /// </summary>
+        Task NotifyChecklistNameChangeAsync(long checklistId, string newName);
+
+        /// <summary>
+        /// Notify questionnaire name change for synchronization
+        /// </summary>
+        Task NotifyQuestionnaireNameChangeAsync(long questionnaireId, string newName);
+
+        /// <summary>
+        /// Batch notify checklist name changes for synchronization
+        /// </summary>
+        Task BatchNotifyChecklistNameChangesAsync(Dictionary<long, string> nameChanges);
+
+        /// <summary>
+        /// Batch notify questionnaire name changes for synchronization
+        /// </summary>
+        Task BatchNotifyQuestionnaireNameChangesAsync(Dictionary<long, string> nameChanges);
+
+        /// <summary>
+        /// Get all stages that use a specific checklist (fast query)
+        /// </summary>
+        Task<List<long>> GetStagesUsingChecklistFastAsync(long checklistId);
+
+        /// <summary>
+        /// Get all stages that use a specific questionnaire (fast query)
+        /// </summary>
+        Task<List<long>> GetStagesUsingQuestionnaireFastAsync(long questionnaireId);
     }
 }

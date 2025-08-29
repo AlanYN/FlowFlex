@@ -178,6 +178,9 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Questionnaire with ID {id} not found");
             }
 
+            // Store the original name for name change detection
+            var originalName = entity.Name;
+
             // Validate name uniqueness (exclude current record)
             if (await _questionnaireRepository.IsNameExistsAsync(input.Name, null, id))
             {
@@ -235,7 +238,32 @@ namespace FlowFlex.Application.Service.OW
 
             // Sections module removed; ignore input.Sections to keep compatibility
 
-            // Sync service is no longer needed as assignments are managed through Stage Components
+            // If name changed, sync the new name to all related stages
+            if (result && originalName != input.Name)
+            {
+                try
+                {
+                    // Use background task to avoid blocking the main operation
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _mappingService.NotifyQuestionnaireNameChangeAsync(id, input.Name);
+                            Console.WriteLine($"[QuestionnaireService] Successfully synced name change for questionnaire {id}: '{originalName}' -> '{input.Name}'");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[QuestionnaireService] Error syncing questionnaire name change: {ex.Message}");
+                            // Don't throw to avoid breaking the background task
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[QuestionnaireService] Error starting questionnaire name sync background task: {ex.Message}");
+                    // Don't throw to avoid breaking the main operation
+                }
+            }
 
             // TODO: Clean up any historical duplicate questionnaire records with same name but different assignments
             // This would be similar to what we did for Checklist

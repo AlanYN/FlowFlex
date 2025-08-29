@@ -501,7 +501,7 @@ import {
 } from '@/settings/projectSetting';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import OnboardFilter from './components/OnboardFilter.vue';
-import { timeZoneConvert } from '@/hooks/time';
+import { timeZoneConvert, timeExpiredornot } from '@/hooks/time';
 import { useI18n } from '@/hooks/useI18n';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
@@ -789,10 +789,7 @@ const getPriorityBorderClass = (priority: string) => {
 
 const isOverdue = (eta: string | null) => {
 	if (!eta) return false;
-	const etaDate = new Date(eta);
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-	return etaDate < today;
+	return timeExpiredornot(eta);
 };
 
 const formatDateTime = (dateString: string | null) => {

@@ -54,9 +54,19 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Add check constraint to ensure valid values (1=Viewable, 2=Completable)
             db.Ado.ExecuteCommand(@"
-                ALTER TABLE ff_stage 
-                ADD CONSTRAINT IF NOT EXISTS chk_stage_portal_permission 
-                CHECK (portal_permission IN (1, 2));
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints 
+                        WHERE constraint_name = 'chk_stage_portal_permission' 
+                        AND table_name = 'ff_stage'
+                    ) THEN
+                        ALTER TABLE ff_stage 
+                        ADD CONSTRAINT chk_stage_portal_permission 
+                        CHECK (portal_permission IN (1, 2));
+                    END IF;
+                END
+                $$;
             ");
 
             // Add check constraint for onboarding_stage if it exists
@@ -64,9 +74,15 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 DO $$
                 BEGIN
                     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ff_onboarding_stage') THEN
-                        ALTER TABLE ff_onboarding_stage 
-                        ADD CONSTRAINT IF NOT EXISTS chk_onboarding_stage_portal_permission 
-                        CHECK (portal_permission IN (1, 2));
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.table_constraints 
+                            WHERE constraint_name = 'chk_onboarding_stage_portal_permission' 
+                            AND table_name = 'ff_onboarding_stage'
+                        ) THEN
+                            ALTER TABLE ff_onboarding_stage 
+                            ADD CONSTRAINT chk_onboarding_stage_portal_permission 
+                            CHECK (portal_permission IN (1, 2));
+                        END IF;
                     END IF;
                 END
                 $$;

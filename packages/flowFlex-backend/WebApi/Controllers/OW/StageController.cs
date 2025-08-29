@@ -10,6 +10,7 @@ using Item.Internal.StandardApi.Response;
 using System.Linq.Dynamic.Core;
 using System;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -618,12 +619,82 @@ namespace FlowFlex.WebApi.Controllers.OW
                 return BadRequest("StageIds cannot be empty");
             }
 
-            var results = await _stageService.BatchValidateAndRepairConsistencyAsync(request.StageIds, request.AutoRepair);
-            return Success(results);
+                    var results = await _stageService.BatchValidateAndRepairConsistencyAsync(request.StageIds, request.AutoRepair);
+        return Success(results);
+    }
+
+    /// <summary>
+    /// Manually sync checklist name change to all related stages
+    /// </summary>
+    [HttpPost("sync/checklist-name/{checklistId}")]
+    [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> SyncChecklistNameChange(long checklistId, [FromBody] SyncNameChangeRequest request)
+    {
+        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+        if (nameSync == null)
+        {
+            return BadRequest("Component name sync service not available");
         }
 
-        #endregion
+        var updatedStages = await nameSync.SyncChecklistNameChangeAsync(checklistId, request.NewName);
+        return Success(updatedStages);
     }
+
+    /// <summary>
+    /// Manually sync questionnaire name change to all related stages
+    /// </summary>
+    [HttpPost("sync/questionnaire-name/{questionnaireId}")]
+    [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> SyncQuestionnaireNameChange(long questionnaireId, [FromBody] SyncNameChangeRequest request)
+    {
+        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+        if (nameSync == null)
+        {
+            return BadRequest("Component name sync service not available");
+        }
+
+        var updatedStages = await nameSync.SyncQuestionnaireNameChangeAsync(questionnaireId, request.NewName);
+        return Success(updatedStages);
+    }
+
+    /// <summary>
+    /// Refresh component names for a specific stage
+    /// </summary>
+    [HttpPost("{id}/refresh-component-names")]
+    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> RefreshStageComponentNames(long id)
+    {
+        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+        if (nameSync == null)
+        {
+            return BadRequest("Component name sync service not available");
+        }
+
+        var success = await nameSync.RefreshStageComponentNamesAsync(id);
+        return Success(success);
+    }
+
+    /// <summary>
+    /// Validate and fix all stage component names across the system
+    /// </summary>
+    [HttpPost("validate-and-fix-all-component-names")]
+    [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ValidateAndFixAllComponentNames()
+    {
+        var nameSync = HttpContext.RequestServices.GetService<IStageComponentNameSyncService>();
+        if (nameSync == null)
+        {
+            return BadRequest("Component name sync service not available");
+        }
+
+        var fixedStages = await nameSync.ValidateAndFixAllStageComponentNamesAsync();
+        return Success(fixedStages);
+    }
+
+
+
+    #endregion
+}
 
     #region Request Models
 
@@ -731,5 +802,19 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         public bool AutoRepair { get; set; } = true;
     }
+
+    /// <summary>
+    /// Sync name change request
+    /// </summary>
+    public class SyncNameChangeRequest
+    {
+        /// <summary>
+        /// New name to sync
+        /// </summary>
+        [Required]
+        public string NewName { get; set; }
+    }
+
+
 
 }

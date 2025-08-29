@@ -156,7 +156,8 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<FlowFlex.Application.Contracts.IServices.AIStageSummaryResult> GenerateAISummaryAsync(long stageId, long? onboardingId = null, StageSummaryOptions summaryOptions = null);
 
         /// <summary>
-        /// Update Stage AI Summary if it's currently empty (backfill only)
+        /// Update Stage AI Summary if it's currently empty (方法已弃用 - Stage不再存储AI摘要字段)
+        /// AI摘要数据现在仅存储在Onboarding的StageProgress中
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <param name="aiSummary">AI Summary content</param>
