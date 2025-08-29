@@ -41,7 +41,6 @@
 						>
 							<!-- 排序图标 -->
 							<el-button
-								size="small"
 								text
 								circle
 								class="cursor-move drag-handle"
@@ -83,7 +82,7 @@
 										</span>
 
 										<!-- Action 绑定状态图标 -->
-										<el-tag v-if="task.actionId" type="success" size="small">
+										<el-tag v-if="task.actionId" type="success">
 											{{ task.actionName }}
 										</el-tag>
 									</div>
@@ -106,7 +105,7 @@
 								</div>
 								<div class="flex items-center space-x-1">
 									<el-dropdown placement="bottom">
-										<el-button :icon="MoreFilled" link size="small" />
+										<el-button :icon="MoreFilled" link />
 										<template #dropdown>
 											<el-dropdown-menu>
 												<!-- 如果已绑定 action，显示编辑和删除选项 -->
@@ -142,13 +141,11 @@
 									</el-dropdown>
 									<el-button
 										@click="editTask(props.checklist.id, task)"
-										size="small"
 										text
 										:icon="Edit"
 									/>
 									<el-button
 										@click="deleteTask(props.checklist.id, task.id)"
-										size="small"
 										text
 										:icon="Delete"
 										class="text-red-500"
@@ -166,7 +163,6 @@
 												(val) => updateTaskFormData('name', val)
 											"
 											placeholder="Task name"
-											size="small"
 										/>
 									</div>
 									<div class="flex-1 flex-shrink-0">
@@ -178,18 +174,13 @@
 											"
 											placeholder="Select assignee"
 											:clearable="true"
-											size="small"
+											:max-count="1"
 										/>
 									</div>
 								</div>
 								<div class="flex items-center gap-1">
-									<el-button
-										@click="saveTaskEdit"
-										type="primary"
-										size="small"
-										:icon="Check"
-									/>
-									<el-button @click="cancelTaskEdit" size="small" :icon="Close" />
+									<el-button @click="saveTaskEdit" type="primary" :icon="Check" />
+									<el-button @click="cancelTaskEdit" :icon="Close" />
 								</div>
 							</template>
 						</div>
@@ -223,17 +214,17 @@
 								ref="newTaskAssigneeSelectorRef"
 								v-model="newTaskAssignee"
 								placeholder="Select assignee"
+								:max-count="1"
 								:clearable="true"
 							/>
 						</div>
 					</div>
 					<div class="flex justify-end mt-2">
-						<el-button @click="cancelAddTask" :icon="Close" size="small" />
+						<el-button @click="cancelAddTask" :icon="Close" />
 						<el-button
 							@click="addTask(props.checklist.id)"
 							type="primary"
 							:icon="Plus"
-							size="small"
 						/>
 					</div>
 				</div>

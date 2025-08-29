@@ -144,7 +144,7 @@
 													>
 														Generated:
 														{{
-															formatUsDate(
+															timeZoneConvert(
 																currentAISummaryGeneratedAt
 															)
 														}}
@@ -415,7 +415,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, Loading, User, Document, Refresh, Check } from '@element-plus/icons-vue';
 import { getTokenobj } from '@/utils/auth';
-import { getTimeZoneInfo } from '@/hooks/time';
+import { getTimeZoneInfo, timeZoneConvert } from '@/hooks/time';
 import { useGlobSetting } from '@/settings';
 import {
 	getOnboardingByLead,
@@ -426,6 +426,7 @@ import {
 	getQuestionIds,
 	getQuestionnaireAnswer,
 	completeCurrentStage,
+	onboardingSave,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -1065,6 +1066,10 @@ const saveQuestionnaireAndField = async () => {
 	const res = await saveAllForm(false);
 	if (res) {
 		ElMessage.success(t('sys.api.operationSuccess'));
+		await onboardingSave(onboardingId.value, {
+			onboardingId: onboardingId.value,
+			stageId: activeStage.value,
+		});
 		loadOnboardingDetail();
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));
@@ -1075,24 +1080,6 @@ const changeLogRef = ref<InstanceType<typeof ChangeLog>>();
 const refreshChangeLog = () => {
 	if (!changeLogRef.value) return;
 	changeLogRef.value.loadChangeLogs();
-};
-
-const formatUsDate = (value?: string | Date) => {
-	if (!value) return '';
-	try {
-		const d = typeof value === 'string' ? new Date(value) : value;
-		return new Intl.DateTimeFormat('en-US', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false,
-		}).format(d);
-	} catch {
-		return String(value);
-	}
 };
 
 // AI Summary相关方法
