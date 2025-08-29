@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Entities.OW;
 using System.Text.Json;
+using FlowFlex.Application.Services.OW.Extensions;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -29,6 +30,7 @@ namespace FlowFlex.Application.Services.Action
         private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
+        private readonly UserContext _userContext;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -37,6 +39,7 @@ namespace FlowFlex.Application.Services.Action
             IChecklistTaskRepository checklistTaskRepository,
             IQuestionnaireRepository questionnaireRepository,
             IMapper mapper,
+            UserContext userContext,
             ILogger<ActionManagementService> logger)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
@@ -45,6 +48,7 @@ namespace FlowFlex.Application.Services.Action
             _checklistTaskRepository = checklistTaskRepository;
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
+            _userContext = userContext;
             _logger = logger;
         }
 
@@ -125,6 +129,9 @@ namespace FlowFlex.Application.Services.Action
             var entity = _mapper.Map<ActionDefinition>(dto);
             entity.ActionCode = await _actionCodeGeneratorService.GeneratorActionCodeAsync();
 
+            // Initialize create information with proper tenant and app context
+            entity.InitCreateInfo(_userContext);
+
             await _actionDefinitionRepository.InsertAsync(entity);
             _logger.LogInformation("Created action definition: {ActionId}", entity.Id);
 
@@ -170,6 +177,9 @@ namespace FlowFlex.Application.Services.Action
             ValidateActionConfig(dto.ActionType, dto.ActionConfig);
 
             _mapper.Map(dto, entity);
+
+            // Initialize update information with proper tenant and app context
+            entity.InitUpdateInfo(_userContext);
 
             await _actionDefinitionRepository.UpdateAsync(entity);
             _logger.LogInformation("Updated action definition: {ActionId}", id);

@@ -8,6 +8,7 @@ using SqlSugar;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using AutoMapper;
+using FlowFlex.Application.Services.OW.Extensions;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -22,6 +23,7 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionManagementService _actionManagementService;
         private readonly ILogger<ActionExecutionService> _logger;
         private readonly IMapper _mapper;
+        private readonly UserContext _userContext;
 
         public ActionExecutionService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -29,6 +31,7 @@ namespace FlowFlex.Application.Services.Action
             IActionExecutionFactory actionExecutorFactory,
             IActionManagementService actionManagementService,
             IMapper mapper,
+            UserContext userContext,
             ILogger<ActionExecutionService> logger)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
@@ -37,6 +40,7 @@ namespace FlowFlex.Application.Services.Action
             _actionManagementService = actionManagementService;
             _logger = logger;
             _mapper = mapper;
+            _userContext = userContext;
         }
 
         public async Task<JToken?> ExecuteActionAsync(
@@ -60,14 +64,17 @@ namespace FlowFlex.Application.Services.Action
                 var execution = new Domain.Entities.Action.ActionExecution
                 {
                     ActionDefinitionId = actionDefinitionId,
+                    ActionName = actionDefinition.ActionName,
+                    ActionType = actionDefinition.ActionType,
                     ExecutionStatus = ActionExecutionStatusEnum.Running.ToString(),
                     StartedAt = DateTime.UtcNow,
                     TriggerContext = contextData != null ? JToken.FromObject(contextData) : new JObject(),
-                    CreateBy = userId.ToString() ?? "",
                     ExecutionId = SnowFlakeSingle.Instance.NextId().ToString(),
-                    CreateDate = DateTimeOffset.UtcNow,
                     ActionTriggerMappingId = triggerMappingId
                 };
+
+                // Initialize create information with proper tenant and app context
+                execution.InitCreateInfo(_userContext);
 
                 await _actionExecutionRepository.InsertAsync(execution, cancellationToken);
 
@@ -81,7 +88,7 @@ namespace FlowFlex.Application.Services.Action
                     execution.ExecutionStatus = ActionExecutionStatusEnum.Completed.ToString();
                     execution.CompletedAt = DateTime.UtcNow;
                     execution.ExecutionOutput = result != null ? JToken.FromObject(result) : new JObject();
-                    execution.ModifyDate = DateTimeOffset.Now;
+                    execution.InitUpdateInfo(_userContext);
                     await _actionExecutionRepository.UpdateAsync(execution);
 
                     _logger.LogInformation(
@@ -95,6 +102,7 @@ namespace FlowFlex.Application.Services.Action
                     execution.ExecutionStatus = ActionExecutionStatusEnum.Failed.ToString();
                     execution.CompletedAt = DateTime.UtcNow;
                     execution.ErrorMessage = ex.Message;
+                    execution.InitUpdateInfo(_userContext);
                     await _actionExecutionRepository.UpdateAsync(execution);
 
                     _logger.LogError(ex,
