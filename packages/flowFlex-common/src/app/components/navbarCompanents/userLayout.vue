@@ -5,7 +5,8 @@
 				<div class="flex items-center">
 					<div
 						v-if="!avatar"
-						class="h-[35px] bg-primary-500 w-[35px] rounded-full text-xl text-center font-bold leading-[35px] text-white"
+						class="h-[35px] w-[35px] rounded-full text-xl text-center font-bold leading-[35px] text-white"
+						:style="{ backgroundColor: getAvatarColor(userName) }"
 					>
 						{{
 							userName.split(' ').length > 1
@@ -17,7 +18,8 @@
 						v-else
 						:src="avatar"
 						alt="avatar"
-						class="h-[35px] bg-primary-500 w-[35px] rounded-full"
+						class="h-[35px] w-[35px] rounded-full"
+						:style="{ backgroundColor: getAvatarColor(userName) }"
 					/>
 				</div>
 			</template>
@@ -44,6 +46,7 @@
 import { computed, ref } from 'vue';
 import { useUserStore } from '@/stores/modules/user';
 import { useI18n } from '@/hooks/useI18n';
+import { getAvatarColor } from '@/utils';
 
 import LogoutIcon from '@assets/svg/global/logout.svg';
 

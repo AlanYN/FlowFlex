@@ -44,7 +44,11 @@
 		>
 			<!-- 已选择的用户头像 -->
 			<div v-if="selectedItems.length > 0" class="flex flex-wrap gap-1.5 items-center flex-1">
-				<div v-for="item in selectedItems" :key="item.id" class="relative">
+				<div
+					v-for="item in selectedItems.filter((item, index) => index < maxShowCount)"
+					:key="item.id"
+					class="relative"
+				>
 					<el-tooltip
 						:content="
 							item.name +
@@ -54,21 +58,34 @@
 						"
 						:show-after="500"
 					>
-						<div
-							class="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
-							:class="{ 'cursor-not-allowed': disabled }"
-							:style="{ backgroundColor: getAvatarColor(item.name) }"
-						>
-							{{ getInitials(item.name) }}
+						<div class="flex items-center gap-1">
 							<div
-								v-if="!disabled"
-								class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
-								@click.stop="removeSelectedItem(item.id)"
+								class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
+								:class="{ 'cursor-not-allowed': disabled }"
+								:style="{ backgroundColor: getAvatarColor(item.name) }"
 							>
-								<el-icon class="text-[8px]"><Close /></el-icon>
+								{{ getInitials(item.name) }}
+								<div
+									v-if="!disabled"
+									class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
+									@click.stop="removeSelectedItem(item.id)"
+								>
+									<el-icon class="text-[8px]"><Close /></el-icon>
+								</div>
 							</div>
+							<div>{{ item.name }}</div>
 						</div>
 					</el-tooltip>
+				</div>
+				<div
+					v-if="selectedItems.length > maxShowCount"
+					class="w-8 h-6 ml-2 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
+					:class="{ 'cursor-not-allowed': disabled }"
+					:style="{
+						backgroundColor: getAvatarColor(`+${selectedItems.length - maxShowCount}`),
+					}"
+				>
+					+{{ selectedItems.length - maxShowCount }}
 				</div>
 			</div>
 
@@ -268,6 +285,7 @@ import { Search, Close } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import type { FlowflexUser } from '#/golbal';
+import { getAvatarColor } from '@/utils';
 
 interface Props {
 	modelValue?: string | string[];
@@ -278,6 +296,7 @@ interface Props {
 	maxCount?: number; // 最大选择数量，0表示无限制
 	minCount?: number; // 最小选择数量
 	readonly?: boolean; // 只读模式，只显示用户不显示输入框样式
+	maxShowCount?: number; // 最大显示数量
 }
 
 interface Emits {
@@ -301,6 +320,7 @@ const props = withDefaults(defineProps<Props>(), {
 	maxCount: 0,
 	minCount: 0,
 	readonly: false,
+	maxShowCount: 10,
 });
 
 // 计算 placeholder
@@ -561,34 +581,6 @@ const getAvailableUsersCount = (): number => {
 const getSelectedTypeText = (): string => {
 	// 直接根据组件配置返回文本
 	return props.selectionType === 'user' ? 'Users' : 'Teams';
-};
-
-// 生成随机头像颜色
-const getAvatarColor = (name: string): string => {
-	const colors = [
-		'#FF6B6B',
-		'#4ECDC4',
-		'#45B7D1',
-		'#96CEB4',
-		'#FFEAA7',
-		'#DDA0DD',
-		'#98D8C8',
-		'#F7DC6F',
-		'#BB8FCE',
-		'#85C1E9',
-		'#F8C471',
-		'#82E0AA',
-		'#F1948A',
-		'#85C1E9',
-		'#D7BDE2',
-	];
-
-	// 使用名字生成一个稳定的索引
-	let hash = 0;
-	for (let i = 0; i < name.length; i++) {
-		hash = name.charCodeAt(i) + ((hash << 5) - hash);
-	}
-	return colors[Math.abs(hash) % colors.length];
 };
 
 // 获取名字首字母
