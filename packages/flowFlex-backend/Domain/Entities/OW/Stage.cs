@@ -52,9 +52,9 @@ namespace FlowFlex.Domain.Entities.OW
         public string DefaultAssignedGroup { get; set; }
 
         /// <summary>
-        /// Default Assignee
+        /// Default Assignee (JSONB array of user IDs)
         /// </summary>
-        [StringLength(100)]
+        [SugarColumn(ColumnName = "default_assignee", ColumnDataType = "jsonb", IsJson = true)]
         public string DefaultAssignee { get; set; }
 
         /// <summary>

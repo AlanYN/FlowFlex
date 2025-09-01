@@ -31,7 +31,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.InternalName, opt => opt.MapFrom(src => src.InternalName))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.DefaultAssignedGroup, opt => opt.MapFrom(src => src.DefaultAssignedGroup))
-                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => ConvertAssigneeStringToList(src.DefaultAssignee)))
+                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => ParseDefaultAssignee(src.DefaultAssignee)))
                 .ForMember(dest => dest.EstimatedDuration, opt => opt.MapFrom(src => src.EstimatedDuration))
                 .ForMember(dest => dest.Order, opt => opt.MapFrom(src => src.Order))
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
@@ -58,7 +58,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.InternalName, opt => opt.MapFrom(src => src.InternalName))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
                 .ForMember(dest => dest.DefaultAssignedGroup, opt => opt.MapFrom(src => src.DefaultAssignedGroup))
-                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => ConvertAssigneeListToString(src.DefaultAssignee)))
+                .ForMember(dest => dest.DefaultAssignee, opt => opt.MapFrom(src => SerializeDefaultAssignee(src.DefaultAssignee)))
                 .ForMember(dest => dest.EstimatedDuration, opt => opt.MapFrom(src => src.EstimatedDuration))
                 .ForMember(dest => dest.Order, opt => opt.MapFrom(src => src.Order))
                 .ForMember(dest => dest.ChecklistId, opt => opt.MapFrom(src => src.ChecklistId))
@@ -206,26 +206,117 @@ namespace FlowFlex.Application.Maps
         }
 
         /// <summary>
-        /// Convert List of assignee IDs to comma-separated string for database storage
+        /// Serialize assignee list to JSONB format for database storage
+        /// </summary>
+        private static string SerializeDefaultAssignee(List<string> assigneeList)
+        {
+            if (assigneeList == null || !assigneeList.Any())
+                return null;
+
+            try
+            {
+                return JsonSerializer.Serialize(assigneeList, _jsonOptions);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Parse default assignee from JSONB field
+        /// SqlSugar may provide JSONB data in different formats, so we need to handle various cases
+        /// </summary>
+        private static List<string> ParseDefaultAssignee(string assigneeData)
+        {
+            if (string.IsNullOrWhiteSpace(assigneeData))
+                return new List<string>();
+
+            // Debug: log the raw data to understand what SqlSugar is providing
+            System.Diagnostics.Debug.WriteLine($"ParseDefaultAssignee received: {assigneeData}");
+
+            try
+            {
+                // First, try direct JSON deserialization
+                var result = JsonSerializer.Deserialize<List<string>>(assigneeData, _jsonOptions);
+                return result ?? new List<string>();
+            }
+            catch (JsonException)
+            {
+                try
+                {
+                    // Maybe it's a nested JSON string? Try unescaping first
+                    if (assigneeData.StartsWith("\"") && assigneeData.EndsWith("\""))
+                    {
+                        var unescaped = JsonSerializer.Deserialize<string>(assigneeData, _jsonOptions);
+                        if (!string.IsNullOrWhiteSpace(unescaped))
+                        {
+                            var nestedResult = JsonSerializer.Deserialize<List<string>>(unescaped, _jsonOptions);
+                            return nestedResult ?? new List<string>();
+                        }
+                    }
+                }
+                catch
+                {
+                    // Continue to fallback
+                }
+
+                // Fallback for backward compatibility with comma-separated format
+                if (!assigneeData.TrimStart().StartsWith("["))
+                {
+                    return assigneeData.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                      .Select(s => s.Trim())
+                                      .Where(s => !string.IsNullOrWhiteSpace(s))
+                                      .ToList();
+                }
+                
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Convert List of assignee IDs to JSON string for database storage (legacy method)
         /// </summary>
         private static string ConvertAssigneeListToString(List<string> assigneeList)
         {
             if (assigneeList == null || !assigneeList.Any())
                 return null;
 
-            // Join with comma separator, limit to 100 characters to respect StringLength constraint
-            var result = string.Join(",", assigneeList);
-            return result.Length > 100 ? result.Substring(0, 100) : result;
+            try
+            {
+                // Use JSON serialization to preserve all data without truncation
+                return JsonSerializer.Serialize(assigneeList, _jsonOptions);
+            }
+            catch (Exception)
+            {
+                // Fallback to comma-separated format if JSON serialization fails
+                return string.Join(",", assigneeList);
+            }
         }
 
         /// <summary>
-        /// Convert comma-separated string to List of assignee IDs
+        /// Convert JSON string or comma-separated string to List of assignee IDs (legacy method)
         /// </summary>
         private static List<string> ConvertAssigneeStringToList(string assigneeString)
         {
             if (string.IsNullOrWhiteSpace(assigneeString))
                 return new List<string>();
 
+            // Try to deserialize as JSON first
+            if (assigneeString.TrimStart().StartsWith("["))
+            {
+                try
+                {
+                    var jsonResult = JsonSerializer.Deserialize<List<string>>(assigneeString, _jsonOptions);
+                    return jsonResult ?? new List<string>();
+                }
+                catch (JsonException)
+                {
+                    // If JSON parsing fails, fall back to comma-separated parsing
+                }
+            }
+
+            // Fallback to comma-separated format for backward compatibility
             return assigneeString.Split(',', StringSplitOptions.RemoveEmptyEntries)
                                 .Select(s => s.Trim())
                                 .Where(s => !string.IsNullOrWhiteSpace(s))
