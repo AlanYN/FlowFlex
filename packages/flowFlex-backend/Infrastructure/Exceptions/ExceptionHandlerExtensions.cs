@@ -121,9 +121,10 @@ namespace FlowFlex.Infrastructure.Exceptions
         public static ApiResponse<object> ToApiResponse(this CRMException crmException)
         {
             var statusCode = crmException.StatusCode.HasValue ? (int)crmException.StatusCode.Value : 400;
+            var responseCode = crmException.ResponseCode ?? statusCode;
             return new ApiResponse<object>
             {
-                Code = statusCode,
+                Code = responseCode,
                 Message = crmException.Message,
                 Msg = crmException.Message,
                 Data = crmException.ErrorData ?? new { ErrorCode = crmException.Code.ToString() }

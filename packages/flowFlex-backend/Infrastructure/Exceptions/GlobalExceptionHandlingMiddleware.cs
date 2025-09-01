@@ -39,8 +39,12 @@ namespace FlowFlex.Infrastructure.Exceptions
             // Use extension method for consistent error handling
             var errorResponse = exception.ToApiResponse(context, logger);
 
-            // Set response properties
-            context.Response.StatusCode = errorResponse.Code;
+            // Set HTTP status code (different from response body Code for CRMException with explicit StatusCode)
+            var httpStatusCode = exception is CRMException crmEx && crmEx.StatusCode.HasValue 
+                ? (int)crmEx.StatusCode.Value 
+                : errorResponse.Code;
+
+            context.Response.StatusCode = httpStatusCode;
             context.Response.ContentType = "application/json";
 
             var options = new JsonSerializerOptions

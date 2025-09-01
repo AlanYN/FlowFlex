@@ -11,6 +11,11 @@ public class CRMException : Exception
 
     public object ErrorData { get; set; }
 
+    /// <summary>
+    /// Response code (can be different from HTTP status code)
+    /// </summary>
+    public int? ResponseCode { get; set; }
+
     public CRMException(ErrorCodeEnum code) : base(ErrorMessage.GetErrorMessage(code))
     {
         Code = code;

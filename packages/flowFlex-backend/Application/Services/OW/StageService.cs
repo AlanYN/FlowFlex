@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
@@ -2016,8 +2017,11 @@ namespace FlowFlex.Application.Service.OW
                     var conflictingChecklistNames = await GetChecklistNamesByIds(conflictingChecklists);
                     var namesDisplay = conflictingChecklistNames.Any() ? string.Join("、", conflictingChecklistNames) : string.Join(", ", conflictingChecklists);
 
-                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                    var exception = new CRMException(ErrorCodeEnum.BusinessError,
                         $"Checklist '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
+                    exception.StatusCode = HttpStatusCode.OK;
+                    exception.ResponseCode = 400;
+                    throw exception;
                 }
 
                 // Check for questionnaire conflicts
@@ -2030,8 +2034,11 @@ namespace FlowFlex.Application.Service.OW
                     var conflictingQuestionnaireNames = await GetQuestionnaireNamesByIds(conflictingQuestionnaires);
                     var namesDisplay = conflictingQuestionnaireNames.Any() ? string.Join("、", conflictingQuestionnaireNames) : string.Join(", ", conflictingQuestionnaires);
 
-                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                    var exception = new CRMException(ErrorCodeEnum.BusinessError,
                         $"Questionnaire '{namesDisplay}' are already used in stage '{stage.Name}' within the same workflow");
+                    exception.StatusCode = HttpStatusCode.OK;
+                    exception.ResponseCode = 400;
+                    throw exception;
                 }
 
                 Console.WriteLine($"[StageService] No conflicts found with stage {stage.Id} ({stage.Name})");
