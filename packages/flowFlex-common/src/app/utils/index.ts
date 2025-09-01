@@ -262,3 +262,31 @@ export function formatPhoneNumber(phoneNumber: string) {
 		return phoneNumber;
 	}
 }
+
+// 生成随机头像颜色
+export const getAvatarColor = (name: string): string => {
+	const colors = [
+		'#C53030',
+		'#2C7A7B',
+		'#2B6CB0',
+		'#38A169',
+		'#D69E2E',
+		'#9F7AEA',
+		'#319795',
+		'#D69E2E',
+		'#805AD5',
+		'#3182CE',
+		'#DD6B20',
+		'#38A169',
+		'#E53E3E',
+		'#3182CE',
+		'#9F7AEA',
+	];
+
+	// 使用名字生成一个稳定的索引
+	let hash = 0;
+	for (let i = 0; i < name.length; i++) {
+		hash = name.charCodeAt(i) + ((hash << 5) - hash);
+	}
+	return colors[Math.abs(hash) % colors.length];
+};

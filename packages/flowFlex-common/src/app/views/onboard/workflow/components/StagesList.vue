@@ -366,6 +366,7 @@ import staticFieldConfig from '../static-field.json';
 import { defaultStr } from '@/settings/projectSetting';
 import { ElDropdown } from 'element-plus';
 import { FlowflexUser } from '#/golbal';
+import { getAvatarColor } from '@/utils';
 
 // Portal权限枚举常量
 const PortalPermissionEnum = {
@@ -473,31 +474,6 @@ const getInitials = (name: string) => {
 		.join('')
 		.substring(0, 2)
 		.toUpperCase();
-};
-
-const getAvatarColor = (name: string) => {
-	const colors = [
-		'#4F46E5', // Indigo
-		'#0EA5E9', // Sky
-		'#10B981', // Emerald
-		'#F59E0B', // Amber
-		'#EC4899', // Pink
-		'#8B5CF6', // Violet
-		'#06B6D4', // Cyan
-		'#14B8A6', // Teal
-		'#F43F5E', // Rose
-		'#22C55E', // Green
-		'#3B82F6', // Blue
-		'#A855F7', // Purple
-	];
-
-	// 使用名称的哈希值来确定颜色，这样同名的 stage 颜色一致
-	let hash = 0;
-	for (let i = 0; i < name.length; i++) {
-		hash = name.charCodeAt(i) + ((hash << 5) - hash);
-	}
-
-	return colors[Math.abs(hash) % colors.length];
 };
 
 const handleCommand = (command: string, stage: Stage) => {

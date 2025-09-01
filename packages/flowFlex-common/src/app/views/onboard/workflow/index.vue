@@ -558,6 +558,7 @@ import StageForm from './components/StageForm.vue';
 import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
 import { getFlowflexUser } from '@/apis/global';
 import { FlowflexUser } from '#/golbal';
+import { getAvatarColor } from '@/utils';
 
 const { t } = useI18n();
 
@@ -1232,30 +1233,6 @@ const showCombineStagesDialog = () => {
 const getWorkflowStages = () => {
 	if (!workflow.value) return [];
 	return workflow.value.stages;
-};
-
-const getAvatarColor = (name: string) => {
-	const colors = [
-		'#4F46E5',
-		'#0EA5E9',
-		'#10B981',
-		'#F59E0B',
-		'#EC4899',
-		'#8B5CF6',
-		'#06B6D4',
-		'#14B8A6',
-		'#F43F5E',
-		'#22C55E',
-		'#3B82F6',
-		'#A855F7',
-	];
-
-	let hash = 0;
-	for (let i = 0; i < name.length; i++) {
-		hash = name.charCodeAt(i) + ((hash << 5) - hash);
-	}
-
-	return colors[Math.abs(hash) % colors.length];
 };
 
 const combineSelectedStages = async () => {
