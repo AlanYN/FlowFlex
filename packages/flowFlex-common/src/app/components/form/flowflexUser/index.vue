@@ -34,7 +34,7 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full h-8 border border-gray-300 rounded-md px-3 py-1.5 bg-white cursor-pointer transition-colors duration-200 flex items-center"
+			class="w-full min-h-8 border border-gray-300 rounded-md px-3 py-1.5 bg-white cursor-pointer transition-colors duration-200 flex items-center"
 			:class="[disabled ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-400']"
 			@click="openModal"
 		>
