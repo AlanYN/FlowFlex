@@ -97,7 +97,7 @@
 									</div>
 								</div>
 								<div
-									v-if="stage.completed && stage.date"
+									v-if="stage.completedBy || stage.savedBy"
 									class="text-xs text-green-600 dark:text-green-400 ml-6"
 								>
 									<span
@@ -154,7 +154,7 @@ const showAllStages = ref(true);
 const getSaveOrCompleteFlag = (completionTime: string, saveTime: string): boolean => {
 	// 如果没有保存时间或完成时间，返回false
 	if (!saveTime || !completionTime) {
-		return false;
+		return !!saveTime;
 	}
 
 	try {
