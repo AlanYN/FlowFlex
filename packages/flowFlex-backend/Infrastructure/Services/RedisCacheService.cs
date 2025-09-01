@@ -166,6 +166,11 @@ namespace FlowFlex.Infrastructure.Services
                     _logger.LogDebug("Cache key not found for removal: {Key}", key);
                 }
             }
+            catch (StackExchange.Redis.RedisServerException ex) when (ex.Message.Contains("NOPERM"))
+            {
+                _logger.LogWarning("Redis cache remove failed due to permission issue for key: {Key}. This may indicate ACL restrictions. Error: {Error}", key, ex.Message);
+                // Don't throw for permission errors - graceful degradation
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Redis cache remove failed for key: {Key}, continuing without removal", key);

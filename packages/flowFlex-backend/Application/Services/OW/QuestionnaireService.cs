@@ -171,7 +171,7 @@ namespace FlowFlex.Application.Service.OW
                     await _operationChangeLogService.LogQuestionnaireCreateAsync(
                         questionnaireId: entity.Id,
                         questionnaireName: entity.Name,
-                        questionnaireDescription: entity.Description
+                        extendedData: entity.Description
                     );
                 }
                 catch
