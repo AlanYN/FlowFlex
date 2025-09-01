@@ -22,7 +22,7 @@ const Api = (id?: string | number) => {
 		onboardingUpdateCompletionRate: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/update-completion-rate`,
 		onboardingSetPriority: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/set-priority`,
 		onboardingBatchUpdateStatus: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/batch-update-status`,
-		onboardingSave: `${globSetting.apiProName}/ow/onboardings//${globSetting.apiVersion}/${id}/save`,
+		onboardingSave: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/save`,
 
 		// Lead同步相关API
 		leadSyncShouldCreate: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/should-create`,
