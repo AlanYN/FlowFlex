@@ -900,10 +900,26 @@ const validateForm = (presentQuestionIndex?: number) => {
 		vailSection = questionnaire.sections;
 	}
 
-	vailSection.forEach((section: any, sIndex: number) => {
-		if (!section.questions || section.questions.length === 0) {
-			return true;
+	// 用于记录所有已经验证过的section，避免重复验证
+	const validatedSectionIds = new Set<string>();
+
+	for (let sIndex = 0; sIndex < vailSection.length; sIndex++) {
+		const section = vailSection[sIndex];
+
+		// 如果这个section已经被验证过，跳过
+		if (validatedSectionIds.has(section.id)) {
+			continue;
 		}
+
+		if (!section.questions || section.questions.length === 0) {
+			validatedSectionIds.add(section.id);
+			continue;
+		}
+
+		// 标记当前section为已验证
+		validatedSectionIds.add(section.id);
+
+		// 验证当前section的所有问题
 		section.questions
 			?.filter((item) => {
 				return item.type != 'page_break';
@@ -1007,7 +1023,59 @@ const validateForm = (presentQuestionIndex?: number) => {
 					}
 				}
 			});
-	});
+
+		// 验证完当前section后，检查是否有跳转逻辑被触发
+		let jumpTargetSectionId = null;
+
+		// 从最后一个问题开始向前查找，找到最后一个有效的跳转规则
+		for (let i = section.questions.length - 1; i >= 0; i--) {
+			const question = section.questions[i];
+
+			// 检查是否是有跳转规则的问题
+			if (
+				(question.type === 'multiple_choice' || question.type === 'checkboxes') &&
+				question.jumpRules &&
+				question.jumpRules.length > 0
+			) {
+				const userAnswer = formData.value[question.id];
+
+				// 检查用户是否已经选择了答案
+				if (userAnswer && userAnswer !== '') {
+					// 查找匹配的跳转规则
+					const matchingRule = question.jumpRules.find((rule) => {
+						return (
+							rule.optionId &&
+							question.options.some(
+								(option) =>
+									(option.id === rule.optionId ||
+										option.temporaryId === rule.optionId) &&
+									(option.value === userAnswer || option.label === userAnswer)
+							)
+						);
+					});
+
+					// 如果找到匹配的跳转规则，记录目标并跳出循环
+					if (matchingRule) {
+						jumpTargetSectionId = matchingRule.targetSectionId;
+						break;
+					}
+				}
+			}
+		}
+
+		// 如果有跳转目标，调整索引直接跳转到目标section
+		if (jumpTargetSectionId) {
+			// 找到目标section在vailSection数组中的位置
+			const targetInVailSections = vailSection.findIndex(
+				(s) => s.id === jumpTargetSectionId || s.temporaryId === jumpTargetSectionId
+			);
+
+			if (targetInVailSections !== -1 && targetInVailSections > sIndex) {
+				// 直接跳转到目标section，跳过中间的section
+				sIndex = targetInVailSections - 1; // -1 是因为for循环会自动+1
+			}
+		}
+	}
 	return { isValid, errors };
 };
 
@@ -1196,7 +1264,8 @@ const getJumpTargetSection = () => {
 						rule.optionId &&
 						question.options.some(
 							(option) =>
-								option.id === rule.optionId &&
+								(option.id === rule.optionId ||
+									option.temporaryId === rule.optionId) &&
 								(option.value === userAnswer || option.label === userAnswer)
 						)
 					);
@@ -1220,7 +1289,9 @@ const findSectionIndexById = (sectionId: string) => {
 	const questionnaire = formattedQuestionnaires.value[0];
 	if (!questionnaire.sections) return -1;
 
-	return questionnaire.sections.findIndex((section) => section.id === sectionId);
+	return questionnaire.sections.findIndex(
+		(section) => section.id === sectionId || section.temporaryId === sectionId
+	);
 };
 
 // 分页控制方法

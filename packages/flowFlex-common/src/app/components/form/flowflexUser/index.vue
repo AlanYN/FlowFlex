@@ -19,6 +19,7 @@
 								? ` (${item?.userDetails?.email})`
 								: '')
 						"
+						:show-after="500"
 					>
 						<div
 							class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 border-2 border-white"
@@ -51,6 +52,7 @@
 								? ` (${item?.userDetails?.email})`
 								: '')
 						"
+						:show-after="500"
 					>
 						<div
 							class="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
