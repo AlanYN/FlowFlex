@@ -1,5 +1,6 @@
 using SqlSugar;
 using System.Linq;
+using System.Text.Json;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -68,9 +69,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                     if (existing != null)
                     {
                         // Update existing record using raw SQL to handle JSONB properly
-                        var sql = @"
-                            UPDATE ff_static_field_values 
-                            SET 
+                                                var sql = @"
+                            UPDATE ff_static_field_values
+                            SET
                                 field_value_json = @FieldValueJson::jsonb,
                                 display_name = @DisplayName,
                                 field_type = @FieldType,
@@ -90,7 +91,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                         await db.Ado.ExecuteCommandAsync(sql, new
                         {
                             Id = existing.Id,
-                            FieldValueJson = fieldValue.FieldValueJson,
+                            FieldValueJson = EnsureValidJson(fieldValue.FieldValueJson),
                             DisplayName = fieldValue.DisplayName,
                             FieldType = fieldValue.FieldType,
                             IsRequired = fieldValue.IsRequired,
@@ -103,7 +104,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                             ModifyDate = DateTimeOffset.UtcNow,
                             ModifyBy = fieldValue.ModifyBy ?? fieldValue.CreateBy,
                             ModifyUserId = fieldValue.ModifyUserId > 0 ? fieldValue.ModifyUserId : fieldValue.CreateUserId,
-                            Metadata = fieldValue.Metadata ?? existing.Metadata
+                            Metadata = EnsureValidJson(fieldValue.Metadata) ?? EnsureValidJson(existing.Metadata)
                         });
                     }
                     else
@@ -132,7 +133,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                             StageId = fieldValue.StageId,
                             FieldName = fieldValue.FieldName,
                             DisplayName = fieldValue.DisplayName,
-                            FieldValueJson = fieldValue.FieldValueJson,
+                            FieldValueJson = EnsureValidJson(fieldValue.FieldValueJson),
                             FieldType = fieldValue.FieldType,
                             IsRequired = fieldValue.IsRequired,
                             Status = fieldValue.Status,
@@ -145,7 +146,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                             Source = fieldValue.Source,
                             IpAddress = fieldValue.IpAddress,
                             UserAgent = fieldValue.UserAgent,
-                            Metadata = fieldValue.Metadata,
+                            Metadata = EnsureValidJson(fieldValue.Metadata),
                             CreateDate = DateTimeOffset.UtcNow,
                             ModifyDate = DateTimeOffset.UtcNow,
                             CreateBy = fieldValue.CreateBy,
@@ -200,6 +201,32 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                 .OrderByDescending(x => x.Version)
                 .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
+        }
+
+        /// <summary>
+        /// Ensure the input string is valid JSON format
+        /// If not valid JSON, convert to JSON string
+        /// </summary>
+        /// <param name="input">Input string</param>
+        /// <returns>Valid JSON string</returns>
+        private static string EnsureValidJson(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return "null";
+            }
+
+            // Try to parse as JSON first
+            try
+            {
+                JsonDocument.Parse(input);
+                return input; // Already valid JSON
+            }
+            catch (JsonException)
+            {
+                // Not valid JSON, serialize as JSON string
+                return JsonSerializer.Serialize(input);
+            }
         }
     }
 }

@@ -28,7 +28,7 @@ namespace FlowFlex.Application.Services.OW
     /// <summary>
     /// Operation change log service implementation
     /// </summary>
-    public class OperationChangeLogService : IOperationChangeLogService, IScopedService
+    public partial class OperationChangeLogService : IOperationChangeLogService, IScopedService
     {
         private readonly IOperationChangeLogRepository _operationChangeLogRepository;
         private readonly IActionExecutionService _actionExecutionService;
@@ -2729,6 +2729,973 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding action executions in batch");
+            }
+        }
+
+        #endregion
+
+        #region Workflow Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log workflow create operation
+        /// </summary>
+        public async Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Workflow Created: {workflowName}";
+                string operationDescription = $"Workflow '{workflowName}' has been created by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(workflowDescription))
+                {
+                    operationDescription += $". Description: {workflowDescription}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    WorkflowId = workflowId,
+                    WorkflowName = workflowName,
+                    WorkflowDescription = workflowDescription,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowCreate,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent workflow operations
+                    null, // No stageId for independent workflow operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow create operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log workflow update operation
+        /// </summary>
+        public async Task<bool> LogWorkflowUpdateAsync(long workflowId, string workflowName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)
+        {
+            try
+            {
+                // Check if there's actually a meaningful change
+                if (!HasMeaningfulValueChange(beforeData, afterData))
+                {
+                    _logger.LogDebug("Skipping operation log for workflow {WorkflowId} as there's no meaningful value change", workflowId);
+                    return true;
+                }
+
+                string operationTitle = $"Workflow Updated: {workflowName}";
+                string operationDescription = $"Workflow '{workflowName}' has been updated by {GetOperatorDisplayName()}";
+
+                if (changedFields?.Any() == true)
+                {
+                    operationDescription += $". Changed fields: {string.Join(", ", changedFields)}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    WorkflowId = workflowId,
+                    WorkflowName = workflowName,
+                    ChangedFieldsCount = changedFields?.Count ?? 0,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowUpdate,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent workflow operations
+                    null, // No stageId for independent workflow operations
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow update operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log workflow delete operation
+        /// </summary>
+        public async Task<bool> LogWorkflowDeleteAsync(long workflowId, string workflowName, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Workflow Deleted: {workflowName}";
+                string operationDescription = $"Workflow '{workflowName}' has been deleted by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    WorkflowId = workflowId,
+                    WorkflowName = workflowName,
+                    Reason = reason,
+                    DeletedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowDelete,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent workflow operations
+                    null, // No stageId for independent workflow operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow delete operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log workflow publish operation
+        /// </summary>
+        public async Task<bool> LogWorkflowPublishAsync(long workflowId, string workflowName, string version = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Workflow Published: {workflowName}";
+                string operationDescription = $"Workflow '{workflowName}' has been published by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(version))
+                {
+                    operationDescription += $" as version {version}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    WorkflowId = workflowId,
+                    WorkflowName = workflowName,
+                    Version = version,
+                    PublishedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowPublish,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent workflow operations
+                    null, // No stageId for independent workflow operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow publish operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log workflow unpublish operation
+        /// </summary>
+        public async Task<bool> LogWorkflowUnpublishAsync(long workflowId, string workflowName, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Workflow Unpublished: {workflowName}";
+                string operationDescription = $"Workflow '{workflowName}' has been unpublished by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    WorkflowId = workflowId,
+                    WorkflowName = workflowName,
+                    Reason = reason,
+                    UnpublishedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowUnpublish,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent workflow operations
+                    null, // No stageId for independent workflow operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow unpublish operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log workflow activate operation
+        /// </summary>
+        public async Task<bool> LogWorkflowActivateAsync(long workflowId, string workflowName, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Workflow Activated: {workflowName}";
+                string operationDescription = $"Workflow '{workflowName}' has been activated by {GetOperatorDisplayName()}";
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    WorkflowId = workflowId,
+                    WorkflowName = workflowName,
+                    ActivatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowActivate,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent workflow operations
+                    null, // No stageId for independent workflow operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow activate operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log workflow deactivate operation
+        /// </summary>
+        public async Task<bool> LogWorkflowDeactivateAsync(long workflowId, string workflowName, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Workflow Deactivated: {workflowName}";
+                string operationDescription = $"Workflow '{workflowName}' has been deactivated by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    WorkflowId = workflowId,
+                    WorkflowName = workflowName,
+                    Reason = reason,
+                    DeactivatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowDeactivate,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent workflow operations
+                    null, // No stageId for independent workflow operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow deactivate operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Stage Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log stage create operation
+        /// </summary>
+        public async Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Stage Created: {stageName}";
+                string operationDescription = $"Stage '{stageName}' has been created by {GetOperatorDisplayName()}";
+
+                if (workflowId.HasValue)
+                {
+                    operationDescription += $" in workflow ID {workflowId.Value}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    StageId = stageId,
+                    StageName = stageName,
+                    WorkflowId = workflowId,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.StageCreate,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null, // No onboardingId for independent stage operations
+                    null, // No parent stageId for stage creation
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log stage create operation for stage {StageId}", stageId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log stage update operation
+        /// </summary>
+        public async Task<bool> LogStageUpdateAsync(long stageId, string stageName, string beforeData, string afterData, List<string> changedFields, long? workflowId = null, string extendedData = null)
+        {
+            try
+            {
+                // Check if there's actually a meaningful change
+                if (!HasMeaningfulValueChange(beforeData, afterData))
+                {
+                    _logger.LogDebug("Skipping operation log for stage {StageId} as there's no meaningful value change", stageId);
+                    return true;
+                }
+
+                string operationTitle = $"Stage Updated: {stageName}";
+                string operationDescription = $"Stage '{stageName}' has been updated by {GetOperatorDisplayName()}";
+
+                if (workflowId.HasValue)
+                {
+                    operationDescription += $" in workflow ID {workflowId.Value}";
+                }
+
+                if (changedFields?.Any() == true)
+                {
+                    operationDescription += $". Changed fields: {string.Join(", ", changedFields)}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    StageId = stageId,
+                    StageName = stageName,
+                    WorkflowId = workflowId,
+                    ChangedFieldsCount = changedFields?.Count ?? 0,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.StageUpdate,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null, // No onboardingId for independent stage operations
+                    null, // No parent stageId for stage update
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log stage update operation for stage {StageId}", stageId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log stage delete operation
+        /// </summary>
+        public async Task<bool> LogStageDeleteAsync(long stageId, string stageName, long? workflowId = null, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Stage Deleted: {stageName}";
+                string operationDescription = $"Stage '{stageName}' has been deleted by {GetOperatorDisplayName()}";
+
+                if (workflowId.HasValue)
+                {
+                    operationDescription += $" from workflow ID {workflowId.Value}";
+                }
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    StageId = stageId,
+                    StageName = stageName,
+                    WorkflowId = workflowId,
+                    Reason = reason,
+                    DeletedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.StageDelete,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null, // No onboardingId for independent stage operations
+                    null, // No parent stageId for stage deletion
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log stage delete operation for stage {StageId}", stageId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log stage order change operation
+        /// </summary>
+        public async Task<bool> LogStageOrderChangeAsync(long stageId, string stageName, int oldOrder, int newOrder, long? workflowId = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Stage Order Changed: {stageName}";
+                string operationDescription = $"Stage '{stageName}' order has been changed from {oldOrder} to {newOrder} by {GetOperatorDisplayName()}";
+
+                if (workflowId.HasValue)
+                {
+                    operationDescription += $" in workflow ID {workflowId.Value}";
+                }
+
+                var beforeData = JsonSerializer.Serialize(new { order = oldOrder });
+                var afterData = JsonSerializer.Serialize(new { order = newOrder });
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    StageId = stageId,
+                    StageName = stageName,
+                    WorkflowId = workflowId,
+                    OldOrder = oldOrder,
+                    NewOrder = newOrder,
+                    ChangedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.StageOrderChange,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null, // No onboardingId for independent stage operations
+                    null, // No parent stageId for stage order change
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    new List<string> { "order" },
+                    extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log stage order change operation for stage {StageId}", stageId);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Checklist Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log checklist create operation
+        /// </summary>
+        public async Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Checklist Created: {checklistName}";
+                string operationDescription = $"Checklist '{checklistName}' has been created by {GetOperatorDisplayName()}";
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    ChecklistId = checklistId,
+                    ChecklistName = checklistName,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.ChecklistCreate,
+                    BusinessModuleEnum.Checklist,
+                    checklistId,
+                    null, // No onboardingId for independent checklist operations
+                    null, // No stageId for independent checklist operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist create operation for checklist {ChecklistId}", checklistId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log checklist update operation
+        /// </summary>
+        public async Task<bool> LogChecklistUpdateAsync(long checklistId, string checklistName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)
+        {
+            try
+            {
+                // Check if there's actually a meaningful change
+                if (!HasMeaningfulValueChange(beforeData, afterData))
+                {
+                    _logger.LogDebug("Skipping operation log for checklist {ChecklistId} as there's no meaningful value change", checklistId);
+                    return true;
+                }
+
+                string operationTitle = $"Checklist Updated: {checklistName}";
+                string operationDescription = $"Checklist '{checklistName}' has been updated by {GetOperatorDisplayName()}";
+
+                if (changedFields?.Any() == true)
+                {
+                    operationDescription += $". Changed fields: {string.Join(", ", changedFields)}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    ChecklistId = checklistId,
+                    ChecklistName = checklistName,
+                    ChangedFieldsCount = changedFields?.Count ?? 0,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.ChecklistUpdate,
+                    BusinessModuleEnum.Checklist,
+                    checklistId,
+                    null, // No onboardingId for independent checklist operations
+                    null, // No stageId for independent checklist operations
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist update operation for checklist {ChecklistId}", checklistId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log checklist delete operation
+        /// </summary>
+        public async Task<bool> LogChecklistDeleteAsync(long checklistId, string checklistName, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Checklist Deleted: {checklistName}";
+                string operationDescription = $"Checklist '{checklistName}' has been deleted by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    ChecklistId = checklistId,
+                    ChecklistName = checklistName,
+                    Reason = reason,
+                    DeletedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.ChecklistDelete,
+                    BusinessModuleEnum.Checklist,
+                    checklistId,
+                    null, // No onboardingId for independent checklist operations
+                    null, // No stageId for independent checklist operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist delete operation for checklist {ChecklistId}", checklistId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log checklist task create operation
+        /// </summary>
+        public async Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Checklist Task Created: {taskName}";
+                string operationDescription = $"Checklist task '{taskName}' has been created by {GetOperatorDisplayName()} in checklist ID {checklistId}";
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    TaskId = taskId,
+                    TaskName = taskName,
+                    ChecklistId = checklistId,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.ChecklistTaskCreate,
+                    BusinessModuleEnum.Task,
+                    taskId,
+                    null, // No onboardingId for independent checklist task operations
+                    null, // No stageId for independent checklist task operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist task create operation for task {TaskId}", taskId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log checklist task update operation
+        /// </summary>
+        public async Task<bool> LogChecklistTaskUpdateAsync(long taskId, string taskName, string beforeData, string afterData, List<string> changedFields, long checklistId, string extendedData = null)
+        {
+            try
+            {
+                // Check if there's actually a meaningful change
+                if (!HasMeaningfulValueChange(beforeData, afterData))
+                {
+                    _logger.LogDebug("Skipping operation log for checklist task {TaskId} as there's no meaningful value change", taskId);
+                    return true;
+                }
+
+                string operationTitle = $"Checklist Task Updated: {taskName}";
+                string operationDescription = $"Checklist task '{taskName}' has been updated by {GetOperatorDisplayName()} in checklist ID {checklistId}";
+
+                if (changedFields?.Any() == true)
+                {
+                    operationDescription += $". Changed fields: {string.Join(", ", changedFields)}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    TaskId = taskId,
+                    TaskName = taskName,
+                    ChecklistId = checklistId,
+                    ChangedFieldsCount = changedFields?.Count ?? 0,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.ChecklistTaskUpdate,
+                    BusinessModuleEnum.Task,
+                    taskId,
+                    null, // No onboardingId for independent checklist task operations
+                    null, // No stageId for independent checklist task operations
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist task update operation for task {TaskId}", taskId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log checklist task delete operation
+        /// </summary>
+        public async Task<bool> LogChecklistTaskDeleteAsync(long taskId, string taskName, long checklistId, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Checklist Task Deleted: {taskName}";
+                string operationDescription = $"Checklist task '{taskName}' has been deleted by {GetOperatorDisplayName()} from checklist ID {checklistId}";
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    TaskId = taskId,
+                    TaskName = taskName,
+                    ChecklistId = checklistId,
+                    Reason = reason,
+                    DeletedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.ChecklistTaskDelete,
+                    BusinessModuleEnum.Task,
+                    taskId,
+                    null, // No onboardingId for independent checklist task operations
+                    null, // No stageId for independent checklist task operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist task delete operation for task {TaskId}", taskId);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Questionnaire Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log questionnaire create operation
+        /// </summary>
+        public async Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Questionnaire Created: {questionnaireName}";
+                string operationDescription = $"Questionnaire '{questionnaireName}' has been created by {GetOperatorDisplayName()}";
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    QuestionnaireId = questionnaireId,
+                    QuestionnaireName = questionnaireName,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.QuestionnaireCreate,
+                    BusinessModuleEnum.Questionnaire,
+                    questionnaireId,
+                    null, // No onboardingId for independent questionnaire operations
+                    null, // No stageId for independent questionnaire operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log questionnaire create operation for questionnaire {QuestionnaireId}", questionnaireId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log questionnaire update operation
+        /// </summary>
+        public async Task<bool> LogQuestionnaireUpdateAsync(long questionnaireId, string questionnaireName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)
+        {
+            try
+            {
+                // Check if there's actually a meaningful change
+                if (!HasMeaningfulValueChange(beforeData, afterData))
+                {
+                    _logger.LogDebug("Skipping operation log for questionnaire {QuestionnaireId} as there's no meaningful value change", questionnaireId);
+                    return true;
+                }
+
+                string operationTitle = $"Questionnaire Updated: {questionnaireName}";
+                string operationDescription = $"Questionnaire '{questionnaireName}' has been updated by {GetOperatorDisplayName()}";
+
+                if (changedFields?.Any() == true)
+                {
+                    operationDescription += $". Changed fields: {string.Join(", ", changedFields)}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    QuestionnaireId = questionnaireId,
+                    QuestionnaireName = questionnaireName,
+                    ChangedFieldsCount = changedFields?.Count ?? 0,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.QuestionnaireUpdate,
+                    BusinessModuleEnum.Questionnaire,
+                    questionnaireId,
+                    null, // No onboardingId for independent questionnaire operations
+                    null, // No stageId for independent questionnaire operations
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log questionnaire update operation for questionnaire {QuestionnaireId}", questionnaireId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log questionnaire delete operation
+        /// </summary>
+        public async Task<bool> LogQuestionnaireDeleteAsync(long questionnaireId, string questionnaireName, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Questionnaire Deleted: {questionnaireName}";
+                string operationDescription = $"Questionnaire '{questionnaireName}' has been deleted by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    QuestionnaireId = questionnaireId,
+                    QuestionnaireName = questionnaireName,
+                    Reason = reason,
+                    DeletedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.QuestionnaireDelete,
+                    BusinessModuleEnum.Questionnaire,
+                    questionnaireId,
+                    null, // No onboardingId for independent questionnaire operations
+                    null, // No stageId for independent questionnaire operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log questionnaire delete operation for questionnaire {QuestionnaireId}", questionnaireId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log questionnaire publish operation
+        /// </summary>
+        public async Task<bool> LogQuestionnairePublishAsync(long questionnaireId, string questionnaireName, string version = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Questionnaire Published: {questionnaireName}";
+                string operationDescription = $"Questionnaire '{questionnaireName}' has been published by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(version))
+                {
+                    operationDescription += $" as version {version}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    QuestionnaireId = questionnaireId,
+                    QuestionnaireName = questionnaireName,
+                    Version = version,
+                    PublishedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.QuestionnairePublish,
+                    BusinessModuleEnum.Questionnaire,
+                    questionnaireId,
+                    null, // No onboardingId for independent questionnaire operations
+                    null, // No stageId for independent questionnaire operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log questionnaire publish operation for questionnaire {QuestionnaireId}", questionnaireId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log questionnaire unpublish operation
+        /// </summary>
+        public async Task<bool> LogQuestionnaireUnpublishAsync(long questionnaireId, string questionnaireName, string reason = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Questionnaire Unpublished: {questionnaireName}";
+                string operationDescription = $"Questionnaire '{questionnaireName}' has been unpublished by {GetOperatorDisplayName()}";
+
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                var defaultExtendedData = JsonSerializer.Serialize(new
+                {
+                    QuestionnaireId = questionnaireId,
+                    QuestionnaireName = questionnaireName,
+                    Reason = reason,
+                    UnpublishedAt = DateTimeOffset.UtcNow
+                });
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.QuestionnaireUnpublish,
+                    BusinessModuleEnum.Questionnaire,
+                    questionnaireId,
+                    null, // No onboardingId for independent questionnaire operations
+                    null, // No stageId for independent questionnaire operations
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData ?? defaultExtendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log questionnaire unpublish operation for questionnaire {QuestionnaireId}", questionnaireId);
+                return false;
             }
         }
 

@@ -1643,29 +1643,37 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
+                // Only generate if AI Summary doesn't exist yet
                 try
                 {
-                    var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                    LoadStagesProgressFromJson(entity);
+                    var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                    
+                    // Only generate AI Summary if it doesn't exist yet
+                    if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
                     {
-                        var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
-                        if (ai != null && ai.Success)
+                        var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            LoadStagesProgressFromJson(entity);
-                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                            if (sp != null)
+                            var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
+                            if (ai != null && ai.Success)
                             {
-                                sp.AiSummary = ai.Summary;
-                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                sp.AiSummaryModel = ai.ModelUsed;
-                                var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                await SafeUpdateOnboardingAsync(entity);
+                                LoadStagesProgressFromJson(entity);
+                                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                                if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
+                                {
+                                    sp.AiSummary = ai.Summary;
+                                    sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                    sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                    sp.AiSummaryModel = ai.ModelUsed;
+                                    var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                    sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                    await SafeUpdateOnboardingAsync(entity);
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
                 catch { /* fire-and-forget */ }
 
@@ -1687,29 +1695,37 @@ namespace FlowFlex.Application.Services.OW
                 entity.CompletionRate = CalculateCompletionRateByStageOrder(entity.StagesProgress);
 
                 // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
+                // Only generate if AI Summary doesn't exist yet
                 try
                 {
-                    var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                    LoadStagesProgressFromJson(entity);
+                    var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                    
+                    // Only generate AI Summary if it doesn't exist yet
+                    if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
                     {
-                        var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
-                        if (ai != null && ai.Success)
+                        var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            LoadStagesProgressFromJson(entity);
-                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                            if (sp != null)
+                            var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
+                            if (ai != null && ai.Success)
                             {
-                                sp.AiSummary = ai.Summary;
-                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                sp.AiSummaryModel = ai.ModelUsed;
-                                var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                await SafeUpdateOnboardingAsync(entity);
+                                LoadStagesProgressFromJson(entity);
+                                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                                if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
+                                {
+                                    sp.AiSummary = ai.Summary;
+                                    sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                    sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                    sp.AiSummaryModel = ai.ModelUsed;
+                                    var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                    sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                    await SafeUpdateOnboardingAsync(entity);
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
                 catch { /* fire-and-forget */ }
 

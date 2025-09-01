@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -35,8 +36,9 @@ namespace FlowFlex.Application.Service.OW
         private readonly IOperatorContextService _operatorContextService;
         private readonly IComponentMappingService _componentMappingService;
         private readonly IDistributedCacheService _cacheService;
+        private readonly IOperationChangeLogService _operationChangeLogService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IOperationChangeLogService operationChangeLogService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -46,6 +48,7 @@ namespace FlowFlex.Application.Service.OW
             _operatorContextService = operatorContextService;
             _componentMappingService = componentMappingService;
             _cacheService = cacheService;
+            _operationChangeLogService = operationChangeLogService;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -114,6 +117,23 @@ namespace FlowFlex.Application.Service.OW
                     // Don't fail the workflow creation if mapping sync fails
                 }
             }
+
+            // Log workflow create operation (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogWorkflowCreateAsync(
+                        workflowId: entity.Id,
+                        workflowName: entity.Name,
+                        workflowDescription: entity.Description
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
 
             return entity.Id;
         }
@@ -247,6 +267,59 @@ namespace FlowFlex.Application.Service.OW
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
                 await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow update operation if there were actual changes (fire-and-forget)
+                if (hasChanges)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // Get the updated workflow for logging
+                            var updatedWorkflow = await _workflowRepository.GetByIdAsync(id);
+                            if (updatedWorkflow != null)
+                            {
+                                // Prepare before and after data for logging
+                                var beforeData = JsonSerializer.Serialize(new
+                                {
+                                    Name = entity.Name, // This contains the old values before mapping
+                                    Description = entity.Description,
+                                    Status = entity.Status,
+                                    IsDefault = entity.IsDefault,
+                                    IsActive = entity.IsActive,
+                                    StartDate = entity.StartDate,
+                                    EndDate = entity.EndDate
+                                });
+
+                                var afterData = JsonSerializer.Serialize(new
+                                {
+                                    Name = updatedWorkflow.Name,
+                                    Description = updatedWorkflow.Description,
+                                    Status = updatedWorkflow.Status,
+                                    IsDefault = updatedWorkflow.IsDefault,
+                                    IsActive = updatedWorkflow.IsActive,
+                                    StartDate = updatedWorkflow.StartDate,
+                                    EndDate = updatedWorkflow.EndDate
+                                });
+
+                                // Determine changed fields (simplified for now)
+                                var changedFields = new List<string> { "Updated" };
+
+                                await _operationChangeLogService.LogWorkflowUpdateAsync(
+                                    workflowId: id,
+                                    workflowName: updatedWorkflow.Name,
+                                    beforeData: beforeData,
+                                    afterData: afterData,
+                                    changedFields: changedFields
+                                );
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore logging errors to avoid affecting main operation
+                        }
+                    });
+                }
             }
 
             return updateResult;
@@ -310,6 +383,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete workflow with existing stages");
             }
 
+            var workflowName = entity.Name; // Store name before deletion
+
             var result = await _workflowRepository.DeleteAsync(entity);
             
             // Clear related cache after successful deletion
@@ -317,6 +392,23 @@ namespace FlowFlex.Application.Service.OW
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
                 await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow delete operation (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _operationChangeLogService.LogWorkflowDeleteAsync(
+                            workflowId: id,
+                            workflowName: workflowName,
+                            reason: "Workflow deleted via admin portal"
+                        );
+                    }
+                    catch
+                    {
+                        // Ignore logging errors to avoid affecting main operation
+                    }
+                });
             }
             
             return result;

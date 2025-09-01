@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
@@ -15,9 +16,8 @@ using FlowFlex.Domain.Repository.OW;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Services.OW.Extensions;
-using FlowFlex.Application.Contracts.IServices.OW;
 using System.Text.Json;
-using FlowFlex.Domain.Repository.OW;
+using System.Linq;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
@@ -40,6 +40,7 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IOperatorContextService _operatorContextService;
     private readonly IComponentMappingService _mappingService;
     private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+    private readonly IOperationChangeLogService _operationChangeLogService;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -49,7 +50,8 @@ public class ChecklistService : IChecklistService, IScopedService
         UserContext userContext,
         IOperatorContextService operatorContextService,
         IComponentMappingService mappingService,
-        IBackgroundTaskQueue backgroundTaskQueue)
+        IBackgroundTaskQueue backgroundTaskQueue,
+        IOperationChangeLogService operationChangeLogService)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -59,6 +61,7 @@ public class ChecklistService : IChecklistService, IScopedService
         _userContext = userContext;
         _operatorContextService = operatorContextService;
         _backgroundTaskQueue = backgroundTaskQueue;
+        _operationChangeLogService = operationChangeLogService;
     }
 
     /// <summary>
@@ -88,6 +91,22 @@ public class ChecklistService : IChecklistService, IScopedService
         AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
 
         await _checklistRepository.InsertAsync(entity);
+
+        // Log checklist create operation (fire-and-forget)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _operationChangeLogService.LogChecklistCreateAsync(
+                    checklistId: entity.Id,
+                    checklistName: entity.Name
+                );
+            }
+            catch
+            {
+                // Ignore logging errors to avoid affecting main operation
+            }
+        });
 
         // Sync service is no longer needed as assignments are managed through Stage Components
 
@@ -156,6 +175,51 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var result = await _checklistRepository.UpdateAsync(entity);
 
+        // Log checklist update operation if successful (fire-and-forget)
+        if (result)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Prepare before and after data for logging
+                    var beforeData = JsonSerializer.Serialize(new
+                    {
+                        Name = originalName,
+                        Description = entity.Description, // This will be the old description since we mapped after
+                        Team = entity.Team,
+                        EstimatedHours = entity.EstimatedHours,
+                        IsActive = entity.IsActive
+                    });
+
+                    var afterData = JsonSerializer.Serialize(new
+                    {
+                        Name = entity.Name,
+                        Description = entity.Description,
+                        Team = entity.Team,
+                        EstimatedHours = entity.EstimatedHours,
+                        IsActive = entity.IsActive
+                    });
+
+                    // Determine changed fields
+                    var changedFields = new List<string>();
+                    if (originalName != entity.Name) changedFields.Add("Name");
+
+                    await _operationChangeLogService.LogChecklistUpdateAsync(
+                        checklistId: entity.Id,
+                        checklistName: entity.Name,
+                        beforeData: beforeData,
+                        afterData: afterData,
+                        changedFields: changedFields
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+        }
+
         // If name changed, sync the new name to all related stages
         if (result && originalName != input.Name)
         {
@@ -201,11 +265,33 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.CustomError, "Please confirm deletion by setting confirm=true");
         }
 
+        var checklistName = checklist.Name; // Store name before deletion
+
         // Soft delete
         checklist.IsValid = false;
         checklist.ModifyDate = DateTimeOffset.UtcNow;
 
         var result = await _checklistRepository.UpdateAsync(checklist);
+
+        // Log checklist delete operation if successful (fire-and-forget)
+        if (result)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogChecklistDeleteAsync(
+                        checklistId: id,
+                        checklistName: checklistName,
+                        reason: "Checklist deleted via admin portal"
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+        }
 
         // Cache has been removed, no cleanup needed
 

@@ -44,6 +44,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IComponentMappingService _mappingService;
         private readonly IActionManagementService _actionManagementService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private readonly IOperationChangeLogService _operationChangeLogService;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
@@ -53,7 +54,8 @@ namespace FlowFlex.Application.Service.OW
             IOperatorContextService operatorContextService,
             IComponentMappingService mappingService,
             IActionManagementService actionManagementService,
-            IBackgroundTaskQueue backgroundTaskQueue)
+            IBackgroundTaskQueue backgroundTaskQueue,
+            IOperationChangeLogService operationChangeLogService)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
@@ -63,6 +65,7 @@ namespace FlowFlex.Application.Service.OW
             _operatorContextService = operatorContextService;
             _actionManagementService = actionManagementService;
             _backgroundTaskQueue = backgroundTaskQueue;
+            _operationChangeLogService = operationChangeLogService;
         }
         private static string TryUnwrapComponentsJson(string json)
         {
@@ -160,6 +163,23 @@ namespace FlowFlex.Application.Service.OW
 
             await _questionnaireRepository.InsertAsync(entity);
 
+            // Log questionnaire create operation (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogQuestionnaireCreateAsync(
+                        questionnaireId: entity.Id,
+                        questionnaireName: entity.Name,
+                        questionnaireDescription: entity.Description
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+
             // Sections module removed; ignore input.Sections to keep compatibility
 
             // Sync service is no longer needed as assignments are managed through Stage Components
@@ -234,6 +254,58 @@ namespace FlowFlex.Application.Service.OW
 
             var result = await _questionnaireRepository.UpdateAsync(entity);
 
+            // Log questionnaire update operation if successful (fire-and-forget)
+            if (result)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Get the updated questionnaire for logging
+                        var updatedQuestionnaire = await _questionnaireRepository.GetByIdAsync(id);
+                        if (updatedQuestionnaire != null)
+                        {
+                            // Prepare before and after data for logging
+                            var beforeData = JsonSerializer.Serialize(new
+                            {
+                                Name = originalName,
+                                Description = entity.Description, // This contains old data before mapping
+                                Status = entity.Status,
+                                Category = entity.Category,
+                                EstimatedMinutes = entity.EstimatedMinutes,
+                                IsActive = entity.IsActive
+                            });
+
+                            var afterData = JsonSerializer.Serialize(new
+                            {
+                                Name = updatedQuestionnaire.Name,
+                                Description = updatedQuestionnaire.Description,
+                                Status = updatedQuestionnaire.Status,
+                                Category = updatedQuestionnaire.Category,
+                                EstimatedMinutes = updatedQuestionnaire.EstimatedMinutes,
+                                IsActive = updatedQuestionnaire.IsActive
+                            });
+
+                            // Determine changed fields
+                            var changedFields = new List<string>();
+                            if (originalName != updatedQuestionnaire.Name) changedFields.Add("Name");
+
+                            await _operationChangeLogService.LogQuestionnaireUpdateAsync(
+                                questionnaireId: id,
+                                questionnaireName: updatedQuestionnaire.Name,
+                                beforeData: beforeData,
+                                afterData: afterData,
+                                changedFields: changedFields
+                            );
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore logging errors to avoid affecting main operation
+                    }
+                });
+            }
+
             // Ensure ActionTriggerMappings exist for all Questions with Action IDs
             await EnsureQuestionActionTriggerMappingsExistAsync(entity);
 
@@ -294,11 +366,33 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete published questionnaire");
             }
 
+            var questionnaireName = entity.Name; // Store name before deletion
+
             // Template validation removed - direct deletion allowed
 
             // Sections module removed; nothing to delete
 
             var result = await _questionnaireRepository.DeleteAsync(entity);
+
+            // Log questionnaire delete operation if successful (fire-and-forget)
+            if (result)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _operationChangeLogService.LogQuestionnaireDeleteAsync(
+                            questionnaireId: id,
+                            questionnaireName: questionnaireName,
+                            reason: "Questionnaire deleted via admin portal"
+                        );
+                    }
+                    catch
+                    {
+                        // Ignore logging errors to avoid affecting main operation
+                    }
+                });
+            }
 
             // Cache removed, no need to clean up
 

@@ -50,12 +50,13 @@ namespace FlowFlex.Application.Service.OW
         private readonly ISqlSugarClient _db;
         private readonly IDistributedCacheService _cacheService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private readonly IOperationChangeLogService _operationChangeLogService;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -71,6 +72,7 @@ namespace FlowFlex.Application.Service.OW
             _db = db;
             _cacheService = cacheService;
             _backgroundTaskQueue = backgroundTaskQueue;
+            _operationChangeLogService = operationChangeLogService;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -133,6 +135,40 @@ namespace FlowFlex.Application.Service.OW
 
                 return entity.Id;
             });
+
+            // Log stage create operation if successful (outside transaction)
+            if (result.Data > 0)
+            {
+                try
+                {
+                    // Get the created stage for logging
+                    var createdStage = await _stageRepository.GetByIdAsync(result.Data);
+                    if (createdStage != null)
+                    {
+                        // Log the create operation (fire-and-forget)
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await _operationChangeLogService.LogStageCreateAsync(
+                                    stageId: result.Data,
+                                    stageName: createdStage.Name,
+                                    workflowId: createdStage.WorkflowId
+                                );
+                            }
+                            catch
+                            {
+                                // Ignore logging errors to avoid affecting main operation
+                            }
+                        });
+                    }
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            }
+
             return result.Data;
         }
 
@@ -297,6 +333,70 @@ namespace FlowFlex.Application.Service.OW
 
                 return result;
             });
+
+            // Log stage update operation if successful (outside transaction)
+            if (transactionResult.Data)
+            {
+                try
+                {
+                    // Get current stage data for comparison
+                    var updatedStage = await _stageRepository.GetByIdAsync(id);
+                    if (updatedStage != null)
+                    {
+                        // Prepare before and after data for logging
+                        var beforeData = JsonSerializer.Serialize(new
+                        {
+                            Name = stage.Name,
+                            Description = stage.Description,
+                            Order = stage.Order,
+                            ComponentsJson = stage.ComponentsJson,
+                            IsActive = stage.IsActive
+                        });
+
+                        var afterData = JsonSerializer.Serialize(new
+                        {
+                            Name = updatedStage.Name,
+                            Description = updatedStage.Description,
+                            Order = updatedStage.Order,
+                            ComponentsJson = updatedStage.ComponentsJson,
+                            IsActive = updatedStage.IsActive
+                        });
+
+                        // Determine changed fields
+                        var changedFields = new List<string>();
+                        if (stage.Name != updatedStage.Name) changedFields.Add("Name");
+                        if (stage.Description != updatedStage.Description) changedFields.Add("Description");
+                        if (stage.Order != updatedStage.Order) changedFields.Add("Order");
+                        if (stage.ComponentsJson != updatedStage.ComponentsJson) changedFields.Add("Components");
+                        if (stage.IsActive != updatedStage.IsActive) changedFields.Add("IsActive");
+
+                        // Log the update operation (fire-and-forget)
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await _operationChangeLogService.LogStageUpdateAsync(
+                                    stageId: id,
+                                    stageName: updatedStage.Name,
+                                    beforeData: beforeData,
+                                    afterData: afterData,
+                                    changedFields: changedFields,
+                                    workflowId: updatedStage.WorkflowId
+                                );
+                            }
+                            catch
+                            {
+                                // Ignore logging errors to avoid affecting main operation
+                            }
+                        });
+                    }
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            }
+
             return transactionResult.Data;
         }
 
@@ -353,6 +453,24 @@ namespace FlowFlex.Application.Service.OW
                 // Clear related cache after successful deletion
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
+                
+                // Log stage delete operation (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _operationChangeLogService.LogStageDeleteAsync(
+                            stageId: id,
+                            stageName: stageName,
+                            workflowId: workflowId,
+                            reason: "Stage deleted via admin portal"
+                        );
+                    }
+                    catch
+                    {
+                        // Ignore logging errors to avoid affecting main operation
+                    }
+                });
                 
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation

@@ -90,6 +90,23 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         await _checklistTaskRepository.InsertAsync(entity);
 
+        // Log checklist task create operation (fire-and-forget)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _operationChangeLogService.LogChecklistTaskCreateAsync(
+                    taskId: entity.Id,
+                    taskName: entity.Name,
+                    checklistId: entity.ChecklistId
+                );
+            }
+            catch
+            {
+                // Ignore logging errors to avoid affecting main operation
+            }
+        });
+
         // Update checklist completion rate
         await _checklistService.CalculateCompletionAsync(input.ChecklistId);
 
@@ -126,6 +143,53 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         if (result)
         {
+            // Log checklist task update operation (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Get the updated task for logging
+                    var updatedTask = await _checklistTaskRepository.GetByIdAsync(id);
+                    if (updatedTask != null)
+                    {
+                        // Prepare before and after data for logging (simplified)
+                        var beforeData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            Name = existingTask.Name,
+                            Description = existingTask.Description,
+                            Status = existingTask.Status,
+                            Priority = existingTask.Priority,
+                            IsCompleted = existingTask.IsCompleted
+                        });
+
+                        var afterData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            Name = updatedTask.Name,
+                            Description = updatedTask.Description,
+                            Status = updatedTask.Status,
+                            Priority = updatedTask.Priority,
+                            IsCompleted = updatedTask.IsCompleted
+                        });
+
+                        // Determine changed fields (simplified)
+                        var changedFields = new List<string> { "Updated" };
+
+                        await _operationChangeLogService.LogChecklistTaskUpdateAsync(
+                            taskId: id,
+                            taskName: updatedTask.Name,
+                            beforeData: beforeData,
+                            afterData: afterData,
+                            changedFields: changedFields,
+                            checklistId: updatedTask.ChecklistId
+                        );
+                    }
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
 
@@ -165,6 +229,9 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                 $"Cannot delete task that has {dependentTasks.Count} dependent tasks");
         }
 
+        var taskName = task.Name; // Store name before deletion
+        var checklistId = task.ChecklistId; // Store checklist ID before deletion
+
         // Soft delete
         task.IsValid = false;
         task.InitUpdateInfo(_userContext);
@@ -174,6 +241,24 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         // Clear related cache after successful deletion
         if (result)
         {
+            // Log checklist task delete operation (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogChecklistTaskDeleteAsync(
+                        taskId: id,
+                        taskName: taskName,
+                        checklistId: checklistId,
+                        reason: "Checklist task deleted via admin portal"
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
             

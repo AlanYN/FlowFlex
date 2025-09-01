@@ -211,7 +211,12 @@
 									</div>
 
 									<!-- Empty state -->
-									<div v-else class="ai-empty-state">
+									<div
+										v-else
+										class="ai-empty-state cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
+										@click="refreshAISummary"
+										title="Click to generate AI summary"
+									>
 										<div class="empty-icon">
 											<svg
 												width="48"
@@ -240,8 +245,14 @@
 										<div class="text-sm text-gray-500 dark:text-gray-400 mb-1">
 											No AI insights available
 										</div>
-										<div class="text-xs text-gray-400 dark:text-gray-500">
-											Click the refresh button to generate intelligent summary
+										<div class="text-xs text-gray-400 dark:text-gray-500 mb-2">
+											Click here or the refresh button to generate intelligent
+											summary
+										</div>
+										<div
+											class="text-xs text-blue-600 dark:text-blue-400 font-medium"
+										>
+											🚀 Generate AI Summary
 										</div>
 									</div>
 
@@ -475,6 +486,8 @@ const aiSummaryLoadingText = ref('Generating AI summary...');
 const currentAISummary = ref('');
 const currentAISummaryGeneratedAt = ref('');
 const showAISummarySection = ref(true);
+// 用于取消AI摘要请求的AbortController
+let aiSummaryAbortController: AbortController | null = null;
 
 // 使用自适应滚动条 hook
 const { scrollbarRef: leftScrollbarRef } = useAdaptiveScrollbar(100);
@@ -857,6 +870,13 @@ const setActiveStage = async (stageId: string) => {
 		return;
 	}
 
+	// 取消当前正在进行的AI摘要生成（如果有）
+	if (aiSummaryAbortController) {
+		aiSummaryAbortController.abort();
+		aiSummaryLoading.value = false;
+		console.log('🚫 [Stage Switch] Cancelled AI summary generation due to stage change');
+	}
+
 	// 更新activeStage
 	activeStage.value = stageId;
 	onboardingActiveStageInfo.value = workflowStages.value.find(
@@ -870,7 +890,15 @@ const setActiveStage = async (stageId: string) => {
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues(); // 添加加载字段值的调用
 
-	// 检查并自动生成AI Summary
+	// 页面切换时自动检查并生成AI Summary
+	console.log(
+		'🔄 [Stage Switch] Stage switched to:',
+		stageId,
+		'AI Summary exists:',
+		!!onboardingActiveStageInfo.value?.aiSummary
+	);
+
+	// 自动检查并生成AI Summary（如果不存在）
 	await checkAndGenerateAISummary();
 };
 
@@ -1100,11 +1128,21 @@ const refreshAISummary = async () => {
 		return;
 	}
 
+	// 取消之前的请求（如果存在）
+	if (aiSummaryAbortController) {
+		aiSummaryAbortController.abort();
+		console.log('🚫 [AI Summary] Cancelled previous request');
+	}
+
+	// 创建新的AbortController
+	aiSummaryAbortController = new AbortController();
+	const currentStageId = activeStage.value; // 保存当前阶段ID，用于验证
+
 	// 重置状态，开始流式生成
 	aiSummaryLoading.value = true;
 	aiSummaryLoadingText.value = 'Starting AI summary generation...';
 	currentAISummary.value = ''; // 清空现有内容，准备流式显示
-	console.log('🔄 [AI Summary] Starting generation, loading =', aiSummaryLoading.value);
+	console.log('🔄 [AI Summary] Starting generation for stage:', currentStageId);
 
 	try {
 		// 获取认证信息
@@ -1135,10 +1173,11 @@ const refreshAISummary = async () => {
 		}
 
 		// 使用fetch进行POST流式请求
-		const url = `/api/ow/stages/v1/${activeStage.value}/ai-summary/stream?onboardingId=${onboardingId.value}`;
+		const url = `/api/ow/stages/v1/${currentStageId}/ai-summary/stream?onboardingId=${onboardingId.value}`;
 		const response = await fetch(url, {
 			method: 'POST',
 			headers,
+			signal: aiSummaryAbortController.signal,
 		});
 
 		if (!response.ok) {
@@ -1158,6 +1197,15 @@ const refreshAISummary = async () => {
 			done = isDone;
 			if (done) break;
 
+			// 检查当前阶段是否已经改变
+			if (activeStage.value !== currentStageId) {
+				console.log(
+					'🚫 [AI Summary] Stage changed during generation, stopping stream processing'
+				);
+				aiSummaryLoading.value = false;
+				return;
+			}
+
 			const chunk = decoder.decode(value, { stream: true });
 
 			// 检查是否是错误信息
@@ -1175,30 +1223,70 @@ const refreshAISummary = async () => {
 			}
 		}
 
+		// 最终验证阶段是否仍然是开始时的阶段
+		if (activeStage.value !== currentStageId) {
+			console.log(
+				'🚫 [AI Summary] Stage changed after generation completed, discarding result'
+			);
+			aiSummaryLoading.value = false;
+			return;
+		}
+
 		// 流结束，设置状态
-		console.log('✅ [AI Summary] Stream completed');
+		console.log('✅ [AI Summary] Stream completed for stage:', currentStageId);
 		currentAISummaryGeneratedAt.value = new Date().toISOString();
 		aiSummaryLoading.value = false;
 		ElMessage.success('AI Summary generated successfully');
 
-		// 更新本地stage信息
-		if (onboardingActiveStageInfo.value) {
+		// 更新本地stage信息 - 再次验证阶段
+		if (onboardingActiveStageInfo.value && activeStage.value === currentStageId) {
 			onboardingActiveStageInfo.value.aiSummary = currentAISummary.value;
 			onboardingActiveStageInfo.value.aiSummaryGeneratedAt =
 				currentAISummaryGeneratedAt.value;
-			console.log('📝 [AI Summary] Updated stage info');
+			console.log('📝 [AI Summary] Updated stage info for stage:', currentStageId);
+		} else {
+			console.log('⚠️ [AI Summary] Skipped updating stage info due to stage change');
 		}
-	} catch (error) {
+	} catch (error: any) {
+		// 检查是否是用户取消的请求
+		if (error.name === 'AbortError') {
+			console.log('🚫 [AI Summary] Request was cancelled');
+			aiSummaryLoading.value = false;
+			return;
+		}
+
 		console.error('Error generating AI summary:', error);
 		aiSummaryLoading.value = false;
 		ElMessage.error('Failed to generate AI summary');
+	} finally {
+		// 清理AbortController引用
+		aiSummaryAbortController = null;
 	}
 };
 
 const checkAndGenerateAISummary = async () => {
 	// 检查当前阶段是否有AI Summary，如果没有则自动生成
-	if (!onboardingActiveStageInfo.value?.aiSummary && !aiSummaryLoading.value) {
+	// 只有在stagesProgress中确实没有aiSummary时才自动生成
+	if (
+		!onboardingActiveStageInfo.value?.aiSummary &&
+		!aiSummaryLoading.value &&
+		onboardingActiveStageInfo.value &&
+		activeStage.value
+	) {
+		console.log(
+			'🤖 [AI Summary] Auto-generating for stage without existing summary:',
+			activeStage.value
+		);
 		await refreshAISummary();
+	} else if (onboardingActiveStageInfo.value?.aiSummary) {
+		console.log('✅ [AI Summary] Stage already has AI summary, skipping auto-generation');
+	} else {
+		console.log('⏸️ [AI Summary] Skipping auto-generation:', {
+			hasAiSummary: !!onboardingActiveStageInfo.value?.aiSummary,
+			isLoading: aiSummaryLoading.value,
+			hasStageInfo: !!onboardingActiveStageInfo.value,
+			hasActiveStage: !!activeStage.value,
+		});
 	}
 };
 
