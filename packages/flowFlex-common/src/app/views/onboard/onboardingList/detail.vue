@@ -947,23 +947,23 @@ const saveAllForm = async (isValidate: boolean = true) => {
 		const validationResults: Array<{ component: string; result: any }> = [];
 
 		// 校验StaticForm组件
-		// if (staticFormRefs.value.length > 0) {
-		// 	for (let i = 0; i < staticFormRefs.value.length; i++) {
-		// 		const formRef = staticFormRefs.value[i];
-		// 		if (formRef && typeof formRef.handleSave === 'function') {
-		// 			try {
-		// 				const result = await formRef.handleSave(isValidate);
-		// 				validationResults.push({ component: `StaticForm-${i}`, result });
-		// 				if (!result) {
-		// 					return false;
-		// 				}
-		// 			} catch (error) {
-		// 				validationResults.push({ component: `StaticForm-${i}`, result: false });
-		// 				return false;
-		// 			}
-		// 		}
-		// 	}
-		// }
+		if (staticFormRefs.value.length > 0) {
+			for (let i = 0; i < staticFormRefs.value.length; i++) {
+				const formRef = staticFormRefs.value[i];
+				if (formRef && typeof formRef.handleSave === 'function') {
+					try {
+						const result = await formRef.handleSave(isValidate);
+						validationResults.push({ component: `StaticForm-${i}`, result });
+						if (!result) {
+							return false;
+						}
+					} catch (error) {
+						validationResults.push({ component: `StaticForm-${i}`, result: false });
+						return false;
+					}
+				}
+			}
+		}
 
 		// 校验QuestionnaireDetails组件
 		if (questionnaireDetailsRefs.value.length > 0) {
