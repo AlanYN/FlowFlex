@@ -73,17 +73,11 @@
 										class="flex items-center gap-1 flex-shrink-0"
 										v-if="task.assigneeName"
 									>
-										<!-- Assignee 缩写 -->
-										<icon
-											icon="material-symbols:person-2-outline"
-											style="color: var(--primary-500)"
+										<FlowflexUserSelector
+											v-model="task.assigneeId"
+											selection-type="user"
+											readonly
 										/>
-										<span
-											class="text-xs font-medium text-primary-500"
-											:title="task.assigneeName"
-										>
-											{{ getAssigneeInitials(task.assigneeName) }}
-										</span>
 
 										<!-- Action 绑定状态图标 -->
 										<el-tag v-if="task.actionId" type="success" size="small">
@@ -572,23 +566,6 @@ const updateTasks = (newTasks) => {
 
 const updateTaskFormData = (field, value) => {
 	taskFormData.value[field] = value;
-};
-
-// 获取分配人姓名的缩写
-const getAssigneeInitials = (fullName) => {
-	if (!fullName) return '';
-
-	const names = fullName.trim().split(/\s+/);
-	if (names.length === 1) {
-		// 单个名字，取前两个字符
-		return names[0].substring(0, 2).toUpperCase();
-	} else {
-		// 多个名字，取每个名字的首字母
-		return names
-			.map((name) => name.charAt(0).toUpperCase())
-			.join('')
-			.substring(0, 3); // 最多3个字母
-	}
 };
 
 // 从 FlowflexUser 组件获取选中用户的姓名

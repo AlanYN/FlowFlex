@@ -223,9 +223,7 @@ const rules = reactive<FormRules>({
 		{ required: true, message: 'Please enter stage name', trigger: 'blur' },
 		{ min: 1, max: 50, message: 'Length should be 1 to 50 characters', trigger: 'blur' },
 	],
-	defaultAssignedGroup: [
-		{ required: true, message: 'Please select user group', trigger: 'change' },
-	],
+
 	estimatedDuration: [
 		{ required: true, message: 'Please enter estimated duration', trigger: 'change' },
 	],
@@ -233,11 +231,7 @@ const rules = reactive<FormRules>({
 
 // 计算属性
 const isFormValid = computed(() => {
-	return (
-		!!formData.value.name &&
-		!!formData.value.defaultAssignedGroup &&
-		!!`${formData.value.estimatedDuration}`
-	);
+	return !!formData.value.name && !isNaN(formData.value.estimatedDuration as number);
 });
 
 // 表单引用

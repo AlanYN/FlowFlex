@@ -8,6 +8,7 @@
 			:rules="formRules"
 			label-position="top"
 			class="form-grid"
+			:disabled="disabled"
 		>
 			<!-- Lead Basic Info -->
 			<el-form-item
@@ -372,6 +373,7 @@ const props = defineProps<{
 	staticFields: string[]; // 需要显示的字段
 	onboardingId: string;
 	stageId: string;
+	disabled?: boolean;
 }>();
 
 const emit = defineEmits(['save-success']);

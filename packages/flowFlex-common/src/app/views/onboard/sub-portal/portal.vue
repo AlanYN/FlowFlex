@@ -489,6 +489,7 @@
 												:static-fields="component.staticFields"
 												:onboarding-id="onboardingId"
 												:stage-id="activeStage"
+												:disabled="stagePortalPermission"
 												@save-success="refreshChangeLog"
 											/>
 
@@ -505,6 +506,7 @@
 													getChecklistDataForComponent(component)
 												"
 												:onboarding-id="onboardingId"
+												:disabled="stagePortalPermission"
 												@task-toggled="handleTaskToggled"
 												@refresh-checklist="loadCheckListData"
 											/>
@@ -520,6 +522,7 @@
 												:stage-id="activeStage"
 												:lead-data="onboardingData"
 												:workflow-stages="workflowStages"
+												:disabled="stagePortalPermission"
 												:questionnaire-data="
 													getQuestionnaireDataForComponent(component)
 												"
@@ -537,6 +540,7 @@
 												:onboarding-id="onboardingId"
 												:stage-id="activeStage"
 												:component="component"
+												:disabled="stagePortalPermission"
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
 											/>
@@ -797,6 +801,11 @@ onBeforeUpdate(() => {
 const currentStageTitle = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
 	return currentStage?.stageName || defaultStr;
+});
+
+const stagePortalPermission = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.portalPermission == 1 ? true : false;
 });
 
 const sortedComponents = computed(() => {

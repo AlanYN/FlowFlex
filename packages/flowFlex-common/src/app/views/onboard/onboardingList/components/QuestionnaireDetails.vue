@@ -11,6 +11,7 @@
 				:questionnaireData="questionnaireData"
 				:isStageCompleted="isStageCompleted"
 				:questionnaire-answers="questionnaireAnswers"
+				:disabled="disabled"
 				@stage-updated="handleStageUpdated"
 			/>
 		</div>
@@ -60,6 +61,7 @@ interface Props {
 	workflowStages: any[];
 	questionnaireData?: any;
 	questionnaireAnswers?: SectionAnswer;
+	disabled?: boolean;
 }
 
 const props = defineProps<Props>();

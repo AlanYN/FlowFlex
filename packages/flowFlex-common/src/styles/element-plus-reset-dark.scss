@@ -118,18 +118,6 @@
 		}
 	}
 
-	// 按钮相关初始化
-	.el-button {
-		// @apply text-white-100 bg-primary-200;
-		&.is-disabled {
-			@apply border-gray-600 bg-gray-600;
-			&:hover,
-			&:focus {
-				@apply border-gray-600 bg-gray-600 text-white-100;
-			}
-		}
-	}
-
 	.el-button.el-button--primary.is-link {
 		@apply text-primary-600 bg-none border-none;
 		&:hover {

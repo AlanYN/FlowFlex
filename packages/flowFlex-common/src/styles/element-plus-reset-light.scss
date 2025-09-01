@@ -189,17 +189,6 @@
 		@apply text-primary-300;
 	}
 
-	// 按钮相关初始化
-	.el-button {
-		&.is-disabled {
-			@apply border-primary-200 bg-primary-200;
-			&:hover,
-			&:focus {
-				@apply border-primary-200 bg-primary-200 text-white-100;
-			}
-		}
-	}
-
 	.el-button.el-button--primary.is-link {
 		@apply text-primary-500 bg-none border-none;
 		&:hover {

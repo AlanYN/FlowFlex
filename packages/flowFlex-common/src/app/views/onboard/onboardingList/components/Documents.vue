@@ -22,6 +22,7 @@
 					:on-exceed="handleExceed"
 					:on-error="handleUploadError"
 					:show-file-list="false"
+					:disabled="disabled"
 					multiple
 					:limit="5"
 					accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.xlsx,.xls,.msg,.eml"
@@ -197,6 +198,7 @@ interface Props {
 	onboardingId: string;
 	stageId?: string;
 	component: ComponentData;
+	disabled?: boolean;
 }
 
 const props = defineProps<Props>();

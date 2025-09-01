@@ -93,6 +93,7 @@
 							class="action-button details-button"
 							@click.stop="openTaskDetails(task)"
 							color="#e6f1fa"
+							:disabled="disabled"
 						>
 							Details
 						</el-button>
@@ -100,6 +101,7 @@
 							:type="task.isCompleted ? 'danger' : 'success'"
 							class="action-button complete-button"
 							@click.stop="toggleTask(task)"
+							:disabled="disabled"
 						>
 							{{ task.isCompleted ? 'Cancel' : 'Done' }}
 						</el-button>
@@ -135,6 +137,7 @@ interface Props {
 	loading?: boolean;
 	onboardingId: string;
 	stageId: string;
+	disabled?: boolean;
 }
 
 const props = defineProps<Props>();
