@@ -843,7 +843,7 @@ const getPortalPermissionTooltip = (permission?: number) => {
 }
 
 .drag-handle {
-	cursor: move;
+	cursor: pointer;
 }
 
 .ghost-stage {
