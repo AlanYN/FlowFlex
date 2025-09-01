@@ -27,7 +27,7 @@
 				</div>
 			</div>
 			<div v-else class="text-gray-400 text-sm">
-				{{ computedPlaceholder || 'No users selected' }}
+				{{ 'No users selected' }}
 			</div>
 		</div>
 
