@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Caching.Memory;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -34,9 +34,9 @@ namespace FlowFlex.Application.Service.OW
         private readonly ILogger<WorkflowService> _logger;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IComponentMappingService _componentMappingService;
-        private readonly IMemoryCache _cache;
+        private readonly IDistributedCacheService _cacheService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IMemoryCache cache)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -45,7 +45,7 @@ namespace FlowFlex.Application.Service.OW
             _logger = logger;
             _operatorContextService = operatorContextService;
             _componentMappingService = componentMappingService;
-            _cache = cache;
+            _cacheService = cacheService;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -246,7 +246,7 @@ namespace FlowFlex.Application.Service.OW
             if (updateResult)
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
             }
 
             return updateResult;
@@ -316,7 +316,7 @@ namespace FlowFlex.Application.Service.OW
             if (result)
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
             }
             
             return result;
@@ -324,8 +324,9 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<WorkflowOutputDto> GetByIdAsync(long id)
         {
-            var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
-            if (_cache.TryGetValue(cacheKey, out WorkflowOutputDto cachedResult))
+            var cacheKey = $"workflow:get_by_id:{id}";
+            var cachedResult = await _cacheService.GetAsync<WorkflowOutputDto>(cacheKey);
+            if (cachedResult != null)
                 return cachedResult;
 
             var entity = await _workflowRepository.GetWithStagesAsync(id);
@@ -333,7 +334,7 @@ namespace FlowFlex.Application.Service.OW
 
             if (result != null)
             {
-                _cache.Set(cacheKey, result, TimeSpan.FromMinutes(15));
+                await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(15));
             }
 
             return result;
@@ -444,7 +445,7 @@ namespace FlowFlex.Application.Service.OW
             if (result)
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
             }
 
             return result;
@@ -466,7 +467,7 @@ namespace FlowFlex.Application.Service.OW
             if (result)
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
             }
 
             return result;
@@ -574,7 +575,7 @@ namespace FlowFlex.Application.Service.OW
 
                         // Clear related cache after successful update
                         var cacheKey = $"workflow:get_by_id:{workflow.Id}:{workflow.AppCode}";
-                        _cache.Remove(cacheKey);
+                        await _cacheService.RemoveAsync(cacheKey);
 
                         // 记录日志
                         // Debug logging handled by structured logging has been set to inactive due to expiration. End Date: {workflow.EndDate}");
@@ -758,7 +759,7 @@ namespace FlowFlex.Application.Service.OW
             if (result)
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
             }
 
             // Create version history record (including stage snapshot) after updating workflow

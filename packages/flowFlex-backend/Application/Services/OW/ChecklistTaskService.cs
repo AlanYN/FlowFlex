@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.Extensions.Caching.Memory;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -29,7 +29,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IChecklistTaskCompletionRepository _completionRepository;
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
-    private readonly IMemoryCache _cache;
+    private readonly IDistributedCacheService _cacheService;
 
     public ChecklistTaskService(
         IChecklistTaskRepository checklistTaskRepository,
@@ -40,7 +40,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IChecklistTaskCompletionRepository completionRepository,
         IMapper mapper,
         UserContext userContext,
-        IMemoryCache cache)
+        IDistributedCacheService cacheService)
     {
         _checklistTaskRepository = checklistTaskRepository;
         _checklistRepository = checklistRepository;
@@ -50,7 +50,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _completionRepository = completionRepository;
         _mapper = mapper;
         _userContext = userContext;
-        _cache = cache;
+        _cacheService = cacheService;
     }
 
     /// <summary>
@@ -127,11 +127,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
 
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{existingTask.ChecklistId}:{_userContext.AppCode}";
-            _cache.Remove(checklistCacheKey);
+            await _cacheService.RemoveAsync(checklistCacheKey);
         }
 
         // Update checklist completion rate
@@ -175,11 +175,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
             
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
-            _cache.Remove(checklistCacheKey);
+            await _cacheService.RemoveAsync(checklistCacheKey);
         }
 
         // Update checklist completion rate
@@ -193,8 +193,9 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     /// </summary>
     public async Task<ChecklistTaskOutputDto> GetByIdAsync(long id)
     {
-        var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-        if (_cache.TryGetValue(cacheKey, out ChecklistTaskOutputDto cachedResult))
+        var cacheKey = $"checklist_task:get_by_id:{id}";
+        var cachedResult = await _cacheService.GetAsync<ChecklistTaskOutputDto>(cacheKey);
+        if (cachedResult != null)
             return cachedResult;
 
         var task = await _checklistTaskRepository.GetByIdAsync(id);
@@ -204,7 +205,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         }
 
         var result = _mapper.Map<ChecklistTaskOutputDto>(task);
-        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(10));
+        await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(10));
         return result;
     }
 
@@ -214,8 +215,9 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetListByChecklistIdAsync(long checklistId)
     {
-        var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}:{_userContext.AppCode}";
-        if (_cache.TryGetValue(cacheKey, out List<ChecklistTaskOutputDto> cachedResult))
+        var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}";
+        var cachedResult = await _cacheService.GetAsync<List<ChecklistTaskOutputDto>>(cacheKey);
+        if (cachedResult != null)
             return cachedResult;
 
         var tasks = await _checklistTaskRepository.GetByChecklistIdAsync(checklistId);
@@ -224,7 +226,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         // Fill files and notes count for each task
         await FillFilesAndNotesCountAsync(taskDtos);
 
-        _cache.Set(cacheKey, taskDtos, TimeSpan.FromMinutes(10));
+        await _cacheService.SetAsync(cacheKey, taskDtos, TimeSpan.FromMinutes(10));
         return taskDtos;
     }
 
@@ -269,11 +271,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
             
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
-            _cache.Remove(checklistCacheKey);
+            await _cacheService.RemoveAsync(checklistCacheKey);
         }
 
         // Log the operation
@@ -339,11 +341,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
             
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
-            _cache.Remove(checklistCacheKey);
+            await _cacheService.RemoveAsync(checklistCacheKey);
         }
 
         // Log the operation
@@ -469,7 +471,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}:{_userContext.AppCode}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
         }
         
         return result;
@@ -496,11 +498,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
             
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
-            _cache.Remove(checklistCacheKey);
+            await _cacheService.RemoveAsync(checklistCacheKey);
         }
         
         return result;
@@ -549,11 +551,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
             
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
-            _cache.Remove(checklistCacheKey);
+            await _cacheService.RemoveAsync(checklistCacheKey);
         }
         
         return result;

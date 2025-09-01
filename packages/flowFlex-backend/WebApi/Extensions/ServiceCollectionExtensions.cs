@@ -1,6 +1,7 @@
 using Hangfire;
 using Hangfire.PostgreSql;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Service.OW;
 using FlowFlex.Application.Services.OW;
 using FlowFlex.Domain;
@@ -334,6 +335,9 @@ namespace FlowFlex.WebApi.Extensions
             services.AddScoped<IAIModelConfigRepository, AIModelConfigRepository>();
             services.AddScoped<IAIModelConfigService, AIModelConfigService>();
             services.AddScoped<FlowFlex.Domain.Repository.OW.IAIPromptHistoryRepository, FlowFlex.SqlSugarDB.Repositories.OW.AIPromptHistoryRepository>();
+
+            // Register distributed cache service
+            services.AddScoped<IDistributedCacheService, FlowFlex.Infrastructure.Services.RedisCacheService>();
 
             // Auto-register services based on lifetime marker interfaces
             RegisterServicesByLifetime(services);

@@ -7,7 +7,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
-using Microsoft.Extensions.Caching.Memory;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Infrastructure.Services;
 
 using FlowFlex.Domain.Shared;
@@ -47,14 +47,14 @@ namespace FlowFlex.Application.Service.OW
         private readonly UserContext _userContext;
         private readonly IComponentMappingService _mappingService;
         private readonly ISqlSugarClient _db;
-        private readonly IMemoryCache _cache;
+        private readonly IDistributedCacheService _cacheService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IMemoryCache cache, IBackgroundTaskQueue backgroundTaskQueue)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -68,7 +68,7 @@ namespace FlowFlex.Application.Service.OW
             _userContext = userContext;
             _mappingService = mappingService;
             _db = db;
-            _cache = cache;
+            _cacheService = cacheService;
             _backgroundTaskQueue = backgroundTaskQueue;
         }
 
@@ -291,7 +291,7 @@ namespace FlowFlex.Application.Service.OW
                 if (result)
                 {
                     var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{stageInTransaction.WorkflowId}";
-                    _cache.Remove(cacheKey);
+                    await _cacheService.RemoveAsync(cacheKey);
                 }
 
                 return result;
@@ -351,7 +351,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Clear related cache after successful deletion
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
                 
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
@@ -383,7 +383,8 @@ namespace FlowFlex.Application.Service.OW
             // Use cache for frequently accessed workflow stages
             var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
 
-            if (_cache.TryGetValue(cacheKey, out List<StageOutputDto> cachedResult))
+            var cachedResult = await _cacheService.GetAsync<List<StageOutputDto>>(cacheKey);
+            if (cachedResult != null)
             {
                 return cachedResult;
             }
@@ -392,7 +393,7 @@ namespace FlowFlex.Application.Service.OW
             var result = _mapper.Map<List<StageOutputDto>>(list);
 
             // Cache for 10 minutes
-            _cache.Set(cacheKey, result, STAGE_CACHE_DURATION);
+            await _cacheService.SetAsync(cacheKey, result, STAGE_CACHE_DURATION);
 
             return result;
         }
@@ -472,7 +473,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Clear related cache after successful sort
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{input.WorkflowId}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
                 
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
@@ -546,7 +547,7 @@ namespace FlowFlex.Application.Service.OW
 
             // Clear related cache after successful stage combination
             var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
-            _cache.Remove(cacheKey);
+            await _cacheService.RemoveAsync(cacheKey);
 
             // Create new WorkflowVersion (after stage combination) - Disabled automatic version creation
             // await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stages combined into '{input.NewStageName}'");
@@ -584,7 +585,7 @@ namespace FlowFlex.Application.Service.OW
             if (result)
             {
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{entity.WorkflowId}";
-                _cache.Remove(cacheKey);
+                await _cacheService.RemoveAsync(cacheKey);
             }
             
             return result;
@@ -814,7 +815,7 @@ namespace FlowFlex.Application.Service.OW
                 if (result)
                 {
                     var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{entity.WorkflowId}";
-                    _cache.Remove(cacheKey);
+                    await _cacheService.RemoveAsync(cacheKey);
                 }
                 
                 return result;

@@ -42,6 +42,11 @@ namespace FlowFlex.Infrastructure.Extensions
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
+            services.AddOptions<CacheOptions>()
+                .Bind(configuration.GetSection(CacheOptions.SectionName))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+
             // Register logging services
             services.AddScoped<IApplicationLogger, ApplicationLogger>();
 

@@ -340,8 +340,7 @@ builder.Services.AddGlobalExceptionHandling();
 
 builder.Services.AddClient(builder.Configuration);
 
-// Register memory cache for performance optimization
-builder.Services.AddMemoryCache();
+// Memory cache removed - using Redis distributed cache instead
 
 // Register background task processing service
 builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();
