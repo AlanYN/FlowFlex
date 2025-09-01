@@ -12,18 +12,21 @@
 						zIndex: index + 1,
 					}"
 				>
-					<div
-						class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 border-2 border-white"
-						:style="{ backgroundColor: getAvatarColor(item.name) }"
-						:title="
+					<el-tooltip
+						:content="
 							item.name +
-							(showEmail && item.userDetails?.email
-								? ` (${item.userDetails.email})`
+							(showEmail && item?.userDetails?.email
+								? ` (${item?.userDetails?.email})`
 								: '')
 						"
 					>
-						{{ getInitials(item.name) }}
-					</div>
+						<div
+							class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 border-2 border-white"
+							:style="{ backgroundColor: getAvatarColor(item.name) }"
+						>
+							{{ getInitials(item.name) }}
+						</div>
+					</el-tooltip>
 				</div>
 			</div>
 			<div v-else class="text-gray-400 text-sm">
@@ -41,26 +44,29 @@
 			<!-- 已选择的用户头像 -->
 			<div v-if="selectedItems.length > 0" class="flex flex-wrap gap-1.5 items-center flex-1">
 				<div v-for="item in selectedItems" :key="item.id" class="relative">
-					<div
-						class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
-						:class="{ 'cursor-not-allowed': disabled }"
-						:style="{ backgroundColor: getAvatarColor(item.name) }"
-						:title="
+					<el-tooltip
+						:content="
 							item.name +
-							(showEmail && item.userDetails?.email
-								? ` (${item.userDetails.email})`
+							(showEmail && item?.userDetails?.email
+								? ` (${item?.userDetails?.email})`
 								: '')
 						"
 					>
-						{{ getInitials(item.name) }}
 						<div
-							v-if="!disabled"
-							class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
-							@click.stop="removeSelectedItem(item.id)"
+							class="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
+							:class="{ 'cursor-not-allowed': disabled }"
+							:style="{ backgroundColor: getAvatarColor(item.name) }"
 						>
-							<el-icon class="text-[8px]"><Close /></el-icon>
+							{{ getInitials(item.name) }}
+							<div
+								v-if="!disabled"
+								class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
+								@click.stop="removeSelectedItem(item.id)"
+							>
+								<el-icon class="text-[8px]"><Close /></el-icon>
+							</div>
 						</div>
-					</div>
+					</el-tooltip>
 				</div>
 			</div>
 
@@ -141,20 +147,10 @@
 												>
 													{{ getInitials(data.name) }}
 												</div>
-												<el-icon
-													v-else-if="data.type === 'team'"
-													class="text-blue-500"
-												>
-													<UserFilled />
-												</el-icon>
-												<el-icon v-else class="text-gray-400">
-													<Folder />
-												</el-icon>
 
 												<div class="flex-1 min-w-0">
 													<div
 														class="font-medium text-gray-800 block overflow-hidden text-ellipsis whitespace-nowrap"
-														:title="data.name"
 													>
 														{{ data.name }}
 													</div>
@@ -165,7 +161,6 @@
 															showEmail
 														"
 														class="text-gray-500 text-xs block overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
-														:title="data.userDetails.email"
 													>
 														{{ data.userDetails.email }}
 													</div>
@@ -216,10 +211,10 @@
 									<div
 										v-for="item in tempSelectedItems"
 										:key="item.id"
-										class="flex items-center gap-3 p-3 bg-gray-50 rounded-md transition-colors duration-200 hover:bg-gray-100"
+										class="flex items-center gap-3 p-2 bg-gray-50 rounded-md transition-colors duration-200 hover:bg-gray-100"
 									>
 										<div
-											class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-base flex-shrink-0"
+											class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-base flex-shrink-0"
 											:style="{ backgroundColor: getAvatarColor(item.name) }"
 										>
 											{{ getInitials(item.name) }}
@@ -267,7 +262,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { UserFilled, Folder, Search, Close } from '@element-plus/icons-vue';
+import { Search, Close } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import type { FlowflexUser } from '#/golbal';
