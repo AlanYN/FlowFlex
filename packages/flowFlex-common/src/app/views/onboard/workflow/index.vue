@@ -510,7 +510,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import {
 	Plus,
 	MoreFilled,
@@ -981,45 +981,32 @@ const editStage = (stage: Stage) => {
 const submitStage = async (stage: Partial<Stage>) => {
 	if (!workflow.value) return;
 	try {
-		if (isEditingStage.value && currentStage.value) {
-			// 更新阶段
-			loading.updateStage = true;
-			const params = {
-				workflowId: workflow.value.id,
-				...stage,
-			};
+		// 更新阶段
+		loading.updateStage = true;
+		const params = {
+			workflowId: workflow.value.id,
+			...stage,
+		};
 
-			const res = await updateStage(currentStage.value.id, params);
+		const res =
+			isEditingStage.value && currentStage.value
+				? await updateStage(currentStage.value.id, params)
+				: await createStage(params);
 
-			if (res.code === '200') {
-				ElMessage.success(t('sys.api.operationSuccess'));
-				// 重新获取阶段列表
-				await fetchStages(workflow.value.id);
-			} else {
-				ElMessage.error(res.msg || t('sys.api.operationFailed'));
-			}
-			loading.updateStage = false;
+		if (res.code === '200') {
+			ElMessage.success(t('sys.api.operationSuccess'));
+			// 重新获取阶段列表
+			dialogVisible.stageForm = false;
+			await fetchStages(workflow.value.id);
 		} else {
-			// 创建阶段
-			loading.createStage = true;
-			const params = {
-				workflowId: workflow.value.id,
-				...stage,
-			};
-
-			const res = await createStage(params);
-
-			if (res.code === '200') {
-				ElMessage.success(t('sys.api.operationSuccess'));
-				// 重新获取阶段列表
-				await fetchStages(workflow.value.id);
-			} else {
-				ElMessage.error(res.msg || t('sys.api.operationFailed'));
-			}
-			loading.createStage = false;
+			ElNotification({
+				title: t('sys.api.operationFailed'),
+				dangerouslyUseHTMLString: true,
+				message: res?.msg || '',
+				type: 'warning',
+			});
 		}
-
-		dialogVisible.stageForm = false;
+		loading.updateStage = false;
 	} finally {
 		loading.createStage = false;
 		loading.updateStage = false;
