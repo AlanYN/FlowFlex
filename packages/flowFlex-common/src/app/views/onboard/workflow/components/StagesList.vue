@@ -127,6 +127,7 @@
 								</div>
 								<div class="right-section">
 									<div
+										v-if="element.defaultAssignedGroup"
 										class="stage-tag stage-group-tag"
 										:title="element.defaultAssignedGroup"
 									>
