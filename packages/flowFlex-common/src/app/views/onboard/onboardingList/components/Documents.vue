@@ -5,7 +5,9 @@
 				Documents
 				<div v-if="props?.component?.isEnabled" class="text-red-500 ml-1">*</div>
 			</h2>
-			<el-button :icon="Upload" @click="triggerUpload">Upload Files</el-button>
+			<el-button :icon="Upload" @click="triggerUpload" :disabled="disabled">
+				Upload Files
+			</el-button>
 		</div>
 		<el-divider />
 
