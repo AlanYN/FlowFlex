@@ -47,7 +47,11 @@
 									<el-icon><CopyDocument /></el-icon>
 									Duplicate
 								</el-dropdown-item>
+								<el-dropdown-item divided>
+									<HistoryButton :id="row.id" :type="WFEMoudels.Checklist" />
+								</el-dropdown-item>
 								<el-dropdown-item
+									divided
 									@click="handleCommand('delete', row)"
 									class="text-red-500"
 								>
@@ -186,6 +190,7 @@
 import { Edit, CopyDocument, Delete, Download, ArrowDownBold } from '@element-plus/icons-vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr, tableMaxHeight } from '@/settings/projectSetting';
+import { WFEMoudels } from '@/enums/appEnum';
 
 // Props
 const props = defineProps({

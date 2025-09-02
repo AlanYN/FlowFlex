@@ -271,8 +271,8 @@
 								:disabled="disabled"
 							/>
 							<div class="flex justify-between text-xs text-gray-500">
-								<span>{{ question.minLabel || question.min || 1 }}</span>
-								<span>{{ question.maxLabel || question.max || 5 }}</span>
+								<span>{{ question.minLabel || question.min }}</span>
+								<span>{{ question.maxLabel || question.max }}</span>
 							</div>
 						</div>
 
@@ -1464,8 +1464,8 @@ const getSelectedVoidIcon = (iconType: string) => {
 // 生成slider的刻度标记
 const getSliderMarks = (question: any) => {
 	const marks: Record<number, string> = {};
-	const min = question.min || 1;
-	const max = question.max || 5;
+	const min = question.min;
+	const max = question.max;
 
 	for (let i = min; i <= max; i++) {
 		marks[i] = '';

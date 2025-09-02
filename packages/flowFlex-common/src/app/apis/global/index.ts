@@ -19,6 +19,8 @@ const Api = (id?: string | number) => {
 		sendEmailCode: `${globSetting.apiProName}/ow/users/send-verification-code`,
 
 		flowflexUser: `${globSetting.apiProName}/ow/users/tree`,
+
+		changeLog: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}/business`,
 	};
 };
 
@@ -66,4 +68,8 @@ export function getFlowflexUser(params: {
 	data: FlowflexUser[];
 }> {
 	return defHttp.get({ url: `${Api().flowflexUser}`, params });
+}
+
+export function getChangeLogs(id, params) {
+	return defHttp.get({ url: `${Api().changeLog}/${id}`, params });
 }

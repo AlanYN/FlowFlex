@@ -1,5 +1,9 @@
 import { ref } from 'vue';
-import { generateAIWorkflow, streamGenerateAIWorkflowNative, parseAIRequirements } from '@/apis/ai/workflow';
+import {
+	generateAIWorkflow,
+	streamGenerateAIWorkflowNative,
+	parseAIRequirements,
+} from '@/apis/ai/workflow';
 import * as XLSX from 'xlsx-js-style';
 
 export interface StreamMessage {
@@ -27,14 +31,14 @@ export function useStreamAIWorkflow() {
 			'Optimizing stage sequences...',
 			'Generating required fields...',
 			'Creating checklists and questionnaires...',
-			'Finalizing workflow structure...'
+			'Finalizing workflow structure...',
 		];
 
 		// 模拟流式响应
 		for (const message of streamingMessages) {
 			yield message;
 			// 模拟网络延迟
-			await new Promise(resolve => setTimeout(resolve, 800));
+			await new Promise((resolve) => setTimeout(resolve, 800));
 		}
 	}
 
@@ -45,13 +49,13 @@ export function useStreamAIWorkflow() {
 	 * @param onComplete 完成时的回调
 	 */
 	async function startStreaming(
-		prompt: string, 
+		prompt: string,
 		onChunk: (chunk: string) => void,
 		onComplete: (result: any) => void,
 		modelConfig?: { id?: string; provider?: string; modelName?: string }
 	) {
 		if (isStreaming.value) return;
-		
+
 		isStreaming.value = true;
 		messageBuffer.value = '';
 		currentController.value = new AbortController();
@@ -59,15 +63,18 @@ export function useStreamAIWorkflow() {
 		try {
 			// 尝试使用真正的流式API
 			let streamSuccess = false;
-			
+
 			try {
-				console.log('🚀 Attempting to use native stream API:', `/ai/workflows/v1/generate/stream`);
+				console.log(
+					'🚀 Attempting to use native stream API:',
+					`/ai/workflows/v1/generate/stream`
+				);
 				await streamGenerateAIWorkflowNative(
-					{ 
+					{
 						description: prompt,
 						modelId: modelConfig?.id,
 						modelProvider: modelConfig?.provider,
-						modelName: modelConfig?.modelName
+						modelName: modelConfig?.modelName,
 					},
 					(chunk: string) => {
 						if (currentController.value?.signal.aborted) {
@@ -78,27 +85,50 @@ export function useStreamAIWorkflow() {
 					},
 					(data: any) => {
 						console.log('✅ Stream completed with data:', data);
-						
+
 						// 检查多种可能的数据结构
-						const stages = data?.Stages || data?.stages || data?.Data?.Stages || data?.data?.stages;
+						const stages =
+							data?.Stages ||
+							data?.stages ||
+							data?.Data?.Stages ||
+							data?.data?.stages;
 						const success = data?.Success !== false && data?.success !== false;
-						
+
 						if (success && Array.isArray(stages) && stages.length > 0) {
 							// 构建标准化的响应格式
 							const normalizedData = {
 								success: true,
-								message: data?.Message || data?.message || 'Workflow generated successfully',
-								generatedWorkflow: data?.GeneratedWorkflow || data?.generatedWorkflow || data?.Data?.GeneratedWorkflow || data?.data?.generatedWorkflow,
+								message:
+									data?.Message ||
+									data?.message ||
+									'Workflow generated successfully',
+								generatedWorkflow:
+									data?.GeneratedWorkflow ||
+									data?.generatedWorkflow ||
+									data?.Data?.GeneratedWorkflow ||
+									data?.data?.generatedWorkflow,
 								stages: stages,
-								suggestions: data?.Suggestions || data?.suggestions || data?.Data?.Suggestions || data?.data?.suggestions || [],
-								confidenceScore: data?.ConfidenceScore || data?.confidenceScore || data?.Data?.ConfidenceScore || data?.data?.confidenceScore || 0.8
+								suggestions:
+									data?.Suggestions ||
+									data?.suggestions ||
+									data?.Data?.Suggestions ||
+									data?.data?.suggestions ||
+									[],
+								confidenceScore:
+									data?.ConfidenceScore ||
+									data?.confidenceScore ||
+									data?.Data?.ConfidenceScore ||
+									data?.data?.confidenceScore ||
+									0.8,
 							};
-							
+
 							onComplete(normalizedData);
 							streamSuccess = true;
 						} else {
 							console.warn('Invalid stream response structure:', data);
-							throw new Error(data?.Message || data?.message || 'Invalid stream response');
+							throw new Error(
+								data?.Message || data?.message || 'Invalid stream response'
+							);
 						}
 					},
 					(error: any) => {
@@ -107,7 +137,7 @@ export function useStreamAIWorkflow() {
 					},
 					currentController.value
 				);
-				
+
 				if (streamSuccess) {
 					return;
 				}
@@ -121,15 +151,19 @@ export function useStreamAIWorkflow() {
 					break;
 				}
 				onChunk(chunk);
-				await new Promise(resolve => setTimeout(resolve, 100));
+				await new Promise((resolve) => setTimeout(resolve, 100));
 			}
 
 			// 调用普通的AI API
 			const result = await generateAIWorkflow({ description: prompt });
-			
+
 			if (result && (result.success || result.code === '200')) {
 				const data = result.data || result;
-				if (data?.success !== false && Array.isArray(data?.stages) && data.stages.length > 0) {
+				if (
+					data?.success !== false &&
+					Array.isArray(data?.stages) &&
+					data.stages.length > 0
+				) {
 					onComplete(data);
 				} else {
 					throw new Error(data?.message || 'AI service unavailable');
@@ -159,25 +193,25 @@ export function useStreamAIWorkflow() {
 		modelConfig?: { id?: string; provider?: string; modelName?: string }
 	) {
 		if (isStreaming.value) return;
-		
+
 		isStreaming.value = true;
 		currentController.value = new AbortController();
 
 		try {
 			let description = '';
-			
+
 			// 根据文件类型选择不同的处理方式
 			if (isImageFile(file)) {
 				// 图片文件处理
 				const base64Data = await readImageAsBase64(file);
-				
+
 				// 流式显示图片分析过程
 				const analysisMessages = [
 					'Reading image content...',
 					'Analyzing image elements...',
 					'Extracting workflow information from image...',
 					'Identifying process steps...',
-					'Generating workflow structure...'
+					'Generating workflow structure...',
 				];
 
 				for (const message of analysisMessages) {
@@ -185,7 +219,7 @@ export function useStreamAIWorkflow() {
 						break;
 					}
 					onChunk(message);
-					await new Promise(resolve => setTimeout(resolve, 600));
+					await new Promise((resolve) => setTimeout(resolve, 600));
 				}
 
 				// 对于图片文件，创建一个包含完整base64数据的描述
@@ -201,7 +235,7 @@ Please identify:
 5. Any business rules or conditions
 
 Based on this analysis, create a structured workflow with appropriate stages, assignments, and requirements.`;
-				
+
 				// 如果有专门的图片分析API，可以在这里调用
 				try {
 					const parseRes = await parseAIRequirements(description);
@@ -214,14 +248,14 @@ Based on this analysis, create a structured workflow with appropriate stages, as
 			} else {
 				// 文本文件处理
 				const fileText = await readFileAsText(file);
-				
+
 				// 流式显示分析过程
 				const analysisMessages = [
 					'Reading file content...',
 					'Parsing document structure...',
 					'Extracting workflow requirements...',
 					'Analyzing process steps...',
-					'Generating workflow structure...'
+					'Generating workflow structure...',
 				];
 
 				for (const message of analysisMessages) {
@@ -229,7 +263,7 @@ Based on this analysis, create a structured workflow with appropriate stages, as
 						break;
 					}
 					onChunk(message);
-					await new Promise(resolve => setTimeout(resolve, 600));
+					await new Promise((resolve) => setTimeout(resolve, 600));
 				}
 
 				// 对于文本文件，fileText已经包含了处理后的内容
@@ -272,14 +306,14 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 
 			// 生成工作流 - 尝试使用真正的流式API
 			let streamSuccess = false;
-			
+
 			try {
 				await streamGenerateAIWorkflowNative(
-					{ 
+					{
 						description,
 						modelId: modelConfig?.id,
 						modelProvider: modelConfig?.provider,
-						modelName: modelConfig?.modelName
+						modelName: modelConfig?.modelName,
 					},
 					(chunk: string) => {
 						if (currentController.value?.signal.aborted) {
@@ -288,7 +322,11 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 						onChunk(chunk);
 					},
 					(data: any) => {
-						if (data?.success !== false && Array.isArray(data?.stages) && data.stages.length > 0) {
+						if (
+							data?.success !== false &&
+							Array.isArray(data?.stages) &&
+							data.stages.length > 0
+						) {
 							onComplete(data);
 							streamSuccess = true;
 						} else {
@@ -301,20 +339,27 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 					},
 					currentController.value
 				);
-				
+
 				if (streamSuccess) {
 					return;
 				}
 			} catch (streamError) {
-				console.warn('Stream API failed for file analysis, falling back to regular API:', streamError);
+				console.warn(
+					'Stream API failed for file analysis, falling back to regular API:',
+					streamError
+				);
 			}
 
 			// 回退到普通API
 			const result = await generateAIWorkflow({ description });
-			
+
 			if (result && (result.success || result.code === '200')) {
 				const data = result.data || result;
-				if (data?.success !== false && Array.isArray(data?.stages) && data.stages.length > 0) {
+				if (
+					data?.success !== false &&
+					Array.isArray(data?.stages) &&
+					data.stages.length > 0
+				) {
 					onComplete(data);
 				} else {
 					throw new Error(data?.message || 'AI service unavailable');
@@ -346,7 +391,15 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 	 * @param file 文件对象
 	 */
 	function isImageFile(file: File): boolean {
-		const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+		const imageTypes = [
+			'image/jpeg',
+			'image/jpg',
+			'image/png',
+			'image/gif',
+			'image/bmp',
+			'image/webp',
+			'image/svg+xml',
+		];
 		return imageTypes.includes(file.type);
 	}
 
@@ -380,7 +433,7 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 				resolve(result);
 			};
 			reader.onerror = (err) => reject(err);
-			
+
 			// 对于Excel文件，我们需要特殊处理
 			if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
 				// 对于Excel文件，使用XLSX库解析
@@ -388,21 +441,24 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 					try {
 						const arrayBuffer = reader.result as ArrayBuffer;
 						const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-						
+
 						// 获取第一个工作表
 						const firstSheetName = workbook.SheetNames[0];
 						const worksheet = workbook.Sheets[firstSheetName];
-						
+
 						// 将工作表转换为JSON格式
-						const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
-						
+						const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+							header: 1,
+							raw: false,
+						});
+
 						// 构建描述
 						let description = `I have analyzed the Excel file "${file.name}" and extracted the following content:\n\n`;
-						
+
 						// 添加工作表信息
 						description += `Worksheet: ${firstSheetName}\n`;
 						description += `Total rows: ${jsonData.length}\n\n`;
-						
+
 						// 添加数据内容（前20行）
 						description += `Data content:\n`;
 						jsonData.slice(0, 20).forEach((row: any, index: number) => {
@@ -410,12 +466,15 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 								description += `Row ${index + 1}: ${row.join(' | ')}\n`;
 							}
 						});
-						
+
 						if (jsonData.length > 20) {
 							description += `... and ${jsonData.length - 20} more rows\n`;
 						}
-						
-						description += `\nBased on this Excel file content about "${file.name.replace(/\.(xlsx|xls)$/, '')}", please create a comprehensive workflow that includes:
+
+						description += `\nBased on this Excel file content about "${file.name.replace(
+							/\.(xlsx|xls)$/,
+							''
+						)}", please create a comprehensive workflow that includes:
 1. Data collection and validation stages
 2. Environment setup and configuration  
 3. Data transformation and preparation steps
@@ -425,7 +484,7 @@ Create a structured workflow with appropriate stages, team assignments, and requ
 7. Required approvals and checkpoints
 
 Please design a structured workflow with appropriate stages, team assignments, estimated durations, and required fields for each stage.`;
-						
+
 						resolve(description);
 					} catch (error) {
 						console.error('Excel parsing error:', error);
@@ -458,6 +517,6 @@ Please design a structured workflow with appropriate stages, team assignments, e
 		isStreaming,
 		startStreaming,
 		streamFileAnalysis,
-		stopStreaming
+		stopStreaming,
 	};
 }

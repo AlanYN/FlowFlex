@@ -65,6 +65,14 @@ export interface AIProviderInfo {
 	supportedModels: string[];
 }
 
+export interface AIProvider {
+	name: string;
+	displayName: string;
+	defaultBaseUrl: string;
+	requiresApiVersion: boolean;
+	defaultModels: string[];
+}
+
 /**
  * 获取用户的AI模型配置列表
  */
@@ -135,7 +143,7 @@ export function setDefaultAIModel(configId: number) {
  * 获取支持的AI提供商列表
  */
 export function getAIProviders() {
-	return defHttp.get<ApiResponse<AIProviderInfo[]>>({
+	return defHttp.get<ApiResponse<AIProvider[]>>({
 		url: apiEndpoints.providers,
 	});
 }

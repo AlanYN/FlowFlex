@@ -218,6 +218,12 @@
 											<el-icon><Connection /></el-icon>
 											Combine Stages
 										</el-dropdown-item> -->
+										<el-dropdown-item divided>
+											<HistoryButton
+												:id="workflow?.id"
+												:type="WFEMoudels.Workflow"
+											/>
+										</el-dropdown-item>
 										<el-dropdown-item divided command="export">
 											<el-icon>
 												<Download />
@@ -559,6 +565,7 @@ import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
 import { getFlowflexUser } from '@/apis/global';
 import { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
+import { WFEMoudels } from '@/enums/appEnum';
 
 const { t } = useI18n();
 

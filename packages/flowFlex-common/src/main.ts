@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { setupStore } from '@/stores';
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue';
+import HistoryButton from '@/components/changeHistory/suspensionButton.vue';
 import './style.scss';
 import { setupI18n } from './locales/setupI18n';
 import { setupRouter, router } from '@/router';
@@ -46,6 +47,7 @@ async function bootstrap() {
 
 	app.use(ElementPlus);
 	app.component('Icon', Icon);
+	app.component('HistoryButton', HistoryButton);
 	for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 		app.component(key, component);
 	}

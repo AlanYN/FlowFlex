@@ -58,6 +58,12 @@
 												<el-icon class="mr-2"><CopyDocument /></el-icon>
 												Duplicate
 											</el-dropdown-item>
+											<el-dropdown-item divided>
+												<HistoryButton
+													:id="questionnaire.id"
+													:type="WFEMoudels.Questionnaire"
+												/>
+											</el-dropdown-item>
 											<el-dropdown-item
 												divided
 												command="delete"
@@ -293,6 +299,7 @@ import {
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr } from '@/settings/projectSetting';
+import { WFEMoudels } from '@/enums/appEnum';
 
 // Props
 const props = defineProps<{

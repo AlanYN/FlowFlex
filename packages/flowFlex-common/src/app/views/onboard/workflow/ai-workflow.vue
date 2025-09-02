@@ -124,7 +124,7 @@ import { useRouter } from 'vue-router';
 
 // Components
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-import AIWorkflowGenerator from '../../../../components/ai/AIWorkflowGenerator.vue';
+import AIWorkflowGenerator from '@/components/ai/AIWorkflowGenerator.vue';
 import AIModelConfig from './ai-config.vue';
 
 // APIs

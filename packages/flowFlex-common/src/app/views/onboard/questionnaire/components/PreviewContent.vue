@@ -406,14 +406,14 @@
 									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 									:min="item.min"
 									:max="item.max"
-									:step="1"
+									:step="item.min"
 									:marks="getSliderMarks(item)"
 									:show-input="false"
 									class="preview-linear-scale"
 								/>
 								<div class="flex justify-between text-xs text-gray-500">
-									<span>{{ item.minLabel || item.min || 1 }}</span>
-									<span>{{ item.maxLabel || item.max || 5 }}</span>
+									<span>{{ item.minLabel || item.min }}</span>
+									<span>{{ item.maxLabel || item.max }}</span>
 								</div>
 							</div>
 
@@ -839,10 +839,10 @@ const initializePreviewData = () => {
 					newPreviewData[key] = 0;
 					break;
 				case 'slider':
-					newPreviewData[key] = item.min || 0;
+					newPreviewData[key] = item?.min;
 					break;
 				case 'linear_scale':
-					newPreviewData[key] = item.min || 1;
+					newPreviewData[key] = item?.min;
 					break;
 				case 'multiple_choice_grid':
 					// 如果有网格数据（rows + columns），为每一行初始化多选值（数组）
@@ -1264,8 +1264,8 @@ const getSelectedVoidIcon = (iconType: string) => {
 // 生成slider的刻度标记
 const getSliderMarks = (item: any) => {
 	const marks: Record<number, string> = {};
-	const min = item.min || 1;
-	const max = item.max || 5;
+	const min = item?.min;
+	const max = item?.max;
 
 	for (let i = min; i <= max; i++) {
 		marks[i] = '';

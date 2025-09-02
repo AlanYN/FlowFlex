@@ -19,6 +19,7 @@
 				</el-scrollbar>
 			</div>
 		</div>
+		<HistoryTable ref="historyTableRef" />
 	</div>
 </template>
 
@@ -28,6 +29,8 @@ import sidebar from '@/components/sidebar/index.vue';
 import navbar from './components/navbar.vue';
 import { useUserStore } from '@/stores/modules/user';
 import { usePermissionStore } from '@/stores/modules/permission';
+import HistoryTable from '@/components/changeHistory/historyTable.vue';
+import { WFEMoudels } from '@/enums/appEnum';
 
 const userStore = useUserStore();
 
@@ -35,6 +38,12 @@ const sidebarRef = ref<InstanceType<typeof sidebar>>();
 
 provide('openOrClose', (info: boolean) => {
 	sidebarRef.value?.collapseEvent(info);
+});
+
+const historyTableRef = ref<InstanceType<typeof HistoryTable>>();
+
+provide('History', (id: string, type: WFEMoudels) => {
+	historyTableRef.value?.showHistoryTable(id, type);
 });
 
 let isCollapse = ref(false);
