@@ -195,3 +195,11 @@ export enum TriggerTypeEnum {
 	Questionnaire = 'Question',
 	Workflow = 'Workflow',
 }
+
+export enum WFEMoudels {
+	Workflow = 1,
+	Stage = 2,
+	Checklist = 3,
+	Questionnaire = 4,
+	ChecklistTask = 5,
+}

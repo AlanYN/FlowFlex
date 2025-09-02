@@ -227,7 +227,7 @@
 												<h6>Checklists</h6>
 												<el-button
 													size="small"
-													type="text"
+													link
 													@click="toggleChecklistsCollapse"
 													class="collapse-toggle"
 												>
@@ -257,7 +257,7 @@
 															<div class="card-actions">
 																<el-button
 																	size="small"
-																	type="text"
+																	link
 																	@click="
 																		toggleChecklistTasks(
 																			clIndex
@@ -359,7 +359,7 @@
 												<h6>Questionnaires</h6>
 												<el-button
 													size="small"
-													type="text"
+													link
 													@click="toggleQuestionnairesCollapse"
 													class="collapse-toggle"
 												>
@@ -391,7 +391,7 @@
 															<div class="card-actions">
 																<el-button
 																	size="small"
-																	type="text"
+																	link
 																	@click="
 																		toggleQuestionnaireQuestions(
 																			qIndex
@@ -843,7 +843,7 @@
 								</span>
 								<el-button
 									size="small"
-									type="text"
+									link
 									@click="removeUploadedFile"
 									class="remove-file-btn"
 								>
@@ -945,7 +945,7 @@
 									trigger="click"
 									class="history-menu"
 								>
-									<el-button size="small" type="text" class="menu-btn">
+									<el-button size="small" link class="menu-btn">
 										<el-icon><MoreFilled /></el-icon>
 									</el-button>
 									<template #dropdown>
@@ -1072,7 +1072,7 @@
 								</div>
 								<div class="item-actions">
 									<el-dropdown trigger="click" @command="handleSessionAction">
-										<el-button size="small" type="text" class="action-btn">
+										<el-button size="small" link class="action-btn">
 											<el-icon><MoreFilled /></el-icon>
 										</el-button>
 										<template #dropdown>
@@ -1172,15 +1172,15 @@ import {
 	Edit,
 } from '@element-plus/icons-vue';
 import { createWorkflow, getWorkflowList } from '@/apis/ow';
-import { defHttp } from '../../app/apis/axios';
-import { useGlobSetting } from '../../app/settings';
+import { defHttp } from '@/apis/axios';
+import { useGlobSetting } from '@/settings';
 import {
 	sendAIChatMessage,
 	streamAIChatMessageNative,
 	type AIChatMessage,
-} from '../../app/apis/ai/workflow';
-import { getDefaultAIModel, getUserAIModels, type AIModelConfig } from '../../app/apis/ai/config';
-import { useStreamAIWorkflow } from '../../hooks/useStreamAIWorkflow';
+} from '@/apis/ai/workflow';
+import { getDefaultAIModel, getUserAIModels, type AIModelConfig } from '@/apis/ai/config';
+import { useStreamAIWorkflow } from '@/hooks/useStreamAIWorkflow';
 import AIFileAnalyzer from './AIFileAnalyzer.vue';
 
 // Types

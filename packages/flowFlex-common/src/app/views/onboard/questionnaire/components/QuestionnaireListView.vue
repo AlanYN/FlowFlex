@@ -39,6 +39,9 @@
 									<el-icon><CopyDocument /></el-icon>
 									Duplicate
 								</el-dropdown-item>
+								<el-dropdown-item divided>
+									<HistoryButton :id="row.id" :type="WFEMoudels.Questionnaire" />
+								</el-dropdown-item>
 								<el-dropdown-item
 									@click="$emit('command', 'delete', row)"
 									class="text-red-500"
@@ -201,6 +204,7 @@ import { Edit, CopyDocument, Delete, View, ArrowDownBold } from '@element-plus/i
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr, tableMaxHeight } from '@/settings/projectSetting';
 import { Questionnaire } from '#/onboard';
+import { WFEMoudels } from '@/enums/appEnum';
 
 // Props
 const props = defineProps<{

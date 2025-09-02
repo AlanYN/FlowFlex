@@ -1,58 +1,28 @@
 <template>
-	<div v-if="hasCustomerId">
-		<div class="fixed right-8 bottom-8 history-button">
-			<el-tooltip content="Current page change history">
-				<el-button :icon="historySvg" size="large" circle @click="toggleTable" />
-			</el-tooltip>
+	<div>
+		<div class="flex items-center" @click="toggleTable">
+			<el-icon class="mr-2"><historySvg /></el-icon>
+			Change History
 		</div>
-		<historyTable :showDialog="showTable" @visible:hide-dialog="closeVisible" />
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { inject } from 'vue';
 import historySvg from '@assets/svg/global/history.svg';
-import historyTable from './historyTable.vue';
-import { useRoute } from 'vue-router';
+import { WFEMoudels } from '@/enums/appEnum';
 
-const route = useRoute();
+interface Props {
+	id: string;
+	type: WFEMoudels;
+}
 
-defineProps({
-	msg: String,
-});
+const props = defineProps<Props>();
+const History = inject('History') as (id: string, type: WFEMoudels) => void | undefined;
 
-const hasCustomerId = computed(() => {
-	// console.log('route.query.customerId:', route.query.customerId);
-	if (route.meta.hiddenChangeLog === true) return false;
-	return !!route.query.customerId || !!route.query.id;
-});
-
-const showTable = ref(false);
 const toggleTable = () => {
-	showTable.value = !showTable.value;
+	History && History(props.id, props.type);
 };
-
-const closeVisible = () => {
-	showTable.value = false;
-};
-
-onMounted(() => {
-	showTable.value = false;
-});
 </script>
 
-<style lang="scss" scoped>
-.history-button {
-	z-index: 999;
-
-	:deep(.el-button .el-icon) {
-		width: 20px !important;
-		height: 20px !important;
-
-		svg {
-			width: 20px !important;
-			height: 20px !important;
-		}
-	}
-}
-</style>
+<style lang="scss" scoped></style>

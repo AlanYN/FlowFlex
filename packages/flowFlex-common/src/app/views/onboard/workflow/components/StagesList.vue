@@ -626,9 +626,9 @@ const getSelectedStaticFields = (stage: Stage) => {
 // 获取Portal权限图标
 const getPortalPermissionIcon = (permission?: number) => {
 	if (permission === PortalPermissionEnum.Completable) {
-		return 'material-symbols:edit-document-outline-rounded';
+		return 'material-symbols:person-edit-outline';
 	}
-	return 'weui:eyes-on-outlined';
+	return 'material-symbols:person-alert-outline';
 };
 
 // 获取Portal权限工具提示文本
