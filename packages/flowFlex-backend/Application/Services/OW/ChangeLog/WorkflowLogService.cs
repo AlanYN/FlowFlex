@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
+using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
@@ -22,8 +23,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             UserContext userContext,
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
-            ILogCacheService logCacheService)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService)
+            ILogCacheService logCacheService,
+            IUserService userService)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService)
         {
         }
 
@@ -343,18 +345,15 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
-                var logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Workflow.ToString(), workflowId);
+                // Use the new method that includes related stage logs
+                var pagedResult = await _operationChangeLogRepository.GetWorkflowWithRelatedLogsAsync(workflowId, pageIndex, pageSize);
 
-                // Apply pagination
-                var totalCount = logs.Count;
-                var pagedLogs = logs.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
-
-                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
+                var outputDtos = pagedResult.Items.Select(MapToOutputDto).ToList();
 
                 return new PagedResult<OperationChangeLogOutputDto>
                 {
                     Items = outputDtos,
-                    TotalCount = totalCount,
+                    TotalCount = pagedResult.TotalCount,
                     PageIndex = pageIndex,
                     PageSize = pageSize
                 };
@@ -424,8 +423,29 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var operationTitle = $"{businessModule} {operationAction}: {entityName}";
-                var operationDescription = BuildIndependentOperationDescription(
-                    businessModule, entityName, operationAction, description, relatedEntityId, relatedEntityType, reason, version, changedFields);
+                
+                // Use enhanced description method that can handle beforeData and afterData
+                var operationDescription = BuildEnhancedOperationDescription(
+                    businessModule, 
+                    entityName, 
+                    operationAction, 
+                    beforeData, 
+                    afterData, 
+                    changedFields, 
+                    relatedEntityId, 
+                    relatedEntityType, 
+                    reason);
+                
+                // Add workflow-specific additions
+                if (!string.IsNullOrEmpty(description))
+                {
+                    operationDescription += $". Description: {description}";
+                }
+
+                if (!string.IsNullOrEmpty(version))
+                {
+                    operationDescription += $" as version {version}";
+                }
 
                 if (string.IsNullOrEmpty(extendedData))
                 {
@@ -470,31 +490,27 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string version,
             List<string> changedFields)
         {
-            var operationDescription = $"{businessModule} '{entityName}' has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
+            // Use the enhanced description method from base class
+            var operationDescription = BuildEnhancedOperationDescription(
+                businessModule,
+                entityName,
+                operationAction,
+                beforeData: null,
+                afterData: null,
+                changedFields,
+                relatedEntityId,
+                relatedEntityType,
+                reason);
 
+            // Add workflow-specific additions
             if (!string.IsNullOrEmpty(description))
             {
                 operationDescription += $". Description: {description}";
             }
 
-            if (relatedEntityId.HasValue && !string.IsNullOrEmpty(relatedEntityType))
-            {
-                operationDescription += $" in {relatedEntityType} ID {relatedEntityId.Value}";
-            }
-
             if (!string.IsNullOrEmpty(version))
             {
                 operationDescription += $" as version {version}";
-            }
-
-            if (!string.IsNullOrEmpty(reason))
-            {
-                operationDescription += $" with reason: {reason}";
-            }
-
-            if (changedFields?.Any() == true)
-            {
-                operationDescription += $". Changed fields: {string.Join(", ", changedFields)}";
             }
 
             return operationDescription;

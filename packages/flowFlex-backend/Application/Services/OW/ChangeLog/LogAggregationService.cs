@@ -4,6 +4,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
+using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
@@ -30,8 +31,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IMapper mapper,
             ILogCacheService logCacheService,
             IActionExecutionService actionExecutionService,
-            IServiceProvider serviceProvider)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService)
+            IServiceProvider serviceProvider,
+            IUserService userService)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService)
         {
             _actionExecutionService = actionExecutionService;
             _serviceProvider = serviceProvider;

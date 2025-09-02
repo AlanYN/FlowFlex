@@ -356,7 +356,12 @@ namespace FlowFlex.Application.Service.OW
                             Description = stage.Description,
                             Order = stage.Order,
                             ComponentsJson = stage.ComponentsJson,
-                            IsActive = stage.IsActive
+                            DefaultAssignee = stage.DefaultAssignee,
+                            DefaultAssignedGroup = stage.DefaultAssignedGroup,
+                            EstimatedDuration = stage.EstimatedDuration,
+                            IsActive = stage.IsActive,
+                            VisibleInPortal = stage.VisibleInPortal,
+                            Color = stage.Color
                         });
 
                         var afterData = JsonSerializer.Serialize(new
@@ -365,7 +370,12 @@ namespace FlowFlex.Application.Service.OW
                             Description = updatedStage.Description,
                             Order = updatedStage.Order,
                             ComponentsJson = updatedStage.ComponentsJson,
-                            IsActive = updatedStage.IsActive
+                            DefaultAssignee = updatedStage.DefaultAssignee,
+                            DefaultAssignedGroup = updatedStage.DefaultAssignedGroup,
+                            EstimatedDuration = updatedStage.EstimatedDuration,
+                            IsActive = updatedStage.IsActive,
+                            VisibleInPortal = updatedStage.VisibleInPortal,
+                            Color = updatedStage.Color
                         });
 
                         // Determine changed fields
@@ -373,8 +383,13 @@ namespace FlowFlex.Application.Service.OW
                         if (stage.Name != updatedStage.Name) changedFields.Add("Name");
                         if (stage.Description != updatedStage.Description) changedFields.Add("Description");
                         if (stage.Order != updatedStage.Order) changedFields.Add("Order");
-                        if (stage.ComponentsJson != updatedStage.ComponentsJson) changedFields.Add("Components");
+                        if (stage.ComponentsJson != updatedStage.ComponentsJson) changedFields.Add("ComponentsJson");
+                        if (stage.DefaultAssignee != updatedStage.DefaultAssignee) changedFields.Add("DefaultAssignee");
+                        if (stage.DefaultAssignedGroup != updatedStage.DefaultAssignedGroup) changedFields.Add("DefaultAssignedGroup");
+                        if (stage.EstimatedDuration != updatedStage.EstimatedDuration) changedFields.Add("EstimatedDuration");
                         if (stage.IsActive != updatedStage.IsActive) changedFields.Add("IsActive");
+                        if (stage.VisibleInPortal != updatedStage.VisibleInPortal) changedFields.Add("VisibleInPortal");
+                        if (stage.Color != updatedStage.Color) changedFields.Add("Color");
 
                         // Log the update operation (fire-and-forget)
                         _ = Task.Run(async () =>

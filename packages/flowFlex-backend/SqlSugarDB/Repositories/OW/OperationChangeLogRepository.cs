@@ -2,6 +2,7 @@ using SqlSugar;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -250,6 +251,108 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // Log error and return empty result
                 // In production, you might want to use ILogger here
                 return (new List<OperationChangeLog>(), 0);
+            }
+        }
+
+        /// <summary>
+        /// Get workflow and related stage logs by workflow ID
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLog>> GetWorkflowWithRelatedLogsAsync(long workflowId, int pageIndex = 1, int pageSize = 20)
+        {
+            try
+            {
+                // This query includes:
+                // 1. Workflow operations where business_id = workflowId AND business_module = 'Workflow'
+                // 2. Stage operations where the stage belongs to the workflow (using JOIN with ff_stage table)
+                
+                var query = base.db.Queryable<OperationChangeLog>()
+                    .LeftJoin<Domain.Entities.OW.Stage>((log, stage) => 
+                        log.BusinessModule == "Stage" && log.BusinessId == stage.Id)
+                    .Where((log, stage) => 
+                        (log.BusinessModule == "Workflow" && log.BusinessId == workflowId) || 
+                        (log.BusinessModule == "Stage" && stage.WorkflowId == workflowId))
+                    .OrderByDescending(log => log.OperationTime)
+                    .Select(log => log);
+
+                // Get total count
+                var totalCount = await query.CountAsync();
+
+                // Get paginated results
+                var logs = await query
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return new PagedResult<OperationChangeLog>
+                {
+                    Items = logs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                // Log error and return empty result
+                // In production, you might want to use ILogger here
+                return new PagedResult<OperationChangeLog>
+                {
+                    Items = new List<OperationChangeLog>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+        }
+
+        /// <summary>
+        /// Get checklist and related checklist task logs by checklist ID
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLog>> GetChecklistWithRelatedLogsAsync(long checklistId, int pageIndex = 1, int pageSize = 20)
+        {
+            try
+            {
+                // This query includes:
+                // 1. Checklist operations where business_id = checklistId AND business_module = 'Checklist'
+                // 2. ChecklistTask operations where the task belongs to the checklist (using JOIN with ff_checklist_task table)
+                
+                var query = base.db.Queryable<OperationChangeLog>()
+                    .LeftJoin<Domain.Entities.OW.ChecklistTask>((log, task) => 
+                        log.BusinessModule == "Task" && log.BusinessId == task.Id)
+                    .Where((log, task) => 
+                        (log.BusinessModule == "Checklist" && log.BusinessId == checklistId) || 
+                        (log.BusinessModule == "Task" && task.ChecklistId == checklistId))
+                    .OrderByDescending(log => log.OperationTime)
+                    .Select(log => log);
+
+                // Get total count
+                var totalCount = await query.CountAsync();
+
+                // Get paginated results
+                var logs = await query
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return new PagedResult<OperationChangeLog>
+                {
+                    Items = logs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                // Log error and return empty result
+                // In production, you might want to use ILogger here
+                return new PagedResult<OperationChangeLog>
+                {
+                    Items = new List<OperationChangeLog>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
             }
         }
     }

@@ -109,17 +109,23 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                     }
                     else
                     {
+                        // Generate primary key ID for new record
+                        if (fieldValue.Id == 0)
+                        {
+                            fieldValue.InitNewId();
+                        }
+
                         // Insert new record using raw SQL to handle JSONB properly
                         var insertSql = @"
                             INSERT INTO ff_static_field_values (
-                                onboarding_id, stage_id, field_name, display_name, field_value_json,
+                                id, onboarding_id, stage_id, field_name, display_name, field_value_json,
                                 field_type, is_required, status, completion_rate, validation_status,
                                 validation_errors, version, is_latest, is_submitted, source,
                                 ip_address, user_agent, metadata, create_date, modify_date,
                                 create_by, modify_by, create_user_id, modify_user_id, is_valid,
                                 tenant_id, app_code
                             ) VALUES (
-                                @OnboardingId, @StageId, @FieldName, @DisplayName, @FieldValueJson::jsonb,
+                                @Id, @OnboardingId, @StageId, @FieldName, @DisplayName, @FieldValueJson::jsonb,
                                 @FieldType, @IsRequired, @Status, @CompletionRate, @ValidationStatus,
                                 @ValidationErrors, @Version, @IsLatest, @IsSubmitted, @Source,
                                 @IpAddress, @UserAgent, @Metadata::jsonb, @CreateDate, @ModifyDate,
@@ -129,6 +135,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
 
                         await db.Ado.ExecuteCommandAsync(insertSql, new
                         {
+                            Id = fieldValue.Id,
                             OnboardingId = fieldValue.OnboardingId,
                             StageId = fieldValue.StageId,
                             FieldName = fieldValue.FieldName,

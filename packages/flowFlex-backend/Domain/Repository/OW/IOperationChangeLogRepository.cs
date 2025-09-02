@@ -1,6 +1,7 @@
 using FlowFlex.Domain.Repository;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Domain.Repository.OW
 {
@@ -130,5 +131,25 @@ namespace FlowFlex.Domain.Repository.OW
             string operationType,
             int pageIndex,
             int pageSize);
+
+        /// <summary>
+        /// Get workflow and related stage logs by workflow ID
+        /// This includes both workflow operations and operations on stages that belong to the workflow
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation logs</returns>
+        Task<PagedResult<OperationChangeLog>> GetWorkflowWithRelatedLogsAsync(long workflowId, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Get checklist and related checklist task logs by checklist ID
+        /// This includes both checklist operations and operations on tasks that belong to the checklist
+        /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation logs</returns>
+        Task<PagedResult<OperationChangeLog>> GetChecklistWithRelatedLogsAsync(long checklistId, int pageIndex = 1, int pageSize = 20);
     }
 }

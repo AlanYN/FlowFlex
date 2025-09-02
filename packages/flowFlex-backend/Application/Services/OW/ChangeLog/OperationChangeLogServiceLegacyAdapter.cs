@@ -153,17 +153,57 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
         public Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeCache = true)
         {
-            throw new NotImplementedException("GetOperationLogsByStageComponentsAsync is deprecated. Use ILogAggregationService instead.");
+            _logger.LogWarning("GetOperationLogsByStageComponentsAsync called - consider migrating to ILogAggregationService.GetAggregatedLogsAsync");
+            
+            var operationTypes = operationType.HasValue ? new List<OperationTypeEnum> { operationType.Value } : null;
+            
+            return _logAggregationService.GetAggregatedLogsAsync(
+                onboardingId: onboardingId,
+                stageId: stageId,
+                businessModules: null, // Get logs from all modules for stage components
+                operationTypes: operationTypes,
+                startDate: null,
+                endDate: null,
+                pageIndex: pageIndex,
+                pageSize: pageSize
+            );
         }
 
         public Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsOptimizedAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeCache = true)
         {
-            throw new NotImplementedException("GetOperationLogsByStageComponentsOptimizedAsync is deprecated. Use ILogAggregationService instead.");
+            _logger.LogWarning("GetOperationLogsByStageComponentsOptimizedAsync called - consider migrating to ILogAggregationService.GetAggregatedLogsAsync");
+            
+            var operationTypes = operationType.HasValue ? new List<OperationTypeEnum> { operationType.Value } : null;
+            
+            return _logAggregationService.GetAggregatedLogsAsync(
+                onboardingId: onboardingId,
+                stageId: stageId,
+                businessModules: null, // Get logs from all modules for stage components
+                operationTypes: operationTypes,
+                startDate: null,
+                endDate: null,
+                pageIndex: pageIndex,
+                pageSize: pageSize
+            );
         }
 
         public Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessAsync(string businessModule, long businessId, int pageIndex = 1, int pageSize = 20)
         {
-            throw new NotImplementedException("GetLogsByBusinessAsync is deprecated. Use specialized services instead.");
+            _logger.LogWarning("GetLogsByBusinessAsync called - consider migrating to specialized services");
+            
+            // Parse business module
+            if (!Enum.TryParse<BusinessModuleEnum>(businessModule, true, out var moduleEnum))
+            {
+                return Task.FromResult(new PagedResult<OperationChangeLogOutputDto>());
+            }
+            
+            return _logAggregationService.GetLogsByBusinessIdsAsync(
+                businessIds: new List<long> { businessId },
+                businessModule: moduleEnum,
+                onboardingId: null,
+                pageIndex: pageIndex,
+                pageSize: pageSize
+            );
         }
 
         public Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdAsync(long businessId, int pageIndex = 1, int pageSize = 20)
@@ -187,7 +227,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Route to appropriate specialized service based on business type
                 return businessType.Value switch
                 {
-                    BusinessTypeEnum.Workflow => await _workflowLogService.GetWorkflowLogsAsync(businessId, pageIndex, pageSize),
+                    BusinessTypeEnum.Workflow => await GetWorkflowWithRelatedLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.Checklist => await _checklistLogService.GetChecklistLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.ChecklistTask => await _checklistLogService.GetChecklistTaskLogsAsync(businessId, null, pageIndex, pageSize, true),
                     BusinessTypeEnum.Questionnaire => await _questionnaireLogService.GetQuestionnaireLogsAsync(businessId, pageIndex, pageSize),
@@ -224,9 +264,45 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             return _logAggregationService.GetLogsByBusinessIdsAsync(businessIds, null, null, pageIndex, pageSize);
         }
 
-        public Task<Dictionary<string, int>> GetOperationStatisticsAsync(long? onboardingId = null, long? stageId = null)
+        public async Task<Dictionary<string, int>> GetOperationStatisticsAsync(long? onboardingId = null, long? stageId = null)
         {
-            throw new NotImplementedException("GetOperationStatisticsAsync is deprecated. Use ILogAggregationService.GetComprehensiveStatisticsAsync instead.");
+            _logger.LogWarning("GetOperationStatisticsAsync called - consider migrating to ILogAggregationService.GetComprehensiveStatisticsAsync");
+            
+            try
+            {
+                var comprehensiveStats = await _logAggregationService.GetComprehensiveStatisticsAsync(
+                    onboardingId: onboardingId,
+                    stageId: stageId,
+                    startDate: null,
+                    endDate: null
+                );
+                
+                // Convert to simple string-int dictionary format
+                var result = new Dictionary<string, int>();
+                
+                foreach (var kvp in comprehensiveStats)
+                {
+                    if (kvp.Value is int intValue)
+                    {
+                        result[kvp.Key] = intValue;
+                    }
+                    else if (kvp.Value is long longValue)
+                    {
+                        result[kvp.Key] = (int)Math.Min(longValue, int.MaxValue);
+                    }
+                    else if (int.TryParse(kvp.Value?.ToString(), out var parsedValue))
+                    {
+                        result[kvp.Key] = parsedValue;
+                    }
+                }
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get operation statistics for onboarding {OnboardingId}, stage {StageId}", onboardingId, stageId);
+                return new Dictionary<string, int>();
+            }
         }
 
         // All other workflow/stage/checklist/questionnaire methods
@@ -287,8 +363,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
         public Task<bool> LogStageOrderChangeAsync(long stageId, string stageName, int oldOrder, int newOrder, long? workflowId = null, string extendedData = null)
         {
-            // Adapter call with required onboardingId parameter
-            throw new NotImplementedException("LogStageOrderChangeAsync missing onboardingId parameter. Use IStageLogService.LogStageOrderChangeAsync instead.");
+            _logger.LogWarning("LogStageOrderChangeAsync called - consider migrating to IStageLogService.LogStageOrderChangeAsync");
+            return _stageLogService.LogStageOrderChangeAsync(stageId, stageName, oldOrder, newOrder, workflowId, extendedData);
         }
 
         // Checklist methods
@@ -346,6 +422,29 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public Task<bool> LogQuestionnaireUnpublishAsync(long questionnaireId, string questionnaireName, string reason = null, string extendedData = null)
         {
             return _questionnaireLogService.LogQuestionnaireUnpublishAsync(questionnaireId, questionnaireName, reason, extendedData);
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Get workflow logs including related stage logs
+        /// </summary>
+        private async Task<PagedResult<OperationChangeLogOutputDto>> GetWorkflowWithRelatedLogsAsync(long workflowId, int pageIndex, int pageSize)
+        {
+            try
+            {
+                _logger.LogDebug("Getting workflow logs with related stages for workflow {WorkflowId}", workflowId);
+
+                // Now using the enhanced WorkflowLogService that includes related stage logs
+                return await _workflowLogService.GetWorkflowLogsAsync(workflowId, pageIndex, pageSize);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get workflow logs with related stages for workflow {WorkflowId}", workflowId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
         }
 
         #endregion

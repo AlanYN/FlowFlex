@@ -133,8 +133,12 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.NotFound, $"Checklist with ID {id} not found");
         }
 
-        // Store the original name for cleanup
+        // Store the original values for cleanup and logging
         var originalName = entity.Name;
+        var originalDescription = entity.Description;
+        var originalTeam = entity.Team;
+        var originalEstimatedHours = entity.EstimatedHours;
+        var originalIsActive = entity.IsActive;
 
         // Validate name uniqueness (exclude current record)
         if (await _checklistRepository.IsNameExistsAsync(input.Name, input.Team, id))
@@ -186,14 +190,14 @@ public class ChecklistService : IChecklistService, IScopedService
             {
                 try
                 {
-                    // Prepare before and after data for logging
+                    // Prepare before and after data for logging using original values
                     var beforeData = JsonSerializer.Serialize(new
                     {
                         Name = originalName,
-                        Description = entity.Description, // This will be the old description since we mapped after
-                        Team = entity.Team,
-                        EstimatedHours = entity.EstimatedHours,
-                        IsActive = entity.IsActive
+                        Description = originalDescription,
+                        Team = originalTeam,
+                        EstimatedHours = originalEstimatedHours,
+                        IsActive = originalIsActive
                     });
 
                     var afterData = JsonSerializer.Serialize(new
@@ -205,9 +209,18 @@ public class ChecklistService : IChecklistService, IScopedService
                         IsActive = entity.IsActive
                     });
 
-                    // Determine changed fields
+                    // Determine changed fields by comparing original vs current values
                     var changedFields = new List<string>();
                     if (originalName != entity.Name) changedFields.Add("Name");
+                    if (originalDescription != entity.Description) changedFields.Add("Description");
+                    if (originalTeam != entity.Team) changedFields.Add("Team");
+                    if (originalEstimatedHours != entity.EstimatedHours) changedFields.Add("EstimatedHours");
+                    if (originalIsActive != entity.IsActive) changedFields.Add("IsActive");
+
+                    // Debug logging
+                    _logger.LogDebug("ChecklistUpdate Debug - Before: {BeforeData}", beforeData);
+                    _logger.LogDebug("ChecklistUpdate Debug - After: {AfterData}", afterData);
+                    _logger.LogDebug("ChecklistUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
 
                     await _operationChangeLogService.LogChecklistUpdateAsync(
                         checklistId: entity.Id,

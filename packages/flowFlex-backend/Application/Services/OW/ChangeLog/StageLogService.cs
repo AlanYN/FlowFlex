@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
+using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Repository.OW;
@@ -27,8 +28,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
             ILogCacheService logCacheService,
-            IActionExecutionService actionExecutionService)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService)
+            IActionExecutionService actionExecutionService,
+            IUserService userService)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService)
         {
             _stageLogger = logger;
             _actionExecutionService = actionExecutionService;
@@ -137,12 +139,18 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 string operationTitle = $"Stage Updated: {stageName}";
-                string operationDescription = $"Stage '{stageName}' has been updated by {GetOperatorDisplayName()}";
-
-                if (changedFields?.Any() == true)
-                {
-                    operationDescription += $". Changed fields: {string.Join(", ", changedFields)}";
-                }
+                
+                // Use enhanced description method that can handle beforeData and afterData
+                string operationDescription = BuildEnhancedOperationDescription(
+                    BusinessModuleEnum.Stage,
+                    stageName,
+                    "Updated",
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    workflowId,
+                    "workflow",
+                    null);
 
                 var changedFieldsJson = changedFields?.Any() == true ? JsonSerializer.Serialize(changedFields) : null;
 

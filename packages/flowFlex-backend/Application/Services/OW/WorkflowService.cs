@@ -191,6 +191,15 @@ namespace FlowFlex.Application.Service.OW
                 input.IsDefault = entity.IsDefault;
             }
 
+            // Store original values for change detection and logging BEFORE mapping
+            var originalName = entity.Name;
+            var originalDescription = entity.Description;
+            var originalStatus = entity.Status;
+            var originalIsDefault = entity.IsDefault;
+            var originalIsActive = entity.IsActive;
+            var originalStartDate = entity.StartDate;
+            var originalEndDate = entity.EndDate;
+
             // Only create version history record when there are actual changes
             if (hasChanges)
             {
@@ -283,16 +292,16 @@ namespace FlowFlex.Application.Service.OW
                             var updatedWorkflow = await _workflowRepository.GetByIdAsync(id);
                             if (updatedWorkflow != null)
                             {
-                                // Prepare before and after data for logging
+                                // Prepare before and after data for logging using original values
                                 var beforeData = JsonSerializer.Serialize(new
                                 {
-                                    Name = entity.Name, // This contains the old values before mapping
-                                    Description = entity.Description,
-                                    Status = entity.Status,
-                                    IsDefault = entity.IsDefault,
-                                    IsActive = entity.IsActive,
-                                    StartDate = entity.StartDate,
-                                    EndDate = entity.EndDate
+                                    Name = originalName,
+                                    Description = originalDescription,
+                                    Status = originalStatus,
+                                    IsDefault = originalIsDefault,
+                                    IsActive = originalIsActive,
+                                    StartDate = originalStartDate,
+                                    EndDate = originalEndDate
                                 });
 
                                 var afterData = JsonSerializer.Serialize(new
@@ -306,8 +315,24 @@ namespace FlowFlex.Application.Service.OW
                                     EndDate = updatedWorkflow.EndDate
                                 });
 
-                                // Determine changed fields (simplified for now)
-                                var changedFields = new List<string> { "Updated" };
+                                // Determine changed fields by comparing original vs updated values
+                                var changedFields = new List<string>();
+                                if (originalName != updatedWorkflow.Name) changedFields.Add("Name");
+                                if (originalDescription != updatedWorkflow.Description) changedFields.Add("Description");
+                                if (originalStatus != updatedWorkflow.Status) changedFields.Add("Status");
+                                if (originalIsDefault != updatedWorkflow.IsDefault) changedFields.Add("IsDefault");
+                                if (originalIsActive != updatedWorkflow.IsActive) changedFields.Add("IsActive");
+                                if (originalStartDate != updatedWorkflow.StartDate) changedFields.Add("StartDate");
+                                if (originalEndDate != updatedWorkflow.EndDate) changedFields.Add("EndDate");
+
+                                // Alternative: Use auto-detection (experimental)
+                                // var autoDetectedFields = AutoDetectChangedFields(beforeData, afterData);
+                                // if (autoDetectedFields.Any()) changedFields = autoDetectedFields;
+
+                                // Debug logging
+                                _logger.LogDebug("WorkflowUpdate Debug - Before: {BeforeData}", beforeData);
+                                _logger.LogDebug("WorkflowUpdate Debug - After: {AfterData}", afterData);
+                                _logger.LogDebug("WorkflowUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
 
                                 await _operationChangeLogService.LogWorkflowUpdateAsync(
                                     workflowId: id,
