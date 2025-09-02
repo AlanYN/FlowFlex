@@ -14,14 +14,6 @@
 						</el-icon>
 						<h3 class="change-log-title">Change Log</h3>
 					</div>
-					<div class="change-log-subtitle">
-						<span v-if="total > 0">
-							{{ total }} {{ total === 1 ? 'change' : 'changes' }} recorded
-						</span>
-						<span v-else>
-							{{ total }} {{ total === 1 ? 'change' : 'changes' }} • Click to collapse
-						</span>
-					</div>
 				</div>
 				<div class="change-log-actions">
 					<el-button
