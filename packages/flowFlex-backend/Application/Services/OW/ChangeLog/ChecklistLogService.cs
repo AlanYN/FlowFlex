@@ -1,0 +1,563 @@
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
+using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Repository.OW;
+using AutoMapper;
+using Microsoft.AspNetCore.Http;
+
+namespace FlowFlex.Application.Services.OW.ChangeLog
+{
+    /// <summary>
+    /// Checklist-related operation log service
+    /// </summary>
+    public class ChecklistLogService : BaseOperationLogService, IChecklistLogService
+    {
+        public ChecklistLogService(
+            IOperationChangeLogRepository operationChangeLogRepository,
+            ILogger<ChecklistLogService> logger,
+            UserContext userContext,
+            IHttpContextAccessor httpContextAccessor,
+            IMapper mapper,
+            ILogCacheService logCacheService)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService)
+        {
+        }
+
+        protected override string GetBusinessModuleName() => "Checklist";
+
+        /// <summary>
+        /// Log checklist task completion operation
+        /// </summary>
+        public async Task<bool> LogChecklistTaskCompleteAsync(long taskId, string taskName, long onboardingId, long? stageId, string completionNotes = null, int actualHours = 0)
+        {
+            try
+            {
+                var extendedData = new
+                {
+                    TaskId = taskId,
+                    TaskName = taskName,
+                    CompletionNotes = completionNotes,
+                    ActualHours = actualHours,
+                    CompletedAt = DateTimeOffset.UtcNow
+                };
+
+                var operationLog = BuildOperationLogEntity(
+                    OperationTypeEnum.ChecklistTaskComplete,
+                    BusinessModuleEnum.ChecklistTask,
+                    taskId,
+                    onboardingId,
+                    stageId,
+                    $"Checklist Task Completed: {taskName}",
+                    BuildTaskCompletionDescription(taskName, completionNotes, actualHours),
+                    extendedData: JsonSerializer.Serialize(extendedData)
+                );
+
+                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist task complete operation for task {TaskId}", taskId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Log checklist task uncomplete operation
+        /// </summary>
+        public async Task<bool> LogChecklistTaskUncompleteAsync(long taskId, string taskName, long onboardingId, long? stageId, string reason = null)
+        {
+            try
+            {
+                var extendedData = new
+                {
+                    TaskId = taskId,
+                    TaskName = taskName,
+                    Reason = reason,
+                    UncompletedAt = DateTimeOffset.UtcNow
+                };
+
+                var operationLog = BuildOperationLogEntity(
+                    OperationTypeEnum.ChecklistTaskUncomplete,
+                    BusinessModuleEnum.ChecklistTask,
+                    taskId,
+                    onboardingId,
+                    stageId,
+                    $"Checklist Task Uncompleted: {taskName}",
+                    BuildTaskUncompletionDescription(taskName, reason),
+                    extendedData: JsonSerializer.Serialize(extendedData)
+                );
+
+                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log checklist task uncomplete operation for task {TaskId}", taskId);
+                return false;
+            }
+        }
+
+        #region Independent Checklist Operations
+
+        /// <summary>
+        /// Log checklist create operation (independent of onboarding)
+        /// </summary>
+        public async Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string extendedData = null)
+        {
+            return await LogIndependentOperationAsync(
+                OperationTypeEnum.ChecklistCreate,
+                BusinessModuleEnum.Checklist,
+                checklistId,
+                checklistName,
+                "Created",
+                extendedData: extendedData
+            );
+        }
+
+        /// <summary>
+        /// Log checklist update operation (independent of onboarding)
+        /// </summary>
+        public async Task<bool> LogChecklistUpdateAsync(long checklistId, string checklistName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)
+        {
+            if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
+            {
+                _logger.LogDebug("Skipping operation log for checklist {ChecklistId} as there's no meaningful value change", checklistId);
+                return true;
+            }
+
+            return await LogIndependentOperationAsync(
+                OperationTypeEnum.ChecklistUpdate,
+                BusinessModuleEnum.Checklist,
+                checklistId,
+                checklistName,
+                "Updated",
+                beforeData,
+                afterData,
+                changedFields,
+                extendedData: extendedData
+            );
+        }
+
+        /// <summary>
+        /// Log checklist delete operation (independent of onboarding)
+        /// </summary>
+        public async Task<bool> LogChecklistDeleteAsync(long checklistId, string checklistName, string reason = null, string extendedData = null)
+        {
+            return await LogIndependentOperationAsync(
+                OperationTypeEnum.ChecklistDelete,
+                BusinessModuleEnum.Checklist,
+                checklistId,
+                checklistName,
+                "Deleted",
+                reason: reason,
+                extendedData: extendedData
+            );
+        }
+
+        /// <summary>
+        /// Log checklist task create operation (independent of onboarding)
+        /// </summary>
+        public async Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string extendedData = null)
+        {
+            return await LogIndependentOperationAsync(
+                OperationTypeEnum.ChecklistTaskCreate,
+                BusinessModuleEnum.Task,
+                taskId,
+                taskName,
+                "Created",
+                relatedEntityId: checklistId,
+                relatedEntityType: "checklist",
+                extendedData: extendedData
+            );
+        }
+
+        /// <summary>
+        /// Log checklist task update operation (independent of onboarding)
+        /// </summary>
+        public async Task<bool> LogChecklistTaskUpdateAsync(long taskId, string taskName, string beforeData, string afterData, List<string> changedFields, long checklistId, string extendedData = null)
+        {
+            if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
+            {
+                _logger.LogDebug("Skipping operation log for checklist task {TaskId} as there's no meaningful value change", taskId);
+                return true;
+            }
+
+            return await LogIndependentOperationAsync(
+                OperationTypeEnum.ChecklistTaskUpdate,
+                BusinessModuleEnum.Task,
+                taskId,
+                taskName,
+                "Updated",
+                beforeData,
+                afterData,
+                changedFields,
+                relatedEntityId: checklistId,
+                relatedEntityType: "checklist",
+                extendedData: extendedData
+            );
+        }
+
+        /// <summary>
+        /// Log checklist task delete operation (independent of onboarding)
+        /// </summary>
+        public async Task<bool> LogChecklistTaskDeleteAsync(long taskId, string taskName, long checklistId, string reason = null, string extendedData = null)
+        {
+            return await LogIndependentOperationAsync(
+                OperationTypeEnum.ChecklistTaskDelete,
+                BusinessModuleEnum.Task,
+                taskId,
+                taskName,
+                "Deleted",
+                reason: reason,
+                relatedEntityId: checklistId,
+                relatedEntityType: "checklist",
+                extendedData: extendedData
+            );
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Get operation logs from database (abstract method implementation)
+        /// </summary>
+        protected override async Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsFromDatabaseAsync(
+            long? onboardingId,
+            long? stageId,
+            OperationTypeEnum? operationType,
+            int pageIndex,
+            int pageSize)
+        {
+            try
+            {
+                var logs = new List<Domain.Entities.OW.OperationChangeLog>();
+
+                // Get logs based on filters
+                if (onboardingId.HasValue && stageId.HasValue)
+                {
+                    logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Checklist.ToString() || 
+                                         x.BusinessModule == BusinessModuleEnum.ChecklistTask.ToString()).ToList();
+                }
+                else if (onboardingId.HasValue)
+                {
+                    logs = await _operationChangeLogRepository.GetByOnboardingIdAsync(onboardingId.Value);
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Checklist.ToString() || 
+                                         x.BusinessModule == BusinessModuleEnum.ChecklistTask.ToString()).ToList();
+                }
+                else
+                {
+                    // Get all checklist-related logs
+                    var checklistLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Checklist.ToString(), 0);
+                    var taskLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.ChecklistTask.ToString(), 0);
+                    logs.AddRange(checklistLogs);
+                    logs.AddRange(taskLogs);
+                }
+
+                // Apply operation type filter
+                if (operationType.HasValue)
+                {
+                    logs = logs.Where(x => x.OperationType == operationType.ToString()).ToList();
+                }
+
+                // Apply pagination
+                var totalCount = logs.Count;
+                var pagedLogs = logs.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = outputDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get checklist operation logs from database");
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get checklist logs by checklist ID
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetChecklistLogsAsync(long checklistId, int pageIndex = 1, int pageSize = 20)
+        {
+            try
+            {
+                var logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Checklist.ToString(), checklistId);
+
+                // Apply pagination
+                var totalCount = logs.Count;
+                var pagedLogs = logs.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = outputDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get checklist logs for checklist {ChecklistId}", checklistId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get checklist task logs by task ID
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetChecklistTaskLogsAsync(long taskId, long? onboardingId = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true)
+        {
+            try
+            {
+                var logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.ChecklistTask.ToString(), taskId);
+
+                if (onboardingId.HasValue)
+                {
+                    logs = logs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                }
+
+                // Apply pagination
+                var totalCount = logs.Count;
+                var pagedLogs = logs.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = outputDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get operation logs for task {TaskId}", taskId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get checklist operation statistics
+        /// </summary>
+        public async Task<Dictionary<string, int>> GetChecklistOperationStatisticsAsync(long checklistId)
+        {
+            try
+            {
+                var logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Checklist.ToString(), checklistId);
+
+                return logs.GroupBy(x => x.OperationType)
+                          .ToDictionary(g => g.Key, g => g.Count());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get checklist operation statistics for checklist {ChecklistId}", checklistId);
+                return new Dictionary<string, int>();
+            }
+        }
+
+        /// <summary>
+        /// Get checklist task statistics
+        /// </summary>
+        public async Task<Dictionary<string, int>> GetChecklistTaskStatisticsAsync(long taskId, long? onboardingId = null)
+        {
+            try
+            {
+                var logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.ChecklistTask.ToString(), taskId);
+
+                if (onboardingId.HasValue)
+                {
+                    logs = logs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
+                }
+
+                return logs.GroupBy(x => x.OperationType)
+                          .ToDictionary(g => g.Key, g => g.Count());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get checklist task statistics for task {TaskId}", taskId);
+                return new Dictionary<string, int>();
+            }
+        }
+
+        /// <summary>
+        /// Get operation logs by task ID (backward compatibility)
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByTaskAsync(long taskId, long? onboardingId = null, int pageIndex = 1, int pageSize = 20)
+        {
+            return await GetChecklistTaskLogsAsync(taskId, onboardingId, pageIndex, pageSize, true);
+        }
+
+        #region Private Helper Methods
+
+        /// <summary>
+        /// Build task completion description
+        /// </summary>
+        private string BuildTaskCompletionDescription(string taskName, string completionNotes, int actualHours)
+        {
+            var description = $"Task '{taskName}' has been marked as completed by {GetOperatorDisplayName()}";
+
+            if (!string.IsNullOrEmpty(completionNotes))
+            {
+                description += $" with notes: {completionNotes}";
+            }
+
+            if (actualHours > 0)
+            {
+                description += $". Actual time spent: {actualHours} hours";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Build task uncompletion description
+        /// </summary>
+        private string BuildTaskUncompletionDescription(string taskName, string reason)
+        {
+            var description = $"Task '{taskName}' has been marked as uncompleted by {GetOperatorDisplayName()}";
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                description += $" with reason: {reason}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Generic helper method for logging independent operations
+        /// </summary>
+        private async Task<bool> LogIndependentOperationAsync(
+            OperationTypeEnum operationType,
+            BusinessModuleEnum businessModule,
+            long businessId,
+            string entityName,
+            string operationAction,
+            string beforeData = null,
+            string afterData = null,
+            List<string> changedFields = null,
+            string reason = null,
+            long? relatedEntityId = null,
+            string relatedEntityType = null,
+            string extendedData = null)
+        {
+            try
+            {
+                var operationTitle = $"{businessModule} {operationAction}: {entityName}";
+                var operationDescription = BuildIndependentOperationDescription(
+                    businessModule, entityName, operationAction, relatedEntityId, relatedEntityType, reason, changedFields);
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = BuildDefaultExtendedData(businessModule, businessId, entityName, operationAction, relatedEntityId, relatedEntityType, reason, changedFields);
+                }
+
+                var operationLog = BuildOperationLogEntity(
+                    operationType,
+                    businessModule,
+                    businessId,
+                    null, // No onboardingId for independent operations
+                    null, // No stageId for independent operations
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    extendedData
+                );
+
+                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log independent {OperationType} operation for {BusinessModule} {BusinessId}", 
+                    operationType, businessModule, businessId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Build independent operation description
+        /// </summary>
+        private string BuildIndependentOperationDescription(
+            BusinessModuleEnum businessModule,
+            string entityName,
+            string operationAction,
+            long? relatedEntityId,
+            string relatedEntityType,
+            string reason,
+            List<string> changedFields)
+        {
+            var description = $"{businessModule} '{entityName}' has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
+
+            if (relatedEntityId.HasValue && !string.IsNullOrEmpty(relatedEntityType))
+            {
+                description += $" in {relatedEntityType} ID {relatedEntityId.Value}";
+            }
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                description += $" with reason: {reason}";
+            }
+
+            if (changedFields?.Any() == true)
+            {
+                description += $". Changed fields: {string.Join(", ", changedFields)}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Build default extended data
+        /// </summary>
+        private string BuildDefaultExtendedData(
+            BusinessModuleEnum businessModule,
+            long businessId,
+            string entityName,
+            string operationAction,
+            long? relatedEntityId,
+            string relatedEntityType,
+            string reason,
+            List<string> changedFields)
+        {
+            var extendedDataObj = new Dictionary<string, object>
+            {
+                { $"{businessModule}Id", businessId },
+                { $"{businessModule}Name", entityName },
+                { $"{operationAction}At", DateTimeOffset.UtcNow }
+            };
+
+            if (relatedEntityId.HasValue && !string.IsNullOrEmpty(relatedEntityType))
+            {
+                extendedDataObj.Add($"{relatedEntityType}Id", relatedEntityId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                extendedDataObj.Add("Reason", reason);
+            }
+
+            if (changedFields?.Any() == true)
+            {
+                extendedDataObj.Add("ChangedFieldsCount", changedFields.Count);
+            }
+
+            return JsonSerializer.Serialize(extendedDataObj);
+        }
+
+        #endregion
+    }
+}

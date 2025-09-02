@@ -340,7 +340,19 @@ builder.Services.AddGlobalExceptionHandling();
 
 builder.Services.AddClient(builder.Configuration);
 
-// Memory cache removed - using Redis distributed cache instead
+// Add distributed cache (use memory cache for development, Redis for production)
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+else
+{
+    // TODO: Configure Redis cache for production
+    // builder.Services.AddStackExchangeRedisCache(options => {
+    //     options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    // });
+    builder.Services.AddDistributedMemoryCache(); // Fallback to memory cache
+}
 
 // Register background task processing service
 builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();

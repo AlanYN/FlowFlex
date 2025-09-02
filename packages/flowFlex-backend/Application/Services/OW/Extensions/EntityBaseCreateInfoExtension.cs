@@ -334,7 +334,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// </summary>
         /// <param name="log">OperationChangeLog entity to initialize</param>
         /// <param name="userContext">User context</param>
-        public static void InitCreateInfo(this OperationChangeLog log, UserContext userContext)
+        public static void InitCreateInfo(this Domain.Entities.OW.OperationChangeLog log, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.Now;
 
@@ -361,7 +361,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// </summary>
         /// <param name="log">OperationChangeLog entity to update</param>
         /// <param name="userContext">User context</param>
-        public static void InitUpdateInfo(this OperationChangeLog log, UserContext userContext)
+        public static void InitUpdateInfo(this Domain.Entities.OW.OperationChangeLog log, UserContext userContext)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 

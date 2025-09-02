@@ -225,7 +225,32 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Questionnaire unpublished
         /// </summary>
         [Description("Questionnaire Unpublish")]
-        QuestionnaireUnpublish = 36
+        QuestionnaireUnpublish = 36,
+
+        // Duplicate Operations
+        /// <summary>
+        /// Workflow duplicated
+        /// </summary>
+        [Description("Workflow Duplicate")]
+        WorkflowDuplicate = 37,
+
+        /// <summary>
+        /// Stage duplicated
+        /// </summary>
+        [Description("Stage Duplicate")]
+        StageDuplicate = 38,
+
+        /// <summary>
+        /// Checklist duplicated
+        /// </summary>
+        [Description("Checklist Duplicate")]
+        ChecklistDuplicate = 39,
+
+        /// <summary>
+        /// Questionnaire duplicated
+        /// </summary>
+        [Description("Questionnaire Duplicate")]
+        QuestionnaireDuplicate = 40
     }
 
     /// <summary>

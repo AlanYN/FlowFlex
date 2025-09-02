@@ -7,7 +7,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
 
 using FlowFlex.Domain.Shared.Enums.OW;
-using System.Linq.Dynamic.Core;
+using FlowFlex.Domain.Shared.Models;
 
 
 namespace FlowFlex.WebApi.Controllers.OW

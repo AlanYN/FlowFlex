@@ -76,19 +76,19 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Before Data (JSON)
         /// </summary>
-        [SugarColumn(ColumnName = "before_data", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "before_data", ColumnDataType = "jsonb", IsJson = true)]
         public string BeforeData { get; set; }
 
         /// <summary>
         /// After Data (JSON)
         /// </summary>
-        [SugarColumn(ColumnName = "after_data", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "after_data", ColumnDataType = "jsonb", IsJson = true)]
         public string AfterData { get; set; }
 
         /// <summary>
         /// Changed Fields (JSON)
         /// </summary>
-        [SugarColumn(ColumnName = "changed_fields", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "changed_fields", ColumnDataType = "jsonb", IsJson = true)]
         public string ChangedFields { get; set; }
 
         /// <summary>
@@ -130,7 +130,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Extended Data (JSON)
         /// </summary>
-        [SugarColumn(ColumnName = "extended_data", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "extended_data", ColumnDataType = "jsonb", IsJson = true)]
         public string ExtendedData { get; set; }
 
         /// <summary>

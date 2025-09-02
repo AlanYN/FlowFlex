@@ -21,6 +21,10 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Application.Services.OW.Extensions;
+using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using JsonException = System.Text.Json.JsonException;
 using System.Text.RegularExpressions;
 using SqlSugar;
 
@@ -51,12 +55,13 @@ namespace FlowFlex.Application.Service.OW
         private readonly IDistributedCacheService _cacheService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly ILogger<StageService> _logger;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, ILogger<StageService> logger)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -73,6 +78,7 @@ namespace FlowFlex.Application.Service.OW
             _cacheService = cacheService;
             _backgroundTaskQueue = backgroundTaskQueue;
             _operationChangeLogService = operationChangeLogService;
+            _logger = logger;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -758,6 +764,40 @@ namespace FlowFlex.Application.Service.OW
             newStage.InitCreateInfo(_userContext);
 
             await _stageRepository.InsertAsync(newStage);
+
+            // Log duplicate operation
+            try
+            {
+                await _operationChangeLogService.LogOperationAsync(
+                    OperationTypeEnum.StageDuplicate,
+                    BusinessModuleEnum.Stage,
+                    newStage.Id,
+                    null, // No onboarding context for stage duplication
+                    null, // No stage context for stage duplication
+                    $"Stage Duplicated",
+                    $"Duplicated stage '{sourceStage.Name}' to '{input.Name}' in workflow {targetWorkflowId}",
+                    sourceStage.Name, // beforeData
+                    input.Name, // afterData
+                    new List<string> { "Name", "Description", "WorkflowId", "Order" },
+                    JsonConvert.SerializeObject(new
+                    {
+                        SourceId = id,
+                        SourceName = sourceStage.Name,
+                        NewId = newStage.Id,
+                        NewName = input.Name,
+                        SourceWorkflowId = sourceStage.WorkflowId,
+                        TargetWorkflowId = targetWorkflowId,
+                        ChecklistId = sourceStage.ChecklistId,
+                        QuestionnaireId = sourceStage.QuestionnaireId
+                    }),
+                    OperationStatusEnum.Success
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log stage duplicate operation for stage {StageId}", newStage.Id);
+            }
+
             return newStage.Id;
         }
 

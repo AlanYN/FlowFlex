@@ -9,7 +9,12 @@ using FlowFlex.Domain.Entities.OW;
 
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Enums.OW;
 using System.Text.Json;
+using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using JsonException = System.Text.Json.JsonException;
 using System.Linq;
 using System;
 // using Item.Redis; // Redis dependency removed
@@ -45,6 +50,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IActionManagementService _actionManagementService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly ILogger<QuestionnaireService> _logger;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
@@ -55,7 +61,8 @@ namespace FlowFlex.Application.Service.OW
             IComponentMappingService mappingService,
             IActionManagementService actionManagementService,
             IBackgroundTaskQueue backgroundTaskQueue,
-            IOperationChangeLogService operationChangeLogService)
+            IOperationChangeLogService operationChangeLogService,
+            ILogger<QuestionnaireService> logger)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
@@ -66,6 +73,7 @@ namespace FlowFlex.Application.Service.OW
             _actionManagementService = actionManagementService;
             _backgroundTaskQueue = backgroundTaskQueue;
             _operationChangeLogService = operationChangeLogService;
+            _logger = logger;
         }
         private static string TryUnwrapComponentsJson(string json)
         {
@@ -202,8 +210,14 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Questionnaire with ID {id} not found");
             }
 
-            // Store the original name for name change detection
+            // Store the original values for change detection and logging
             var originalName = entity.Name;
+            var originalDescription = entity.Description;
+            var originalStatus = entity.Status;
+            var originalCategory = entity.Category;
+            var originalEstimatedMinutes = entity.EstimatedMinutes;
+            var originalIsActive = entity.IsActive;
+            var originalStructureJson = entity.Structure?.ToString(Newtonsoft.Json.Formatting.None);
 
             // Validate name uniqueness (exclude current record)
             if (await _questionnaireRepository.IsNameExistsAsync(input.Name, null, id))
@@ -269,11 +283,12 @@ namespace FlowFlex.Application.Service.OW
                             var beforeData = JsonSerializer.Serialize(new
                             {
                                 Name = originalName,
-                                Description = entity.Description, // This contains old data before mapping
-                                Status = entity.Status,
-                                Category = entity.Category,
-                                EstimatedMinutes = entity.EstimatedMinutes,
-                                IsActive = entity.IsActive
+                                Description = originalDescription,
+                                Status = originalStatus,
+                                Category = originalCategory,
+                                EstimatedMinutes = originalEstimatedMinutes,
+                                IsActive = originalIsActive,
+                                StructureJson = originalStructureJson
                             });
 
                             var afterData = JsonSerializer.Serialize(new
@@ -283,12 +298,27 @@ namespace FlowFlex.Application.Service.OW
                                 Status = updatedQuestionnaire.Status,
                                 Category = updatedQuestionnaire.Category,
                                 EstimatedMinutes = updatedQuestionnaire.EstimatedMinutes,
-                                IsActive = updatedQuestionnaire.IsActive
+                                IsActive = updatedQuestionnaire.IsActive,
+                                StructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None)
                             });
 
                             // Determine changed fields
                             var changedFields = new List<string>();
                             if (originalName != updatedQuestionnaire.Name) changedFields.Add("Name");
+                            if (originalDescription != updatedQuestionnaire.Description) changedFields.Add("Description");
+                            if (originalStatus != updatedQuestionnaire.Status) changedFields.Add("Status");
+                            if (originalCategory != updatedQuestionnaire.Category) changedFields.Add("Category");
+                            if (originalEstimatedMinutes != updatedQuestionnaire.EstimatedMinutes) changedFields.Add("EstimatedMinutes");
+                            if (originalIsActive != updatedQuestionnaire.IsActive) changedFields.Add("IsActive");
+                            
+                            // Check structure changes
+                            var updatedStructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None);
+                            if (originalStructureJson != updatedStructureJson) changedFields.Add("StructureJson");
+
+                            // Debug logging
+                            _logger.LogDebug("QuestionnaireUpdate Debug - Before: {BeforeData}", beforeData);
+                            _logger.LogDebug("QuestionnaireUpdate Debug - After: {AfterData}", afterData);
+                            _logger.LogDebug("QuestionnaireUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
 
                             await _operationChangeLogService.LogQuestionnaireUpdateAsync(
                                 questionnaireId: id,
@@ -627,6 +657,38 @@ namespace FlowFlex.Application.Service.OW
                 {
                     await _questionnaireRepository.UpdateStatisticsAsync(newQuestionnaire.Id, newQuestionnaire.TotalQuestions, newQuestionnaire.RequiredQuestions);
                 }
+            }
+
+            // Log duplicate operation
+            try
+            {
+                await _operationChangeLogService.LogOperationAsync(
+                    OperationTypeEnum.QuestionnaireDuplicate,
+                    BusinessModuleEnum.Questionnaire,
+                    newQuestionnaire.Id,
+                    null, // No onboarding context for questionnaire duplication
+                    null, // No stage context for questionnaire duplication
+                    $"Questionnaire Duplicated",
+                    $"Duplicated questionnaire '{sourceQuestionnaire.Name}' to '{uniqueName}'",
+                    sourceQuestionnaire.Name, // beforeData
+                    uniqueName, // afterData
+                    new List<string> { "Name", "Description", "Category", "Structure" },
+                    JsonConvert.SerializeObject(new
+                    {
+                        SourceId = id,
+                        SourceName = sourceQuestionnaire.Name,
+                        NewId = newQuestionnaire.Id,
+                        NewName = uniqueName,
+                        CopyStructure = input.CopyStructure,
+                        TotalQuestions = newQuestionnaire.TotalQuestions,
+                        RequiredQuestions = newQuestionnaire.RequiredQuestions
+                    }),
+                    OperationStatusEnum.Success
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log questionnaire duplicate operation for questionnaire {QuestionnaireId}", newQuestionnaire.Id);
             }
 
             return newQuestionnaire.Id;

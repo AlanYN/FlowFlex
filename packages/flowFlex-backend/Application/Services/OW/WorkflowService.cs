@@ -13,7 +13,11 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Enums.OW;
 using System.Text.Json;
+using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using JsonException = System.Text.Json.JsonException;
 using System.Text;
 using System.IO;
 using System.Linq;
@@ -633,6 +637,36 @@ namespace FlowFlex.Application.Service.OW
                 AuditHelper.ApplyCreateAudit(duplicatedStage, _operatorContextService);
 
                 await _stageRepository.InsertAsync(duplicatedStage);
+            }
+
+            // Log duplicate operation
+            try
+            {
+                await _operationChangeLogService.LogOperationAsync(
+                    OperationTypeEnum.WorkflowDuplicate,
+                    BusinessModuleEnum.Workflow,
+                    newWorkflowId,
+                    null, // No onboarding context for workflow duplication
+                    null, // No stage context for workflow duplication
+                    $"Workflow Duplicated",
+                    $"Duplicated workflow '{originalWorkflow.Name}' to '{uniqueName}'",
+                    originalWorkflow.Name, // beforeData
+                    uniqueName, // afterData
+                    new List<string> { "Name", "Description", "StartDate", "EndDate", "Stages" },
+                    JsonConvert.SerializeObject(new
+                    {
+                        SourceId = id,
+                        SourceName = originalWorkflow.Name,
+                        NewId = newWorkflowId,
+                        NewName = uniqueName,
+                        DuplicatedStagesCount = originalStages.Count()
+                    }),
+                    OperationStatusEnum.Success
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow duplicate operation for workflow {WorkflowId}", newWorkflowId);
             }
 
             return newWorkflowId;

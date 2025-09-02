@@ -18,10 +18,11 @@ using System.Threading.Tasks;
 using FlowFlex.Application.Services.OW.Extensions;
 using System.Text.Json;
 using System.Linq;
-
+using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
-using System.Text.Json;
 using FlowFlex.Infrastructure.Services;
 using FlowFlex.Infrastructure.Extensions;
 
@@ -41,6 +42,7 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IComponentMappingService _mappingService;
     private readonly IBackgroundTaskQueue _backgroundTaskQueue;
     private readonly IOperationChangeLogService _operationChangeLogService;
+    private readonly ILogger<ChecklistService> _logger;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -51,7 +53,8 @@ public class ChecklistService : IChecklistService, IScopedService
         IOperatorContextService operatorContextService,
         IComponentMappingService mappingService,
         IBackgroundTaskQueue backgroundTaskQueue,
-        IOperationChangeLogService operationChangeLogService)
+        IOperationChangeLogService operationChangeLogService,
+        ILogger<ChecklistService> logger)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -62,6 +65,7 @@ public class ChecklistService : IChecklistService, IScopedService
         _operatorContextService = operatorContextService;
         _backgroundTaskQueue = backgroundTaskQueue;
         _operationChangeLogService = operationChangeLogService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -469,6 +473,38 @@ public class ChecklistService : IChecklistService, IScopedService
         }
 
         // Cache has been removed, no cleanup needed
+
+        // Log duplicate operation
+        try
+        {
+            await _operationChangeLogService.LogOperationAsync(
+                OperationTypeEnum.ChecklistDuplicate,
+                BusinessModuleEnum.Checklist,
+                newChecklistId,
+                null, // No onboarding context for checklist duplication
+                null, // No stage context for checklist duplication
+                $"Checklist Duplicated",
+                $"Duplicated checklist '{sourceChecklist.Name}' to '{uniqueName}'",
+                sourceChecklist.Name, // beforeData
+                uniqueName, // afterData
+                new List<string> { "Name", "Description", "Team", "Tasks" },
+                JsonConvert.SerializeObject(new
+                {
+                    SourceId = id,
+                    SourceName = sourceChecklist.Name,
+                    NewId = newChecklistId,
+                    NewName = uniqueName,
+                    CopyTasks = input.CopyTasks,
+                    TargetTeam = input.TargetTeam,
+                    SetAsTemplate = input.SetAsTemplate
+                }),
+                OperationStatusEnum.Success
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log checklist duplicate operation for checklist {ChecklistId}", newChecklistId);
+        }
 
         return newChecklistId;
     }
