@@ -45,6 +45,27 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get operation logs by business ID (without specifying business module)
+        /// </summary>
+        public async Task<List<OperationChangeLog>> GetByBusinessIdAsync(long businessId)
+        {
+            return await base.GetListAsync(x => x.BusinessId == businessId && x.IsValid, x => x.OperationTime, OrderByType.Desc);
+        }
+
+        /// <summary>
+        /// Get operation logs by multiple business IDs (batch query)
+        /// </summary>
+        public async Task<List<OperationChangeLog>> GetByBusinessIdsAsync(List<long> businessIds)
+        {
+            if (businessIds == null || !businessIds.Any())
+            {
+                return new List<OperationChangeLog>();
+            }
+
+            return await base.GetListAsync(x => businessIds.Contains(x.BusinessId) && x.IsValid, x => x.OperationTime, OrderByType.Desc);
+        }
+
+        /// <summary>
         /// Get operation logs by operation type
         /// </summary>
         public async Task<List<OperationChangeLog>> GetByOperationTypeAsync(string operationType, long? onboardingId = null)

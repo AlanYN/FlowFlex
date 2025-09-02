@@ -204,6 +204,34 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessAsync(string businessModule, long businessId, int pageIndex = 1, int pageSize = 20);
 
         /// <summary>
+        /// Get operation logs by business ID (without specifying business module)
+        /// </summary>
+        /// <param name="businessId">Business ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Operation log paged list</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdAsync(long businessId, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Get operation logs by business ID with optional business type and related data
+        /// </summary>
+        /// <param name="businessId">Business ID</param>
+        /// <param name="businessType">Business type (optional)</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Operation log paged list</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdWithTypeAsync(long businessId, BusinessTypeEnum? businessType = null, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Get operation logs by multiple business IDs (batch query)
+        /// </summary>
+        /// <param name="businessIds">List of business IDs</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Operation log paged list</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdsAsync(List<long> businessIds, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
         /// Get operation statistics information
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>

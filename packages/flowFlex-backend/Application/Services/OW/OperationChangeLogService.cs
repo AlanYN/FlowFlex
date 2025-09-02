@@ -684,6 +684,238 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// 根据业务ID获取操作日志（不需要指定业务模块）
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdAsync(long businessId, int pageIndex = 1, int pageSize = 20)
+        {
+            try
+            {
+                var logs = await _operationChangeLogRepository.GetByBusinessIdAsync(businessId);
+
+                // 分页处理
+                var totalCount = logs.Count;
+                var pagedLogs = logs.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = outputDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get operation logs for business ID {BusinessId}", businessId);
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = new List<OperationChangeLogOutputDto>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+        }
+
+        /// <summary>
+        /// 根据业务ID和业务类型获取操作日志（支持关联查询）
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdWithTypeAsync(long businessId, BusinessTypeEnum? businessType = null, int pageIndex = 1, int pageSize = 20)
+        {
+            try
+            {
+                var allLogs = new List<OperationChangeLog>();
+
+                if (businessType.HasValue)
+                {
+                    // 根据指定的业务类型查询
+                    switch (businessType.Value)
+                    {
+                        case BusinessTypeEnum.Workflow:
+                            // 查询Workflow及其关联的Stage
+                            var workflowLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Workflow.ToString(), businessId);
+                            allLogs.AddRange(workflowLogs);
+
+                            // 查询该Workflow下的所有Stage
+                            var relatedStages = await GetRelatedStagesByWorkflowIdAsync(businessId);
+                            foreach (var stageId in relatedStages)
+                            {
+                                var relatedStageLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Stage.ToString(), stageId);
+                                allLogs.AddRange(relatedStageLogs);
+                            }
+                            break;
+
+                        case BusinessTypeEnum.Stage:
+                            // 只查询Stage
+                            var stageLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Stage.ToString(), businessId);
+                            allLogs.AddRange(stageLogs);
+                            break;
+
+                        case BusinessTypeEnum.Checklist:
+                            // 查询Checklist及其关联的ChecklistTask
+                            var checklistLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Checklist.ToString(), businessId);
+                            allLogs.AddRange(checklistLogs);
+
+                            // 查询该Checklist下的所有ChecklistTask
+                            var relatedTasks = await GetRelatedTasksByChecklistIdAsync(businessId);
+                            foreach (var taskId in relatedTasks)
+                            {
+                                var relatedTaskLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Task.ToString(), taskId);
+                                allLogs.AddRange(relatedTaskLogs);
+                            }
+                            break;
+
+                        case BusinessTypeEnum.Questionnaire:
+                            // 只查询Questionnaire
+                            var questionnaireLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Question.ToString(), businessId);
+                            allLogs.AddRange(questionnaireLogs);
+                            break;
+
+                        case BusinessTypeEnum.ChecklistTask:
+                            // 只查询ChecklistTask
+                            var taskLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Task.ToString(), businessId);
+                            allLogs.AddRange(taskLogs);
+                            break;
+
+                        default:
+                            // 如果类型不匹配，返回空结果
+                            break;
+                    }
+                }
+                else
+                {
+                    // 如果没有指定类型，使用原来的逻辑查询所有模块
+                    allLogs = await _operationChangeLogRepository.GetByBusinessIdAsync(businessId);
+                }
+
+                // 按操作时间降序排序
+                allLogs = allLogs.OrderByDescending(x => x.OperationTime).ToList();
+
+                // 分页处理
+                var totalCount = allLogs.Count;
+                var pagedLogs = allLogs.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = outputDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get operation logs for business ID {BusinessId} with type {BusinessType}", businessId, businessType);
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = new List<OperationChangeLogOutputDto>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+        }
+
+        /// <summary>
+        /// 获取指定Workflow下的所有Stage ID
+        /// </summary>
+        private async Task<List<long>> GetRelatedStagesByWorkflowIdAsync(long workflowId)
+        {
+            try
+            {
+                var stageRepository = _serviceProvider.GetService<IStageRepository>();
+                if (stageRepository == null)
+                {
+                    _logger.LogWarning("StageRepository not found, cannot get related stages for workflow {WorkflowId}", workflowId);
+                    return new List<long>();
+                }
+
+                var stages = await stageRepository.GetByWorkflowIdAsync(workflowId);
+                return stages?.Select(s => s.Id).ToList() ?? new List<long>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get related stages for workflow {WorkflowId}", workflowId);
+                return new List<long>();
+            }
+        }
+
+        /// <summary>
+        /// 获取指定Checklist下的所有ChecklistTask ID
+        /// </summary>
+        private async Task<List<long>> GetRelatedTasksByChecklistIdAsync(long checklistId)
+        {
+            try
+            {
+                var checklistTaskRepository = _serviceProvider.GetService<IChecklistTaskRepository>();
+                if (checklistTaskRepository == null)
+                {
+                    _logger.LogWarning("ChecklistTaskRepository not found, cannot get related tasks for checklist {ChecklistId}", checklistId);
+                    return new List<long>();
+                }
+
+                var tasks = await checklistTaskRepository.GetByChecklistIdAsync(checklistId);
+                return tasks?.Select(t => t.Id).ToList() ?? new List<long>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get related tasks for checklist {ChecklistId}", checklistId);
+                return new List<long>();
+            }
+        }
+
+        /// <summary>
+        /// 根据多个业务ID获取操作日志（批量查询）
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdsAsync(List<long> businessIds, int pageIndex = 1, int pageSize = 20)
+        {
+            try
+            {
+                if (businessIds == null || !businessIds.Any())
+                {
+                    return new PagedResult<OperationChangeLogOutputDto>
+                    {
+                        Items = new List<OperationChangeLogOutputDto>(),
+                        TotalCount = 0,
+                        PageIndex = pageIndex,
+                        PageSize = pageSize
+                    };
+                }
+
+                var logs = await _operationChangeLogRepository.GetByBusinessIdsAsync(businessIds);
+
+                // 分页处理
+                var totalCount = logs.Count;
+                var pagedLogs = logs.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                var outputDtos = pagedLogs.Select(MapToOutputDto).ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = outputDtos,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get operation logs for business IDs {BusinessIds}", string.Join(",", businessIds));
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = new List<OperationChangeLogOutputDto>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+        }
+
+        /// <summary>
         /// 获取操作统计信息
         /// </summary>
         public async Task<Dictionary<string, int>> GetOperationStatisticsAsync(long? onboardingId = null, long? stageId = null)

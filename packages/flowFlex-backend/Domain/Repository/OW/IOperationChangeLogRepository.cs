@@ -40,6 +40,20 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<OperationChangeLog>> GetByBusinessAsync(string businessModule, long businessId);
 
         /// <summary>
+        /// Get operation logs by business ID (without specifying business module)
+        /// </summary>
+        /// <param name="businessId">Business ID</param>
+        /// <returns>Operation log list</returns>
+        Task<List<OperationChangeLog>> GetByBusinessIdAsync(long businessId);
+
+        /// <summary>
+        /// Get operation logs by multiple business IDs (batch query)
+        /// </summary>
+        /// <param name="businessIds">List of business IDs</param>
+        /// <returns>Operation log list</returns>
+        Task<List<OperationChangeLog>> GetByBusinessIdsAsync(List<long> businessIds);
+
+        /// <summary>
         /// Get operation logs by operation type
         /// </summary>
         /// <param name="operationType">Operation type</param>
