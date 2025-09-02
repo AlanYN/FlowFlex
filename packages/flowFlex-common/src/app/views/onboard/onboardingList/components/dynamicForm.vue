@@ -1,6 +1,6 @@
 <template>
 	<div class="dynamic-form">
-		<div class="questionnaire-sections mt-4">
+		<div class="questionnaire-sections">
 			<!-- 加载状态 -->
 			<div v-if="loading" class="flex justify-center items-center py-8">
 				<el-icon class="animate-spin mr-2"><Loading /></el-icon>
@@ -9,23 +9,6 @@
 
 			<!-- 问卷内容 -->
 			<template v-else>
-				<!-- 问卷描述 -->
-				<div
-					v-if="
-						formattedQuestionnaires.length > 0 && formattedQuestionnaires[0].description
-					"
-					class="text-sm text-gray-500"
-				>
-					<div>
-						{{ formattedQuestionnaires[0].description }}
-						<span v-if="!!formattedQuestionnaires[0]?.hasError" class="error-indicator">
-							(Load Error)
-						</span>
-					</div>
-
-					<el-divider />
-				</div>
-
 				<!-- 错误状态显示 -->
 				<div v-if="!!formattedQuestionnaires[0]?.hasError" class="questionnaire-error">
 					<el-alert
@@ -39,8 +22,8 @@
 
 				<!-- 当前 Section 内容 -->
 				<div v-if="currentSection" class="space-y-4">
-					<div class="flex flex-col space-y-1.5 p-6 bg-primary-50 section-header">
-						<h4 class="section-title">
+					<div class="flex flex-col space-y-1">
+						<h4 class="section-title" v-if="currentSection.title">
 							{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
 						</h4>
 						<p v-if="currentSection.description" class="section-description">
@@ -1608,13 +1591,6 @@ defineExpose({
 	gap: 4px;
 }
 
-/* Section 标题样式 */
-.section-header {
-	background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
-	border: 1px solid var(--primary-200);
-	border-radius: 8px;
-}
-
 .section-title {
 	font-size: 18px;
 	font-weight: 600;
@@ -1709,11 +1685,6 @@ html.dark {
 			border-color: var(--primary-500);
 			background-color: var(--primary-500);
 		}
-	}
-
-	.section-header {
-		background: linear-gradient(135deg, var(--primary-800) 0%, var(--primary-700) 100%);
-		border-color: var(--primary-600);
 	}
 
 	.section-title {

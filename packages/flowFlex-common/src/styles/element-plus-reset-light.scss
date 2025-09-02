@@ -460,7 +460,7 @@
 		transition:
 			box-shadow 0.3s ease,
 			background-color 0.3s ease;
-		@apply bg-white p-4 rounded-xl ml-2  box-border;
+		@apply bg-white  rounded-xl ml-2  box-border;
 		&:hover {
 			box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.12);
 		}

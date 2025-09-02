@@ -1,12 +1,18 @@
 <template>
 	<div class="customer-block" v-if="checklistData && checklistData.length > 0">
-		<h2 class="text-lg font-semibold">Checklist - {{ checklistData[0].name }}</h2>
-		<el-divider />
-		<!-- 统一的进度头部卡片 -->
-		<div class="checklist-header-card rounded-md">
+		<div
+			class="checklist-header-card rounded-md"
+			:class="{ expanded: isExpanded }"
+			@click="toggleExpanded"
+		>
 			<div class="flex justify-between">
 				<div>
-					<h3 class="checklist-title">Overall Progress</h3>
+					<div class="flex items-center">
+						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+							<ArrowRight />
+						</el-icon>
+						<h3 class="checklist-title">{{ checklistData[0].name }}</h3>
+					</div>
 					<div class="checklist-subtitle">
 						{{ totalCompletedTasks }} of {{ totalTasks }} tasks completed
 					</div>
@@ -27,88 +33,98 @@
 			</div>
 		</div>
 
-		<!-- 所有检查项列表 -->
-		<div class="checklist-items py-4" v-loading="loading">
-			<!-- 遍历所有checklist中的任务 -->
-			<template v-for="checklist in checklistData || []" :key="checklist.id">
-				<!-- 可选：显示每个checklist的分组标题 -->
+		<!-- 可折叠检查项列表 -->
+		<el-collapse-transition>
+			<div v-show="isExpanded">
+				<!-- 遍历所有checklist中的任务 -->
+				<div class="checklist-items p-4" v-loading="loading">
+					<template v-for="checklist in checklistData || []" :key="checklist.id">
+						<!-- 可选：显示每个checklist的分组标题 -->
 
-				<!-- 该checklist下的所有任务 -->
-				<div
-					v-for="task in checklist.tasks"
-					:key="task.id"
-					class="checklist-item-card rounded-md"
-				>
-					<!-- 任务内容 -->
-					<div class="item-content px-4 py-2" :class="{ completed: task.isCompleted }">
-						<div class="flex items-center gap-2 mb-1">
-							<icon
-								icon="material-symbols:check-circle-outline-rounded"
-								style="color: #10b981"
-								class="text-xl"
-								v-if="task.isCompleted"
-							/>
-							<h4 v-if="task.name" class="item-title bolck">
-								{{ task.name }}
-							</h4>
-						</div>
+						<!-- 该checklist下的所有任务 -->
+						<div
+							v-for="task in checklist.tasks"
+							:key="`task-${task.id}`"
+							class="checklist-item-card rounded-md"
+						>
+							<!-- 任务内容 -->
+							<div
+								class="item-content px-4 py-2"
+								:class="{ completed: task.isCompleted }"
+							>
+								<div class="flex items-center gap-2 mb-1">
+									<icon
+										icon="material-symbols:check-circle-outline-rounded"
+										style="color: #10b981"
+										class="text-xl"
+										v-if="task.isCompleted"
+									/>
+									<h4 v-if="task.name" class="item-title bolck">
+										{{ task.name }}
+									</h4>
+								</div>
 
-						<p v-if="task.description" class="item-description">
-							{{ task.description }}
-						</p>
-						<div class="flex gap-3">
-							<div class="flex items-center gap-1 flex-shrink-0">
-								<!-- Assignee 缩写 -->
-								<icon
-									icon="material-symbols:person-2-outline"
-									style="color: var(--primary-500)"
-								/>
-								<span
-									class="text-xs font-medium text-primary-500"
-									:title="task.assigneeName || defaultStr"
+								<p v-if="task.description" class="item-description">
+									{{ task.description }}
+								</p>
+								<div class="flex gap-3">
+									<div class="flex items-center gap-1 flex-shrink-0">
+										<!-- Assignee 缩写 -->
+										<icon
+											icon="material-symbols:person-2-outline"
+											style="color: var(--primary-500)"
+										/>
+										<span
+											class="text-xs font-medium text-primary-500"
+											:title="task.assigneeName || defaultStr"
+										>
+											{{
+												getAssigneeInitials(task?.assigneeName || '') ||
+												defaultStr
+											}}
+										</span>
+									</div>
+									<div
+										class="flex items-center gap-1 flex-shrink-0"
+										style="color: #47b064"
+									>
+										<icon icon="iconoir:attachment" />
+										{{ task?.filesCount || 0 }}
+									</div>
+									<div
+										class="flex items-center gap-1 flex-shrink-0"
+										style="color: #ed6f2d"
+									>
+										<icon icon="mynaui:message" />
+										{{ task?.notesCount || 0 }}
+									</div>
+								</div>
+							</div>
+
+							<!-- 任务操作按钮 -->
+							<div class="task-actions">
+								<el-button
+									class="action-button details-button"
+									@click.stop="openTaskDetails(task)"
+									color="#e6f1fa"
+									:disabled="disabled"
 								>
-									{{ getAssigneeInitials(task.assigneeName) || defaultStr }}
-								</span>
-							</div>
-							<div
-								class="flex items-center gap-1 flex-shrink-0"
-								style="color: #47b064"
-							>
-								<icon icon="iconoir:attachment" />
-								{{ task?.filesCount || 0 }}
-							</div>
-							<div
-								class="flex items-center gap-1 flex-shrink-0"
-								style="color: #ed6f2d"
-							>
-								<icon icon="mynaui:message" />
-								{{ task?.notesCount || 0 }}
+									Details
+								</el-button>
+								<el-button
+									:type="task.isCompleted ? 'danger' : 'success'"
+									class="action-button complete-button"
+									@click.stop="toggleTask(task)"
+									:disabled="disabled"
+								>
+									{{ task.isCompleted ? 'Cancel' : 'Done' }}
+								</el-button>
 							</div>
 						</div>
-					</div>
-
-					<!-- 任务操作按钮 -->
-					<div class="task-actions">
-						<el-button
-							class="action-button details-button"
-							@click.stop="openTaskDetails(task)"
-							color="#e6f1fa"
-							:disabled="disabled"
-						>
-							Details
-						</el-button>
-						<el-button
-							:type="task.isCompleted ? 'danger' : 'success'"
-							class="action-button complete-button"
-							@click.stop="toggleTask(task)"
-							:disabled="disabled"
-						>
-							{{ task.isCompleted ? 'Cancel' : 'Done' }}
-						</el-button>
-					</div>
+					</template>
 				</div>
-			</template>
-		</div>
+			</div>
+		</el-collapse-transition>
 
 		<!-- 任务详情弹窗 -->
 		<TaskDetailsDialog
@@ -123,7 +139,8 @@
 
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus';
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef, watchEffect } from 'vue';
+import { ArrowRight } from '@element-plus/icons-vue';
 import { ChecklistData, TaskData } from '#/onboard';
 import { useI18n } from '@/hooks/useI18n';
 import TaskDetailsDialog from './TaskDetailsDialog.vue';
@@ -148,33 +165,53 @@ const emit = defineEmits<{
 	refreshChecklist: [onboardingId: string, stageId: string];
 }>();
 
-// 计算总任务数
-const totalTasks = computed(() => {
-	if (!props.checklistData) return 0;
-	return props.checklistData.reduce((total, checklist) => {
-		return total + (checklist.tasks?.length || 0);
-	}, 0);
+// 使用缓存的统计数据
+const statsCache = ref({ totalTasks: 0, completedTasks: 0, completionRate: 0 });
+
+// 计算统计数据 - 使用watchEffect避免重复计算
+watchEffect(() => {
+	if (!props.checklistData) {
+		statsCache.value = { totalTasks: 0, completedTasks: 0, completionRate: 0 };
+		return;
+	}
+
+	let totalTasks = 0;
+	let completedTasks = 0;
+
+	// 一次遍历计算所有统计数据
+	for (const checklist of props.checklistData) {
+		if (checklist.tasks) {
+			for (const task of checklist.tasks) {
+				totalTasks++;
+				if (task.isCompleted) {
+					completedTasks++;
+				}
+			}
+		}
+	}
+
+	const completionRate =
+		totalTasks === 0 ? 0 : Math.min(Math.round((completedTasks / totalTasks) * 100), 100);
+
+	statsCache.value = { totalTasks, completedTasks, completionRate };
 });
 
-// 计算总完成任务数
-const totalCompletedTasks = computed(() => {
-	if (!props.checklistData) return 0;
-	return props.checklistData.reduce((total, checklist) => {
-		const completedCount = checklist.tasks?.filter((task) => task.isCompleted).length || 0;
-		return total + completedCount;
-	}, 0);
-});
-
-// 计算总体完成率
-const overallCompletionRate = computed(() => {
-	if (totalTasks.value === 0) return 0;
-	const rate = (totalCompletedTasks.value / totalTasks.value) * 100;
-	return Math.min(Math.round(rate), 100);
-});
+// 计算属性直接从缓存获取
+const totalTasks = computed(() => statsCache.value.totalTasks);
+const totalCompletedTasks = computed(() => statsCache.value.completedTasks);
+const overallCompletionRate = computed(() => statsCache.value.completionRate);
 
 // 任务详情弹窗相关
 const dialogVisible = ref(false);
-const selectedTask = ref<TaskData | null>(null);
+const selectedTask = shallowRef<TaskData | null>(null);
+
+// 折叠状态
+const isExpanded = ref(true); // 默认展开
+
+// 切换展开状态
+const toggleExpanded = () => {
+	isExpanded.value = !isExpanded.value;
+};
 
 // 方法
 const toggleTask = async (task: TaskData) => {
@@ -237,21 +274,34 @@ const handleTaskUpdate = () => {
 	dialogVisible.value = false;
 };
 
-// 获取分配人姓名的缩写
-const getAssigneeInitials = (fullName) => {
+// 获取分配人姓名的缩写 - 使用缓存优化性能
+const assigneeInitialsCache = new Map<string, string>();
+
+const getAssigneeInitials = (fullName: string) => {
 	if (!fullName) return '';
 
+	// 检查缓存
+	if (assigneeInitialsCache.has(fullName)) {
+		return assigneeInitialsCache.get(fullName)!;
+	}
+
 	const names = fullName.trim().split(/\s+/);
+	let initials: string;
+
 	if (names.length === 1) {
 		// 单个名字，取前两个字符
-		return names[0].substring(0, 2).toUpperCase();
+		initials = names[0].substring(0, 2).toUpperCase();
 	} else {
 		// 多个名字，取每个名字的首字母
-		return names
+		initials = names
 			.map((name) => name.charAt(0).toUpperCase())
 			.join('')
 			.substring(0, 3); // 最多3个字母
 	}
+
+	// 缓存结果
+	assigneeInitialsCache.set(fullName, initials);
+	return initials;
 };
 </script>
 
@@ -265,6 +315,18 @@ const getAssigneeInitials = (fullName) => {
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+
+	&:hover {
+		box-shadow: 0 6px 16px rgba(255, 107, 53, 0.3);
+		transform: translateY(-1px);
+	}
+
+	&.expanded {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
 }
 
 .checklist-title {
@@ -314,8 +376,35 @@ const getAssigneeInitials = (fullName) => {
 
 .progress-fill {
 	height: 100%;
-	background-color: #10b981;
+	background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
 	transition: width 0.3s ease;
+}
+
+.expand-icon {
+	transition: transform 0.2s ease;
+	color: white;
+
+	&.rotated {
+		transform: rotate(90deg);
+	}
+}
+
+/* 优化折叠动画 - 只优化动画性能 */
+:deep(.el-collapse-transition) {
+	transition: height 0.2s ease-out !important;
+}
+
+:deep(.el-collapse-transition .el-collapse-item__content) {
+	will-change: height;
+	transform: translateZ(0); /* 启用硬件加速 */
+	backface-visibility: hidden;
+}
+
+/* 优化任务列表性能 - 只优化动画 */
+.checklist-items {
+	transform: translateZ(0);
+	backface-visibility: hidden;
+	contain: layout;
 }
 
 /* 检查项分组标题 */
@@ -352,16 +441,25 @@ const getAssigneeInitials = (fullName) => {
 	background-color: #ffffff;
 	border: 1px solid #e5e7eb;
 	border-radius: 8px;
-	transition: all 0.2s ease;
+	/* 优化动画性能 */
+	transition:
+		transform 0.15s ease,
+		box-shadow 0.15s ease,
+		border-color 0.15s ease;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	/* 确保卡片不会被内容撑开 */
 	min-width: 0;
 	overflow: hidden;
+	/* 启用硬件加速 */
+	transform: translateZ(0);
+	backface-visibility: hidden;
+	/* 避免重绘 */
+	contain: layout style;
 
 	&:hover {
 		border-color: #d1d5db;
 		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		transform: translateY(-1px);
+		transform: translateY(-1px) translateZ(0);
 	}
 }
 
@@ -436,6 +534,33 @@ const getAssigneeInitials = (fullName) => {
 	}
 }
 
+/* 新增的简化样式 */
+.completed-check {
+	font-size: 18px;
+	color: #10b981;
+	font-weight: bold;
+}
+
+.task-meta {
+	display: flex;
+	gap: 12px;
+	font-size: 12px;
+	align-items: center;
+}
+
+.assignee-info {
+	color: #6366f1;
+	font-weight: 500;
+}
+
+.file-count {
+	color: #059669;
+}
+
+.note-count {
+	color: #dc2626;
+}
+
 .item-description {
 	font-size: 14px;
 	margin: 0 0 8px 0;
@@ -489,7 +614,7 @@ const getAssigneeInitials = (fullName) => {
 	}
 
 	.progress-fill {
-		background-color: #34d399;
+		background: linear-gradient(90deg, #fb923c 0%, #ea580c 100%);
 	}
 
 	.checklist-group-title {
@@ -524,7 +649,7 @@ const getAssigneeInitials = (fullName) => {
 	}
 
 	.item-title {
-		color: var(--white-100);
+		color: var(--black-100);
 
 		.completed & {
 			color: #34d399;
