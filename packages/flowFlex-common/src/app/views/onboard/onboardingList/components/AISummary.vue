@@ -546,31 +546,6 @@ const handleRefresh = () => {
 		background-size: 300% 300%;
 		animation: gradient-shift 6s ease infinite;
 
-		/* 增强边框流动效果 */
-		&::before {
-			content: '';
-			position: absolute;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			background: linear-gradient(
-				45deg,
-				#60a5fa,
-				#a78bfa,
-				#22d3ee,
-				#34d399,
-				#fbbf24,
-				#f87171,
-				#60a5fa
-			);
-			background-size: 400% 400%;
-			animation: border-flow 3s linear infinite;
-			border-radius: 8px;
-			z-index: -2;
-			padding: 2px;
-		}
-
 		&::after {
 			background: linear-gradient(
 				135deg,
@@ -581,8 +556,6 @@ const handleRefresh = () => {
 				#0f172a 80%,
 				#0c1427 100%
 			);
-			background-size: 300% 300%;
-			animation: gradient-shift 6s ease infinite;
 
 			/* 增强粒子效果可见性 */
 			background-image: radial-gradient(
@@ -617,10 +590,6 @@ const handleRefresh = () => {
 			animation:
 				gradient-shift 6s ease infinite,
 				particles-float 10s ease-in-out infinite;
-		}
-
-		&:hover {
-			/* 暗色主题悬浮时保持一致的效果 */
 		}
 	}
 }
@@ -714,18 +683,6 @@ const handleRefresh = () => {
 
 /* AI专用动画 */
 @keyframes gradient-shift {
-	0% {
-		background-position: 0% 50%;
-	}
-	50% {
-		background-position: 100% 50%;
-	}
-	100% {
-		background-position: 0% 50%;
-	}
-}
-
-@keyframes border-flow {
 	0% {
 		background-position: 0% 50%;
 	}

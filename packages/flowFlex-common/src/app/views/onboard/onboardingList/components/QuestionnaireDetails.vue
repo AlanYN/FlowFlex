@@ -388,7 +388,7 @@ defineExpose({
 .progress-bar {
 	width: 100%;
 	height: 8px;
-	background-color: rgba(255, 255, 255, 0.3);
+	background-color: rgba(255, 255, 255, 0.4);
 	overflow: hidden;
 }
 
@@ -432,7 +432,7 @@ defineExpose({
 	}
 
 	.progress-bar {
-		background-color: rgba(255, 255, 255, 0.2);
+		background-color: rgba(255, 255, 255, 0.3);
 	}
 
 	.progress-fill {

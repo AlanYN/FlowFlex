@@ -370,13 +370,14 @@ const getAssigneeInitials = (fullName: string) => {
 .progress-bar {
 	width: 100%;
 	height: 8px;
-	background-color: rgba(255, 255, 255, 0.3);
+	background-color: rgba(255, 255, 255, 0.4);
 	overflow: hidden;
 }
 
 .progress-fill {
 	height: 100%;
-	background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+	background: linear-gradient(90deg, #fed7aa 0%, #fb923c 50%, #ea580c 100%);
+	box-shadow: 0 2px 8px rgba(251, 146, 60, 0.7);
 	transition: width 0.3s ease;
 }
 
@@ -610,11 +611,12 @@ const getAssigneeInitials = (fullName: string) => {
 	}
 
 	.progress-bar {
-		background-color: rgba(255, 255, 255, 0.2);
+		background-color: rgba(255, 255, 255, 0.3);
 	}
 
 	.progress-fill {
-		background: linear-gradient(90deg, #fb923c 0%, #ea580c 100%);
+		background: linear-gradient(90deg, #fdba74 0%, #f97316 50%, #ea580c 100%);
+		box-shadow: 0 2px 10px rgba(249, 115, 22, 0.8);
 	}
 
 	.checklist-group-title {
