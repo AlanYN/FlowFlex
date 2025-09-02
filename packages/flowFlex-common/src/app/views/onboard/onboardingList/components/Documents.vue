@@ -1,172 +1,206 @@
 <template>
 	<div class="customer-block">
-		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-semibold text-center flex">
-				Documents
-				<div v-if="props?.component?.isEnabled" class="text-red-500 ml-1">*</div>
-			</h2>
-			<el-button :icon="Upload" @click="triggerUpload" :disabled="disabled">
-				Upload Files
-			</el-button>
-		</div>
-		<el-divider />
-
-		<div class="space-y-4">
-			<!-- 文件上传区域 -->
-			<div>
-				<el-upload
-					ref="uploadRef"
-					class="upload-demo rounded-md"
-					drag
-					:auto-upload="false"
-					:on-change="handleFileChange"
-					:before-upload="handleBeforeUpload"
-					:on-exceed="handleExceed"
-					:on-error="handleUploadError"
-					:show-file-list="false"
-					:disabled="disabled"
-					multiple
-					:limit="5"
-					accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.xlsx,.xls,.msg,.eml"
-				>
-					<div class="flex flex-col items-center justify-center py-4">
-						<el-icon class="text-4xl text-gray-400 mb-2">
-							<Upload />
+		<!-- 统一的头部卡片 -->
+		<div
+			class="documents-header-card rounded-md"
+			:class="{ expanded: isExpanded }"
+			@click="toggleExpanded"
+		>
+			<div class="flex justify-between">
+				<div>
+					<div class="flex items-center">
+						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+							<ArrowRight />
 						</el-icon>
-						<div class="text-lg text-gray-600 dark:text-gray-300">
-							Drag and drop files here
-						</div>
-						<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-							or
-							<em class="text-blue-500 hover:text-blue-600 cursor-pointer">
-								click to browse
-							</em>
-						</div>
-						<div class="text-xs text-gray-400 dark:text-gray-500 mt-2">
-							Maximum number of files that can be uploaded at once: 5
-						</div>
-						<div class="text-xs text-gray-400 dark:text-gray-500">
-							Supports: PDF, DOCX, DOC, JPG, JPEG, PNG, XLSX, XLS, MSG, EML (Max 10MB
-							per file)
-						</div>
+						<h3 class="documents-title">
+							Documents
+							<span v-if="props?.component?.isEnabled" class="text-red-300 ml-1">
+								*
+							</span>
+						</h3>
 					</div>
-				</el-upload>
-			</div>
-
-			<!-- 上传进度 -->
-			<div v-if="uploadProgress.length > 0" class="space-y-2">
-				<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Uploading...</h4>
-				<div
-					v-for="progress in uploadProgress"
-					:key="progress.uid"
-					class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
-				>
-					<el-icon class="text-blue-500">
-						<Document />
-					</el-icon>
-					<div class="flex-1">
-						<div class="text-sm font-medium">{{ progress.name }}</div>
-						<el-progress :percentage="progress.percentage" :show-text="false" />
+					<div class="documents-subtitle">
+						{{ documents.length }}
+						{{ documents.length === 1 ? 'file' : 'files' }} uploaded
 					</div>
-					<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
+				</div>
+				<div class="documents-actions">
+					<el-button
+						:icon="Upload"
+						@click.stop="triggerUpload"
+						:disabled="disabled"
+						size="small"
+						class="upload-button"
+					>
+						Upload Files
+					</el-button>
 				</div>
 			</div>
-			<!-- 已上传文件列表 -->
-			<div v-if="loading" class="text-center py-8">
-				<el-icon class="text-2xl animate-spin">
-					<Loading />
-				</el-icon>
-				<p class="text-gray-500 dark:text-gray-400 mt-2">Loading documents...</p>
-			</div>
-
-			<div v-else-if="documents.length > 0" class="space-y-2">
-				<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Uploaded Files</h4>
-				<el-table :data="documents" stripe class="w-full">
-					<el-table-column label="File Name" min-width="200">
-						<template #default="{ row }">
-							<div class="flex items-center">
-								<el-icon class="text-blue-500 mr-2 flex-shrink-0">
-									<Document />
-								</el-icon>
-								<span
-									class="text-sm font-medium text-gray-900 dark:text-white-100 table-cell-content"
-									:title="row.originalFileName"
-								>
-									{{ row.originalFileName }}
-								</span>
-							</div>
-						</template>
-					</el-table-column>
-
-					<el-table-column label="Size" width="100">
-						<template #default="{ row }">
-							<div
-								class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
-								:title="formatFileSize(row.fileSize)"
-							>
-								{{ formatFileSize(row.fileSize) }}
-							</div>
-						</template>
-					</el-table-column>
-
-					<el-table-column label="Uploaded By" width="150">
-						<template #default="{ row }">
-							<div
-								class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
-								:title="row.uploadedByName"
-							>
-								{{ row.uploadedByName }}
-							</div>
-						</template>
-					</el-table-column>
-
-					<el-table-column label="Date" width="150">
-						<template #default="{ row }">
-							<div
-								class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
-								:title="row.uploadedDate"
-							>
-								{{ row.uploadedDate }}
-							</div>
-						</template>
-					</el-table-column>
-
-					<el-table-column label="Actions" width="150" fixed="right">
-						<template #default="{ row }">
-							<div class="flex items-center space-x-2">
-								<el-button
-									size="small"
-									type="primary"
-									link
-									@click="handleViewDocument(row)"
-								>
-									<el-icon><View /></el-icon>
-									View
-								</el-button>
-								<el-button
-									size="small"
-									type="danger"
-									link
-									@click="handleDeleteDocument(row.id)"
-								>
-									<el-icon><Delete /></el-icon>
-									Delete
-								</el-button>
-							</div>
-						</template>
-					</el-table-column>
-				</el-table>
-			</div>
-
-			<!-- 空状态 -->
-			<div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
-				<el-icon class="text-4xl mb-2">
-					<Folder />
-				</el-icon>
-				<p>No documents uploaded yet</p>
-				<p class="text-xs mt-1">Upload your first document to get started</p>
-			</div>
 		</div>
+
+		<!-- 可折叠文档内容 -->
+		<el-collapse-transition>
+			<div v-show="isExpanded" class="space-y-4 p-4">
+				<!-- 文件上传区域 -->
+				<div>
+					<el-upload
+						ref="uploadRef"
+						class="upload-demo rounded-md"
+						drag
+						:auto-upload="false"
+						:on-change="handleFileChange"
+						:before-upload="handleBeforeUpload"
+						:on-exceed="handleExceed"
+						:on-error="handleUploadError"
+						:show-file-list="false"
+						:disabled="disabled"
+						multiple
+						:limit="5"
+						accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.xlsx,.xls,.msg,.eml"
+					>
+						<div class="flex flex-col items-center justify-center">
+							<el-icon class="text-4xl text-gray-400 mb-2">
+								<Upload />
+							</el-icon>
+							<div class="text-lg text-gray-600 dark:text-gray-300">
+								Drag and drop files here
+							</div>
+							<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+								or
+								<em class="text-blue-500 hover:text-blue-600 cursor-pointer">
+									click to browse
+								</em>
+							</div>
+							<div class="text-xs text-gray-400 dark:text-gray-500 mt-2">
+								Maximum number of files that can be uploaded at once: 5
+							</div>
+							<div class="text-xs text-gray-400 dark:text-gray-500">
+								Supports: PDF, DOCX, DOC, JPG, JPEG, PNG, XLSX, XLS, MSG, EML (Max
+								10MB per file)
+							</div>
+						</div>
+					</el-upload>
+				</div>
+
+				<!-- 上传进度 -->
+				<div v-if="uploadProgress.length > 0" class="space-y-2">
+					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+						Uploading...
+					</h4>
+					<div
+						v-for="progress in uploadProgress"
+						:key="progress.uid"
+						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
+					>
+						<el-icon class="text-blue-500">
+							<Document />
+						</el-icon>
+						<div class="flex-1">
+							<div class="text-sm font-medium">{{ progress.name }}</div>
+							<el-progress :percentage="progress.percentage" :show-text="false" />
+						</div>
+						<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
+					</div>
+				</div>
+				<!-- 已上传文件列表 -->
+				<div v-if="loading" class="text-center py-8">
+					<el-icon class="text-2xl animate-spin">
+						<Loading />
+					</el-icon>
+					<p class="text-gray-500 dark:text-gray-400 mt-2">Loading documents...</p>
+				</div>
+
+				<div v-else-if="documents.length > 0" class="space-y-2">
+					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+						Uploaded Files
+					</h4>
+					<el-table :data="documents" stripe class="w-full">
+						<el-table-column label="File Name" min-width="200">
+							<template #default="{ row }">
+								<div class="flex items-center">
+									<el-icon class="text-blue-500 mr-2 flex-shrink-0">
+										<Document />
+									</el-icon>
+									<span
+										class="text-sm font-medium text-gray-900 dark:text-white-100 table-cell-content"
+										:title="row.originalFileName"
+									>
+										{{ row.originalFileName }}
+									</span>
+								</div>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Size" width="100">
+							<template #default="{ row }">
+								<div
+									class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
+									:title="formatFileSize(row.fileSize)"
+								>
+									{{ formatFileSize(row.fileSize) }}
+								</div>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Uploaded By" width="150">
+							<template #default="{ row }">
+								<div
+									class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
+									:title="row.uploadedByName"
+								>
+									{{ row.uploadedByName }}
+								</div>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Date" width="150">
+							<template #default="{ row }">
+								<div
+									class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
+									:title="row.uploadedDate"
+								>
+									{{ row.uploadedDate }}
+								</div>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Actions" width="150" fixed="right">
+							<template #default="{ row }">
+								<div class="flex items-center space-x-2">
+									<el-button
+										size="small"
+										type="primary"
+										link
+										@click="handleViewDocument(row)"
+									>
+										<el-icon><View /></el-icon>
+										View
+									</el-button>
+									<el-button
+										size="small"
+										type="danger"
+										link
+										@click="handleDeleteDocument(row.id)"
+									>
+										<el-icon><Delete /></el-icon>
+										Delete
+									</el-button>
+								</div>
+							</template>
+						</el-table-column>
+					</el-table>
+				</div>
+
+				<!-- 空状态 -->
+				<div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
+					<el-icon class="text-4xl mb-2">
+						<Folder />
+					</el-icon>
+					<p>No documents uploaded yet</p>
+					<p class="text-xs mt-1">Upload your first document to get started</p>
+				</div>
+			</div>
+		</el-collapse-transition>
 
 		<!-- 文件预览组件 -->
 		<vuePreviewFile
@@ -184,7 +218,15 @@
 import { ref, onMounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
-import { Upload, Document, Loading, View, Delete, Folder } from '@element-plus/icons-vue';
+import {
+	Upload,
+	Document,
+	Loading,
+	View,
+	Delete,
+	Folder,
+	ArrowRight,
+} from '@element-plus/icons-vue';
 import {
 	uploadOnboardingFile,
 	getOnboardingFilesByStage,
@@ -210,6 +252,14 @@ const documents = ref<DocumentItem[]>([]);
 const loading = ref(false);
 const uploadProgress = ref<{ uid: string; name: string; percentage: number }[]>([]);
 const uploadRef = ref();
+
+// 折叠状态
+const isExpanded = ref(true); // 默认展开
+
+// 切换展开状态
+const toggleExpanded = () => {
+	isExpanded.value = !isExpanded.value;
+};
 
 // 预览相关状态
 const fileUrl = ref('');
@@ -519,11 +569,91 @@ defineExpose({
 </script>
 
 <style scoped>
+/* 头部卡片样式 - 绿色渐变 */
+.documents-header-card {
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+	padding: 24px;
+	color: white;
+	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+
+	&:hover {
+		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+		transform: translateY(-1px);
+	}
+
+	&.expanded {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+}
+
+.documents-title {
+	font-size: 18px;
+	font-weight: 600;
+	margin: 0 0 4px 0;
+	color: white;
+	display: flex;
+	align-items: center;
+}
+
+.documents-subtitle {
+	font-size: 14px;
+	margin: 0;
+	color: rgba(255, 255, 255, 0.9);
+	font-weight: 400;
+}
+
+.documents-actions {
+	display: flex;
+	align-items: center;
+}
+
+.upload-button {
+	background-color: rgba(255, 255, 255, 0.2);
+	border-color: rgba(255, 255, 255, 0.3);
+	color: white;
+
+	&:hover {
+		background-color: rgba(255, 255, 255, 0.3);
+		border-color: rgba(255, 255, 255, 0.4);
+	}
+
+	&:disabled {
+		background-color: rgba(255, 255, 255, 0.1);
+		border-color: rgba(255, 255, 255, 0.2);
+		color: rgba(255, 255, 255, 0.6);
+	}
+}
+
+.expand-icon {
+	transition: transform 0.2s ease;
+	color: white;
+
+	&.rotated {
+		transform: rotate(90deg);
+	}
+}
+
+/* 优化折叠动画 */
+:deep(.el-collapse-transition) {
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+:deep(.el-collapse-transition .el-collapse-item__content) {
+	will-change: height;
+	transform: translateZ(0); /* 启用硬件加速 */
+}
+
 :deep(.el-upload-dragger) {
 	border: 2px dashed #d1d5db;
 	background: transparent;
 	transition: all 0.2s;
-	padding: 2rem;
+	padding: 8px 4px;
 }
 
 :deep(.el-upload-dragger:hover) {
@@ -566,6 +696,30 @@ html.dark :deep(.el-progress-bar__outer) {
 
 html.dark :deep(.el-upload__tip) {
 	color: #9ca3af;
+}
+
+/* 暗色主题 - Documents头部 */
+.dark {
+	.documents-header-card {
+		background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+		box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+	}
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+	.documents-header-card {
+		padding: 16px;
+
+		.documents-actions {
+			margin-top: 8px;
+		}
+	}
+
+	.documents-header-card .flex {
+		flex-direction: column;
+		align-items: flex-start;
+	}
 }
 
 /* 文件列表样式 */

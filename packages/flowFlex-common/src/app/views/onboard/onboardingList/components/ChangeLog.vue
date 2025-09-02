@@ -1,455 +1,539 @@
 <template>
 	<div class="customer-block">
-		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-semibold">Change Log</h2>
-			<el-button
-				size="small"
-				:icon="RefreshRight"
-				:loading="loading"
-				@click="loadChangeLogs"
-				class="ml-2"
-			>
-				Refresh
-			</el-button>
-		</div>
-		<el-divider />
-
-		<div class="p-0" v-loading="loading">
-			<el-table
-				:data="processedChanges"
-				max-height="384px"
-				class="w-full"
-				border
-				stripe
-				row-key="id"
-			>
-				<el-table-column label="Type" width="140">
-					<template #default="{ row }">
-						<el-tag
-							:type="getTagType(row.type)"
-							class="flex items-center w-fit"
-							size="small"
-						>
-							<span class="mr-1 text-xs">{{ row.typeIcon }}</span>
-							{{ row.type }}
-						</el-tag>
-					</template>
-				</el-table-column>
-
-				<el-table-column label="Changes" min-width="350">
-					<template #default="{ row }">
-						<div class="text-sm">
-							<!-- 静态字段变更详情 -->
-							<div v-if="row.type === 'Field Change' && row.fieldChanges?.length">
-								<div class="space-y-2">
-									<div
-										v-for="(change, index) in row.fieldChanges"
-										:key="index"
-										class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border-l-4 border-yellow-400"
-									>
-										<div class="text-sm">
-											<div
-												class="font-semibold text-yellow-800 dark:text-yellow-200 mb-2"
-											>
-												{{ change.fieldName }}
-											</div>
-											<div class="space-y-1">
-												<!-- 如果有原值，显示前后对比 -->
-												<template v-if="change.beforeValue">
-													<div class="flex items-center text-xs">
-														<span
-															class="text-red-600 dark:text-red-400 font-medium mr-2"
-														>
-															Before:
-														</span>
-														<span
-															class="bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded text-red-800 dark:text-red-200"
-														>
-															{{ change.beforeValue }}
-														</span>
-													</div>
-													<div class="flex items-center text-xs">
-														<span
-															class="text-green-600 dark:text-green-400 font-medium mr-2"
-														>
-															After:
-														</span>
-														<span
-															class="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-green-800 dark:text-green-200"
-														>
-															{{ change.afterValue || 'N/A' }}
-														</span>
-													</div>
-												</template>
-												<!-- 如果没有原值，只显示新设置的值 -->
-												<template v-else>
-													<div class="flex items-center text-xs">
-														<span
-															class="text-blue-600 dark:text-blue-400 font-medium mr-2"
-														>
-															Value Set:
-														</span>
-														<span
-															class="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded text-blue-800 dark:text-blue-200"
-														>
-															{{ change.afterValue || 'N/A' }}
-														</span>
-													</div>
-												</template>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<!-- 问卷答案变更详情 -->
-							<div
-								v-else-if="
-									row.type === 'Answer Update' ||
-									row.type === 'Answer Submit' ||
-									row.type === 'QuestionnaireAnswerUpdate' ||
-									row.type === 'QuestionnaireAnswerSubmit'
-								"
-							>
-								<!-- 如果有具体变更，显示变更详情 -->
-								<div v-if="row.answerChanges?.length" class="space-y-2">
-									<div
-										v-for="(change, index) in row.answerChanges"
-										:key="index"
-										class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs border-l-4 border-blue-400"
-									>
-										{{ change }}
-									</div>
-								</div>
-								<!-- 如果没有具体变更，显示"没有变化" -->
-								<div
-									v-else
-									class="bg-gray-50 dark:bg-gray-900/20 p-2 rounded text-xs border-l-4 border-gray-400"
-								>
-									<span class="text-gray-600 dark:text-gray-400 italic">
-										No changes
-									</span>
-								</div>
-							</div>
-
-							<!-- 文件上传详情 -->
-							<div v-else-if="row.type === 'File Upload' && row.fileInfo">
-								<div
-									class="bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded text-xs border-l-4 border-cyan-400"
-								>
-									<div class="flex items-center">
-										<el-icon class="mr-2 text-cyan-600">
-											<Document />
-										</el-icon>
-										<span class="font-medium">{{ row.fileInfo.fileName }}</span>
-										<span
-											v-if="row.fileInfo.fileSize"
-											class="ml-2 text-gray-500"
-										>
-											({{ formatFileSize(row.fileInfo.fileSize) }})
-										</span>
-									</div>
-								</div>
-							</div>
-
-							<!-- 任务状态变更详情 -->
-							<div
-								v-else-if="
-									(row.type === 'Task Complete' ||
-										row.type === 'Task Incomplete') &&
-									row.taskInfo
-								"
-							>
-								<div
-									class="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs border-l-4 border-green-400"
-								>
-									<div class="text-gray-600 mt-1">
-										{{ row.taskInfo.statusChange }}
-									</div>
-								</div>
-							</div>
-
-							<!-- Action Execution 详情 -->
-							<div
-								v-else-if="
-									(row.type === 'Action Success' ||
-										row.type === 'Action Failed' ||
-										row.type === 'Action Running' ||
-										row.type === 'Action Pending' ||
-										row.type === 'Action Cancelled' ||
-										row.type === 'ActionExecutionSuccess' ||
-										row.type === 'ActionExecutionFailed' ||
-										row.type === 'ActionExecutionRunning' ||
-										row.type === 'ActionExecutionPending' ||
-										row.type === 'ActionExecutionCancelled' ||
-										row.type === 'Stage Action' ||
-										row.type === 'Task Action' ||
-										row.type === 'Question Action') &&
-									row.actionInfo
-								"
-							>
-								<div
-									:class="getActionExecutionBgClass(row.type)"
-									class="p-3 rounded-md border-l-4"
-								>
-									<div class="text-sm">
-										<div
-											class="font-semibold mb-2 flex items-center justify-between"
-										>
-											<span class="text-gray-800 dark:text-gray-200">
-												{{ row.actionInfo.actionName }}
-											</span>
-											<span
-												:class="getActionExecutionStatusClass(row.type)"
-												class="px-2 py-1 rounded text-xs font-medium"
-											>
-												{{ getActionExecutionStatusText(row.type) }}
-											</span>
-										</div>
-
-										<!-- 显示 operationTitle -->
-										<div v-if="row.operationTitle" class="mb-2">
-											<div
-												class="text-gray-800 dark:text-gray-200 text-sm font-medium"
-											>
-												{{ row.operationTitle }}
-											</div>
-										</div>
-
-										<!-- 显示 operationDescription -->
-										<div v-if="row.operationDescription" class="mb-3">
-											<div
-												class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"
-											>
-												{{ row.operationDescription }}
-											</div>
-										</div>
-
-										<div class="space-y-1 text-xs">
-											<!-- 显示 Action 来源 -->
-											<div
-												v-if="getActionSource(row.type)"
-												class="flex items-center"
-											>
-												<span class="text-gray-500 mr-2">Source:</span>
-												<span
-													:class="getActionSourceClass(row.type)"
-													class="px-2 py-1 rounded text-xs font-medium"
-												>
-													{{ getActionSource(row.type) }}
-												</span>
-											</div>
-											<div class="flex items-center">
-												<span class="text-gray-500 mr-2">Type:</span>
-												<span class="text-gray-700 dark:text-gray-300">
-													{{ row.actionInfo.actionType }}
-												</span>
-											</div>
-											<!-- 执行状态 -->
-											<div
-												v-if="row.actionInfo.executionStatus"
-												class="flex items-center"
-											>
-												<span class="text-gray-500 mr-2">Status:</span>
-												<span
-													:class="
-														getExecutionStatusClass(
-															row.actionInfo.executionStatus
-														)
-													"
-													class="px-2 py-1 rounded text-xs font-medium"
-												>
-													{{ row.actionInfo.executionStatus }}
-												</span>
-											</div>
-
-											<!-- 执行时间范围 -->
-											<div
-												v-if="row.actionInfo.startedAt"
-												class="flex items-center"
-											>
-												<span class="text-gray-500 mr-2">Started:</span>
-												<span
-													class="text-gray-700 dark:text-gray-300 text-xs"
-												>
-													{{ formatDateTime(row.actionInfo.startedAt) }}
-												</span>
-											</div>
-											<div
-												v-if="row.actionInfo.completedAt"
-												class="flex items-center"
-											>
-												<span class="text-gray-500 mr-2">Completed:</span>
-												<span
-													class="text-gray-700 dark:text-gray-300 text-xs"
-												>
-													{{ formatDateTime(row.actionInfo.completedAt) }}
-												</span>
-											</div>
-											<div
-												v-if="row.actionInfo.duration"
-												class="flex items-center"
-											>
-												<span class="text-gray-500 mr-2">Duration:</span>
-												<span class="text-gray-700 dark:text-gray-300">
-													{{ formatDuration(row.actionInfo.duration) }}
-												</span>
-											</div>
-											<div
-												v-if="row.actionInfo.executionId"
-												class="flex items-center"
-											>
-												<span class="text-gray-500 mr-2">
-													Execution ID:
-												</span>
-												<span
-													class="text-gray-700 dark:text-gray-300 font-mono text-xs"
-												>
-													{{ row.actionInfo.executionId }}
-												</span>
-											</div>
-											<!-- 显示执行输出摘要 -->
-											<div
-												v-if="
-													getExecutionOutputSummary(
-														row.actionInfo.executionOutput
-													)
-												"
-												class="mt-2"
-											>
-												<div class="text-gray-500 text-xs mb-1">
-													Output:
-												</div>
-												<div
-													class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
-												>
-													{{
-														getExecutionOutputSummary(
-															row.actionInfo.executionOutput
-														)
-													}}
-												</div>
-											</div>
-
-											<!-- 显示执行输入摘要 -->
-											<div
-												v-if="
-													getExecutionInputSummary(
-														row.actionInfo.executionInput
-													)
-												"
-												class="mt-2"
-											>
-												<div class="text-gray-500 text-xs mb-1">Input:</div>
-												<div
-													class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
-												>
-													{{
-														getExecutionInputSummary(
-															row.actionInfo.executionInput
-														)
-													}}
-												</div>
-											</div>
-
-											<!-- 错误信息显示 -->
-											<div v-if="row.actionInfo.errorMessage" class="mt-2">
-												<div class="text-red-600 dark:text-red-400 text-xs">
-													<span class="font-medium">Error:</span>
-													{{ row.actionInfo.errorMessage }}
-												</div>
-											</div>
-
-											<!-- 错误堆栈跟踪（只在有错误时显示） -->
-											<div v-if="row.actionInfo.errorStackTrace" class="mt-1">
-												<details class="text-red-500 text-xs">
-													<summary
-														class="cursor-pointer hover:text-red-700"
-													>
-														Stack Trace
-													</summary>
-													<pre
-														class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
-														>{{ row.actionInfo.errorStackTrace }}</pre
-													>
-												</details>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<!-- 默认显示（简化的标题） -->
-							<div v-else class="text-gray-700 dark:text-gray-300">
-								{{ getSimplifiedTitle(row) }}
-							</div>
-						</div>
-					</template>
-				</el-table-column>
-
-				<el-table-column label="Updated By" width="150">
-					<template #default="{ row }">
-						<span
-							v-if="row.updatedBy && row.updatedBy.trim() !== ''"
-							class="text-gray-900 dark:text-white-100 truncate"
-							:title="row.updatedBy"
-						>
-							{{ row.updatedBy }}
-						</span>
-						<span v-else class="text-gray-400 dark:text-gray-500 text-sm italic">
-							<!-- 系统操作不显示操作者 -->
-						</span>
-					</template>
-				</el-table-column>
-
-				<el-table-column label="Date & Time" width="200">
-					<template #default="{ row }">
-						<div class="flex items-center text-gray-600 dark:text-gray-400 text-sm">
-							<el-icon class="mr-1 text-xs">
-								<Clock />
-							</el-icon>
-							{{ formatDateTime(row.dateTime) }}
-						</div>
-					</template>
-				</el-table-column>
-
-				<template #empty>
-					<div class="py-8 text-gray-500 dark:text-gray-400 text-center">
-						<el-icon class="text-4xl mb-2">
-							<Document />
+		<!-- 统一的头部卡片 -->
+		<div
+			class="change-log-header-card rounded-md"
+			:class="{ expanded: isExpanded }"
+			@click="toggleExpanded"
+		>
+			<div class="flex justify-between">
+				<div>
+					<div class="flex items-center">
+						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+							<ArrowRight />
 						</el-icon>
-						<div v-if="!props.stageId" class="text-lg mb-2">Please select a stage</div>
-						<div v-else class="text-lg mb-2">No change records found</div>
-						<div class="text-sm">
-							{{
-								!props.stageId
-									? 'Change logs require a stage selection. Please select a stage to view its change history.'
-									: 'No changes recorded for this stage yet.'
-							}}
-						</div>
+						<h3 class="change-log-title">Change Log</h3>
 					</div>
-				</template>
-			</el-table>
-
-			<!-- 分页 -->
-			<div v-if="total > 0" class="border-t bg-white dark:bg-black-400 rounded-b-md">
-				<CustomerPagination
-					:total="total"
-					:limit="pageSize"
-					:page="currentPage"
-					:background="true"
-					@pagination="handlePaginationUpdate"
-					@update:page="handleCurrentChange"
-					@update:limit="handlePageUpdate"
-				/>
+					<div class="change-log-subtitle">
+						<span v-if="total > 0">
+							{{ total }} {{ total === 1 ? 'change' : 'changes' }} recorded
+						</span>
+						<span v-else>
+							{{ total }} {{ total === 1 ? 'change' : 'changes' }} • Click to collapse
+						</span>
+					</div>
+				</div>
+				<div class="change-log-actions">
+					<el-button
+						v-if="isExpanded"
+						size="small"
+						:icon="RefreshRight"
+						:loading="loading"
+						@click.stop="loadChangeLogs"
+						class="refresh-button"
+					>
+						Refresh
+					</el-button>
+				</div>
 			</div>
 		</div>
+
+		<!-- 可折叠内容 -->
+		<el-collapse-transition>
+			<div v-show="isExpanded" class="">
+				<div class="p-0" v-loading="loading">
+					<el-table
+						:data="processedChanges"
+						max-height="384px"
+						class="w-full"
+						border
+						stripe
+						row-key="id"
+					>
+						<el-table-column label="Type" width="140">
+							<template #default="{ row }">
+								<el-tag
+									:type="getTagType(row.type)"
+									class="flex items-center w-fit"
+									size="small"
+								>
+									<span class="mr-1 text-xs">{{ row.typeIcon }}</span>
+									{{ row.type }}
+								</el-tag>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Changes" min-width="350">
+							<template #default="{ row }">
+								<div class="text-sm">
+									<!-- 静态字段变更详情 -->
+									<div
+										v-if="
+											row.type === 'Field Change' && row.fieldChanges?.length
+										"
+									>
+										<div class="space-y-2">
+											<div
+												v-for="(change, index) in row.fieldChanges"
+												:key="index"
+												class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border-l-4 border-yellow-400"
+											>
+												<div class="text-sm">
+													<div
+														class="font-semibold text-yellow-800 dark:text-yellow-200 mb-2"
+													>
+														{{ change.fieldName }}
+													</div>
+													<div class="space-y-1">
+														<!-- 如果有原值，显示前后对比 -->
+														<template v-if="change.beforeValue">
+															<div class="flex items-center text-xs">
+																<span
+																	class="text-red-600 dark:text-red-400 font-medium mr-2"
+																>
+																	Before:
+																</span>
+																<span
+																	class="bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded text-red-800 dark:text-red-200"
+																>
+																	{{ change.beforeValue }}
+																</span>
+															</div>
+															<div class="flex items-center text-xs">
+																<span
+																	class="text-green-600 dark:text-green-400 font-medium mr-2"
+																>
+																	After:
+																</span>
+																<span
+																	class="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-green-800 dark:text-green-200"
+																>
+																	{{ change.afterValue || 'N/A' }}
+																</span>
+															</div>
+														</template>
+														<!-- 如果没有原值，只显示新设置的值 -->
+														<template v-else>
+															<div class="flex items-center text-xs">
+																<span
+																	class="text-blue-600 dark:text-blue-400 font-medium mr-2"
+																>
+																	Value Set:
+																</span>
+																<span
+																	class="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded text-blue-800 dark:text-blue-200"
+																>
+																	{{ change.afterValue || 'N/A' }}
+																</span>
+															</div>
+														</template>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- 问卷答案变更详情 -->
+									<div
+										v-else-if="
+											row.type === 'Answer Update' ||
+											row.type === 'Answer Submit' ||
+											row.type === 'QuestionnaireAnswerUpdate' ||
+											row.type === 'QuestionnaireAnswerSubmit'
+										"
+									>
+										<!-- 如果有具体变更，显示变更详情 -->
+										<div v-if="row.answerChanges?.length" class="space-y-2">
+											<div
+												v-for="(change, index) in row.answerChanges"
+												:key="index"
+												class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs border-l-4 border-blue-400"
+											>
+												{{ change }}
+											</div>
+										</div>
+										<!-- 如果没有具体变更，显示"没有变化" -->
+										<div
+											v-else
+											class="bg-gray-50 dark:bg-gray-900/20 p-2 rounded text-xs border-l-4 border-gray-400"
+										>
+											<span class="text-gray-600 dark:text-gray-400 italic">
+												No changes
+											</span>
+										</div>
+									</div>
+
+									<!-- 文件上传详情 -->
+									<div v-else-if="row.type === 'File Upload' && row.fileInfo">
+										<div
+											class="bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded text-xs border-l-4 border-cyan-400"
+										>
+											<div class="flex items-center">
+												<el-icon class="mr-2 text-cyan-600">
+													<Document />
+												</el-icon>
+												<span class="font-medium">
+													{{ row.fileInfo.fileName }}
+												</span>
+												<span
+													v-if="row.fileInfo.fileSize"
+													class="ml-2 text-gray-500"
+												>
+													({{ formatFileSize(row.fileInfo.fileSize) }})
+												</span>
+											</div>
+										</div>
+									</div>
+
+									<!-- 任务状态变更详情 -->
+									<div
+										v-else-if="
+											(row.type === 'Task Complete' ||
+												row.type === 'Task Incomplete') &&
+											row.taskInfo
+										"
+									>
+										<div
+											class="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs border-l-4 border-green-400"
+										>
+											<div class="text-gray-600 mt-1">
+												{{ row.taskInfo.statusChange }}
+											</div>
+										</div>
+									</div>
+
+									<!-- Action Execution 详情 -->
+									<div
+										v-else-if="
+											(row.type === 'Action Success' ||
+												row.type === 'Action Failed' ||
+												row.type === 'Action Running' ||
+												row.type === 'Action Pending' ||
+												row.type === 'Action Cancelled' ||
+												row.type === 'ActionExecutionSuccess' ||
+												row.type === 'ActionExecutionFailed' ||
+												row.type === 'ActionExecutionRunning' ||
+												row.type === 'ActionExecutionPending' ||
+												row.type === 'ActionExecutionCancelled' ||
+												row.type === 'Stage Action' ||
+												row.type === 'Task Action' ||
+												row.type === 'Question Action') &&
+											row.actionInfo
+										"
+									>
+										<div
+											:class="getActionExecutionBgClass(row.type)"
+											class="p-3 rounded-md border-l-4"
+										>
+											<div class="text-sm">
+												<div
+													class="font-semibold mb-2 flex items-center justify-between"
+												>
+													<span class="text-gray-800 dark:text-gray-200">
+														{{ row.actionInfo.actionName }}
+													</span>
+													<span
+														:class="
+															getActionExecutionStatusClass(row.type)
+														"
+														class="px-2 py-1 rounded text-xs font-medium"
+													>
+														{{ getActionExecutionStatusText(row.type) }}
+													</span>
+												</div>
+
+												<!-- 显示 operationTitle -->
+												<div v-if="row.operationTitle" class="mb-2">
+													<div
+														class="text-gray-800 dark:text-gray-200 text-sm font-medium"
+													>
+														{{ row.operationTitle }}
+													</div>
+												</div>
+
+												<!-- 显示 operationDescription -->
+												<div v-if="row.operationDescription" class="mb-3">
+													<div
+														class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"
+													>
+														{{ row.operationDescription }}
+													</div>
+												</div>
+
+												<div class="space-y-1 text-xs">
+													<!-- 显示 Action 来源 -->
+													<div
+														v-if="getActionSource(row.type)"
+														class="flex items-center"
+													>
+														<span class="text-gray-500 mr-2">
+															Source:
+														</span>
+														<span
+															:class="getActionSourceClass(row.type)"
+															class="px-2 py-1 rounded text-xs font-medium"
+														>
+															{{ getActionSource(row.type) }}
+														</span>
+													</div>
+													<div class="flex items-center">
+														<span class="text-gray-500 mr-2">
+															Type:
+														</span>
+														<span
+															class="text-gray-700 dark:text-gray-300"
+														>
+															{{ row.actionInfo.actionType }}
+														</span>
+													</div>
+													<!-- 执行状态 -->
+													<div
+														v-if="row.actionInfo.executionStatus"
+														class="flex items-center"
+													>
+														<span class="text-gray-500 mr-2">
+															Status:
+														</span>
+														<span
+															:class="
+																getExecutionStatusClass(
+																	row.actionInfo.executionStatus
+																)
+															"
+															class="px-2 py-1 rounded text-xs font-medium"
+														>
+															{{ row.actionInfo.executionStatus }}
+														</span>
+													</div>
+
+													<!-- 执行时间范围 -->
+													<div
+														v-if="row.actionInfo.startedAt"
+														class="flex items-center"
+													>
+														<span class="text-gray-500 mr-2">
+															Started:
+														</span>
+														<span
+															class="text-gray-700 dark:text-gray-300 text-xs"
+														>
+															{{
+																formatDateTime(
+																	row.actionInfo.startedAt
+																)
+															}}
+														</span>
+													</div>
+													<div
+														v-if="row.actionInfo.completedAt"
+														class="flex items-center"
+													>
+														<span class="text-gray-500 mr-2">
+															Completed:
+														</span>
+														<span
+															class="text-gray-700 dark:text-gray-300 text-xs"
+														>
+															{{
+																formatDateTime(
+																	row.actionInfo.completedAt
+																)
+															}}
+														</span>
+													</div>
+													<div
+														v-if="row.actionInfo.duration"
+														class="flex items-center"
+													>
+														<span class="text-gray-500 mr-2">
+															Duration:
+														</span>
+														<span
+															class="text-gray-700 dark:text-gray-300"
+														>
+															{{
+																formatDuration(
+																	row.actionInfo.duration
+																)
+															}}
+														</span>
+													</div>
+													<div
+														v-if="row.actionInfo.executionId"
+														class="flex items-center"
+													>
+														<span class="text-gray-500 mr-2">
+															Execution ID:
+														</span>
+														<span
+															class="text-gray-700 dark:text-gray-300 font-mono text-xs"
+														>
+															{{ row.actionInfo.executionId }}
+														</span>
+													</div>
+													<!-- 显示执行输出摘要 -->
+													<div
+														v-if="
+															getExecutionOutputSummary(
+																row.actionInfo.executionOutput
+															)
+														"
+														class="mt-2"
+													>
+														<div class="text-gray-500 text-xs mb-1">
+															Output:
+														</div>
+														<div
+															class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
+														>
+															{{
+																getExecutionOutputSummary(
+																	row.actionInfo.executionOutput
+																)
+															}}
+														</div>
+													</div>
+
+													<!-- 显示执行输入摘要 -->
+													<div
+														v-if="
+															getExecutionInputSummary(
+																row.actionInfo.executionInput
+															)
+														"
+														class="mt-2"
+													>
+														<div class="text-gray-500 text-xs mb-1">
+															Input:
+														</div>
+														<div
+															class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
+														>
+															{{
+																getExecutionInputSummary(
+																	row.actionInfo.executionInput
+																)
+															}}
+														</div>
+													</div>
+
+													<!-- 错误信息显示 -->
+													<div
+														v-if="row.actionInfo.errorMessage"
+														class="mt-2"
+													>
+														<div
+															class="text-red-600 dark:text-red-400 text-xs"
+														>
+															<span class="font-medium">Error:</span>
+															{{ row.actionInfo.errorMessage }}
+														</div>
+													</div>
+
+													<!-- 错误堆栈跟踪（只在有错误时显示） -->
+													<div
+														v-if="row.actionInfo.errorStackTrace"
+														class="mt-1"
+													>
+														<details class="text-red-500 text-xs">
+															<summary
+																class="cursor-pointer hover:text-red-700"
+															>
+																Stack Trace
+															</summary>
+															<pre
+																class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
+																>{{
+																	row.actionInfo.errorStackTrace
+																}}</pre
+															>
+														</details>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- 默认显示（简化的标题） -->
+									<div v-else class="text-gray-700 dark:text-gray-300">
+										{{ getSimplifiedTitle(row) }}
+									</div>
+								</div>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Updated By" width="150">
+							<template #default="{ row }">
+								<span
+									v-if="row.updatedBy && row.updatedBy.trim() !== ''"
+									class="text-gray-900 dark:text-white-100 truncate"
+									:title="row.updatedBy"
+								>
+									{{ row.updatedBy }}
+								</span>
+								<span
+									v-else
+									class="text-gray-400 dark:text-gray-500 text-sm italic"
+								>
+									<!-- 系统操作不显示操作者 -->
+								</span>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Date & Time" width="200">
+							<template #default="{ row }">
+								<div
+									class="flex items-center text-gray-600 dark:text-gray-400 text-sm"
+								>
+									<el-icon class="mr-1 text-xs">
+										<Clock />
+									</el-icon>
+									{{ formatDateTime(row.dateTime) }}
+								</div>
+							</template>
+						</el-table-column>
+
+						<template #empty>
+							<div class="py-8 text-gray-500 dark:text-gray-400 text-center">
+								<el-icon class="text-4xl mb-2">
+									<Document />
+								</el-icon>
+								<div v-if="!props.stageId" class="text-lg mb-2">
+									Please select a stage
+								</div>
+								<div v-else class="text-lg mb-2">No change records found</div>
+								<div class="text-sm">
+									{{
+										!props.stageId
+											? 'Change logs require a stage selection. Please select a stage to view its change history.'
+											: 'No changes recorded for this stage yet.'
+									}}
+								</div>
+							</div>
+						</template>
+					</el-table>
+
+					<!-- 分页 -->
+					<div v-if="total > 0" class="border-t bg-white dark:bg-black-400 rounded-b-md">
+						<CustomerPagination
+							:total="total"
+							:limit="pageSize"
+							:page="currentPage"
+							:background="true"
+							@pagination="handlePaginationUpdate"
+							@update:page="handleCurrentChange"
+							@update:limit="handlePageUpdate"
+						/>
+					</div>
+				</div>
+			</div>
+		</el-collapse-transition>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'; // 移除 computed
-import { Clock, Document, RefreshRight } from '@element-plus/icons-vue';
+import { ref, watch } from 'vue'; // 移除 computed
+import { Clock, Document, RefreshRight, ArrowRight } from '@element-plus/icons-vue';
 import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
 import {
@@ -480,6 +564,7 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const questionnaireConfigCache = ref<Map<string, any>>(new Map()); // 问卷配置缓存
+const isExpanded = ref(false); // 折叠状态
 
 interface ProcessedChange extends ChangeLogItem {
 	type: string;
@@ -565,118 +650,105 @@ const loadChangeLogs = async () => {
 	}
 };
 
-// 处理变更数据
+// 处理变更数据 - 优化版
 const processChangesData = async () => {
 	const processedData: ProcessedChange[] = [];
 
+	// 创建类型处理器映射，减少switch语句复杂度
+	const typeHandlers = {
+		questionnaire: ['Answer Update', 'QuestionnaireAnswerUpdate', 'QuestionnaireAnswerSubmit'],
+		field: ['Field Change', 'StaticFieldValueChange'],
+		task: [
+			'Task Complete',
+			'Task Incomplete',
+			'ChecklistTaskComplete',
+			'ChecklistTaskUncomplete',
+		],
+		file: ['File Upload', 'FileUpload'],
+		action: [
+			'Action Success',
+			'Action Failed',
+			'Action Running',
+			'Action Pending',
+			'Action Cancelled',
+			'ActionExecutionSuccess',
+			'ActionExecutionFailed',
+			'ActionExecutionRunning',
+			'ActionExecutionPending',
+			'ActionExecutionCancelled',
+			'StageActionExecution',
+			'TaskActionExecution',
+			'QuestionActionExecution',
+		],
+		basic: ['Completion', 'Update', 'StageTransition', 'PriorityChange'],
+	};
+
+	// 反向映射：从操作类型到处理器类型
+	const typeToHandler = new Map<string, string>();
+	Object.entries(typeHandlers).forEach(([handler, types]) => {
+		types.forEach((type) => typeToHandler.set(type, handler));
+	});
+
 	for (const change of changes.value) {
-		// 如果API直接返回了处理过的数据，则使用它们
 		const typeInfo =
 			change.typeIcon && change.typeColor
 				? { label: change.type, icon: change.typeIcon, color: change.typeColor }
 				: getOperationTypeInfo(change.type);
 
-		// 解析具体的变更详情
-		let answerChanges: string[] = [];
-		let fieldChanges: Array<{
-			fieldName: string;
-			beforeValue: string;
-			afterValue: string;
-		}> = [];
-		let taskInfo: any = null;
-		let fileInfo: any = null;
+		// 根据操作类型确定处理器
+		const handlerType = typeToHandler.get(change.type) || 'basic';
+		let specificData: any = {};
 
-		// 根据类型解析不同的变更信息
-		const operationType = change.type;
-		let actionInfo: any = null;
-
-		switch (operationType) {
-			case 'Answer Update':
-			case 'QuestionnaireAnswerUpdate':
-			case 'QuestionnaireAnswerSubmit':
-				try {
-					answerChanges = await parseQuestionnaireAnswerChangesWithConfig(
-						change.beforeData,
-						change.afterData,
-						change // Pass the current change to identify the questionnaire
-					);
-					// 如果解析成功但没有发现变化，保持空数组（不添加默认消息）
-				} catch (error) {
-					console.warn('Enhanced parsing failed, using basic parsing:', error);
-					// 回退到基本解析，只在真正解析失败时使用
-					answerChanges = ['Questionnaire answer updated'];
-				}
+		// 根据处理器类型解析数据
+		switch (handlerType) {
+			case 'questionnaire':
+				specificData.answerChanges = await parseQuestionnaireAnswerChanges(
+					change.beforeData,
+					change.afterData,
+					change
+				);
 				break;
 
-			case 'Field Change':
-			case 'StaticFieldValueChange':
-				fieldChanges = parseStaticFieldChanges(
+			case 'field':
+				specificData.fieldChanges = parseStaticFieldChanges(
 					change.beforeData,
 					change.afterData,
 					change.changedFields
 				);
 				break;
 
-			case 'Task Complete':
-			case 'Task Incomplete':
-			case 'ChecklistTaskComplete':
-			case 'ChecklistTaskUncomplete':
-				const taskStatusChange = parseTaskStatusChanges(
-					change.beforeData,
-					change.afterData
-				);
-				taskInfo = {
+			case 'task':
+				specificData.taskInfo = {
 					taskName: extractTaskName(change.details),
-					statusChange: taskStatusChange,
+					statusChange: parseTaskStatusChanges(change.beforeData, change.afterData),
 				};
 				break;
 
-			case 'File Upload':
-			case 'FileUpload':
-				fileInfo = extractFileInfo(change.extendedInfo);
+			case 'file':
+				specificData.fileInfo = extractFileInfo(change.extendedInfo);
 				break;
 
-			case 'Action Success':
-			case 'Action Failed':
-			case 'Action Running':
-			case 'Action Pending':
-			case 'Action Cancelled':
-			case 'ActionExecutionSuccess':
-			case 'ActionExecutionFailed':
-			case 'ActionExecutionRunning':
-			case 'ActionExecutionPending':
-			case 'ActionExecutionCancelled':
-			case 'StageActionExecution':
-			case 'TaskActionExecution':
-			case 'QuestionActionExecution':
-				actionInfo = extractActionInfo(change);
-				break;
-
-			case 'Completion':
-			case 'Update':
-			case 'StageTransition':
-			case 'PriorityChange':
-				// 这些类型通常只需要显示基本详情
+			case 'action':
+				specificData.actionInfo = extractActionInfo(change);
 				break;
 
 			default:
-				console.log('change type:', operationType);
+				// 基本类型不需要特殊处理
 				break;
 		}
 
-		const processedItem = {
+		processedData.push({
 			...change,
 			type: typeInfo.label,
 			typeIcon: typeInfo.icon,
 			typeColor: typeInfo.color,
-			answerChanges,
-			fieldChanges,
-			taskInfo,
-			fileInfo,
-			actionInfo,
-		};
-
-		processedData.push(processedItem);
+			answerChanges: [],
+			fieldChanges: [],
+			taskInfo: null,
+			fileInfo: null,
+			actionInfo: null,
+			...specificData,
+		});
 	}
 
 	processedChanges.value = processedData;
@@ -840,158 +912,95 @@ const getCheckboxAnswers = (answer: any): string[] => {
 	return [String(answer)];
 };
 
-// 获取多选题标签
+// 获取多选题标签 - 优化版
 const getCheckboxLabels = (
 	answer: any,
 	questionConfig: any,
 	responseText?: string,
 	questionId?: string
 ): string[] => {
-	if (!answer) {
-		return [];
-	}
-
-	// 如果没有questionConfig，仍然尝试解析Other选项
-	if (!questionConfig?.options) {
-		const answerValues = getCheckboxAnswers(answer);
-
-		// 尝试提取Other选项的自定义值
-		let otherValues: { [key: string]: string } = {};
-		if (responseText && questionId) {
-			otherValues = extractOtherValues(responseText, questionId);
-		}
-
-		// 处理答案值，替换Other选项
-		const processedAnswers: string[] = [];
-		let hasOtherWithCustomValue = false;
-
-		// 首先检查是否有Other选项带自定义值
-		answerValues.forEach((value) => {
-			if (value.startsWith('option_')) {
-				const customValue =
-					otherValues[value] || otherValues[value.replace('option_', 'option-')];
-				if (customValue) {
-					hasOtherWithCustomValue = true;
-				}
-			}
-		});
-
-		answerValues.forEach((value) => {
-			// 检查是否是option_开头的Other选项
-			if (value.startsWith('option_')) {
-				const customValue =
-					otherValues[value] || otherValues[value.replace('option_', 'option-')];
-				if (customValue) {
-					processedAnswers.push(`Other: ${customValue}`);
-				} else {
-					processedAnswers.push(value);
-				}
-			} else {
-				// 检查是否是Other选项的自定义输入值，如果是则跳过
-				const isCustomInput = Object.values(otherValues).some(
-					(customVal) => customVal.toLowerCase() === value.toLowerCase()
-				);
-
-				// 如果有Other自定义值且当前值等于自定义值，则跳过
-				if (isCustomInput && hasOtherWithCustomValue) {
-					return;
-				}
-
-				processedAnswers.push(value);
-			}
-		});
-
-		return processedAnswers;
-	}
+	if (!answer) return [];
 
 	const answerValues = getCheckboxAnswers(answer);
+	if (answerValues.length === 0) return [];
 
-	const optionMap = new Map<string, string>();
-	const otherOptionIds = new Set<string>();
+	// 提取Other选项的自定义值
+	const otherValues =
+		responseText && questionId ? extractOtherValues(responseText, questionId) : {};
 
-	// 建立选项映射并识别Other选项
+	// 如果没有questionConfig，使用简化处理
+	if (!questionConfig?.options) {
+		return answerValues
+			.map((value) => {
+				if (value.startsWith('option_')) {
+					const customValue =
+						otherValues[value] || otherValues[value.replace('option_', 'option-')];
+					return customValue ? `Other: ${customValue}` : value;
+				}
+				return value;
+			})
+			.filter(Boolean);
+	}
+
+	// 建立选项映射
+	const optionMap = new Map();
+	const otherOptionIds = new Set();
+	const isOtherOption = (option: any) =>
+		option.isOther ||
+		option.type === 'other' ||
+		option.allowCustom ||
+		option.hasInput ||
+		option.label?.toLowerCase().match(/other|custom|specify|enter other/);
+
 	questionConfig.options.forEach((option: any) => {
 		optionMap.set(option.value, option.label);
-		if (
-			option.isOther ||
-			option.type === 'other' ||
-			option.allowCustom ||
-			option.hasInput ||
-			(option.label &&
-				(option.label.toLowerCase().includes('other') ||
-					option.label.toLowerCase().includes('enter other') ||
-					option.label.toLowerCase().includes('custom') ||
-					option.label.toLowerCase().includes('specify')))
-		) {
+		if (isOtherOption(option)) {
 			otherOptionIds.add(option.value);
 		}
 	});
 
-	// 提取Other选项的自定义值
-	let otherValues: { [key: string]: string } = {};
-	if (responseText && questionId) {
-		otherValues = extractOtherValues(responseText, questionId);
-	}
+	const processedValues = new Set();
+	const labels = answerValues
+		.map((value) => {
+			const optionLabel = optionMap.get(value);
 
-	const labels: string[] = [];
-	const processedValues = new Set<string>(); // 跟踪已处理的值
-
-	answerValues.forEach((value) => {
-		const optionLabel = optionMap.get(value);
-
-		if (optionLabel) {
-			if (otherOptionIds.has(value)) {
-				// 这是一个Other选项，查找自定义值
-				const customValue =
-					otherValues[value] || otherValues[value.replace('option_', 'option-')];
-				if (customValue) {
-					labels.push(`Other: ${customValue}`);
-					// 标记这个自定义值已处理，避免显示原始的输入值
-					processedValues.add(customValue.toLowerCase());
-				} else {
-					labels.push(optionLabel);
+			if (optionLabel) {
+				if (otherOptionIds.has(value)) {
+					// Other选项处理
+					const customValue =
+						otherValues[value] || otherValues[value.replace('option_', 'option-')];
+					if (customValue) {
+						processedValues.add(customValue.toLowerCase());
+						return `Other: ${customValue}`;
+					}
+					return optionLabel;
 				}
-			} else {
-				// 检查这个值是否是某个Other选项的自定义输入值
+				// 检查是否为自定义输入值
 				const isCustomInput = Object.values(otherValues).some(
 					(customVal) => customVal.toLowerCase() === value.toLowerCase()
 				);
-				if (!isCustomInput) {
-					labels.push(optionLabel);
-				}
+				return isCustomInput ? null : optionLabel;
 			}
-		} else {
-			// 检查是否是Other相关的值
-			const isOtherValue = Object.keys(otherValues).some((otherKey) => {
-				return (
-					otherKey.includes(value) ||
-					value.includes(otherKey.replace('option-', '').replace('option_', ''))
-				);
-			});
 
-			if (isOtherValue) {
-				const customValue = Object.entries(otherValues).find(
-					([key]) =>
-						key.includes(value) ||
-						value.includes(key.replace('option-', '').replace('option_', ''))
-				)?.[1];
-				if (customValue) {
-					labels.push(`Other: ${customValue}`);
-					processedValues.add(customValue.toLowerCase());
-				}
-			} else {
-				// 检查这个值是否是某个Other选项的自定义输入值，如果是则跳过
-				const isCustomInput = Object.values(otherValues).some(
-					(customVal) => customVal.toLowerCase() === value.toLowerCase()
-				);
-				if (!isCustomInput && !processedValues.has(value.toLowerCase())) {
-					labels.push(value);
-				}
+			// 处理Other相关值或未映射值
+			const relatedOtherValue = Object.entries(otherValues).find(
+				([key]) => key.includes(value) || value.includes(key.replace(/^option[-_]/, ''))
+			);
+
+			if (relatedOtherValue) {
+				processedValues.add(relatedOtherValue[1].toLowerCase());
+				return `Other: ${relatedOtherValue[1]}`;
 			}
-		}
-	});
 
-	return labels.filter(Boolean);
+			// 避免显示重复的自定义输入值
+			const isCustomInput = Object.values(otherValues).some(
+				(customVal) => customVal.toLowerCase() === value.toLowerCase()
+			);
+			return !isCustomInput && !processedValues.has(value.toLowerCase()) ? value : null;
+		})
+		.filter(Boolean);
+
+	return labels;
 };
 
 // 获取网格答案标签
@@ -1160,22 +1169,16 @@ const getShortAnswerGridRowSummary = (response: any, questionConfig: any): strin
 	return rows.map((r) => `${r.label}:${r.value}`).join(' ');
 };
 
-// 检查是否有有效答案
+// 检查是否有有效答案 - 优化版
 const hasValidAnswer = (answer: string | any): boolean => {
 	if (!answer) return false;
 
 	if (typeof answer === 'string') {
 		const trimmed = answer.trim();
-		// 检查空的JSON对象字符串
-		if (trimmed === '{}' || trimmed === '[]') {
-			return false;
-		}
+		// 使用正则表达式简化检查
 		return (
 			trimmed !== '' &&
-			trimmed !== 'No answer provided' &&
-			trimmed !== 'No selection made' &&
-			trimmed !== 'null' &&
-			trimmed !== 'undefined'
+			!/^({}|\[\]|null|undefined|No answer provided|No selection made)$/.test(trimmed)
 		);
 	}
 
@@ -1304,7 +1307,8 @@ const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string
 };
 
 // 增强的问卷答案变更解析
-const parseQuestionnaireAnswerChangesWithConfig = async (
+// 简化的问卷答案变更解析
+const parseQuestionnaireAnswerChanges = async (
 	beforeData: any,
 	afterData: any,
 	currentChange?: any
@@ -1315,100 +1319,51 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 		const after = typeof afterData === 'string' ? JSON.parse(afterData) : afterData;
 		const changesList: string[] = [];
 
-		// 从当前变更记录中获取 stageId
-		let stageId = '';
+		// 获取问卷配置
+		const stageId = currentChange?.stageId || props.stageId;
+		const questionnaireConfig = stageId ? await getQuestionnaireConfigByStageId(stageId) : null;
 
-		// 首先尝试从 currentChange 获取
-		if (currentChange?.stageId) {
-			stageId = String(currentChange.stageId);
-		}
-		// 然后尝试从 props 获取
-		else if (props.stageId) {
-			stageId = String(props.stageId);
-		}
-
-		// 获取问卷配置（通过阶段ID）
-		let questionnaireConfig = null;
-		if (stageId) {
-			questionnaireConfig = await getQuestionnaireConfigByStageId(stageId);
-		}
-
-		// 处理问卷答案提交的情况（只有 afterData）
+		// 处理答案提交（只有 afterData）
 		if (!beforeData && after.responses) {
 			after.responses.forEach((response: any) => {
 				if (response.answer || response.responseText) {
-					// 确保 responseText 被正确传递
-					const enhancedResponse = {
-						...response,
-						responseText: response.responseText || after.responseText,
-					};
-					const formattedAnswer = formatAnswerWithConfig(
-						enhancedResponse,
-						questionnaireConfig
-					);
-					changesList.push(
-						`${response.question || response.questionId}: ${formattedAnswer}`
-					);
+					const formattedAnswer = formatAnswerWithConfig(response, questionnaireConfig);
+					const questionTitle = response.question || response.questionId;
+					changesList.push(`${questionTitle}: ${formattedAnswer}`);
 				}
 			});
 			return changesList;
 		}
 
-		// 处理问卷答案更新的情况（有 beforeData 和 afterData）
+		// 处理答案更新（有 beforeData 和 afterData）
 		if (beforeData && afterData) {
-			const before = typeof beforeData === 'string' ? JSON.parse(beforeData) : beforeData;
+			const before: any =
+				typeof beforeData === 'string' ? JSON.parse(beforeData) : beforeData;
 
 			if (before.responses && after.responses) {
-				const beforeMap = new Map();
-				const afterMap = new Map();
+				const beforeMap = new Map(before.responses.map((r: any) => [r.questionId, r]));
 
-				before.responses.forEach((resp: any) => {
-					beforeMap.set(resp.questionId, resp);
-				});
-
-				after.responses.forEach((resp: any) => {
-					afterMap.set(resp.questionId, resp);
-				});
-
-				// 比较变化
-				afterMap.forEach((afterResp: any, questionId: string) => {
-					const beforeResp = beforeMap.get(questionId);
+				after.responses.forEach((afterResp: any) => {
+					const beforeResp: any = beforeMap.get(afterResp.questionId);
+					const questionTitle = afterResp.question || afterResp.questionId;
 
 					if (!beforeResp) {
-						// 新增的答案
-						const enhancedAfterResp = {
-							...afterResp,
-							responseText: afterResp.responseText || after.responseText,
-						};
+						// 新增答案
 						const formattedAnswer = formatAnswerWithConfig(
-							enhancedAfterResp,
+							afterResp,
 							questionnaireConfig
 						);
-						changesList.push(`${afterResp.question || questionId}: ${formattedAnswer}`);
+						changesList.push(`${questionTitle}: ${formattedAnswer}`);
 					} else if (
-						JSON.stringify(beforeResp.answer) !== JSON.stringify(afterResp.answer) ||
-						beforeResp.responseText !== afterResp.responseText
+						JSON.stringify(beforeResp?.answer) !== JSON.stringify(afterResp?.answer)
 					) {
-						// 修改的答案
-						const enhancedBeforeResp = {
-							...beforeResp,
-							responseText: beforeResp.responseText || before.responseText,
-						};
-						const enhancedAfterResp = {
-							...afterResp,
-							responseText: afterResp.responseText || after.responseText,
-						};
+						// 修改答案
 						const beforeAnswer = formatAnswerWithConfig(
-							enhancedBeforeResp,
+							beforeResp,
 							questionnaireConfig
 						);
-						const afterAnswer = formatAnswerWithConfig(
-							enhancedAfterResp,
-							questionnaireConfig
-						);
-						changesList.push(
-							`${afterResp.question || questionId}: ${beforeAnswer} → ${afterAnswer}`
-						);
+						const afterAnswer = formatAnswerWithConfig(afterResp, questionnaireConfig);
+						changesList.push(`${questionTitle}: ${beforeAnswer} → ${afterAnswer}`);
 					}
 				});
 			}
@@ -1417,31 +1372,25 @@ const parseQuestionnaireAnswerChangesWithConfig = async (
 		return changesList;
 	} catch (error) {
 		console.error('Error parsing questionnaire answer changes:', error);
-		return [];
+		return ['Questionnaire updated'];
 	}
 };
 
-// 辅助函数
+// 工具函数集合 - 简化和整合版
+
+// 任务名称提取
 const extractTaskName = (details: string): string => {
-	// 从详情字符串中提取任务名称
 	const patterns = [
-		/Task (?:Complete|Incomplete): (.+)/,
-		/Task (?:Completed|Uncompleted): (.+)/,
+		/Task (?:Complete|Incomplete|Completed|Uncompleted): (.+)/,
 		/Checklist task '(.+)' has been/,
 		/'(.+)' has been (?:completed|marked as incomplete)/,
 	];
-
-	for (const pattern of patterns) {
-		const match = details.match(pattern);
-		if (match) return match[1];
-	}
-
-	return details;
+	return patterns.find((p) => p.test(details))?.exec(details)?.[1] || details;
 };
 
+// 文件信息提取
 const extractFileInfo = (extendedInfo: any): { fileName: string; fileSize?: number } | null => {
 	if (!extendedInfo) return null;
-
 	try {
 		const info = typeof extendedInfo === 'string' ? JSON.parse(extendedInfo) : extendedInfo;
 		return {
@@ -1453,107 +1402,101 @@ const extractFileInfo = (extendedInfo: any): { fileName: string; fileSize?: numb
 	}
 };
 
+// 文件大小格式化
 const formatFileSize = (bytes: number): string => {
-	if (bytes === 0) return '0 Bytes';
-
+	if (!bytes) return '0 Bytes';
 	const k = 1024;
 	const sizes = ['Bytes', 'KB', 'MB', 'GB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
-// --- Date/time formatting helpers for answer values ---
-
+// 日期时间格式化工具集合
 const formatAnswerDate = (dateStr: any, questionType?: string): string => {
 	if (!dateStr) return '';
-	const dateString = String(dateStr);
 	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) return dateString;
+		const date = new Date(String(dateStr));
+		if (isNaN(date.getTime())) return String(dateStr);
+
 		if (questionType === 'time') {
-			const hours = String(date.getHours()).padStart(2, '0');
-			const minutes = String(date.getMinutes()).padStart(2, '0');
-			const seconds = String(date.getSeconds()).padStart(2, '0');
-			return `${hours}:${minutes}:${seconds}`;
+			return [date.getHours(), date.getMinutes(), date.getSeconds()]
+				.map((n) => String(n).padStart(2, '0'))
+				.join(':');
 		}
+
 		const month = String(date.getMonth() + 1).padStart(2, '0');
 		const day = String(date.getDate()).padStart(2, '0');
-		const year = date.getFullYear();
-		return `${month}/${day}/${year}`;
+		return `${month}/${day}/${date.getFullYear()}`;
 	} catch {
-		return dateString;
+		return String(dateStr);
 	}
 };
 
-const handleCurrentChange = (newPage: number) => {
-	currentPage.value = newPage;
-};
-
-const handlePaginationUpdate = () => {
-	loadChangeLogs();
-};
-
-const handlePageUpdate = (newSize: number) => {
-	pageSize.value = newSize;
-};
-
-// 工具函数
 const formatDateTime = (dateString: string): string => {
 	try {
-		if (!dateString) return defaultStr;
-
-		return timeZoneConvert(dateString, false, projectTenMinutesSsecondsDate);
+		return dateString
+			? timeZoneConvert(dateString, false, projectTenMinutesSsecondsDate)
+			: defaultStr;
 	} catch {
 		return dateString || defaultStr;
 	}
 };
 
+// 简化的分页处理函数
+const handleCurrentChange = (newPage: number) => {
+	currentPage.value = newPage;
+};
+const handlePaginationUpdate = () => {
+	loadChangeLogs();
+};
+const handlePageUpdate = (newSize: number) => {
+	pageSize.value = newSize;
+};
+
+// 优化的标签类型获取 - 使用Map减少switch复杂度
 const getTagType = (type: string): string => {
-	switch (type) {
-		case 'Completion':
-		case 'ChecklistTaskComplete':
-			return 'success';
-		case 'Answer Update':
-		case 'QuestionnaireAnswerUpdate':
-		case 'Answer Submit':
-		case 'QuestionnaireAnswerSubmit':
-		case 'FileUpload':
-		case 'File Upload':
-			return 'info';
-		case 'Task Complete':
-		case 'Action Success':
-		case 'ActionExecutionSuccess':
-			return 'success';
-		case 'Task Incomplete':
-		case 'ChecklistTaskUncomplete':
-			return 'warning';
-		case 'Field Change':
-		case 'StaticFieldValueChange':
-			return 'warning';
-		case 'Action Failed':
-		case 'ActionExecutionFailed':
-			return 'danger';
-		case 'Action Running':
-		case 'Action Pending':
-		case 'ActionExecutionRunning':
-		case 'ActionExecutionPending':
-			return 'info';
-		case 'Action Cancelled':
-		case 'ActionExecutionCancelled':
-			return 'warning';
-		case 'Stage Action':
-		case 'StageActionExecution':
-			return 'info';
-		case 'Task Action':
-		case 'TaskActionExecution':
-			return 'success';
-		case 'Question Action':
-		case 'QuestionActionExecution':
-			return 'warning';
-		default:
-			return 'info';
-	}
+	const tagTypeMap = new Map<string, string>([
+		// Success types
+		...[
+			'Completion',
+			'ChecklistTaskComplete',
+			'Task Complete',
+			'Action Success',
+			'ActionExecutionSuccess',
+			'Task Action',
+			'TaskActionExecution',
+		].map((t): [string, string] => [t, 'success']),
+		// Warning types
+		...[
+			'Task Incomplete',
+			'ChecklistTaskUncomplete',
+			'Field Change',
+			'StaticFieldValueChange',
+			'Action Cancelled',
+			'ActionExecutionCancelled',
+			'Question Action',
+			'QuestionActionExecution',
+		].map((t): [string, string] => [t, 'warning']),
+		// Danger types
+		...['Action Failed', 'ActionExecutionFailed'].map((t): [string, string] => [t, 'danger']),
+		// Info types (default)
+		...[
+			'Answer Update',
+			'QuestionnaireAnswerUpdate',
+			'Answer Submit',
+			'QuestionnaireAnswerSubmit',
+			'FileUpload',
+			'File Upload',
+			'Action Running',
+			'Action Pending',
+			'ActionExecutionRunning',
+			'ActionExecutionPending',
+			'Stage Action',
+			'StageActionExecution',
+		].map((t): [string, string] => [t, 'info']),
+	]);
+
+	return tagTypeMap.get(type) ?? 'info';
 };
 
 const getSimplifiedTitle = (row: any): string => {
@@ -1579,32 +1522,14 @@ const getSimplifiedTitle = (row: any): string => {
 };
 
 // ActionExecution 相关辅助函数
+// 简化的Action信息提取
 const extractActionInfo = (change: any): any => {
-	// 从 extendedData 或 change 对象中提取 Action 执行信息
 	try {
-		// 尝试从 operationTitle 和 operationDescription 中提取信息
-		const actionName = extractActionNameFromTitle(change.operationTitle || change.details);
-		const actionType = extractActionTypeFromDescription(
-			change.operationDescription || change.details
-		);
-
-		// 解析 extendedData 获取详细的执行信息
 		const extendedInfo = parseExtendedData(change.extendedInfo || change.extendedData);
 
 		return {
-			actionName: actionName || 'Action',
-			actionType: actionType || extendedInfo.actionType || '',
-			executionId: extendedInfo.executionId || extractExecutionId(change.extendedData),
-			duration: extendedInfo.durationMs || extractDuration(change.extendedData),
-			executionStatus: extendedInfo.executionStatus,
-			startedAt: extendedInfo.startedAt,
-			completedAt: extendedInfo.completedAt,
-			triggerContext: extendedInfo.triggerContext || change.extendedData || '',
-			executionInput: extendedInfo.executionInput,
-			executionOutput: extendedInfo.executionOutput,
-			errorMessage: extendedInfo.errorMessage || extractErrorMessage(change),
-			errorStackTrace: extendedInfo.errorStackTrace,
-			executorInfo: extendedInfo.executorInfo,
+			actionName: change.operationTitle?.replace(/^Action\s+\w+:\s*/, '') || 'Action',
+			...extendedInfo,
 		};
 	} catch (error) {
 		console.warn('Failed to extract action info:', error);
@@ -1614,7 +1539,6 @@ const extractActionInfo = (change: any): any => {
 			executionId: '',
 			duration: null,
 			executionStatus: '',
-			triggerContext: '',
 			errorMessage: '',
 		};
 	}
@@ -1625,80 +1549,14 @@ const parseExtendedData = (extendedData: string): any => {
 	if (!extendedData) return {};
 
 	try {
-		const data = typeof extendedData === 'string' ? JSON.parse(extendedData) : extendedData;
-		return {
-			actionCode: data.actionCode,
-			actionType: data.actionType,
-			executionId: data.executionId,
-			executionStatus: data.executionStatus,
-			startedAt: data.startedAt,
-			completedAt: data.completedAt,
-			durationMs: data.durationMs,
-			triggerContext: data.triggerContext,
-			executionInput: data.executionInput,
-			executionOutput: data.executionOutput,
-			errorMessage: data.errorMessage,
-			errorStackTrace: data.errorStackTrace,
-			executorInfo: data.executorInfo,
-		};
+		return typeof extendedData === 'string' ? JSON.parse(extendedData) : extendedData;
 	} catch (error) {
 		console.warn('Failed to parse extended data:', error);
 		return {};
 	}
 };
 
-const extractActionNameFromTitle = (title: string): string => {
-	if (!title) return '';
-
-	// 匹配 "Action Executed: ActionName" 或 "Action Failed: ActionName" 等格式
-	const match = title.match(/Action\s+(?:Executed|Failed|Running|Pending|Cancelled):\s*(.+)/i);
-	return match ? match[1].trim() : title;
-};
-
-const extractActionTypeFromDescription = (description: string): string => {
-	if (!description) return '';
-
-	// 匹配描述中的 Action 类型，如 "Python action completed successfully"
-	const match = description.match(/(\w+)\s+action/i);
-	return match ? match[1] : '';
-};
-
-const extractExecutionId = (extendedData: string): string => {
-	if (!extendedData) return '';
-
-	// 尝试提取执行ID
-	try {
-		// 如果是 JSON 字符串，解析并查找 executionId
-		if (extendedData.includes('{')) {
-			const data = JSON.parse(extendedData);
-			return data.executionId || data.ExecutionId || '';
-		}
-
-		// 如果是简单字符串，查找包含ID的部分
-		const match = extendedData.match(/execution[_\s]*id[:\s]*([^\s,]+)/i);
-		return match ? match[1] : '';
-	} catch {
-		return '';
-	}
-};
-
-const extractDuration = (extendedData: string): number | null => {
-	if (!extendedData) return null;
-
-	// 查找持续时间信息
-	const match = extendedData.match(/duration[:\s]*(\d+)/i);
-	return match ? parseInt(match[1], 10) : null;
-};
-
-const extractErrorMessage = (change: any): string => {
-	// 从多个可能的位置提取错误信息
-	return (
-		change.errorMessage ||
-		change.error_message ||
-		(change.details && change.details.includes('failed') ? change.details : '') ||
-		''
-	);
-};
+// 删除了冗余的辅助函数，简化代码结构
 
 const formatDuration = (durationMs: number): string => {
 	if (durationMs < 1000) {
@@ -1712,88 +1570,74 @@ const formatDuration = (durationMs: number): string => {
 	}
 };
 
+// 简化的样式映射 - 直接映射类型到样式类
+const actionBgClassMap = new Map<string, string>([
+	['Action Success', 'bg-green-50 dark:bg-green-900/20 border-green-400'],
+	['ActionExecutionSuccess', 'bg-green-50 dark:bg-green-900/20 border-green-400'],
+	['Action Failed', 'bg-red-50 dark:bg-red-900/20 border-red-400'],
+	['ActionExecutionFailed', 'bg-red-50 dark:bg-red-900/20 border-red-400'],
+	['Action Running', 'bg-blue-50 dark:bg-blue-900/20 border-blue-400'],
+	['ActionExecutionRunning', 'bg-blue-50 dark:bg-blue-900/20 border-blue-400'],
+	['Action Pending', 'bg-orange-50 dark:bg-orange-900/20 border-orange-400'],
+	['ActionExecutionPending', 'bg-orange-50 dark:bg-orange-900/20 border-orange-400'],
+	['Action Cancelled', 'bg-gray-50 dark:bg-gray-900/20 border-gray-400'],
+	['ActionExecutionCancelled', 'bg-gray-50 dark:bg-gray-900/20 border-gray-400'],
+	['StageActionExecution', 'bg-blue-50 dark:bg-blue-900/20 border-blue-400'],
+	['TaskActionExecution', 'bg-green-50 dark:bg-green-900/20 border-green-400'],
+	['QuestionActionExecution', 'bg-purple-50 dark:bg-purple-900/20 border-purple-400'],
+]);
+
+const actionStatusClassMap = new Map<string, string>([
+	['Action Success', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
+	['ActionExecutionSuccess', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
+	['Action Failed', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
+	['ActionExecutionFailed', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
+	['Action Running', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
+	['ActionExecutionRunning', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
+	['Action Pending', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
+	[
+		'ActionExecutionPending',
+		'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100',
+	],
+	['Action Cancelled', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'],
+	['ActionExecutionCancelled', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'],
+	['StageActionExecution', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
+	['TaskActionExecution', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
+	[
+		'QuestionActionExecution',
+		'bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100',
+	],
+]);
+
 const getActionExecutionBgClass = (type: string): string => {
-	switch (type) {
-		case 'Action Success':
-		case 'ActionExecutionSuccess':
-			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
-		case 'Action Failed':
-		case 'ActionExecutionFailed':
-			return 'bg-red-50 dark:bg-red-900/20 border-red-400';
-		case 'Action Running':
-		case 'ActionExecutionRunning':
-			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
-		case 'Action Pending':
-		case 'ActionExecutionPending':
-			return 'bg-orange-50 dark:bg-orange-900/20 border-orange-400';
-		case 'Action Cancelled':
-		case 'ActionExecutionCancelled':
-			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
-		case 'StageActionExecution':
-			return 'bg-blue-50 dark:bg-blue-900/20 border-blue-400';
-		case 'TaskActionExecution':
-			return 'bg-green-50 dark:bg-green-900/20 border-green-400';
-		case 'QuestionActionExecution':
-			return 'bg-purple-50 dark:bg-purple-900/20 border-purple-400';
-		default:
-			return 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
-	}
+	return actionBgClassMap.get(type) ?? 'bg-gray-50 dark:bg-gray-900/20 border-gray-400';
 };
 
 const getActionExecutionStatusClass = (type: string): string => {
-	switch (type) {
-		case 'Action Success':
-		case 'ActionExecutionSuccess':
-			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
-		case 'Action Failed':
-		case 'ActionExecutionFailed':
-			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
-		case 'Action Running':
-		case 'ActionExecutionRunning':
-			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
-		case 'Action Pending':
-		case 'ActionExecutionPending':
-			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
-		case 'Action Cancelled':
-		case 'ActionExecutionCancelled':
-			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
-		case 'StageActionExecution':
-			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
-		case 'TaskActionExecution':
-			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
-		case 'QuestionActionExecution':
-			return 'bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100';
-		default:
-			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
-	}
+	return (
+		actionStatusClassMap.get(type) ??
+		'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
+	);
 };
 
+const actionStatusTextMap = new Map<string, string>([
+	['Action Success', 'Success'],
+	['ActionExecutionSuccess', 'Success'],
+	['Action Failed', 'Failed'],
+	['ActionExecutionFailed', 'Failed'],
+	['Action Running', 'Running'],
+	['ActionExecutionRunning', 'Running'],
+	['Action Pending', 'Pending'],
+	['ActionExecutionPending', 'Pending'],
+	['Action Cancelled', 'Cancelled'],
+	['ActionExecutionCancelled', 'Cancelled'],
+	['StageActionExecution', 'Stage Action'],
+	['TaskActionExecution', 'Task Action'],
+	['QuestionActionExecution', 'Question Action'],
+]);
+
 const getActionExecutionStatusText = (type: string): string => {
-	switch (type) {
-		case 'Action Success':
-		case 'ActionExecutionSuccess':
-			return 'Success';
-		case 'Action Failed':
-		case 'ActionExecutionFailed':
-			return 'Failed';
-		case 'Action Running':
-		case 'ActionExecutionRunning':
-			return 'Running';
-		case 'Action Pending':
-		case 'ActionExecutionPending':
-			return 'Pending';
-		case 'Action Cancelled':
-		case 'ActionExecutionCancelled':
-			return 'Cancelled';
-		case 'StageActionExecution':
-			return 'Stage Action';
-		case 'TaskActionExecution':
-			return 'Task Action';
-		case 'QuestionActionExecution':
-			return 'Question Action';
-		default:
-			return '';
-	}
+	return actionStatusTextMap.get(type) ?? '';
 };
 
 // 获取 Action 执行来源
@@ -1825,34 +1669,30 @@ const getActionSourceClass = (type: string): string => {
 };
 
 // 获取执行状态的样式类
+const executionStatusClassMap = new Map<string, string>([
+	['success', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
+	['completed', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
+	['finished', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
+	['failed', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
+	['error', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
+	['exception', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
+	['running', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
+	['executing', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
+	['in_progress', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
+	['pending', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
+	['waiting', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
+	['queued', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
+	['cancelled', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'],
+	['aborted', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'],
+	['terminated', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'],
+]);
+
 const getExecutionStatusClass = (status: string): string => {
 	if (!status) return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
-
-	const statusLower = status.toLowerCase();
-	switch (statusLower) {
-		case 'success':
-		case 'completed':
-		case 'finished':
-			return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
-		case 'failed':
-		case 'error':
-		case 'exception':
-			return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
-		case 'running':
-		case 'executing':
-		case 'in_progress':
-			return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100';
-		case 'pending':
-		case 'waiting':
-		case 'queued':
-			return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100';
-		case 'cancelled':
-		case 'aborted':
-		case 'terminated':
-			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
-		default:
-			return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
-	}
+	return (
+		executionStatusClassMap.get(status.toLowerCase()) ??
+		'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
+	);
 };
 
 // 获取执行输出摘要
@@ -1927,7 +1767,7 @@ const getExecutionInputSummary = (executionInput: any): string => {
 	}
 };
 
-// 监听属性变化并加载数据
+// 监听属性变化，只在展开状态下才重新加载数据
 watch(
 	() => [props.onboardingId, props.stageId],
 	(newValues) => {
@@ -1935,22 +1775,142 @@ watch(
 		if (newOnboardingId && newStageId) {
 			// 重置分页到第一页
 			currentPage.value = 1;
-			loadChangeLogs();
+			// 清空现有数据
+			changes.value = [];
+			processedChanges.value = [];
+			total.value = 0;
+			// 只有在展开状态下才自动加载
+			if (isExpanded.value) {
+				loadChangeLogs();
+			}
 		}
 	},
-	{ immediate: true }
+	{ immediate: false }
 );
 
-// 组件挂载时加载数据
-onMounted(() => {
-	if (props.onboardingId && props.stageId) {
+// 切换展开状态
+const toggleExpanded = () => {
+	isExpanded.value = !isExpanded.value;
+	// 如果是第一次展开且没有数据，自动加载
+	if (isExpanded.value && processedChanges.value.length === 0) {
 		loadChangeLogs();
 	}
-});
+};
 
 defineExpose({
 	loadChangeLogs,
 });
 </script>
 
-<style scoped></style>
+<style scoped lang="scss">
+/* 头部卡片样式 - 灰蓝色渐变 */
+.change-log-header-card {
+	background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+	padding: 24px;
+	color: white;
+	box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+
+	&:hover {
+		box-shadow: 0 6px 16px rgba(100, 116, 139, 0.3);
+		transform: translateY(-1px);
+	}
+
+	&.expanded {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+		background: linear-gradient(135deg, #475569 0%, #334155 100%);
+	}
+}
+
+.change-log-title {
+	font-size: 18px;
+	font-weight: 600;
+	margin: 0;
+	color: white;
+}
+
+.change-log-subtitle {
+	font-size: 14px;
+	margin: 4px 0 0 0;
+	color: rgba(255, 255, 255, 0.9);
+	font-weight: 400;
+}
+
+.change-log-actions {
+	display: flex;
+	align-items: center;
+}
+
+.refresh-button {
+	background-color: rgba(255, 255, 255, 0.2);
+	border-color: rgba(255, 255, 255, 0.3);
+	color: white;
+
+	&:hover {
+		background-color: rgba(255, 255, 255, 0.3);
+		border-color: rgba(255, 255, 255, 0.4);
+	}
+
+	&:disabled {
+		background-color: rgba(255, 255, 255, 0.1);
+		border-color: rgba(255, 255, 255, 0.2);
+		color: rgba(255, 255, 255, 0.6);
+	}
+}
+
+.expand-icon {
+	transition: transform 0.2s ease;
+	color: white;
+
+	&.rotated {
+		transform: rotate(90deg);
+	}
+}
+
+/* 优化折叠动画 */
+:deep(.el-collapse-transition) {
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+:deep(.el-collapse-transition .el-collapse-item__content) {
+	will-change: height;
+	transform: translateZ(0); /* 启用硬件加速 */
+}
+
+// 暗色主题支持
+.dark {
+	.change-log-header-card {
+		background: linear-gradient(135deg, #475569 0%, #334155 100%);
+		box-shadow: 0 4px 12px rgba(71, 85, 105, 0.3);
+
+		&:hover {
+			box-shadow: 0 6px 16px rgba(71, 85, 105, 0.4);
+		}
+
+		&.expanded {
+			background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+		}
+	}
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+	.change-log-header-card {
+		padding: 16px;
+
+		.change-log-actions {
+			margin-top: 8px;
+		}
+	}
+
+	.change-log-header-card .flex {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}
+</style>
