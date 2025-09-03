@@ -45,6 +45,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
         Task InvalidateCacheForStageAsync(long stageId);
 
         /// <summary>
+        /// Invalidate cache for specific onboarding and stage combination
+        /// </summary>
+        Task InvalidateCacheForOnboardingAndStageAsync(long onboardingId, long stageId);
+
+        /// <summary>
         /// Generate cache key for operation logs
         /// </summary>
         string GenerateLogsCacheKey(

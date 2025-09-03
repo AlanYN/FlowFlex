@@ -205,6 +205,32 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
             return Success(true);
         }
 
+        /// <summary>
+        /// Clear cache for specific onboarding
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <returns>Success result</returns>
+        [HttpPost("cache/clear/onboarding/{onboardingId}")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ClearOnboardingCacheAsync(long onboardingId)
+        {
+            await _logCacheService.InvalidateCacheForOnboardingAsync(onboardingId);
+            return Success(true);
+        }
+
+        /// <summary>
+        /// Clear cache for specific stage
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>Success result</returns>
+        [HttpPost("cache/clear/stage/{stageId}")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ClearStageCacheAsync(long stageId)
+        {
+            await _logCacheService.InvalidateCacheForStageAsync(stageId);
+            return Success(true);
+        }
+
         #region Private Helper Methods
 
         private static string GetContentType(string format)

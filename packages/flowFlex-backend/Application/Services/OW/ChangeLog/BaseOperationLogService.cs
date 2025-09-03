@@ -99,8 +99,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (result)
                 {
-                    // Invalidate relevant caches
-                    await InvalidateRelevantCachesAsync(businessModule.ToString(), businessId, onboardingId, stageId);
+                    // Cache disabled - no need to invalidate
+                    // await InvalidateRelevantCachesAsync(businessModule.ToString(), businessId, onboardingId, stageId);
+                    _logger.LogDebug("Operation log inserted successfully without cache invalidation");
                 }
 
                 return result;
@@ -135,19 +136,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     pageIndex,
                     pageSize);
 
-                // Try to get from cache first
-                var cachedResult = await _logCacheService.GetCachedLogsAsync(cacheKey);
-                if (cachedResult != null)
-                {
-                    _logger.LogDebug("Retrieved operation logs from cache for key: {CacheKey}", cacheKey);
-                    return cachedResult;
-                }
+                // Skip cache for reliability - directly get from database
+                // var cachedResult = await _logCacheService.GetCachedLogsAsync(cacheKey);
+                // if (cachedResult != null)
+                // {
+                //     _logger.LogDebug("Retrieved operation logs from cache for key: {CacheKey}", cacheKey);
+                //     return cachedResult;
+                // }
 
-                // If not in cache, get from database
+                // Get directly from database
                 var result = await GetOperationLogsFromDatabaseAsync(onboardingId, stageId, operationType, pageIndex, pageSize);
 
-                // Cache the result
-                await _logCacheService.SetCachedLogsAsync(cacheKey, result, TimeSpan.FromMinutes(15));
+                // Skip caching - cache disabled for reliability
+                // await _logCacheService.SetCachedLogsAsync(cacheKey, result, TimeSpan.FromMinutes(15));
 
                 return result;
             }
@@ -298,6 +299,15 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (stageId.HasValue)
                 {
                     await _logCacheService.InvalidateCacheForStageAsync(stageId.Value);
+                }
+
+                // Most importantly: invalidate the specific onboarding+stage combination cache
+                // This is the cache that was causing the issue in the logs
+                if (onboardingId.HasValue && stageId.HasValue)
+                {
+                    await _logCacheService.InvalidateCacheForOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
+                    _logger.LogDebug("Invalidated specific cache for onboarding {OnboardingId} + stage {StageId}", 
+                        onboardingId.Value, stageId.Value);
                 }
             }
             catch (Exception ex)

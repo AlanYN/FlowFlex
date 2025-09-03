@@ -38,15 +38,43 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         public async Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string extendedData = null)
         {
-            return await LogIndependentOperationAsync(
-                OperationTypeEnum.WorkflowCreate,
-                BusinessModuleEnum.Workflow,
-                workflowId,
-                workflowName,
-                "Created",
-                description: workflowDescription,
-                extendedData: extendedData
-            );
+            try
+            {
+                var operationTitle = $"Workflow Created: {workflowName}";
+                var operationDescription = $"Workflow '{workflowName}' has been created by {GetOperatorDisplayName()}";
+                
+                if (!string.IsNullOrEmpty(workflowDescription))
+                {
+                    operationDescription += $" with description: {workflowDescription}";
+                }
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        Description = workflowDescription,
+                        CreatedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowCreate,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null,
+                    null,
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow create operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
         }
 
         /// <summary>
@@ -60,17 +88,47 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 return true;
             }
 
-            return await LogIndependentOperationAsync(
-                OperationTypeEnum.WorkflowUpdate,
-                BusinessModuleEnum.Workflow,
-                workflowId,
-                workflowName,
-                "Updated",
-                beforeData,
-                afterData,
-                changedFields,
-                extendedData: extendedData
-            );
+            try
+            {
+                var operationTitle = $"Workflow Updated: {workflowName}";
+                var operationDescription = BuildEnhancedWorkflowOperationDescription(
+                    workflowName, 
+                    "Updated", 
+                    beforeData, 
+                    afterData, 
+                    changedFields
+                );
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        ChangedFieldsCount = changedFields?.Count ?? 0,
+                        UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowUpdate,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null,
+                    null,
+                    operationTitle,
+                    operationDescription,
+                    beforeData: beforeData,
+                    afterData: afterData,
+                    changedFields: JsonSerializer.Serialize(changedFields),
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow update operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
         }
 
         /// <summary>
@@ -78,15 +136,43 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         public async Task<bool> LogWorkflowDeleteAsync(long workflowId, string workflowName, string reason = null, string extendedData = null)
         {
-            return await LogIndependentOperationAsync(
-                OperationTypeEnum.WorkflowDelete,
-                BusinessModuleEnum.Workflow,
-                workflowId,
-                workflowName,
-                "Deleted",
-                reason: reason,
-                extendedData: extendedData
-            );
+            try
+            {
+                var operationTitle = $"Workflow Deleted: {workflowName}";
+                var operationDescription = $"Workflow '{workflowName}' has been deleted by {GetOperatorDisplayName()}";
+                
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        Reason = reason,
+                        DeletedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowDelete,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null,
+                    null,
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow delete operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
         }
 
         /// <summary>
@@ -94,15 +180,43 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         public async Task<bool> LogWorkflowPublishAsync(long workflowId, string workflowName, string version = null, string extendedData = null)
         {
-            return await LogIndependentOperationAsync(
-                OperationTypeEnum.WorkflowPublish,
-                BusinessModuleEnum.Workflow,
-                workflowId,
-                workflowName,
-                "Published",
-                version: version,
-                extendedData: extendedData
-            );
+            try
+            {
+                var operationTitle = $"Workflow Published: {workflowName}";
+                var operationDescription = $"Workflow '{workflowName}' has been published by {GetOperatorDisplayName()}";
+                
+                if (!string.IsNullOrEmpty(version))
+                {
+                    operationDescription += $" as version {version}";
+                }
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        Version = version,
+                        PublishedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowPublish,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null,
+                    null,
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow publish operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
         }
 
         /// <summary>
@@ -110,15 +224,43 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         public async Task<bool> LogWorkflowUnpublishAsync(long workflowId, string workflowName, string reason = null, string extendedData = null)
         {
-            return await LogIndependentOperationAsync(
-                OperationTypeEnum.WorkflowUnpublish,
-                BusinessModuleEnum.Workflow,
-                workflowId,
-                workflowName,
-                "Unpublished",
-                reason: reason,
-                extendedData: extendedData
-            );
+            try
+            {
+                var operationTitle = $"Workflow Unpublished: {workflowName}";
+                var operationDescription = $"Workflow '{workflowName}' has been unpublished by {GetOperatorDisplayName()}";
+                
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    operationDescription += $" with reason: {reason}";
+                }
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        Reason = reason,
+                        UnpublishedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.WorkflowUnpublish,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null,
+                    null,
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow unpublish operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
         }
 
         /// <summary>
@@ -126,11 +268,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         public async Task<bool> LogWorkflowActivateAsync(long workflowId, string workflowName, string extendedData = null)
         {
-            return await LogIndependentOperationAsync(
+            return await LogWorkflowStatusChangeAsync(
+                workflowId, 
+                workflowName, 
+                "inactive", 
+                "active", 
                 OperationTypeEnum.WorkflowActivate,
-                BusinessModuleEnum.Workflow,
-                workflowId,
-                workflowName,
                 "Activated",
                 extendedData: extendedData
             );
@@ -141,11 +284,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         public async Task<bool> LogWorkflowDeactivateAsync(long workflowId, string workflowName, string reason = null, string extendedData = null)
         {
-            return await LogIndependentOperationAsync(
+            return await LogWorkflowStatusChangeAsync(
+                workflowId, 
+                workflowName, 
+                "active", 
+                "inactive", 
                 OperationTypeEnum.WorkflowDeactivate,
-                BusinessModuleEnum.Workflow,
-                workflowId,
-                workflowName,
                 "Deactivated",
                 reason: reason,
                 extendedData: extendedData
@@ -387,7 +531,78 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         #region Private Helper Methods
 
         /// <summary>
-        /// Build stage order change description
+        /// Log workflow status change operation with detailed before/after tracking
+        /// </summary>
+        private async Task<bool> LogWorkflowStatusChangeAsync(
+            long workflowId, 
+            string workflowName, 
+            string beforeStatus, 
+            string afterStatus, 
+            OperationTypeEnum operationType,
+            string operationAction,
+            string reason = null, 
+            string extendedData = null)
+        {
+            try
+            {
+                var beforeData = JsonSerializer.Serialize(new { status = beforeStatus });
+                var afterData = JsonSerializer.Serialize(new { status = afterStatus });
+                var changedFields = new List<string> { "status" };
+
+                var operationTitle = $"Workflow {operationAction}: {workflowName}";
+                var operationDescription = BuildWorkflowStatusChangeDescription(workflowName, beforeStatus, afterStatus, operationAction, reason);
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        StatusFrom = beforeStatus,
+                        StatusTo = afterStatus,
+                        Reason = reason,
+                        Timestamp = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    operationType,
+                    BusinessModuleEnum.Workflow,
+                    workflowId,
+                    null, // No onboardingId for independent operations
+                    null, // No parent stageId for workflow operations
+                    operationTitle,
+                    operationDescription,
+                    beforeData: beforeData,
+                    afterData: afterData,
+                    changedFields: JsonSerializer.Serialize(changedFields),
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow status change operation for workflow {WorkflowId}", workflowId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Build workflow status change description without showing IDs
+        /// </summary>
+        private string BuildWorkflowStatusChangeDescription(string workflowName, string beforeStatus, string afterStatus, string operationAction, string reason)
+        {
+            var description = $"Workflow '{workflowName}' has been {operationAction.ToLower()} (status changed from {beforeStatus} to {afterStatus}) by {GetOperatorDisplayName()}";
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                description += $" with reason: {reason}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Build stage order change description without showing IDs
         /// </summary>
         private string BuildStageOrderChangeDescription(string stageName, int oldOrder, int newOrder, long? workflowId)
         {
@@ -395,10 +610,48 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             if (workflowId.HasValue)
             {
-                description += $" in workflow ID {workflowId.Value}";
+                description += " in associated workflow";
             }
 
             return description;
+        }
+
+        /// <summary>
+        /// Build enhanced workflow operation description without showing IDs
+        /// </summary>
+        private string BuildEnhancedWorkflowOperationDescription(
+            string workflowName, 
+            string operationAction, 
+            string beforeData = null, 
+            string afterData = null, 
+            List<string> changedFields = null)
+        {
+            var description = $"Workflow '{workflowName}' has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
+
+            // Add specific change details instead of just field names
+            if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
+            {
+                var changeDetails = GetChangeDetails(beforeData, afterData, changedFields);
+                if (!string.IsNullOrEmpty(changeDetails))
+                {
+                    description += $". {changeDetails}";
+                }
+            }
+            else if (changedFields?.Any() == true)
+            {
+                // Fallback to field names if no before/after data
+                description += $". Changed fields: {string.Join(", ", changedFields)}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Format date time in US format (MM/dd/yyyy hh:mm tt)
+        /// </summary>
+        private string FormatUsDateTime(DateTimeOffset dateTime)
+        {
+            return dateTime.ToString("MM/dd/yyyy hh:mm tt", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
         }
 
         // LogIndependentOperationAsync method has been moved to base class to eliminate code duplication

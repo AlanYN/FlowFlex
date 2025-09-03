@@ -80,14 +80,38 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Generate cache key for aggregated query
                 string cacheKey = GenerateAggregatedCacheKey(onboardingId, stageId, businessModules, operationTypes, startDate, endDate, pageIndex, pageSize);
                 
-                // Try cache first
-                var cachedResult = await _logCacheService.GetCachedLogsAsync(cacheKey);
-                if (cachedResult != null)
+                // Skip cache for now - cache disabled for reliability
+                // var cachedResult = await _logCacheService.GetCachedLogsAsync(cacheKey);
+                // if (cachedResult != null)
+                // {
+                //     return cachedResult;
+                // }
+
+                // For stage component queries (onboarding + stage), use optimized method
+                if (onboardingId.HasValue && stageId.HasValue && (businessModules == null || !businessModules.Any()))
                 {
-                    return cachedResult;
+                    _logger.LogDebug("Using optimized stage component query for onboarding {OnboardingId} and stage {StageId}", onboardingId, stageId);
+                    
+                    // Get stage-related task and question IDs
+                    var stageLogService = _serviceProvider.GetService<IStageLogService>();
+                    if (stageLogService != null)
+                    {
+                        // Use the optimized stage component logs method
+                        var stageResult = await stageLogService.GetStageComponentLogsOptimizedAsync(
+                            stageId.Value, 
+                            onboardingId, 
+                            operationTypes?.FirstOrDefault(),
+                            pageIndex, 
+                            pageSize);
+                        
+                        // Skip caching - cache disabled for reliability
+                        // await _logCacheService.SetCachedLogsAsync(cacheKey, stageResult, TimeSpan.FromMinutes(10));
+                        
+                        return stageResult;
+                    }
                 }
 
-                // Get data from repository
+                // Fallback to original logic for other cases
                 var logs = new List<Domain.Entities.OW.OperationChangeLog>();
 
                 if (businessModules?.Any() == true)
@@ -100,7 +124,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
                 else
                 {
-                    // Get all logs if no specific modules requested
+                    // Get all logs if no specific modules requested (this is inefficient but kept for compatibility)
+                    _logger.LogWarning("Performing inefficient query for all logs with businessId=0. Consider specifying businessModules.");
                     logs = await _operationChangeLogRepository.GetByBusinessIdAsync(0);
                 }
 
@@ -125,8 +150,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     PageSize = pageSize
                 };
 
-                // Cache the result
-                await _logCacheService.SetCachedLogsAsync(cacheKey, result, TimeSpan.FromMinutes(10));
+                // Skip caching - cache disabled for reliability
+                // await _logCacheService.SetCachedLogsAsync(cacheKey, result, TimeSpan.FromMinutes(10));
 
                 return result;
             }

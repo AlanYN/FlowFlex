@@ -20,6 +20,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
         Task<bool> LogStageCompleteAsync(long stageId, string stageName, long onboardingId, string completionNotes = null, string extendedData = null);
         Task<bool> LogStageReopenAsync(long stageId, string stageName, long onboardingId, string reason = null, string extendedData = null);
 
+        // Action execution logging
+        Task<bool> LogStageActionExecutionAsync(long stageId, string stageName, long? onboardingId, string actionName, string actionType, string executionResult, string executionDetails = null, string extendedData = null);
+
+        // Portal permission logging
+        Task<bool> LogStagePortalPermissionChangeAsync(long stageId, string stageName, bool beforeVisibleInPortal, bool afterVisibleInPortal, string beforePermission, string afterPermission, long? workflowId = null, string extendedData = null);
+
+        // Component change logging
+        Task<bool> LogStageComponentsChangeAsync(long stageId, string stageName, string beforeComponentsJson, string afterComponentsJson, long? workflowId = null, string extendedData = null);
+
         // Stage-specific queries
         Task<PagedResult<OperationChangeLogOutputDto>> GetStageLogsAsync(long stageId, long? onboardingId = null, int pageIndex = 1, int pageSize = 20);
         Task<PagedResult<OperationChangeLogOutputDto>> GetStageComponentLogsAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeActionExecutions = true);

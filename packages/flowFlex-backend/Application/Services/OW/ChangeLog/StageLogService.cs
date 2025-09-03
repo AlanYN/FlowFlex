@@ -98,7 +98,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (workflowId.HasValue)
                 {
-                    operationDescription += $" in workflow ID: {workflowId.Value}";
+                    operationDescription += " in associated workflow";
                 }
 
                 var extendedDataObj = JsonSerializer.Serialize(new
@@ -106,7 +106,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     StageId = stageId,
                     StageName = stageName,
                     WorkflowId = workflowId,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
                 });
 
                 return await LogOperationAsync(
@@ -132,7 +132,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 // Check if there's actually a meaningful change
-                if (!HasMeaningfulValueChange(beforeData, afterData))
+                if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
                 {
                     _stageLogger.LogDebug("Skipping stage update log for stage {StageId} as there's no meaningful change", stageId);
                     return true;
@@ -140,17 +140,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 string operationTitle = $"Stage Updated: {stageName}";
                 
-                // Use enhanced description method that can handle beforeData and afterData
-                string operationDescription = BuildEnhancedOperationDescription(
-                    BusinessModuleEnum.Stage,
+                // Use enhanced description method that provides detailed change information
+                string operationDescription = BuildEnhancedStageOperationDescription(
                     stageName,
                     "Updated",
                     beforeData,
                     afterData,
                     changedFields,
-                    workflowId,
-                    "workflow",
-                    null);
+                    workflowId);
 
                 var changedFieldsJson = changedFields?.Any() == true ? JsonSerializer.Serialize(changedFields) : null;
 
@@ -160,7 +157,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     StageName = stageName,
                     WorkflowId = workflowId,
                     ChangedFieldsCount = changedFields?.Count ?? 0,
-                    UpdatedAt = DateTimeOffset.UtcNow
+                    UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
                 });
 
                 return await LogOperationAsync(
@@ -202,7 +199,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     StageName = stageName,
                     WorkflowId = workflowId,
                     Reason = reason,
-                    DeletedAt = DateTimeOffset.UtcNow
+                    DeletedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
                 });
 
                 return await LogOperationAsync(
@@ -230,6 +227,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 string operationTitle = $"Stage Order Changed: {stageName}";
                 string operationDescription = $"Stage '{stageName}' order changed from {oldOrder} to {newOrder} by {GetOperatorDisplayName()}";
 
+                if (workflowId.HasValue)
+                {
+                    operationDescription += " in associated workflow";
+                }
+
                 var extendedDataObj = JsonSerializer.Serialize(new
                 {
                     StageId = stageId,
@@ -237,7 +239,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     WorkflowId = workflowId,
                     OldOrder = oldOrder,
                     NewOrder = newOrder,
-                    OrderChangedAt = DateTimeOffset.UtcNow
+                    OrderChangedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
                 });
 
                 return await LogOperationAsync(
@@ -267,7 +269,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 string operationTitle = $"Stage Completed: {stageName}";
-                string operationDescription = $"Stage '{stageName}' has been completed by {GetOperatorDisplayName()} for onboarding {onboardingId}";
+                string operationDescription = $"Stage '{stageName}' has been completed by {GetOperatorDisplayName()} for onboarding";
 
                 if (!string.IsNullOrEmpty(completionNotes))
                 {
@@ -280,7 +282,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     StageName = stageName,
                     OnboardingId = onboardingId,
                     CompletionNotes = completionNotes,
-                    CompletedAt = DateTimeOffset.UtcNow
+                    CompletedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
                 });
 
                 return await LogOperationAsync(
@@ -306,7 +308,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 string operationTitle = $"Stage Reopened: {stageName}";
-                string operationDescription = $"Stage '{stageName}' has been reopened by {GetOperatorDisplayName()} for onboarding {onboardingId}";
+                string operationDescription = $"Stage '{stageName}' has been reopened by {GetOperatorDisplayName()} for onboarding";
 
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -319,7 +321,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     StageName = stageName,
                     OnboardingId = onboardingId,
                     Reason = reason,
-                    ReopenedAt = DateTimeOffset.UtcNow
+                    ReopenedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
                 });
 
                 return await LogOperationAsync(
@@ -521,7 +523,439 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
         #endregion
 
+        #region Action Execution Logging
+
+        /// <summary>
+        /// Log stage action execution
+        /// </summary>
+        public async Task<bool> LogStageActionExecutionAsync(long stageId, string stageName, long? onboardingId, string actionName, string actionType, string executionResult, string executionDetails = null, string extendedData = null)
+        {
+            try
+            {
+                string operationTitle = $"Stage Action Executed: {actionName}";
+                string operationDescription = $"Action '{actionName}' ({actionType}) has been executed on stage '{stageName}' by {GetOperatorDisplayName()}";
+                
+                if (onboardingId.HasValue)
+                {
+                    operationDescription += " for onboarding";
+                }
+
+                operationDescription += $" with result: {executionResult}";
+
+                if (!string.IsNullOrEmpty(executionDetails))
+                {
+                    operationDescription += $". Details: {executionDetails}";
+                }
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        StageId = stageId,
+                        StageName = stageName,
+                        OnboardingId = onboardingId,
+                        ActionName = actionName,
+                        ActionType = actionType,
+                        ExecutionResult = executionResult,
+                        ExecutionDetails = executionDetails,
+                        ExecutedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.StageActionExecution,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    onboardingId,
+                    stageId,
+                    operationTitle,
+                    operationDescription,
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogError(ex, "Failed to log stage action execution for stage {StageId}, action {ActionName}", stageId, actionName);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Portal Permission Logging
+
+        /// <summary>
+        /// Log stage portal permission change (Available in Customer Portal)
+        /// </summary>
+        public async Task<bool> LogStagePortalPermissionChangeAsync(long stageId, string stageName, bool beforeVisibleInPortal, bool afterVisibleInPortal, string beforePermission, string afterPermission, long? workflowId = null, string extendedData = null)
+        {
+            try
+            {
+                var beforeData = JsonSerializer.Serialize(new 
+                { 
+                    VisibleInPortal = beforeVisibleInPortal, 
+                    PortalPermission = beforePermission 
+                });
+                
+                var afterData = JsonSerializer.Serialize(new 
+                { 
+                    VisibleInPortal = afterVisibleInPortal, 
+                    PortalPermission = afterPermission 
+                });
+
+                var changedFields = new List<string>();
+                if (beforeVisibleInPortal != afterVisibleInPortal)
+                    changedFields.Add("VisibleInPortal");
+                if (beforePermission != afterPermission)
+                    changedFields.Add("PortalPermission");
+
+                string operationTitle = $"Stage Portal Settings Changed: {stageName}";
+                string operationDescription = BuildPortalPermissionChangeDescription(
+                    stageName, 
+                    beforeVisibleInPortal, 
+                    afterVisibleInPortal, 
+                    beforePermission, 
+                    afterPermission
+                );
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        StageId = stageId,
+                        StageName = stageName,
+                        WorkflowId = workflowId,
+                        PortalVisibilityChanged = beforeVisibleInPortal != afterVisibleInPortal,
+                        PortalPermissionChanged = beforePermission != afterPermission,
+                        UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.StageUpdate,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null,
+                    stageId,
+                    operationTitle,
+                    operationDescription,
+                    beforeData: beforeData,
+                    afterData: afterData,
+                    changedFields: JsonSerializer.Serialize(changedFields),
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogError(ex, "Failed to log stage portal permission change for stage {StageId}", stageId);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Component Change Logging
+
+        /// <summary>
+        /// Log stage components change
+        /// </summary>
+        public async Task<bool> LogStageComponentsChangeAsync(long stageId, string stageName, string beforeComponentsJson, string afterComponentsJson, long? workflowId = null, string extendedData = null)
+        {
+            try
+            {
+                if (!HasMeaningfulValueChangeEnhanced(beforeComponentsJson, afterComponentsJson))
+                {
+                    _stageLogger.LogDebug("Skipping components change log for stage {StageId} as there's no meaningful change", stageId);
+                    return true;
+                }
+
+                var beforeData = JsonSerializer.Serialize(new { ComponentsJson = beforeComponentsJson });
+                var afterData = JsonSerializer.Serialize(new { ComponentsJson = afterComponentsJson });
+                var changedFields = new List<string> { "ComponentsJson" };
+
+                string operationTitle = $"Stage Components Changed: {stageName}";
+                string operationDescription = BuildComponentsChangeDescription(
+                    stageName, 
+                    beforeComponentsJson, 
+                    afterComponentsJson
+                );
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = JsonSerializer.Serialize(new
+                    {
+                        StageId = stageId,
+                        StageName = stageName,
+                        WorkflowId = workflowId,
+                        ComponentsChanged = true,
+                        UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow)
+                    });
+                }
+
+                return await LogOperationAsync(
+                    OperationTypeEnum.StageUpdate,
+                    BusinessModuleEnum.Stage,
+                    stageId,
+                    null,
+                    stageId,
+                    operationTitle,
+                    operationDescription,
+                    beforeData: beforeData,
+                    afterData: afterData,
+                    changedFields: JsonSerializer.Serialize(changedFields),
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogError(ex, "Failed to log stage components change for stage {StageId}", stageId);
+                return false;
+            }
+        }
+
+        #endregion
+
         #region Helper Methods
+
+        /// <summary>
+        /// Build enhanced stage operation description with detailed change information
+        /// </summary>
+        private string BuildEnhancedStageOperationDescription(
+            string stageName, 
+            string operationAction, 
+            string beforeData = null, 
+            string afterData = null, 
+            List<string> changedFields = null,
+            long? workflowId = null)
+        {
+            var description = $"Stage '{stageName}' has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
+
+            if (workflowId.HasValue)
+            {
+                description += " in associated workflow";
+            }
+
+            // Add specific change details instead of just field names
+            if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
+            {
+                var changeDetails = GetStageSpecificChangeDetails(beforeData, afterData, changedFields);
+                if (!string.IsNullOrEmpty(changeDetails))
+                {
+                    description += $". {changeDetails}";
+                }
+            }
+            else if (changedFields?.Any() == true)
+            {
+                // Fallback to field names if no before/after data
+                description += $". Changed fields: {string.Join(", ", changedFields)}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Get stage-specific change details from before and after data
+        /// </summary>
+        private string GetStageSpecificChangeDetails(string beforeData, string afterData, List<string> changedFields)
+        {
+            try
+            {
+                var beforeJson = JsonSerializer.Deserialize<Dictionary<string, object>>(beforeData);
+                var afterJson = JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
+
+                var changeList = new List<string>();
+
+                foreach (var field in changedFields.Take(3)) // Limit to first 3 changes
+                {
+                    if (beforeJson.TryGetValue(field, out var beforeValue) && 
+                        afterJson.TryGetValue(field, out var afterValue))
+                    {
+                        if (field.Equals("ComponentsJson", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
+                            var afterJsonStr = afterValue?.ToString() ?? string.Empty;
+                            
+                            var componentsChange = GetComponentsChangeDetailsSummary(beforeJsonStr, afterJsonStr);
+                            changeList.Add(componentsChange);
+                        }
+                        else if (field.Equals("VisibleInPortal", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = beforeValue?.ToString()?.ToLower() == "true" ? "visible" : "hidden";
+                            var afterStr = afterValue?.ToString()?.ToLower() == "true" ? "visible" : "hidden";
+                            changeList.Add($"portal visibility from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("PortalPermission", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = beforeValue?.ToString() ?? "null";
+                            var afterStr = afterValue?.ToString() ?? "null";
+                            changeList.Add($"portal permission from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("DefaultAssignee", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
+                            var afterJsonStr = afterValue?.ToString() ?? string.Empty;
+                            
+                            // Use the base class method for assignee change details
+                            var assigneeChange = GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr).GetAwaiter().GetResult();
+                            changeList.Add(assigneeChange);
+                        }
+                        else
+                        {
+                            var beforeStr = GetDisplayValue(beforeValue, field);
+                            var afterStr = GetDisplayValue(afterValue, field);
+                            
+                            changeList.Add($"{field} from '{beforeStr}' to '{afterStr}'");
+                        }
+                    }
+                }
+
+                return string.Join(", ", changeList);
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to parse stage-specific change details from JSON data");
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Build portal permission change description
+        /// </summary>
+        private string BuildPortalPermissionChangeDescription(
+            string stageName, 
+            bool beforeVisibleInPortal, 
+            bool afterVisibleInPortal, 
+            string beforePermission, 
+            string afterPermission)
+        {
+            var changes = new List<string>();
+            
+            if (beforeVisibleInPortal != afterVisibleInPortal)
+            {
+                var beforeStr = beforeVisibleInPortal ? "visible" : "hidden";
+                var afterStr = afterVisibleInPortal ? "visible" : "hidden";
+                changes.Add($"portal visibility changed from {beforeStr} to {afterStr}");
+            }
+            
+            if (beforePermission != afterPermission)
+            {
+                changes.Add($"portal permission changed from {beforePermission ?? "null"} to {afterPermission ?? "null"}");
+            }
+
+            var description = $"Stage '{stageName}' portal settings have been updated by {GetOperatorDisplayName()}";
+            
+            if (changes.Any())
+            {
+                description += $": {string.Join(", ", changes)}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Build components change description
+        /// </summary>
+        private string BuildComponentsChangeDescription(string stageName, string beforeComponentsJson, string afterComponentsJson)
+        {
+            var description = $"Stage '{stageName}' components have been updated by {GetOperatorDisplayName()}";
+            
+            var changeDetails = GetComponentsChangeDetailsSummary(beforeComponentsJson, afterComponentsJson);
+            if (!string.IsNullOrEmpty(changeDetails))
+            {
+                description += $": {changeDetails}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Get components change details summary
+        /// </summary>
+        private string GetComponentsChangeDetailsSummary(string beforeJson, string afterJson)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(beforeJson) && string.IsNullOrEmpty(afterJson))
+                    return "no change in components";
+
+                if (string.IsNullOrEmpty(beforeJson))
+                    return "components configuration added";
+
+                if (string.IsNullOrEmpty(afterJson))
+                    return "components configuration removed";
+
+                var beforeComponents = ParseStageComponents(beforeJson);
+                var afterComponents = ParseStageComponents(afterJson);
+
+                var changes = new List<string>();
+
+                // Compare component counts
+                if (beforeComponents.Count != afterComponents.Count)
+                {
+                    changes.Add($"component count changed from {beforeComponents.Count} to {afterComponents.Count}");
+                }
+
+                // Compare enabled/disabled states
+                var beforeEnabled = beforeComponents.Count(c => c.IsEnabled);
+                var afterEnabled = afterComponents.Count(c => c.IsEnabled);
+                if (beforeEnabled != afterEnabled)
+                {
+                    changes.Add($"enabled components changed from {beforeEnabled} to {afterEnabled}");
+                }
+
+                // Find component key changes
+                var beforeKeys = beforeComponents.Select(c => c.Key).ToHashSet();
+                var afterKeys = afterComponents.Select(c => c.Key).ToHashSet();
+                
+                var addedKeys = afterKeys.Except(beforeKeys).Take(2).ToList();
+                var removedKeys = beforeKeys.Except(afterKeys).Take(2).ToList();
+
+                if (addedKeys.Any())
+                {
+                    changes.Add($"added {string.Join(", ", addedKeys)}");
+                }
+
+                if (removedKeys.Any())
+                {
+                    changes.Add($"removed {string.Join(", ", removedKeys)}");
+                }
+
+                return changes.Any() ? string.Join(", ", changes) : "components configuration updated";
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to parse components change details");
+                return "components configuration updated";
+            }
+        }
+
+        /// <summary>
+        /// Parse stage components from JSON string
+        /// </summary>
+        private List<Domain.Shared.Models.StageComponent> ParseStageComponents(string componentsJson)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(componentsJson))
+                    return new List<Domain.Shared.Models.StageComponent>();
+
+                return JsonSerializer.Deserialize<List<Domain.Shared.Models.StageComponent>>(componentsJson) 
+                       ?? new List<Domain.Shared.Models.StageComponent>();
+            }
+            catch
+            {
+                return new List<Domain.Shared.Models.StageComponent>();
+            }
+        }
+
+        /// <summary>
+        /// Format date time in US format (MM/dd/yyyy hh:mm tt)
+        /// </summary>
+        private string FormatUsDateTime(DateTimeOffset dateTime)
+        {
+            return dateTime.ToString("MM/dd/yyyy hh:mm tt", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+        }
 
         private async Task<(List<long> taskIds, List<long> questionIds)> GetTaskAndQuestionIdsBatchAsync(long stageId)
         {

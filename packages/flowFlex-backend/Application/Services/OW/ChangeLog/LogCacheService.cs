@@ -202,6 +202,35 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
         }
 
+        /// <summary>
+        /// Invalidate cache for specific onboarding and stage combination
+        /// </summary>
+        public async Task InvalidateCacheForOnboardingAndStageAsync(long onboardingId, long stageId)
+        {
+            try
+            {
+                // Clear the specific combination that was causing the cache hit
+                var specificKeys = new[]
+                {
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:stage_{stageId}:page_1_20",
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:stage_{stageId}:page_1_10",
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:stage_{stageId}:page_1_50"
+                };
+
+                foreach (var key in specificKeys)
+                {
+                    await _distributedCache.RemoveAsync(key);
+                    _logger.LogDebug("Removed specific cache key: {Key}", key);
+                }
+
+                _logger.LogDebug("Invalidated cache for onboarding {OnboardingId} and stage {StageId}", onboardingId, stageId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to invalidate cache for onboarding {OnboardingId} and stage {StageId}", onboardingId, stageId);
+            }
+        }
+
         #endregion
 
         #region Cache Key Generation
@@ -348,22 +377,148 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
-                // Note: Pattern-based cache invalidation depends on the cache implementation
-                // For Redis, you would use KEYS or SCAN commands
-                // For in-memory cache, you might need to track keys separately
-                // This is a simplified implementation - in production, you'd want more sophisticated pattern matching
-
+                // Note: IDistributedCache doesn't support pattern-based deletion natively
+                // We need to implement a workaround for this limitation
+                
                 foreach (var pattern in patterns)
                 {
-                    // This is a placeholder - implement based on your cache provider
-                    _logger.LogDebug("Would invalidate cache pattern: {Pattern}", pattern);
+                    _logger.LogDebug("Invalidating cache pattern: {Pattern}", pattern);
+                    
+                    // For IDistributedCache, we need to clear specific known keys
+                    // Since we can't use pattern matching, we'll clear common key variations
+                    await InvalidateKnownKeysForPatternAsync(pattern);
                 }
-
-                await Task.CompletedTask;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to invalidate cache by patterns");
+            }
+        }
+
+        private async Task InvalidateKnownKeysForPatternAsync(string pattern)
+        {
+            try
+            {
+                // Extract the core identifier from the pattern
+                // Pattern like "operation_logs:*onboarding_1963119425070698497*"
+                
+                if (pattern.Contains("onboarding_"))
+                {
+                    var onboardingIdMatch = System.Text.RegularExpressions.Regex.Match(pattern, @"onboarding_(\d+)");
+                    if (onboardingIdMatch.Success)
+                    {
+                        var onboardingId = onboardingIdMatch.Groups[1].Value;
+                        await ClearOnboardingSpecificKeysAsync(onboardingId);
+                    }
+                }
+                else if (pattern.Contains("stage_"))
+                {
+                    var stageIdMatch = System.Text.RegularExpressions.Regex.Match(pattern, @"stage_(\d+)");
+                    if (stageIdMatch.Success)
+                    {
+                        var stageId = stageIdMatch.Groups[1].Value;
+                        await ClearStageSpecificKeysAsync(stageId);
+                    }
+                }
+                else if (pattern.Contains("*"))
+                {
+                    // For patterns like "operation_logs:*", we clear commonly used aggregated keys
+                    await ClearCommonAggregatedKeysAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to invalidate specific keys for pattern: {Pattern}", pattern);
+            }
+        }
+
+        private async Task ClearOnboardingSpecificKeysAsync(string onboardingId)
+        {
+            try
+            {
+                // Clear common onboarding-related cache keys based on actual format
+                // Format: "operation_logs:aggregated:onboarding_{id}:stage_{id}:page_{index}_{size}"
+                var commonKeys = new[]
+                {
+                    // Common pagination sizes
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:page_1_20",
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:page_1_10",
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:page_1_50"
+                };
+
+                // Add stage-specific keys for common page sizes
+                var stageKeys = new[]
+                {
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:stage_*:page_1_20",
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:stage_*:page_1_10",
+                    $"{LogsCachePrefix}aggregated:onboarding_{onboardingId}:stage_*:page_1_50"
+                };
+
+                foreach (var key in commonKeys)
+                {
+                    await _distributedCache.RemoveAsync(key);
+                    _logger.LogDebug("Removed cache key: {Key}", key);
+                }
+
+                // For stage-specific keys, we'll need to handle them differently
+                // since we can't use wildcards with IDistributedCache
+                _logger.LogDebug("Note: Stage-specific keys for onboarding {OnboardingId} need manual clearing", onboardingId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clear onboarding specific keys for: {OnboardingId}", onboardingId);
+            }
+        }
+
+        private async Task ClearStageSpecificKeysAsync(string stageId)
+        {
+            try
+            {
+                // Clear common stage-related cache keys
+                var commonKeys = new[]
+                {
+                    $"{LogsCachePrefix}aggregated:stage_{stageId}:page_1_20",
+                    $"{LogsCachePrefix}aggregated:stage_{stageId}:page_1_10",
+                    $"{LogsCachePrefix}aggregated:stage_{stageId}:page_1_50"
+                };
+
+                foreach (var key in commonKeys)
+                {
+                    await _distributedCache.RemoveAsync(key);
+                    _logger.LogDebug("Removed cache key: {Key}", key);
+                }
+
+                _logger.LogDebug("Note: Onboarding+Stage combination keys for stage {StageId} need manual clearing", stageId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clear stage specific keys for: {StageId}", stageId);
+            }
+        }
+
+        private async Task ClearCommonAggregatedKeysAsync()
+        {
+            try
+            {
+                // Clear commonly used aggregated cache keys
+                // This is a best-effort approach since we can't scan all keys
+                var commonPatterns = new[]
+                {
+                    $"{LogsCachePrefix}aggregated:",
+                    $"{StatsCachePrefix}aggregated:"
+                };
+
+                foreach (var prefix in commonPatterns)
+                {
+                    _logger.LogDebug("Clearing cache entries with prefix: {Prefix}", prefix);
+                    // Note: This is still limited by IDistributedCache capabilities
+                    // In a real implementation, you might want to use Redis-specific commands
+                    // or maintain a separate key tracking mechanism
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clear common aggregated keys");
             }
         }
 

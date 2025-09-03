@@ -197,6 +197,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
         /// <summary>
         /// Get operation logs with pagination for stage components (optimized for large datasets)
+        /// Includes: Stage logs, ChecklistTask logs, Task logs, Question logs, QuestionnaireAnswer logs, 
+        /// StaticField logs, File logs, Checklist logs, and Questionnaire logs
         /// </summary>
         public async Task<(List<OperationChangeLog> logs, int totalCount)> GetStageComponentLogsPaginatedAsync(
             long? onboardingId,
@@ -217,13 +219,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                         .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
                         .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
 
-                    // Task logs (if taskIds provided)
+                    // ChecklistTask logs (if taskIds provided)
                     taskIds != null && taskIds.Any() ?
                         base.db.Queryable<OperationChangeLog>()
-                            .Where(x => x.BusinessModule == "Task" && taskIds.Contains(x.BusinessId) && x.IsValid)
+                            .Where(x => x.BusinessModule == "ChecklistTask" && taskIds.Contains(x.BusinessId) && x.IsValid)
                             .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
                             .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType) :
                         base.db.Queryable<OperationChangeLog>().Where(x => false), // Empty query if no task IDs
+
+                    // General Task logs (filtered by onboardingId and stageId)
+                    base.db.Queryable<OperationChangeLog>()
+                        .Where(x => x.BusinessModule == "Task" && x.IsValid)
+                        .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                        .Where(x => x.StageId == stageId)
+                        .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
 
                     // Question logs (if questionIds provided)
                     questionIds != null && questionIds.Any() ?
@@ -231,7 +240,42 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                             .Where(x => x.BusinessModule == "Question" && questionIds.Contains(x.BusinessId) && x.IsValid)
                             .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
                             .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType) :
-                        base.db.Queryable<OperationChangeLog>().Where(x => false) // Empty query if no question IDs
+                        base.db.Queryable<OperationChangeLog>().Where(x => false), // Empty query if no question IDs
+
+                    // QuestionnaireAnswer logs (filtered by onboardingId and stageId)
+                    base.db.Queryable<OperationChangeLog>()
+                        .Where(x => x.BusinessModule == "QuestionnaireAnswer" && x.IsValid)
+                        .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                        .Where(x => x.StageId == stageId)
+                        .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
+
+                    // StaticField logs (filtered by onboardingId and stageId)
+                    base.db.Queryable<OperationChangeLog>()
+                        .Where(x => x.BusinessModule == "StaticField" && x.IsValid)
+                        .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                        .Where(x => x.StageId == stageId)
+                        .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
+
+                    // File logs (filtered by onboardingId and stageId)
+                    base.db.Queryable<OperationChangeLog>()
+                        .Where(x => x.BusinessModule == "File" && x.IsValid)
+                        .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                        .Where(x => x.StageId == stageId)
+                        .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
+
+                    // Checklist logs (filtered by onboardingId and stageId)
+                    base.db.Queryable<OperationChangeLog>()
+                        .Where(x => x.BusinessModule == "Checklist" && x.IsValid)
+                        .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                        .Where(x => x.StageId == stageId)
+                        .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType),
+
+                    // Questionnaire logs (filtered by onboardingId and stageId)
+                    base.db.Queryable<OperationChangeLog>()
+                        .Where(x => x.BusinessModule == "Questionnaire" && x.IsValid)
+                        .WhereIF(onboardingId.HasValue, x => x.OnboardingId == onboardingId.Value)
+                        .Where(x => x.StageId == stageId)
+                        .WhereIF(!string.IsNullOrEmpty(operationType), x => x.OperationType == operationType)
                 );
 
                 // Get total count

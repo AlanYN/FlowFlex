@@ -567,6 +567,17 @@ namespace FlowFlex.Application.Service.OW
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
                 await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow activation
+                try
+                {
+                    await _operationChangeLogService.LogWorkflowActivateAsync(id, entity.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log workflow activation for workflow {WorkflowId}", id);
+                    // Don't fail the operation if logging fails
+                }
             }
 
             return result;
@@ -589,6 +600,17 @@ namespace FlowFlex.Application.Service.OW
             {
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
                 await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow deactivation
+                try
+                {
+                    await _operationChangeLogService.LogWorkflowDeactivateAsync(id, entity.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log workflow deactivation for workflow {WorkflowId}", id);
+                    // Don't fail the operation if logging fails
+                }
             }
 
             return result;
