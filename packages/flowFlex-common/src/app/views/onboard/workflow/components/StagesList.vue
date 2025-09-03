@@ -628,7 +628,7 @@ const getPortalPermissionIcon = (permission?: number) => {
 	if (permission === PortalPermissionEnum.Completable) {
 		return 'material-symbols:person-edit-outline';
 	}
-	return 'material-symbols:person-alert-outline';
+	return 'material-symbols:table-eye-outline-rounded';
 };
 
 // 获取Portal权限工具提示文本

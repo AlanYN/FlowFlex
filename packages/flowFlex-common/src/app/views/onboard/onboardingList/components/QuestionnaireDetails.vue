@@ -169,93 +169,151 @@ const findTargetSectionIndex = (sections: any[], targetSectionId: string) => {
 	return sections.findIndex((s) => s.id === targetSectionId || s.temporaryId === targetSectionId);
 };
 
-// 计算问卷完成状态 - 基于必填问题和跳转逻辑
+// 辅助函数：检查section是否完成
+const isSectionCompleted = (section: any, answers: any) => {
+	if (!section.questions || !Array.isArray(section.questions)) {
+		return true; // 没有问题的section视为完成
+	}
+
+	// 检查section内所有必填题是否都已填答
+	for (const question of section.questions) {
+		if (question.type === 'page_break') continue;
+
+		// 只检查必填问题
+		if (question.required) {
+			const questionId = getQuestionId(question);
+			const userAnswer = findUserAnswer(answers, questionId);
+
+			// 如果有任何必填题未回答，则section未完成
+			if (!isAnswerValid(userAnswer)) {
+				return false;
+			}
+		}
+	}
+
+	return true; // 所有必填题都已回答
+};
+
+// 辅助函数：获取需要跳转的目标section ID
+const getJumpTargetSectionId = (section: any, answers: any) => {
+	if (!section.questions || !Array.isArray(section.questions)) {
+		return null;
+	}
+
+	// 从最后一个问题开始向前查找跳转规则
+	for (let i = section.questions.length - 1; i >= 0; i--) {
+		const question = section.questions[i];
+
+		// 检查是否是有跳转规则的问题
+		if (isJumpableQuestion(question)) {
+			const questionId = getQuestionId(question);
+			const userAnswer = findUserAnswer(answers, questionId);
+
+			// 检查用户是否已经选择了答案
+			if (isAnswerValid(userAnswer)) {
+				// 查找匹配的跳转规则
+				const matchingRule = findMatchingJumpRule(question, userAnswer);
+
+				// 如果找到匹配的跳转规则，返回目标section ID
+				if (matchingRule) {
+					return matchingRule.targetSectionId;
+				}
+			}
+		}
+	}
+
+	return null;
+};
+
+// 计算问卷完成状态 - 基于section级别的进度计算
 const completionStats = computed(() => {
 	const questionnaireData = JSON.parse(props.questionnaireData.structureJson);
 	const answers = props.questionnaireAnswers;
 
 	if (!questionnaireData?.sections || !Array.isArray(questionnaireData.sections)) {
-		return { totalRequiredQuestions: 0, answeredRequiredQuestions: 0 };
+		return { totalSections: 0, completedSections: 0, skippedSections: 0 };
 	}
 
-	let totalRequiredQuestions = 0;
-	let answeredRequiredQuestions = 0;
+	// 过滤掉默认section（如果存在isDefault字段）
+	const validSections = questionnaireData.sections.filter((section) => !section.isDefault);
+	const totalSections = validSections.length;
+	if (totalSections === 0) {
+		return { totalSections: 0, completedSections: 0, skippedSections: 0 };
+	}
 
-	// 遍历所有section，按照dynamicForm的跳转逻辑处理
-	for (let sectionIndex = 0; sectionIndex < questionnaireData.sections.length; sectionIndex++) {
-		const section = questionnaireData.sections[sectionIndex];
+	let completedSections = 0;
+	let skippedSections = 0;
+	const visitedSections = new Set<number>();
+	const skippedSectionIndexes = new Set<number>();
 
-		if (section.questions && Array.isArray(section.questions)) {
-			// 统计当前section的必填问题
-			for (const question of section.questions) {
-				if (question.type === 'page_break') continue;
+	// 遍历所有section，处理跳转逻辑
+	for (let sectionIndex = 0; sectionIndex < validSections.length; sectionIndex++) {
+		// 跳过已经被标记为跳过的section
+		if (skippedSectionIndexes.has(sectionIndex)) {
+			continue;
+		}
 
-				// 只处理必填问题
-				if (question.required) {
-					totalRequiredQuestions++;
+		const section = validSections[sectionIndex];
+		visitedSections.add(sectionIndex);
 
-					// 检查是否已回答
-					const questionId = getQuestionId(question);
-					const userAnswer = findUserAnswer(answers, questionId);
+		// 检查当前section是否完成
+		if (isSectionCompleted(section, answers)) {
+			completedSections++;
 
-					if (isAnswerValid(userAnswer)) {
-						answeredRequiredQuestions++;
-					}
-				}
-			}
+			// 检查是否有跳转逻辑
+			const jumpTargetSectionId = getJumpTargetSectionId(section, answers);
 
-			// 检查当前section是否有跳转逻辑（从最后一个问题开始向前查找）
-			let jumpTargetSectionId = null;
-
-			for (let i = section.questions.length - 1; i >= 0; i--) {
-				const question = section.questions[i];
-
-				// 检查是否是有跳转规则的问题
-				if (isJumpableQuestion(question)) {
-					const questionId = getQuestionId(question);
-					const userAnswer = findUserAnswer(answers, questionId);
-
-					// 检查用户是否已经选择了答案
-					if (isAnswerValid(userAnswer)) {
-						// 查找匹配的跳转规则
-						const matchingRule = findMatchingJumpRule(question, userAnswer);
-
-						// 如果找到匹配的跳转规则，记录目标并跳出循环
-						if (matchingRule) {
-							jumpTargetSectionId = matchingRule.targetSectionId;
-							break;
-						}
-					}
-				}
-			}
-
-			// 如果有跳转目标，跳转到目标section（跳过中间sections）
 			if (jumpTargetSectionId) {
 				const targetSectionIndex = findTargetSectionIndex(
-					questionnaireData.sections,
+					validSections,
 					jumpTargetSectionId
 				);
 
 				if (targetSectionIndex !== -1 && targetSectionIndex > sectionIndex) {
-					// 直接跳转到目标section，跳过中间的section
+					// 标记中间被跳过的sections
+					for (let i = sectionIndex + 1; i < targetSectionIndex; i++) {
+						if (!visitedSections.has(i)) {
+							skippedSectionIndexes.add(i);
+							skippedSections++;
+						}
+					}
+
+					// 跳转到目标section
 					sectionIndex = targetSectionIndex - 1; // -1 是因为for循环会自动+1
 				}
 			}
 		}
 	}
 
-	return { totalRequiredQuestions, answeredRequiredQuestions };
+	return {
+		totalSections,
+		completedSections: completedSections + skippedSections, // 跳过的section计为完成
+		actualCompletedSections: completedSections,
+		skippedSections,
+	};
 });
 
 const completionRate = computed(() => {
 	const stats = completionStats.value;
-	if (stats.totalRequiredQuestions === 0) return 0;
-	return Math.round((stats.answeredRequiredQuestions / stats.totalRequiredQuestions) * 100);
+	if (stats.totalSections === 0) return 0;
+	return Math.round((stats.completedSections / stats.totalSections) * 100);
 });
 
 const completionStatus = computed(() => {
 	const stats = completionStats.value;
-	return `${stats.answeredRequiredQuestions} of ${stats.totalRequiredQuestions} required questions answered`;
+
+	if (stats.totalSections === 0) {
+		return 'No sections to complete';
+	}
+
+	let statusText = `${stats.completedSections} of ${stats.totalSections} sections completed`;
+
+	// 如果有跳过的section，添加说明
+	if (stats.skippedSections > 0) {
+		statusText += ` (${stats.skippedSections} skipped)`;
+	}
+
+	return statusText;
 });
 
 // 切换展开状态

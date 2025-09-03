@@ -1405,7 +1405,6 @@ const getUserGroup = async () => {
 .actions-dropdown :deep(.el-dropdown-menu__item) {
 	display: flex;
 	align-items: center;
-	gap: 8px;
 }
 
 .ai-tag {
