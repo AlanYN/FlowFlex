@@ -775,7 +775,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
                             
+                            _stageLogger.LogDebug("Processing ComponentsJson change - Before: {BeforeJson}, After: {AfterJson}", 
+                                beforeJsonStr?.Substring(0, Math.Min(100, beforeJsonStr.Length)), 
+                                afterJsonStr?.Substring(0, Math.Min(100, afterJsonStr.Length)));
+                            
                             var componentsChange = GetComponentsChangeDetailsSummary(beforeJsonStr, afterJsonStr);
+                            _stageLogger.LogDebug("Generated components change description: {ComponentsChange}", componentsChange);
                             changeList.Add(componentsChange);
                         }
                         else if (field.Equals("VisibleInPortal", StringComparison.OrdinalIgnoreCase))
@@ -870,7 +875,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get components change details summary
+        /// Get components change details summary with detailed component names
         /// </summary>
         private string GetComponentsChangeDetailsSummary(string beforeJson, string afterJson)
         {
@@ -889,6 +894,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var afterComponents = ParseStageComponents(afterJson);
 
                 var changes = new List<string>();
+
+                // Compare individual components with detailed information
+                var componentChanges = GetDetailedComponentChanges(beforeComponents, afterComponents);
+                if (componentChanges.Any())
+                {
+                    changes.AddRange(componentChanges);
+                }
 
                 // Compare component counts
                 if (beforeComponents.Count != afterComponents.Count)
@@ -913,12 +925,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (addedKeys.Any())
                 {
-                    changes.Add($"added {string.Join(", ", addedKeys)}");
+                    changes.Add($"added {string.Join(", ", addedKeys)} components");
                 }
 
                 if (removedKeys.Any())
                 {
-                    changes.Add($"removed {string.Join(", ", removedKeys)}");
+                    changes.Add($"removed {string.Join(", ", removedKeys)} components");
                 }
 
                 return changes.Any() ? string.Join(", ", changes) : "components configuration updated";
@@ -931,6 +943,412 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Get detailed changes for individual components with specific content information
+        /// </summary>
+        private List<string> GetDetailedComponentChanges(List<Domain.Shared.Models.StageComponent> beforeComponents, List<Domain.Shared.Models.StageComponent> afterComponents)
+        {
+            var changes = new List<string>();
+
+            try
+            {
+                // Group components by key to handle multiple components of the same type
+                var beforeGroups = beforeComponents.GroupBy(c => c.Key).ToDictionary(g => g.Key, g => g.ToList());
+                var afterGroups = afterComponents.GroupBy(c => c.Key).ToDictionary(g => g.Key, g => g.ToList());
+
+                // Check each component type for changes
+                foreach (var key in new[] { "fields", "checklist", "questionnaires", "files" })
+                {
+                    var beforeComps = beforeGroups.GetValueOrDefault(key, new List<Domain.Shared.Models.StageComponent>());
+                    var afterComps = afterGroups.GetValueOrDefault(key, new List<Domain.Shared.Models.StageComponent>());
+
+                    var componentChangeDetails = GetComponentGroupChanges(key, beforeComps, afterComps);
+                    if (!string.IsNullOrEmpty(componentChangeDetails))
+                    {
+                        changes.Add(componentChangeDetails);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get detailed component changes");
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Get changes for a group of components of the same type
+        /// </summary>
+        private string GetComponentGroupChanges(string componentKey, List<Domain.Shared.Models.StageComponent> beforeComps, List<Domain.Shared.Models.StageComponent> afterComps)
+        {
+            try
+            {
+                var changes = new List<string>();
+
+                // Handle different scenarios
+                if (!beforeComps.Any() && afterComps.Any())
+                {
+                    // Components were added
+                    var componentDetails = GetComponentGroupContentDetails(componentKey, afterComps);
+                    if (!string.IsNullOrEmpty(componentDetails))
+                    {
+                        changes.Add($"added {componentKey}: {componentDetails}");
+                    }
+                    else
+                    {
+                        changes.Add($"added {componentKey} component(s)");
+                    }
+                }
+                else if (beforeComps.Any() && !afterComps.Any())
+                {
+                    // Components were removed
+                    changes.Add($"removed all {componentKey} components");
+                }
+                else if (beforeComps.Any() && afterComps.Any())
+                {
+                    // Components were modified - analyze the specific changes
+                    var modificationDetails = GetComponentGroupModificationDetails(componentKey, beforeComps, afterComps);
+                    if (!string.IsNullOrEmpty(modificationDetails))
+                    {
+                        changes.Add($"{componentKey}: {modificationDetails}");
+                    }
+                }
+
+                return string.Join(", ", changes);
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get component group changes for {ComponentKey}", componentKey);
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get content details for a group of components of the same type
+        /// </summary>
+        private string GetComponentGroupContentDetails(string componentKey, List<Domain.Shared.Models.StageComponent> components)
+        {
+            try
+            {
+                switch (componentKey?.ToLower())
+                {
+                    case "fields":
+                        var allFields = components.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
+                        if (allFields.Any())
+                        {
+                            return $"{allFields.Count} static fields ({string.Join(", ", allFields.Take(3))}{(allFields.Count > 3 ? ", etc." : "")})";
+                        }
+                        break;
+
+                    case "checklist":
+                        var allChecklistNames = components.SelectMany(c => c.ChecklistNames ?? new List<string>()).Distinct().ToList();
+                        if (allChecklistNames.Any())
+                        {
+                            return $"{allChecklistNames.Count} checklists ({string.Join(", ", allChecklistNames.Take(2).Select(n => $"'{n}'"))}{(allChecklistNames.Count > 2 ? ", etc." : "")})";
+                        }
+                        var allChecklistIds = components.SelectMany(c => c.ChecklistIds ?? new List<long>()).Distinct().ToList();
+                        if (allChecklistIds.Any())
+                        {
+                            return $"{allChecklistIds.Count} checklists";
+                        }
+                        break;
+
+                    case "questionnaires":
+                        var allQuestionnaireNames = components.SelectMany(c => c.QuestionnaireNames ?? new List<string>()).Distinct().ToList();
+                        if (allQuestionnaireNames.Any())
+                        {
+                            return $"{allQuestionnaireNames.Count} questionnaires ({string.Join(", ", allQuestionnaireNames.Take(2).Select(n => $"'{n}'"))}{(allQuestionnaireNames.Count > 2 ? ", etc." : "")})";
+                        }
+                        var allQuestionnaireIds = components.SelectMany(c => c.QuestionnaireIds ?? new List<long>()).Distinct().ToList();
+                        if (allQuestionnaireIds.Any())
+                        {
+                            return $"{allQuestionnaireIds.Count} questionnaires";
+                        }
+                        break;
+
+                    case "files":
+                        return "file management enabled";
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get component group content details for {ComponentKey}", componentKey);
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get modification details for a group of components of the same type
+        /// </summary>
+        private string GetComponentGroupModificationDetails(string componentKey, List<Domain.Shared.Models.StageComponent> beforeComps, List<Domain.Shared.Models.StageComponent> afterComps)
+        {
+            try
+            {
+                var changes = new List<string>();
+
+                switch (componentKey?.ToLower())
+                {
+                    case "fields":
+                        var beforeFields = beforeComps.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
+                        var afterFields = afterComps.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
+                        
+                        var addedFields = afterFields.Except(beforeFields).ToList();
+                        var removedFields = beforeFields.Except(afterFields).ToList();
+                        
+                        if (addedFields.Any())
+                        {
+                            changes.Add($"added fields: {string.Join(", ", addedFields.Take(3))}{(addedFields.Count > 3 ? ", etc." : "")}");
+                        }
+                        if (removedFields.Any())
+                        {
+                            changes.Add($"removed fields: {string.Join(", ", removedFields.Take(3))}{(removedFields.Count > 3 ? ", etc." : "")}");
+                        }
+                        break;
+
+                    case "checklist":
+                        var beforeChecklistNames = beforeComps.SelectMany(c => c.ChecklistNames ?? new List<string>()).Distinct().ToList();
+                        var afterChecklistNames = afterComps.SelectMany(c => c.ChecklistNames ?? new List<string>()).Distinct().ToList();
+                        
+                        var addedChecklists = afterChecklistNames.Except(beforeChecklistNames).ToList();
+                        var removedChecklists = beforeChecklistNames.Except(afterChecklistNames).ToList();
+                        
+                        if (addedChecklists.Any())
+                        {
+                            changes.Add($"added checklists: {string.Join(", ", addedChecklists.Take(2).Select(n => $"'{n}'"))}{(addedChecklists.Count > 2 ? ", etc." : "")}");
+                        }
+                        if (removedChecklists.Any())
+                        {
+                            changes.Add($"removed checklists: {string.Join(", ", removedChecklists.Take(2).Select(n => $"'{n}'"))}{(removedChecklists.Count > 2 ? ", etc." : "")}");
+                        }
+                        break;
+
+                    case "questionnaires":
+                        var beforeQuestionnaireNames = beforeComps.SelectMany(c => c.QuestionnaireNames ?? new List<string>()).Distinct().ToList();
+                        var afterQuestionnaireNames = afterComps.SelectMany(c => c.QuestionnaireNames ?? new List<string>()).Distinct().ToList();
+                        
+                        var addedQuestionnaires = afterQuestionnaireNames.Except(beforeQuestionnaireNames).ToList();
+                        var removedQuestionnaires = beforeQuestionnaireNames.Except(afterQuestionnaireNames).ToList();
+                        
+                        if (addedQuestionnaires.Any())
+                        {
+                            changes.Add($"added questionnaires: {string.Join(", ", addedQuestionnaires.Take(2).Select(n => $"'{n}'"))}{(addedQuestionnaires.Count > 2 ? ", etc." : "")}");
+                        }
+                        if (removedQuestionnaires.Any())
+                        {
+                            changes.Add($"removed questionnaires: {string.Join(", ", removedQuestionnaires.Take(2).Select(n => $"'{n}'"))}{(removedQuestionnaires.Count > 2 ? ", etc." : "")}");
+                        }
+                        break;
+                }
+
+                return string.Join(", ", changes);
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get component group modification details for {ComponentKey}", componentKey);
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get content details for a component (what it contains)
+        /// </summary>
+        private string GetComponentContentDetails(Domain.Shared.Models.StageComponent component)
+        {
+            var details = new List<string>();
+
+            try
+            {
+                switch (component.Key?.ToLower())
+                {
+                    case "fields":
+                        if (component.StaticFields?.Any() == true)
+                        {
+                            details.Add($"{component.StaticFields.Count} static fields ({string.Join(", ", component.StaticFields.Take(3))}{(component.StaticFields.Count > 3 ? ", ..." : "")})");
+                        }
+                        break;
+
+                    case "checklist":
+                        if (component.ChecklistNames?.Any() == true)
+                        {
+                            details.Add($"{component.ChecklistNames.Count} checklists ({string.Join(", ", component.ChecklistNames.Take(2).Select(n => $"'{n}'"))}{(component.ChecklistNames.Count > 2 ? ", ..." : "")})");
+                        }
+                        else if (component.ChecklistIds?.Any() == true)
+                        {
+                            details.Add($"{component.ChecklistIds.Count} checklists");
+                        }
+                        break;
+
+                    case "questionnaires":
+                        if (component.QuestionnaireNames?.Any() == true)
+                        {
+                            details.Add($"{component.QuestionnaireNames.Count} questionnaires ({string.Join(", ", component.QuestionnaireNames.Take(2).Select(n => $"'{n}'"))}{(component.QuestionnaireNames.Count > 2 ? ", ..." : "")})");
+                        }
+                        else if (component.QuestionnaireIds?.Any() == true)
+                        {
+                            details.Add($"{component.QuestionnaireIds.Count} questionnaires");
+                        }
+                        break;
+
+                    case "files":
+                        details.Add("file management");
+                        break;
+                }
+
+                if (component.IsEnabled)
+                {
+                    details.Add("enabled");
+                }
+                else
+                {
+                    details.Add("disabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get component content details for {ComponentKey}", component.Key);
+            }
+
+            return string.Join(", ", details);
+        }
+
+        /// <summary>
+        /// Get modification details between two versions of the same component
+        /// </summary>
+        private List<string> GetComponentModificationDetails(Domain.Shared.Models.StageComponent before, Domain.Shared.Models.StageComponent after)
+        {
+            var changes = new List<string>();
+
+            try
+            {
+                // Check enabled/disabled state change
+                if (before.IsEnabled != after.IsEnabled)
+                {
+                    changes.Add(after.IsEnabled ? "enabled" : "disabled");
+                }
+
+                // Check order change
+                if (before.Order != after.Order)
+                {
+                    changes.Add($"order changed from {before.Order} to {after.Order}");
+                }
+
+                // Check content changes based on component type
+                switch (before.Key?.ToLower())
+                {
+                    case "fields":
+                        var fieldChanges = GetFieldComponentChanges(before, after);
+                        if (fieldChanges.Any())
+                        {
+                            changes.AddRange(fieldChanges);
+                        }
+                        break;
+
+                    case "checklist":
+                        var checklistChanges = GetChecklistComponentChanges(before, after);
+                        if (checklistChanges.Any())
+                        {
+                            changes.AddRange(checklistChanges);
+                        }
+                        break;
+
+                    case "questionnaires":
+                        var questionnaireChanges = GetQuestionnaireComponentChanges(before, after);
+                        if (questionnaireChanges.Any())
+                        {
+                            changes.AddRange(questionnaireChanges);
+                        }
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get component modification details for {ComponentKey}", before.Key);
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Get changes for fields component
+        /// </summary>
+        private List<string> GetFieldComponentChanges(Domain.Shared.Models.StageComponent before, Domain.Shared.Models.StageComponent after)
+        {
+            var changes = new List<string>();
+
+            var beforeFields = before.StaticFields ?? new List<string>();
+            var afterFields = after.StaticFields ?? new List<string>();
+
+            var addedFields = afterFields.Except(beforeFields).ToList();
+            var removedFields = beforeFields.Except(afterFields).ToList();
+
+            if (addedFields.Any())
+            {
+                changes.Add($"added fields: {string.Join(", ", addedFields.Take(3))}{(addedFields.Count > 3 ? $" (+{addedFields.Count - 3} more)" : "")}");
+            }
+
+            if (removedFields.Any())
+            {
+                changes.Add($"removed fields: {string.Join(", ", removedFields.Take(3))}{(removedFields.Count > 3 ? $" (+{removedFields.Count - 3} more)" : "")}");
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Get changes for checklist component
+        /// </summary>
+        private List<string> GetChecklistComponentChanges(Domain.Shared.Models.StageComponent before, Domain.Shared.Models.StageComponent after)
+        {
+            var changes = new List<string>();
+
+            var beforeNames = before.ChecklistNames ?? new List<string>();
+            var afterNames = after.ChecklistNames ?? new List<string>();
+
+            var addedNames = afterNames.Except(beforeNames).ToList();
+            var removedNames = beforeNames.Except(afterNames).ToList();
+
+            if (addedNames.Any())
+            {
+                changes.Add($"added checklists: {string.Join(", ", addedNames.Take(2).Select(n => $"'{n}'"))}{(addedNames.Count > 2 ? $" (+{addedNames.Count - 2} more)" : "")}");
+            }
+
+            if (removedNames.Any())
+            {
+                changes.Add($"removed checklists: {string.Join(", ", removedNames.Take(2).Select(n => $"'{n}'"))}{(removedNames.Count > 2 ? $" (+{removedNames.Count - 2} more)" : "")}");
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Get changes for questionnaires component
+        /// </summary>
+        private List<string> GetQuestionnaireComponentChanges(Domain.Shared.Models.StageComponent before, Domain.Shared.Models.StageComponent after)
+        {
+            var changes = new List<string>();
+
+            var beforeNames = before.QuestionnaireNames ?? new List<string>();
+            var afterNames = after.QuestionnaireNames ?? new List<string>();
+
+            var addedNames = afterNames.Except(beforeNames).ToList();
+            var removedNames = beforeNames.Except(afterNames).ToList();
+
+            if (addedNames.Any())
+            {
+                changes.Add($"added questionnaires: {string.Join(", ", addedNames.Take(2).Select(n => $"'{n}'"))}{(addedNames.Count > 2 ? $" (+{addedNames.Count - 2} more)" : "")}");
+            }
+
+            if (removedNames.Any())
+            {
+                changes.Add($"removed questionnaires: {string.Join(", ", removedNames.Take(2).Select(n => $"'{n}'"))}{(removedNames.Count > 2 ? $" (+{removedNames.Count - 2} more)" : "")}");
+            }
+
+            return changes;
+        }
+
+        /// <summary>
         /// Parse stage components from JSON string
         /// </summary>
         private List<Domain.Shared.Models.StageComponent> ParseStageComponents(string componentsJson)
@@ -940,11 +1358,33 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (string.IsNullOrEmpty(componentsJson))
                     return new List<Domain.Shared.Models.StageComponent>();
 
-                return JsonSerializer.Deserialize<List<Domain.Shared.Models.StageComponent>>(componentsJson) 
+                // Handle double JSON encoding scenario
+                // First, try to deserialize as a string (which contains the actual JSON array)
+                string actualJsonArray = componentsJson;
+                
+                // Check if it's double-encoded (starts and ends with quotes)
+                if (componentsJson.StartsWith("\"") && componentsJson.EndsWith("\""))
+                {
+                    try
+                    {
+                        // Deserialize the outer string to get the inner JSON array string
+                        actualJsonArray = JsonSerializer.Deserialize<string>(componentsJson);
+                        _stageLogger.LogDebug("Successfully unwrapped double-encoded ComponentsJson");
+                    }
+                    catch (Exception innerEx)
+                    {
+                        _stageLogger.LogWarning(innerEx, "Failed to unwrap double-encoded ComponentsJson, trying direct parsing");
+                        actualJsonArray = componentsJson;
+                    }
+                }
+
+                // Now parse the actual JSON array
+                return JsonSerializer.Deserialize<List<Domain.Shared.Models.StageComponent>>(actualJsonArray) 
                        ?? new List<Domain.Shared.Models.StageComponent>();
             }
-            catch
+            catch (Exception ex)
             {
+                _stageLogger.LogWarning(ex, "Failed to parse ComponentsJson: {ComponentsJson}", componentsJson);
                 return new List<Domain.Shared.Models.StageComponent>();
             }
         }
