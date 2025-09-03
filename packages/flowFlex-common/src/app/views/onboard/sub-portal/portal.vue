@@ -187,6 +187,7 @@
 								type="primary"
 								@click="saveQuestionnaireAndField"
 								:loading="saveAllLoading"
+								:disabled="stagePortalPermission"
 							>
 								<el-icon class="mr-1">
 									<Document />
@@ -197,6 +198,7 @@
 								type="primary"
 								@click="handleCompleteStage"
 								:loading="completing"
+								:disabled="stagePortalPermission"
 							>
 								<el-icon class="mr-1">
 									<Check />
