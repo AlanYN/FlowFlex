@@ -45,7 +45,7 @@
 						<div
 							v-for="(stage, index) in displayedStages"
 							:key="stage.stageId"
-							class="relative pl-8 py-3 pr-4 ml-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-r-lg"
+							class="relative pl-8 py-3 pr-4 ml-3 transition-colors rounded-r-lg"
 							:class="[
 								stage.completed
 									? 'border-green-500'
@@ -54,6 +54,9 @@
 									? 'bg-primary-50 dark:bg-primary-900/20'
 									: '',
 								index === displayedStages.length - 1 ? '!border-l-0' : '',
+								isStageAccessible(stage)
+									? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-black-300'
+									: 'cursor-not-allowed opacity-60 hover:bg-gray-100 dark:hover:bg-black-200',
 							]"
 							@click="handleStageClick(stage.stageId)"
 						>
@@ -136,6 +139,7 @@ interface Props {
 	activeStage: string;
 	onboardingData: OnboardingItem;
 	workflowStages: any[]; // 从父组件传递的工作流阶段
+	stageAccessCheck?: (stageId: string) => boolean; // 阶段访问权限检查函数
 }
 
 const props = defineProps<Props>();
@@ -217,6 +221,14 @@ const getOriginalStageIndex = (stage: any) => {
 	return stages.value.findIndex((s) => s.stageId === stage.stageId);
 };
 
+// 检查阶段是否可以访问
+const isStageAccessible = (stage: any): boolean => {
+	if (!props.stageAccessCheck) {
+		return true; // 如果没有权限检查函数，默认允许访问
+	}
+	return props.stageAccessCheck(stage.stageId);
+};
+
 // 事件处理函数
 const toggleOpen = () => {
 	isOpen.value = !isOpen.value;
@@ -227,6 +239,13 @@ const toggleStagesView = () => {
 };
 
 const handleStageClick = (stageId: string) => {
+	// 如果提供了权限检查函数，先检查权限
+	if (props.stageAccessCheck && !props.stageAccessCheck(stageId)) {
+		// 权限检查失败，不发送事件，让父组件处理
+		emit('setActiveStage', stageId);
+		return;
+	}
+
 	emit('setActiveStage', stageId);
 };
 

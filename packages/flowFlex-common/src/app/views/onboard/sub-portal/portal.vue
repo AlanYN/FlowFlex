@@ -344,6 +344,7 @@
 											:active-stage="activeStage"
 											:onboarding-data="onboardingData"
 											:workflow-stages="workflowStages"
+											:stage-access-check="isStageAccessible"
 											@set-active-stage="setActiveStageWithData"
 											@stage-completed="loadOnboardingDetail"
 											class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600"
@@ -1168,9 +1169,33 @@ const handleTaskToggled = async (task: any) => {
 	}
 };
 
+// 检查阶段是否可以访问
+const isStageAccessible = (stageId: string): boolean => {
+	// 当前阶段总是可以访问
+	if (activeStage.value === stageId) {
+		return true;
+	}
+
+	// 查找目标阶段
+	const targetStage = workflowStages.value.find((stage) => stage.stageId === stageId);
+	if (!targetStage) {
+		return false;
+	}
+
+	// 检查是否是当前业务阶段（currentStageId）或已完成的阶段
+	const isCurrentBusinessStage = onboardingData.value?.currentStageId === stageId;
+	return targetStage.isCompleted === true || isCurrentBusinessStage;
+};
+
 // 重新加载 activeStage 并加载相关数据
 const setActiveStageWithData = async (stageId: string) => {
 	if (activeStage.value === stageId) {
+		return;
+	}
+
+	// 检查阶段访问权限
+	if (!isStageAccessible(stageId)) {
+		ElMessage.warning('You can only view the current stage or completed stages');
 		return;
 	}
 
