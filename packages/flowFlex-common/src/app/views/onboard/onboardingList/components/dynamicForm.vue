@@ -22,7 +22,7 @@
 
 				<!-- 当前 Section 内容 -->
 				<div v-if="currentSection" class="space-y-4">
-					<div class="flex flex-col space-y-1">
+					<div class="flex flex-col space-y-1" v-if="!currentSection.isDefault">
 						<h4 class="section-title" v-if="currentSection.title">
 							{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
 						</h4>

@@ -20,7 +20,6 @@
 						<div class="section-count">{{ section.items.length }} items</div>
 					</div>
 					<el-button
-						v-if="sections.length > 1"
 						type="primary"
 						link
 						size="small"
@@ -36,7 +35,6 @@
 
 <script setup lang="ts">
 import { Plus, Delete } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
 import { Section } from '#/section';
 
 interface Props {
@@ -44,7 +42,7 @@ interface Props {
 	currentSectionIndex: number;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 
 const emits = defineEmits<{
 	'add-section': [];
@@ -57,10 +55,6 @@ const addSection = () => {
 };
 
 const removeSection = (index: number) => {
-	if (props.sections.length <= 1) {
-		ElMessage.warning('At least one section must be kept');
-		return;
-	}
 	emits('remove-section', index);
 };
 

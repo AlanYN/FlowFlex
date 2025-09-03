@@ -13,7 +13,7 @@
 				<div class="flex items-start justify-between mb-4">
 					<div class="flex-1">
 						<h2 class="text-2xl font-bold questionnaire-title mb-2">
-							{{ questionnaire.title || questionnaire.name }}
+							{{ questionnaire.name }}
 						</h2>
 						<p
 							v-if="questionnaire.description"
@@ -134,11 +134,11 @@
 				class="section-container border rounded-lg overflow-hidden"
 			>
 				<!-- 章节标题 -->
-				<div class="section-header p-4 border-b">
+				<div class="section-header p-4 border-b" v-if="!section.isDefault">
 					<div class="flex items-center justify-between">
 						<div>
 							<h3 class="text-lg font-medium section-title">
-								{{ section.name || `Section ${sectionIndex + 1}` }}
+								{{ section.name }}
 							</h3>
 							<p v-if="section.description" class="section-description mt-1">
 								{{ section.description }}

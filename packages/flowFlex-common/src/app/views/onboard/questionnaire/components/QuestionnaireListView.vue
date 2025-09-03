@@ -157,9 +157,11 @@
 				<template #default="{ row }">
 					<div class="table-cell-content">
 						{{
-							(row.structureJson &&
-								JSON.parse(row.structureJson)?.sections?.length) ||
-							0
+							row.structureJson
+								? JSON.parse(row.structureJson)?.sections?.filter(
+										(section) => !section.isDefault
+								  )?.length || 0
+								: 0
 						}}
 					</div>
 				</template>
