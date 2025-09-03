@@ -583,12 +583,13 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Serialize stages progress to JSON
+        /// IMPORTANT: This method now preserves AI summary fields to prevent data loss during synchronization
         /// </summary>
         private string SerializeStagesProgress(List<Domain.Entities.OW.OnboardingStageProgress> progress)
         {
             try
             {
-                // Only serialize the core progress fields, not the dynamic stage configuration fields
+                // Serialize core progress fields AND AI summary fields to preserve all onboarding-specific data
                 var serializableProgress = progress.Select(p => new
                 {
                     p.StageId,
@@ -599,7 +600,13 @@ namespace FlowFlex.Application.Services.OW
                     p.CompletedById,
                     p.CompletedBy,
                     p.Notes,
-                    p.IsCurrent
+                    p.IsCurrent,
+                    // Preserve AI Summary fields to prevent data loss during sync
+                    p.AiSummary,
+                    p.AiSummaryGeneratedAt,
+                    p.AiSummaryConfidence,
+                    p.AiSummaryModel,
+                    p.AiSummaryData
                 }).ToList();
 
                 return System.Text.Json.JsonSerializer.Serialize(serializableProgress);

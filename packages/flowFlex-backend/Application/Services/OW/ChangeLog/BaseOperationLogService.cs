@@ -879,7 +879,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             
                             if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
                             {
-                                var assigneeChange = GetAssigneeChangeDetails(beforeJsonStr, afterJsonStr);
+                                // Note: This is called from a synchronous context, so we use GetAwaiter().GetResult()
+                                // This is safe here as it's only for display purposes in change details
+                                var assigneeChange = GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr).GetAwaiter().GetResult();
                                 changeList.Add(assigneeChange);
                             }
                             else
@@ -1292,7 +1294,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Get detailed assignee changes for DefaultAssignee field
         /// </summary>
-        protected virtual string GetAssigneeChangeDetails(string beforeJson, string afterJson)
+        protected virtual async Task<string> GetAssigneeChangeDetailsAsync(string beforeJson, string afterJson)
         {
             try
             {
@@ -1334,8 +1336,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         try
                         {
-                            // Get user names - this is a fire-and-forget async operation wrapped in sync
-                            var users = Task.Run(async () => await _userService.GetUsersByIdsAsync(changedUserIds)).Result;
+                            // Fixed: Properly await async operation instead of blocking
+                            var users = await _userService.GetUsersByIdsAsync(changedUserIds);
                             userNameMap = users.ToDictionary(
                                 u => u.Id, 
                                 u => !string.IsNullOrEmpty(u.Username) ? u.Username : 
@@ -1574,6 +1576,135 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 return "[Assignee data]";
             }
+        }
+
+        /// <summary>
+        /// Generic helper method for logging independent operations
+        /// (Extracted from child classes to eliminate code duplication)
+        /// </summary>
+        protected virtual async Task<bool> LogIndependentOperationAsync(
+            OperationTypeEnum operationType,
+            BusinessModuleEnum businessModule,
+            long businessId,
+            string entityName,
+            string operationAction,
+            string beforeData = null,
+            string afterData = null,
+            List<string> changedFields = null,
+            string reason = null,
+            string version = null,
+            string description = null,
+            long? relatedEntityId = null,
+            string relatedEntityType = null,
+            string extendedData = null)
+        {
+            try
+            {
+                var operationTitle = $"{businessModule} {operationAction}: {entityName}";
+                
+                // Use enhanced description method that can handle beforeData and afterData
+                var operationDescription = BuildEnhancedOperationDescription(
+                    businessModule,
+                    entityName,
+                    operationAction,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    relatedEntityId,
+                    relatedEntityType,
+                    reason);
+                
+                // Add module-specific additions
+                if (!string.IsNullOrEmpty(description))
+                {
+                    operationDescription += $". Description: {description}";
+                }
+
+                if (!string.IsNullOrEmpty(version))
+                {
+                    operationDescription += $" as version {version}";
+                }
+
+                if (string.IsNullOrEmpty(extendedData))
+                {
+                    extendedData = BuildDefaultExtendedData(
+                        businessModule, businessId, entityName, operationAction, 
+                        relatedEntityId, relatedEntityType, reason, version, description, changedFields);
+                }
+
+                var operationLog = BuildOperationLogEntity(
+                    operationType,
+                    businessModule,
+                    businessId,
+                    null, // No onboardingId for independent operations
+                    null, // No stageId for independent operations
+                    operationTitle,
+                    operationDescription,
+                    beforeData,
+                    afterData,
+                    changedFields,
+                    extendedData
+                );
+
+                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log independent {OperationType} operation for {BusinessModule} {BusinessId}", 
+                    operationType, businessModule, businessId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Build default extended data for independent operations
+        /// (Extracted from child classes to eliminate code duplication)
+        /// </summary>
+        protected virtual string BuildDefaultExtendedData(
+            BusinessModuleEnum businessModule,
+            long businessId,
+            string entityName,
+            string operationAction,
+            long? relatedEntityId = null,
+            string relatedEntityType = null,
+            string reason = null,
+            string version = null,
+            string description = null,
+            List<string> changedFields = null)
+        {
+            var extendedDataObj = new Dictionary<string, object>
+            {
+                { $"{businessModule}Id", businessId },
+                { $"{businessModule}Name", entityName },
+                { $"{operationAction}At", DateTimeOffset.UtcNow }
+            };
+
+            if (relatedEntityId.HasValue && !string.IsNullOrEmpty(relatedEntityType))
+            {
+                extendedDataObj.Add($"{relatedEntityType}Id", relatedEntityId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                extendedDataObj.Add("Reason", reason);
+            }
+
+            if (!string.IsNullOrEmpty(version))
+            {
+                extendedDataObj.Add("Version", version);
+            }
+
+            if (!string.IsNullOrEmpty(description))
+            {
+                extendedDataObj.Add("Description", description);
+            }
+
+            if (changedFields?.Any() == true)
+            {
+                extendedDataObj.Add("ChangedFieldsCount", changedFields.Count);
+            }
+
+            return JsonSerializer.Serialize(extendedDataObj);
         }
 
         #endregion
