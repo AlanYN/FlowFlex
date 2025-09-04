@@ -171,6 +171,8 @@
 										size="small"
 										type="primary"
 										link
+										:disabled="viewDocumentIds.includes(row.id)"
+										:loading="viewDocumentIds.includes(row.id)"
 										@click="handleViewDocument(row)"
 									>
 										<el-icon><View /></el-icon>
@@ -180,6 +182,7 @@
 										size="small"
 										type="danger"
 										link
+										:disabled="viewDocumentIds.includes(row.id)"
 										@click="handleDeleteDocument(row.id)"
 									>
 										<el-icon><Delete /></el-icon>
@@ -422,17 +425,18 @@ const handleFileChange = async (file: any) => {
 };
 
 // 文档操作
+const viewDocumentIds = ref<string[]>([]);
 const handleViewDocument = async (document: DocumentItem) => {
 	try {
 		// 获取文件扩展名
 		const fileExt = document.originalFileName.split('.').pop()?.toLowerCase() || '';
 		fileType.value = fileExt;
-
-		perviewFileShow.value = true;
+		viewDocumentIds.value.push(document.id);
 		offloading.value = true;
 		// 调用API获取文件内容
 		const res = await previewOnboardingFile(props.onboardingId, document.id);
 
+		perviewFileShow.value = true;
 		// doc、msg、eml文件不支持预览，直接下载
 		if (fileExt === 'doc' || fileExt === 'msg' || fileExt === 'eml') {
 			downloadFile(res, document);
@@ -445,6 +449,7 @@ const handleViewDocument = async (document: DocumentItem) => {
 		}
 	} finally {
 		offloading.value = false;
+		viewDocumentIds.value = viewDocumentIds.value.filter((id) => id !== document.id);
 	}
 };
 
