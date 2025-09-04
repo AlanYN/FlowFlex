@@ -1798,7 +1798,7 @@ defineExpose({
 /* 头部卡片样式 - 灰蓝色渐变 */
 .change-log-header-card {
 	background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-	padding: 24px;
+	padding: 12px 16px;
 	color: white;
 	box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
 	display: flex;
@@ -1820,7 +1820,7 @@ defineExpose({
 }
 
 .change-log-title {
-	font-size: 18px;
+	font-size: 14px;
 	font-weight: 600;
 	margin: 0;
 	color: white;
@@ -1893,7 +1893,7 @@ defineExpose({
 /* 响应式设计 */
 @media (max-width: 768px) {
 	.change-log-header-card {
-		padding: 16px;
+		padding: 12px 16px;
 
 		.change-log-actions {
 			margin-top: 8px;

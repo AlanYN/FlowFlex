@@ -1,5 +1,5 @@
 <template>
-	<el-card class="mb-6 rounded-md filter_card">
+	<el-card class="mb-6 rounded-md filter-card">
 		<template #default>
 			<div class="">
 				<el-form
@@ -10,7 +10,7 @@
 				>
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">Lead ID</label>
+							<label class="text-sm font-medium">Lead ID</label>
 							<InputTag
 								v-model="leadIdTags"
 								placeholder="Enter Lead ID and press enter"
@@ -22,9 +22,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">
-								Company/Contact Name
-							</label>
+							<label class="text-sm font-medium">Company/Contact Name</label>
 							<InputTag
 								v-model="leadNameTags"
 								placeholder="Enter Company/Contact Name and press enter"
@@ -36,9 +34,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">
-								Life Cycle Stage
-							</label>
+							<label class="text-sm font-medium">Life Cycle Stage</label>
 							<el-select
 								v-model="searchParams.lifeCycleStageName"
 								placeholder="Select Stage"
@@ -56,9 +52,7 @@
 						</div>
 
 						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium text-primary-500">
-								Onboard Workflow
-							</label>
+							<label class="text-sm font-medium">Onboard Workflow</label>
 							<el-select
 								v-model="searchParams.workFlowId"
 								placeholder="Select Work Flow"
@@ -77,9 +71,7 @@
 						</div>
 
 						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium text-primary-500">
-								Onboard Stage
-							</label>
+							<label class="text-sm font-medium">Onboard Stage</label>
 							<el-select
 								v-model="searchParams.currentStageId"
 								placeholder="Select Stage"
@@ -99,7 +91,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">Updated By</label>
+							<label class="text-sm font-medium">Updated By</label>
 							<InputTag
 								v-model="updatedByTags"
 								placeholder="Enter User Name and press enter"
@@ -111,7 +103,7 @@
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">Priority</label>
+							<label class="text-sm font-medium">Priority</label>
 							<el-select
 								v-model="searchParams.priority"
 								placeholder="Select Priority"
@@ -297,8 +289,8 @@ const handleExport = () => {
 </script>
 
 <style scoped lang="scss">
-.filter_card {
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
+.filter-card {
+	border: 1px solid var(--primary-100);
 }
 
 /* 搜索表单样式 */
@@ -312,11 +304,6 @@ const handleExport = () => {
 
 .onboardSearch-form :deep(.el-input__wrapper:hover) {
 	border-color: #9ca3af;
-}
-
-.onboardSearch-form :deep(.el-input__wrapper.is-focus) {
-	border-color: #3b82f6;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* InputTag组件样式调整 - 优化显示效果 */
