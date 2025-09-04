@@ -218,8 +218,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             try
             {
-                // Create complex query with UNION to combine all relevant logs
-                var query = base.db.UnionAll(
+                // Create complex query with UNION (not UNION ALL) to combine all relevant logs and remove duplicates
+                var query = base.db.Union(
                     // Stage-level logs
                     base.db.Queryable<OperationChangeLog>()
                         .Where(x => x.StageId == stageId && x.IsValid)
@@ -288,12 +288,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // Get total count
                 var totalCount = await query.CountAsync();
 
-                // Apply pagination and sorting
+                // Apply pagination and sorting, with additional deduplication by ID to ensure no duplicates
                 var logs = await query
                     .OrderByDescending(x => x.OperationTime)
                     .Skip((pageIndex - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
+
+                // Additional deduplication by ID to ensure no duplicates at application level
+                logs = logs.GroupBy(x => x.Id).Select(g => g.First()).ToList();
 
                 return (logs, totalCount);
             }
