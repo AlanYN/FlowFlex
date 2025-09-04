@@ -274,7 +274,12 @@
 												:static-fields="component.staticFields"
 												:onboarding-id="onboardingId"
 												:stage-id="activeStage"
-												:disabled="stagePortalPermission"
+												:disabled="
+													onboardingActiveStageInfo.visibleInPortal &&
+													(stagePortalPermission ||
+														component.customerPortalAccess ==
+															StageComponentPortal.Viewable)
+												"
 												@save-success="refreshChangeLog"
 											/>
 
@@ -291,7 +296,12 @@
 													getChecklistDataForComponent(component)
 												"
 												:onboarding-id="onboardingId"
-												:disabled="stagePortalPermission"
+												:disabled="
+													onboardingActiveStageInfo.visibleInPortal &&
+													(stagePortalPermission ||
+														component.customerPortalAccess ==
+															StageComponentPortal.Viewable)
+												"
 												@task-toggled="handleTaskToggled"
 												@refresh-checklist="loadCheckListData"
 											/>
@@ -307,7 +317,12 @@
 												:stage-id="activeStage"
 												:lead-data="onboardingData"
 												:workflow-stages="workflowStages"
-												:disabled="stagePortalPermission"
+												:disabled="
+													onboardingActiveStageInfo.visibleInPortal &&
+													(stagePortalPermission ||
+														component.customerPortalAccess ==
+															StageComponentPortal.Viewable)
+												"
 												:questionnaire-data="
 													getQuestionnaireDataForComponent(component)
 												"
@@ -325,7 +340,12 @@
 												:onboarding-id="onboardingId"
 												:stage-id="activeStage"
 												:component="component"
-												:disabled="stagePortalPermission"
+												:disabled="
+													onboardingActiveStageInfo.visibleInPortal &&
+													(stagePortalPermission ||
+														component.customerPortalAccess ==
+															StageComponentPortal.Viewable)
+												"
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
 											/>
@@ -443,6 +463,7 @@ import CheckList from '../onboardingList/components/CheckList.vue';
 import Documents from '../onboardingList/components/Documents.vue';
 import StaticForm from '../onboardingList/components/StaticForm.vue';
 import AISummary from '../onboardingList/components/AISummary.vue';
+import { StageComponentPortal } from '@/enums/appEnum';
 
 // 图标组件
 const HomeIcon = {
@@ -598,7 +619,14 @@ const sortedComponents = computed(() => {
 	if (!onboardingActiveStageInfo.value?.components) {
 		return [];
 	}
-	return [...onboardingActiveStageInfo.value.components].sort((a, b) => {
+	const validComponents = onboardingActiveStageInfo.value?.components.filter(
+		(component) =>
+			onboardingActiveStageInfo.value?.visibleInPortal &&
+			(component?.customerPortalAccess == undefined ||
+				(component?.customerPortalAccess != undefined &&
+					component?.customerPortalAccess != StageComponentPortal.Hidden))
+	);
+	return [...validComponents].sort((a, b) => {
 		if (a.key === 'fields' && b.key !== 'fields') {
 			return -1;
 		}

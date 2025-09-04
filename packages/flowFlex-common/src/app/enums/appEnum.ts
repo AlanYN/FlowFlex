@@ -203,3 +203,9 @@ export enum WFEMoudels {
 	Questionnaire = 4,
 	ChecklistTask = 5,
 }
+
+export enum StageComponentPortal {
+	Hidden = 0,
+	Viewable = 1,
+	Completable = 2,
+}

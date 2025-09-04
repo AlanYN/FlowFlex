@@ -216,6 +216,7 @@ export interface ComponentData {
 	type: string;
 	version: number;
 	hasError?: boolean;
+	customerPortalAccess?: number;
 }
 
 export type StageComponentData = {
@@ -228,6 +229,7 @@ export type StageComponentData = {
 	questionnaireIds: string[];
 	questionnaireNames?: string[];
 	files?: string[];
+	customerPortalAccess?: number;
 };
 
 export interface StageInfo {
@@ -245,6 +247,7 @@ export interface StageInfo {
 	aiSummaryConfidence?: number;
 	aiSummaryModel?: string;
 	aiSummaryData?: string;
+	visibleInPortal?: boolean;
 }
 
 export interface ComponentsData {
@@ -268,6 +271,7 @@ export interface SelectedItem {
 	type: 'fields' | 'checklist' | 'questionnaires' | 'files';
 	order: number;
 	key: string;
+	customerPortalAccess?: number;
 }
 
 export interface FieldTag {
