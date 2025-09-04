@@ -751,6 +751,15 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private object GenerateNewIdsInJsonElement(JsonElement element)
         {
+            var usedIds = new HashSet<string>();
+            return GenerateNewIdsInJsonElementWithTracking(element, usedIds);
+        }
+
+        /// <summary>
+        /// Recursively generate new IDs in JSON structure with duplicate tracking
+        /// </summary>
+        private object GenerateNewIdsInJsonElementWithTracking(JsonElement element, HashSet<string> usedIds)
+        {
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
@@ -782,6 +791,16 @@ namespace FlowFlex.Application.Service.OW
                             objectType = "option";
                             needsId = true;
                         }
+                        else if (property.Name == "label" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            // Check if this is a row or column object
+                            var hasTemporaryId = element.EnumerateObject().Any(p => p.Name == "temporaryId");
+                            if (hasTemporaryId)
+                            {
+                                objectType = "row_or_column";
+                                needsId = true;
+                            }
+                        }
                         else if (property.Name == "title" || property.Name == "order")
                         {
                             if (objectType == null)
@@ -801,28 +820,36 @@ namespace FlowFlex.Application.Service.OW
                         if (key == "id" && value.ValueKind == JsonValueKind.String)
                         {
                             var originalId = value.GetString();
+                            string newId;
+
                             if (!string.IsNullOrEmpty(originalId))
                             {
-                                // Generate snowflake ID for all id fields (sections, questions, options, etc.)
-                                obj[key] = GenerateSnowflakeId().ToString();
+                                // Generate snowflake ID for all id fields (sections, questions, options, rows, columns, etc.)
+                                newId = GenerateUniqueSnowflakeId(usedIds);
+                                Console.WriteLine($"[QuestionnaireService] Generated new ID for duplication '{originalId}' -> '{newId}'");
                             }
                             else
                             {
                                 // Empty ID, generate a new one
-                                obj[key] = GenerateSnowflakeId().ToString();
+                                newId = GenerateUniqueSnowflakeId(usedIds);
+                                Console.WriteLine($"[QuestionnaireService] Generated new ID for empty field in duplication: {newId}");
                             }
+
+                            obj[key] = newId;
+                            usedIds.Add(newId);
                         }
                         else
                         {
-                            obj[key] = GenerateNewIdsInJsonElement(value);
+                            obj[key] = GenerateNewIdsInJsonElementWithTracking(value, usedIds);
                         }
                     }
 
                     // If this object needs an ID but doesn't have one, generate it
                     if (needsId && !hasId)
                     {
-                        var newId = GenerateSnowflakeId().ToString();
+                        var newId = GenerateUniqueSnowflakeId(usedIds);
                         obj["id"] = newId;
+                        usedIds.Add(newId);
                         var logType = objectType ?? "unknown";
                         Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType} in duplication: {newId}");
                     }
@@ -833,7 +860,7 @@ namespace FlowFlex.Application.Service.OW
                     var array = new List<object>();
                     foreach (var item in element.EnumerateArray())
                     {
-                        array.Add(GenerateNewIdsInJsonElement(item));
+                        array.Add(GenerateNewIdsInJsonElementWithTracking(item, usedIds));
                     }
                     return array;
 
@@ -910,6 +937,15 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private object NormalizeIdsInJsonElement(JsonElement element)
         {
+            var usedIds = new HashSet<string>();
+            return NormalizeIdsInJsonElementWithTracking(element, usedIds);
+        }
+
+        /// <summary>
+        /// Recursively normalize IDs in JSON structure to use snowflake IDs with duplicate tracking
+        /// </summary>
+        private object NormalizeIdsInJsonElementWithTracking(JsonElement element, HashSet<string> usedIds)
+        {
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
@@ -942,6 +978,16 @@ namespace FlowFlex.Application.Service.OW
                             objectType = "option";
                             needsId = true;
                         }
+                        else if (property.Name == "label" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            // Check if this is a row or column object
+                            var hasTemporaryId = element.EnumerateObject().Any(p => p.Name == "temporaryId");
+                            if (hasTemporaryId)
+                            {
+                                objectType = "row_or_column";
+                                needsId = true;
+                            }
+                        }
                         // Also check for other identifying properties
                         else if (property.Name == "title" || property.Name == "order")
                         {
@@ -962,37 +1008,53 @@ namespace FlowFlex.Application.Service.OW
                         if (key == "id" && value.ValueKind == JsonValueKind.String)
                         {
                             var originalId = value.GetString();
+                            string newId;
+
                             if (!string.IsNullOrEmpty(originalId))
                             {
                                 // Check if ID is already a snowflake ID (pure number)
                                 if (long.TryParse(originalId, out _))
                                 {
-                                    // Already a snowflake ID, keep it
-                                    obj[key] = originalId;
+                                    // Check for duplicate snowflake ID
+                                    if (usedIds.Contains(originalId))
+                                    {
+                                        newId = GenerateUniqueSnowflakeId(usedIds);
+                                        Console.WriteLine($"[QuestionnaireService] Duplicate snowflake ID detected: {originalId}, regenerated as: {newId}");
+                                    }
+                                    else
+                                    {
+                                        newId = originalId;
+                                    }
                                 }
                                 else
                                 {
                                     // Convert prefixed ID to snowflake ID
-                                    obj[key] = GenerateSnowflakeId().ToString();
+                                    newId = GenerateUniqueSnowflakeId(usedIds);
+                                    Console.WriteLine($"[QuestionnaireService] Converted prefixed ID '{originalId}' to snowflake ID: {newId}");
                                 }
                             }
                             else
                             {
                                 // Empty ID, generate a new one
-                                obj[key] = GenerateSnowflakeId().ToString();
+                                newId = GenerateUniqueSnowflakeId(usedIds);
+                                Console.WriteLine($"[QuestionnaireService] Generated new ID for empty field: {newId}");
                             }
+
+                            obj[key] = newId;
+                            usedIds.Add(newId);
                         }
                         else
                         {
-                            obj[key] = NormalizeIdsInJsonElement(value);
+                            obj[key] = NormalizeIdsInJsonElementWithTracking(value, usedIds);
                         }
                     }
 
                     // If this object needs an ID but doesn't have one, generate it
                     if (needsId && !hasId)
                     {
-                        var newId = GenerateSnowflakeId().ToString();
+                        var newId = GenerateUniqueSnowflakeId(usedIds);
                         obj["id"] = newId;
+                        usedIds.Add(newId);
                         var logType = objectType ?? "unknown";
                         Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType}: {newId}");
                     }
@@ -1003,7 +1065,7 @@ namespace FlowFlex.Application.Service.OW
                     var array = new List<object>();
                     foreach (var item in element.EnumerateArray())
                     {
-                        array.Add(NormalizeIdsInJsonElement(item));
+                        array.Add(NormalizeIdsInJsonElementWithTracking(item, usedIds));
                     }
                     return array;
 
@@ -1031,6 +1093,35 @@ namespace FlowFlex.Application.Service.OW
                 default:
                     return element.GetRawText();
             }
+        }
+
+        /// <summary>
+        /// Generate a unique snowflake ID that's not in the used IDs set
+        /// </summary>
+        private string GenerateUniqueSnowflakeId(HashSet<string> usedIds)
+        {
+            string newId;
+            int attempts = 0;
+            const int maxAttempts = 10;
+
+            do
+            {
+                newId = GenerateSnowflakeId().ToString();
+                attempts++;
+                
+                if (attempts >= maxAttempts)
+                {
+                    // If we can't generate a unique ID after multiple attempts, 
+                    // use timestamp-based approach to ensure uniqueness
+                    var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    var random = new Random().Next(1000, 9999);
+                    newId = $"{timestamp}{random}";
+                    Console.WriteLine($"[QuestionnaireService] Used fallback ID generation after {maxAttempts} attempts: {newId}");
+                    break;
+                }
+            } while (usedIds.Contains(newId));
+
+            return newId;
         }
 
         /// <summary>
@@ -1066,6 +1157,34 @@ namespace FlowFlex.Application.Service.OW
         public string TestGenerateNewIdsInStructureJson(string originalStructureJson)
         {
             return GenerateNewIdsInStructureJson(originalStructureJson);
+        }
+
+        /// <summary>
+        /// Test method to verify ID generation for rows and columns specifically (for debugging)
+        /// </summary>
+        public string TestRowColumnIdGeneration(string structureJsonWithRowsColumns)
+        {
+            try
+            {
+                Console.WriteLine("[QuestionnaireService] Testing row/column ID generation...");
+                
+                // First normalize the structure
+                var normalizedResult = NormalizeStructureJsonIds(structureJsonWithRowsColumns);
+                Console.WriteLine("[QuestionnaireService] Normalized structure for row/column testing:");
+                Console.WriteLine(normalizedResult);
+                
+                // Then test duplication (which should generate completely new IDs)
+                var duplicatedResult = GenerateNewIdsInStructureJson(normalizedResult);
+                Console.WriteLine("[QuestionnaireService] Duplicated structure with new IDs:");
+                Console.WriteLine(duplicatedResult);
+                
+                return duplicatedResult;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error in row/column ID generation test: {ex.Message}");
+                return structureJsonWithRowsColumns;
+            }
         }
 
         public async Task<QuestionnaireOutputDto> PreviewAsync(long id)
