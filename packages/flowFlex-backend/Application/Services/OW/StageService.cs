@@ -47,7 +47,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
-        // private readonly IAIService _aiService; // Removed - AI summary functionality no longer needed
+        private readonly IAIService _aiService; // Restored for Onboarding-specific AI summary generation
         private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
         private readonly UserContext _userContext;
         private readonly IComponentMappingService _mappingService;
@@ -61,7 +61,7 @@ namespace FlowFlex.Application.Service.OW
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, ILogger<StageService> logger)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, ILogger<StageService> logger)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -70,7 +70,7 @@ namespace FlowFlex.Application.Service.OW
             _checklistService = checklistService;
             _questionnaireService = questionnaireService;
             _questionnaireAnswerService = questionnaireAnswerService;
-            // _aiService = aiService; // Removed - AI summary functionality no longer needed
+            _aiService = aiService; // Restored for Onboarding-specific AI summary generation
             _checklistTaskCompletionRepository = checklistTaskCompletionRepository;
             _userContext = userContext;
             _mappingService = mappingService;
@@ -1501,19 +1501,62 @@ namespace FlowFlex.Application.Service.OW
         /// <returns>Generated AI summary</returns>
         public async Task<AIStageSummaryResult> GenerateAISummaryAsync(long stageId, long? onboardingId = null, StageSummaryOptions summaryOptions = null)
         {
-            // AI summary functionality has been removed from Stage entity
-            // Return a success response to maintain compatibility
-            _logger.LogInformation("AI summary generation skipped - functionality removed from Stage entity. StageId: {StageId}", stageId);
+            _logger.LogInformation("Starting AI summary generation for Stage {StageId}, Onboarding {OnboardingId}", stageId, onboardingId);
 
+            try
+            {
+                // Get stage entity
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null)
+                {
+                    return new AIStageSummaryResult
+                    {
+                        Success = false,
+                        Message = "Stage not found",
+                        Summary = string.Empty,
+                        ConfidenceScore = 0.0,
+                        ModelUsed = null,
+                        GeneratedAt = DateTime.UtcNow
+                    };
+                }
+
+                // Prepare AI input with stage and onboarding-specific context
+                var aiInput = new AIStageSummaryInput
+                {
+                    StageId = stageId,
+                    StageName = stage.Name,
+                    StageDescription = stage.Description ?? "",
+                    OnboardingId = onboardingId,
+                    Language = summaryOptions?.Language ?? "auto",
+                    SummaryLength = summaryOptions?.SummaryLength ?? "medium",
+                    IncludeTaskAnalysis = summaryOptions?.IncludeTaskAnalysis ?? true,
+                    IncludeQuestionnaireInsights = summaryOptions?.IncludeQuestionnaireInsights ?? true
+                };
+
+                // Populate stage components and completion data
+                await PopulateStageComponentsForSummary(stageId, aiInput, summaryOptions, onboardingId);
+
+                // Generate AI summary using AI service
+                var summaryResult = await _aiService.GenerateStageSummaryAsync(aiInput);
+
+                _logger.LogInformation("AI summary generation completed for Stage {StageId}. Success: {Success}", stageId, summaryResult.Success);
+
+                return summaryResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating AI summary for Stage {StageId}", stageId);
+                
                 return new AIStageSummaryResult
                 {
                     Success = false,
-                Message = "AI summary functionality has been removed from Stage entity. AI summaries are now only stored in Onboarding stage progress.",
-                Summary = string.Empty,
-                ConfidenceScore = 0.0,
-                ModelUsed = null,
-                GeneratedAt = DateTime.UtcNow
-            };
+                    Message = $"Error generating AI summary: {ex.Message}",
+                    Summary = string.Empty,
+                    ConfidenceScore = 0.0,
+                    ModelUsed = null,
+                    GeneratedAt = DateTime.UtcNow
+                };
+            }
         }
 
         /// <summary>
@@ -1573,10 +1616,117 @@ namespace FlowFlex.Application.Service.OW
         /// <param name="onboardingId">Onboarding ID for task completion context</param>
         private async Task PopulateStageComponentsForSummary(long stageId, AIStageSummaryInput aiInput, StageSummaryOptions summaryOptions, long? onboardingId = null)
         {
-            // AI summary functionality has been removed from Stage entity
-            // This method is no longer needed as stage components are not used for AI summary generation
-            _logger.LogInformation("PopulateStageComponentsForSummary skipped for Stage {StageId} - AI summary functionality removed", stageId);
-            await Task.CompletedTask;
+            try
+            {
+                // Get stage components
+                var components = await GetComponentsAsync(stageId);
+
+                // Get checklist data if components include checklists
+                var allChecklistIds = components
+                    .Where(c => c.ChecklistIds?.Any() == true)
+                    .SelectMany(c => c.ChecklistIds)
+                    .Distinct()
+                    .ToList();
+
+                if (allChecklistIds.Any())
+                {
+                    var checklists = await _checklistService.GetByIdsAsync(allChecklistIds);
+                    
+                    // Convert checklists to task info format for AI summary
+                    var taskInfos = new List<AISummaryTaskInfo>();
+                    foreach (var checklist in checklists)
+                    {
+                        if (checklist.Tasks?.Any() == true)
+                        {
+                            foreach (var task in checklist.Tasks)
+                            {
+                                var taskInfo = new AISummaryTaskInfo
+                                {
+                                    TaskId = task.Id,
+                                    TaskTitle = task.Name ?? "",
+                                    TaskDescription = task.Description ?? "",
+                                    IsRequired = task.IsRequired,
+                                    Category = checklist.Name ?? "Checklist"
+                                };
+
+                                // Get completion status if onboarding context is available
+                                if (onboardingId.HasValue)
+                                {
+                                    try
+                                    {
+                                        var completions = await _checklistTaskCompletionRepository.GetByOnboardingAndChecklistAsync(onboardingId.Value, checklist.Id);
+                                        var completion = completions?.FirstOrDefault(c => c.TaskId == task.Id);
+                                        if (completion != null)
+                                        {
+                                            taskInfo.IsCompleted = completion.IsCompleted;
+                                            taskInfo.CompletionNotes = completion.CompletionNotes ?? "";
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "Failed to get task completion data for task {TaskId}", task.Id);
+                                    }
+                                }
+
+                                taskInfos.Add(taskInfo);
+                            }
+                        }
+                    }
+                    aiInput.Tasks = taskInfos;
+                }
+
+                // Get questionnaire data if components include questionnaires
+                var allQuestionnaireIds = components
+                    .Where(c => c.QuestionnaireIds?.Any() == true)
+                    .SelectMany(c => c.QuestionnaireIds)
+                    .Distinct()
+                    .ToList();
+
+                if (allQuestionnaireIds.Any())
+                {
+                    var questionnaires = await _questionnaireService.GetByIdsAsync(allQuestionnaireIds);
+                    
+                    // Convert questionnaires to question info format for AI summary
+                    var questionInfos = new List<AISummaryQuestionInfo>();
+                    foreach (var questionnaire in questionnaires)
+                    {
+                        if (questionnaire.Sections?.Any() == true)
+                        {
+                            foreach (var section in questionnaire.Sections)
+                            {
+                                if (section.Questions?.Any() == true)
+                                {
+                                    foreach (var question in section.Questions)
+                                    {
+                                        var questionInfo = new AISummaryQuestionInfo
+                                        {
+                                            QuestionId = long.TryParse(question.Id, out var qId) ? qId : 0,
+                                            QuestionText = question.Text ?? "",
+                                            QuestionType = question.Type ?? "",
+                                            IsRequired = question.IsRequired,
+                                            Category = questionnaire.Name ?? "Questionnaire"
+                                        };
+
+                                        // Note: Detailed answer retrieval will be implemented when needed
+                                        // For now, we provide the question structure for AI analysis
+
+                                        questionInfos.Add(questionInfo);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    aiInput.Questions = questionInfos;
+                }
+
+                _logger.LogDebug("Populated stage components for AI summary: {TaskCount} tasks, {QuestionCount} questions", 
+                    aiInput.Tasks.Count, aiInput.Questions.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error populating stage components for AI summary for Stage {StageId}", stageId);
+                // Don't throw - allow AI summary generation to continue with limited data
+            }
         }
 
         /// <summary>

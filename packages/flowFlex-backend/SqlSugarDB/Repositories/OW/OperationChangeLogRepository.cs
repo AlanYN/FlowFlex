@@ -3,6 +3,8 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
+using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -11,7 +13,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class OperationChangeLogRepository : BaseRepository<OperationChangeLog>, IOperationChangeLogRepository, IScopedService
     {
-        public OperationChangeLogRepository(ISqlSugarClient dbContext) : base(dbContext) { }
+        private readonly ILogger<OperationChangeLogRepository> _logger;
+
+        public OperationChangeLogRepository(ISqlSugarClient dbContext, ILogger<OperationChangeLogRepository> logger) : base(dbContext) 
+        {
+            _logger = logger;
+        }
 
         /// <summary>
         /// Get operation logs by Onboarding ID
@@ -308,13 +315,17 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // This query includes:
                 // 1. Workflow operations where business_id = workflowId AND business_module = 'Workflow'
                 // 2. Stage operations where the stage belongs to the workflow (using JOIN with ff_stage table)
+                // 3. ActionMapping operations where the mapping belongs to the workflow (using JOIN with ff_action_trigger_mappings table)
                 
                 var query = base.db.Queryable<OperationChangeLog>()
                     .LeftJoin<Domain.Entities.OW.Stage>((log, stage) => 
                         log.BusinessModule == "Stage" && log.BusinessId == stage.Id)
-                    .Where((log, stage) => 
+                    .LeftJoin<Domain.Entities.Action.ActionTriggerMapping>((log, stage, mapping) =>
+                        log.BusinessModule == "ActionMapping" && log.BusinessId == mapping.Id)
+                    .Where((log, stage, mapping) => 
                         (log.BusinessModule == "Workflow" && log.BusinessId == workflowId) || 
-                        (log.BusinessModule == "Stage" && stage.WorkflowId == workflowId))
+                        (log.BusinessModule == "Stage" && stage.WorkflowId == workflowId) ||
+                        (log.BusinessModule == "ActionMapping" && mapping.WorkFlowId == workflowId))
                     .OrderByDescending(log => log.OperationTime)
                     .Select(log => log);
 
@@ -350,6 +361,102 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get questionnaire and related ActionMapping logs by questionnaire ID
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLog>> GetQuestionnaireWithRelatedLogsAsync(long questionnaireId, int pageIndex = 1, int pageSize = 20)
+        {
+            try
+            {
+                // This query includes:
+                // 1. Questionnaire operations where business_id = questionnaireId AND business_module = 'Questionnaire'
+                // 2. ActionMapping operations where the action is associated with questions from this questionnaire
+                // Note: For Question type triggers, we need to get the questionnaire first to extract question IDs from structure
+                
+                // First, get the questionnaire to extract question IDs from its structure
+                var questionnaire = await base.db.Queryable<Domain.Entities.OW.Questionnaire>()
+                    .Where(q => q.Id == questionnaireId && q.IsValid)
+                    .FirstAsync();
+
+                List<long> questionIds = new List<long>();
+                if (questionnaire?.Structure != null)
+                {
+                    try
+                    {
+                        var structure = JsonDocument.Parse(questionnaire.Structure.ToString());
+                        if (structure.RootElement.TryGetProperty("sections", out var sections))
+                        {
+                            foreach (var section in sections.EnumerateArray())
+                            {
+                                if (section.TryGetProperty("questions", out var questions))
+                                {
+                                    foreach (var question in questions.EnumerateArray())
+                                    {
+                                        if (question.TryGetProperty("id", out var questionId))
+                                        {
+                                            // Try to parse as Int64 first, then as string
+                                            if (questionId.ValueKind == JsonValueKind.Number && questionId.TryGetInt64(out var id))
+                                            {
+                                                questionIds.Add(id);
+                                            }
+                                            else if (questionId.ValueKind == JsonValueKind.String && long.TryParse(questionId.GetString(), out var stringId))
+                                            {
+                                                questionIds.Add(stringId);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse questionnaire structure for ID {QuestionnaireId}", questionnaireId);
+                    }
+                }
+
+                _logger.LogDebug("Extracted {Count} question IDs from questionnaire {QuestionnaireId}: [{QuestionIds}]", 
+                    questionIds.Count, questionnaireId, string.Join(", ", questionIds));
+
+                var query = base.db.Queryable<OperationChangeLog>()
+                    .LeftJoin<Domain.Entities.Action.ActionTriggerMapping>((log, mapping) =>
+                        log.BusinessModule == "ActionMapping" && log.BusinessId == mapping.Id)
+                    .Where((log, mapping) => 
+                        (log.BusinessModule == "Questionnaire" && log.BusinessId == questionnaireId) ||
+                        (log.BusinessModule == "ActionMapping" && mapping.TriggerType == "Question" && questionIds.Contains(mapping.TriggerSourceId)))
+                    .OrderByDescending(log => log.OperationTime)
+                    .Select(log => log);
+
+                // Get total count
+                var totalCount = await query.CountAsync();
+
+                // Get paginated results
+                var logs = await query
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return new PagedResult<OperationChangeLog>
+                {
+                    Items = logs,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting questionnaire with related logs for questionnaire {QuestionnaireId}", questionnaireId);
+                return new PagedResult<OperationChangeLog>
+                {
+                    Items = new List<OperationChangeLog>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+        }
+
+        /// <summary>
         /// Get checklist and related checklist task logs by checklist ID
         /// </summary>
         public async Task<PagedResult<OperationChangeLog>> GetChecklistWithRelatedLogsAsync(long checklistId, int pageIndex = 1, int pageSize = 20)
@@ -359,13 +466,19 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // This query includes:
                 // 1. Checklist operations where business_id = checklistId AND business_module = 'Checklist'
                 // 2. ChecklistTask operations where the task belongs to the checklist (using JOIN with ff_checklist_task table)
+                // 3. ActionMapping operations where the action is associated with tasks in this checklist
                 
                 var query = base.db.Queryable<OperationChangeLog>()
                     .LeftJoin<Domain.Entities.OW.ChecklistTask>((log, task) => 
                         log.BusinessModule == "Task" && log.BusinessId == task.Id)
-                    .Where((log, task) => 
+                    .LeftJoin<Domain.Entities.Action.ActionTriggerMapping>((log, task, mapping) =>
+                        log.BusinessModule == "ActionMapping" && log.BusinessId == mapping.Id)
+                    .LeftJoin<Domain.Entities.OW.ChecklistTask>((log, task, mapping, triggerTask) =>
+                        mapping.TriggerType == "Task" && mapping.TriggerSourceId == triggerTask.Id)
+                    .Where((log, task, mapping, triggerTask) => 
                         (log.BusinessModule == "Checklist" && log.BusinessId == checklistId) || 
-                        (log.BusinessModule == "Task" && task.ChecklistId == checklistId))
+                        (log.BusinessModule == "Task" && task.ChecklistId == checklistId) ||
+                        (log.BusinessModule == "ActionMapping" && triggerTask.ChecklistId == checklistId))
                     .OrderByDescending(log => log.OperationTime)
                     .Select(log => log);
 

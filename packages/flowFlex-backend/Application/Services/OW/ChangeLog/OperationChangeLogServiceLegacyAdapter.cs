@@ -1,10 +1,12 @@
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
+using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
 {
@@ -18,7 +20,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         private readonly IQuestionnaireLogService _questionnaireLogService;
         private readonly IWorkflowLogService _workflowLogService;
         private readonly IStageLogService _stageLogService;
+        private readonly IActionLogService _actionLogService;
         private readonly ILogAggregationService _logAggregationService;
+        private readonly IOperationChangeLogRepository _operationChangeLogRepository;
         private readonly ILogger<OperationChangeLogServiceLegacyAdapter> _logger;
 
         public OperationChangeLogServiceLegacyAdapter(
@@ -26,14 +30,18 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IQuestionnaireLogService questionnaireLogService,
             IWorkflowLogService workflowLogService,
             IStageLogService stageLogService,
+            IActionLogService actionLogService,
             ILogAggregationService logAggregationService,
+            IOperationChangeLogRepository operationChangeLogRepository,
             ILogger<OperationChangeLogServiceLegacyAdapter> logger)
         {
             _checklistLogService = checklistLogService;
             _questionnaireLogService = questionnaireLogService;
             _workflowLogService = workflowLogService;
             _stageLogService = stageLogService;
+            _actionLogService = actionLogService;
             _logAggregationService = logAggregationService;
+            _operationChangeLogRepository = operationChangeLogRepository;
             _logger = logger;
         }
 
@@ -230,8 +238,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     BusinessTypeEnum.Workflow => await GetWorkflowWithRelatedLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.Checklist => await _checklistLogService.GetChecklistLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.ChecklistTask => await _checklistLogService.GetChecklistTaskLogsAsync(businessId, null, pageIndex, pageSize, true),
-                    BusinessTypeEnum.Questionnaire => await _questionnaireLogService.GetQuestionnaireLogsAsync(businessId, pageIndex, pageSize),
+                    BusinessTypeEnum.Questionnaire => await GetQuestionnaireWithRelatedLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.Stage => await GetStageLogsAsync(businessId, pageIndex, pageSize),
+                    BusinessTypeEnum.Action => await _actionLogService.GetActionDefinitionLogsAsync(businessId, pageIndex, pageSize),
+                    BusinessTypeEnum.ActionMapping => await _actionLogService.GetActionMappingLogsAsync(businessId, pageIndex, pageSize),
                     _ => throw new NotSupportedException($"Business type {businessType} is not supported.")
                 };
             }
@@ -444,6 +454,92 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 _logger.LogError(ex, "Failed to get workflow logs with related stages for workflow {WorkflowId}", workflowId);
                 return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get questionnaire and related ActionMapping logs
+        /// </summary>
+        private async Task<PagedResult<OperationChangeLogOutputDto>> GetQuestionnaireWithRelatedLogsAsync(long questionnaireId, int pageIndex, int pageSize)
+        {
+            try
+            {
+                var result = await _operationChangeLogRepository.GetQuestionnaireWithRelatedLogsAsync(questionnaireId, pageIndex, pageSize);
+                
+                var outputDtos = result.Items.Select(log => new OperationChangeLogOutputDto
+                {
+                    Id = log.Id,
+                    OperationType = log.OperationType,
+                    BusinessModule = log.BusinessModule,
+                    BusinessId = log.BusinessId,
+                    OnboardingId = log.OnboardingId,
+                    StageId = log.StageId,
+                    OperationStatus = log.OperationStatus,
+                    OperationDescription = log.OperationDescription,
+                    OperationTitle = log.OperationTitle,
+                    OperationSource = log.OperationSource,
+                    BeforeData = log.BeforeData,
+                    AfterData = log.AfterData,
+                    ChangedFields = ParseChangedFields(log.ChangedFields),
+                    OperatorId = log.OperatorId,
+                    OperatorName = log.OperatorName,
+                    OperationTime = log.OperationTime,
+                    IpAddress = log.IpAddress,
+                    UserAgent = log.UserAgent,
+                    ExtendedData = log.ExtendedData,
+                    ErrorMessage = log.ErrorMessage
+                }).ToList();
+
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = outputDtos,
+                    TotalCount = result.TotalCount,
+                    PageIndex = result.PageIndex,
+                    PageSize = result.PageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get questionnaire with related logs for questionnaire {QuestionnaireId}", questionnaireId);
+                return new PagedResult<OperationChangeLogOutputDto>
+                {
+                    Items = new List<OperationChangeLogOutputDto>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
+            }
+        }
+
+        /// <summary>
+        /// Safely parse ChangedFields from JSON string to List<string>
+        /// </summary>
+        private static List<string> ParseChangedFields(string changedFieldsJson)
+        {
+            if (string.IsNullOrEmpty(changedFieldsJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                // Try to deserialize as List<string> first
+                var result = JsonSerializer.Deserialize<List<string>>(changedFieldsJson);
+                return result ?? new List<string>();
+            }
+            catch (JsonException)
+            {
+                try
+                {
+                    // If that fails, try to deserialize as a single string and wrap in list
+                    var singleString = JsonSerializer.Deserialize<string>(changedFieldsJson);
+                    return string.IsNullOrEmpty(singleString) ? new List<string>() : new List<string> { singleString };
+                }
+                catch (JsonException)
+                {
+                    // If all fails, treat the whole string as a single field (fallback)
+                    return new List<string> { changedFieldsJson };
+                }
             }
         }
 

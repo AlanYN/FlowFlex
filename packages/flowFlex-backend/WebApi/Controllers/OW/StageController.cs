@@ -510,7 +510,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                     IncludeQuestionnaireInsights = true
                 };
 
-                // 调用AI服务生成摘要
+                // 调用AI服务生成摘要 - 现在将结果存储到Onboarding stage progress
                 var summaryResult = await _stageService.GenerateAISummaryAsync(stageId, onboardingId, summaryOptions);
 
                 if (summaryResult.Success && !string.IsNullOrEmpty(summaryResult.Summary))
@@ -531,7 +531,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                         await Task.Delay(100);
                     }
 
-                    // 异步更新数据库 - 不阻塞响应
+                    // 异步更新数据库 - 存储到Onboarding stage progress
                     var generatedAt = DateTime.UtcNow;
                     _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
@@ -577,20 +577,23 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             try
             {
-                // 1. 更新Stage表的AI Summary字段（backfill，如果为空的话）
-                await _stageService.UpdateStageAISummaryIfEmptyAsync(stageId, aiSummary, generatedAt, confidence, modelUsed);
-
-                // 2. 如果有onboardingId，更新Onboarding的stagesProgress
+                // AI summary functionality has been removed from Stage entity
+                // AI summaries are now only stored in Onboarding stage progress
+                
+                // Only update Onboarding's stagesProgress if onboardingId is provided
                 if (onboardingId.HasValue)
                 {
                     await _onboardingService.UpdateOnboardingStageAISummaryAsync(onboardingId.Value, stageId, aiSummary, generatedAt, confidence, modelUsed);
+                    Console.WriteLine($"✅ Successfully updated AI summary in Onboarding stage progress for stage {stageId}, onboarding {onboardingId.Value}");
                 }
-
-                Console.WriteLine($"✅ Successfully updated AI summary in database for stage {stageId}");
+                else
+                {
+                    Console.WriteLine($"⚠️ No onboardingId provided - AI summary not stored (Stage entity no longer supports AI summary fields)");
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to update AI summary in database for stage {stageId}: {ex.Message}");
+                Console.WriteLine($"❌ Failed to update AI summary in Onboarding stage progress for stage {stageId}: {ex.Message}");
                 throw;
             }
         }

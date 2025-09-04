@@ -60,6 +60,16 @@ namespace FlowFlex.Domain.Repository.Action
         Task<bool> IsMappingExistsAsync(long actionDefinitionId, string triggerType, long triggerSourceId, long workFlowId);
 
         /// <summary>
+        /// Get existing mapping
+        /// </summary>
+        /// <param name="actionDefinitionId"></param>
+        /// <param name="triggerType"></param>
+        /// <param name="triggerSourceId"></param>
+        /// <param name="workFlowId"></param>
+        /// <returns></returns>
+        Task<ActionTriggerMapping> GetExistingMappingAsync(long actionDefinitionId, string triggerType, long triggerSourceId, long workFlowId);
+
+        /// <summary>
         /// Get all enabled mappings
         /// </summary>
         /// <returns>Enabled mapping list</returns>

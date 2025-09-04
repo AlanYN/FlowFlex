@@ -427,10 +427,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             var description = $"Task '{taskName}' has been marked as uncompleted by {GetOperatorDisplayName()}";
 
-            if (!string.IsNullOrEmpty(reason))
-            {
-                description += $" with reason: {reason}";
-            }
+            // Remove the "with reason" part for cleaner description
+            // if (!string.IsNullOrEmpty(reason))
+            // {
+            //     description += $" with reason: {reason}";
+            // }
 
             return description;
         }

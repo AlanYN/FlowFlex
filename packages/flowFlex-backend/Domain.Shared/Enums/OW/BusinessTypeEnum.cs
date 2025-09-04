@@ -35,6 +35,18 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// ChecklistTask business type
         /// </summary>
         [Description("ChecklistTask")]
-        ChecklistTask = 5
+        ChecklistTask = 5,
+
+        /// <summary>
+        /// Action business type
+        /// </summary>
+        [Description("Action")]
+        Action = 6,
+
+        /// <summary>
+        /// ActionMapping business type
+        /// </summary>
+        [Description("ActionMapping")]
+        ActionMapping = 7
     }
 }

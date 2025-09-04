@@ -143,6 +143,16 @@ namespace FlowFlex.Domain.Repository.OW
         Task<PagedResult<OperationChangeLog>> GetWorkflowWithRelatedLogsAsync(long workflowId, int pageIndex = 1, int pageSize = 20);
 
         /// <summary>
+        /// Get questionnaire and related ActionMapping logs by questionnaire ID
+        /// This includes both questionnaire operations and ActionMapping operations with Question trigger type
+        /// </summary>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation logs</returns>
+        Task<PagedResult<OperationChangeLog>> GetQuestionnaireWithRelatedLogsAsync(long questionnaireId, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
         /// Get checklist and related checklist task logs by checklist ID
         /// This includes both checklist operations and operations on tasks that belong to the checklist
         /// </summary>

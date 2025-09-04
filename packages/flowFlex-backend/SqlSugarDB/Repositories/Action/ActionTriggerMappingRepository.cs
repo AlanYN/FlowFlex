@@ -88,6 +88,21 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         }
 
         /// <summary>
+        /// Get existing mapping
+        /// </summary>
+        public async Task<ActionTriggerMapping> GetExistingMappingAsync(long actionDefinitionId, string triggerType, long triggerSourceId, long workFlowId)
+        {
+            var query = db.Queryable<ActionTriggerMapping>()
+                .Where(x => x.ActionDefinitionId == actionDefinitionId
+                         && x.TriggerType == triggerType
+                         && x.TriggerSourceId == triggerSourceId
+                         && x.WorkFlowId == workFlowId
+                         && x.IsValid);
+
+            return await query.FirstAsync();
+        }
+
+        /// <summary>
         /// Get all enabled mappings
         /// </summary>
         public async Task<List<ActionTriggerMapping>> GetAllEnabledAsync()

@@ -4,6 +4,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
+using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -15,6 +16,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Entities.OW;
 using System.Text.Json;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -28,6 +30,8 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionCodeGeneratorService _actionCodeGeneratorService;
         private readonly IChecklistTaskRepository _checklistTaskRepository;
         private readonly IQuestionnaireRepository _questionnaireRepository;
+        private readonly IStageRepository _stageRepository;
+        private readonly IActionLogService _actionLogService;
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
         private readonly UserContext _userContext;
@@ -38,6 +42,8 @@ namespace FlowFlex.Application.Services.Action
             IActionCodeGeneratorService actionCodeGeneratorService,
             IChecklistTaskRepository checklistTaskRepository,
             IQuestionnaireRepository questionnaireRepository,
+            IStageRepository stageRepository,
+            IActionLogService actionLogService,
             IMapper mapper,
             UserContext userContext,
             ILogger<ActionManagementService> logger)
@@ -47,6 +53,8 @@ namespace FlowFlex.Application.Services.Action
             _actionCodeGeneratorService = actionCodeGeneratorService;
             _checklistTaskRepository = checklistTaskRepository;
             _questionnaireRepository = questionnaireRepository;
+            _stageRepository = stageRepository;
+            _actionLogService = actionLogService;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -391,12 +399,41 @@ namespace FlowFlex.Application.Services.Action
         public async Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto)
         {
             // Check if mapping already exists
-            var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
-                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId);
+            // If exists, return the existing mapping instead of creating a new one
+            var workflowIdForCheck = dto.WorkFlowId ?? 0;
+            var existingMapping = await _actionTriggerMappingRepository.GetExistingMappingAsync(
+                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, workflowIdForCheck);
 
-            if (exists)
+            if (existingMapping != null)
             {
-                throw new InvalidOperationException("Mapping already exists for this action and trigger");
+                _logger.LogInformation("Mapping already exists for ActionDefinitionId={ActionDefinitionId}, TriggerType={TriggerType}, TriggerSourceId={TriggerSourceId}, WorkFlowId={WorkFlowId}. Returning existing mapping: {MappingId}",
+                    dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId?.ToString() ?? "None", existingMapping.Id);
+                
+                // Optional: Log duplicate request attempt (uncomment if needed)
+                // try
+                // {
+                //     var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(dto.ActionDefinitionId);
+                //     var triggerSourceName = await GetTriggerSourceNameAsync(dto.TriggerType, dto.TriggerSourceId);
+                //     var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+                //     
+                //     await _actionLogService.LogActionMappingAssociateAsync(
+                //         existingMapping.Id,
+                //         dto.ActionDefinitionId,
+                //         actionName,
+                //         dto.TriggerType,
+                //         dto.TriggerSourceId,
+                //         triggerSourceName,
+                //         dto.TriggerEvent,
+                //         dto.WorkFlowId,
+                //         dto.StageId,
+                //         $"Duplicate request - returned existing mapping");
+                // }
+                // catch (Exception ex)
+                // {
+                //     _logger.LogWarning(ex, "Failed to log duplicate mapping request for mapping {MappingId}", existingMapping.Id);
+                // }
+                
+                return _mapper.Map<ActionTriggerMappingDto>(existingMapping);
             }
 
             // Ensure TriggerEvent has a valid value - default to "Completed" if not provided or empty
@@ -409,8 +446,99 @@ namespace FlowFlex.Application.Services.Action
 
             var entity = _mapper.Map<ActionTriggerMapping>(dto);
 
+            // Temporary fix: Handle null values until database schema is updated
+            // TODO: Remove this after running database migration to make fields nullable
+            if (!entity.WorkFlowId.HasValue)
+            {
+                entity.WorkFlowId = 0; // Use 0 as placeholder for null workflow
+                _logger.LogDebug("Setting WorkFlowId to 0 (placeholder for null) for mapping: {MappingId}", entity.Id);
+            }
+            if (!entity.StageId.HasValue)
+            {
+                entity.StageId = 0; // Use 0 as placeholder for null stage
+                _logger.LogDebug("Setting StageId to 0 (placeholder for null) for mapping: {MappingId}", entity.Id);
+            }
+
             await _actionTriggerMappingRepository.InsertAsync(entity);
             _logger.LogInformation("Created action trigger mapping: {MappingId} with TriggerEvent: {TriggerEvent}", entity.Id, entity.TriggerEvent);
+
+            // Log action trigger mapping association using structured logging and change log
+            try
+            {
+                var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(dto.ActionDefinitionId);
+                var triggerSourceName = await GetTriggerSourceNameAsync(dto.TriggerType, dto.TriggerSourceId);
+                var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+
+                // Structured logging (existing)
+                _logger.LogInformation("Action mapping associated: Action '{ActionName}' (ID: {ActionId}) has been associated with {TriggerType} '{TriggerSourceName}' (ID: {TriggerSourceId}) to trigger on '{TriggerEvent}' event by {UserName}. Mapping ID: {MappingId}, Workflow: {WorkflowId}, Stage: {StageId}",
+                    actionName,
+                    dto.ActionDefinitionId,
+                    dto.TriggerType,
+                    triggerSourceName,
+                    dto.TriggerSourceId,
+                    dto.TriggerEvent,
+                    _userContext?.UserName ?? "System",
+                    entity.Id,
+                    dto.WorkFlowId?.ToString() ?? "None",
+                    dto.StageId?.ToString() ?? "None");
+
+                // Change log recording (new) - get additional context for better log association
+                long? onboardingId = dto.WorkFlowId; // Use WorkFlowId as onboardingId for workflow-related logs
+                long? checklistId = null;
+                
+                // For Task triggers, get associated checklist and onboarding information
+                if (dto.TriggerType?.ToLower() == "task")
+                {
+                    try
+                    {
+                        var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
+                        if (task != null)
+                        {
+                            checklistId = task.ChecklistId;
+                            // You might need to add a method to get onboarding ID from checklist ID
+                            // onboardingId = await GetOnboardingIdByChecklistIdAsync(task.ChecklistId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get task context for action mapping log: TaskId={TaskId}", dto.TriggerSourceId);
+                    }
+                }
+                // For Stage triggers, the workflow ID is already set as onboardingId above
+
+                // Create extended data with additional context
+                var extendedDataWithContext = JsonSerializer.Serialize(new
+                {
+                    MappingId = entity.Id,
+                    ActionDefinitionId = dto.ActionDefinitionId,
+                    ActionName = actionName,
+                    TriggerType = dto.TriggerType,
+                    TriggerSourceId = dto.TriggerSourceId,
+                    TriggerSourceName = triggerSourceName,
+                    TriggerEvent = dto.TriggerEvent,
+                    WorkflowId = dto.WorkFlowId,
+                    StageId = dto.StageId,
+                    ChecklistId = checklistId,
+                    OnboardingId = onboardingId,
+                    AssociatedAt = DateTimeOffset.UtcNow
+                });
+
+                await _actionLogService.LogActionMappingAssociateAsync(
+                    entity.Id,
+                    dto.ActionDefinitionId,
+                    actionName,
+                    dto.TriggerType,
+                    dto.TriggerSourceId,
+                    triggerSourceName,
+                    dto.TriggerEvent,
+                    dto.WorkFlowId,
+                    dto.StageId,
+                    extendedDataWithContext);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log action trigger mapping association details for mapping {MappingId}", entity.Id);
+            }
 
             return _mapper.Map<ActionTriggerMappingDto>(entity);
         }
@@ -423,6 +551,45 @@ namespace FlowFlex.Application.Services.Action
                 // Return true for idempotent delete operation - if mapping doesn't exist, consider it already deleted
                 _logger.LogInformation("Action trigger mapping {MappingId} not found, considering delete operation successful", id);
                 return true;
+            }
+
+            // Log action trigger mapping disassociation using structured logging and change log
+            try
+            {
+                var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(entity.ActionDefinitionId);
+                var triggerSourceName = await GetTriggerSourceNameAsync(entity.TriggerType, entity.TriggerSourceId);
+                var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+
+                // Structured logging (existing)
+                _logger.LogInformation("Action mapping disassociated: Action '{ActionName}' (ID: {ActionId}) has been disassociated from {TriggerType} '{TriggerSourceName}' (ID: {TriggerSourceId}) (was triggered on '{TriggerEvent}' event) by {UserName}. Mapping ID: {MappingId}, Workflow: {WorkflowId}, Stage: {StageId}, Was Enabled: {WasEnabled}",
+                    actionName,
+                    entity.ActionDefinitionId,
+                    entity.TriggerType,
+                    triggerSourceName,
+                    entity.TriggerSourceId,
+                    entity.TriggerEvent,
+                    _userContext?.UserName ?? "System",
+                    entity.Id,
+                    entity.WorkFlowId?.ToString() ?? "None",
+                    entity.StageId?.ToString() ?? "None",
+                    entity.IsEnabled);
+
+                // Change log recording (new)
+                await _actionLogService.LogActionMappingDisassociateAsync(
+                    entity.Id,
+                    entity.ActionDefinitionId,
+                    actionName,
+                    entity.TriggerType,
+                    entity.TriggerSourceId,
+                    triggerSourceName,
+                    entity.TriggerEvent,
+                    entity.WorkFlowId,
+                    entity.StageId,
+                    entity.IsEnabled);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log action trigger mapping disassociation details for mapping {MappingId}", id);
             }
 
             entity.IsValid = false;
@@ -452,18 +619,88 @@ namespace FlowFlex.Application.Services.Action
                 return false;
             }
 
+            var oldStatus = entity.IsEnabled;
             entity.IsEnabled = isEnabled;
             entity.ModifyDate = DateTimeOffset.UtcNow;
 
             await _actionTriggerMappingRepository.UpdateAsync(entity);
             _logger.LogInformation("Updated action trigger mapping status: {MappingId}, IsEnabled: {IsEnabled}", id, isEnabled);
 
+            // Log status change using ActionLogService
+            try
+            {
+                var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(entity.ActionDefinitionId);
+                var triggerSourceName = await GetTriggerSourceNameAsync(entity.TriggerType, entity.TriggerSourceId);
+                var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+                
+                var statusAction = isEnabled ? "enabled" : "disabled";
+                var extendedData = JsonSerializer.Serialize(new
+                {
+                    MappingId = entity.Id,
+                    ActionDefinitionId = entity.ActionDefinitionId,
+                    ActionName = actionName,
+                    TriggerType = entity.TriggerType,
+                    TriggerSourceId = entity.TriggerSourceId,
+                    TriggerSourceName = triggerSourceName,
+                    TriggerEvent = entity.TriggerEvent,
+                    OldStatus = oldStatus,
+                    NewStatus = isEnabled,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                // Use a general ActionMapping update operation type
+                await _actionLogService.LogActionMappingUpdateAsync(
+                    entity.Id,
+                    entity.ActionDefinitionId,
+                    actionName,
+                    entity.TriggerType,
+                    entity.TriggerSourceId,
+                    triggerSourceName,
+                    $"Status {statusAction}",
+                    oldStatus.ToString(),
+                    isEnabled.ToString(),
+                    new List<string> { "IsEnabled" },
+                    extendedData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log action trigger mapping status update for mapping {MappingId}", id);
+            }
+
             return true;
         }
 
         public async Task<bool> BatchUpdateActionTriggerMappingStatusAsync(List<long> mappingIds, bool isEnabled)
         {
-            return await _actionTriggerMappingRepository.BatchUpdateEnabledStatusAsync(mappingIds, isEnabled);
+            var result = await _actionTriggerMappingRepository.BatchUpdateEnabledStatusAsync(mappingIds, isEnabled);
+            
+            if (result)
+            {
+                _logger.LogInformation("Batch updated {Count} action trigger mapping statuses to IsEnabled: {IsEnabled}", mappingIds.Count, isEnabled);
+                
+                // Log batch status change - simplified logging without individual details for performance
+                try
+                {
+                    var statusAction = isEnabled ? "enabled" : "disabled";
+                    var extendedData = JsonSerializer.Serialize(new
+                    {
+                        MappingIds = mappingIds,
+                        NewStatus = isEnabled,
+                        UpdatedAt = DateTimeOffset.UtcNow,
+                        UpdatedCount = mappingIds.Count
+                    });
+
+                    // Use a simple log entry for batch operations
+                    _logger.LogInformation("Batch Action Mapping Status Update: {Count} mappings have been {StatusAction} by {UserName}",
+                        mappingIds.Count, statusAction, _userContext?.UserName ?? "System");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log batch action trigger mapping status update for {Count} mappings", mappingIds.Count);
+                }
+            }
+            
+            return result;
         }
 
         #endregion
@@ -711,6 +948,43 @@ namespace FlowFlex.Application.Services.Action
 
             return hasChanges;
         }
+
+        #endregion
+
+        #region Private Helper Methods for Logging
+
+        /// <summary>
+        /// Get trigger source name based on trigger type and source ID
+        /// </summary>
+        private async Task<string> GetTriggerSourceNameAsync(string triggerType, long triggerSourceId)
+        {
+            try
+            {
+                switch (triggerType?.ToLower())
+                {
+                    case "task":
+                        var task = await _checklistTaskRepository.GetByIdAsync(triggerSourceId);
+                        return task?.Name ?? $"Task {triggerSourceId}";
+
+                    case "question":
+                        var questionnaire = await _questionnaireRepository.GetByIdAsync(triggerSourceId);
+                        return questionnaire?.Name ?? $"Question {triggerSourceId}";
+
+                    case "stage":
+                        var stage = await _stageRepository.GetByIdAsync(triggerSourceId);
+                        return stage?.Name ?? $"Stage {triggerSourceId}";
+
+                    default:
+                        return $"{triggerType} {triggerSourceId}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get trigger source name for {TriggerType} {TriggerSourceId}", triggerType, triggerSourceId);
+                return $"{triggerType} {triggerSourceId}";
+            }
+        }
+
 
         #endregion
     }

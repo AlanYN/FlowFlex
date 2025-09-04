@@ -29,14 +29,12 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// <summary>
         /// Work flow ID
         /// </summary>
-        [Required]
-        public long WorkFlowId { get; set; }
+        public long? WorkFlowId { get; set; }
 
         /// <summary>
         /// Stage ID
         /// </summary>
-        [Required]
-        public long StageId { get; set; }
+        public long? StageId { get; set; }
 
         /// <summary>
         /// Trigger event (Completed, Created, Updated, etc.)

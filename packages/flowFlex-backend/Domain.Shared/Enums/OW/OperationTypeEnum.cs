@@ -250,7 +250,43 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Questionnaire duplicated
         /// </summary>
         [Description("Questionnaire Duplicate")]
-        QuestionnaireDuplicate = 40
+        QuestionnaireDuplicate = 40,
+
+        /// <summary>
+        /// Action definition created
+        /// </summary>
+        [Description("Action Definition Create")]
+        ActionDefinitionCreate = 41,
+
+        /// <summary>
+        /// Action definition updated
+        /// </summary>
+        [Description("Action Definition Update")]
+        ActionDefinitionUpdate = 42,
+
+        /// <summary>
+        /// Action definition deleted
+        /// </summary>
+        [Description("Action Definition Delete")]
+        ActionDefinitionDelete = 43,
+
+        /// <summary>
+        /// Action mapping created (association)
+        /// </summary>
+        [Description("Action Mapping Create")]
+        ActionMappingCreate = 44,
+
+        /// <summary>
+        /// Action mapping deleted (disassociation)
+        /// </summary>
+        [Description("Action Mapping Delete")]
+        ActionMappingDelete = 45,
+
+        /// <summary>
+        /// Action mapping updated
+        /// </summary>
+        [Description("Action Mapping Update")]
+        ActionMappingUpdate = 46
     }
 
     /// <summary>
@@ -322,7 +358,19 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Workflow
         /// </summary>
         [Description("Workflow")]
-        Workflow = 11
+        Workflow = 11,
+
+        /// <summary>
+        /// Action
+        /// </summary>
+        [Description("Action")]
+        Action = 12,
+
+        /// <summary>
+        /// Action Mapping
+        /// </summary>
+        [Description("ActionMapping")]
+        ActionMapping = 13
     }
 
     /// <summary>

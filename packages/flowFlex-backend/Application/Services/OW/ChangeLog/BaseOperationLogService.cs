@@ -824,7 +824,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             if (!string.IsNullOrEmpty(reason))
             {
-                description += $" with reason: {reason}";
+                // Skip reason display for ChecklistTask delete operations to avoid redundant information
+                if (!(businessModule == BusinessModuleEnum.Task && operationAction.ToLower() == "deleted"))
+                {
+                    description += $" with reason: {reason}";
+                }
             }
 
             return description;

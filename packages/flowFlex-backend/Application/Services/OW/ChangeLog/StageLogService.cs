@@ -804,6 +804,32 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var assigneeChange = GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr).GetAwaiter().GetResult();
                             changeList.Add(assigneeChange);
                         }
+                        else if (field.Equals("AttachmentManagementNeeded", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeBool = beforeValue?.ToString()?.ToLower() == "true";
+                            var afterBool = afterValue?.ToString()?.ToLower() == "true";
+                            var beforeStr = beforeBool ? "enabled" : "disabled";
+                            var afterStr = afterBool ? "enabled" : "disabled";
+                            changeList.Add($"attachment management from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("EstimatedDuration", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = beforeValue?.ToString() ?? "0";
+                            var afterStr = afterValue?.ToString() ?? "0";
+                            changeList.Add($"estimated duration from {beforeStr} hours to {afterStr} hours");
+                        }
+                        else if (field.Equals("Color", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = beforeValue?.ToString() ?? "";
+                            var afterStr = afterValue?.ToString() ?? "";
+                            changeList.Add($"color from '{beforeStr}' to '{afterStr}'");
+                        }
+                        else if (field.Equals("Order", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = beforeValue?.ToString() ?? "0";
+                            var afterStr = afterValue?.ToString() ?? "0";
+                            changeList.Add($"order from {beforeStr} to {afterStr}");
+                        }
                         else
                         {
                             var beforeStr = GetDisplayValue(beforeValue, field);
@@ -965,6 +991,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     if (!string.IsNullOrEmpty(componentChangeDetails))
                     {
                         changes.Add(componentChangeDetails);
+                        _stageLogger.LogDebug("Component change detected for {ComponentKey}: {ChangeDetails}", key, componentChangeDetails);
+                    }
+                    else
+                    {
+                        _stageLogger.LogDebug("No component change detected for {ComponentKey} (Before: {BeforeCount}, After: {AfterCount})", 
+                            key, beforeComps.Count, afterComps.Count);
                     }
                 }
             }
@@ -1067,7 +1099,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         break;
 
                     case "files":
-                        return "file management enabled";
+                        // For files component, we always return something meaningful
+                        var enabledCount = components.Count(c => c.IsEnabled);
+                        if (enabledCount > 0)
+                        {
+                            return "file management";
+                        }
+                        return "file management (disabled)";
                 }
 
                 return string.Empty;
@@ -1138,6 +1176,18 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (removedQuestionnaires.Any())
                         {
                             changes.Add($"removed questionnaires: {string.Join(", ", removedQuestionnaires.Take(2).Select(n => $"'{n}'"))}{(removedQuestionnaires.Count > 2 ? ", etc." : "")}");
+                        }
+                        break;
+
+                    case "files":
+                        // For files component, check if enabled status changed
+                        var beforeFilesEnabled = beforeComps.Any(c => c.IsEnabled);
+                        var afterFilesEnabled = afterComps.Any(c => c.IsEnabled);
+                        
+                        if (beforeFilesEnabled != afterFilesEnabled)
+                        {
+                            var statusChange = afterFilesEnabled ? "enabled" : "disabled";
+                            changes.Add($"file management {statusChange}");
                         }
                         break;
                 }
