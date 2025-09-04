@@ -309,7 +309,7 @@ const getAssigneeInitials = (fullName: string) => {
 /* 头部卡片样式 - 橙色渐变 */
 .checklist-header-card {
 	background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-	padding: 24px;
+	padding: 10px;
 	color: white;
 	box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
 	display: flex;

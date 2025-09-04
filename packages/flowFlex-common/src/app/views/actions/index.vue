@@ -23,12 +23,7 @@
 		<el-card class="mb-6 rounded-md filter_card">
 			<template #default>
 				<div class="">
-					<el-form
-						ref="searchFormRef"
-						:model="searchForm"
-						@submit.prevent="handleSearch"
-						class="actionsSearch-form"
-					>
+					<el-form ref="searchFormRef" :model="searchForm" class="actionsSearch-form">
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 							<div class="space-y-2">
 								<label class="text-sm font-medium text-primary-500">
@@ -39,6 +34,7 @@
 									placeholder="Enter Action ID or Action Name"
 									clearable
 									class="w-full rounded-md"
+									@change="handleSearch"
 								>
 									<template #prefix>
 										<el-icon>
@@ -55,6 +51,7 @@
 									placeholder="Select Type"
 									clearable
 									class="w-full rounded-md"
+									@change="handleSearch"
 								>
 									<el-option
 										v-for="option in getActionTypeOptions()"
@@ -64,15 +61,6 @@
 									/>
 								</el-select>
 							</div>
-						</div>
-
-						<div class="flex justify-end space-x-2 mt-4">
-							<el-button type="primary" @click="handleSearch">
-								<el-icon>
-									<Search />
-								</el-icon>
-								<span>Search</span>
-							</el-button>
 						</div>
 					</el-form>
 				</div>
@@ -575,7 +563,7 @@ onMounted(() => {
 }
 
 .filter_card {
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
+	border: 1px solid var(--primary-100);
 }
 
 /* 搜索表单样式 */

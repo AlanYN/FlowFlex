@@ -385,7 +385,7 @@ defineExpose({
 /* 头部卡片样式 - 绿色渐变 */
 .questionnaire-header-card {
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-	padding: 24px;
+	padding: 10px;
 	color: white;
 	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 	display: flex;

@@ -7,12 +7,14 @@
 				@click="toggleOpen"
 			>
 				<div class="flex items-center justify-between">
-					<h3 class="text-lg font-semibold">Onboarding Progress</h3>
+					<div class="flex items-center gap-2">
+						<el-icon class="transition-transform" :class="{ 'rotate-90': isOpen }">
+							<ArrowRight />
+						</el-icon>
+						<h3 class="text-lg font-semibold">Onboarding Progress</h3>
+					</div>
 					<div class="flex items-center space-x-2">
 						<span class="text-sm font-medium">{{ progressPercentage }}% Complete</span>
-						<el-icon class="transition-transform" :class="{ 'rotate-180': !isOpen }">
-							<ArrowDown />
-						</el-icon>
 					</div>
 				</div>
 				<!-- 进度条 -->
@@ -45,7 +47,7 @@
 						<div
 							v-for="(stage, index) in displayedStages"
 							:key="stage.stageId"
-							class="relative pl-8 py-3 pr-4 ml-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-r-lg"
+							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-lg"
 							:class="[
 								stage.completed
 									? 'border-green-500'
@@ -59,7 +61,7 @@
 						>
 							<!-- 阶段状态图标 -->
 							<div
-								class="absolute left-0 top-3 w-6 h-6 rounded-full flex items-center justify-center"
+								class="w-6 h-6 rounded-full flex items-center justify-center"
 								:class="[
 									stage.completed
 										? 'bg-green-500 text-white'
@@ -126,7 +128,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Check, Clock, ArrowDown, ArrowUp } from '@element-plus/icons-vue';
+import { Check, Clock, ArrowDown, ArrowUp, ArrowRight } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
 import { timeZoneConvert } from '@/hooks/time';
 import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';

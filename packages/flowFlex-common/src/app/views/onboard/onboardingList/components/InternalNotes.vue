@@ -2,19 +2,14 @@
 	<el-card class="shadow-sm">
 		<template #header>
 			<div
-				class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white -mx-5 -mt-5 px-5 py-4 rounded-t-lg cursor-pointer hover:from-blue-700 hover:to-indigo-700 transition-colors"
+				class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white -mx-5 -mt-5 px-5 py-[14px] rounded-t-lg cursor-pointer hover:from-blue-700 hover:to-indigo-700 transition-colors"
 				@click="toggleOpen"
 			>
-				<div class="flex items-center justify-between">
-					<h2 class="text-lg font-semibold">Internal Notes</h2>
-					<div class="flex items-center space-x-2">
-						<span class="text-sm font-medium">
-							{{ isOpen ? 'Click to collapse' : 'Click to expand' }}
-						</span>
-						<el-icon class="transition-transform" :class="{ 'rotate-180': !isOpen }">
-							<ArrowDown />
-						</el-icon>
-					</div>
+				<div class="flex items-center gap-2">
+					<el-icon class="transition-transform" :class="{ 'rotate-90': isOpen }">
+						<ArrowRight />
+					</el-icon>
+					<h2 class="text-lg text-sm">Internal Notes</h2>
 				</div>
 			</div>
 		</template>
@@ -173,7 +168,7 @@ import { ref, onMounted, watch, h, VNode } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from '@/hooks/useI18n';
 import {
-	ArrowDown,
+	ArrowRight,
 	ChatDotSquare,
 	MoreFilled,
 	Edit,

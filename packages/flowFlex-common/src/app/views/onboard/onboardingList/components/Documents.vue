@@ -577,7 +577,7 @@ defineExpose({
 /* 头部卡片样式 - 绿色渐变 */
 .documents-header-card {
 	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-	padding: 24px;
+	padding: 10px;
 	color: white;
 	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 	display: flex;
