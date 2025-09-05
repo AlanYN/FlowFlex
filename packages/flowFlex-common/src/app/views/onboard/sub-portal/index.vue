@@ -178,7 +178,7 @@
 
 					<!-- Header -->
 					<div v-else>
-						<h1 class="text-2xl font-bold text-gray-900">Onboarding Progress</h1>
+						<h1 class="text-2xl font-bold text-gray-900">Cases Progress</h1>
 						<p class="text-gray-600">Track your journey with us</p>
 					</div>
 
@@ -373,7 +373,7 @@
 					<!-- Stages Timeline -->
 					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
 						<div class="mb-6">
-							<h3 class="text-lg font-semibold text-gray-900">Onboarding Stages</h3>
+							<h3 class="text-lg font-semibold text-gray-900">Cases Stages</h3>
 							<p class="text-sm text-gray-600">
 								Track your progress through each stage
 							</p>
@@ -608,12 +608,12 @@ export default {
 		// 导航菜单
 		const navigation = ref([
 			{
-				name: 'Onboarding Progress',
+				name: 'Cases Progress',
 				view: 'progress',
 				icon: HomeIcon,
 			},
 			{
-				name: 'Onboarding Detail',
+				name: 'Cases Detail',
 				view: 'detail',
 				icon: DetailsIcon,
 			},

@@ -2,7 +2,7 @@
 	<div class="bg-gray-50">
 		<!-- 标题和操作区 -->
 		<div class="onboarding-header">
-			<h1 class="title">Onboarding List</h1>
+			<h1 class="title">Cases List</h1>
 			<div class="actions">
 				<el-button
 					class="new-onboarding-btn"
@@ -12,7 +12,7 @@
 				>
 					<el-icon v-if="loading"><Loading /></el-icon>
 					<el-icon v-else><Plus /></el-icon>
-					<span>New Onboarding</span>
+					<span>New Cases</span>
 				</el-button>
 			</div>
 		</div>
@@ -344,7 +344,7 @@
 		<!-- 新建入职弹窗 -->
 		<el-dialog
 			v-model="dialogVisible"
-			title="Create New Onboarding"
+			title="Create New Cases"
 			:width="dialogWidth + 'px'"
 			destroy-on-close
 			custom-class="onboarding-dialog"
@@ -354,7 +354,7 @@
 		>
 			<template #header>
 				<div class="dialog-header">
-					<h2 class="dialog-title">Create New Onboarding</h2>
+					<h2 class="dialog-title">Create New Cases</h2>
 					<p class="dialog-subtitle">
 						Create a new onboarding record for lead management.
 					</p>

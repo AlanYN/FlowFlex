@@ -15,7 +15,7 @@ export default [
 				name: 'sub-OnboardingProgress',
 				component: () => import('./components/OnboardingProgress.vue'),
 				meta: {
-					title: 'Onboarding Progress',
+					title: 'Cases Progress',
 					icon: 'el-icon-progress',
 				},
 			},
@@ -62,7 +62,7 @@ export default [
 		name: 'sub-OnboardPortal',
 		component: () => import('./portal.vue'),
 		meta: {
-			title: 'Onboarding Portal Details',
+			title: 'Cases Portal Details',
 			requiresAuth: true,
 		},
 	},

@@ -359,7 +359,7 @@ const handleAutoRegisterAndRedirect = async () => {
 
 		const onboardingId = localStorage.getItem('onboarding_id');
 		if (!onboardingId) {
-			throw new Error('Onboarding ID not found');
+			throw new Error('Cases ID not found');
 		}
 
 		// 检查用户是否已存在

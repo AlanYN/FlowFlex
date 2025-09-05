@@ -11,7 +11,7 @@
 						<el-icon class="transition-transform" :class="{ 'rotate-90': isOpen }">
 							<ArrowRight />
 						</el-icon>
-						<h3 class="text-lg font-semibold">Onboarding Progress</h3>
+						<h3 class="text-lg font-semibold">Cases Progress</h3>
 					</div>
 					<div class="flex items-center space-x-2">
 						<span class="text-sm font-medium">{{ progressPercentage }}% Complete</span>

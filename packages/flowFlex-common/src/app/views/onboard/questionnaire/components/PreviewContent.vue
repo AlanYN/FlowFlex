@@ -97,7 +97,8 @@
 							<el-icon class="mr-1">
 								<Document />
 							</el-icon>
-							{{ questionnaire.totalQuestions }} items
+							{{ questionnaire.totalQuestions }}
+							{{ questionnaire.totalQuestions?.length > 1 ? 'items' : 'item' }}
 						</div>
 						<div
 							v-if="questionnaire.requiredQuestions"
@@ -145,7 +146,8 @@
 							</p>
 						</div>
 						<div class="text-sm text-gray-500">
-							{{ section.items?.length || 0 }} items
+							{{ section.items?.length || 0 }}
+							{{ section.items?.length > 1 ? 'items' : 'item' }}
 						</div>
 					</div>
 				</div>

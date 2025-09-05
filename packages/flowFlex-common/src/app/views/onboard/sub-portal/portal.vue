@@ -178,7 +178,7 @@
 								Back
 							</el-button>
 							<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-								Onboarding Details: {{ onboardingData?.leadId }}
+								Cases Details: {{ onboardingData?.leadId }}
 								{{ onboardingData?.leadName }}
 							</h1>
 						</div>
@@ -386,7 +386,7 @@
 					<!-- 编辑对话框 -->
 					<el-dialog
 						v-model="editDialogVisible"
-						title="Edit Onboarding"
+						title="Edit Cases"
 						width="500px"
 						:before-close="handleEditDialogClose"
 					>
@@ -528,12 +528,12 @@ const customerData = computed(() => {
 // 导航菜单
 const navigation = ref([
 	{
-		name: 'Onboarding Progress',
+		name: 'Cases Progress',
 		view: 'progress',
 		icon: HomeIcon,
 	},
 	{
-		name: 'Onboarding Detail',
+		name: 'Cases Detail',
 		view: 'onboarding',
 		icon: DetailsIcon,
 	},

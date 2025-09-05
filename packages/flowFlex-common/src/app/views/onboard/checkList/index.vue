@@ -251,10 +251,10 @@ const showTaskDialog = ref(false);
 const currentChecklist = ref<Checklist | null>(null);
 
 // 视图切换
-const activeView = ref('card');
+const activeView = ref('list');
 const tabsConfig = ref([
+	{ label: 'Table View', value: 'list', icon: markRaw(TableViewIcon) },
 	{ label: 'Card View', value: 'card', icon: markRaw(ProgressViewIcon) },
-	{ label: 'List View', value: 'list', icon: markRaw(TableViewIcon) },
 ]);
 
 // 使用自适应滚动条 hook

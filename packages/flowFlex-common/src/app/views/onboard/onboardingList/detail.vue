@@ -15,7 +15,7 @@
 					Back
 				</el-button>
 				<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-					Onboarding Details: {{ onboardingData?.leadId }} {{ onboardingData?.leadName }}
+					Cases Details: {{ onboardingData?.leadId }} {{ onboardingData?.leadName }}
 				</h1>
 			</div>
 			<div class="flex items-center space-x-2">

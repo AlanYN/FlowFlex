@@ -4,7 +4,7 @@
 		<div class="page-header rounded-lg p-6 mb-6">
 			<div class="flex justify-between items-center">
 				<div>
-					<h1 class="text-3xl font-bold page-title">Questionnaire Setup</h1>
+					<h1 class="text-3xl font-bold page-title">Questionnaires</h1>
 					<p class="page-subtitle mt-1">
 						Create and manage questionnaires for different workflow stages
 					</p>
@@ -237,10 +237,10 @@ const selectedQuestionnaireId = ref('');
 const selectedQuestionnaireData = ref<any>(null);
 
 // 视图切换
-const activeView = ref('card');
+const activeView = ref('list');
 const tabsConfig = ref([
+	{ label: 'Table View', value: 'list', icon: markRaw(ProgressViewIcon) },
 	{ label: 'Card View', value: 'card', icon: markRaw(TableViewIcon) },
-	{ label: 'List View', value: 'list', icon: markRaw(ProgressViewIcon) },
 ]);
 
 // 方法
