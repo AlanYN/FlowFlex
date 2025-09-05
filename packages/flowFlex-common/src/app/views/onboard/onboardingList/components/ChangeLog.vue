@@ -125,7 +125,7 @@
 										</div>
 									</div>
 
-									<!-- 问卷答案变更详情 -->
+									<!-- 问卷答案变更详情 - 直接显示后端提供的描述 -->
 									<div
 										v-else-if="
 											row.type === 'Answer Update' ||
@@ -134,24 +134,14 @@
 											row.type === 'QuestionnaireAnswerSubmit'
 										"
 									>
-										<!-- 如果有具体变更，显示变更详情 -->
-										<div v-if="row.answerChanges?.length" class="space-y-2">
 											<div
-												v-for="(change, index) in row.answerChanges"
-												:key="index"
-												class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs border-l-4 border-blue-400"
+											class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-sm border-l-4 border-blue-400"
 											>
-												{{ change }}
-											</div>
-										</div>
-										<!-- 如果没有具体变更，显示"没有变化" -->
 										<div
-											v-else
-											class="bg-gray-50 dark:bg-gray-900/20 p-2 rounded text-xs border-l-4 border-gray-400"
+												class="text-gray-700 dark:text-gray-300 whitespace-pre-line"
 										>
-											<span class="text-gray-600 dark:text-gray-400 italic">
-												No changes
-											</span>
+												{{ getSimplifiedTitle(row) }}
+											</div>
 										</div>
 									</div>
 
@@ -538,7 +528,6 @@ import {
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
-import { getStageQuestionnairesBatch } from '@/apis/ow/questionnaire'; // 使用批量获取API
 
 // Props
 interface Props {
@@ -555,14 +544,12 @@ const changes = ref<ChangeLogItem[]>([]);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
-const questionnaireConfigCache = ref<Map<string, any>>(new Map()); // 问卷配置缓存
 const isExpanded = ref(false); // 折叠状态
 
 interface ProcessedChange extends ChangeLogItem {
 	type: string;
 	typeIcon: string;
 	typeColor: string;
-	answerChanges?: string[];
 	fieldChanges?: Array<{
 		fieldName: string;
 		beforeValue: string;
@@ -694,11 +681,7 @@ const processChangesData = async () => {
 		// 根据处理器类型解析数据
 		switch (handlerType) {
 			case 'questionnaire':
-				specificData.answerChanges = await parseQuestionnaireAnswerChanges(
-					change.beforeData,
-					change.afterData,
-					change
-				);
+				// 问卷答案变更现在由后端处理，直接使用operationDescription
 				break;
 
 			case 'field':
@@ -734,7 +717,6 @@ const processChangesData = async () => {
 			type: typeInfo.label,
 			typeIcon: typeInfo.icon,
 			typeColor: typeInfo.color,
-			answerChanges: [],
 			fieldChanges: [],
 			taskInfo: null,
 			fileInfo: null,
@@ -746,627 +728,7 @@ const processChangesData = async () => {
 	processedChanges.value = processedData;
 };
 
-// 获取问卷配置（通过阶段ID）
-const getQuestionnaireConfigByStageId = async (stageId: string | number): Promise<any> => {
-	const cacheKey = `stage_${String(stageId)}`;
-
-	// 检查缓存
-	if (questionnaireConfigCache.value.has(cacheKey)) {
-		return questionnaireConfigCache.value.get(cacheKey);
-	}
-
-	try {
-		// 使用批量API获取阶段对应的问卷
-		const response = await getStageQuestionnairesBatch([String(stageId)]);
-
-		if (response.success && response.data && response.data.stageQuestionnaires) {
-			const stageData = response.data.stageQuestionnaires[String(stageId)];
-
-			if (stageData && Array.isArray(stageData) && stageData.length > 0) {
-				// 获取第一个问卷的配置（一个阶段可能有多个问卷，这里取第一个）
-				const questionnaire = stageData[0];
-				let questionnaireConfig = null;
-
-				if (questionnaire.structureJson) {
-					try {
-						questionnaireConfig = JSON.parse(questionnaire.structureJson);
-					} catch (error) {
-						console.warn('Failed to parse questionnaire structure:', error);
-					}
-				}
-
-				// 缓存配置
-				questionnaireConfigCache.value.set(cacheKey, questionnaireConfig);
-				return questionnaireConfig;
-			}
-		}
-	} catch (error) {
-		console.warn('❌ Failed to fetch questionnaire config by stage ID:', error);
-	}
-
-	return null;
-};
-
-// 解析responseText中的Unicode编码
-const parseResponseText = (responseText: string): { [key: string]: string } => {
-	if (!responseText || responseText.trim() === '{}') {
-		return {};
-	}
-
-	try {
-		// 处理Unicode转义序列
-		let decodedText = responseText;
-		decodedText = decodedText.replace(/u0022/g, '"');
-		decodedText = decodedText.replace(/u0020/g, ' ');
-		decodedText = decodedText.replace(/u003A/g, ':');
-		decodedText = decodedText.replace(/u002C/g, ',');
-		decodedText = decodedText.replace(/u007B/g, '{');
-		decodedText = decodedText.replace(/u007D/g, '}');
-
-		const parsed = JSON.parse(decodedText);
-		return parsed || {};
-	} catch (error) {
-		console.warn('Failed to parse responseText:', responseText, error);
-		return {};
-	}
-};
-
-// 从responseText中提取Other选项的自定义值
-const extractOtherValues = (
-	responseText: string,
-	questionId: string
-): { [key: string]: string } => {
-	const parsed = parseResponseText(responseText);
-	const otherValues: { [key: string]: string } = {};
-
-	// 查找包含questionId的键
-	Object.keys(parsed).forEach((key) => {
-		if (key.includes(questionId)) {
-			// 对于网格类型：查找包含"other"的键
-			if (key.includes('other')) {
-				// 提取column ID，格式如：question-xxx_row-xxx_column-other-xxx
-				const parts = key.split('_');
-				const columnPart = parts.find((part) => part.startsWith('column-other-'));
-				if (columnPart) {
-					otherValues[columnPart] = parsed[key];
-				}
-			}
-			// 对于多选题：查找option类型的键
-			else if (key.includes('option-') || key.includes('option_')) {
-				// 提取option ID，格式如：question-xxx_option-xxx
-				const parts = key.split('_');
-				let optionPart = parts.find((part) => part.startsWith('option-'));
-				if (optionPart) {
-					// 同时支持 option- 和 option_ 格式
-					const alternativeKey = optionPart.replace('option-', 'option_');
-					otherValues[optionPart] = parsed[key];
-					otherValues[alternativeKey] = parsed[key];
-				}
-			}
-		}
-	});
-
-	return otherValues;
-};
-
-// Column ID 到字母标签的映射缓存 (按问题分组)
-const questionColumnMaps = new Map<string, Map<string, string>>();
-
-// 为特定问题的 column ID 生成字母标签
-const getColumnLabel = (columnId: string, questionId?: string): string => {
-	const mapKey = questionId || 'global';
-
-	if (!questionColumnMaps.has(mapKey)) {
-		questionColumnMaps.set(mapKey, new Map<string, string>());
-	}
-
-	const columnMap = questionColumnMaps.get(mapKey)!;
-
-	if (columnMap.has(columnId)) {
-		return columnMap.get(columnId)!;
-	}
-
-	// 生成字母标签 (a, b, c, d, ...)
-	const label = String.fromCharCode(97 + columnMap.size); // 97 = 'a'
-	columnMap.set(columnId, label);
-
-	return label;
-};
-
-// 获取多选答案数组
-const getCheckboxAnswers = (answer: any): string[] => {
-	if (!answer) return [];
-
-	if (Array.isArray(answer)) {
-		return answer.filter(Boolean);
-	}
-
-	if (typeof answer === 'string') {
-		// 检查是否是JSON数组字符串
-		if (answer.startsWith('[') && answer.endsWith(']')) {
-			try {
-				const parsed = JSON.parse(answer);
-				if (Array.isArray(parsed)) {
-					return parsed.filter(Boolean);
-				}
-			} catch {
-				// 如果解析失败，按逗号分割
-			}
-		}
-
-		// 按逗号分割字符串
-		return answer
-			.split(',')
-			.map((item) => item.trim())
-			.filter(Boolean);
-	}
-
-	return [String(answer)];
-};
-
-// 获取多选题标签 - 优化版
-const getCheckboxLabels = (
-	answer: any,
-	questionConfig: any,
-	responseText?: string,
-	questionId?: string
-): string[] => {
-	if (!answer) return [];
-
-	const answerValues = getCheckboxAnswers(answer);
-	if (answerValues.length === 0) return [];
-
-	// 提取Other选项的自定义值
-	const otherValues =
-		responseText && questionId ? extractOtherValues(responseText, questionId) : {};
-
-	// 如果没有questionConfig，使用简化处理
-	if (!questionConfig?.options) {
-		return answerValues
-			.map((value) => {
-				if (value.startsWith('option_')) {
-					const customValue =
-						otherValues[value] || otherValues[value.replace('option_', 'option-')];
-					return customValue ? `Other: ${customValue}` : value;
-				}
-				return value;
-			})
-			.filter(Boolean);
-	}
-
-	// 建立选项映射
-	const optionMap = new Map();
-	const otherOptionIds = new Set();
-	const isOtherOption = (option: any) =>
-		option.isOther ||
-		option.type === 'other' ||
-		option.allowCustom ||
-		option.hasInput ||
-		option.label?.toLowerCase().match(/other|custom|specify|enter other/);
-
-	questionConfig.options.forEach((option: any) => {
-		optionMap.set(option.value, option.label);
-		if (isOtherOption(option)) {
-			otherOptionIds.add(option.value);
-		}
-	});
-
-	const processedValues = new Set();
-	const labels = answerValues
-		.map((value) => {
-			const optionLabel = optionMap.get(value);
-
-			if (optionLabel) {
-				if (otherOptionIds.has(value)) {
-					// Other选项处理
-					const customValue =
-						otherValues[value] || otherValues[value.replace('option_', 'option-')];
-					if (customValue) {
-						processedValues.add(customValue.toLowerCase());
-						return `Other: ${customValue}`;
-					}
-					return optionLabel;
-				}
-				// 检查是否为自定义输入值
-				const isCustomInput = Object.values(otherValues).some(
-					(customVal) => customVal.toLowerCase() === value.toLowerCase()
-				);
-				return isCustomInput ? null : optionLabel;
-			}
-
-			// 处理Other相关值或未映射值
-			const relatedOtherValue = Object.entries(otherValues).find(
-				([key]) => key.includes(value) || value.includes(key.replace(/^option[-_]/, ''))
-			);
-
-			if (relatedOtherValue) {
-				processedValues.add(relatedOtherValue[1].toLowerCase());
-				return `Other: ${relatedOtherValue[1]}`;
-			}
-
-			// 避免显示重复的自定义输入值
-			const isCustomInput = Object.values(otherValues).some(
-				(customVal) => customVal.toLowerCase() === value.toLowerCase()
-			);
-			return !isCustomInput && !processedValues.has(value.toLowerCase()) ? value : null;
-		})
-		.filter(Boolean);
-
-	return labels;
-};
-
-// 获取网格答案标签
-const getGridAnswerLabels = (
-	answer: any,
-	questionConfig: any,
-	responseText?: string,
-	questionId?: string
-): string[] => {
-	if (!answer) return [];
-
-	// 如果没有 questionConfig，仍然尝试解析 Other 选项
-	if (!questionConfig?.columns) {
-		const answerIds = getCheckboxAnswers(answer);
-
-		// 提取 Other 自定义值
-		let otherValues: { [key: string]: string } = {};
-		if (responseText && questionId) {
-			otherValues = extractOtherValues(responseText, questionId);
-		}
-
-		const processedLabels: string[] = [];
-		answerIds.forEach((rawId) => {
-			const id = String(rawId);
-			const idLower = id.toLowerCase();
-			if (
-				idLower.includes('other') ||
-				idLower === 'other' ||
-				idLower.startsWith('column-other-')
-			) {
-				const customValue =
-					otherValues[id] ||
-					Object.entries(otherValues).find(([key]) =>
-						key.toLowerCase().includes(idLower)
-					)?.[1] ||
-					Object.values(otherValues)[0];
-				processedLabels.push(customValue ? `Other: ${customValue}` : 'Other');
-			} else {
-				// 为 column ID 创建简化的标签
-				let displayLabel = id;
-				if (id.startsWith('column-')) {
-					displayLabel = getColumnLabel(id, questionId);
-				}
-				processedLabels.push(displayLabel);
-			}
-		});
-
-		return processedLabels;
-	}
-
-	const answerIds = getCheckboxAnswers(answer);
-	const columnMap = new Map<string, string>();
-	const otherColumnIds = new Set<string>();
-
-	// 建立列映射并识别 Other 列
-	questionConfig.columns.forEach((column: any) => {
-		columnMap.set(column.id, column.label);
-		if (
-			column.isOther ||
-			column.type === 'other' ||
-			column.allowCustom ||
-			column.hasInput ||
-			(column.label &&
-				(column.label.toLowerCase().includes('other') ||
-					column.label.toLowerCase().includes('enter other') ||
-					column.label.toLowerCase().includes('custom') ||
-					column.label.toLowerCase().includes('specify')))
-		) {
-			otherColumnIds.add(column.id);
-		}
-	});
-
-	// 从 responseText 中提取 Other 自定义值
-	let otherValues: { [key: string]: string } = {};
-	if (responseText && questionId) {
-		otherValues = extractOtherValues(responseText, questionId);
-	}
-
-	// 将 ID 转换为对应的 label
-	const labels: string[] = [];
-	answerIds.forEach((rawId) => {
-		const id = String(rawId);
-		const idLower = id.toLowerCase();
-		const columnLabel = columnMap.get(id);
-
-		if (columnLabel) {
-			// Other 列显示自定义值
-			if (
-				otherColumnIds.has(id) ||
-				idLower.includes('other') ||
-				columnLabel.toLowerCase().includes('other')
-			) {
-				const customValue =
-					otherValues[id] ||
-					otherValues[id.replace('column-', 'column-other-')] ||
-					Object.entries(otherValues).find(([key]) =>
-						key.toLowerCase().includes(idLower)
-					)?.[1] ||
-					Object.values(otherValues)[0];
-
-				labels.push(customValue ? `Other: ${customValue}` : columnLabel);
-			} else {
-				labels.push(columnLabel);
-			}
-		} else {
-			// 未配置映射，尝试与 otherValues 关联
-			const hasRelatedOther = Object.keys(otherValues).some((key) =>
-				key.toLowerCase().includes(idLower)
-			);
-			if (hasRelatedOther || idLower.includes('other')) {
-				const customValue =
-					Object.entries(otherValues).find(([key]) =>
-						key.toLowerCase().includes(idLower)
-					)?.[1] || Object.values(otherValues)[0];
-				labels.push(customValue ? `Other: ${customValue}` : 'Other');
-			} else {
-				let displayLabel = id;
-				if (id.startsWith('column-')) {
-					displayLabel = getColumnLabel(id, questionId);
-				}
-				labels.push(displayLabel);
-			}
-		}
-	});
-
-	return labels.filter(Boolean);
-};
-
-// 解析短答网格单行（或多行）答案为 “行:值” 列表字符串
-const getShortAnswerGridRowSummary = (response: any, questionConfig: any): string => {
-	const parsed = parseResponseText(response?.responseText || '');
-	if (!parsed || Object.keys(parsed).length === 0) {
-		return 'No answer';
-	}
-
-	// 建立 rowId -> label 的映射
-	const rowIdToLabel = new Map<string, string>();
-	if (questionConfig?.rows && Array.isArray(questionConfig.rows)) {
-		questionConfig.rows.forEach((r: any) => rowIdToLabel.set(r.id, r.label));
-	}
-
-	const rows: Array<{ label: string; value: string }> = [];
-	Object.entries(parsed).forEach(([key, val]) => {
-		const parts = key.split('_');
-		const rowPart = parts.find((p) => p.startsWith('row-')) || '';
-		const label = rowIdToLabel.get(rowPart) || rowPart.replace('row-', '');
-		const value = String(val ?? '').trim();
-		if (label && value) {
-			rows.push({ label, value });
-		}
-	});
-
-	// 兜底：如果解析不到 rowPart，尝试从 question 文本中取行号
-	if (rows.length === 0) {
-		const firstVal = Object.values(parsed)[0];
-		let rowLabel = '';
-		if (typeof response?.question === 'string') {
-			const match = response.question.match(/-\s*(\d+)\s*$/);
-			if (match) rowLabel = match[1];
-		}
-		if (rowLabel && firstVal) {
-			return `${rowLabel}:${String(firstVal)}`;
-		}
-	}
-
-	return rows.map((r) => `${r.label}:${r.value}`).join(' ');
-};
-
-// 检查是否有有效答案 - 优化版
-const hasValidAnswer = (answer: string | any): boolean => {
-	if (!answer) return false;
-
-	if (typeof answer === 'string') {
-		const trimmed = answer.trim();
-		// 使用正则表达式简化检查
-		return (
-			trimmed !== '' &&
-			!/^({}|\[\]|null|undefined|No answer provided|No selection made)$/.test(trimmed)
-		);
-	}
-
-	if (Array.isArray(answer)) {
-		return answer.length > 0;
-	}
-
-	if (typeof answer === 'object' && answer !== null) {
-		// 检查是否是空对象
-		return Object.keys(answer).length > 0;
-	}
-
-	return true;
-};
-
-// 增强的答案格式化函数
-const formatAnswerWithConfig = (response: any, questionnaireConfig: any): string => {
-	if (!response.answer && !response.responseText) {
-		return 'No answer';
-	}
-
-	const answer = response.answer || response.responseText;
-
-	// 检查是否有有效答案
-	if (!hasValidAnswer(answer)) {
-		return 'No answer';
-	}
-	const type = response.type;
-	const questionId = response.questionId;
-
-	// 查找问题配置
-	let questionConfig: any = null;
-	if (
-		questionnaireConfig &&
-		questionnaireConfig.sections &&
-		Array.isArray(questionnaireConfig.sections)
-	) {
-		for (const section of questionnaireConfig.sections) {
-			if (section.questions && Array.isArray(section.questions)) {
-				const question = section.questions.find(
-					(q: any) =>
-						q.id === questionId ||
-						`question-${q.id}` === questionId ||
-						q.questionId === questionId
-				);
-				if (question) {
-					questionConfig = question;
-					break;
-				}
-			}
-		}
-	}
-
-	switch (type) {
-		case 'multiple_choice':
-			// 处理单选题
-			if (typeof answer === 'string' && (answer.trim() === '{}' || answer.trim() === '[]')) {
-				return 'No answer';
-			}
-			if (questionConfig && questionConfig.options && Array.isArray(questionConfig.options)) {
-				const option = questionConfig.options.find((opt: any) => opt.value === answer);
-				return option?.label || String(answer);
-			}
-			return String(answer);
-
-		case 'dropdown':
-			// 处理下拉选择
-			if (typeof answer === 'string' && (answer.trim() === '{}' || answer.trim() === '[]')) {
-				return 'No answer';
-			}
-			if (questionConfig && questionConfig.options && Array.isArray(questionConfig.options)) {
-				const option = questionConfig.options.find((opt: any) => opt.value === answer);
-				return option?.label || String(answer);
-			}
-			return String(answer);
-
-		case 'checkboxes':
-			// 处理多选题，支持Other选项的自定义值
-			const checkboxLabels = getCheckboxLabels(
-				answer,
-				questionConfig,
-				response.responseText,
-				response.questionId
-			);
-			return checkboxLabels.join(', ');
-
-		case 'multiple_choice_grid':
-		case 'checkbox_grid':
-			// 处理网格类型题目，支持Other选项的自定义值
-			const gridLabels = getGridAnswerLabels(
-				answer,
-				questionConfig,
-				response.responseText,
-				response.questionId
-			);
-			return gridLabels.join(', ');
-
-		case 'short_answer_grid':
-			return getShortAnswerGridRowSummary(response, questionConfig);
-
-		case 'date':
-			return formatAnswerDate(answer, 'date');
-		case 'time':
-			return formatAnswerDate(answer, 'time');
-
-		default:
-			// 对于其他类型，使用原有逻辑
-			if (type === 'file' || type === 'file_upload') {
-				if (Array.isArray(answer)) {
-					const fileNames = answer.map((file: any) => {
-						if (typeof file === 'object' && file && file.name) {
-							return file.name;
-						}
-						return 'file';
-					});
-					return `Files: ${fileNames.join(', ')}`;
-				} else if (typeof answer === 'object' && answer && answer.name) {
-					return `File: ${answer.name}`;
-				} else if (typeof answer === 'string' && answer !== '[object Object]') {
-					return `File: ${answer}`;
-				}
-				return 'File uploaded';
-			}
-			return String(answer);
-	}
-};
-
-// 增强的问卷答案变更解析
-// 简化的问卷答案变更解析
-const parseQuestionnaireAnswerChanges = async (
-	beforeData: any,
-	afterData: any,
-	currentChange?: any
-): Promise<string[]> => {
-	if (!afterData) return [];
-
-	try {
-		const after = typeof afterData === 'string' ? JSON.parse(afterData) : afterData;
-		const changesList: string[] = [];
-
-		// 获取问卷配置
-		const stageId = currentChange?.stageId || props.stageId;
-		const questionnaireConfig = stageId ? await getQuestionnaireConfigByStageId(stageId) : null;
-
-		// 处理答案提交（只有 afterData）
-		if (!beforeData && after.responses) {
-			after.responses.forEach((response: any) => {
-				if (response.answer || response.responseText) {
-					const formattedAnswer = formatAnswerWithConfig(response, questionnaireConfig);
-					const questionTitle = response.question || response.questionId;
-					changesList.push(`${questionTitle}: ${formattedAnswer}`);
-				}
-			});
-			return changesList;
-		}
-
-		// 处理答案更新（有 beforeData 和 afterData）
-		if (beforeData && afterData) {
-			const before: any =
-				typeof beforeData === 'string' ? JSON.parse(beforeData) : beforeData;
-
-			if (before.responses && after.responses) {
-				const beforeMap = new Map(before.responses.map((r: any) => [r.questionId, r]));
-
-				after.responses.forEach((afterResp: any) => {
-					const beforeResp: any = beforeMap.get(afterResp.questionId);
-					const questionTitle = afterResp.question || afterResp.questionId;
-
-					if (!beforeResp) {
-						// 新增答案
-						const formattedAnswer = formatAnswerWithConfig(
-							afterResp,
-							questionnaireConfig
-						);
-						changesList.push(`${questionTitle}: ${formattedAnswer}`);
-					} else if (
-						JSON.stringify(beforeResp?.answer) !== JSON.stringify(afterResp?.answer)
-					) {
-						// 修改答案
-						const beforeAnswer = formatAnswerWithConfig(
-							beforeResp,
-							questionnaireConfig
-						);
-						const afterAnswer = formatAnswerWithConfig(afterResp, questionnaireConfig);
-						changesList.push(`${questionTitle}: ${beforeAnswer} → ${afterAnswer}`);
-					}
-				});
-			}
-		}
-
-		return changesList;
-	} catch (error) {
-		console.error('Error parsing questionnaire answer changes:', error);
-		return ['Questionnaire updated'];
-	}
-};
+// 注意：问卷答案解析逻辑已移至后端处理
 
 // 工具函数集合 - 简化和整合版
 
@@ -1401,27 +763,6 @@ const formatFileSize = (bytes: number): string => {
 	const sizes = ['Bytes', 'KB', 'MB', 'GB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-};
-
-// 日期时间格式化工具集合
-const formatAnswerDate = (dateStr: any, questionType?: string): string => {
-	if (!dateStr) return '';
-	try {
-		const date = new Date(String(dateStr));
-		if (isNaN(date.getTime())) return String(dateStr);
-
-		if (questionType === 'time') {
-			return [date.getHours(), date.getMinutes(), date.getSeconds()]
-				.map((n) => String(n).padStart(2, '0'))
-				.join(':');
-		}
-
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${month}/${day}/${date.getFullYear()}`;
-	} catch {
-		return String(dateStr);
-	}
 };
 
 const formatDateTime = (dateString: string): string => {
@@ -1492,7 +833,25 @@ const getTagType = (type: string): string => {
 };
 
 const getSimplifiedTitle = (row: any): string => {
-	// 从operationTitle中提取简化的标题
+	// 对于问卷答案变更，显示完整的operationDescription
+	if (
+		row.type === 'Answer Update' ||
+		row.type === 'Answer Submit' ||
+		row.type === 'QuestionnaireAnswerUpdate' ||
+		row.type === 'QuestionnaireAnswerSubmit'
+	) {
+		// 优先使用operationDescription，它包含详细的变更信息
+		if (row.operationDescription) {
+			return row.operationDescription;
+		}
+
+		// 如果没有operationDescription，使用operationTitle
+		if (row.operationTitle) {
+			return row.operationTitle;
+		}
+	}
+
+	// 对于其他类型，从operationTitle中提取简化的标题
 	if (row.operationTitle) {
 		// 移除冗长的描述，只保留关键信息
 		return row.operationTitle

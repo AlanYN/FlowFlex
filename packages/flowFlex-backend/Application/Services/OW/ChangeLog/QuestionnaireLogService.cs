@@ -17,6 +17,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
     /// </summary>
     public class QuestionnaireLogService : BaseOperationLogService, IQuestionnaireLogService
     {
+        private readonly QuestionnaireAnswerParser _answerParser;
+        private readonly IQuestionnaireRepository _questionnaireRepository;
+
         public QuestionnaireLogService(
             IOperationChangeLogRepository operationChangeLogRepository,
             ILogger<QuestionnaireLogService> logger,
@@ -24,9 +27,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IHttpContextAccessor httpContextAccessor,
             IMapper mapper,
             ILogCacheService logCacheService,
-            IUserService userService)
+            IUserService userService,
+            QuestionnaireAnswerParser answerParser,
+            IQuestionnaireRepository questionnaireRepository)
             : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService)
         {
+            _answerParser = answerParser;
+            _questionnaireRepository = questionnaireRepository;
         }
 
         protected override string GetBusinessModuleName() => "Questionnaire";
@@ -66,7 +73,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     onboardingId,
                     stageId,
                     $"Questionnaire Answer {operationAction}",
-                    BuildAnswerOperationDescription(operationAction, questionnaireId),
+                    await BuildAnswerOperationDescriptionAsync(operationAction, questionnaireId, beforeData, afterData),
                     beforeData,
                     afterData,
                     changedFields,
@@ -547,18 +554,65 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         #region Private Helper Methods
 
         /// <summary>
-        /// Build answer operation description
+        /// Build answer operation description with detailed question and answer changes
         /// </summary>
-        private string BuildAnswerOperationDescription(string operationAction, long? questionnaireId)
+        private async Task<string> BuildAnswerOperationDescriptionAsync(string operationAction, long? questionnaireId, string beforeData = null, string afterData = null)
         {
-            var description = $"Questionnaire answer has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
-
-            if (questionnaireId.HasValue)
+            try
             {
-                description += $" for questionnaire";
-            }
+                var baseDescription = $"Questionnaire answer has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
 
-            return description;
+                if (questionnaireId.HasValue)
+                {
+                    baseDescription += $" for questionnaire";
+                }
+
+                // Get questionnaire configuration for answer formatting
+                object questionnaireConfig = null;
+                if (questionnaireId.HasValue)
+                {
+                    try
+                    {
+                        var questionnaire = await _questionnaireRepository.GetByIdAsync(questionnaireId.Value);
+                        if (!string.IsNullOrEmpty(questionnaire?.Structure?.ToString()))
+                        {
+                            questionnaireConfig = JsonSerializer.Deserialize<object>(questionnaire.Structure.ToString());
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get questionnaire config for ID {QuestionnaireId}", questionnaireId);
+                    }
+                }
+
+                // Parse questionnaire answer changes to get detailed descriptions
+                var changesList = _answerParser.ParseQuestionnaireAnswerChanges(beforeData, afterData, questionnaireConfig);
+
+                if (changesList.Any())
+                {
+                    var changesText = string.Join("; ", changesList);
+                    // Limit description length to avoid database field overflow
+                    if (changesText.Length > 2000)
+                    {
+                        changesText = changesText.Substring(0, 1997) + "...";
+                    }
+                    baseDescription += $". Changes: {changesText}";
+                }
+
+                return baseDescription;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to build detailed answer operation description for questionnaire {QuestionnaireId}", questionnaireId);
+                
+                // Fallback to simple description
+                var fallbackDescription = $"Questionnaire answer has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
+                if (questionnaireId.HasValue)
+                {
+                    fallbackDescription += $" for questionnaire";
+                }
+                return fallbackDescription;
+            }
         }
 
         /// <summary>
