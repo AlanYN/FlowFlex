@@ -791,7 +791,7 @@ defineExpose({
 /* 头部卡片样式 - 紫色渐变 */
 .static-form-header-card {
 	background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-	padding: 24px;
+	padding: 10px;
 	color: white;
 	box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
 	display: flex;
