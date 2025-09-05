@@ -190,6 +190,26 @@ const getChangeComponent = (change: any) => {
 
 // 渲染函数
 const renderFieldChange = (change: any) => {
+	// 对于问卷类型的变更，直接使用 operationDescription
+	if (change.operationType === 'QuestionnaireUpdate') {
+		return h(
+			'div',
+			{ class: 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border-l-4 border-blue-400' },
+			[
+				h(
+					'div',
+					{ class: 'font-semibold text-blue-800 dark:text-blue-200 mb-2' },
+					change.operationTitle || 'Questionnaire Update'
+				),
+				h(
+					'div',
+					{ class: 'text-gray-700 dark:text-gray-300 text-sm whitespace-pre-line' },
+					change.operationDescription || 'Questionnaire has been updated'
+				),
+			]
+		);
+	}
+
 	if (!change.beforeData && !change.afterData) {
 		return h(
 			'div',
