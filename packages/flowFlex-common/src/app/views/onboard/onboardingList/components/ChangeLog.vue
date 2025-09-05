@@ -134,12 +134,12 @@
 											row.type === 'QuestionnaireAnswerSubmit'
 										"
 									>
-											<div
-											class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-sm border-l-4 border-blue-400"
-											>
 										<div
-												class="text-gray-700 dark:text-gray-300 whitespace-pre-line"
+											class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-sm border-l-4 border-blue-400"
 										>
+											<div
+												class="text-gray-700 dark:text-gray-300 whitespace-pre-line"
+											>
 												{{ getSimplifiedTitle(row) }}
 											</div>
 										</div>
