@@ -504,7 +504,7 @@ const getFileComponent = (): StageComponentData => {
 	return (
 		components.find((c) => c.key === 'files') || {
 			key: 'files',
-			order: 4,
+			order: props?.modelValue?.components?.length + 1,
 			isEnabled: false,
 			staticFields: [],
 			checklistIds: [],
@@ -518,14 +518,12 @@ const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 	const components = props.modelValue.components || [];
 	const newComponents = [...components];
 	const index = newComponents.findIndex((c) => c.key === key);
-
 	if (index >= 0) {
 		newComponents[index] = { ...newComponents[index], ...updates };
 	} else {
 		const defaultComponent: StageComponentData = {
 			key: key as any,
-			order:
-				key === 'fields' ? 1 : key === 'checklist' ? 2 : key === 'questionnaires' ? 3 : 4,
+			order: components.length + 1,
 			isEnabled: false,
 			staticFields: [],
 			checklistIds: [],
@@ -537,6 +535,7 @@ const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 	}
 
 	const newModelValue = { ...props.modelValue, components: newComponents };
+	console.log('newModelValue:', newModelValue);
 	// 发送整个 formData 对象，只更新 components 字段
 	emit('update:modelValue', newModelValue);
 };
@@ -852,11 +851,9 @@ const updateItemsDisplay = () => {
 			}
 		}
 	});
-
 	// 按顺序排序
-	newSelectedItems.sort((a, b) => a.order - b.order);
 
-	selectedItems.value = newSelectedItems;
+	selectedItems.value = newSelectedItems.sort((a, b) => a.order - b.order);
 };
 
 const removeItem = (item: SelectedItem) => {
