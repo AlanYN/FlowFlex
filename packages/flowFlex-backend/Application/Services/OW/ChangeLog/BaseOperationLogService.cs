@@ -864,9 +864,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             }
                             else
                             {
-                                var beforeStr = GetDisplayValue(beforeValue, field);
-                                var afterStr = GetDisplayValue(afterValue, field);
-                                changeList.Add($"{field} from '{beforeStr}' to '{afterStr}'");
+                                changeList.Add("Structure modified");
                             }
                         }
                         else if (field.Equals("ComponentsJson", StringComparison.OrdinalIgnoreCase))
@@ -1123,9 +1121,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         changes.Add($"removed sections: {string.Join(", ", removedSections.Select(n => $"'{n}'"))}");
                     }
                     
-                    // Compare questions count and specific question changes
-                    var beforeQuestions = GetAllQuestions(beforeSectionsList);
-                    var afterQuestions = GetAllQuestions(afterSectionsList);
+                    // Compare questions with detailed analysis
+                    var beforeQuestions = GetAllQuestionsDetailed(beforeSectionsList);
+                    var afterQuestions = GetAllQuestionsDetailed(afterSectionsList);
                     
                     var beforeQuestionCount = beforeQuestions.Count;
                     var afterQuestionCount = afterQuestions.Count;
@@ -1135,28 +1133,23 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         changes.Add($"questions changed from {beforeQuestionCount} to {afterQuestionCount}");
                     }
                     
-                    // Find specific question changes
-                    var beforeQuestionTitles = beforeQuestions.Select(q => q.Title).Where(t => !string.IsNullOrEmpty(t)).ToHashSet();
-                    var afterQuestionTitles = afterQuestions.Select(q => q.Title).Where(t => !string.IsNullOrEmpty(t)).ToHashSet();
-                    
-                    // Find added questions
-                    var addedQuestions = afterQuestionTitles.Except(beforeQuestionTitles).Take(2).ToList();
-                    if (addedQuestions.Any())
-                    {
-                        changes.Add($"added questions: {string.Join(", ", addedQuestions.Select(q => $"'{q}'"))}");
-                    }
-                    
-                    // Find removed questions  
-                    var removedQuestions = beforeQuestionTitles.Except(afterQuestionTitles).Take(2).ToList();
-                    if (removedQuestions.Any())
-                    {
-                        changes.Add($"removed questions: {string.Join(", ", removedQuestions.Select(q => $"'{q}'"))}");
-                    }
+                    // Get detailed question changes
+                    var questionChanges = GetDetailedQuestionChanges(beforeQuestions, afterQuestions);
+                    changes.AddRange(questionChanges);
                 }
                 
                 if (changes.Any())
                 {
-                    return $"Structure: {string.Join(", ", changes.Take(5))}";
+                    // Format the structure changes in a more readable way
+                    var formattedChanges = changes.Take(5).ToList();
+                    if (formattedChanges.Count == 1)
+                    {
+                        return $"Structure modified: {formattedChanges[0]}";
+                    }
+                    else
+                    {
+                        return $"Structure modified: {string.Join("; ", formattedChanges)}";
+                    }
                 }
                 
                 return "Structure modified";
@@ -1250,6 +1243,34 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             public string Id { get; set; }
             public string Title { get; set; }
             public string Type { get; set; }
+        }
+
+        /// <summary>
+        /// Enhanced helper class to represent a question with detailed information for comparison
+        /// </summary>
+        protected class DetailedQuestionInfo
+        {
+            public string Id { get; set; }
+            public string Title { get; set; }
+            public string Type { get; set; }
+            public string Description { get; set; }
+            public bool Required { get; set; }
+            public List<string> Options { get; set; } = new List<string>();
+            public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
+            
+            public override bool Equals(object obj)
+            {
+                if (obj is DetailedQuestionInfo other)
+                {
+                    return Id == other.Id || (string.IsNullOrEmpty(Id) && string.IsNullOrEmpty(other.Id) && Title == other.Title);
+                }
+                return false;
+            }
+            
+            public override int GetHashCode()
+            {
+                return string.IsNullOrEmpty(Id) ? Title?.GetHashCode() ?? 0 : Id.GetHashCode();
+            }
         }
 
         /// <summary>
@@ -1719,6 +1740,315 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             return JsonSerializer.Serialize(extendedDataObj);
+        }
+
+        /// <summary>
+        /// Extract all questions from sections list with detailed information
+        /// </summary>
+        protected virtual List<DetailedQuestionInfo> GetAllQuestionsDetailed(List<JsonElement> sections)
+        {
+            var questions = new List<DetailedQuestionInfo>();
+            var processedQuestions = new HashSet<string>(); // Track processed questions by title to avoid duplicates
+            
+            foreach (var section in sections)
+            {
+                // Process both 'questions' and 'items' arrays, but avoid duplicates
+                var questionArrays = new List<(string arrayName, JsonElement array)>();
+                
+                if (section.TryGetProperty("questions", out var questionsElement) && 
+                    questionsElement.ValueKind == JsonValueKind.Array)
+                {
+                    questionArrays.Add(("questions", questionsElement));
+                }
+                
+                if (section.TryGetProperty("items", out var itemsElement) && 
+                    itemsElement.ValueKind == JsonValueKind.Array)
+                {
+                    questionArrays.Add(("items", itemsElement));
+                }
+                
+                // Process arrays in priority order (questions first, then items)
+                foreach (var (arrayName, questionArray) in questionArrays.OrderBy(x => x.arrayName == "questions" ? 0 : 1))
+                {
+                    foreach (var question in questionArray.EnumerateArray())
+                    {
+                        var questionInfo = ExtractQuestionInfo(question);
+                        
+                        if (questionInfo != null)
+                        {
+                            // Use title as the primary key for deduplication
+                            var questionKey = GetQuestionDeduplicationKey(questionInfo);
+                            
+                            if (!processedQuestions.Contains(questionKey))
+                            {
+                                questions.Add(questionInfo);
+                                processedQuestions.Add(questionKey);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return questions;
+        }
+
+        /// <summary>
+        /// Extract question information from a JSON element
+        /// </summary>
+        protected virtual DetailedQuestionInfo ExtractQuestionInfo(JsonElement question)
+        {
+            var questionInfo = new DetailedQuestionInfo();
+            
+            // Extract basic properties
+            if (question.TryGetProperty("id", out var idElement))
+            {
+                questionInfo.Id = idElement.GetString() ?? string.Empty;
+            }
+            
+            if (question.TryGetProperty("title", out var titleElement))
+            {
+                questionInfo.Title = titleElement.GetString() ?? string.Empty;
+            }
+            else if (question.TryGetProperty("text", out var textElement))
+            {
+                questionInfo.Title = textElement.GetString() ?? string.Empty;
+            }
+            else if (question.TryGetProperty("question", out var questionElement))
+            {
+                questionInfo.Title = questionElement.GetString() ?? string.Empty;
+            }
+            
+            if (question.TryGetProperty("type", out var typeElement))
+            {
+                questionInfo.Type = typeElement.GetString() ?? string.Empty;
+            }
+            
+            if (question.TryGetProperty("description", out var descElement))
+            {
+                questionInfo.Description = descElement.GetString() ?? string.Empty;
+            }
+            
+            if (question.TryGetProperty("required", out var requiredElement))
+            {
+                questionInfo.Required = requiredElement.ValueKind == JsonValueKind.True;
+            }
+            
+            // Extract options for multiple choice questions
+            if (question.TryGetProperty("options", out var optionsElement) && 
+                optionsElement.ValueKind == JsonValueKind.Array)
+            {
+                questionInfo.Options = optionsElement.EnumerateArray()
+                    .Where(o => o.ValueKind == JsonValueKind.String)
+                    .Select(o => o.GetString())
+                    .Where(o => !string.IsNullOrEmpty(o))
+                    .ToList();
+            }
+            
+            // Extract additional properties for detailed comparison
+            foreach (var property in question.EnumerateObject())
+            {
+                // Exclude basic properties but include important ones like 'question' for comparison
+                if (!new[] { "id", "title", "text", "type", "description", "required", "options" }
+                    .Contains(property.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        questionInfo.Properties[property.Name] = property.Value.ToString();
+                    }
+                    catch
+                    {
+                        // Ignore properties that can't be converted to string
+                    }
+                }
+            }
+            
+            // Only return questions that have some identifying information
+            if (!string.IsNullOrEmpty(questionInfo.Title) || !string.IsNullOrEmpty(questionInfo.Id))
+            {
+                return questionInfo;
+            }
+            
+            return null;
+        }
+
+        /// <summary>
+        /// Get a deduplication key for questions (to avoid counting the same question multiple times)
+        /// </summary>
+        protected virtual string GetQuestionDeduplicationKey(DetailedQuestionInfo question)
+        {
+            // Use title as primary key, fall back to ID if title is empty
+            var key = !string.IsNullOrEmpty(question.Title) ? question.Title.Trim() : question.Id?.Trim();
+            return key?.ToLowerInvariant() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Get detailed question changes between before and after question lists
+        /// </summary>
+        protected virtual List<string> GetDetailedQuestionChanges(List<DetailedQuestionInfo> beforeQuestions, List<DetailedQuestionInfo> afterQuestions)
+        {
+            var changes = new List<string>();
+            
+            try
+            {
+                // Create dictionaries for efficient lookup
+                var beforeDict = beforeQuestions.ToDictionary(q => GetQuestionKey(q), q => q);
+                var afterDict = afterQuestions.ToDictionary(q => GetQuestionKey(q), q => q);
+                
+                // Find added questions
+                var addedQuestions = afterDict.Keys.Except(beforeDict.Keys).Take(2).ToList();
+                if (addedQuestions.Any())
+                {
+                    var addedTitles = addedQuestions.Select(k => GetDisplayTitle(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
+                    changes.Add($"added questions: {string.Join(", ", addedTitles.Select(t => $"'{t}'"))}");
+                }
+                
+                // Find removed questions
+                var removedQuestions = beforeDict.Keys.Except(afterDict.Keys).Take(2).ToList();
+                if (removedQuestions.Any())
+                {
+                    var removedTitles = removedQuestions.Select(k => GetDisplayTitle(beforeDict[k])).Where(t => !string.IsNullOrEmpty(t));
+                    changes.Add($"removed questions: {string.Join(", ", removedTitles.Select(t => $"'{t}'"))}");
+                }
+                
+                // Find modified questions
+                var modifiedQuestions = new List<string>();
+                foreach (var key in beforeDict.Keys.Intersect(afterDict.Keys))
+                {
+                    var beforeQ = beforeDict[key];
+                    var afterQ = afterDict[key];
+                    
+                    var questionChanges = GetQuestionSpecificChanges(beforeQ, afterQ);
+                    if (questionChanges.Any())
+                    {
+                        var title = GetDisplayTitle(afterQ);
+                        if (!string.IsNullOrEmpty(title))
+                        {
+                            modifiedQuestions.Add($"'{title}' ({string.Join(", ", questionChanges)})");
+                        }
+                    }
+                    
+                    if (modifiedQuestions.Count >= 2) break; // Limit to 2 modified questions for readability
+                }
+                
+                if (modifiedQuestions.Any())
+                {
+                    changes.Add($"modified questions: {string.Join(", ", modifiedQuestions)}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to analyze detailed question changes");
+                changes.Add("questions modified");
+            }
+            
+            return changes;
+        }
+
+        /// <summary>
+        /// Get a unique key for question identification
+        /// </summary>
+        protected virtual string GetQuestionKey(DetailedQuestionInfo question)
+        {
+            // Use title as primary key for consistency with deduplication logic
+            return GetQuestionDeduplicationKey(question);
+        }
+
+        /// <summary>
+        /// Get display title for a question
+        /// </summary>
+        protected virtual string GetDisplayTitle(DetailedQuestionInfo question)
+        {
+            if (!string.IsNullOrEmpty(question.Title))
+                return question.Title.Length > 30 ? question.Title.Substring(0, 30) + "..." : question.Title;
+            
+            if (!string.IsNullOrEmpty(question.Id))
+                return $"Question {question.Id}";
+            
+            return "Unknown Question";
+        }
+
+        /// <summary>
+        /// Get specific changes within a question
+        /// </summary>
+        protected virtual List<string> GetQuestionSpecificChanges(DetailedQuestionInfo before, DetailedQuestionInfo after)
+        {
+            var changes = new List<string>();
+            
+            // Check title changes
+            if (before.Title != after.Title)
+            {
+                changes.Add("title changed");
+            }
+            
+            // Check type changes
+            if (before.Type != after.Type)
+            {
+                changes.Add($"type: {before.Type} → {after.Type}");
+            }
+            
+            // Check required status changes
+            if (before.Required != after.Required)
+            {
+                changes.Add(after.Required ? "made required" : "made optional");
+            }
+            
+            // Check description changes
+            if (before.Description != after.Description)
+            {
+                changes.Add("description changed");
+            }
+            
+            // Check options changes for multiple choice questions
+            if (before.Options.Count != after.Options.Count)
+            {
+                changes.Add($"options: {before.Options.Count} → {after.Options.Count}");
+            }
+            else if (!before.Options.SequenceEqual(after.Options))
+            {
+                changes.Add("options modified");
+            }
+            
+            // Check specific important property changes
+            if (before.Properties.TryGetValue("question", out var beforeQuestion) && 
+                after.Properties.TryGetValue("question", out var afterQuestion) &&
+                beforeQuestion?.ToString() != afterQuestion?.ToString())
+            {
+                changes.Add($"question text: '{beforeQuestion}' → '{afterQuestion}'");
+            }
+            
+            // Check other property changes (excluding already checked properties)
+            var importantProps = new[] { "question", "rows", "columns", "max", "min", "iconType" };
+            var beforeProps = before.Properties.Keys.Where(k => !importantProps.Contains(k)).ToHashSet();
+            var afterProps = after.Properties.Keys.Where(k => !importantProps.Contains(k)).ToHashSet();
+            
+            var addedProps = afterProps.Except(beforeProps).Count();
+            var removedProps = beforeProps.Except(afterProps).Count();
+            var modifiedProps = beforeProps.Intersect(afterProps)
+                .Where(prop => before.Properties[prop]?.ToString() != after.Properties[prop]?.ToString())
+                .Count();
+            
+            // Check important properties for changes
+            var importantChanges = new List<string>();
+            foreach (var prop in importantProps.Where(p => p != "question"))
+            {
+                if (before.Properties.TryGetValue(prop, out var beforeVal) && 
+                    after.Properties.TryGetValue(prop, out var afterVal) &&
+                    beforeVal?.ToString() != afterVal?.ToString())
+                {
+                    importantChanges.Add(prop);
+                }
+            }
+            
+            if (importantChanges.Any())
+            {
+                changes.Add($"properties changed: {string.Join(", ", importantChanges)}");
+            }
+            else if (addedProps > 0 || removedProps > 0 || modifiedProps > 0)
+            {
+                changes.Add("properties changed");
+            }
+            
+            return changes;
         }
 
         #endregion

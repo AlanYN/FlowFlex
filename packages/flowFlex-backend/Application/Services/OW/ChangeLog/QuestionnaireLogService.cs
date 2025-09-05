@@ -623,6 +623,152 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
         // BuildDefaultExtendedData method has been moved to base class to eliminate code duplication
 
+        /// <summary>
+        /// Override to provide questionnaire-specific enhanced operation descriptions
+        /// </summary>
+        protected override string BuildEnhancedOperationDescription(
+            BusinessModuleEnum businessModule,
+            string entityName,
+            string operationAction,
+            string beforeData = null,
+            string afterData = null,
+            List<string> changedFields = null,
+            long? relatedEntityId = null,
+            string relatedEntityType = null,
+            string reason = null)
+        {
+            var description = $"{businessModule} '{entityName}' has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
+
+            // Enhanced questionnaire-specific change details
+            if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
+            {
+                var changeDetails = GetQuestionnaireSpecificChangeDetails(beforeData, afterData, changedFields);
+                if (!string.IsNullOrEmpty(changeDetails))
+                {
+                    description += $". {changeDetails}";
+                }
+            }
+            else if (changedFields?.Any() == true)
+            {
+                // Fallback to field names if no before/after data
+                var friendlyFields = changedFields.Select(GetFriendlyFieldName).ToList();
+                description += $". Changed: {string.Join(", ", friendlyFields)}";
+            }
+
+            // Add related entity info without showing ID
+            if (relatedEntityId.HasValue && !string.IsNullOrEmpty(relatedEntityType))
+            {
+                description += $" in {relatedEntityType}";
+            }
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                description += $" with reason: {reason}";
+            }
+
+            return description;
+        }
+
+        /// <summary>
+        /// Get questionnaire-specific change details
+        /// </summary>
+        private string GetQuestionnaireSpecificChangeDetails(string beforeData, string afterData, List<string> changedFields)
+        {
+            try
+            {
+                var beforeJson = JsonSerializer.Deserialize<Dictionary<string, object>>(beforeData);
+                var afterJson = JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
+
+                var changeList = new List<string>();
+
+                foreach (var field in changedFields.Take(3))
+                {
+                    if (beforeJson.TryGetValue(field, out var beforeValue) && 
+                        afterJson.TryGetValue(field, out var afterValue))
+                    {
+                        if (field.Equals("StructureJson", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
+                            var afterJsonStr = afterValue?.ToString() ?? string.Empty;
+                            
+                            if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
+                            {
+                                var structuralChange = GetStructuralChangeDetails(beforeJsonStr, afterJsonStr);
+                                changeList.Add(structuralChange);
+                            }
+                            else
+                            {
+                                changeList.Add("Structure modified");
+                            }
+                        }
+                        else
+                        {
+                            var friendlyFieldName = GetFriendlyFieldName(field);
+                            var beforeStr = GetDisplayValue(beforeValue, field);
+                            var afterStr = GetDisplayValue(afterValue, field);
+                            
+                            // Special formatting for common questionnaire fields
+                            if (field.Equals("IsActive", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var status = afterStr.ToLower() == "true" ? "activated" : "deactivated";
+                                changeList.Add($"questionnaire {status}");
+                            }
+                            else if (field.Equals("Category", StringComparison.OrdinalIgnoreCase))
+                            {
+                                changeList.Add($"category changed to '{afterStr}'");
+                            }
+                            else if (field.Equals("EstimatedMinutes", StringComparison.OrdinalIgnoreCase))
+                            {
+                                changeList.Add($"estimated time: {beforeStr} → {afterStr} minutes");
+                            }
+                            else
+                            {
+                                changeList.Add($"{friendlyFieldName}: '{beforeStr}' → '{afterStr}'");
+                            }
+                        }
+                    }
+                    else if (afterJson.TryGetValue(field, out var newValue))
+                    {
+                        var friendlyFieldName = GetFriendlyFieldName(field);
+                        var newStr = GetDisplayValue(newValue, field);
+                        changeList.Add($"{friendlyFieldName} set to '{newStr}'");
+                    }
+                }
+
+                if (changeList.Any())
+                {
+                    var result = $"Changes: {string.Join("; ", changeList)}";
+                    if (changedFields.Count > 3)
+                    {
+                        result += $" and {changedFields.Count - 3} more";
+                    }
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse questionnaire change details from JSON data");
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Get friendly field names for display
+        /// </summary>
+        private string GetFriendlyFieldName(string fieldName)
+        {
+            return fieldName switch
+            {
+                "StructureJson" => "Structure",
+                "IsActive" => "Status", 
+                "EstimatedMinutes" => "Estimated Time",
+                "CreatedAt" => "Created Time",
+                "UpdatedAt" => "Updated Time",
+                _ => fieldName
+            };
+        }
+
         #endregion
     }
 }
