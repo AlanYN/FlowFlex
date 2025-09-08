@@ -186,14 +186,16 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null)
         {
             return File(await _actionManagementService.ExportAsync(search,
                 actionType,
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
-                isAssignmentWorkflow), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Action_{DateTimeOffset.Now.LocalDateTime:yyyyMMddHHmmss}.xlsx");
+                isAssignmentWorkflow,
+                isTools), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Action_{DateTimeOffset.Now.LocalDateTime:yyyyMMddHHmmss}.xlsx");
         }
 
         #endregion

@@ -412,6 +412,51 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Start onboarding (activate an inactive onboarding)
+        /// </summary>
+        [HttpPost("{id}/start")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> StartOnboardingAsync(long id, [FromBody] StartOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.StartOnboardingAsync(id, input);
+            return Success(result);
+        }
+
+
+        /// <summary>
+        /// Abort onboarding (terminate the process)
+        /// </summary>
+        [HttpPost("{id}/abort")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> AbortAsync(long id, [FromBody] AbortOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.AbortAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Reactivate onboarding (restart an aborted onboarding)
+        /// </summary>
+        [HttpPost("{id}/reactivate")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ReactivateAsync(long id, [FromBody] ReactivateOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.ReactivateAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Resume onboarding with confirmation
+        /// </summary>
+        [HttpPost("{id}/resume-with-confirmation")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ResumeWithConfirmationAsync(long id, [FromBody] ResumeOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.ResumeWithConfirmationAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Assign onboarding to user
         /// </summary>
         [HttpPost("{id}/assign")]

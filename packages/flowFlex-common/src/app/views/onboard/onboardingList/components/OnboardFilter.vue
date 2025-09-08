@@ -52,7 +52,7 @@
 						</div>
 
 						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium">Onboard Workflow</label>
+							<label class="text-sm font-medium">Workflow</label>
 							<el-select
 								v-model="searchParams.workFlowId"
 								placeholder="Select Work Flow"
@@ -71,7 +71,7 @@
 						</div>
 
 						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium">Onboard Stage</label>
+							<label class="text-sm font-medium">Stage</label>
 							<el-select
 								v-model="searchParams.currentStageId"
 								placeholder="Select Stage"

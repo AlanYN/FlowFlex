@@ -5510,26 +5510,112 @@ Make questions relevant to the project context and stage objectives.";
             {
                 _logger.LogInformation("🔍 Creating stage components for workflow {WorkflowId}...", workflowId);
 
-                // Get the created workflow with stages from the database
+                // First try to get stages from database, but fallback to provided stages if database query fails
                 var workflow = await _workflowService.GetByIdAsync(workflowId);
-                if (workflow == null || workflow.Stages == null || !workflow.Stages.Any())
+                List<StageOutputDto> createdStages = null;
+
+                if (workflow?.Stages != null && workflow.Stages.Any())
                 {
-                    _logger.LogWarning("No stages found for workflow {WorkflowId}", workflowId);
+                    _logger.LogInformation("✅ Using stages from database: {StageCount} stages found", workflow.Stages.Count);
+                    createdStages = workflow.Stages;
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ No stages found in database for workflow {WorkflowId}, using provided stages data", workflowId);
+                    
+                    // Use provided stages data and try to find corresponding database records by name
+                    if (stages == null || !stages.Any())
+                    {
+                        _logger.LogError("❌ No stages provided in request and none found in database for workflow {WorkflowId}", workflowId);
                     return false;
                 }
 
-                var createdStages = workflow.Stages;
+                    // Try to find stages in database by name and order
+                    createdStages = new List<StageOutputDto>();
+                    foreach (var providedStage in stages.OrderBy(s => s.Order))
+                    {
+                        try
+                        {
+                            // Query stages by workflow ID and name
+                            var dbStages = await _stageRepository.GetByWorkflowIdAsync(workflowId);
+                            var matchingStage = dbStages?.FirstOrDefault(s => 
+                                s.Name.Equals(providedStage.Name, StringComparison.OrdinalIgnoreCase) && 
+                                s.Order == providedStage.Order);
 
-                // Create checklists and associate with stages
-                for (int i = 0; i < Math.Min(checklists.Count, createdStages.Count); i++)
+                            if (matchingStage != null)
+                            {
+                                // Convert to StageOutputDto
+                                var stageDto = new StageOutputDto
+                                {
+                                    Id = matchingStage.Id,
+                                    Name = matchingStage.Name,
+                                    Description = matchingStage.Description,
+                                    Order = matchingStage.Order,
+                                    DefaultAssignedGroup = matchingStage.DefaultAssignedGroup,
+                                    EstimatedDuration = matchingStage.EstimatedDuration,
+                                    IsActive = matchingStage.IsActive
+                                };
+                                createdStages.Add(stageDto);
+                                _logger.LogInformation("✅ Found matching stage in database: {StageName} (ID: {StageId})", matchingStage.Name, matchingStage.Id);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Could not find stage '{StageName}' in database for workflow {WorkflowId}", providedStage.Name, workflowId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "⚠️ Error finding stage '{StageName}' in database", providedStage.Name);
+                        }
+                    }
+
+                    if (!createdStages.Any())
+                    {
+                        _logger.LogError("❌ Could not find any matching stages in database for workflow {WorkflowId}", workflowId);
+                        return false;
+                    }
+
+                    _logger.LogInformation("✅ Using {StageCount} stages found by name matching", createdStages.Count);
+                }
+
+                // Create checklists and associate with stages using StageName and StageOrder
+                foreach (var checklist in checklists)
                 {
-                    var checklist = checklists[i];
-                    var stage = createdStages[i];
+                    // Find the corresponding stage using StageName and StageOrder from the checklist
+                    StageOutputDto stage = null;
+                    
+                    // First try to match by StageName if provided
+                    if (!string.IsNullOrEmpty(checklist.StageName))
+                    {
+                        stage = createdStages.FirstOrDefault(s => 
+                            s.Name.Equals(checklist.StageName, StringComparison.OrdinalIgnoreCase));
+                        _logger.LogInformation("🔍 Looking for stage by name '{StageName}' for checklist '{ChecklistName}'", 
+                            checklist.StageName, checklist.GeneratedChecklist?.Name);
+                    }
+                    
+                    // If not found by name, try to match by StageOrder
+                    if (stage == null && checklist.StageOrder > 0)
+                    {
+                        stage = createdStages.FirstOrDefault(s => s.Order == checklist.StageOrder);
+                        _logger.LogInformation("🔍 Looking for stage by order {StageOrder} for checklist '{ChecklistName}'", 
+                            checklist.StageOrder, checklist.GeneratedChecklist?.Name);
+                    }
+                    
+                    // If still not found, skip this checklist
+                    if (stage == null)
+                    {
+                        _logger.LogWarning("⚠️ Could not find matching stage for checklist '{ChecklistName}' (StageName: '{StageName}', StageOrder: {StageOrder})", 
+                            checklist.GeneratedChecklist?.Name, checklist.StageName, checklist.StageOrder);
+                        continue;
+                    }
+                    
+                    _logger.LogInformation("✅ Found matching stage '{StageName}' (ID: {StageId}) for checklist '{ChecklistName}'", 
+                        stage.Name, stage.Id, checklist.GeneratedChecklist?.Name);
 
                     // Ensure GeneratedChecklist is not null
                     if (checklist.GeneratedChecklist == null)
                     {
-                        _logger.LogWarning("Skipping checklist {Index} - GeneratedChecklist is null", i);
+                        _logger.LogWarning("Skipping checklist '{ChecklistName}' - GeneratedChecklist is null", checklist.GeneratedChecklist?.Name ?? "Unknown");
                         continue;
                     }
 
@@ -5574,16 +5660,44 @@ Make questions relevant to the project context and stage objectives.";
                     }
                 }
 
-                // Create questionnaires and associate with stages
-                for (int i = 0; i < Math.Min(questionnaires.Count, createdStages.Count); i++)
+                // Create questionnaires and associate with stages using StageName and StageOrder
+                foreach (var questionnaire in questionnaires)
                 {
-                    var questionnaire = questionnaires[i];
-                    var stage = createdStages[i];
+                    // Find the corresponding stage using StageName and StageOrder from the questionnaire
+                    StageOutputDto stage = null;
+                    
+                    // First try to match by StageName if provided
+                    if (!string.IsNullOrEmpty(questionnaire.StageName))
+                    {
+                        stage = createdStages.FirstOrDefault(s => 
+                            s.Name.Equals(questionnaire.StageName, StringComparison.OrdinalIgnoreCase));
+                        _logger.LogInformation("🔍 Looking for stage by name '{StageName}' for questionnaire '{QuestionnaireName}'", 
+                            questionnaire.StageName, questionnaire.GeneratedQuestionnaire?.Name);
+                    }
+                    
+                    // If not found by name, try to match by StageOrder
+                    if (stage == null && questionnaire.StageOrder > 0)
+                    {
+                        stage = createdStages.FirstOrDefault(s => s.Order == questionnaire.StageOrder);
+                        _logger.LogInformation("🔍 Looking for stage by order {StageOrder} for questionnaire '{QuestionnaireName}'", 
+                            questionnaire.StageOrder, questionnaire.GeneratedQuestionnaire?.Name);
+                    }
+                    
+                    // If still not found, skip this questionnaire
+                    if (stage == null)
+                    {
+                        _logger.LogWarning("⚠️ Could not find matching stage for questionnaire '{QuestionnaireName}' (StageName: '{StageName}', StageOrder: {StageOrder})", 
+                            questionnaire.GeneratedQuestionnaire?.Name, questionnaire.StageName, questionnaire.StageOrder);
+                        continue;
+                    }
+                    
+                    _logger.LogInformation("✅ Found matching stage '{StageName}' (ID: {StageId}) for questionnaire '{QuestionnaireName}'", 
+                        stage.Name, stage.Id, questionnaire.GeneratedQuestionnaire?.Name);
 
                     // Ensure GeneratedQuestionnaire is not null
                     if (questionnaire.GeneratedQuestionnaire == null)
                     {
-                        _logger.LogWarning("Skipping questionnaire {Index} - GeneratedQuestionnaire is null", i);
+                        _logger.LogWarning("Skipping questionnaire '{QuestionnaireName}' - GeneratedQuestionnaire is null", questionnaire.GeneratedQuestionnaire?.Name ?? "Unknown");
                         continue;
                     }
 
@@ -5651,7 +5765,7 @@ Make questions relevant to the project context and stage objectives.";
                     }
                     else
                     {
-                        _logger.LogWarning("⚠️ No questions found for questionnaire {Index}", i);
+                        _logger.LogWarning("⚠️ No questions found for questionnaire '{QuestionnaireName}'", questionnaire.GeneratedQuestionnaire?.Name ?? "Unknown");
                     }
 
                     // Set up assignments for the questionnaire (assignments are now managed through Stage Components)

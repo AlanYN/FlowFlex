@@ -45,6 +45,7 @@ export interface OnboardingItem {
 	modifyBy: string;
 	modifyDate: string;
 	priority: string;
+	status: string; // 添加状态字段
 	workflowName: string;
 	timelineDays: number;
 	workflowId: string;

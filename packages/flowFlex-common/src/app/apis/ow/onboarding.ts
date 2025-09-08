@@ -18,6 +18,11 @@ const Api = (id?: string | number) => {
 		onboardingPause: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/pause`,
 		onboardingResume: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/resume`,
 		onboardingCancel: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/cancel`,
+		onboardingStart: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/start`,
+		onboardingForceComplete: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/force-complete`,
+		onboardingAbort: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/abort`,
+		onboardingReactivate: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/reactivate`,
+		onboardingResumeWithConfirmation: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/resume-with-confirmation`,
 		onboardingAssign: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/assign`,
 		onboardingUpdateCompletionRate: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/update-completion-rate`,
 		onboardingSetPriority: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/set-priority`,
@@ -686,6 +691,58 @@ export function uploadOnboardingFile(
 		},
 		params
 	);
+}
+
+// ========================= 新增状态管理接口 =========================
+
+/**
+ * 启动入职流程 (Start Onboarding)
+ * @param onboardingId 入职ID
+ * @param params 启动参数
+ * @returns boolean
+ */
+export function startOnboarding(onboardingId: string, params: any) {
+	return defHttp.post({ url: `${Api(onboardingId).onboardingStart}`, params });
+}
+
+/**
+ * 强制完成入职流程 (Force Complete)
+ * @param onboardingId 入职ID
+ * @param params 强制完成参数
+ * @returns boolean
+ */
+export function forceCompleteOnboarding(onboardingId: string, params: any) {
+	return defHttp.post({ url: `${Api(onboardingId).onboardingForceComplete}`, params });
+}
+
+/**
+ * 终止入职流程 (Abort)
+ * @param onboardingId 入职ID
+ * @param params 终止参数
+ * @returns boolean
+ */
+export function abortOnboarding(onboardingId: string, params: any) {
+	return defHttp.post({ url: `${Api(onboardingId).onboardingAbort}`, params });
+}
+
+/**
+ * 重新激活入职流程 (Reactivate)
+ * @param onboardingId 入职ID
+ * @param params 重新激活参数
+ * @returns boolean
+ */
+export function reactivateOnboarding(onboardingId: string, params: any) {
+	return defHttp.post({ url: `${Api(onboardingId).onboardingReactivate}`, params });
+}
+
+/**
+ * 恢复入职流程（带确认）(Resume with Confirmation)
+ * @param onboardingId 入职ID
+ * @param params 恢复参数
+ * @returns boolean
+ */
+export function resumeOnboardingWithConfirmation(onboardingId: string, params: any) {
+	return defHttp.post({ url: `${Api(onboardingId).onboardingResumeWithConfirmation}`, params });
 }
 
 /**

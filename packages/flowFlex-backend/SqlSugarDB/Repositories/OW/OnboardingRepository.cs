@@ -5,6 +5,7 @@ using FlowFlex.Domain.Shared;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using System.Linq.Expressions;
+using System.Collections.Generic;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
@@ -382,17 +383,34 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            entity.Status = status;
-            entity.ModifyDate = DateTimeOffset.UtcNow;
+            // Only update specific fields to avoid JSONB type conversion issues
+            var updateable = db.Updateable<Onboarding>()
+                .SetColumns(x => new Onboarding
+                {
+                    Status = status,
+                    ModifyDate = DateTimeOffset.UtcNow,
+                    ModifyBy = entity.ModifyBy,
+                    ModifyUserId = entity.ModifyUserId
+                })
+                .Where(x => x.Id == id);
 
             // If completed, set actual completion date
             if (status == "Completed" && !entity.ActualCompletionDate.HasValue)
             {
-                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
-                entity.CompletionRate = 100;
+                updateable = updateable.SetColumns(x => new Onboarding
+                {
+                    Status = status,
+                    ModifyDate = DateTimeOffset.UtcNow,
+                    ModifyBy = entity.ModifyBy,
+                    ModifyUserId = entity.ModifyUserId,
+                    ActualCompletionDate = DateTimeOffset.UtcNow,
+                    CompletionRate = 100
+                });
             }
 
-            return await UpdateAsync(entity);
+            var result = await updateable.ExecuteCommandAsync();
+
+            return result > 0;
         }
 
         /// <summary>
@@ -401,15 +419,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<Dictionary<string, object>> GetStatisticsAsync()
         {
             var totalCount = await CountAsync(x => x.IsValid);
-            var inProgressCount = await CountAsync(x => x.Status == "InProgress" && x.IsValid);
-            var completedCount = await CountAsync(x => x.Status == "Completed" && x.IsValid);
+            var inactiveCount = await CountAsync(x => x.Status == "Inactive" && x.IsValid);
+            var activeCount = await CountAsync(x => x.Status == "Active" && x.IsValid);
+            var completedCount = await CountAsync(x => (x.Status == "Completed" || x.Status == "Force Completed") && x.IsValid);
             var pausedCount = await CountAsync(x => x.Status == "Paused" && x.IsValid);
+            var abortedCount = await CountAsync(x => x.Status == "Aborted" && x.IsValid);
+
+            // Legacy status support for backward compatibility
+            var inProgressCount = await CountAsync(x => x.Status == "InProgress" && x.IsValid);
             var cancelledCount = await CountAsync(x => x.Status == "Cancelled" && x.IsValid);
 
             var overdueCount = await CountAsync(x =>
                 x.EstimatedCompletionDate.HasValue &&
                 x.EstimatedCompletionDate.Value < DateTimeOffset.UtcNow &&
                 x.Status != "Completed" &&
+                x.Status != "Force Completed" &&
+                x.Status != "Aborted" &&
                 x.IsValid);
 
             var allOnboardings = await GetListAsync(x => x.IsValid);
@@ -418,9 +443,13 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             return new Dictionary<string, object>
             {
                 { "TotalCount", totalCount },
-                { "InProgressCount", inProgressCount },
+                { "InactiveCount", inactiveCount },
+                { "ActiveCount", activeCount },
                 { "CompletedCount", completedCount },
                 { "PausedCount", pausedCount },
+                { "AbortedCount", abortedCount },
+                // Legacy status counts for backward compatibility
+                { "InProgressCount", inProgressCount },
                 { "CancelledCount", cancelledCount },
                 { "OverdueCount", overdueCount },
                 { "AverageCompletionRate", averageCompletionRate }

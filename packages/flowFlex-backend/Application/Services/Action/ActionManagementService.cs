@@ -346,7 +346,8 @@ namespace FlowFlex.Application.Services.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null)
         {
             var (data, total) = await _actionDefinitionRepository.GetPagedAsync(1,
                 10000,
@@ -355,7 +356,8 @@ namespace FlowFlex.Application.Services.Action
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
-                isAssignmentWorkflow);
+                isAssignmentWorkflow,
+                isTools);
 
             var map = _mapper.Map<List<ActionDefinitionDto>>(data);
             Stream result = ExcelHelper<ActionDefinitionDto>.ExportExcel(map);

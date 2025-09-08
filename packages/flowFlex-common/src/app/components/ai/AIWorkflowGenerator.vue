@@ -253,47 +253,76 @@
 														class="checklist-card"
 													>
 														<div class="checklist-header">
-															<h7>{{ checklist.name }}</h7>
-															<div class="card-actions">
-																<el-button
-																	size="small"
-																	link
-																	@click="
-																		toggleChecklistTasks(
+															<div class="checklist-name-section">
+																<el-icon class="stage-icon">
+																	<List />
+																</el-icon>
+																<span class="name-label">
+																	checklist:
+																</span>
+																<el-input
+																	v-model="checklist.name"
+																	class="checklist-name-input"
+																	placeholder="Enter checklist name"
+																	@blur="
+																		onChecklistUpdated(
+																			message.data!,
 																			clIndex
 																		)
 																	"
-																	class="expand-btn"
-																>
-																	<el-icon>
-																		<ArrowDown
-																			v-if="
-																				isChecklistTasksCollapsed(
-																					clIndex
-																				)
-																			"
-																		/>
-																		<ArrowUp v-else />
-																	</el-icon>
-																</el-button>
-																<el-button
-																	size="small"
-																	type="danger"
-																	@click="
-																		removeChecklist(
-																			message.data,
-																			clIndex
-																		)
-																	"
-																	circle
-																>
-																	<el-icon><Close /></el-icon>
-																</el-button>
+																/>
+															</div>
+															<div class="checklist-title-row">
+																<div class="checklist-title">
+																	<span class="stage-label">
+																		stage:
+																	</span>
+																	<span class="stage-name">
+																		{{
+																			getStageNameFromChecklist(
+																				checklist.name
+																			)
+																		}}
+																	</span>
+																</div>
+																<div class="card-actions">
+																	<el-button
+																		size="small"
+																		link
+																		@click="
+																			toggleChecklistTasks(
+																				clIndex
+																			)
+																		"
+																		class="expand-btn"
+																	>
+																		<el-icon>
+																			<ArrowDown
+																				v-if="
+																					isChecklistTasksCollapsed(
+																						clIndex
+																					)
+																				"
+																			/>
+																			<ArrowUp v-else />
+																		</el-icon>
+																	</el-button>
+																	<el-button
+																		size="small"
+																		type="danger"
+																		@click="
+																			removeChecklist(
+																				message.data,
+																				clIndex
+																			)
+																		"
+																		circle
+																	>
+																		<el-icon><Close /></el-icon>
+																	</el-button>
+																</div>
 															</div>
 														</div>
-														<p class="checklist-description">
-															{{ checklist.description }}
-														</p>
 
 														<el-collapse-transition>
 															<div
@@ -387,47 +416,76 @@
 														class="questionnaire-card"
 													>
 														<div class="questionnaire-header">
-															<h7>{{ questionnaire.name }}</h7>
-															<div class="card-actions">
-																<el-button
-																	size="small"
-																	link
-																	@click="
-																		toggleQuestionnaireQuestions(
+															<div class="questionnaire-name-section">
+																<el-icon class="stage-icon">
+																	<Document />
+																</el-icon>
+																<span class="name-label">
+																	questionnaire:
+																</span>
+																<el-input
+																	v-model="questionnaire.name"
+																	class="questionnaire-name-input"
+																	placeholder="Enter questionnaire name"
+																	@blur="
+																		onQuestionnaireUpdated(
+																			message.data!,
 																			qIndex
 																		)
 																	"
-																	class="expand-btn"
-																>
-																	<el-icon>
-																		<ArrowDown
-																			v-if="
-																				isQuestionnaireQuestionsCollapsed(
-																					qIndex
-																				)
-																			"
-																		/>
-																		<ArrowUp v-else />
-																	</el-icon>
-																</el-button>
-																<el-button
-																	size="small"
-																	type="danger"
-																	@click="
-																		removeQuestionnaire(
-																			message.data,
-																			qIndex
-																		)
-																	"
-																	circle
-																>
-																	<el-icon><Close /></el-icon>
-																</el-button>
+																/>
+															</div>
+															<div class="questionnaire-title-row">
+																<div class="questionnaire-title">
+																	<span class="stage-label">
+																		stage:
+																	</span>
+																	<span class="stage-name">
+																		{{
+																			getStageNameFromQuestionnaire(
+																				questionnaire.name
+																			)
+																		}}
+																	</span>
+																</div>
+																<div class="card-actions">
+																	<el-button
+																		size="small"
+																		link
+																		@click="
+																			toggleQuestionnaireQuestions(
+																				qIndex
+																			)
+																		"
+																		class="expand-btn"
+																	>
+																		<el-icon>
+																			<ArrowDown
+																				v-if="
+																					isQuestionnaireQuestionsCollapsed(
+																						qIndex
+																					)
+																				"
+																			/>
+																			<ArrowUp v-else />
+																		</el-icon>
+																	</el-button>
+																	<el-button
+																		size="small"
+																		type="danger"
+																		@click="
+																			removeQuestionnaire(
+																				message.data,
+																				qIndex
+																			)
+																		"
+																		circle
+																	>
+																		<el-icon><Close /></el-icon>
+																	</el-button>
+																</div>
 															</div>
 														</div>
-														<p class="questionnaire-description">
-															{{ questionnaire.description }}
-														</p>
 
 														<el-collapse-transition>
 															<div
@@ -2830,11 +2888,13 @@ const applyWorkflow = async (data: any) => {
 		const workflowId = response.data;
 
 		// Create checklists and questionnaires using the new backend method
+		// Add a small delay to ensure workflow and stages are fully committed to database
+		await new Promise((resolve) => setTimeout(resolve, 500));
 		try {
 			const { apiVersion } = useGlobSetting();
 
-			// Transform checklists to the expected backend format
-			const transformedChecklists = data.checklists.map((checklist) => ({
+			// Transform checklists to the expected backend format with stage association
+			const transformedChecklists = data.checklists.map((checklist, index) => ({
 				Success: true,
 				Message: `Checklist generated for ${checklist.name}`,
 				GeneratedChecklist: {
@@ -2846,10 +2906,13 @@ const applyWorkflow = async (data: any) => {
 				},
 				Tasks: checklist.tasks || [],
 				ConfidenceScore: 0.85,
+				// Add stage association - match by index since they're generated in the same order
+				StageName: data.stages[index]?.name || '',
+				StageOrder: data.stages[index]?.order || index + 1,
 			}));
 
-			// Transform questionnaires to the expected backend format
-			const transformedQuestionnaires = data.questionnaires.map((questionnaire) => ({
+			// Transform questionnaires to the expected backend format with stage association
+			const transformedQuestionnaires = data.questionnaires.map((questionnaire, index) => ({
 				Success: true,
 				Message: `Questionnaire generated for ${questionnaire.name}`,
 				GeneratedQuestionnaire: {
@@ -2861,26 +2924,59 @@ const applyWorkflow = async (data: any) => {
 				},
 				Questions: questionnaire.questions || [],
 				ConfidenceScore: 0.85,
+				// Add stage association - match by index since they're generated in the same order
+				StageName: data.stages[index]?.name || '',
+				StageOrder: data.stages[index]?.order || index + 1,
 			}));
 
-			const createComponentsResponse = await defHttp.post({
-				url: `/api/ai/workflows/${apiVersion}/create-stage-components`,
-				data: {
-					workflowId: workflowId,
-					stages: data.stages,
-					checklists: transformedChecklists,
-					questionnaires: transformedQuestionnaires,
-				},
-			});
+			// Add retry mechanism for stage components creation
+			const createStageComponentsWithRetry = async (retryCount = 0) => {
+				const maxRetries = 3;
+				const retryDelay = 1000; // 1 second
 
-			if (createComponentsResponse.success) {
-				console.log('✅ Stage components created successfully');
-			} else {
-				console.warn(
-					'⚠️ Failed to create stage components:',
-					createComponentsResponse.message
-				);
-			}
+				try {
+					const createComponentsResponse = await defHttp.post({
+						url: `/api/ai/workflows/${apiVersion}/create-stage-components`,
+						data: {
+							workflowId: workflowId,
+							stages: data.stages,
+							checklists: transformedChecklists,
+							questionnaires: transformedQuestionnaires,
+						},
+					});
+
+					if (createComponentsResponse.success) {
+						console.log('✅ Stage components created successfully');
+						return true;
+					} else {
+						console.warn(
+							`⚠️ Failed to create stage components (attempt ${retryCount + 1}):`,
+							createComponentsResponse.message
+						);
+
+						if (retryCount < maxRetries) {
+							console.log(`🔄 Retrying in ${retryDelay}ms...`);
+							await new Promise((resolve) => setTimeout(resolve, retryDelay));
+							return await createStageComponentsWithRetry(retryCount + 1);
+						}
+						return false;
+					}
+				} catch (error) {
+					console.warn(
+						`⚠️ Error creating stage components (attempt ${retryCount + 1}):`,
+						error
+					);
+
+					if (retryCount < maxRetries) {
+						console.log(`🔄 Retrying in ${retryDelay}ms...`);
+						await new Promise((resolve) => setTimeout(resolve, retryDelay));
+						return await createStageComponentsWithRetry(retryCount + 1);
+					}
+					return false;
+				}
+			};
+
+			await createStageComponentsWithRetry();
 		} catch (e) {
 			console.warn('⚠️ Failed to create stage components:', e);
 		}
@@ -3233,6 +3329,22 @@ const onWorkflowUpdated = (messageData: any) => {
 		messageData.workflow.isModified = true;
 	}
 	console.log('Workflow updated:', messageData.workflow);
+};
+
+const onChecklistUpdated = (messageData: any, checklistIndex: number) => {
+	// Mark the workflow as modified
+	if (messageData.workflow) {
+		messageData.workflow.isModified = true;
+	}
+	console.log('Checklist updated:', messageData.checklists?.[checklistIndex]);
+};
+
+const onQuestionnaireUpdated = (messageData: any, questionnaireIndex: number) => {
+	// Mark the workflow as modified
+	if (messageData.workflow) {
+		messageData.workflow.isModified = true;
+	}
+	console.log('Questionnaire updated:', messageData.questionnaires?.[questionnaireIndex]);
 };
 
 // Validate workflow data before saving
@@ -3611,6 +3723,14 @@ const formatAIMessage = (content: string) => {
 
 const getTotalDuration = (stages: WorkflowStage[]) => {
 	return stages.reduce((sum, stage) => sum + stage.estimatedDuration, 0);
+};
+
+const getStageNameFromChecklist = (checklistName: string) => {
+	return checklistName.replace(/ Checklist$/i, '');
+};
+
+const getStageNameFromQuestionnaire = (questionnaireName: string) => {
+	return questionnaireName.replace(/ Questionnaire$/i, '');
 };
 
 const scrollToBottom = async () => {
@@ -5469,16 +5589,86 @@ onMounted(async () => {
 
 .checklist-header {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
+	flex-direction: column;
+	gap: 0.75rem;
 	margin-bottom: 0.75rem;
 }
 
-.checklist-header h7 {
-	margin: 0;
-	color: #1e293b;
+.checklist-name-section {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.name-label {
+	font-size: 14px;
+	font-weight: 600;
+	color: #374151;
+	min-width: fit-content;
+	white-space: nowrap;
+}
+
+.checklist-name-input {
 	font-size: 16px;
 	font-weight: 600;
+}
+
+.checklist-name-input .el-input__wrapper {
+	background: transparent;
+	border: 1px dashed #d1d5db;
+	border-radius: 6px;
+	transition: all 0.2s ease;
+}
+
+.checklist-name-input .el-input__wrapper:hover {
+	border-color: #3b82f6;
+	background: #f8fafc;
+}
+
+.checklist-name-input .el-input__wrapper.is-focus {
+	border-color: #3b82f6;
+	border-style: solid;
+	background: white;
+	box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.checklist-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.checklist-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.stage-icon {
+	color: #3b82f6;
+	font-size: 16px;
+}
+
+.stage-label {
+	font-size: 14px;
+	font-weight: 500;
+	color: #6b7280;
+	margin-right: 0.25rem;
+}
+
+.stage-name {
+	font-weight: 700;
+	color: white;
+	font-size: 16px;
+	background: #3b82f6;
+	padding: 4px 12px;
+	border-radius: 6px;
+}
+
+.checklist-type {
+	color: #64748b;
+	font-size: 14px;
+	font-weight: 500;
 }
 
 .card-actions {
@@ -5496,13 +5686,6 @@ onMounted(async () => {
 .expand-btn:hover {
 	color: #3b82f6;
 	background-color: #f1f5f9;
-}
-
-.checklist-description {
-	margin: 0 0 1rem 0;
-	color: #64748b;
-	font-size: 14px;
-	line-height: 1.4;
 }
 
 .tasks-list {
@@ -5566,23 +5749,57 @@ onMounted(async () => {
 
 .questionnaire-header {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
+	flex-direction: column;
+	gap: 0.75rem;
 	margin-bottom: 0.75rem;
 }
 
-.questionnaire-header h7 {
-	margin: 0;
-	color: #1e293b;
+.questionnaire-name-section {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.questionnaire-name-input {
 	font-size: 16px;
 	font-weight: 600;
 }
 
-.questionnaire-description {
-	margin: 0 0 1rem 0;
+.questionnaire-name-input .el-input__wrapper {
+	background: transparent;
+	border: 1px dashed #d1d5db;
+	border-radius: 6px;
+	transition: all 0.2s ease;
+}
+
+.questionnaire-name-input .el-input__wrapper:hover {
+	border-color: #eab308;
+	background: #fffbeb;
+}
+
+.questionnaire-name-input .el-input__wrapper.is-focus {
+	border-color: #eab308;
+	border-style: solid;
+	background: white;
+	box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.1);
+}
+
+.questionnaire-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.questionnaire-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.questionnaire-type {
 	color: #64748b;
 	font-size: 14px;
-	line-height: 1.4;
+	font-weight: 500;
 }
 
 .questions-list {

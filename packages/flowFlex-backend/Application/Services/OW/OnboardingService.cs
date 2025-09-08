@@ -250,7 +250,10 @@ namespace FlowFlex.Application.Services.OW
                 // Set initial values with explicit null checks
                 entity.CurrentStageId = firstStage?.Id;
                 entity.CurrentStageOrder = firstStage?.Order ?? 0;
-                entity.Status = string.IsNullOrEmpty(entity.Status) ? "Started" : entity.Status;
+                entity.Status = string.IsNullOrEmpty(entity.Status) ? "Inactive" : entity.Status;
+            
+            // 添加调试日志
+            LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
                 entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
                 entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
                 entity.CompletionRate = 0;
@@ -1009,6 +1012,18 @@ namespace FlowFlex.Application.Services.OW
 
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
+
+                // 添加调试日志 - 检查状态映射
+                LoggingExtensions.WriteLine($"[DEBUG] Query Results Count: {results.Count}");
+                LoggingExtensions.WriteLine($"[DEBUG] Original Entities Count: {pagedEntities.Count}");
+                
+                for (int i = 0; i < Math.Min(3, pagedEntities.Count); i++)
+                {
+                    var entity = pagedEntities[i];
+                    var result = results[i];
+                    LoggingExtensions.WriteLine($"[DEBUG] Entity[{i}]: ID={entity.Id}, LeadName={entity.LeadName}, Status={entity.Status}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Result[{i}]: ID={result.Id}, LeadName={result.LeadName}, Status={result.Status}");
+                }
 
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, pagedEntities);
@@ -1975,9 +1990,11 @@ namespace FlowFlex.Application.Services.OW
                 else if (entity.CurrentStageId != stageToComplete.Id)
                 {
                     // If we completed a different stage (not the current one), 
-                    // advance to the next incomplete stage
+                    // advance to the next incomplete stage AFTER the completed stage (only look forward)
+                    var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
                     var nextIncompleteStage = orderedStages
-                        .Where(stage => !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                        .Where(stage => stage.Order > completedStageOrder && 
+                                       !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
                         .OrderBy(stage => stage.Order)
                         .FirstOrDefault();
 
@@ -2063,7 +2080,7 @@ namespace FlowFlex.Application.Services.OW
             }
             else if (input.AutoMoveToNext)
             {
-                // Move to next stage
+                // Move to next stage (only advance forward in sequence)
                 var nextStage = orderedStages[currentStageIndex + 1];
                 entity.CurrentStageId = nextStage.Id;
                 entity.CurrentStageOrder = nextStage.Order;
@@ -2417,7 +2434,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "No onboarding IDs provided");
             }
 
-            var validStatuses = new[] { "Started", "InProgress", "Completed", "Paused", "Cancelled" };
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted", 
+                                       "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(status))
             {
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Invalid status");
@@ -2464,7 +2482,7 @@ namespace FlowFlex.Application.Services.OW
             entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
             // Sync isCurrent flag in stagesProgress to match currentStageId
-            LoadStagesProgressFromJson(entity);
+            // Note: Don't reload from JSON here as UpdateStagesProgressAsync may have just updated the data
             if (entity.StagesProgress != null && entity.StagesProgress.Any())
             {
                 foreach (var stage in entity.StagesProgress)
@@ -2472,7 +2490,7 @@ namespace FlowFlex.Application.Services.OW
                     // Update isCurrent flag based on currentStageId
                     stage.IsCurrent = stage.StageId == entity.CurrentStageId;
 
-                    // Update stage status based on completion and current status
+                    // Update stage status based on completion and current status, but preserve IsCompleted status
                     if (stage.IsCompleted)
                     {
                         stage.Status = "Completed";
@@ -2573,7 +2591,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            var validStatuses = new[] { "Started", "InProgress", "Completed", "Paused", "Cancelled" };
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted", 
+                                       "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(input.Status))
             {
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Invalid status");
@@ -3972,27 +3991,9 @@ namespace FlowFlex.Application.Services.OW
                     }
                     else
                     {
-                        // Check if there are any incomplete stages with lower order (in case of non-sequential completion)
-                        var earlierIncompleteStage = entity.StagesProgress
-                            .Where(s => !s.IsCompleted)
-                            .OrderBy(s => s.StageOrder)
-                            .FirstOrDefault();
-
-                        if (earlierIncompleteStage != null)
-                        {
-                            // Activate the earliest incomplete stage
-                            earlierIncompleteStage.Status = "InProgress";
-                            earlierIncompleteStage.StartTime = currentTime;
-                            earlierIncompleteStage.IsCurrent = true;
-                            earlierIncompleteStage.LastUpdatedTime = currentTime;
-                            earlierIncompleteStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
-
-                            // Debug logging handled by structured logging");
-                        }
-                        else
-                        {
-                            // Debug logging handled by structured logging
-                        }
+                        // All stages after the completed stage are already completed
+                        // Don't go backward to find incomplete stages - this maintains forward progression
+                        // Debug logging handled by structured logging
                     }
 
                     // Update completion rate based on completed stages
@@ -5311,5 +5312,240 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
         }
+
+        #region New Status Management Methods
+
+        /// <summary>
+        /// Start onboarding (activate an inactive onboarding)
+        /// </summary>
+        public async Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Inactive onboardings can be started
+            if (entity.Status != "Inactive")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                    $"Cannot start onboarding. Current status is '{entity.Status}'. Only 'Inactive' onboardings can be started.");
+            }
+
+            // Update status to Active
+            entity.Status = "Active";
+            entity.StartDate = DateTimeOffset.UtcNow;
+
+            // Reset progress if requested
+            if (input.ResetProgress)
+            {
+                entity.CurrentStageId = null;
+                entity.CurrentStageOrder = 0;
+                entity.CompletionRate = 0;
+                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+            }
+
+            // Add start notes
+            var startText = $"[Start Onboarding] Onboarding activated";
+            if (!string.IsNullOrEmpty(input.Reason))
+            {
+                startText += $" - Reason: {input.Reason}";
+            }
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                startText += $" - Notes: {input.Notes}";
+            }
+
+            entity.Notes = string.IsNullOrEmpty(entity.Notes)
+                ? startText
+                : $"{entity.Notes}\n{startText}";
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+
+        /// <summary>
+        /// Abort onboarding (terminate the process)
+        /// </summary>
+        public async Task<bool> AbortAsync(long id, AbortOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - cannot abort already completed or aborted onboardings
+            if (entity.Status == "Completed" || entity.Status == "Aborted")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                    $"Cannot abort onboarding with status '{entity.Status}'");
+            }
+
+            // Update status to Aborted
+            entity.Status = "Aborted";
+            entity.EstimatedCompletionDate = null; // Remove ETA
+
+            // Add abort notes
+            var abortText = $"[Abort] Onboarding terminated - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                abortText += $" - Notes: {input.Notes}";
+            }
+
+            entity.Notes = string.IsNullOrEmpty(entity.Notes)
+                ? abortText
+                : $"{entity.Notes}\n{abortText}";
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+        /// <summary>
+        /// Reactivate onboarding (restart an aborted onboarding)
+        /// </summary>
+        public async Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Aborted onboardings can be reactivated
+            if (entity.Status != "Aborted")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                    $"Cannot reactivate onboarding. Current status is '{entity.Status}'. Only 'Aborted' onboardings can be reactivated.");
+            }
+
+            // Update status to Active
+            entity.Status = "Active";
+            entity.ActualCompletionDate = null;
+
+            // Reset progress if requested (default is true for reactivation)
+            if (input.ResetProgress)
+            {
+                entity.CurrentStageId = null;
+                entity.CurrentStageOrder = 0;
+                entity.CompletionRate = 0;
+                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+
+                // Reset stages progress but preserve questionnaire answers if requested
+                LoadStagesProgressFromJson(entity);
+                if (entity.StagesProgress != null)
+                {
+                    foreach (var stage in entity.StagesProgress)
+                    {
+                        stage.IsCompleted = false;
+                        stage.Status = "Pending";
+                        stage.CompletionTime = null;
+                        stage.CompletedById = null;
+                        stage.CompletedBy = null;
+                        stage.StartTime = null;
+                        
+                        // Reset stage to first stage
+                        if (stage.StageOrder == 1)
+                        {
+                            stage.Status = "InProgress";
+                            stage.StartTime = DateTimeOffset.UtcNow;
+                            stage.IsCurrent = true;
+                            entity.CurrentStageId = stage.StageId;
+                            entity.CurrentStageOrder = 1;
+                        }
+                        else
+                        {
+                            stage.IsCurrent = false;
+                        }
+                    }
+                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                }
+            }
+
+            // Add reactivation notes
+            var reactivateText = $"[Reactivate] Onboarding reactivated from Aborted status - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                reactivateText += $" - Notes: {input.Notes}";
+            }
+            if (input.PreserveAnswers)
+            {
+                reactivateText += " - Questionnaire answers preserved";
+            }
+
+            entity.Notes = string.IsNullOrEmpty(entity.Notes)
+                ? reactivateText
+                : $"{entity.Notes}\n{reactivateText}";
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+        /// <summary>
+        /// Resume onboarding with confirmation
+        /// </summary>
+        public async Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Paused onboardings can be resumed
+            if (entity.Status != "Paused")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                    $"Cannot resume onboarding. Current status is '{entity.Status}'. Only 'Paused' onboardings can be resumed.");
+            }
+
+            // Update status to Active
+            entity.Status = "Active";
+
+            // Restore ETA calculation - resume timing from where it was paused
+            // The current stage timing should continue from where it left off
+            LoadStagesProgressFromJson(entity);
+            if (entity.StagesProgress != null)
+            {
+                var currentStage = entity.StagesProgress.FirstOrDefault(s => s.IsCurrent);
+                if (currentStage != null && currentStage.StartTime.HasValue)
+                {
+                    // Calculate remaining time for current stage
+                    var timeSpentBeforePause = DateTimeOffset.UtcNow - currentStage.StartTime.Value;
+                    // The stage timing continues from where it was paused
+                    // No need to adjust StartTime as it represents the original start
+                }
+            }
+
+            // Add resume notes
+            var resumeText = $"[Resume] Onboarding resumed from Paused status";
+            if (!string.IsNullOrEmpty(input.Reason))
+            {
+                resumeText += $" - Reason: {input.Reason}";
+            }
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                resumeText += $" - Notes: {input.Notes}";
+            }
+
+            entity.Notes = string.IsNullOrEmpty(entity.Notes)
+                ? resumeText
+                : $"{entity.Notes}\n{resumeText}";
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+        #endregion
     }
 }

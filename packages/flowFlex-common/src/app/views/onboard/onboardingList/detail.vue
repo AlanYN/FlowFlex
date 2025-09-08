@@ -14,20 +14,35 @@
 					</el-icon>
 					Back
 				</el-button>
-				<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-					Cases Details: {{ onboardingData?.leadId }} {{ onboardingData?.leadName }}
-				</h1>
+				<div class="flex flex-col">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
+						Cases Details: {{ onboardingData?.leadId }} {{ onboardingData?.leadName }}
+					</h1>
+					<!-- 状态显示 -->
+					<div class="flex items-center mt-1" v-if="onboardingData?.status">
+						<span class="text-sm text-gray-500 dark:text-gray-400 mr-2">Status:</span>
+						<el-tag :type="getStatusTagType(onboardingData.status)">
+							{{ getDisplayStatus(onboardingData.status) }}
+						</el-tag>
+					</div>
+				</div>
 			</div>
 			<div class="flex items-center space-x-2">
 				<el-button
 					type="primary"
 					@click="saveQuestionnaireAndField"
 					:loading="saveAllLoading"
+					:disabled="isSaveDisabled"
 					:icon="Document"
 				>
 					Save
 				</el-button>
-				<el-button type="primary" @click="handleCompleteStage" :loading="completing">
+				<el-button
+					type="primary"
+					@click="handleCompleteStage"
+					:loading="completing"
+					:disabled="isCompleteStageDisabled"
+				>
 					<el-icon class="mr-1">
 						<Check />
 					</el-icon>
@@ -299,6 +314,62 @@ const onboardingId = computed(() => {
 		return '';
 	}
 	return id;
+});
+
+// 状态标签类型
+const getStatusTagType = (status: string) => {
+	switch (status) {
+		case 'Inactive':
+			return 'info';
+		case 'Active':
+		case 'InProgress':
+		case 'Started':
+			return 'primary';
+		case 'Completed':
+			return 'success';
+		case 'Paused':
+			return 'warning';
+		case 'Aborted':
+		case 'Cancelled':
+			return 'danger';
+		default:
+			return 'info';
+	}
+};
+
+// 状态显示转换函数 - 统一显示逻辑
+const getDisplayStatus = (status: string) => {
+	if (status === undefined || status === null) {
+		return 'Unknown';
+	}
+
+	switch (status) {
+		case 'Active':
+		case 'Started':
+			return 'InProgress';
+		case 'Cancelled':
+			return 'Aborted';
+		default:
+			return status;
+	}
+};
+
+// 计算是否禁用保存按钮
+const isSaveDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return false;
+
+	// 对于已中止或已取消的状态，禁用保存
+	return ['Aborted', 'Cancelled'].includes(status);
+});
+
+// 计算是否禁用完成阶段按钮
+const isCompleteStageDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return false;
+
+	// 对于已中止、已取消或暂停的状态，禁用完成阶段
+	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
 });
 
 // 添加组件引用

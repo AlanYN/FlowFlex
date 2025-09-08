@@ -86,11 +86,11 @@ namespace FlowFlex.Domain.Entities.OW
         public string LifeCycleStageName { get; set; }
 
         /// <summary>
-        /// Onboarding Status (Started/InProgress/Completed/Paused/Cancelled)
+        /// Onboarding Status (Inactive/Active/Completed/Force Completed/Paused/Aborted)
         /// </summary>
         [StringLength(20)]
         [SugarColumn(ColumnName = "status")]
-        public string Status { get; set; } = "Started";
+        public string Status { get; set; } = "Inactive";
 
         /// <summary>
         /// Overall Completion Rate (0-100)

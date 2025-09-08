@@ -93,7 +93,8 @@ namespace FlowFlex.Application.Contracts.IServices.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null);
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null);
 
         #endregion
 

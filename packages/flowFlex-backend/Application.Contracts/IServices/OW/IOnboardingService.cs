@@ -214,5 +214,26 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="stageId">Stage ID to save</param>
         /// <returns>Success status</returns>
         Task<bool> SaveStageAsync(long onboardingId, long stageId);
+
+        /// <summary>
+        /// Start onboarding (activate an inactive onboarding)
+        /// </summary>
+        Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input);
+
+
+        /// <summary>
+        /// Abort onboarding (terminate the process)
+        /// </summary>
+        Task<bool> AbortAsync(long id, AbortOnboardingInputDto input);
+
+        /// <summary>
+        /// Reactivate onboarding (restart an aborted onboarding)
+        /// </summary>
+        Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input);
+
+        /// <summary>
+        /// Resume onboarding with confirmation
+        /// </summary>
+        Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input);
     }
 }
