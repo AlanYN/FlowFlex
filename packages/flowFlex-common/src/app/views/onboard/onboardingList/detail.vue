@@ -120,6 +120,7 @@
 									:static-fields="component.staticFields"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
+									:disabled="isAbortedReadonly"
 									@save-success="refreshChangeLog"
 								/>
 
@@ -134,6 +135,7 @@
 									:stage-id="activeStage"
 									:checklist-data="getChecklistDataForComponent(component)"
 									:onboarding-id="onboardingId"
+									:disabled="isAbortedReadonly"
 									@task-toggled="handleTaskToggled"
 									@refresh-checklist="loadCheckListData"
 								/>
@@ -149,6 +151,7 @@
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
+									:disabled="isAbortedReadonly"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
@@ -166,6 +169,7 @@
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									:component="component"
+									:disabled="isAbortedReadonly"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -370,6 +374,12 @@ const isCompleteStageDisabled = computed(() => {
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
 	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
+});
+
+// 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
+const isAbortedReadonly = computed(() => {
+	const status = onboardingData.value?.status;
+	return status && ['Aborted', 'Cancelled'].includes(status);
 });
 
 // 添加组件引用

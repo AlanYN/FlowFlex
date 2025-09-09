@@ -6,6 +6,7 @@ using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using System.Net;
 
@@ -21,13 +22,16 @@ namespace FlowFlex.WebApi.Controllers.Action
     {
         private readonly IActionManagementService _actionManagementService;
         private readonly IActionExecutionService _actionExecutionService;
+        private readonly ILogger<ActionController> _logger;
 
         public ActionController(
             IActionManagementService actionManagementService,
-            IActionExecutionService actionExecutionService)
+            IActionExecutionService actionExecutionService,
+            ILogger<ActionController> logger)
         {
             _actionManagementService = actionManagementService;
             _actionExecutionService = actionExecutionService;
+            _logger = logger;
         }
 
         #region Action Definition Management
@@ -75,10 +79,11 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isTools = null,
             bool? isSystemTools = null)
         {
-            // If isSystemTools is true, override actionType to System
+            // If isSystemTools is true, override actionType to System and ignore isTools
             if (isSystemTools == true)
             {
                 actionType = ActionTypeEnum.System;
+                isTools = null; // Ignore isTools when isSystemTools is true
             }
 
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
@@ -130,16 +135,63 @@ namespace FlowFlex.WebApi.Controllers.Action
         [ProducesResponseType<SuccessResponse<ActionDefinitionDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
-        public async Task<IActionResult> UpdateActionDefinition(long id, UpdateActionDefinitionDto dto)
+        public async Task<IActionResult> UpdateActionDefinition(long id, [FromBody] JObject requestData)
         {
+            _logger.LogInformation("Received PUT request for action definition ID: {ActionId} with data: {Data}", id, requestData);
+            
             try
             {
+                // Extract basic DTO fields
+                var dto = new UpdateActionDefinitionDto
+                {
+                    Name = requestData["name"]?.ToString() ?? "",
+                    Description = requestData["description"]?.ToString() ?? "",
+                    ActionType = (ActionTypeEnum)(requestData["actionType"]?.ToObject<int>() ?? 0),
+                    ActionConfig = requestData["actionConfig"]?.ToString() ?? "{}",
+                    IsEnabled = requestData["isEnabled"]?.ToObject<bool>() ?? true,
+                    IsTools = requestData["isTools"]?.ToObject<bool>() ?? false
+                };
+
                 var result = await _actionManagementService.UpdateActionDefinitionAsync(id, dto);
+                
+                // Handle triggerMappings for System Actions
+                if (dto.ActionType == ActionTypeEnum.System && requestData["triggerMappings"] != null)
+                {
+                    _logger.LogInformation("Processing triggerMappings update for System Action {ActionId}", id);
+                    
+                    var triggerMappings = requestData["triggerMappings"]?.ToObject<List<JObject>>();
+                    if (triggerMappings != null && triggerMappings.Any())
+                    {
+                        // For now, we'll just log the trigger mappings
+                        // In a full implementation, you might want to update existing mappings
+                        foreach (var mapping in triggerMappings)
+                        {
+                            var mappingId = mapping["id"]?.ToString();
+                            var isEnabled = mapping["isEnabled"]?.ToObject<bool>() ?? true;
+                            
+                            _logger.LogInformation("TriggerMapping {MappingId} - IsEnabled: {IsEnabled}", mappingId, isEnabled);
+                            
+                            // Update mapping status if needed
+                            if (long.TryParse(mappingId, out var mappingIdLong))
+                            {
+                                await _actionManagementService.UpdateActionTriggerMappingStatusAsync(mappingIdLong, isEnabled);
+                            }
+                        }
+                    }
+                }
+                
+                _logger.LogInformation("Successfully updated action definition with ID: {ActionId}", id);
                 return Success(result);
             }
             catch (ArgumentException ex)
             {
-                return NotFound();
+                _logger.LogWarning("Action definition not found for ID: {ActionId}, Error: {ErrorMessage}", id, ex.Message);
+                return NotFound(new { message = $"Action definition with ID {id} not found", error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating action definition with ID: {ActionId}", id);
+                return BadRequest(new { message = "Error updating action definition", error = ex.Message });
             }
         }
 
@@ -197,10 +249,11 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isTools = null,
             bool? isSystemTools = null)
         {
-            // If isSystemTools is true, override actionType to System
+            // If isSystemTools is true, override actionType to System and ignore isTools
             if (isSystemTools == true)
             {
                 actionType = ActionTypeEnum.System;
+                isTools = null; // Ignore isTools when isSystemTools is true
             }
 
             return File(await _actionManagementService.ExportAsync(search,
@@ -469,12 +522,14 @@ namespace FlowFlex.WebApi.Controllers.Action
                         stageId = "Optional: Stage ID to complete (can be extracted from trigger context)",
                         onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
                         completionNotes = "Optional: Completion notes (default: 'Completed by system action')",
-                        autoMoveToNext = "Optional: Auto move to next stage (default: true)"
+                        autoMoveToNext = "Optional: Auto move to next stage (default: true)",
+                        useValidationApi = "Optional: Use complete-stage-with-validation API for COMP-STG actions (default: false)"
                     },
                     ExampleConfig = @"{
   ""actionName"": ""CompleteStage"",
   ""completionNotes"": ""Stage completed automatically"",
-  ""autoMoveToNext"": true
+  ""autoMoveToNext"": true,
+  ""useValidationApi"": true
 }"
                 },
                 new SystemActionDefinitionDto
@@ -542,14 +597,16 @@ namespace FlowFlex.WebApi.Controllers.Action
   ""stageId"": null,
   ""onboardingId"": null,
   ""completionNotes"": ""Completed by system action"",
-  ""autoMoveToNext"": true
+  ""autoMoveToNext"": true,
+  ""useValidationApi"": false
 }",
                     Parameters = new List<SystemActionParameterDto>
                     {
                         new SystemActionParameterDto { Name = "stageId", Type = "number", Required = false, Description = "Stage ID to complete (can be extracted from trigger context)" },
                         new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
                         new SystemActionParameterDto { Name = "completionNotes", Type = "string", Required = false, Description = "Completion notes" },
-                        new SystemActionParameterDto { Name = "autoMoveToNext", Type = "boolean", Required = false, Description = "Auto move to next stage" }
+                        new SystemActionParameterDto { Name = "autoMoveToNext", Type = "boolean", Required = false, Description = "Auto move to next stage" },
+                        new SystemActionParameterDto { Name = "useValidationApi", Type = "boolean", Required = false, Description = "Use complete-stage-with-validation API for COMP-STG actions" }
                     }
                 },
                 ["MoveToStage"] = new SystemActionTemplateDto

@@ -4,6 +4,8 @@ using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.Action.Executors
 {
@@ -15,15 +17,18 @@ namespace FlowFlex.Application.Services.Action.Executors
         private readonly ILogger<SystemActionExecutor> _logger;
         private readonly IOnboardingService _onboardingService;
         private readonly IStageService _stageService;
+        private readonly UserContext _userContext;
 
         public SystemActionExecutor(
             ILogger<SystemActionExecutor> logger,
             IOnboardingService onboardingService,
-            IStageService stageService)
+            IStageService stageService,
+            UserContext userContext)
         {
             _logger = logger;
             _onboardingService = onboardingService;
             _stageService = stageService;
+            _userContext = userContext;
         }
 
         public ActionTypeEnum ActionType => ActionTypeEnum.System;
@@ -81,6 +86,11 @@ namespace FlowFlex.Application.Services.Action.Executors
             var onboardingId = config["onboardingId"]?.ToObject<long>();
             var completionNotes = config["completionNotes"]?.ToString() ?? "Completed by system action";
             var autoMoveToNext = config["autoMoveToNext"]?.ToObject<bool>() ?? true;
+            var useValidationApi = config["useValidationApi"]?.ToObject<bool>() ?? false;
+
+            // Add operator information to completion notes
+            var operatorInfo = _userContext?.UserName ?? "System";
+            var enhancedNotes = $"{completionNotes} (Operator: {operatorInfo})";
 
             // Try to extract from trigger context if not in config
             if (triggerContext != null)
@@ -88,10 +98,10 @@ namespace FlowFlex.Application.Services.Action.Executors
                 var contextJson = JToken.FromObject(triggerContext);
 
                 if (!stageId.HasValue)
-                    stageId = contextJson["stageId"]?.ToObject<long>() ?? contextJson["CurrentStageId"]?.ToObject<long>();
+                    stageId = contextJson["stageId"]?.ToObject<long>() ?? contextJson["CurrentStageId"]?.ToObject<long>() ?? contextJson["CompletedStageId"]?.ToObject<long>();
 
                 if (!onboardingId.HasValue)
-                    onboardingId = contextJson["onboardingId"]?.ToObject<long>() ?? contextJson["Id"]?.ToObject<long>();
+                    onboardingId = contextJson["onboardingId"]?.ToObject<long>() ?? contextJson["Id"]?.ToObject<long>() ?? contextJson["OnboardingId"]?.ToObject<long>();
             }
 
             if (!stageId.HasValue || !onboardingId.HasValue)
@@ -99,13 +109,35 @@ namespace FlowFlex.Application.Services.Action.Executors
                 throw new ArgumentException("CompleteStage action requires 'stageId' and 'onboardingId' parameters");
             }
 
-            // Execute stage completion using CompleteCurrentStageAsync
-            var result = await _onboardingService.CompleteCurrentStageAsync(onboardingId.Value, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
+            bool result;
+
+            // Choose API based on useValidationApi flag or action code pattern
+            if (useValidationApi)
             {
-                StageId = stageId.Value,
-                CompletionNotes = completionNotes,
-                ForceComplete = false
-            });
+                _logger.LogInformation("Using validation API (COMP-STG) for stage {StageId} in onboarding {OnboardingId} with operator: {Operator}",
+                    stageId.Value, onboardingId.Value, operatorInfo);
+
+                // Use the validation API that calls complete-stage-with-validation endpoint
+                result = await _onboardingService.CompleteCurrentStageAsync(onboardingId.Value, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
+                {
+                    StageId = stageId.Value,
+                    CompletionNotes = enhancedNotes,
+                    ForceComplete = false
+                });
+            }
+            else
+            {
+                _logger.LogInformation("Using standard completion API for stage {StageId} in onboarding {OnboardingId} with operator: {Operator}",
+                    stageId.Value, onboardingId.Value, operatorInfo);
+
+                // Use standard completion API
+                result = await _onboardingService.CompleteCurrentStageAsync(onboardingId.Value, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
+                {
+                    StageId = stageId.Value,
+                    CompletionNotes = enhancedNotes,
+                    ForceComplete = false
+                });
+            }
 
             // If autoMoveToNext is true and stage completion was successful, move to next stage
             if (result && autoMoveToNext)
@@ -128,8 +160,10 @@ namespace FlowFlex.Application.Services.Action.Executors
                 timestamp = DateTimeOffset.UtcNow,
                 stageId = stageId.Value,
                 onboardingId = onboardingId.Value,
-                completionNotes = completionNotes,
-                autoMoveToNext = autoMoveToNext
+                completionNotes = enhancedNotes,
+                autoMoveToNext = autoMoveToNext,
+                useValidationApi = useValidationApi,
+                operatorInfo = operatorInfo
             };
         }
 

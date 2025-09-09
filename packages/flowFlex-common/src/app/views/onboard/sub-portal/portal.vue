@@ -183,11 +183,18 @@
 							</h1>
 						</div>
 						<div class="flex items-center space-x-2">
+							<!-- 状态显示 -->
+							<div class="flex items-center mr-4" v-if="onboardingData?.status">
+								<span class="text-sm text-gray-500 mr-2">Status:</span>
+								<el-tag :type="getStatusTagType(onboardingData.status)">
+									{{ getDisplayStatus(onboardingData.status) }}
+								</el-tag>
+							</div>
 							<el-button
 								type="primary"
 								@click="saveQuestionnaireAndField"
 								:loading="saveAllLoading"
-								:disabled="stagePortalPermission"
+								:disabled="isSaveDisabled"
 							>
 								<el-icon class="mr-1">
 									<Document />
@@ -198,7 +205,7 @@
 								type="primary"
 								@click="handleCompleteStage"
 								:loading="completing"
-								:disabled="stagePortalPermission"
+								:disabled="isCompleteStageDisabled"
 							>
 								<el-icon class="mr-1">
 									<Check />
@@ -275,10 +282,11 @@
 												:onboarding-id="onboardingId"
 												:stage-id="activeStage"
 												:disabled="
-													onboardingActiveStageInfo.visibleInPortal &&
-													(stagePortalPermission ||
-														component.customerPortalAccess ==
-															StageComponentPortal.Viewable)
+													isAbortedReadonly ||
+													(onboardingActiveStageInfo.visibleInPortal &&
+														(stagePortalPermission ||
+															component.customerPortalAccess ==
+																StageComponentPortal.Viewable))
 												"
 												@save-success="refreshChangeLog"
 											/>
@@ -297,10 +305,11 @@
 												"
 												:onboarding-id="onboardingId"
 												:disabled="
-													onboardingActiveStageInfo.visibleInPortal &&
-													(stagePortalPermission ||
-														component.customerPortalAccess ==
-															StageComponentPortal.Viewable)
+													isAbortedReadonly ||
+													(onboardingActiveStageInfo.visibleInPortal &&
+														(stagePortalPermission ||
+															component.customerPortalAccess ==
+																StageComponentPortal.Viewable))
 												"
 												@task-toggled="handleTaskToggled"
 												@refresh-checklist="loadCheckListData"
@@ -318,10 +327,11 @@
 												:lead-data="onboardingData"
 												:workflow-stages="workflowStages"
 												:disabled="
-													onboardingActiveStageInfo.visibleInPortal &&
-													(stagePortalPermission ||
-														component.customerPortalAccess ==
-															StageComponentPortal.Viewable)
+													isAbortedReadonly ||
+													(onboardingActiveStageInfo.visibleInPortal &&
+														(stagePortalPermission ||
+															component.customerPortalAccess ==
+																StageComponentPortal.Viewable))
 												"
 												:questionnaire-data="
 													getQuestionnaireDataForComponent(component)
@@ -341,10 +351,11 @@
 												:stage-id="activeStage"
 												:component="component"
 												:disabled="
-													onboardingActiveStageInfo.visibleInPortal &&
-													(stagePortalPermission ||
-														component.customerPortalAccess ==
-															StageComponentPortal.Viewable)
+													isAbortedReadonly ||
+													(onboardingActiveStageInfo.visibleInPortal &&
+														(stagePortalPermission ||
+															component.customerPortalAccess ==
+																StageComponentPortal.Viewable))
 												"
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
@@ -613,6 +624,70 @@ const currentStageTitle = computed(() => {
 const stagePortalPermission = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
 	return currentStage?.portalPermission == 1 ? true : false;
+});
+
+// 状态显示相关函数
+const getStatusTagType = (status: string) => {
+	if (!status) return 'info';
+
+	switch (status.toLowerCase()) {
+		case 'inactive':
+			return 'info';
+		case 'active':
+		case 'inprogress':
+		case 'started':
+			return 'success';
+		case 'completed':
+			return 'success';
+		case 'paused':
+			return 'warning';
+		case 'aborted':
+		case 'cancelled':
+			return 'danger';
+		default:
+			return 'info';
+	}
+};
+
+const getDisplayStatus = (status: string) => {
+	if (!status) return status;
+
+	switch (status.toLowerCase()) {
+		case 'active':
+		case 'inprogress':
+		case 'started':
+			return 'InProgress';
+		case 'cancelled':
+			return 'Aborted';
+		default:
+			return status;
+	}
+};
+
+// 计算是否禁用保存按钮
+const isSaveDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return stagePortalPermission.value;
+
+	// 对于已中止或已取消的状态，禁用保存
+	const isStatusDisabled = ['Aborted', 'Cancelled'].includes(status);
+	return stagePortalPermission.value || isStatusDisabled;
+});
+
+// 计算是否禁用完成阶段按钮
+const isCompleteStageDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return stagePortalPermission.value;
+
+	// 对于已中止、已取消或暂停的状态，禁用完成阶段
+	const isStatusDisabled = ['Aborted', 'Cancelled', 'Paused'].includes(status);
+	return stagePortalPermission.value || isStatusDisabled;
+});
+
+// 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
+const isAbortedReadonly = computed(() => {
+	const status = onboardingData.value?.status;
+	return status && ['Aborted', 'Cancelled'].includes(status);
 });
 
 const sortedComponents = computed(() => {

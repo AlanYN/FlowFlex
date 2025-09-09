@@ -182,17 +182,38 @@ namespace FlowFlex.Application.Services.Action
                 throw new ArgumentException($"Action definition with ID {id} not found");
             }
 
-            ValidateActionConfig(dto.ActionType, dto.ActionConfig);
+            // Check if this is a System Action
+            if (entity.ActionType == ActionTypeEnum.System.ToString())
+            {
+                _logger.LogInformation("Updating System Action {ActionId}: only IsEnabled and IsTools fields will be updated, core configuration remains unchanged", id);
+                
+                // For System Actions, only update specific fields, ignore core configuration
+                entity.IsEnabled = dto.IsEnabled;
+                entity.IsTools = dto.IsTools;
+                
+                // Initialize update information with proper tenant and app context
+                entity.InitUpdateInfo(_userContext);
 
-            _mapper.Map(dto, entity);
+                await _actionDefinitionRepository.UpdateAsync(entity);
+                _logger.LogInformation("Updated System Action definition: {ActionId}", id);
 
-            // Initialize update information with proper tenant and app context
-            entity.InitUpdateInfo(_userContext);
+                return _mapper.Map<ActionDefinitionDto>(entity);
+            }
+            else
+            {
+                // For non-System Actions, perform full validation and update
+                ValidateActionConfig(dto.ActionType, dto.ActionConfig);
 
-            await _actionDefinitionRepository.UpdateAsync(entity);
-            _logger.LogInformation("Updated action definition: {ActionId}", id);
+                _mapper.Map(dto, entity);
 
-            return _mapper.Map<ActionDefinitionDto>(entity);
+                // Initialize update information with proper tenant and app context
+                entity.InitUpdateInfo(_userContext);
+
+                await _actionDefinitionRepository.UpdateAsync(entity);
+                _logger.LogInformation("Updated action definition: {ActionId}", id);
+
+                return _mapper.Map<ActionDefinitionDto>(entity);
+            }
         }
 
         public void ValidateActionConfig(ActionTypeEnum actionType, string actionConfig)
@@ -339,6 +360,15 @@ namespace FlowFlex.Application.Services.Action
         {
             // Optional parameters - can be provided in config or extracted from trigger context
             // No strict validation needed as parameters can come from context
+
+            // Validate useValidationApi parameter if present
+            if (config.ContainsKey("useValidationApi"))
+            {
+                if (!bool.TryParse(config["useValidationApi"]?.ToString(), out _))
+                {
+                    throw new ArgumentException("useValidationApi parameter must be a boolean value");
+                }
+            }
         }
 
         private void ValidateMoveToStageConfig(Dictionary<string, object> config)
@@ -471,29 +501,8 @@ namespace FlowFlex.Application.Services.Action
                 _logger.LogInformation("Mapping already exists for ActionDefinitionId={ActionDefinitionId}, TriggerType={TriggerType}, TriggerSourceId={TriggerSourceId}, WorkFlowId={WorkFlowId}. Returning existing mapping: {MappingId}",
                     dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId?.ToString() ?? "None", existingMapping.Id);
 
-                // Optional: Log duplicate request attempt (uncomment if needed)
-                // try
-                // {
-                //     var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(dto.ActionDefinitionId);
-                //     var triggerSourceName = await GetTriggerSourceNameAsync(dto.TriggerType, dto.TriggerSourceId);
-                //     var actionName = actionDefinition?.ActionName ?? "Unknown Action";
-                //     
-                //     await _actionLogService.LogActionMappingAssociateAsync(
-                //         existingMapping.Id,
-                //         dto.ActionDefinitionId,
-                //         actionName,
-                //         dto.TriggerType,
-                //         dto.TriggerSourceId,
-                //         triggerSourceName,
-                //         dto.TriggerEvent,
-                //         dto.WorkFlowId,
-                //         dto.StageId,
-                //         $"Duplicate request - returned existing mapping");
-                // }
-                // catch (Exception ex)
-                // {
-                //     _logger.LogWarning(ex, "Failed to log duplicate mapping request for mapping {MappingId}", existingMapping.Id);
-                // }
+                // Update the associated task/source entity with mapping information even for existing mappings
+                await UpdateTriggerSourceWithMappingInfoAsync(dto, existingMapping.Id, existingMapping.ActionDefinitionId);
 
                 return _mapper.Map<ActionTriggerMappingDto>(existingMapping);
             }
@@ -523,6 +532,9 @@ namespace FlowFlex.Application.Services.Action
 
             await _actionTriggerMappingRepository.InsertAsync(entity);
             _logger.LogInformation("Created action trigger mapping: {MappingId} with TriggerEvent: {TriggerEvent}", entity.Id, entity.TriggerEvent);
+
+            // Update the associated task/source entity with mapping information for new mappings
+            await UpdateTriggerSourceWithMappingInfoAsync(dto, entity.Id, dto.ActionDefinitionId);
 
             // Log action trigger mapping association using structured logging and change log
             try
@@ -1044,6 +1056,53 @@ namespace FlowFlex.Application.Services.Action
             {
                 _logger.LogWarning(ex, "Failed to get trigger source name for {TriggerType} {TriggerSourceId}", triggerType, triggerSourceId);
                 return $"{triggerType} {triggerSourceId}";
+            }
+        }
+
+        /// <summary>
+        /// Update trigger source entity (Task, Question, etc.) with action mapping information
+        /// </summary>
+        /// <param name="dto">Create action trigger mapping DTO</param>
+        /// <param name="mappingId">Action trigger mapping ID</param>
+        /// <param name="actionDefinitionId">Action definition ID</param>
+        private async Task UpdateTriggerSourceWithMappingInfoAsync(CreateActionTriggerMappingDto dto, long mappingId, long actionDefinitionId)
+        {
+            try
+            {
+                // Only update Tasks for now, can be extended for other trigger types if needed
+                if (dto.TriggerType?.ToLower() == "task")
+                {
+                    var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
+                    if (task != null && task.IsValid)
+                    {
+                        var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(actionDefinitionId);
+                        var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+
+                        // Update task with action mapping information
+                        task.ActionId = actionDefinitionId;
+                        task.ActionName = actionName;
+                        task.ActionMappingId = mappingId;
+                        task.ModifyDate = DateTimeOffset.UtcNow;
+
+                        await _checklistTaskRepository.UpdateAsync(task);
+                        _logger.LogDebug("Updated task {TaskId} with action mapping info: ActionId={ActionId}, ActionName={ActionName}, MappingId={MappingId}",
+                            task.Id, actionDefinitionId, actionName, mappingId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Task {TaskId} not found or invalid when updating action mapping info", dto.TriggerSourceId);
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("TriggerType {TriggerType} does not require source entity update, skipping", dto.TriggerType);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating trigger source {TriggerType} {TriggerSourceId} with action mapping info",
+                    dto.TriggerType, dto.TriggerSourceId);
+                // Don't throw - this is not critical enough to fail the whole operation
             }
         }
 
