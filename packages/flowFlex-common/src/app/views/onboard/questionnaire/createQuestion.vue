@@ -49,6 +49,7 @@
 								@add-section="handleAddSection"
 								@remove-section="handleRemoveSection"
 								@set-current-section="setCurrentSection"
+								@drag-end="handleSectionDragEnd"
 							/>
 
 							<!-- 添加分区按钮（仅在简单模式下显示） -->
@@ -685,6 +686,29 @@ const handleRemoveSection = async (index: number) => {
 const setCurrentSection = (index: number) => {
 	cancelEditQuestion();
 	currentSectionIndex.value = index;
+};
+
+const handleSectionDragEnd = (
+	reorderedSections: Section[],
+	dragInfo: { oldIndex: number; newIndex: number }
+) => {
+	// 更新问卷的分区顺序
+	questionnaire.sections = reorderedSections;
+
+	// 计算新的当前分区索引
+	const { newIndex } = dragInfo;
+
+	// 确保索引在有效范围内
+	if (currentSectionIndex.value >= questionnaire.sections.length) {
+		currentSectionIndex.value = questionnaire.sections.length - 1;
+	} else if (currentSectionIndex.value < 0) {
+		currentSectionIndex.value = 0;
+	} else {
+		currentSectionIndex.value = newIndex;
+	}
+
+	// 取消当前的问题编辑状态（如果有的话）
+	cancelEditQuestion();
 };
 
 const updateCurrentSection = () => {

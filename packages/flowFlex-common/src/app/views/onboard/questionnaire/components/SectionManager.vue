@@ -7,37 +7,52 @@
 			</el-button>
 		</div>
 		<el-scrollbar max-height="300px" class="sections-list-container">
-			<div class="sections-list">
-				<div
-					v-for="(section, index) in sections"
-					:key="section.id"
-					class="section-item"
-					:class="{ active: currentSectionIndex === index }"
-					@click="setCurrentSection(index)"
-				>
-					<div class="section-info">
-						<div class="section-name">{{ index + 1 }}. {{ section.name }}</div>
-						<div class="section-count">
-							{{ section.items.length }}
-							{{ section.items.length > 1 ? 'items' : 'item' }}
+			<draggable
+				v-model="localSections"
+				@end="handleDragEnd"
+				item-key="temporaryId"
+				handle=".drag-handle"
+				class="sections-list"
+				ghost-class="ghost-section"
+				chosen-class="chosen-section"
+				drag-class="drag-section"
+				:animation="200"
+			>
+				<template #item="{ element: section, index }">
+					<div
+						class="section-item"
+						:class="{ active: currentSectionIndex === index }"
+						@click="setCurrentSection(index)"
+					>
+						<div class="drag-handle">
+							<Icon icon="mdi:drag-vertical" class="drag-icon" />
 						</div>
+						<div class="section-info">
+							<div class="section-name">{{ index + 1 }}. {{ section.name }}</div>
+							<div class="section-count">
+								{{ section.items.length }}
+								{{ section.items.length > 1 ? 'items' : 'item' }}
+							</div>
+						</div>
+						<el-button
+							type="primary"
+							link
+							size="small"
+							@click.stop="removeSection(index)"
+							:icon="Delete"
+							class="delete-btn"
+						/>
 					</div>
-					<el-button
-						type="primary"
-						link
-						size="small"
-						@click.stop="removeSection(index)"
-						:icon="Delete"
-						class="delete-btn"
-					/>
-				</div>
-			</div>
+				</template>
+			</draggable>
 		</el-scrollbar>
 	</div>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
+import draggable from 'vuedraggable';
 import { Section } from '#/section';
 
 interface Props {
@@ -45,13 +60,26 @@ interface Props {
 	currentSectionIndex: number;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emits = defineEmits<{
 	'add-section': [];
 	'remove-section': [index: number];
 	'set-current-section': [index: number];
+	'drag-end': [sections: Section[], dragInfo: { oldIndex: number; newIndex: number }];
 }>();
+
+// 本地sections数据，用于拖拽
+const localSections = computed({
+	get: () => props.sections,
+	set: (value: Section[]) => {
+		// vuedraggable需要这个setter来更新数据
+		// 我们在这里临时存储新的顺序，在handleDragEnd中统一处理
+		tempSections.value = value;
+	},
+});
+
+const tempSections = ref<Section[]>([]);
 
 const addSection = () => {
 	emits('add-section');
@@ -63,6 +91,10 @@ const removeSection = (index: number) => {
 
 const setCurrentSection = (index: number) => {
 	emits('set-current-section', index);
+};
+
+const handleDragEnd = (evt: any) => {
+	emits('drag-end', tempSections.value, { oldIndex: evt?.oldIndex, newIndex: evt?.newIndex });
 };
 </script>
 
@@ -98,13 +130,13 @@ const setCurrentSection = (index: number) => {
 
 .section-item {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
 	padding: 0.75rem;
 	border: 1px solid var(--primary-200);
 	border-radius: 0.375rem;
 	cursor: pointer;
 	transition: all 0.2s;
+	gap: 0.5rem;
 }
 
 .section-item:hover {
@@ -174,5 +206,61 @@ const setCurrentSection = (index: number) => {
 
 .dark .sections-list-container {
 	background-color: transparent;
+}
+
+/* 拖拽相关样式 */
+.drag-handle {
+	display: flex;
+	align-items: center;
+	cursor: grab;
+	color: var(--primary-400);
+	transition: color 0.2s;
+}
+
+.drag-handle:hover {
+	color: var(--primary-600);
+}
+
+.drag-handle:active {
+	cursor: grabbing;
+}
+
+.drag-icon {
+	font-size: 1rem;
+}
+
+.ghost-section {
+	opacity: 0.5;
+	background-color: var(--primary-100);
+	border: 2px dashed var(--primary-300);
+}
+
+.chosen-section {
+	background-color: var(--primary-50);
+	border-color: var(--primary-400);
+}
+
+.drag-section {
+	opacity: 0.8;
+	transform: rotate(5deg);
+}
+
+/* 深色模式下的拖拽样式 */
+.dark .drag-handle {
+	color: var(--primary-300);
+}
+
+.dark .drag-handle:hover {
+	color: var(--primary-200);
+}
+
+.dark .ghost-section {
+	background-color: var(--primary-700);
+	border-color: var(--primary-500);
+}
+
+.dark .chosen-section {
+	background-color: var(--primary-600);
+	border-color: var(--primary-400);
 }
 </style>
