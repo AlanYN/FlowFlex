@@ -69,7 +69,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                     if (existing != null)
                     {
                         // Update existing record using raw SQL to handle JSONB properly
-                                                var sql = @"
+                        var sql = @"
                             UPDATE ff_static_field_values
                             SET
                                 field_value_json = @FieldValueJson::jsonb,

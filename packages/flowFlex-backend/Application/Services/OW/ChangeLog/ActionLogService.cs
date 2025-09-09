@@ -371,11 +371,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         using var document = JsonDocument.Parse(log.ExtendedData);
                         var root = document.RootElement;
-                        
+
                         var logTriggerType = root.TryGetProperty("TriggerType", out var triggerTypeEl) ? triggerTypeEl.GetString() : null;
                         var logTriggerSourceId = root.TryGetProperty("TriggerSourceId", out var triggerSourceIdEl) ? triggerSourceIdEl.GetInt64() : 0;
-                        
-                        return string.Equals(logTriggerType, triggerType, StringComparison.OrdinalIgnoreCase) && 
+
+                        return string.Equals(logTriggerType, triggerType, StringComparison.OrdinalIgnoreCase) &&
                                logTriggerSourceId == triggerSourceId;
                     }
                     catch
@@ -423,13 +423,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (onboardingId.HasValue && stageId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Action.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Action.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.ActionMapping.ToString()).ToList();
                 }
                 else if (onboardingId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingIdAsync(onboardingId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Action.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Action.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.ActionMapping.ToString()).ToList();
                 }
                 else
@@ -474,9 +474,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// Build action mapping association description
         /// </summary>
         private string BuildActionMappingAssociationDescription(
-            string actionName, 
-            string triggerType, 
-            string triggerSourceName, 
+            string actionName,
+            string triggerType,
+            string triggerSourceName,
             string triggerEvent)
         {
             return $"Action '{actionName}' has been associated with {triggerType.ToLower()} '{triggerSourceName}' to trigger on '{triggerEvent}' event by {GetOperatorDisplayName()}";
@@ -486,10 +486,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// Build action mapping disassociation description
         /// </summary>
         private string BuildActionMappingDisassociationDescription(
-            string actionName, 
-            string triggerType, 
-            string triggerSourceName, 
-            string triggerEvent, 
+            string actionName,
+            string triggerType,
+            string triggerSourceName,
+            string triggerEvent,
             bool wasEnabled)
         {
             var statusInfo = wasEnabled ? "(was enabled)" : "(was disabled)";
@@ -500,9 +500,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// Build action mapping update description
         /// </summary>
         private string BuildActionMappingUpdateDescription(
-            string actionName, 
-            string triggerType, 
-            string triggerSourceName, 
+            string actionName,
+            string triggerType,
+            string triggerSourceName,
             string changeDescription)
         {
             return $"Action '{actionName}' mapping to {triggerType.ToLower()} '{triggerSourceName}' has been updated by {GetOperatorDisplayName()}. {changeDescription}";

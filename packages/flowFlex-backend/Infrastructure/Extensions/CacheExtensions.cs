@@ -37,7 +37,7 @@ namespace FlowFlex.Infrastructure.Extensions
 
             // Create new value
             var value = await factory();
-            
+
             if (value != null)
             {
                 // Cache the new value

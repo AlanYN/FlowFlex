@@ -310,7 +310,7 @@ namespace FlowFlex.Application.Service.OW
                             if (originalCategory != updatedQuestionnaire.Category) changedFields.Add("Category");
                             if (originalEstimatedMinutes != updatedQuestionnaire.EstimatedMinutes) changedFields.Add("EstimatedMinutes");
                             if (originalIsActive != updatedQuestionnaire.IsActive) changedFields.Add("IsActive");
-                            
+
                             // Check structure changes
                             var updatedStructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None);
                             if (originalStructureJson != updatedStructureJson) changedFields.Add("StructureJson");
@@ -1108,7 +1108,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 newId = GenerateSnowflakeId().ToString();
                 attempts++;
-                
+
                 if (attempts >= maxAttempts)
                 {
                     // If we can't generate a unique ID after multiple attempts, 
@@ -1167,17 +1167,17 @@ namespace FlowFlex.Application.Service.OW
             try
             {
                 Console.WriteLine("[QuestionnaireService] Testing row/column ID generation...");
-                
+
                 // First normalize the structure
                 var normalizedResult = NormalizeStructureJsonIds(structureJsonWithRowsColumns);
                 Console.WriteLine("[QuestionnaireService] Normalized structure for row/column testing:");
                 Console.WriteLine(normalizedResult);
-                
+
                 // Then test duplication (which should generate completely new IDs)
                 var duplicatedResult = GenerateNewIdsInStructureJson(normalizedResult);
                 Console.WriteLine("[QuestionnaireService] Duplicated structure with new IDs:");
                 Console.WriteLine(duplicatedResult);
-                
+
                 return duplicatedResult;
             }
             catch (Exception ex)

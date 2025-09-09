@@ -240,13 +240,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (onboardingId.HasValue && stageId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Checklist.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Checklist.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.ChecklistTask.ToString()).ToList();
                 }
                 else if (onboardingId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingIdAsync(onboardingId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Checklist.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Checklist.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.ChecklistTask.ToString()).ToList();
                 }
                 else

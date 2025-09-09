@@ -251,9 +251,9 @@ namespace FlowFlex.Application.Services.OW
                 entity.CurrentStageId = firstStage?.Id;
                 entity.CurrentStageOrder = firstStage?.Order ?? 0;
                 entity.Status = string.IsNullOrEmpty(entity.Status) ? "Inactive" : entity.Status;
-            
-            // 添加调试日志
-            LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
+
+                // 添加调试日志
+                LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
                 entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
                 entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
                 entity.CompletionRate = 0;
@@ -1016,7 +1016,7 @@ namespace FlowFlex.Application.Services.OW
                 // 添加调试日志 - 检查状态映射
                 LoggingExtensions.WriteLine($"[DEBUG] Query Results Count: {results.Count}");
                 LoggingExtensions.WriteLine($"[DEBUG] Original Entities Count: {pagedEntities.Count}");
-                
+
                 for (int i = 0; i < Math.Min(3, pagedEntities.Count); i++)
                 {
                     var entity = pagedEntities[i];
@@ -1663,7 +1663,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     LoadStagesProgressFromJson(entity);
                     var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                    
+
                     // Only generate AI Summary if it doesn't exist yet
                     if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
                     {
@@ -1715,7 +1715,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     LoadStagesProgressFromJson(entity);
                     var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                    
+
                     // Only generate AI Summary if it doesn't exist yet
                     if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
                     {
@@ -1993,7 +1993,7 @@ namespace FlowFlex.Application.Services.OW
                     // advance to the next incomplete stage AFTER the completed stage (only look forward)
                     var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
                     var nextIncompleteStage = orderedStages
-                        .Where(stage => stage.Order > completedStageOrder && 
+                        .Where(stage => stage.Order > completedStageOrder &&
                                        !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
                         .OrderBy(stage => stage.Order)
                         .FirstOrDefault();
@@ -2434,7 +2434,7 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "No onboarding IDs provided");
             }
 
-            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted", 
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted",
                                        "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(status))
             {
@@ -2591,7 +2591,7 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted", 
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted",
                                        "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(input.Status))
             {
@@ -5329,7 +5329,7 @@ namespace FlowFlex.Application.Services.OW
             // Validate current status - only Inactive onboardings can be started
             if (entity.Status != "Inactive")
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Cannot start onboarding. Current status is '{entity.Status}'. Only 'Inactive' onboardings can be started.");
             }
 
@@ -5382,7 +5382,7 @@ namespace FlowFlex.Application.Services.OW
             // Validate current status - cannot abort already completed or aborted onboardings
             if (entity.Status == "Completed" || entity.Status == "Aborted")
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Cannot abort onboarding with status '{entity.Status}'");
             }
 
@@ -5421,7 +5421,7 @@ namespace FlowFlex.Application.Services.OW
             // Validate current status - only Aborted onboardings can be reactivated
             if (entity.Status != "Aborted")
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Cannot reactivate onboarding. Current status is '{entity.Status}'. Only 'Aborted' onboardings can be reactivated.");
             }
 
@@ -5449,7 +5449,7 @@ namespace FlowFlex.Application.Services.OW
                         stage.CompletedById = null;
                         stage.CompletedBy = null;
                         stage.StartTime = null;
-                        
+
                         // Reset stage to first stage
                         if (stage.StageOrder == 1)
                         {
@@ -5503,7 +5503,7 @@ namespace FlowFlex.Application.Services.OW
             // Validate current status - only Paused onboardings can be resumed
             if (entity.Status != "Paused")
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Cannot resume onboarding. Current status is '{entity.Status}'. Only 'Paused' onboardings can be resumed.");
             }
 

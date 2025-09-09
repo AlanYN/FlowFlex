@@ -15,12 +15,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
     {
         private readonly IDistributedCache _distributedCache;
         private readonly ILogger<LogCacheService> _logger;
-        
+
         // Cache prefixes for different types of data
         private const string LogsCachePrefix = "operation_logs:";
         private const string StatsCachePrefix = "operation_stats:";
         private const string CacheVersionKey = "cache_version";
-        
+
         // Default cache expiration times
         private static readonly TimeSpan DefaultLogsExpiration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan DefaultStatsExpiration = TimeSpan.FromMinutes(30);
@@ -80,7 +80,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 };
 
                 await _distributedCache.SetStringAsync(fullCacheKey, serializedData, options);
-                _logger.LogDebug("Cached logs for key: {CacheKey}, expiration: {Expiration}", 
+                _logger.LogDebug("Cached logs for key: {CacheKey}, expiration: {Expiration}",
                     cacheKey, options.AbsoluteExpirationRelativeToNow);
             }
             catch (Exception ex)
@@ -132,7 +132,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 };
 
                 await _distributedCache.SetStringAsync(fullCacheKey, serializedData, options);
-                _logger.LogDebug("Cached statistics for key: {CacheKey}, expiration: {Expiration}", 
+                _logger.LogDebug("Cached statistics for key: {CacheKey}, expiration: {Expiration}",
                     cacheKey, options.AbsoluteExpirationRelativeToNow);
             }
             catch (Exception ex)
@@ -324,7 +324,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 await InvalidateCacheByPatternsAsync(new[] { LogsCachePrefix + "*", StatsCachePrefix + "*" });
-                
+
                 // Reset statistics
                 Interlocked.Exchange(ref _hitCount, 0);
                 Interlocked.Exchange(ref _missCount, 0);
@@ -379,11 +379,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 // Note: IDistributedCache doesn't support pattern-based deletion natively
                 // We need to implement a workaround for this limitation
-                
+
                 foreach (var pattern in patterns)
                 {
                     _logger.LogDebug("Invalidating cache pattern: {Pattern}", pattern);
-                    
+
                     // For IDistributedCache, we need to clear specific known keys
                     // Since we can't use pattern matching, we'll clear common key variations
                     await InvalidateKnownKeysForPatternAsync(pattern);
@@ -401,7 +401,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 // Extract the core identifier from the pattern
                 // Pattern like "operation_logs:*onboarding_1963119425070698497*"
-                
+
                 if (pattern.Contains("onboarding_"))
                 {
                     var onboardingIdMatch = System.Text.RegularExpressions.Regex.Match(pattern, @"onboarding_(\d+)");

@@ -31,11 +31,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     return new List<string>();
 
                 var changesList = new List<string>();
-                
+
                 // Parse JSON data
                 var after = ParseJsonData(afterData);
                 var before = ParseJsonData(beforeData);
-                
+
                 if (after == null)
                 {
                     _logger.LogError("Failed to parse afterData JSON");
@@ -61,7 +61,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (before?.responses != null && after?.responses != null)
                 {
                     // Debug: Processing answer updates
-                        
+
                     var beforeMap = new Dictionary<string, dynamic>();
                     foreach (var resp in before.responses)
                     {
@@ -109,7 +109,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error parsing questionnaire answer changes. BeforeData length: {BeforeLength}, AfterData length: {AfterLength}", 
+                _logger.LogError(ex, "Error parsing questionnaire answer changes. BeforeData length: {BeforeLength}, AfterData length: {AfterLength}",
                     beforeData?.Length ?? 0, afterData?.Length ?? 0);
                 return new List<string> { "Questionnaire updated (parsing error)" };
             }
@@ -130,7 +130,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Parse as JsonElement first to validate structure
                 using var document = JsonDocument.Parse(jsonData);
                 var root = document.RootElement;
-                
+
                 // Check if it has responses property
                 if (root.TryGetProperty("responses", out var responsesElement))
                 {
@@ -148,7 +148,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     };
                     return result;
                 }
-                
+
                 return JsonSerializer.Deserialize<object>(jsonData);
             }
             catch (Exception ex)
@@ -259,7 +259,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var config = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(questionnaireConfig));
-                
+
                 if (config.TryGetProperty("sections", out JsonElement sections) && sections.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var section in sections.EnumerateArray())
@@ -329,22 +329,22 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var options = GetOptionsFromConfig(questionConfig);
                 var answerStr = answer.ToString();
-                
+
                 foreach (var option in options)
                 {
                     string value = null;
                     string label = null;
-                    
+
                     try
                     {
                         // Safely extract value and label from dynamic object
                         var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(option));
-                        
+
                         if (optionObj.TryGetProperty("value", out JsonElement valueElement))
                         {
                             value = valueElement.GetString();
                         }
-                        
+
                         if (optionObj.TryGetProperty("label", out JsonElement labelElement))
                         {
                             label = labelElement.GetString();
@@ -363,7 +363,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             continue; // Skip this option if we can't extract value/label
                         }
                     }
-                    
+
                     if (value == answerStr)
                     {
                         return label ?? answerStr;
@@ -420,17 +420,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     string value = null;
                     string label = null;
-                    
+
                     try
                     {
                         // Safely extract value and label from dynamic object
                         var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(option));
-                        
+
                         if (optionObj.TryGetProperty("value", out JsonElement valueElement))
                         {
                             value = valueElement.GetString();
                         }
-                        
+
                         if (optionObj.TryGetProperty("label", out JsonElement labelElement))
                         {
                             label = labelElement.GetString();
@@ -449,11 +449,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             continue; // Skip this option if we can't extract value/label
                         }
                     }
-                    
+
                     if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(label))
                     {
                         optionMap[value] = label;
-                        
+
                         // Check if it's an "other" option
                         if (IsOtherOption(option))
                         {
@@ -541,17 +541,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     string id = null;
                     string label = null;
-                    
+
                     try
                     {
                         // Safely extract id and label from dynamic object
                         var columnObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(column));
-                        
+
                         if (columnObj.TryGetProperty("id", out JsonElement idElement))
                         {
                             id = idElement.GetString();
                         }
-                        
+
                         if (columnObj.TryGetProperty("label", out JsonElement labelElement))
                         {
                             label = labelElement.GetString();
@@ -570,11 +570,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             continue; // Skip this column if we can't extract id/label
                         }
                     }
-                    
+
                     if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(label))
                     {
                         columnMap[id] = label;
-                        
+
                         if (IsOtherOption(column))
                         {
                             otherColumnIds.Add(id);
@@ -666,8 +666,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var rowPart = parts.FirstOrDefault((Func<string, bool>)(p => p.StartsWith("row-")));
                     if (!string.IsNullOrEmpty(rowPart))
                     {
-                        var label = rowIdToLabel.TryGetValue(rowPart, out string rowLabel) 
-                            ? rowLabel 
+                        var label = rowIdToLabel.TryGetValue(rowPart, out string rowLabel)
+                            ? rowLabel
                             : rowPart.Replace("row-", "");
                         var value = kvp.Value?.ToString()?.Trim();
                         if (!string.IsNullOrEmpty(value))
@@ -786,7 +786,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var date = DateTime.Parse(dateValue.ToString());
-                
+
                 if (questionType == "time")
                 {
                     return date.ToString("HH:mm:ss");
@@ -898,9 +898,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 return false;
 
             var trimmed = answerStr.Trim();
-            return trimmed != "{}" && 
-                   trimmed != "[]" && 
-                   trimmed != "null" && 
+            return trimmed != "{}" &&
+                   trimmed != "[]" &&
+                   trimmed != "null" &&
                    trimmed != "undefined" &&
                    trimmed != "No answer provided" &&
                    trimmed != "No selection made";
@@ -916,13 +916,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Handle null reference
                 if (ReferenceEquals(obj, null))
                     return true;
-                
+
                 // Handle JsonElement specifically
                 if (obj is JsonElement element)
                 {
                     return element.ValueKind == JsonValueKind.Null || element.ValueKind == JsonValueKind.Undefined;
                 }
-                
+
                 // Try to serialize to check if it's a valid object
                 var serialized = JsonSerializer.Serialize(obj);
                 return string.IsNullOrEmpty(serialized) || serialized == "null" || serialized == "{}";
@@ -956,19 +956,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(option));
-                
+
                 if (optionObj.TryGetProperty("isOther", out JsonElement isOther) && isOther.GetBoolean())
                     return true;
-                
+
                 if (optionObj.TryGetProperty("type", out JsonElement type) && type.GetString() == "other")
                     return true;
-                
+
                 if (optionObj.TryGetProperty("allowCustom", out JsonElement allowCustom) && allowCustom.GetBoolean())
                     return true;
-                
+
                 if (optionObj.TryGetProperty("hasInput", out JsonElement hasInput) && hasInput.GetBoolean())
                     return true;
-                
+
                 if (optionObj.TryGetProperty("label", out JsonElement label))
                 {
                     var labelStr = label.GetString()?.ToLower() ?? "";
@@ -976,7 +976,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
             }
             catch { }
-            
+
             return false;
         }
 
@@ -1039,13 +1039,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var configObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(questionConfig));
-                
+
                 if (configObj.TryGetProperty("max", out JsonElement max))
                     return max.GetInt32();
-                
+
                 if (configObj.TryGetProperty("maxValue", out JsonElement maxValue))
                     return maxValue.GetInt32();
-                
+
                 if (configObj.TryGetProperty("scale", out JsonElement scale))
                 {
                     if (scale.TryGetProperty("max", out JsonElement scaleMax))
@@ -1053,7 +1053,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
             }
             catch { }
-            
+
             return 5; // Default rating max
         }
 
@@ -1065,13 +1065,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var configObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(questionConfig));
-                
+
                 if (configObj.TryGetProperty("max", out JsonElement max))
                     return max.GetInt32();
-                
+
                 if (configObj.TryGetProperty("maxValue", out JsonElement maxValue))
                     return maxValue.GetInt32();
-                
+
                 if (configObj.TryGetProperty("scale", out JsonElement scale))
                 {
                     if (scale.TryGetProperty("max", out JsonElement scaleMax))
@@ -1079,7 +1079,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
             }
             catch { }
-            
+
             return 10; // Default linear scale max
         }
 

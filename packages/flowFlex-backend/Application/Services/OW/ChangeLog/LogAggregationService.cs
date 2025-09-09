@@ -79,7 +79,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 // Generate cache key for aggregated query
                 string cacheKey = GenerateAggregatedCacheKey(onboardingId, stageId, businessModules, operationTypes, startDate, endDate, pageIndex, pageSize);
-                
+
                 // Skip cache for now - cache disabled for reliability
                 // var cachedResult = await _logCacheService.GetCachedLogsAsync(cacheKey);
                 // if (cachedResult != null)
@@ -91,22 +91,22 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (onboardingId.HasValue && stageId.HasValue && (businessModules == null || !businessModules.Any()))
                 {
                     _logger.LogDebug("Using optimized stage component query for onboarding {OnboardingId} and stage {StageId}", onboardingId, stageId);
-                    
+
                     // Get stage-related task and question IDs
                     var stageLogService = _serviceProvider.GetService<IStageLogService>();
                     if (stageLogService != null)
                     {
                         // Use the optimized stage component logs method
                         var stageResult = await stageLogService.GetStageComponentLogsOptimizedAsync(
-                            stageId.Value, 
-                            onboardingId, 
+                            stageId.Value,
+                            onboardingId,
                             operationTypes?.FirstOrDefault(),
-                            pageIndex, 
+                            pageIndex,
                             pageSize);
-                        
+
                         // Skip caching - cache disabled for reliability
                         // await _logCacheService.SetCachedLogsAsync(cacheKey, stageResult, TimeSpan.FromMinutes(10));
-                        
+
                         return stageResult;
                     }
                 }
@@ -242,9 +242,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 // This is a simplified implementation
                 // In a real scenario, you'd aggregate data by time periods
-                
+
                 var timeline = new List<OperationTimelineDto>();
-                
+
                 // Get logs within date range
                 var logs = await _operationChangeLogRepository.GetByTimeRangeAsync(
                     startDate ?? DateTimeOffset.UtcNow.AddDays(-30),

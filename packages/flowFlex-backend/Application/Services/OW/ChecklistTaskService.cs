@@ -157,7 +157,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         existingTask.InitUpdateInfo(_userContext);
 
         // Check if there are any actual changes
-        var hasChanges = 
+        var hasChanges =
             originalTask.Name != existingTask.Name ||
             originalTask.Description != existingTask.Description ||
             originalTask.Status != existingTask.Status ||
@@ -307,7 +307,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
-            
+
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(checklistCacheKey);
@@ -403,7 +403,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
-            
+
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(checklistCacheKey);
@@ -473,7 +473,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
-            
+
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(checklistCacheKey);
@@ -597,14 +597,14 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         }
 
         var result = await _checklistTaskRepository.UpdateOrderAsync(checklistId, taskOrders);
-        
+
         // Clear related cache after successful order update
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
         }
-        
+
         return result;
     }
 
@@ -624,18 +624,18 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         task.ModifyDate = DateTimeOffset.UtcNow;
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
-        
+
         // Clear related cache after successful assignment
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
-            
+
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(checklistCacheKey);
         }
-        
+
         return result;
     }
 
@@ -677,18 +677,18 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         task.InitUpdateInfo(_userContext);
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
-        
+
         // Clear related cache after successful assignee update
         if (result)
         {
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(cacheKey);
-            
+
             // Also clear checklist-level cache
             var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
             await _cacheService.RemoveAsync(checklistCacheKey);
         }
-        
+
         return result;
     }
 

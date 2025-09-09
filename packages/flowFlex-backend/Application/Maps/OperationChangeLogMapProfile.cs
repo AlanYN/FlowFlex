@@ -74,9 +74,9 @@ namespace FlowFlex.Application.Maps
                 {
                     // 尝试反序列化外层字符串
                     var unescapedJson = JsonSerializer.Deserialize<string>(jsonData);
-                    
+
                     // 验证内层字符串是否为有效JSON
-                    if (!string.IsNullOrEmpty(unescapedJson) && 
+                    if (!string.IsNullOrEmpty(unescapedJson) &&
                         (unescapedJson.TrimStart().StartsWith("{") || unescapedJson.TrimStart().StartsWith("[")))
                     {
                         // 返回解码后的JSON字符串

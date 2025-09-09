@@ -42,7 +42,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var operationTitle = $"Workflow Created: {workflowName}";
                 var operationDescription = $"Workflow '{workflowName}' has been created by {GetOperatorDisplayName()}";
-                
+
                 if (!string.IsNullOrEmpty(workflowDescription))
                 {
                     operationDescription += $" with description: {workflowDescription}";
@@ -92,10 +92,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var operationTitle = $"Workflow Updated: {workflowName}";
                 var operationDescription = BuildEnhancedWorkflowOperationDescription(
-                    workflowName, 
-                    "Updated", 
-                    beforeData, 
-                    afterData, 
+                    workflowName,
+                    "Updated",
+                    beforeData,
+                    afterData,
                     changedFields
                 );
 
@@ -140,7 +140,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var operationTitle = $"Workflow Deleted: {workflowName}";
                 var operationDescription = $"Workflow '{workflowName}' has been deleted by {GetOperatorDisplayName()}";
-                
+
                 if (!string.IsNullOrEmpty(reason))
                 {
                     operationDescription += $" with reason: {reason}";
@@ -184,7 +184,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var operationTitle = $"Workflow Published: {workflowName}";
                 var operationDescription = $"Workflow '{workflowName}' has been published by {GetOperatorDisplayName()}";
-                
+
                 if (!string.IsNullOrEmpty(version))
                 {
                     operationDescription += $" as version {version}";
@@ -228,7 +228,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var operationTitle = $"Workflow Unpublished: {workflowName}";
                 var operationDescription = $"Workflow '{workflowName}' has been unpublished by {GetOperatorDisplayName()}";
-                
+
                 if (!string.IsNullOrEmpty(reason))
                 {
                     operationDescription += $" with reason: {reason}";
@@ -269,10 +269,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public async Task<bool> LogWorkflowActivateAsync(long workflowId, string workflowName, string extendedData = null)
         {
             return await LogWorkflowStatusChangeAsync(
-                workflowId, 
-                workflowName, 
-                "inactive", 
-                "active", 
+                workflowId,
+                workflowName,
+                "inactive",
+                "active",
                 OperationTypeEnum.WorkflowActivate,
                 "Activated",
                 extendedData: extendedData
@@ -285,10 +285,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public async Task<bool> LogWorkflowDeactivateAsync(long workflowId, string workflowName, string reason = null, string extendedData = null)
         {
             return await LogWorkflowStatusChangeAsync(
-                workflowId, 
-                workflowName, 
-                "active", 
-                "inactive", 
+                workflowId,
+                workflowName,
+                "active",
+                "inactive",
                 OperationTypeEnum.WorkflowDeactivate,
                 "Deactivated",
                 reason: reason,
@@ -431,19 +431,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (onboardingId.HasValue && stageId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Workflow.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Workflow.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.Stage.ToString()).ToList();
                 }
                 else if (onboardingId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingIdAsync(onboardingId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Workflow.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Workflow.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.Stage.ToString()).ToList();
                 }
                 else if (stageId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByStageIdAsync(stageId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Workflow.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Workflow.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.Stage.ToString()).ToList();
                 }
                 else
@@ -534,13 +534,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// Log workflow status change operation with detailed before/after tracking
         /// </summary>
         private async Task<bool> LogWorkflowStatusChangeAsync(
-            long workflowId, 
-            string workflowName, 
-            string beforeStatus, 
-            string afterStatus, 
+            long workflowId,
+            string workflowName,
+            string beforeStatus,
+            string afterStatus,
             OperationTypeEnum operationType,
             string operationAction,
-            string reason = null, 
+            string reason = null,
             string extendedData = null)
         {
             try
@@ -620,10 +620,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// Build enhanced workflow operation description without showing IDs
         /// </summary>
         private string BuildEnhancedWorkflowOperationDescription(
-            string workflowName, 
-            string operationAction, 
-            string beforeData = null, 
-            string afterData = null, 
+            string workflowName,
+            string operationAction,
+            string beforeData = null,
+            string afterData = null,
             List<string> changedFields = null)
         {
             var description = $"Workflow '{workflowName}' has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";

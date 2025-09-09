@@ -283,7 +283,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
     {
         [Required]
         public List<long> BusinessIds { get; set; }
-        
+
         public BusinessModuleEnum? BusinessModule { get; set; }
         public long? OnboardingId { get; set; }
         public int PageIndex { get; set; } = 1;
@@ -320,7 +320,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
         [Required]
         [StringLength(500)]
         public string SearchTerm { get; set; }
-        
+
         public long? OnboardingId { get; set; }
         public long? StageId { get; set; }
         public List<BusinessModuleEnum> BusinessModules { get; set; }
@@ -335,7 +335,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
     {
         [Required]
         public long OperatorId { get; set; }
-        
+
         public DateTimeOffset? StartDate { get; set; }
         public DateTimeOffset? EndDate { get; set; }
         public List<BusinessModuleEnum> BusinessModules { get; set; }
@@ -351,7 +351,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
         [Required]
         [StringLength(10)]
         public string Format { get; set; } // "csv", "excel", "json"
-        
+
         public long? OnboardingId { get; set; }
         public long? StageId { get; set; }
         public List<BusinessModuleEnum> BusinessModules { get; set; }
@@ -366,7 +366,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
     {
         [Required]
         public long OnboardingId { get; set; }
-        
+
         [Required]
         public long StageId { get; set; }
     }

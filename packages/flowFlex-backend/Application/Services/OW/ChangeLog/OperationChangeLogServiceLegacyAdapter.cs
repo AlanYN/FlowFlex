@@ -93,48 +93,48 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         #region Not Implemented Methods (Throw NotImplementedException)
 
         public Task<bool> LogOperationAsync(
-            OperationTypeEnum operationType, 
-            BusinessModuleEnum businessModule, 
-            long businessId, 
-            long? onboardingId, 
-            long? stageId, 
-            string operationTitle, 
-            string operationDescription, 
-            string beforeData = null, 
-            string afterData = null, 
-            List<string> changedFields = null, 
-            string extendedData = null, 
-            OperationStatusEnum operationStatus = OperationStatusEnum.Success, 
+            OperationTypeEnum operationType,
+            BusinessModuleEnum businessModule,
+            long businessId,
+            long? onboardingId,
+            long? stageId,
+            string operationTitle,
+            string operationDescription,
+            string beforeData = null,
+            string afterData = null,
+            List<string> changedFields = null,
+            string extendedData = null,
+            OperationStatusEnum operationStatus = OperationStatusEnum.Success,
             string errorMessage = null)
         {
             _logger.LogWarning("LogOperationAsync called - this is a legacy method. Consider using specialized services instead.");
-            
+
             // Route to appropriate specialized service based on business module
             return businessModule switch
             {
                 BusinessModuleEnum.Checklist => _checklistLogService.LogOperationAsync(
-                    operationType, businessModule, businessId, onboardingId, stageId, 
-                    operationTitle, operationDescription, null, beforeData, afterData, 
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
                 BusinessModuleEnum.ChecklistTask => _checklistLogService.LogOperationAsync(
-                    operationType, businessModule, businessId, onboardingId, stageId, 
-                    operationTitle, operationDescription, null, beforeData, afterData, 
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
                 BusinessModuleEnum.Questionnaire => _questionnaireLogService.LogOperationAsync(
-                    operationType, businessModule, businessId, onboardingId, stageId, 
-                    operationTitle, operationDescription, null, beforeData, afterData, 
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
                 BusinessModuleEnum.QuestionnaireAnswer => _questionnaireLogService.LogOperationAsync(
-                    operationType, businessModule, businessId, onboardingId, stageId, 
-                    operationTitle, operationDescription, null, beforeData, afterData, 
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
                 BusinessModuleEnum.Workflow => _workflowLogService.LogOperationAsync(
-                    operationType, businessModule, businessId, onboardingId, stageId, 
-                    operationTitle, operationDescription, null, beforeData, afterData, 
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
                 BusinessModuleEnum.Stage => _stageLogService.LogOperationAsync(
-                    operationType, businessModule, businessId, onboardingId, stageId, 
-                    operationTitle, operationDescription, null, beforeData, afterData, 
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
                 _ => throw new NotSupportedException($"Business module {businessModule} is not supported by the legacy adapter.")
             };
@@ -162,9 +162,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeCache = true)
         {
             _logger.LogWarning("GetOperationLogsByStageComponentsAsync called - consider migrating to ILogAggregationService.GetAggregatedLogsAsync");
-            
+
             var operationTypes = operationType.HasValue ? new List<OperationTypeEnum> { operationType.Value } : null;
-            
+
             return _logAggregationService.GetAggregatedLogsAsync(
                 onboardingId: onboardingId,
                 stageId: stageId,
@@ -180,9 +180,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public Task<PagedResult<OperationChangeLogOutputDto>> GetOperationLogsByStageComponentsOptimizedAsync(long stageId, long? onboardingId = null, OperationTypeEnum? operationType = null, int pageIndex = 1, int pageSize = 20, bool includeCache = true)
         {
             _logger.LogWarning("GetOperationLogsByStageComponentsOptimizedAsync called - consider migrating to ILogAggregationService.GetAggregatedLogsAsync");
-            
+
             var operationTypes = operationType.HasValue ? new List<OperationTypeEnum> { operationType.Value } : null;
-            
+
             return _logAggregationService.GetAggregatedLogsAsync(
                 onboardingId: onboardingId,
                 stageId: stageId,
@@ -198,13 +198,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessAsync(string businessModule, long businessId, int pageIndex = 1, int pageSize = 20)
         {
             _logger.LogWarning("GetLogsByBusinessAsync called - consider migrating to specialized services");
-            
+
             // Parse business module
             if (!Enum.TryParse<BusinessModuleEnum>(businessModule, true, out var moduleEnum))
             {
                 return Task.FromResult(new PagedResult<OperationChangeLogOutputDto>());
             }
-            
+
             return _logAggregationService.GetLogsByBusinessIdsAsync(
                 businessIds: new List<long> { businessId },
                 businessModule: moduleEnum,
@@ -223,7 +223,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public async Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdWithTypeAsync(long businessId, BusinessTypeEnum? businessType = null, int pageIndex = 1, int pageSize = 20)
         {
             _logger.LogWarning("GetLogsByBusinessIdWithTypeAsync called - consider migrating to specialized services");
-            
+
             try
             {
                 // If no business type specified, get all logs for this business ID
@@ -277,7 +277,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         public async Task<Dictionary<string, int>> GetOperationStatisticsAsync(long? onboardingId = null, long? stageId = null)
         {
             _logger.LogWarning("GetOperationStatisticsAsync called - consider migrating to ILogAggregationService.GetComprehensiveStatisticsAsync");
-            
+
             try
             {
                 var comprehensiveStats = await _logAggregationService.GetComprehensiveStatisticsAsync(
@@ -286,10 +286,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     startDate: null,
                     endDate: null
                 );
-                
+
                 // Convert to simple string-int dictionary format
                 var result = new Dictionary<string, int>();
-                
+
                 foreach (var kvp in comprehensiveStats)
                 {
                     if (kvp.Value is int intValue)
@@ -305,7 +305,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         result[kvp.Key] = parsedValue;
                     }
                 }
-                
+
                 return result;
             }
             catch (Exception ex)
@@ -465,7 +465,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var result = await _operationChangeLogRepository.GetQuestionnaireWithRelatedLogsAsync(questionnaireId, pageIndex, pageSize);
-                
+
                 var outputDtos = result.Items.Select(log => new OperationChangeLogOutputDto
                 {
                     Id = log.Id,

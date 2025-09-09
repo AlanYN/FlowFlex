@@ -29,9 +29,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<List<ActionDefinition>> GetByActionTypeAsync(string actionType)
         {
             return await db.Queryable<ActionDefinition>()
-                .Where(x => x.ActionType == actionType 
+                .Where(x => x.ActionType == actionType
                          && x.IsValid
-                         && x.TenantId == _userContext.TenantId 
+                         && x.TenantId == _userContext.TenantId
                          && x.AppCode == _userContext.AppCode)
                 .OrderBy(x => x.ActionName)
                 .ToListAsync();
@@ -43,9 +43,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<List<ActionDefinition>> GetAllEnabledAsync()
         {
             return await db.Queryable<ActionDefinition>()
-                .Where(x => x.IsEnabled 
+                .Where(x => x.IsEnabled
                          && x.IsValid
-                         && x.TenantId == _userContext.TenantId 
+                         && x.TenantId == _userContext.TenantId
                          && x.AppCode == _userContext.AppCode)
                 .OrderBy(x => x.ActionName)
                 .ToListAsync();
@@ -57,9 +57,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<List<ActionDefinition>> GetByNameAsync(string name)
         {
             return await db.Queryable<ActionDefinition>()
-                .Where(x => x.ActionName.Contains(name) 
+                .Where(x => x.ActionName.Contains(name)
                          && x.IsValid
-                         && x.TenantId == _userContext.TenantId 
+                         && x.TenantId == _userContext.TenantId
                          && x.AppCode == _userContext.AppCode)
                 .OrderBy(x => x.ActionName)
                 .ToListAsync();
@@ -71,9 +71,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<bool> IsActionNameExistsAsync(string actionName, long? excludeId = null)
         {
             var query = db.Queryable<ActionDefinition>()
-                .Where(x => x.ActionName == actionName 
+                .Where(x => x.ActionName == actionName
                          && x.IsValid
-                         && x.TenantId == _userContext.TenantId 
+                         && x.TenantId == _userContext.TenantId
                          && x.AppCode == _userContext.AppCode);
 
             if (excludeId.HasValue)
@@ -101,7 +101,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
 
             var query = db.Queryable<ActionDefinition>()
                 .Where(x => x.IsValid
-                         && x.TenantId == _userContext.TenantId 
+                         && x.TenantId == _userContext.TenantId
                          && x.AppCode == _userContext.AppCode);
 
             // Filter by action type
@@ -166,9 +166,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             var affectedRows = await db.Updateable<ActionDefinition>()
                 .SetColumns(x => x.IsEnabled == isEnabled)
                 .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
-                .Where(x => actionIds.Contains(x.Id) 
+                .Where(x => actionIds.Contains(x.Id)
                          && x.IsValid
-                         && x.TenantId == _userContext.TenantId 
+                         && x.TenantId == _userContext.TenantId
                          && x.AppCode == _userContext.AppCode)
                 .ExecuteCommandAsync();
 

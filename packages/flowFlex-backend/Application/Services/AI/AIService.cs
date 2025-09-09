@@ -5522,13 +5522,13 @@ Make questions relevant to the project context and stage objectives.";
                 else
                 {
                     _logger.LogWarning("⚠️ No stages found in database for workflow {WorkflowId}, using provided stages data", workflowId);
-                    
+
                     // Use provided stages data and try to find corresponding database records by name
                     if (stages == null || !stages.Any())
                     {
                         _logger.LogError("❌ No stages provided in request and none found in database for workflow {WorkflowId}", workflowId);
-                    return false;
-                }
+                        return false;
+                    }
 
                     // Try to find stages in database by name and order
                     createdStages = new List<StageOutputDto>();
@@ -5538,8 +5538,8 @@ Make questions relevant to the project context and stage objectives.";
                         {
                             // Query stages by workflow ID and name
                             var dbStages = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-                            var matchingStage = dbStages?.FirstOrDefault(s => 
-                                s.Name.Equals(providedStage.Name, StringComparison.OrdinalIgnoreCase) && 
+                            var matchingStage = dbStages?.FirstOrDefault(s =>
+                                s.Name.Equals(providedStage.Name, StringComparison.OrdinalIgnoreCase) &&
                                 s.Order == providedStage.Order);
 
                             if (matchingStage != null)
@@ -5583,33 +5583,33 @@ Make questions relevant to the project context and stage objectives.";
                 {
                     // Find the corresponding stage using StageName and StageOrder from the checklist
                     StageOutputDto stage = null;
-                    
+
                     // First try to match by StageName if provided
                     if (!string.IsNullOrEmpty(checklist.StageName))
                     {
-                        stage = createdStages.FirstOrDefault(s => 
+                        stage = createdStages.FirstOrDefault(s =>
                             s.Name.Equals(checklist.StageName, StringComparison.OrdinalIgnoreCase));
-                        _logger.LogInformation("🔍 Looking for stage by name '{StageName}' for checklist '{ChecklistName}'", 
+                        _logger.LogInformation("🔍 Looking for stage by name '{StageName}' for checklist '{ChecklistName}'",
                             checklist.StageName, checklist.GeneratedChecklist?.Name);
                     }
-                    
+
                     // If not found by name, try to match by StageOrder
                     if (stage == null && checklist.StageOrder > 0)
                     {
                         stage = createdStages.FirstOrDefault(s => s.Order == checklist.StageOrder);
-                        _logger.LogInformation("🔍 Looking for stage by order {StageOrder} for checklist '{ChecklistName}'", 
+                        _logger.LogInformation("🔍 Looking for stage by order {StageOrder} for checklist '{ChecklistName}'",
                             checklist.StageOrder, checklist.GeneratedChecklist?.Name);
                     }
-                    
+
                     // If still not found, skip this checklist
                     if (stage == null)
                     {
-                        _logger.LogWarning("⚠️ Could not find matching stage for checklist '{ChecklistName}' (StageName: '{StageName}', StageOrder: {StageOrder})", 
+                        _logger.LogWarning("⚠️ Could not find matching stage for checklist '{ChecklistName}' (StageName: '{StageName}', StageOrder: {StageOrder})",
                             checklist.GeneratedChecklist?.Name, checklist.StageName, checklist.StageOrder);
                         continue;
                     }
-                    
-                    _logger.LogInformation("✅ Found matching stage '{StageName}' (ID: {StageId}) for checklist '{ChecklistName}'", 
+
+                    _logger.LogInformation("✅ Found matching stage '{StageName}' (ID: {StageId}) for checklist '{ChecklistName}'",
                         stage.Name, stage.Id, checklist.GeneratedChecklist?.Name);
 
                     // Ensure GeneratedChecklist is not null
@@ -5665,33 +5665,33 @@ Make questions relevant to the project context and stage objectives.";
                 {
                     // Find the corresponding stage using StageName and StageOrder from the questionnaire
                     StageOutputDto stage = null;
-                    
+
                     // First try to match by StageName if provided
                     if (!string.IsNullOrEmpty(questionnaire.StageName))
                     {
-                        stage = createdStages.FirstOrDefault(s => 
+                        stage = createdStages.FirstOrDefault(s =>
                             s.Name.Equals(questionnaire.StageName, StringComparison.OrdinalIgnoreCase));
-                        _logger.LogInformation("🔍 Looking for stage by name '{StageName}' for questionnaire '{QuestionnaireName}'", 
+                        _logger.LogInformation("🔍 Looking for stage by name '{StageName}' for questionnaire '{QuestionnaireName}'",
                             questionnaire.StageName, questionnaire.GeneratedQuestionnaire?.Name);
                     }
-                    
+
                     // If not found by name, try to match by StageOrder
                     if (stage == null && questionnaire.StageOrder > 0)
                     {
                         stage = createdStages.FirstOrDefault(s => s.Order == questionnaire.StageOrder);
-                        _logger.LogInformation("🔍 Looking for stage by order {StageOrder} for questionnaire '{QuestionnaireName}'", 
+                        _logger.LogInformation("🔍 Looking for stage by order {StageOrder} for questionnaire '{QuestionnaireName}'",
                             questionnaire.StageOrder, questionnaire.GeneratedQuestionnaire?.Name);
                     }
-                    
+
                     // If still not found, skip this questionnaire
                     if (stage == null)
                     {
-                        _logger.LogWarning("⚠️ Could not find matching stage for questionnaire '{QuestionnaireName}' (StageName: '{StageName}', StageOrder: {StageOrder})", 
+                        _logger.LogWarning("⚠️ Could not find matching stage for questionnaire '{QuestionnaireName}' (StageName: '{StageName}', StageOrder: {StageOrder})",
                             questionnaire.GeneratedQuestionnaire?.Name, questionnaire.StageName, questionnaire.StageOrder);
                         continue;
                     }
-                    
-                    _logger.LogInformation("✅ Found matching stage '{StageName}' (ID: {StageId}) for questionnaire '{QuestionnaireName}'", 
+
+                    _logger.LogInformation("✅ Found matching stage '{StageName}' (ID: {StageId}) for questionnaire '{QuestionnaireName}'",
                         stage.Name, stage.Id, questionnaire.GeneratedQuestionnaire?.Name);
 
                     // Ensure GeneratedQuestionnaire is not null

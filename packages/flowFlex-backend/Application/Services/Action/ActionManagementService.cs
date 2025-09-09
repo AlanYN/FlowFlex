@@ -217,6 +217,9 @@ namespace FlowFlex.Application.Services.Action
                     case ActionTypeEnum.SendEmail:
                         // TODO: Add Email config validation
                         break;
+                    case ActionTypeEnum.System:
+                        ValidateSystemConfig(jToken);
+                        break;
                     default:
                         throw new ArgumentException($"Unsupported action type: {actionType}");
                 }
@@ -291,6 +294,63 @@ namespace FlowFlex.Application.Services.Action
             }
 
             _logger.LogInformation("HTTP API action configuration validated successfully");
+        }
+
+        private void ValidateSystemConfig(JToken actionConfig)
+        {
+            var config = actionConfig.ToObject<Dictionary<string, object>>();
+
+            if (config == null)
+            {
+                throw new ArgumentException("Failed to parse System action configuration");
+            }
+
+            if (!config.ContainsKey("actionName") || string.IsNullOrWhiteSpace(config["actionName"]?.ToString()))
+            {
+                throw new ArgumentException("System action must specify 'actionName' in configuration");
+            }
+
+            var actionName = config["actionName"].ToString().ToLower();
+            var supportedActions = new[] { "completestage", "movetostage", "assignonboarding" };
+
+            if (!supportedActions.Contains(actionName))
+            {
+                throw new ArgumentException($"System action '{actionName}' is not supported. Supported actions: {string.Join(", ", supportedActions)}");
+            }
+
+            // Validate specific action configurations
+            switch (actionName)
+            {
+                case "completestage":
+                    ValidateCompleteStageConfig(config);
+                    break;
+                case "movetostage":
+                    ValidateMoveToStageConfig(config);
+                    break;
+                case "assignonboarding":
+                    ValidateAssignOnboardingConfig(config);
+                    break;
+            }
+
+            _logger.LogInformation("System action configuration validated successfully for action: {ActionName}", actionName);
+        }
+
+        private void ValidateCompleteStageConfig(Dictionary<string, object> config)
+        {
+            // Optional parameters - can be provided in config or extracted from trigger context
+            // No strict validation needed as parameters can come from context
+        }
+
+        private void ValidateMoveToStageConfig(Dictionary<string, object> config)
+        {
+            // Optional parameters - can be provided in config or extracted from trigger context
+            // No strict validation needed as parameters can come from context
+        }
+
+        private void ValidateAssignOnboardingConfig(Dictionary<string, object> config)
+        {
+            // Optional parameters - can be provided in config or extracted from trigger context
+            // No strict validation needed as parameters can come from context
         }
 
         public async Task<bool> DeleteActionDefinitionAsync(long id)
@@ -410,7 +470,7 @@ namespace FlowFlex.Application.Services.Action
             {
                 _logger.LogInformation("Mapping already exists for ActionDefinitionId={ActionDefinitionId}, TriggerType={TriggerType}, TriggerSourceId={TriggerSourceId}, WorkFlowId={WorkFlowId}. Returning existing mapping: {MappingId}",
                     dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId?.ToString() ?? "None", existingMapping.Id);
-                
+
                 // Optional: Log duplicate request attempt (uncomment if needed)
                 // try
                 // {
@@ -434,7 +494,7 @@ namespace FlowFlex.Application.Services.Action
                 // {
                 //     _logger.LogWarning(ex, "Failed to log duplicate mapping request for mapping {MappingId}", existingMapping.Id);
                 // }
-                
+
                 return _mapper.Map<ActionTriggerMappingDto>(existingMapping);
             }
 
@@ -487,7 +547,7 @@ namespace FlowFlex.Application.Services.Action
                 // Change log recording (new) - get additional context for better log association
                 long? onboardingId = dto.WorkFlowId; // Use WorkFlowId as onboardingId for workflow-related logs
                 long? checklistId = null;
-                
+
                 // For Task triggers, get associated checklist and onboarding information
                 if (dto.TriggerType?.ToLower() == "task")
                 {
@@ -634,7 +694,7 @@ namespace FlowFlex.Application.Services.Action
                 var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(entity.ActionDefinitionId);
                 var triggerSourceName = await GetTriggerSourceNameAsync(entity.TriggerType, entity.TriggerSourceId);
                 var actionName = actionDefinition?.ActionName ?? "Unknown Action";
-                
+
                 var statusAction = isEnabled ? "enabled" : "disabled";
                 var extendedData = JsonSerializer.Serialize(new
                 {
@@ -675,11 +735,11 @@ namespace FlowFlex.Application.Services.Action
         public async Task<bool> BatchUpdateActionTriggerMappingStatusAsync(List<long> mappingIds, bool isEnabled)
         {
             var result = await _actionTriggerMappingRepository.BatchUpdateEnabledStatusAsync(mappingIds, isEnabled);
-            
+
             if (result)
             {
                 _logger.LogInformation("Batch updated {Count} action trigger mapping statuses to IsEnabled: {IsEnabled}", mappingIds.Count, isEnabled);
-                
+
                 // Log batch status change - simplified logging without individual details for performance
                 try
                 {
@@ -701,7 +761,7 @@ namespace FlowFlex.Application.Services.Action
                     _logger.LogWarning(ex, "Failed to log batch action trigger mapping status update for {Count} mappings", mappingIds.Count);
                 }
             }
-            
+
             return result;
         }
 

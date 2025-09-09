@@ -251,12 +251,12 @@ namespace FlowFlex.Application.Contracts.IServices
         public List<AIQuestionGenerationResult> Questions { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
-        
+
         /// <summary>
         /// Stage name for association
         /// </summary>
         public string StageName { get; set; } = string.Empty;
-        
+
         /// <summary>
         /// Stage order for association
         /// </summary>
@@ -295,12 +295,12 @@ namespace FlowFlex.Application.Contracts.IServices
         public List<AITaskGenerationResult> Tasks { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
-        
+
         /// <summary>
         /// Stage name for association
         /// </summary>
         public string StageName { get; set; } = string.Empty;
-        
+
         /// <summary>
         /// Stage order for association
         /// </summary>

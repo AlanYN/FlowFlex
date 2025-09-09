@@ -369,7 +369,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (onboardingId.HasValue && stageId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Questionnaire.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Questionnaire.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.QuestionnaireAnswer.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.Question.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.StaticField.ToString() ||
@@ -378,7 +378,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 else if (onboardingId.HasValue)
                 {
                     logs = await _operationChangeLogRepository.GetByOnboardingIdAsync(onboardingId.Value);
-                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Questionnaire.ToString() || 
+                    logs = logs.Where(x => x.BusinessModule == BusinessModuleEnum.Questionnaire.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.QuestionnaireAnswer.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.Question.ToString() ||
                                          x.BusinessModule == BusinessModuleEnum.StaticField.ToString() ||
@@ -499,7 +499,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var logs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.QuestionnaireAnswer.ToString(), answerId);
-                
+
                 // Filter by onboarding ID
                 logs = logs.Where(x => x.OnboardingId == onboardingId).ToList();
 
@@ -604,7 +604,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to build detailed answer operation description for questionnaire {QuestionnaireId}", questionnaireId);
-                
+
                 // Fallback to simple description
                 var fallbackDescription = $"Questionnaire answer has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
                 if (questionnaireId.HasValue)
@@ -737,14 +737,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 foreach (var field in changedFields.Take(3))
                 {
-                    if (beforeJson.TryGetValue(field, out var beforeValue) && 
+                    if (beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
                     {
                         if (field.Equals("StructureJson", StringComparison.OrdinalIgnoreCase))
                         {
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
-                            
+
                             if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
                             {
                                 var structuralChange = GetStructuralChangeDetails(beforeJsonStr, afterJsonStr);
@@ -760,7 +760,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var friendlyFieldName = GetFriendlyFieldName(field);
                             var beforeStr = GetDisplayValue(beforeValue, field);
                             var afterStr = GetDisplayValue(afterValue, field);
-                            
+
                             // Special formatting for common questionnaire fields
                             if (field.Equals("IsActive", StringComparison.OrdinalIgnoreCase))
                             {
@@ -815,7 +815,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             return fieldName switch
             {
                 "StructureJson" => "Structure",
-                "IsActive" => "Status", 
+                "IsActive" => "Status",
                 "EstimatedMinutes" => "Estimated Time",
                 "CreatedAt" => "Created Time",
                 "UpdatedAt" => "Updated Time",

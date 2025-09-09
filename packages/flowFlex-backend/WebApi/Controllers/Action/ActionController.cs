@@ -72,8 +72,15 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null)
+            bool? isTools = null,
+            bool? isSystemTools = null)
         {
+            // If isSystemTools is true, override actionType to System
+            if (isSystemTools == true)
+            {
+                actionType = ActionTypeEnum.System;
+            }
+
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
                 actionType,
                 pageIndex,
@@ -187,8 +194,15 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null)
+            bool? isTools = null,
+            bool? isSystemTools = null)
         {
+            // If isSystemTools is true, override actionType to System
+            if (isSystemTools == true)
+            {
+                actionType = ActionTypeEnum.System;
+            }
+
             return File(await _actionManagementService.ExportAsync(search,
                 actionType,
                 isAssignmentStage,
@@ -428,6 +442,160 @@ namespace FlowFlex.WebApi.Controllers.Action
             var result = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
                 triggerSourceId, request.PageIndex, request.PageSize, request.JsonConditions);
             return Success(result);
+        }
+
+        #endregion
+
+        #region System Predefined Actions
+
+        /// <summary>
+        /// Get system predefined actions
+        /// </summary>
+        /// <returns>List of system predefined actions</returns>
+        [HttpGet("system/predefined")]
+        [ProducesResponseType<SuccessResponse<List<SystemActionDefinitionDto>>>((int)HttpStatusCode.OK)]
+        public IActionResult GetSystemPredefinedActions()
+        {
+            var systemActions = new List<SystemActionDefinitionDto>
+            {
+                new SystemActionDefinitionDto
+                {
+                    ActionName = "CompleteStage",
+                    DisplayName = "Complete Stage",
+                    Description = "Complete a specific stage in the workflow",
+                    ConfigSchema = new
+                    {
+                        actionName = "CompleteStage",
+                        stageId = "Optional: Stage ID to complete (can be extracted from trigger context)",
+                        onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
+                        completionNotes = "Optional: Completion notes (default: 'Completed by system action')",
+                        autoMoveToNext = "Optional: Auto move to next stage (default: true)"
+                    },
+                    ExampleConfig = @"{
+  ""actionName"": ""CompleteStage"",
+  ""completionNotes"": ""Stage completed automatically"",
+  ""autoMoveToNext"": true
+}"
+                },
+                new SystemActionDefinitionDto
+                {
+                    ActionName = "MoveToStage",
+                    DisplayName = "Move to Stage",
+                    Description = "Move onboarding to a specific stage",
+                    ConfigSchema = new
+                    {
+                        actionName = "MoveToStage",
+                        targetStageId = "Required: Target stage ID to move to",
+                        onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
+                        notes = "Optional: Move notes (default: 'Moved by system action')"
+                    },
+                    ExampleConfig = @"{
+  ""actionName"": ""MoveToStage"",
+  ""targetStageId"": 123,
+  ""notes"": ""Moved to next stage automatically""
+}"
+                },
+                new SystemActionDefinitionDto
+                {
+                    ActionName = "AssignOnboarding",
+                    DisplayName = "Assign Onboarding",
+                    Description = "Assign an onboarding to a specific user",
+                    ConfigSchema = new
+                    {
+                        actionName = "AssignOnboarding",
+                        onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
+                        assigneeId = "Required: User ID to assign",
+                        assigneeName = "Optional: User name",
+                        team = "Optional: Team name",
+                        notes = "Optional: Assignment notes (default: 'Assigned by system action')"
+                    },
+                    ExampleConfig = @"{
+  ""actionName"": ""AssignOnboarding"",
+  ""assigneeId"": 123,
+  ""assigneeName"": ""John Doe"",
+  ""team"": ""Support Team"",
+  ""notes"": ""Onboarding assigned automatically""
+}"
+                }
+            };
+
+            return Success(systemActions);
+        }
+
+        /// <summary>
+        /// Get system action configuration template
+        /// </summary>
+        /// <param name="actionName">System action name</param>
+        /// <returns>Configuration template</returns>
+        [HttpGet("system/template/{actionName}")]
+        [ProducesResponseType<SuccessResponse<SystemActionTemplateDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        public IActionResult GetSystemActionTemplate(string actionName)
+        {
+            var templates = new Dictionary<string, SystemActionTemplateDto>
+            {
+                ["CompleteStage"] = new SystemActionTemplateDto
+                {
+                    ActionName = "CompleteStage",
+                    Template = @"{
+  ""actionName"": ""CompleteStage"",
+  ""stageId"": null,
+  ""onboardingId"": null,
+  ""completionNotes"": ""Completed by system action"",
+  ""autoMoveToNext"": true
+}",
+                    Parameters = new List<SystemActionParameterDto>
+                    {
+                        new SystemActionParameterDto { Name = "stageId", Type = "number", Required = false, Description = "Stage ID to complete (can be extracted from trigger context)" },
+                        new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
+                        new SystemActionParameterDto { Name = "completionNotes", Type = "string", Required = false, Description = "Completion notes" },
+                        new SystemActionParameterDto { Name = "autoMoveToNext", Type = "boolean", Required = false, Description = "Auto move to next stage" }
+                    }
+                },
+                ["MoveToStage"] = new SystemActionTemplateDto
+                {
+                    ActionName = "MoveToStage",
+                    Template = @"{
+  ""actionName"": ""MoveToStage"",
+  ""targetStageId"": null,
+  ""onboardingId"": null,
+  ""notes"": ""Moved by system action""
+}",
+                    Parameters = new List<SystemActionParameterDto>
+                    {
+                        new SystemActionParameterDto { Name = "targetStageId", Type = "number", Required = true, Description = "Target stage ID to move to" },
+                        new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
+                        new SystemActionParameterDto { Name = "notes", Type = "string", Required = false, Description = "Move notes" }
+                    }
+                },
+                ["AssignOnboarding"] = new SystemActionTemplateDto
+                {
+                    ActionName = "AssignOnboarding",
+                    Template = @"{
+  ""actionName"": ""AssignOnboarding"",
+  ""onboardingId"": null,
+  ""assigneeId"": null,
+  ""assigneeName"": null,
+  ""team"": null,
+  ""notes"": ""Assigned by system action""
+}",
+                    Parameters = new List<SystemActionParameterDto>
+                    {
+                        new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
+                        new SystemActionParameterDto { Name = "assigneeId", Type = "number", Required = true, Description = "User ID to assign" },
+                        new SystemActionParameterDto { Name = "assigneeName", Type = "string", Required = false, Description = "User name" },
+                        new SystemActionParameterDto { Name = "team", Type = "string", Required = false, Description = "Team name" },
+                        new SystemActionParameterDto { Name = "notes", Type = "string", Required = false, Description = "Assignment notes" }
+                    }
+                }
+            };
+
+            if (!templates.TryGetValue(actionName, out var template))
+            {
+                return NotFound($"System action template '{actionName}' not found");
+            }
+
+            return Success(template);
         }
 
         #endregion

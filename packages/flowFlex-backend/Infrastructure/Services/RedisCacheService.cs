@@ -32,8 +32,8 @@ namespace FlowFlex.Infrastructure.Services
         };
 
         public RedisCacheService(
-            IRedisService redisService, 
-            ILogger<RedisCacheService> logger, 
+            IRedisService redisService,
+            ILogger<RedisCacheService> logger,
             UserContext userContext,
             IOptions<CacheOptions> cacheOptions)
         {
@@ -65,17 +65,17 @@ namespace FlowFlex.Infrastructure.Services
             {
                 var tenantKey = BuildTenantKey(key);
                 var json = await _redisService.StringGetAsync(tenantKey);
-                
+
                 if (string.IsNullOrEmpty(json))
                 {
                     Interlocked.Increment(ref _missCount);
                     _logger.LogDebug("Cache miss for key: {Key}", key);
                     return null;
                 }
-                
+
                 Interlocked.Increment(ref _hitCount);
                 _logger.LogDebug("Cache hit for key: {Key}", key);
-                
+
                 return JsonSerializer.Deserialize<T>(json, JsonOptions);
             }
             catch (JsonException ex)
@@ -119,7 +119,7 @@ namespace FlowFlex.Infrastructure.Services
             {
                 var tenantKey = BuildTenantKey(key);
                 var json = JsonSerializer.Serialize(value, JsonOptions);
-                
+
                 if (expiry.HasValue)
                 {
                     await _redisService.StringSetAsync(tenantKey, json, expiry.Value);
@@ -156,7 +156,7 @@ namespace FlowFlex.Infrastructure.Services
             {
                 var tenantKey = BuildTenantKey(key);
                 var removed = await _redisService.KeyDelAsync(tenantKey);
-                
+
                 if (removed)
                 {
                     _logger.LogDebug("Removed cache key: {Key}", key);
@@ -191,7 +191,7 @@ namespace FlowFlex.Infrastructure.Services
                 // This is a limitation of the current IRedisService interface
                 var tenantPattern = BuildTenantKey(pattern);
                 _logger.LogWarning("Pattern-based cache removal not fully supported with current IRedisService. Pattern: {Pattern}", pattern);
-                
+
                 // For now, we'll just log the attempt
                 // In a full implementation, you would need to extend IRedisService to support pattern operations
                 await Task.CompletedTask;

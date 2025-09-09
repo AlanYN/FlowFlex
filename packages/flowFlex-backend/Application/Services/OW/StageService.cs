@@ -396,7 +396,7 @@ namespace FlowFlex.Application.Service.OW
                             {
                                 // Check if components were changed and log separately for better tracking
                                 bool componentsChanged = changedFields.Contains("ComponentsJson");
-                                
+
                                 if (componentsChanged)
                                 {
                                     // Create enhanced extended data for component changes
@@ -425,14 +425,14 @@ namespace FlowFlex.Application.Service.OW
                                 else
                                 {
                                     // Log standard stage update
-                                await _operationChangeLogService.LogStageUpdateAsync(
-                                    stageId: id,
-                                    stageName: updatedStage.Name,
-                                    beforeData: beforeData,
-                                    afterData: afterData,
-                                    changedFields: changedFields,
-                                    workflowId: updatedStage.WorkflowId
-                                );
+                                    await _operationChangeLogService.LogStageUpdateAsync(
+                                        stageId: id,
+                                        stageName: updatedStage.Name,
+                                        beforeData: beforeData,
+                                        afterData: afterData,
+                                        changedFields: changedFields,
+                                        workflowId: updatedStage.WorkflowId
+                                    );
                                 }
                             }
                             catch
@@ -461,8 +461,8 @@ namespace FlowFlex.Application.Service.OW
             if (entity.InternalName != input.InternalName) return true;
             if (entity.Description != input.Description) return true;
             if (entity.DefaultAssignedGroup != input.DefaultAssignedGroup) return true;
-            var inputDefaultAssigneeString = input.DefaultAssignee != null && input.DefaultAssignee.Any() 
-                ? string.Join(",", input.DefaultAssignee) 
+            var inputDefaultAssigneeString = input.DefaultAssignee != null && input.DefaultAssignee.Any()
+                ? string.Join(",", input.DefaultAssignee)
                 : null;
             if (entity.DefaultAssignee != inputDefaultAssigneeString) return true;
             if (entity.EstimatedDuration != input.EstimatedDuration) return true;
@@ -501,7 +501,7 @@ namespace FlowFlex.Application.Service.OW
                 // Clear related cache after successful deletion
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
-                
+
                 // Log stage delete operation (fire-and-forget)
                 _ = Task.Run(async () =>
                 {
@@ -519,7 +519,7 @@ namespace FlowFlex.Application.Service.OW
                         // Ignore logging errors to avoid affecting main operation
                     }
                 });
-                
+
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
                 // Background task queued
@@ -641,7 +641,7 @@ namespace FlowFlex.Application.Service.OW
                 // Clear related cache after successful sort
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{input.WorkflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
-                
+
                 // Sync stages progress for all onboardings in this workflow
                 // This is done asynchronously to avoid impacting the main operation
                 // Background task queued
@@ -747,14 +747,14 @@ namespace FlowFlex.Application.Service.OW
 
             entity.Color = color;
             var result = await _stageRepository.UpdateAsync(entity);
-            
+
             // Clear related cache after successful color update
             if (result)
             {
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{entity.WorkflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
             }
-            
+
             return result;
         }
 
@@ -1010,7 +1010,7 @@ namespace FlowFlex.Application.Service.OW
                     var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{entity.WorkflowId}";
                     await _cacheService.RemoveAsync(cacheKey);
                 }
-                
+
                 return result;
             });
             return transactionResult.Data;
@@ -1243,7 +1243,7 @@ namespace FlowFlex.Application.Service.OW
                 if (string.IsNullOrEmpty(componentsJson))
                     return new List<StageComponent>();
 
-                return JsonSerializer.Deserialize<List<StageComponent>>(componentsJson, _jsonOptions) 
+                return JsonSerializer.Deserialize<List<StageComponent>>(componentsJson, _jsonOptions)
                        ?? new List<StageComponent>();
             }
             catch
@@ -1335,10 +1335,10 @@ namespace FlowFlex.Application.Service.OW
                     case "fields":
                         var beforeFields = before.StaticFields ?? new List<string>();
                         var afterFields = after.StaticFields ?? new List<string>();
-                        
+
                         var addedFields = afterFields.Except(beforeFields).ToList();
                         var removedFields = beforeFields.Except(afterFields).ToList();
-                        
+
                         if (addedFields.Any())
                         {
                             changes.Add($"added fields: {string.Join(", ", addedFields.Take(3))}{(addedFields.Count > 3 ? ", etc." : "")}");
@@ -1352,10 +1352,10 @@ namespace FlowFlex.Application.Service.OW
                     case "checklist":
                         var beforeChecklistNames = before.ChecklistNames ?? new List<string>();
                         var afterChecklistNames = after.ChecklistNames ?? new List<string>();
-                        
+
                         var addedChecklists = afterChecklistNames.Except(beforeChecklistNames).ToList();
                         var removedChecklists = beforeChecklistNames.Except(afterChecklistNames).ToList();
-                        
+
                         if (addedChecklists.Any())
                         {
                             changes.Add($"added: {string.Join(", ", addedChecklists.Take(2).Select(n => $"'{n}'"))}{(addedChecklists.Count > 2 ? ", etc." : "")}");
@@ -1369,10 +1369,10 @@ namespace FlowFlex.Application.Service.OW
                     case "questionnaires":
                         var beforeQuestionnaireNames = before.QuestionnaireNames ?? new List<string>();
                         var afterQuestionnaireNames = after.QuestionnaireNames ?? new List<string>();
-                        
+
                         var addedQuestionnaires = afterQuestionnaireNames.Except(beforeQuestionnaireNames).ToList();
                         var removedQuestionnaires = beforeQuestionnaireNames.Except(afterQuestionnaireNames).ToList();
-                        
+
                         if (addedQuestionnaires.Any())
                         {
                             changes.Add($"added: {string.Join(", ", addedQuestionnaires.Take(2).Select(n => $"'{n}'"))}{(addedQuestionnaires.Count > 2 ? ", etc." : "")}");
@@ -1546,7 +1546,7 @@ namespace FlowFlex.Application.Service.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating AI summary for Stage {StageId}", stageId);
-                
+
                 return new AIStageSummaryResult
                 {
                     Success = false,
@@ -1631,7 +1631,7 @@ namespace FlowFlex.Application.Service.OW
                 if (allChecklistIds.Any())
                 {
                     var checklists = await _checklistService.GetByIdsAsync(allChecklistIds);
-                    
+
                     // Convert checklists to task info format for AI summary
                     var taskInfos = new List<AISummaryTaskInfo>();
                     foreach (var checklist in checklists)
@@ -1685,7 +1685,7 @@ namespace FlowFlex.Application.Service.OW
                 if (allQuestionnaireIds.Any())
                 {
                     var questionnaires = await _questionnaireService.GetByIdsAsync(allQuestionnaireIds);
-                    
+
                     // Convert questionnaires to question info format for AI summary
                     var questionInfos = new List<AISummaryQuestionInfo>();
                     foreach (var questionnaire in questionnaires)
@@ -1719,7 +1719,7 @@ namespace FlowFlex.Application.Service.OW
                     aiInput.Questions = questionInfos;
                 }
 
-                _logger.LogDebug("Populated stage components for AI summary: {TaskCount} tasks, {QuestionCount} questions", 
+                _logger.LogDebug("Populated stage components for AI summary: {TaskCount} tasks, {QuestionCount} questions",
                     aiInput.Tasks.Count, aiInput.Questions.Count);
             }
             catch (Exception ex)
@@ -1893,51 +1893,51 @@ namespace FlowFlex.Application.Service.OW
                 Console.WriteLine($"[StageService] New questionnaire IDs: [{string.Join(", ", newQuestionnaireIds)}]");
 
                 // Get all stages in the same workflow
-            var allStagesInWorkflow = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-            if (allStagesInWorkflow == null || !allStagesInWorkflow.Any())
-            {
-                Console.WriteLine($"[StageService] No stages found in workflow {workflowId}, returning");
-                return;
-            }
-
-            Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
-
-            // Check each stage for conflicts
-            foreach (var stage in allStagesInWorkflow)
-            {
-                // Skip current stage
-                if (currentStageId.HasValue && stage.Id == currentStageId.Value)
+                var allStagesInWorkflow = await _stageRepository.GetByWorkflowIdAsync(workflowId);
+                if (allStagesInWorkflow == null || !allStagesInWorkflow.Any())
                 {
-                    Console.WriteLine($"[StageService] Skipping current stage {stage.Id} ({stage.Name})");
-                    continue;
+                    Console.WriteLine($"[StageService] No stages found in workflow {workflowId}, returning");
+                    return;
                 }
 
-                Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
+                Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
 
-                // Parse existing components in this stage
-                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {stage.ComponentsJson ?? "NULL"}");
-                var existingComponents = await GetStageComponentsFromEntity(stage);
-                if (existingComponents == null || !existingComponents.Any())
+                // Check each stage for conflicts
+                foreach (var stage in allStagesInWorkflow)
                 {
-                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping");
-                    continue;
-                }
+                    // Skip current stage
+                    if (currentStageId.HasValue && stage.Id == currentStageId.Value)
+                    {
+                        Console.WriteLine($"[StageService] Skipping current stage {stage.Id} ({stage.Name})");
+                        continue;
+                    }
 
-                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
+                    Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
 
-                // Extract existing checklist and questionnaire IDs
-                var existingChecklistIds = existingComponents
-                    .Where(c => c.Key == "checklist")
-                    .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                    .ToHashSet();
+                    // Parse existing components in this stage
+                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {stage.ComponentsJson ?? "NULL"}");
+                    var existingComponents = await GetStageComponentsFromEntity(stage);
+                    if (existingComponents == null || !existingComponents.Any())
+                    {
+                        Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping");
+                        continue;
+                    }
 
-                var existingQuestionnaireIds = existingComponents
-                    .Where(c => c.Key == "questionnaires")
-                    .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
-                    .ToHashSet();
+                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
 
-                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing checklist IDs: [{string.Join(", ", existingChecklistIds)}]");
-                Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing questionnaire IDs: [{string.Join(", ", existingQuestionnaireIds)}]");
+                    // Extract existing checklist and questionnaire IDs
+                    var existingChecklistIds = existingComponents
+                        .Where(c => c.Key == "checklist")
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                        .ToHashSet();
+
+                    var existingQuestionnaireIds = existingComponents
+                        .Where(c => c.Key == "questionnaires")
+                        .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                        .ToHashSet();
+
+                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing checklist IDs: [{string.Join(", ", existingChecklistIds)}]");
+                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing questionnaire IDs: [{string.Join(", ", existingQuestionnaireIds)}]");
 
                     // Check for conflicts
                     var conflictingChecklists = newChecklistIds.Intersect(existingChecklistIds).ToList();
@@ -1952,8 +1952,8 @@ namespace FlowFlex.Application.Service.OW
                             conflictMessages.Add($"Checklist IDs {string.Join(", ", conflictingChecklists)} are already used in stage '{stage.Name}'");
                         }
 
-                if (conflictingQuestionnaires.Any())
-                {
+                        if (conflictingQuestionnaires.Any())
+                        {
                             conflictMessages.Add($"Questionnaire IDs {string.Join(", ", conflictingQuestionnaires)} are already used in stage '{stage.Name}'");
                         }
 

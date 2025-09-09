@@ -40,8 +40,8 @@ namespace FlowFlex.Infrastructure.Exceptions
             var errorResponse = exception.ToApiResponse(context, logger);
 
             // Set HTTP status code (different from response body Code for CRMException with explicit StatusCode)
-            var httpStatusCode = exception is CRMException crmEx && crmEx.StatusCode.HasValue 
-                ? (int)crmEx.StatusCode.Value 
+            var httpStatusCode = exception is CRMException crmEx && crmEx.StatusCode.HasValue
+                ? (int)crmEx.StatusCode.Value
                 : errorResponse.Code;
 
             context.Response.StatusCode = httpStatusCode;

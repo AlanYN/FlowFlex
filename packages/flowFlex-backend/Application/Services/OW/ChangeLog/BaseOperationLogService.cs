@@ -92,7 +92,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Initialize unique snowflake ID
                 operationLog.InitNewId();
 
-                _logger.LogDebug("Attempting to insert operation log with ID {LogId} for {BusinessModule} {BusinessId}", 
+                _logger.LogDebug("Attempting to insert operation log with ID {LogId} for {BusinessModule} {BusinessId}",
                     operationLog.Id, businessModule, businessId);
 
                 bool result = await InsertWithRetryAsync(operationLog);
@@ -262,7 +262,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (httpContext != null)
             {
                 var request = httpContext.Request;
-                return request.Headers.ContainsKey("X-Forwarded-For") 
+                return request.Headers.ContainsKey("X-Forwarded-For")
                     ? request.Headers["X-Forwarded-For"].ToString()
                     : httpContext.Connection.RemoteIpAddress?.ToString();
             }
@@ -290,12 +290,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 await _logCacheService.InvalidateCacheForBusinessAsync(businessModule, businessId);
-                
+
                 if (onboardingId.HasValue)
                 {
                     await _logCacheService.InvalidateCacheForOnboardingAsync(onboardingId.Value);
                 }
-                
+
                 if (stageId.HasValue)
                 {
                     await _logCacheService.InvalidateCacheForStageAsync(stageId.Value);
@@ -306,13 +306,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (onboardingId.HasValue && stageId.HasValue)
                 {
                     await _logCacheService.InvalidateCacheForOnboardingAndStageAsync(onboardingId.Value, stageId.Value);
-                    _logger.LogDebug("Invalidated specific cache for onboarding {OnboardingId} + stage {StageId}", 
+                    _logger.LogDebug("Invalidated specific cache for onboarding {OnboardingId} + stage {StageId}",
                         onboardingId.Value, stageId.Value);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to invalidate caches for {BusinessModule} {BusinessId}", 
+                _logger.LogWarning(ex, "Failed to invalidate caches for {BusinessModule} {BusinessId}",
                     businessModule, businessId);
             }
         }
@@ -388,16 +388,16 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (IsJsonString(beforeStr) && IsJsonString(afterStr))
             {
                 return string.Equals(
-                    NormalizeValue(beforeStr), 
-                    NormalizeValue(afterStr), 
+                    NormalizeValue(beforeStr),
+                    NormalizeValue(afterStr),
                     StringComparison.OrdinalIgnoreCase
                 );
             }
 
             // For non-JSON values, use normalized comparison
             return string.Equals(
-                NormalizeValue(beforeStr), 
-                NormalizeValue(afterStr), 
+                NormalizeValue(beforeStr),
+                NormalizeValue(afterStr),
                 StringComparison.OrdinalIgnoreCase
             );
         }
@@ -462,11 +462,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     // First normalize the JSON string (handle double-escaped values)
                     string normalizedJson = NormalizeJsonString(value);
-                    
+
                     // Parse and re-serialize to normalize formatting
                     var jsonElement = JsonSerializer.Deserialize<JsonElement>(normalizedJson);
-                    return JsonSerializer.Serialize(jsonElement, new JsonSerializerOptions 
-                    { 
+                    return JsonSerializer.Serialize(jsonElement, new JsonSerializerOptions
+                    {
                         WriteIndented = false,
                         PropertyNamingPolicy = null, // Keep original property names
                         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
@@ -501,16 +501,16 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             if (string.IsNullOrWhiteSpace(value))
                 return false;
-                
+
             value = value.Trim();
-            
+
             // Check for direct JSON objects/arrays
             if ((value.StartsWith("{") && value.EndsWith("}")) ||
                 (value.StartsWith("[") && value.EndsWith("]")))
             {
                 return true;
             }
-            
+
             // Check for JSON strings that have been serialized as string values (double-escaped)
             if (value.StartsWith("\"") && value.EndsWith("\"") && value.Length > 2)
             {
@@ -530,7 +530,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     // If deserialization fails, it's not a JSON string value
                 }
             }
-            
+
             return false;
         }
 
@@ -541,9 +541,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             if (string.IsNullOrWhiteSpace(jsonString))
                 return jsonString;
-                
+
             jsonString = jsonString.Trim();
-            
+
             // If it's a double-escaped JSON string (serialized as string value), deserialize it
             if (jsonString.StartsWith("\"") && jsonString.EndsWith("\"") && jsonString.Length > 2)
             {
@@ -565,7 +565,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     // If deserialization fails, return original string
                 }
             }
-            
+
             return jsonString;
         }
 
@@ -601,7 +601,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     bool result = await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
                     if (result)
                     {
-                        _logger.LogDebug("Successfully inserted operation log with ID {LogId} on attempt {Attempt}", 
+                        _logger.LogDebug("Successfully inserted operation log with ID {LogId} on attempt {Attempt}",
                             operationLog.Id, attempt);
                         return true;
                     }
@@ -609,17 +609,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 catch (Exception ex)
                 {
                     // Check if it's a primary key violation
-                    if (ex.Message.Contains("duplicate key value violates unique constraint") && 
+                    if (ex.Message.Contains("duplicate key value violates unique constraint") &&
                         ex.Message.Contains("_pkey"))
                     {
-                        _logger.LogWarning("Primary key conflict on attempt {Attempt} for operation log ID {LogId}. Regenerating ID...", 
+                        _logger.LogWarning("Primary key conflict on attempt {Attempt} for operation log ID {LogId}. Regenerating ID...",
                             attempt, operationLog.Id);
 
                         if (attempt < maxRetries)
                         {
                             // Regenerate a new ID and try again
                             operationLog.InitNewId();
-                            
+
                             // Add a small delay to avoid rapid retries
                             await Task.Delay(10 * attempt);
                             continue;
@@ -634,7 +634,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         // For other types of exceptions, don't retry
                         _logger.LogError(ex, "Failed to insert operation log with ID {LogId} due to non-retry-able error", operationLog.Id);
                     }
-                    
+
                     throw;
                 }
             }
@@ -674,10 +674,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             try
             {
-                var beforeJson = string.IsNullOrEmpty(beforeData) 
+                var beforeJson = string.IsNullOrEmpty(beforeData)
                     ? new Dictionary<string, object>()
                     : JsonSerializer.Deserialize<Dictionary<string, object>>(beforeData);
-                    
+
                 var afterJson = string.IsNullOrEmpty(afterData)
                     ? new Dictionary<string, object>()
                     : JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
@@ -755,7 +755,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string errorMessage = null)
         {
             var httpContext = _httpContextAccessor.HttpContext;
-            
+
             var operationLog = new Domain.Entities.OW.OperationChangeLog
             {
                 OperationType = operationType.ToString(),
@@ -848,7 +848,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 foreach (var field in changedFields.Take(3)) // Limit to first 3 changes to avoid overly long descriptions
                 {
-                    if (beforeJson.TryGetValue(field, out var beforeValue) && 
+                    if (beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
                     {
                         // Special handling for JSON fields to show meaningful changes
@@ -856,7 +856,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
-                            
+
                             if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
                             {
                                 var structuralChange = GetStructuralChangeDetails(beforeJsonStr, afterJsonStr);
@@ -871,7 +871,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
-                            
+
                             if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
                             {
                                 var componentsChange = GetComponentsChangeDetails(beforeJsonStr, afterJsonStr);
@@ -888,7 +888,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
-                            
+
                             if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
                             {
                                 // Note: This is called from a synchronous context, so we use GetAwaiter().GetResult()
@@ -907,7 +907,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeStr = GetDisplayValue(beforeValue, field);
                             var afterStr = GetDisplayValue(afterValue, field);
-                            
+
                             changeList.Add($"{field} from '{beforeStr}' to '{afterStr}'");
                         }
                     }
@@ -942,9 +942,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected virtual string GetDisplayValue(object value, string fieldName = null)
         {
             if (value == null) return "null";
-            
+
             var str = value.ToString();
-            
+
             // Handle JSON strings by detecting and analyzing their content
             if (IsJsonString(str))
             {
@@ -978,23 +978,23 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     case "structurejson":
                     case "structure":
                         return GetQuestionnaireStructureSummary(jsonString);
-                    
+
                     case "componentsjson":
                     case "components":
                         return GetComponentsSummary(jsonString);
-                    
+
                     case "configjson":
                     case "config":
                         return GetConfigSummary(jsonString);
-                        
+
                     case "tagsjson":
                     case "tags":
                         return GetTagsSummary(jsonString);
-                        
+
                     case "defaultassignee":
                     case "assignee":
                         return GetAssigneeSummary(jsonString);
-                        
+
                     default:
                         return "[JSON data]";
                 }
@@ -1014,8 +1014,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var structure = JsonSerializer.Deserialize<JsonElement>(structureJson);
-                
-                if (structure.TryGetProperty("sections", out var sectionsElement) && 
+
+                if (structure.TryGetProperty("sections", out var sectionsElement) &&
                     sectionsElement.ValueKind == JsonValueKind.Array)
                 {
                     var sections = sectionsElement.EnumerateArray().ToList();
@@ -1025,12 +1025,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         .Where(name => !string.IsNullOrEmpty(name))
                         .Take(3)
                         .ToList();
-                    
+
                     // Count total questions across all sections
                     var totalQuestions = sections
                         .Where(s => s.TryGetProperty("questions", out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
                         .Sum(s => s.GetProperty("questions").EnumerateArray().Count());
-                    
+
                     if (sectionNames.Any())
                     {
                         var summary = $"{sections.Count} sections";
@@ -1042,15 +1042,15 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             summary += $": '{sectionNames[0]}', '{sectionNames[1]}', '{sectionNames[2]}' and {sections.Count - 3} more";
                         }
-                        
+
                         if (totalQuestions > 0)
                         {
                             summary += $" ({totalQuestions} questions)";
                         }
-                        
+
                         return summary;
                     }
-                    
+
                     var result = $"{sections.Count} sections";
                     if (totalQuestions > 0)
                     {
@@ -1058,7 +1058,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                     return result;
                 }
-                
+
                 return "[Structure data]";
             }
             catch
@@ -1076,68 +1076,68 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var beforeStructure = JsonSerializer.Deserialize<JsonElement>(beforeJson);
                 var afterStructure = JsonSerializer.Deserialize<JsonElement>(afterJson);
-                
+
                 var changes = new List<string>();
-                
+
                 // Compare sections
-                if (beforeStructure.TryGetProperty("sections", out var beforeSections) && 
+                if (beforeStructure.TryGetProperty("sections", out var beforeSections) &&
                     afterStructure.TryGetProperty("sections", out var afterSections) &&
-                    beforeSections.ValueKind == JsonValueKind.Array && 
+                    beforeSections.ValueKind == JsonValueKind.Array &&
                     afterSections.ValueKind == JsonValueKind.Array)
                 {
                     var beforeSectionsList = beforeSections.EnumerateArray().ToList();
                     var afterSectionsList = afterSections.EnumerateArray().ToList();
-                    
+
                     // Section count change
                     if (beforeSectionsList.Count != afterSectionsList.Count)
                     {
                         changes.Add($"sections changed from {beforeSectionsList.Count} to {afterSectionsList.Count}");
                     }
-                    
+
                     // Section name changes
                     var beforeSectionNames = beforeSectionsList
                         .Where(s => s.TryGetProperty("name", out var _))
                         .Select(s => s.GetProperty("name").GetString())
                         .Where(name => !string.IsNullOrEmpty(name))
                         .ToList();
-                        
+
                     var afterSectionNames = afterSectionsList
                         .Where(s => s.TryGetProperty("name", out var _))
                         .Select(s => s.GetProperty("name").GetString())
                         .Where(name => !string.IsNullOrEmpty(name))
                         .ToList();
-                    
+
                     // Find added sections
                     var addedSections = afterSectionNames.Except(beforeSectionNames).Take(2).ToList();
                     if (addedSections.Any())
                     {
                         changes.Add($"added sections: {string.Join(", ", addedSections.Select(n => $"'{n}'"))}");
                     }
-                    
+
                     // Find removed sections
                     var removedSections = beforeSectionNames.Except(afterSectionNames).Take(2).ToList();
                     if (removedSections.Any())
                     {
                         changes.Add($"removed sections: {string.Join(", ", removedSections.Select(n => $"'{n}'"))}");
                     }
-                    
+
                     // Compare questions with detailed analysis
                     var beforeQuestions = GetAllQuestionsDetailed(beforeSectionsList);
                     var afterQuestions = GetAllQuestionsDetailed(afterSectionsList);
-                    
+
                     var beforeQuestionCount = beforeQuestions.Count;
                     var afterQuestionCount = afterQuestions.Count;
-                    
+
                     if (beforeQuestionCount != afterQuestionCount)
                     {
                         changes.Add($"questions changed from {beforeQuestionCount} to {afterQuestionCount}");
                     }
-                    
+
                     // Get detailed question changes
                     var questionChanges = GetDetailedQuestionChanges(beforeQuestions, afterQuestions);
                     changes.AddRange(questionChanges);
                 }
-                
+
                 if (changes.Any())
                 {
                     // Format the structure changes in a more readable way
@@ -1151,7 +1151,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         return $"Structure modified: {string.Join("; ", formattedChanges)}";
                     }
                 }
-                
+
                 return "Structure modified";
             }
             catch (Exception ex)
@@ -1170,19 +1170,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 var beforeComponents = JsonSerializer.Deserialize<JsonElement>(beforeJson);
                 var afterComponents = JsonSerializer.Deserialize<JsonElement>(afterJson);
-                
+
                 var changes = new List<string>();
-                
+
                 if (beforeComponents.ValueKind == JsonValueKind.Array && afterComponents.ValueKind == JsonValueKind.Array)
                 {
                     var beforeArray = beforeComponents.EnumerateArray().ToList();
                     var afterArray = afterComponents.EnumerateArray().ToList();
-                    
+
                     if (beforeArray.Count != afterArray.Count)
                     {
                         changes.Add($"components changed from {beforeArray.Count} to {afterArray.Count}");
                     }
-                    
+
                     // Try to identify component types if available
                     var beforeTypes = beforeArray
                         .Where(c => c.TryGetProperty("type", out var _))
@@ -1190,19 +1190,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         .Where(type => !string.IsNullOrEmpty(type))
                         .GroupBy(t => t)
                         .ToDictionary(g => g.Key, g => g.Count());
-                        
+
                     var afterTypes = afterArray
                         .Where(c => c.TryGetProperty("type", out var _))
                         .Select(c => c.GetProperty("type").GetString())
                         .Where(type => !string.IsNullOrEmpty(type))
                         .GroupBy(t => t)
                         .ToDictionary(g => g.Key, g => g.Count());
-                    
+
                     foreach (var kvp in afterTypes)
                     {
                         var afterCount = kvp.Value;
                         var beforeCount = beforeTypes.GetValueOrDefault(kvp.Key, 0);
-                        
+
                         if (beforeCount != afterCount)
                         {
                             if (beforeCount == 0)
@@ -1220,12 +1220,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                     }
                 }
-                
+
                 if (changes.Any())
                 {
                     return $"Components: {string.Join(", ", changes.Take(3))}";
                 }
-                
+
                 return "Components modified";
             }
             catch (Exception ex)
@@ -1257,7 +1257,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             public bool Required { get; set; }
             public List<string> Options { get; set; } = new List<string>();
             public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
-            
+
             public override bool Equals(object obj)
             {
                 if (obj is DetailedQuestionInfo other)
@@ -1266,7 +1266,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
                 return false;
             }
-            
+
             public override int GetHashCode()
             {
                 return string.IsNullOrEmpty(Id) ? Title?.GetHashCode() ?? 0 : Id.GetHashCode();
@@ -1279,21 +1279,21 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected virtual List<QuestionInfo> GetAllQuestions(List<JsonElement> sections)
         {
             var questions = new List<QuestionInfo>();
-            
+
             foreach (var section in sections)
             {
-                if (section.TryGetProperty("questions", out var questionsElement) && 
+                if (section.TryGetProperty("questions", out var questionsElement) &&
                     questionsElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var question in questionsElement.EnumerateArray())
                     {
                         var questionInfo = new QuestionInfo();
-                        
+
                         if (question.TryGetProperty("id", out var idElement))
                         {
                             questionInfo.Id = idElement.GetString() ?? string.Empty;
                         }
-                        
+
                         if (question.TryGetProperty("title", out var titleElement))
                         {
                             questionInfo.Title = titleElement.GetString() ?? string.Empty;
@@ -1308,12 +1308,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             // Some questions might use "question" instead of "title"
                             questionInfo.Title = questionElement.GetString() ?? string.Empty;
                         }
-                        
+
                         if (question.TryGetProperty("type", out var typeElement))
                         {
                             questionInfo.Type = typeElement.GetString() ?? string.Empty;
                         }
-                        
+
                         // Only add questions that have some identifying information
                         if (!string.IsNullOrEmpty(questionInfo.Title) || !string.IsNullOrEmpty(questionInfo.Id))
                         {
@@ -1322,7 +1322,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                 }
             }
-            
+
             return questions;
         }
 
@@ -1336,12 +1336,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Handle double-escaped JSON strings (when JSON arrays are serialized as string values)
                 string normalizedBeforeJson = NormalizeJsonString(beforeJson);
                 string normalizedAfterJson = NormalizeJsonString(afterJson);
-                
+
                 var beforeAssignees = JsonSerializer.Deserialize<JsonElement>(normalizedBeforeJson);
                 var afterAssignees = JsonSerializer.Deserialize<JsonElement>(normalizedAfterJson);
-                
+
                 var changes = new List<string>();
-                
+
                 if (beforeAssignees.ValueKind == JsonValueKind.Array && afterAssignees.ValueKind == JsonValueKind.Array)
                 {
                     var beforeList = beforeAssignees.EnumerateArray()
@@ -1349,23 +1349,23 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         .Select(a => a.GetString())
                         .Where(a => !string.IsNullOrEmpty(a))
                         .ToHashSet();
-                        
+
                     var afterList = afterAssignees.EnumerateArray()
                         .Where(a => a.ValueKind == JsonValueKind.String)
                         .Select(a => a.GetString())
                         .Where(a => !string.IsNullOrEmpty(a))
                         .ToHashSet();
-                    
+
                     // Find added and removed assignees
                     var addedAssignees = afterList.Except(beforeList).ToList();
                     var removedAssignees = beforeList.Except(afterList).ToList();
-                    
+
                     // Get user names for the changed assignees
                     var changedUserIds = addedAssignees.Concat(removedAssignees)
                         .Where(id => long.TryParse(id, out _))
                         .Select(long.Parse)
                         .ToList();
-                    
+
                     var userNameMap = new Dictionary<long, string>();
                     if (changedUserIds.Any())
                     {
@@ -1374,8 +1374,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             // Fixed: Properly await async operation instead of blocking
                             var users = await _userService.GetUsersByIdsAsync(changedUserIds);
                             userNameMap = users.ToDictionary(
-                                u => u.Id, 
-                                u => !string.IsNullOrEmpty(u.Username) ? u.Username : 
+                                u => u.Id,
+                                u => !string.IsNullOrEmpty(u.Username) ? u.Username :
                                      (!string.IsNullOrEmpty(u.Email) ? u.Email : $"User_{u.Id}")
                             );
                         }
@@ -1384,20 +1384,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             _logger.LogWarning(ex, "Failed to fetch user names for assignee change details. Using IDs instead.");
                         }
                     }
-                    
+
                     // Build change descriptions with user names
                     if (addedAssignees.Any())
                     {
                         var addedNames = addedAssignees
                             .Where(id => long.TryParse(id, out var userId))
-                            .Select(id => 
+                            .Select(id =>
                             {
                                 var userId = long.Parse(id);
                                 return userNameMap.GetValueOrDefault(userId, id);
                             })
                             .Take(3) // Limit to first 3 names to avoid overly long descriptions
                             .ToList();
-                        
+
                         if (addedNames.Any())
                         {
                             if (addedAssignees.Count == 1)
@@ -1414,20 +1414,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             }
                         }
                     }
-                    
+
                     // Build removed descriptions with user names
                     if (removedAssignees.Any())
                     {
                         var removedNames = removedAssignees
                             .Where(id => long.TryParse(id, out var userId))
-                            .Select(id => 
+                            .Select(id =>
                             {
                                 var userId = long.Parse(id);
                                 return userNameMap.GetValueOrDefault(userId, id);
                             })
                             .Take(3) // Limit to first 3 names
                             .ToList();
-                        
+
                         if (removedNames.Any())
                         {
                             if (removedAssignees.Count == 1)
@@ -1444,19 +1444,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             }
                         }
                     }
-                    
+
                     // Show total count change if significant and no specific names shown
                     if (beforeList.Count != afterList.Count && Math.Abs(beforeList.Count - afterList.Count) > 3 && !changes.Any())
                     {
                         changes.Add($"assignees changed from {beforeList.Count} to {afterList.Count}");
                     }
                 }
-                
+
                 if (changes.Any())
                 {
                     return $"DefaultAssignee: {string.Join(", ", changes)}";
                 }
-                
+
                 return "DefaultAssignee modified";
             }
             catch (Exception ex)
@@ -1474,7 +1474,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var components = JsonSerializer.Deserialize<JsonElement>(componentsJson);
-                
+
                 if (components.ValueKind == JsonValueKind.Array)
                 {
                     var componentsArray = components.EnumerateArray().ToList();
@@ -1485,7 +1485,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var properties = components.EnumerateObject().ToList();
                     return $"{properties.Count} component properties";
                 }
-                
+
                 return "[Components data]";
             }
             catch
@@ -1502,12 +1502,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var config = JsonSerializer.Deserialize<JsonElement>(configJson);
-                
+
                 if (config.ValueKind == JsonValueKind.Object)
                 {
                     var properties = config.EnumerateObject().ToList();
                     var keyNames = properties.Take(3).Select(p => p.Name).ToList();
-                    
+
                     if (keyNames.Any())
                     {
                         var summary = $"{properties.Count} config items";
@@ -1521,10 +1521,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                         return summary;
                     }
-                    
+
                     return $"{properties.Count} config items";
                 }
-                
+
                 return "[Config data]";
             }
             catch
@@ -1541,7 +1541,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var tags = JsonSerializer.Deserialize<JsonElement>(tagsJson);
-                
+
                 if (tags.ValueKind == JsonValueKind.Array)
                 {
                     var tagsArray = tags.EnumerateArray()
@@ -1549,7 +1549,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         .Select(t => t.GetString())
                         .Where(tag => !string.IsNullOrEmpty(tag))
                         .ToList();
-                    
+
                     if (tagsArray.Any())
                     {
                         if (tagsArray.Count <= 3)
@@ -1561,10 +1561,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             return $"[{string.Join(", ", tagsArray.Take(3))} and {tagsArray.Count - 3} more]";
                         }
                     }
-                    
+
                     return "[]";
                 }
-                
+
                 return "[Tags data]";
             }
             catch
@@ -1581,7 +1581,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var assignees = JsonSerializer.Deserialize<JsonElement>(assigneeJson);
-                
+
                 if (assignees.ValueKind == JsonValueKind.Array)
                 {
                     var assigneeList = assignees.EnumerateArray()
@@ -1589,7 +1589,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         .Select(a => a.GetString())
                         .Where(a => !string.IsNullOrEmpty(a))
                         .ToList();
-                    
+
                     if (assigneeList.Any())
                     {
                         if (assigneeList.Count == 1)
@@ -1601,10 +1601,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             return $"{assigneeList.Count} assignees";
                         }
                     }
-                    
+
                     return "no assignees";
                 }
-                
+
                 return "[Assignee data]";
             }
             catch
@@ -1636,7 +1636,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var operationTitle = $"{businessModule} {operationAction}: {entityName}";
-                
+
                 // Use enhanced description method that can handle beforeData and afterData
                 var operationDescription = BuildEnhancedOperationDescription(
                     businessModule,
@@ -1648,7 +1648,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     relatedEntityId,
                     relatedEntityType,
                     reason);
-                
+
                 // Add module-specific additions
                 if (!string.IsNullOrEmpty(description))
                 {
@@ -1663,7 +1663,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (string.IsNullOrEmpty(extendedData))
                 {
                     extendedData = BuildDefaultExtendedData(
-                        businessModule, businessId, entityName, operationAction, 
+                        businessModule, businessId, entityName, operationAction,
                         relatedEntityId, relatedEntityType, reason, version, description, changedFields);
                 }
 
@@ -1685,7 +1685,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to log independent {OperationType} operation for {BusinessModule} {BusinessId}", 
+                _logger.LogError(ex, "Failed to log independent {OperationType} operation for {BusinessModule} {BusinessId}",
                     operationType, businessModule, businessId);
                 return false;
             }
@@ -1749,36 +1749,36 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             var questions = new List<DetailedQuestionInfo>();
             var processedQuestions = new HashSet<string>(); // Track processed questions by title to avoid duplicates
-            
+
             foreach (var section in sections)
             {
                 // Process both 'questions' and 'items' arrays, but avoid duplicates
                 var questionArrays = new List<(string arrayName, JsonElement array)>();
-                
-                if (section.TryGetProperty("questions", out var questionsElement) && 
+
+                if (section.TryGetProperty("questions", out var questionsElement) &&
                     questionsElement.ValueKind == JsonValueKind.Array)
                 {
                     questionArrays.Add(("questions", questionsElement));
                 }
-                
-                if (section.TryGetProperty("items", out var itemsElement) && 
+
+                if (section.TryGetProperty("items", out var itemsElement) &&
                     itemsElement.ValueKind == JsonValueKind.Array)
                 {
                     questionArrays.Add(("items", itemsElement));
                 }
-                
+
                 // Process arrays in priority order (questions first, then items)
                 foreach (var (arrayName, questionArray) in questionArrays.OrderBy(x => x.arrayName == "questions" ? 0 : 1))
                 {
                     foreach (var question in questionArray.EnumerateArray())
                     {
                         var questionInfo = ExtractQuestionInfo(question);
-                        
+
                         if (questionInfo != null)
                         {
                             // Use title as the primary key for deduplication
                             var questionKey = GetQuestionDeduplicationKey(questionInfo);
-                            
+
                             if (!processedQuestions.Contains(questionKey))
                             {
                                 questions.Add(questionInfo);
@@ -1788,7 +1788,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                 }
             }
-            
+
             return questions;
         }
 
@@ -1798,13 +1798,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected virtual DetailedQuestionInfo ExtractQuestionInfo(JsonElement question)
         {
             var questionInfo = new DetailedQuestionInfo();
-            
+
             // Extract basic properties
             if (question.TryGetProperty("id", out var idElement))
             {
                 questionInfo.Id = idElement.GetString() ?? string.Empty;
             }
-            
+
             if (question.TryGetProperty("title", out var titleElement))
             {
                 questionInfo.Title = titleElement.GetString() ?? string.Empty;
@@ -1817,24 +1817,24 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 questionInfo.Title = questionElement.GetString() ?? string.Empty;
             }
-            
+
             if (question.TryGetProperty("type", out var typeElement))
             {
                 questionInfo.Type = typeElement.GetString() ?? string.Empty;
             }
-            
+
             if (question.TryGetProperty("description", out var descElement))
             {
                 questionInfo.Description = descElement.GetString() ?? string.Empty;
             }
-            
+
             if (question.TryGetProperty("required", out var requiredElement))
             {
                 questionInfo.Required = requiredElement.ValueKind == JsonValueKind.True;
             }
-            
+
             // Extract options for multiple choice questions
-            if (question.TryGetProperty("options", out var optionsElement) && 
+            if (question.TryGetProperty("options", out var optionsElement) &&
                 optionsElement.ValueKind == JsonValueKind.Array)
             {
                 questionInfo.Options = optionsElement.EnumerateArray()
@@ -1843,7 +1843,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     .Where(o => !string.IsNullOrEmpty(o))
                     .ToList();
             }
-            
+
             // Extract additional properties for detailed comparison
             foreach (var property in question.EnumerateObject())
             {
@@ -1861,13 +1861,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                 }
             }
-            
+
             // Only return questions that have some identifying information
             if (!string.IsNullOrEmpty(questionInfo.Title) || !string.IsNullOrEmpty(questionInfo.Id))
             {
                 return questionInfo;
             }
-            
+
             return null;
         }
 
@@ -1887,13 +1887,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected virtual List<string> GetDetailedQuestionChanges(List<DetailedQuestionInfo> beforeQuestions, List<DetailedQuestionInfo> afterQuestions)
         {
             var changes = new List<string>();
-            
+
             try
             {
                 // Create dictionaries for efficient lookup
                 var beforeDict = beforeQuestions.ToDictionary(q => GetQuestionKey(q), q => q);
                 var afterDict = afterQuestions.ToDictionary(q => GetQuestionKey(q), q => q);
-                
+
                 // Find added questions
                 var addedQuestions = afterDict.Keys.Except(beforeDict.Keys).Take(2).ToList();
                 if (addedQuestions.Any())
@@ -1901,7 +1901,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var addedTitles = addedQuestions.Select(k => GetDisplayTitle(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
                     changes.Add($"added questions: {string.Join(", ", addedTitles.Select(t => $"'{t}'"))}");
                 }
-                
+
                 // Find removed questions
                 var removedQuestions = beforeDict.Keys.Except(afterDict.Keys).Take(2).ToList();
                 if (removedQuestions.Any())
@@ -1909,14 +1909,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var removedTitles = removedQuestions.Select(k => GetDisplayTitle(beforeDict[k])).Where(t => !string.IsNullOrEmpty(t));
                     changes.Add($"removed questions: {string.Join(", ", removedTitles.Select(t => $"'{t}'"))}");
                 }
-                
+
                 // Find modified questions
                 var modifiedQuestions = new List<string>();
                 foreach (var key in beforeDict.Keys.Intersect(afterDict.Keys))
                 {
                     var beforeQ = beforeDict[key];
                     var afterQ = afterDict[key];
-                    
+
                     var questionChanges = GetQuestionSpecificChanges(beforeQ, afterQ);
                     if (questionChanges.Any())
                     {
@@ -1926,10 +1926,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             modifiedQuestions.Add($"'{title}' ({string.Join(", ", questionChanges)})");
                         }
                     }
-                    
+
                     if (modifiedQuestions.Count >= 2) break; // Limit to 2 modified questions for readability
                 }
-                
+
                 if (modifiedQuestions.Any())
                 {
                     changes.Add($"modified questions: {string.Join(", ", modifiedQuestions)}");
@@ -1940,7 +1940,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 _logger.LogWarning(ex, "Failed to analyze detailed question changes");
                 changes.Add("questions modified");
             }
-            
+
             return changes;
         }
 
@@ -1960,10 +1960,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             if (!string.IsNullOrEmpty(question.Title))
                 return question.Title.Length > 30 ? question.Title.Substring(0, 30) + "..." : question.Title;
-            
+
             if (!string.IsNullOrEmpty(question.Id))
                 return $"Question {question.Id}";
-            
+
             return "Unknown Question";
         }
 
@@ -1973,31 +1973,31 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected virtual List<string> GetQuestionSpecificChanges(DetailedQuestionInfo before, DetailedQuestionInfo after)
         {
             var changes = new List<string>();
-            
+
             // Check title changes
             if (before.Title != after.Title)
             {
                 changes.Add("title changed");
             }
-            
+
             // Check type changes
             if (before.Type != after.Type)
             {
                 changes.Add($"type: {before.Type} → {after.Type}");
             }
-            
+
             // Check required status changes
             if (before.Required != after.Required)
             {
                 changes.Add(after.Required ? "made required" : "made optional");
             }
-            
+
             // Check description changes
             if (before.Description != after.Description)
             {
                 changes.Add("description changed");
             }
-            
+
             // Check options changes for multiple choice questions
             if (before.Options.Count != after.Options.Count)
             {
@@ -2007,38 +2007,38 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 changes.Add("options modified");
             }
-            
+
             // Check specific important property changes
-            if (before.Properties.TryGetValue("question", out var beforeQuestion) && 
+            if (before.Properties.TryGetValue("question", out var beforeQuestion) &&
                 after.Properties.TryGetValue("question", out var afterQuestion) &&
                 beforeQuestion?.ToString() != afterQuestion?.ToString())
             {
                 changes.Add($"question text: '{beforeQuestion}' → '{afterQuestion}'");
             }
-            
+
             // Check other property changes (excluding already checked properties)
             var importantProps = new[] { "question", "rows", "columns", "max", "min", "iconType" };
             var beforeProps = before.Properties.Keys.Where(k => !importantProps.Contains(k)).ToHashSet();
             var afterProps = after.Properties.Keys.Where(k => !importantProps.Contains(k)).ToHashSet();
-            
+
             var addedProps = afterProps.Except(beforeProps).Count();
             var removedProps = beforeProps.Except(afterProps).Count();
             var modifiedProps = beforeProps.Intersect(afterProps)
                 .Where(prop => before.Properties[prop]?.ToString() != after.Properties[prop]?.ToString())
                 .Count();
-            
+
             // Check important properties for changes
             var importantChanges = new List<string>();
             foreach (var prop in importantProps.Where(p => p != "question"))
             {
-                if (before.Properties.TryGetValue(prop, out var beforeVal) && 
+                if (before.Properties.TryGetValue(prop, out var beforeVal) &&
                     after.Properties.TryGetValue(prop, out var afterVal) &&
                     beforeVal?.ToString() != afterVal?.ToString())
                 {
                     importantChanges.Add(prop);
                 }
             }
-            
+
             if (importantChanges.Any())
             {
                 changes.Add($"properties changed: {string.Join(", ", importantChanges)}");
@@ -2047,7 +2047,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 changes.Add("properties changed");
             }
-            
+
             return changes;
         }
 

@@ -415,7 +415,7 @@ namespace FlowFlex.Application.Service.OW
             var workflowName = entity.Name; // Store name before deletion
 
             var result = await _workflowRepository.DeleteAsync(entity);
-            
+
             // Clear related cache after successful deletion
             if (result)
             {
@@ -439,7 +439,7 @@ namespace FlowFlex.Application.Service.OW
                     }
                 });
             }
-            
+
             return result;
         }
 
@@ -881,8 +881,8 @@ namespace FlowFlex.Application.Service.OW
                         Name = stageInput.Name,
                         Description = stageInput.Description,
                         DefaultAssignedGroup = stageInput.DefaultAssignedGroup,
-                        DefaultAssignee = stageInput.DefaultAssignee != null && stageInput.DefaultAssignee.Any() 
-                            ? string.Join(",", stageInput.DefaultAssignee) 
+                        DefaultAssignee = stageInput.DefaultAssignee != null && stageInput.DefaultAssignee.Any()
+                            ? string.Join(",", stageInput.DefaultAssignee)
                             : null,
                         EstimatedDuration = stageInput.EstimatedDuration,
                         Order = stageInput.Order,

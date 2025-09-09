@@ -139,7 +139,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 string operationTitle = $"Stage Updated: {stageName}";
-                
+
                 // Use enhanced description method that provides detailed change information
                 string operationDescription = BuildEnhancedStageOperationDescription(
                     stageName,
@@ -390,7 +390,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 // Get stage logs
                 var stageLogs = await _operationChangeLogRepository.GetByBusinessAsync(BusinessModuleEnum.Stage.ToString(), stageId);
-                
+
                 if (onboardingId.HasValue)
                 {
                     stageLogs = stageLogs.Where(x => x.OnboardingId == onboardingId.Value).ToList();
@@ -534,7 +534,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 string operationTitle = $"Stage Action Executed: {actionName}";
                 string operationDescription = $"Action '{actionName}' ({actionType}) has been executed on stage '{stageName}' by {GetOperatorDisplayName()}";
-                
+
                 if (onboardingId.HasValue)
                 {
                     operationDescription += " for onboarding";
@@ -591,16 +591,16 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
-                var beforeData = JsonSerializer.Serialize(new 
-                { 
-                    VisibleInPortal = beforeVisibleInPortal, 
-                    PortalPermission = beforePermission 
+                var beforeData = JsonSerializer.Serialize(new
+                {
+                    VisibleInPortal = beforeVisibleInPortal,
+                    PortalPermission = beforePermission
                 });
-                
-                var afterData = JsonSerializer.Serialize(new 
-                { 
-                    VisibleInPortal = afterVisibleInPortal, 
-                    PortalPermission = afterPermission 
+
+                var afterData = JsonSerializer.Serialize(new
+                {
+                    VisibleInPortal = afterVisibleInPortal,
+                    PortalPermission = afterPermission
                 });
 
                 var changedFields = new List<string>();
@@ -611,10 +611,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 string operationTitle = $"Stage Portal Settings Changed: {stageName}";
                 string operationDescription = BuildPortalPermissionChangeDescription(
-                    stageName, 
-                    beforeVisibleInPortal, 
-                    afterVisibleInPortal, 
-                    beforePermission, 
+                    stageName,
+                    beforeVisibleInPortal,
+                    afterVisibleInPortal,
+                    beforePermission,
                     afterPermission
                 );
 
@@ -675,8 +675,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 string operationTitle = $"Stage Components Changed: {stageName}";
                 string operationDescription = BuildComponentsChangeDescription(
-                    stageName, 
-                    beforeComponentsJson, 
+                    stageName,
+                    beforeComponentsJson,
                     afterComponentsJson
                 );
 
@@ -721,10 +721,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// Build enhanced stage operation description with detailed change information
         /// </summary>
         private string BuildEnhancedStageOperationDescription(
-            string stageName, 
-            string operationAction, 
-            string beforeData = null, 
-            string afterData = null, 
+            string stageName,
+            string operationAction,
+            string beforeData = null,
+            string afterData = null,
             List<string> changedFields = null,
             long? workflowId = null)
         {
@@ -767,18 +767,18 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 foreach (var field in changedFields.Take(3)) // Limit to first 3 changes
                 {
-                    if (beforeJson.TryGetValue(field, out var beforeValue) && 
+                    if (beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
                     {
                         if (field.Equals("ComponentsJson", StringComparison.OrdinalIgnoreCase))
                         {
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
-                            
-                            _stageLogger.LogDebug("Processing ComponentsJson change - Before: {BeforeJson}, After: {AfterJson}", 
-                                beforeJsonStr?.Substring(0, Math.Min(100, beforeJsonStr.Length)), 
+
+                            _stageLogger.LogDebug("Processing ComponentsJson change - Before: {BeforeJson}, After: {AfterJson}",
+                                beforeJsonStr?.Substring(0, Math.Min(100, beforeJsonStr.Length)),
                                 afterJsonStr?.Substring(0, Math.Min(100, afterJsonStr.Length)));
-                            
+
                             var componentsChange = GetComponentsChangeDetailsSummary(beforeJsonStr, afterJsonStr);
                             _stageLogger.LogDebug("Generated components change description: {ComponentsChange}", componentsChange);
                             changeList.Add(componentsChange);
@@ -799,7 +799,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
-                            
+
                             // Use the base class method for assignee change details
                             var assigneeChange = GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr).GetAwaiter().GetResult();
                             changeList.Add(assigneeChange);
@@ -834,7 +834,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeStr = GetDisplayValue(beforeValue, field);
                             var afterStr = GetDisplayValue(afterValue, field);
-                            
+
                             changeList.Add($"{field} from '{beforeStr}' to '{afterStr}'");
                         }
                     }
@@ -854,28 +854,28 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// Build portal permission change description
         /// </summary>
         private string BuildPortalPermissionChangeDescription(
-            string stageName, 
-            bool beforeVisibleInPortal, 
-            bool afterVisibleInPortal, 
-            string beforePermission, 
+            string stageName,
+            bool beforeVisibleInPortal,
+            bool afterVisibleInPortal,
+            string beforePermission,
             string afterPermission)
         {
             var changes = new List<string>();
-            
+
             if (beforeVisibleInPortal != afterVisibleInPortal)
             {
                 var beforeStr = beforeVisibleInPortal ? "visible" : "hidden";
                 var afterStr = afterVisibleInPortal ? "visible" : "hidden";
                 changes.Add($"portal visibility changed from {beforeStr} to {afterStr}");
             }
-            
+
             if (beforePermission != afterPermission)
             {
                 changes.Add($"portal permission changed from {beforePermission ?? "null"} to {afterPermission ?? "null"}");
             }
 
             var description = $"Stage '{stageName}' portal settings have been updated by {GetOperatorDisplayName()}";
-            
+
             if (changes.Any())
             {
                 description += $": {string.Join(", ", changes)}";
@@ -890,7 +890,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         private string BuildComponentsChangeDescription(string stageName, string beforeComponentsJson, string afterComponentsJson)
         {
             var description = $"Stage '{stageName}' components have been updated by {GetOperatorDisplayName()}";
-            
+
             var changeDetails = GetComponentsChangeDetailsSummary(beforeComponentsJson, afterComponentsJson);
             if (!string.IsNullOrEmpty(changeDetails))
             {
@@ -945,7 +945,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Find component key changes
                 var beforeKeys = beforeComponents.Select(c => c.Key).ToHashSet();
                 var afterKeys = afterComponents.Select(c => c.Key).ToHashSet();
-                
+
                 var addedKeys = afterKeys.Except(beforeKeys).Take(2).ToList();
                 var removedKeys = beforeKeys.Except(afterKeys).Take(2).ToList();
 
@@ -995,7 +995,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                     else
                     {
-                        _stageLogger.LogDebug("No component change detected for {ComponentKey} (Before: {BeforeCount}, After: {AfterCount})", 
+                        _stageLogger.LogDebug("No component change detected for {ComponentKey} (Before: {BeforeCount}, After: {AfterCount})",
                             key, beforeComps.Count, afterComps.Count);
                     }
                 }
@@ -1131,10 +1131,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     case "fields":
                         var beforeFields = beforeComps.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
                         var afterFields = afterComps.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
-                        
+
                         var addedFields = afterFields.Except(beforeFields).ToList();
                         var removedFields = beforeFields.Except(afterFields).ToList();
-                        
+
                         if (addedFields.Any())
                         {
                             changes.Add($"added fields: {string.Join(", ", addedFields.Take(3))}{(addedFields.Count > 3 ? ", etc." : "")}");
@@ -1148,10 +1148,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     case "checklist":
                         var beforeChecklistNames = beforeComps.SelectMany(c => c.ChecklistNames ?? new List<string>()).Distinct().ToList();
                         var afterChecklistNames = afterComps.SelectMany(c => c.ChecklistNames ?? new List<string>()).Distinct().ToList();
-                        
+
                         var addedChecklists = afterChecklistNames.Except(beforeChecklistNames).ToList();
                         var removedChecklists = beforeChecklistNames.Except(afterChecklistNames).ToList();
-                        
+
                         if (addedChecklists.Any())
                         {
                             changes.Add($"added checklists: {string.Join(", ", addedChecklists.Take(2).Select(n => $"'{n}'"))}{(addedChecklists.Count > 2 ? ", etc." : "")}");
@@ -1165,10 +1165,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     case "questionnaires":
                         var beforeQuestionnaireNames = beforeComps.SelectMany(c => c.QuestionnaireNames ?? new List<string>()).Distinct().ToList();
                         var afterQuestionnaireNames = afterComps.SelectMany(c => c.QuestionnaireNames ?? new List<string>()).Distinct().ToList();
-                        
+
                         var addedQuestionnaires = afterQuestionnaireNames.Except(beforeQuestionnaireNames).ToList();
                         var removedQuestionnaires = beforeQuestionnaireNames.Except(afterQuestionnaireNames).ToList();
-                        
+
                         if (addedQuestionnaires.Any())
                         {
                             changes.Add($"added questionnaires: {string.Join(", ", addedQuestionnaires.Take(2).Select(n => $"'{n}'"))}{(addedQuestionnaires.Count > 2 ? ", etc." : "")}");
@@ -1183,7 +1183,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         // For files component, check if enabled status changed
                         var beforeFilesEnabled = beforeComps.Any(c => c.IsEnabled);
                         var afterFilesEnabled = afterComps.Any(c => c.IsEnabled);
-                        
+
                         if (beforeFilesEnabled != afterFilesEnabled)
                         {
                             var statusChange = afterFilesEnabled ? "enabled" : "disabled";
@@ -1411,7 +1411,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Handle double JSON encoding scenario
                 // First, try to deserialize as a string (which contains the actual JSON array)
                 string actualJsonArray = componentsJson;
-                
+
                 // Check if it's double-encoded (starts and ends with quotes)
                 if (componentsJson.StartsWith("\"") && componentsJson.EndsWith("\""))
                 {
@@ -1429,7 +1429,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 // Now parse the actual JSON array
-                return JsonSerializer.Deserialize<List<Domain.Shared.Models.StageComponent>>(actualJsonArray) 
+                return JsonSerializer.Deserialize<List<Domain.Shared.Models.StageComponent>>(actualJsonArray)
                        ?? new List<Domain.Shared.Models.StageComponent>();
             }
             catch (Exception ex)
@@ -1484,8 +1484,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // This would call the action execution service to get action logs
                 // Implementation would depend on your action execution service interface
                 // For now, this is a placeholder
-                
-                _stageLogger.LogDebug("Added action executions for stage {StageId} with {SourceCount} source IDs", 
+
+                _stageLogger.LogDebug("Added action executions for stage {StageId} with {SourceCount} source IDs",
                     stageId, sourceIds.Count);
             }
             catch (Exception ex)

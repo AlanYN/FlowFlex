@@ -579,7 +579,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             {
                 // AI summary functionality has been removed from Stage entity
                 // AI summaries are now only stored in Onboarding stage progress
-                
+
                 // Only update Onboarding's stagesProgress if onboardingId is provided
                 if (onboardingId.HasValue)
                 {
