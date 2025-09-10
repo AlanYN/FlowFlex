@@ -9,6 +9,7 @@ export enum ActionType {
 	PYTHON_SCRIPT = 1,
 	HTTP_API = 2,
 	SEND_EMAIL = 3,
+	SYSTEM_TOOLS = 4,
 }
 
 // Action Type Mapping
@@ -16,6 +17,7 @@ export const ACTION_TYPE_MAPPING = {
 	[ActionType.PYTHON_SCRIPT]: 'Python Script',
 	[ActionType.HTTP_API]: 'HTTP API',
 	[ActionType.SEND_EMAIL]: 'Send Email',
+	[ActionType.SYSTEM_TOOLS]: 'System Tools',
 } as const;
 
 // Frontend to Backend Type Mapping

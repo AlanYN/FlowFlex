@@ -32,10 +32,10 @@
 						class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
 						v-loading="loading"
 					>
+						{{ selectedToolId }}
 						<el-scrollbar ref="scrollbarRefRight" class="h-full">
 							<!-- 选择模式 - 位于表单最前方 -->
 							<div
-								v-if="shouldShowConfigMode"
 								class="mode-selection-section mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border"
 							>
 								<div class="flex items-center gap-4">
@@ -48,14 +48,29 @@
 										v-model="configMode"
 										@change="handleConfigModeChange"
 									>
-										<el-radio value="useExisting" :disabled="props.isEditing">
+										<el-radio
+											:value="ToolsType.UseTool"
+											:disabled="props.isEditing"
+										>
 											<span class="text-sm">Use tool</span>
 										</el-radio>
-										<el-radio value="myAction" :disabled="props.isEditing">
+										<el-radio
+											:value="ToolsType.MyTool"
+											:disabled="props.isEditing"
+										>
 											<span class="text-sm">My action</span>
 										</el-radio>
-										<el-radio value="createAction" :disabled="props.isEditing">
+										<el-radio
+											:value="ToolsType.NewTool"
+											:disabled="props.isEditing"
+										>
 											<span class="text-sm">Create new action</span>
+										</el-radio>
+										<el-radio
+											:value="ToolsType.SystemTools"
+											:disabled="props.isEditing"
+										>
+											<span class="text-sm">System tools</span>
 										</el-radio>
 									</el-radio-group>
 								</div>
@@ -95,6 +110,7 @@
 							</div>
 
 							<el-form
+								v-if="configMode !== ToolsType.SystemTools"
 								ref="formRef"
 								:model="formData"
 								:rules="rules"
@@ -171,7 +187,7 @@
 								<div v-if="formData.type" class="action-config-section">
 									<!-- Python Script Configuration -->
 									<PythonConfig
-										v-if="formData.type === 'python'"
+										v-if="formData.type === ActionType.PYTHON_SCRIPT"
 										v-model="formData.actionConfig"
 										@test="onTest"
 										:testing="testing"
@@ -183,7 +199,7 @@
 
 									<!-- HTTP API Configuration -->
 									<HttpConfig
-										v-else-if="formData.type === 'http'"
+										v-else-if="formData.type === ActionType.HTTP_API"
 										v-model="formData.actionConfig"
 										@test="onTest"
 										:testing="testing"
@@ -238,7 +254,7 @@ import {
 	ACTION_TYPE_MAPPING,
 	addMappingAction,
 } from '@/apis/action';
-import { TriggerTypeEnum } from '@/enums/appEnum';
+import { TriggerTypeEnum, ToolsType } from '@/enums/appEnum';
 import { ActionItem, ActionDefinition, ActionQueryRequest } from '#/action';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
@@ -280,9 +296,13 @@ const httpConfigRef = ref(); // For getting HTTP config component reference
 const leftPanelVisible = ref(false); // Controls the visibility of the left variables panel
 
 // 配置模式状态
-type ConfigMode = 'useExisting' | 'createAction';
-const configMode = ref<ConfigMode>('useExisting'); // 配置模式，默认使用已有工具
-const useExistingTool = computed(() => configMode.value === 'useExisting'); // 是否使用已有工具
+const configMode = ref<ToolsType>(ToolsType.UseTool); // 配置模式，默认使用已有工具
+const useExistingTool = computed(
+	() =>
+		configMode.value === ToolsType.UseTool ||
+		configMode.value === ToolsType.SystemTools ||
+		configMode.value === ToolsType.MyTool
+); // 是否使用已有工具
 const selectedToolId = ref(''); // 选中的工具 ID
 const loadingExistingTools = ref(false); // 加载已有工具列表状态
 const existingToolsList = ref<ActionDefinition[]>([]); // 已有工具列表
@@ -290,7 +310,7 @@ const existingToolsList = ref<ActionDefinition[]>([]); // 已有工具列表
 const formData = reactive<ActionItem>({
 	id: '',
 	name: '',
-	type: 'python',
+	type: ActionType.PYTHON_SCRIPT,
 	description: '',
 	condition: 'Stage Completed',
 	isTools: false, // 新建时默认为 true（工具模式），允许用户选择
@@ -303,22 +323,8 @@ const visible = computed({
 	set: (value) => emit('update:modelValue', value),
 });
 
-// 监听弹窗打开状态，自动加载已有工具列表
-watch(visible, async (newVisible) => {
-	if (newVisible && useExistingTool.value && existingToolsList.value.length === 0) {
-		// 当弹窗打开且处于使用已有工具模式时，自动加载工具列表
-		await loadExistingTools();
-	}
-});
-
 const dialogTitle = computed(() => {
 	return props.isEditing ? 'Edit Action' : 'Add New Action';
-});
-
-// 控制是否显示配置模式区域
-const shouldShowConfigMode = computed(() => {
-	// 新建时（没有传入 action），总是显示 Configuration Mode 让用户选择
-	return !props.action && !props.forceEditable;
 });
 
 // 计算是否应该禁用表单字段
@@ -334,10 +340,10 @@ const shouldDisableFields = computed(() => {
 	}
 
 	// 新建状态：根据选择的配置模式决定
-	if (configMode.value === 'createAction') {
+	if (configMode.value === ToolsType.NewTool) {
 		return false; // 创建普通 Action，允许编辑
 	}
-	if (configMode.value === 'useExisting') {
+	if (configMode.value === ToolsType.UseTool) {
 		return true; // 使用已有工具时，表单应该被禁用
 	}
 
@@ -364,13 +370,13 @@ const showVariablesPanel = () => {
 const actionTypes = [
 	{
 		label: 'Python Script',
-		value: 'python',
+		value: ActionType.PYTHON_SCRIPT,
 		icon: Operation,
 		description: 'Execute custom Python code when stage completes',
 	},
 	{
 		label: 'HTTP API',
-		value: 'http',
+		value: ActionType.HTTP_API,
 		icon: Connection,
 		description: 'Send HTTP request to external API endpoint',
 	},
@@ -383,15 +389,15 @@ const rules = {
 	condition: [{ required: true, message: 'Please select condition', trigger: 'change' }],
 };
 
-const getDefaultConfig = (type: string) => {
-	if (type === 'python') {
+const getDefaultConfig = (type: ActionType) => {
+	if (type === ActionType.PYTHON_SCRIPT) {
 		return {
 			sourceCode: `def main(onboardingId: str):
     return {
         "greeting": f"{onboardingId}!",
     }`,
 		};
-	} else if (type === 'http') {
+	} else if (type === ActionType.HTTP_API) {
 		return {
 			url: '',
 			method: 'GET',
@@ -410,11 +416,11 @@ const getDefaultConfig = (type: string) => {
 const resetForm = () => {
 	formData.id = '';
 	formData.name = '';
-	formData.type = 'python';
+	formData.type = ActionType.PYTHON_SCRIPT;
 	formData.description = '';
 	formData.isTools = false; // 新建时默认为工具模式
 	visible.value = false;
-	formData.actionConfig = getDefaultConfig('python');
+	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 	testResult.value = null;
 
 	// 重置选择已有工具的状态
@@ -422,23 +428,10 @@ const resetForm = () => {
 	existingToolsList.value = [];
 
 	// 重置配置模式为默认值
-	configMode.value = 'useExisting';
+	configMode.value = ToolsType.UseTool;
 };
 
-// Watch for action prop changes
-watch(
-	() => props.action,
-	(newAction) => {
-		if (newAction) {
-			Object.assign(formData, { ...newAction });
-		} else {
-			resetForm();
-		}
-	},
-	{ immediate: true, deep: true }
-);
-
-const handleActionTypeChange = (type: string) => {
+const handleActionTypeChange = (type: ActionType) => {
 	formData.actionConfig = getDefaultConfig(type);
 };
 
@@ -448,25 +441,37 @@ const getActionTypeName = (actionType: number) => {
 };
 
 // 处理模式变化
-const handleConfigModeChange = async (mode: ConfigMode) => {
+const handleConfigModeChange = async (mode: ToolsType) => {
 	// 清空当前选择
 	selectedToolId.value = '';
+	await changeConfigModeChange(mode);
+	resetFormData();
+};
 
-	if (mode === 'useExisting') {
+const changeConfigModeChange = async (mode: ToolsType) => {
+	if (mode === ToolsType.UseTool) {
 		// 使用已有工具：加载工具列表
-		await loadExistingTools();
+		await loadExistingTools(true);
 		formData.isTools = true;
-		resetFormData();
-	} else if (mode === 'createAction') {
+		selectedToolId.value = formData.id;
+	} else if (mode === ToolsType.MyTool) {
+		await loadExistingTools(false);
+		formData.isTools = false;
+		selectedToolId.value = formData.id;
+	} else if (mode === ToolsType.NewTool) {
 		// 创建普通 Action：清空列表，设置为非工具模式
 		existingToolsList.value = [];
 		formData.isTools = false;
-		resetFormData();
+		selectedToolId.value = '';
+	} else if (mode === ToolsType.SystemTools) {
+		await loadExistingTools(false, true);
+		formData.isTools = true;
+		selectedToolId.value = formData.id;
 	}
 };
 
 // 加载已有工具列表
-const loadExistingTools = async () => {
+const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 	try {
 		loadingExistingTools.value = true;
 
@@ -474,18 +479,15 @@ const loadExistingTools = async () => {
 		const params: ActionQueryRequest = {
 			pageIndex: 1,
 			pageSize: 1000, // 获取足够多的数据
-			isTools: true,
+			isTools: isTools,
+			isSystemTools: isSystemTools,
 		};
 
 		const response = await getActionDefinitions(params);
 
 		if (response.code === '200' && response.success) {
 			// 过滤出标记为工具的 action
-			existingToolsList.value =
-				response.data.data?.filter((item: ActionDefinition) => {
-					// 这里假设有一个字段标识是否为工具，如果没有则显示所有
-					return true; // 临时显示所有，后续可根据实际字段调整
-				}) || [];
+			existingToolsList.value = response.data?.data || [];
 		} else {
 			ElMessage.error('Failed to load existing tools');
 			existingToolsList.value = [];
@@ -498,6 +500,24 @@ const loadExistingTools = async () => {
 		loadingExistingTools.value = false;
 	}
 };
+
+// Watch for action prop changes
+watch(
+	() => props.action,
+	(newAction) => {
+		if (newAction) {
+			Object.assign(formData, { ...newAction });
+			if (formData.type === ActionType.SYSTEM_TOOLS) {
+				configMode.value = ToolsType.SystemTools;
+			}
+			console.log('formData:', formData);
+			changeConfigModeChange(configMode.value);
+		} else {
+			resetForm();
+		}
+	},
+	{ immediate: true, deep: true }
+);
 
 // 处理选择已有工具
 const handleExistingToolSelect = async (toolId: string) => {
@@ -517,7 +537,7 @@ const handleExistingToolSelect = async (toolId: string) => {
 			// 填充表单数据（只读模式）
 			formData.name = toolDetail.name || '';
 			formData.description = toolDetail.description || '';
-			formData.type = toolDetail.actionType === ActionType.PYTHON_SCRIPT ? 'python' : 'http';
+			formData.type = toolDetail.actionType;
 			formData.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
 			formData.id = toolDetail.id;
 			formData.isTools = true;
@@ -536,8 +556,8 @@ const handleExistingToolSelect = async (toolId: string) => {
 const resetFormData = () => {
 	formData.name = '';
 	formData.description = '';
-	formData.type = 'python';
-	formData.actionConfig = getDefaultConfig('python');
+	formData.type = ActionType.PYTHON_SCRIPT;
+	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 };
 
 // Handle test result - 参考 detail.vue 的 handleTestResult 逻辑
@@ -547,7 +567,7 @@ const onTest = async () => {
 		testResult.value = null;
 		// Execute test
 		const testOutput = await testRunActionNoId({
-			actionType: formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
+			actionType: formData.type,
 			actionConfig: JSON.stringify(formData.actionConfig),
 		});
 
@@ -560,14 +580,20 @@ const onTest = async () => {
 };
 
 const onSave = async () => {
-	if (!formRef.value) return;
-
 	try {
-		await formRef.value.validate();
+		if (configMode.value !== ToolsType.SystemTools) {
+			if (!formRef.value) return;
+			await formRef.value.validate();
+		}
 		saving.value = true;
-
 		// 判断是编辑模式还是新建模式，以及是否使用已有工具
-		if (!props.action && configMode.value === 'useExisting' && !props.forceEditable) {
+		if (
+			!props.action &&
+			(configMode.value === ToolsType.UseTool ||
+				configMode.value === ToolsType.SystemTools ||
+				configMode.value === ToolsType.MyTool) &&
+			!props.forceEditable
+		) {
 			// 新建模式 + 使用已有工具：创建映射关系
 			if (!selectedToolId.value) {
 				ElMessage.error('Please select an existing tool');
@@ -591,12 +617,12 @@ const onSave = async () => {
 			}
 		} else {
 			// 编辑模式 或 新建模式下的创建新工具/普通Action：验证并保存
-			if (formData.type === 'python' && !formData.actionConfig.sourceCode) {
+			if (formData.type === ActionType.PYTHON_SCRIPT && !formData.actionConfig.sourceCode) {
 				ElMessage.error('Please enter Python script code');
 				return;
 			}
 
-			if (formData.type === 'http' && !formData.actionConfig.url) {
+			if (formData.type === ActionType.HTTP_API && !formData.actionConfig.url) {
 				ElMessage.error('Please enter HTTP API URL');
 				return;
 			}
@@ -604,12 +630,12 @@ const onSave = async () => {
 			// 根据 action type 准备不同的 actionConfig
 			let cleanActionConfig: any = {};
 
-			if (formData.type === 'python') {
+			if (formData.type === ActionType.PYTHON_SCRIPT) {
 				// Python 类型只需要 sourceCode
 				cleanActionConfig = {
 					sourceCode: formData.actionConfig.sourceCode,
 				};
-			} else if (formData.type === 'http') {
+			} else if (formData.type === ActionType.HTTP_API) {
 				// HTTP 类型需要符合 HttpApiConfigDto 的字段
 				cleanActionConfig = {
 					...formData.actionConfig,
@@ -627,8 +653,7 @@ const onSave = async () => {
 				...formData,
 				actionConfig: JSON.stringify(cleanActionConfig),
 				workflowId: props?.workflowId || null,
-				actionType:
-					formData.type === 'python' ? ActionType.PYTHON_SCRIPT : ActionType.HTTP_API,
+				actionType: formData.type,
 				triggerSourceId: props?.triggerSourceId || null,
 				triggerType: props?.triggerType || null,
 			};

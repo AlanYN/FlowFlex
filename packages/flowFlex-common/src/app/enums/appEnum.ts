@@ -209,3 +209,10 @@ export enum StageComponentPortal {
 	Viewable = 1,
 	Completable = 2,
 }
+
+export enum ToolsType {
+	UseTool = 1,
+	MyTool = 2,
+	NewTool = 3,
+	SystemTools = 4,
+}

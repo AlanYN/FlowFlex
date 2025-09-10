@@ -1,3 +1,5 @@
+import { ActionType } from '@/apis/action';
+
 export interface ActionDefinition {
 	id?: string;
 	actionCode?: string;
@@ -40,6 +42,7 @@ export interface ActionQueryRequest {
 	pageIndex?: number;
 	pageSize?: number;
 	isTools?: boolean;
+	isSystemTools?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -63,7 +66,7 @@ export interface ActionConfig {
 export interface ActionItem {
 	id: string;
 	name: string;
-	type: 'python' | 'http';
+	type: ActionType;
 	description: string;
 	condition: string;
 	actionConfig: ActionConfig;
