@@ -66,7 +66,7 @@ export interface ActionConfig {
 export interface ActionItem {
 	id: string;
 	name: string;
-	type: ActionType;
+	actionType: ActionType;
 	description: string;
 	condition: string;
 	actionConfig: ActionConfig;

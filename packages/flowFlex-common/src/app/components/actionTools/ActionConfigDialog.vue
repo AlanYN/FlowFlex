@@ -16,6 +16,7 @@
 			:size="drawerSize"
 			direction="rtl"
 			@close="onCancel"
+			@opened="opened"
 		>
 			<el-scrollbar class="action-config-scrollbar">
 				<div class="flex gap-4 w-full h-full min-h-0">
@@ -23,7 +24,7 @@
 						<el-scrollbar ref="scrollbarRefLeft" class="h-full">
 							<VariablesPanel
 								:stage-id="triggerSourceId"
-								:action-type="formData.type"
+								:action-actionType="formData.actionType"
 							/>
 						</el-scrollbar>
 					</div>
@@ -32,10 +33,10 @@
 						class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
 						v-loading="loading"
 					>
-						{{ selectedToolId }}
 						<el-scrollbar ref="scrollbarRefRight" class="h-full">
 							<!-- 选择模式 - 位于表单最前方 -->
 							<div
+								v-if="!isConfigModeDisabled"
 								class="mode-selection-section mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border"
 							>
 								<div class="flex items-center gap-4">
@@ -47,30 +48,31 @@
 									<el-radio-group
 										v-model="configMode"
 										@change="handleConfigModeChange"
+										:disabled="isConfigModeDisabled"
 									>
 										<el-radio
 											:value="ToolsType.UseTool"
-											:disabled="props.isEditing"
+											:disabled="props.isEditing || isConfigModeDisabled"
 										>
 											<span class="text-sm">Use tool</span>
 										</el-radio>
 										<el-radio
 											:value="ToolsType.MyTool"
-											:disabled="props.isEditing"
+											:disabled="props.isEditing || isConfigModeDisabled"
 										>
 											<span class="text-sm">My action</span>
 										</el-radio>
 										<el-radio
 											:value="ToolsType.NewTool"
-											:disabled="props.isEditing"
+											:disabled="props.isEditing || isConfigModeDisabled"
 										>
 											<span class="text-sm">Create new action</span>
 										</el-radio>
 										<el-radio
 											:value="ToolsType.SystemTools"
-											:disabled="props.isEditing"
+											:disabled="props.isEditing || isConfigModeDisabled"
 										>
-											<span class="text-sm">System tools</span>
+											<span class="text-sm">System tool</span>
 										</el-radio>
 									</el-radio-group>
 								</div>
@@ -91,6 +93,7 @@
 										:loading="loadingExistingTools"
 										@change="handleExistingToolSelect"
 										class="w-full"
+										:disabled="isConfigModeDisabled"
 									>
 										<el-option
 											v-for="tool in existingToolsList"
@@ -100,7 +103,7 @@
 										>
 											<div class="flex justify-between items-center">
 												<span>{{ tool.name }}</span>
-												<el-tag size="small" type="info">
+												<el-tag size="small" actionType="info">
 													{{ getActionTypeName(tool.actionType) }}
 												</el-tag>
 											</div>
@@ -143,24 +146,24 @@
 								<el-form-item label="Description" prop="description">
 									<el-input
 										v-model="formData.description"
-										type="textarea"
+										actionType="textarea"
 										:rows="3"
 										placeholder="Enter action description"
 										:disabled="shouldDisableFields"
 									/>
 								</el-form-item>
 
-								<el-form-item label="Action Type" prop="type">
+								<el-form-item label="Action Type" prop="actionType">
 									<el-radio-group
-										v-model="formData.type"
+										v-model="formData.actionType"
 										@change="handleActionTypeChange"
 										:disabled="shouldDisableFields"
 									>
 										<el-radio
-											v-for="type in actionTypes"
-											:key="type.value"
-											:value="type.value"
-											class="action-type-option"
+											v-for="actionType in actionTypes"
+											:key="actionType.value"
+											:value="actionType.value"
+											class="action-actionType-option"
 											:disabled="isEditing || shouldDisableFields"
 										>
 											<div class="flex items-center space-x-3">
@@ -168,14 +171,14 @@
 													class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
 												>
 													<el-icon class="text-primary-500" size="20">
-														<component :is="type.icon" />
+														<component :is="actionType.icon" />
 													</el-icon>
 												</div>
 												<div class="flex">
 													<span
 														class="font-medium text-gray-900 dark:text-white"
 													>
-														{{ type.label }}
+														{{ actionType.label }}
 													</span>
 												</div>
 											</div>
@@ -184,10 +187,10 @@
 								</el-form-item>
 
 								<!-- Action Configuration -->
-								<div v-if="formData.type" class="action-config-section">
+								<div v-if="formData.actionType" class="action-config-section">
 									<!-- Python Script Configuration -->
 									<PythonConfig
-										v-if="formData.type === ActionType.PYTHON_SCRIPT"
+										v-if="formData.actionType === ActionType.PYTHON_SCRIPT"
 										v-model="formData.actionConfig"
 										@test="onTest"
 										:testing="testing"
@@ -199,7 +202,7 @@
 
 									<!-- HTTP API Configuration -->
 									<HttpConfig
-										v-else-if="formData.type === ActionType.HTTP_API"
+										v-else-if="formData.actionType === ActionType.HTTP_API"
 										v-model="formData.actionConfig"
 										@test="onTest"
 										:testing="testing"
@@ -226,7 +229,7 @@
 			<template #footer>
 				<div class="dialog-footer">
 					<el-button @click="onCancel">Cancel</el-button>
-					<el-button type="primary" @click="onSave" :loading="saving">
+					<el-button actionType="primary" @click="onSave" :loading="saving">
 						{{ isEditing ? 'Update' : 'Add' }} Action
 					</el-button>
 				</div>
@@ -310,7 +313,7 @@ const existingToolsList = ref<ActionDefinition[]>([]); // 已有工具列表
 const formData = reactive<ActionItem>({
 	id: '',
 	name: '',
-	type: ActionType.PYTHON_SCRIPT,
+	actionType: ActionType.PYTHON_SCRIPT,
 	description: '',
 	condition: 'Stage Completed',
 	isTools: false, // 新建时默认为 true（工具模式），允许用户选择
@@ -350,6 +353,12 @@ const shouldDisableFields = computed(() => {
 	return false;
 });
 
+// 计算是否应该禁用配置模式选择
+const isConfigModeDisabled = computed(() => {
+	// 如果 forceEditable 为 true，禁用配置模式选择
+	return props.forceEditable;
+});
+
 const drawerSize = computed(() => {
 	return leftPanelVisible.value ? '80%' : '40%';
 });
@@ -385,19 +394,19 @@ const actionTypes = [
 // Form Rules
 const rules = {
 	name: [{ required: true, message: 'Please enter action name', trigger: 'blur' }],
-	type: [{ required: true, message: 'Please select action type', trigger: 'change' }],
+	actionType: [{ required: true, message: 'Please select action actionType', trigger: 'change' }],
 	condition: [{ required: true, message: 'Please select condition', trigger: 'change' }],
 };
 
-const getDefaultConfig = (type: ActionType) => {
-	if (type === ActionType.PYTHON_SCRIPT) {
+const getDefaultConfig = (actionType: ActionType) => {
+	if (actionType === ActionType.PYTHON_SCRIPT) {
 		return {
 			sourceCode: `def main(onboardingId: str):
     return {
         "greeting": f"{onboardingId}!",
     }`,
 		};
-	} else if (type === ActionType.HTTP_API) {
+	} else if (actionType === ActionType.HTTP_API) {
 		return {
 			url: '',
 			method: 'GET',
@@ -416,7 +425,7 @@ const getDefaultConfig = (type: ActionType) => {
 const resetForm = () => {
 	formData.id = '';
 	formData.name = '';
-	formData.type = ActionType.PYTHON_SCRIPT;
+	formData.actionType = ActionType.PYTHON_SCRIPT;
 	formData.description = '';
 	formData.isTools = false; // 新建时默认为工具模式
 	visible.value = false;
@@ -428,11 +437,16 @@ const resetForm = () => {
 	existingToolsList.value = [];
 
 	// 重置配置模式为默认值
-	configMode.value = ToolsType.UseTool;
+	// 如果 forceEditable 为 true 且没有 action，设置为 NewTool 模式
+	if (props.forceEditable && !props.action) {
+		configMode.value = ToolsType.NewTool;
+	} else {
+		configMode.value = ToolsType.UseTool;
+	}
 };
 
-const handleActionTypeChange = (type: ActionType) => {
-	formData.actionConfig = getDefaultConfig(type);
+const handleActionTypeChange = (actionType: ActionType) => {
+	formData.actionConfig = getDefaultConfig(actionType);
 };
 
 // Action Type 名称映射方法
@@ -449,6 +463,7 @@ const handleConfigModeChange = async (mode: ToolsType) => {
 };
 
 const changeConfigModeChange = async (mode: ToolsType) => {
+	console.log('mode:', mode);
 	if (mode === ToolsType.UseTool) {
 		// 使用已有工具：加载工具列表
 		await loadExistingTools(true);
@@ -505,18 +520,38 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 watch(
 	() => props.action,
 	(newAction) => {
+		console.log('newAction:', newAction);
 		if (newAction) {
-			Object.assign(formData, { ...newAction });
-			if (formData.type === ActionType.SYSTEM_TOOLS) {
+			Object.keys(formData).forEach((key) => {
+				formData[key] =
+					newAction[key] == undefined || newAction[key] == null
+						? formData[key]
+						: newAction[key];
+			});
+			if (formData.actionType === ActionType.SYSTEM_TOOLS) {
 				configMode.value = ToolsType.SystemTools;
+			} else {
+				configMode.value = newAction.isTools ? ToolsType.UseTool : ToolsType.MyTool;
 			}
-			console.log('formData:', formData);
 			changeConfigModeChange(configMode.value);
 		} else {
 			resetForm();
 		}
 	},
 	{ immediate: true, deep: true }
+);
+
+// Watch for forceEditable prop changes
+watch(
+	() => props.forceEditable,
+	(forceEditable) => {
+		if (forceEditable && !props.action) {
+			// 如果 forceEditable 为 true 且没有 action，强制设置为 NewTool 模式
+			configMode.value = ToolsType.NewTool;
+			changeConfigModeChange(ToolsType.NewTool);
+		}
+	},
+	{ immediate: true }
 );
 
 // 处理选择已有工具
@@ -537,7 +572,7 @@ const handleExistingToolSelect = async (toolId: string) => {
 			// 填充表单数据（只读模式）
 			formData.name = toolDetail.name || '';
 			formData.description = toolDetail.description || '';
-			formData.type = toolDetail.actionType;
+			formData.actionType = toolDetail.actionType;
 			formData.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
 			formData.id = toolDetail.id;
 			formData.isTools = true;
@@ -556,7 +591,7 @@ const handleExistingToolSelect = async (toolId: string) => {
 const resetFormData = () => {
 	formData.name = '';
 	formData.description = '';
-	formData.type = ActionType.PYTHON_SCRIPT;
+	formData.actionType = ActionType.PYTHON_SCRIPT;
 	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 };
 
@@ -567,7 +602,7 @@ const onTest = async () => {
 		testResult.value = null;
 		// Execute test
 		const testOutput = await testRunActionNoId({
-			actionType: formData.type,
+			actionType: formData.actionType,
 			actionConfig: JSON.stringify(formData.actionConfig),
 		});
 
@@ -617,25 +652,28 @@ const onSave = async () => {
 			}
 		} else {
 			// 编辑模式 或 新建模式下的创建新工具/普通Action：验证并保存
-			if (formData.type === ActionType.PYTHON_SCRIPT && !formData.actionConfig.sourceCode) {
+			if (
+				formData.actionType === ActionType.PYTHON_SCRIPT &&
+				!formData.actionConfig.sourceCode
+			) {
 				ElMessage.error('Please enter Python script code');
 				return;
 			}
 
-			if (formData.type === ActionType.HTTP_API && !formData.actionConfig.url) {
+			if (formData.actionType === ActionType.HTTP_API && !formData.actionConfig.url) {
 				ElMessage.error('Please enter HTTP API URL');
 				return;
 			}
 
-			// 根据 action type 准备不同的 actionConfig
+			// 根据 action actionType 准备不同的 actionConfig
 			let cleanActionConfig: any = {};
 
-			if (formData.type === ActionType.PYTHON_SCRIPT) {
+			if (formData.actionType === ActionType.PYTHON_SCRIPT) {
 				// Python 类型只需要 sourceCode
 				cleanActionConfig = {
 					sourceCode: formData.actionConfig.sourceCode,
 				};
-			} else if (formData.type === ActionType.HTTP_API) {
+			} else if (formData.actionType === ActionType.HTTP_API) {
 				// HTTP 类型需要符合 HttpApiConfigDto 的字段
 				cleanActionConfig = {
 					...formData.actionConfig,
@@ -653,7 +691,7 @@ const onSave = async () => {
 				...formData,
 				actionConfig: JSON.stringify(cleanActionConfig),
 				workflowId: props?.workflowId || null,
-				actionType: formData.type,
+				actionType: formData.actionType,
 				triggerSourceId: props?.triggerSourceId || null,
 				triggerType: props?.triggerType || null,
 			};
@@ -678,6 +716,14 @@ const onCancel = () => {
 	visible.value = false;
 	resetForm();
 	emit('cancel');
+};
+
+const opened = () => {
+	nextTick(() => {
+		if (!props.action) {
+			changeConfigModeChange(configMode.value);
+		}
+	});
 };
 
 const resetScrollbarHeight = () => {
@@ -813,6 +859,10 @@ defineExpose({
 .action-config-drawer {
 	:deep(.el-drawer__footer) {
 		@apply p-0;
+	}
+
+	:deep(.el-drawer__header) {
+		margin-bottom: 0;
 	}
 }
 
