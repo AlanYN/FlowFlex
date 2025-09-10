@@ -6,7 +6,7 @@ namespace FlowFlex.Application.Contracts.Options
     public class EmailOptions
     {
         /// <summary>
-        /// SMTP服务�?
+        /// SMTP服务�?
         /// </summary>
         public string SmtpServer { get; set; }
 
@@ -21,17 +21,17 @@ namespace FlowFlex.Application.Contracts.Options
         public bool EnableSsl { get; set; }
 
         /// <summary>
-        /// 发件人邮�?
+        /// 发件人邮�?
         /// </summary>
         public string FromEmail { get; set; }
 
         /// <summary>
-        /// 发件人显示名�?
+        /// 发件人显示名�?
         /// </summary>
         public string FromName { get; set; }
 
         /// <summary>
-        /// 用户�?
+        /// 用户�?
         /// </summary>
         public string Username { get; set; }
 

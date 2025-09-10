@@ -139,7 +139,10 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             Order = existingTask.Order,
             EstimatedHours = existingTask.EstimatedHours,
             DueDate = existingTask.DueDate,
-            DependsOnTaskId = existingTask.DependsOnTaskId
+            DependsOnTaskId = existingTask.DependsOnTaskId,
+            ActionId = existingTask.ActionId,
+            ActionName = existingTask.ActionName,
+            ActionMappingId = existingTask.ActionMappingId
         };
 
         // Validate dependent task if specified
@@ -169,7 +172,10 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             originalTask.Order != existingTask.Order ||
             originalTask.EstimatedHours != existingTask.EstimatedHours ||
             originalTask.DueDate != existingTask.DueDate ||
-            originalTask.DependsOnTaskId != existingTask.DependsOnTaskId;
+            originalTask.DependsOnTaskId != existingTask.DependsOnTaskId ||
+            originalTask.ActionId != existingTask.ActionId ||
+            originalTask.ActionName != existingTask.ActionName ||
+            originalTask.ActionMappingId != existingTask.ActionMappingId;
 
         if (!hasChanges)
         {

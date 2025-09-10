@@ -1377,7 +1377,7 @@ const handleExport = async () => {
 			.replace(/[-:]/g, '')
 			.replace('T', '_');
 		const fileNameSuffix = selectedItems.value.length > 0 ? 'Selected' : 'Filtered';
-		link.download = `Onboarding_List_${fileNameSuffix}_${timestamp}.xlsx`;
+		link.download = `Cases_${fileNameSuffix}_${timestamp}.xlsx`;
 
 		// 触发下载
 		document.body.appendChild(link);

@@ -8,16 +8,22 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
     public class OnboardingExportDto
     {
         /// <summary>
+        /// Customer Name
+        /// </summary>
+        [ExcelColumn(Name = "Customer Name")]
+        public string CustomerName { get; set; }
+
+        /// <summary>
         /// Lead ID
         /// </summary>
         [ExcelColumn(Name = "Lead ID")]
         public string Id { get; set; }
 
         /// <summary>
-        /// Company/Contact Name
+        /// Contact Name
         /// </summary>
-        [ExcelColumn(Name = "Company/Contact Name")]
-        public string CompanyName { get; set; }
+        [ExcelColumn(Name = "Contact Name")]
+        public string ContactName { get; set; }
 
         /// <summary>
         /// Life Cycle Stage
@@ -26,15 +32,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string LifeCycleStage { get; set; }
 
         /// <summary>
-        /// Onboard Workflow
+        /// Workflow
         /// </summary>
-        [ExcelColumn(Name = "Onboard Workflow")]
+        [ExcelColumn(Name = "Workflow")]
         public string WorkFlow { get; set; }
 
         /// <summary>
-        /// Onboard Stage
+        /// Stage
         /// </summary>
-        [ExcelColumn(Name = "Onboard Stage")]
+        [ExcelColumn(Name = "Stage")]
         public string OnboardStage { get; set; }
 
         /// <summary>
@@ -44,10 +50,22 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string Priority { get; set; }
 
         /// <summary>
-        /// Timeline
+        /// Status
         /// </summary>
-        [ExcelColumn(Name = "Timeline")]
-        public string Timeline { get; set; }
+        [ExcelColumn(Name = "Status")]
+        public string Status { get; set; }
+
+        /// <summary>
+        /// Start Date
+        /// </summary>
+        [ExcelColumn(Name = "Start Date")]
+        public string StartDate { get; set; }
+
+        /// <summary>
+        /// End Date
+        /// </summary>
+        [ExcelColumn(Name = "End Date")]
+        public string EndDate { get; set; }
 
         /// <summary>
         /// Updated By

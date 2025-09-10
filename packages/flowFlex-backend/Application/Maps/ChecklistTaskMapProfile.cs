@@ -28,8 +28,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CompletionNotes, opt => opt.Ignore())
                 .ForMember(dest => dest.ActualHours, opt => opt.Ignore())
                 .ForMember(dest => dest.IsCompleted, opt => opt.Ignore())
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "Pending"))
+                // Status field will be mapped automatically now since it exists in InputDto
                 .ForMember(dest => dest.AssigneeJson, opt => opt.MapFrom(src => SerializeAssignee(src.Assignee)))
+                // Map Action-related fields to support clearing them
+                .ForMember(dest => dest.ActionId, opt => opt.MapFrom(src => src.ActionId))
+                .ForMember(dest => dest.ActionName, opt => opt.MapFrom(src => src.ActionName))
+                .ForMember(dest => dest.ActionMappingId, opt => opt.MapFrom(src => src.ActionMappingId))
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateDate, opt => opt.Ignore())

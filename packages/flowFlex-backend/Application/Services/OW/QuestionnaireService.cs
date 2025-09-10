@@ -952,6 +952,7 @@ namespace FlowFlex.Application.Service.OW
                     var obj = new Dictionary<string, object>();
                     bool hasId = false;
                     bool needsId = false;
+                    bool isActionObject = false;
 
                     // First pass: check if this object needs an ID and if it already has one
                     string objectType = null;
@@ -960,6 +961,20 @@ namespace FlowFlex.Application.Service.OW
                         if (property.Name == "id")
                         {
                             hasId = true;
+                        }
+                        // Detect if this is an action object
+                        else if (property.Name == "name" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            // Check if this looks like an action object by checking for typical action properties
+                            var hasActionId = element.EnumerateObject().Any(p => p.Name == "id");
+                            var propertyCount = element.EnumerateObject().Count();
+                            // Action objects typically have id and name, and sometimes very few other properties
+                            if (hasActionId && propertyCount <= 4)
+                            {
+                                isActionObject = true;
+                                objectType = "action";
+                                Console.WriteLine($"[QuestionnaireService] Detected action object with name: {property.Value.GetString()}");
+                            }
                         }
                         // Detect object type based on properties
                         else if (property.Name == "questions" && property.Value.ValueKind == JsonValueKind.Array)
@@ -991,7 +1006,7 @@ namespace FlowFlex.Application.Service.OW
                         // Also check for other identifying properties
                         else if (property.Name == "title" || property.Name == "order")
                         {
-                            if (objectType == null)
+                            if (objectType == null && !isActionObject)
                             {
                                 needsId = true; // Generic object that might need an ID
                             }
@@ -1004,13 +1019,19 @@ namespace FlowFlex.Application.Service.OW
                         var key = property.Name;
                         var value = property.Value;
 
-                        // Normalize ID fields to use snowflake IDs
+                        // Handle ID fields
                         if (key == "id" && value.ValueKind == JsonValueKind.String)
                         {
                             var originalId = value.GetString();
                             string newId;
 
-                            if (!string.IsNullOrEmpty(originalId))
+                            // Preserve action IDs - do not normalize them
+                            if (isActionObject)
+                            {
+                                newId = originalId;
+                                Console.WriteLine($"[QuestionnaireService] Preserving action ID: {originalId}");
+                            }
+                            else if (!string.IsNullOrEmpty(originalId))
                             {
                                 // Check if ID is already a snowflake ID (pure number)
                                 if (long.TryParse(originalId, out _))
@@ -1041,7 +1062,10 @@ namespace FlowFlex.Application.Service.OW
                             }
 
                             obj[key] = newId;
-                            usedIds.Add(newId);
+                            if (!isActionObject) // Don't track action IDs to avoid conflicts
+                            {
+                                usedIds.Add(newId);
+                            }
                         }
                         else
                         {
@@ -1050,7 +1074,7 @@ namespace FlowFlex.Application.Service.OW
                     }
 
                     // If this object needs an ID but doesn't have one, generate it
-                    if (needsId && !hasId)
+                    if (needsId && !hasId && !isActionObject)
                     {
                         var newId = GenerateUniqueSnowflakeId(usedIds);
                         obj["id"] = newId;

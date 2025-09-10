@@ -3680,13 +3680,16 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
+                CustomerName = item.LeadName,
                 Id = item.LeadId,
-                CompanyName = item.LeadName,
+                ContactName = item.ContactPerson,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
-                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                Status = GetDisplayStatus(item.Status),
+                StartDate = FormatDateForExport(item.CurrentStageStartTime),
+                EndDate = FormatDateForExport(item.CurrentStageEndTime),
                 // Keep consistency with frontend index.vue display logic:
                 // Updated By => stageUpdatedBy || modifyBy
                 // Update Time => stageUpdatedTime || modifyDate
@@ -3697,17 +3700,20 @@ namespace FlowFlex.Application.Services.OW
 
             // Generate CSV content
             var csvContent = new StringBuilder();
-            csvContent.AppendLine("Lead ID,Company/Contact Name,Life Cycle Stage,Onboard Workflow,Onboard Stage,Priority,Timeline,Updated By,Update Time");
+            csvContent.AppendLine("Customer Name,Lead ID,Contact Name,Life Cycle Stage,Workflow,Stage,Priority,Status,Start Date,End Date,Updated By,Update Time");
 
             foreach (var item in exportData)
             {
-                csvContent.AppendLine($"\"{item.Id}\"," +
-                    $"\"{item.CompanyName?.Replace("\"", "\"\"")}\"," +
+                csvContent.AppendLine($"\"{item.CustomerName?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.Id}\"," +
+                    $"\"{item.ContactName?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.LifeCycleStage?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.WorkFlow?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.OnboardStage?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.Priority?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.Timeline?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.Status?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.StartDate?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.EndDate?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.UpdatedBy?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.UpdateTime}\"");
             }
@@ -3729,19 +3735,50 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
+                CustomerName = item.LeadName,
                 Id = item.LeadId,
-                CompanyName = item.LeadName,
+                ContactName = item.ContactPerson,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
-                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                Status = GetDisplayStatus(item.Status),
+                StartDate = FormatDateForExport(item.CurrentStageStartTime),
+                EndDate = FormatDateForExport(item.CurrentStageEndTime),
                 UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
                 UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
                   .ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
             // Use EPPlus to generate Excel file (avoid NPOI version conflict)
             return GenerateExcelWithEPPlus(exportData);
+        }
+
+        /// <summary>
+        /// Convert status to display format to match frontend logic
+        /// </summary>
+        private string GetDisplayStatus(string status)
+        {
+            if (string.IsNullOrEmpty(status))
+                return status;
+
+            return status switch
+            {
+                "Active" or "Started" => "InProgress",
+                "Cancelled" => "Aborted",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// Format date to match frontend display format (MM/dd/yyyy HH:mm)
+        /// </summary>
+        private string FormatDateForExport(DateTimeOffset? dateTime)
+        {
+            if (!dateTime.HasValue)
+                return "";
+            
+            // Format as MM/dd/yyyy HH:mm to include time precision to minutes
+            return dateTime.Value.ToString("MM/dd/yyyy HH:mm");
         }
 
         /// <summary>
@@ -3755,8 +3792,8 @@ namespace FlowFlex.Application.Services.OW
             // Set headers
             var headers = new[]
             {
-                "Lead ID", "Company/Contact Name", "Life Cycle Stage", "Onboard Workflow", "Onboard Stage",
-                "Priority", "Timeline", "Updated By", "Update Time"
+                "Customer Name", "Lead ID", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
+                "Priority", "Status", "Start Date", "End Date", "Updated By", "Update Time"
             };
 
             for (int i = 0; i < headers.Length; i++)
@@ -3769,15 +3806,18 @@ namespace FlowFlex.Application.Services.OW
             for (int row = 0; row < data.Count; row++)
             {
                 var item = data[row];
-                worksheet.Cells[row + 2, 1].Value = item.Id;
-                worksheet.Cells[row + 2, 2].Value = item.CompanyName;
-                worksheet.Cells[row + 2, 3].Value = item.LifeCycleStage;
-                worksheet.Cells[row + 2, 4].Value = item.WorkFlow;
-                worksheet.Cells[row + 2, 5].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 6].Value = item.Priority;
-                worksheet.Cells[row + 2, 7].Value = item.Timeline;
-                worksheet.Cells[row + 2, 8].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 9].Value = item.UpdateTime;
+                worksheet.Cells[row + 2, 1].Value = item.CustomerName;
+                worksheet.Cells[row + 2, 2].Value = item.Id;
+                worksheet.Cells[row + 2, 3].Value = item.ContactName;
+                worksheet.Cells[row + 2, 4].Value = item.LifeCycleStage;
+                worksheet.Cells[row + 2, 5].Value = item.WorkFlow;
+                worksheet.Cells[row + 2, 6].Value = item.OnboardStage;
+                worksheet.Cells[row + 2, 7].Value = item.Priority;
+                worksheet.Cells[row + 2, 8].Value = item.Status;
+                worksheet.Cells[row + 2, 9].Value = item.StartDate;
+                worksheet.Cells[row + 2, 10].Value = item.EndDate;
+                worksheet.Cells[row + 2, 11].Value = item.UpdatedBy;
+                worksheet.Cells[row + 2, 12].Value = item.UpdateTime;
             }
 
             // Auto-fit columns
