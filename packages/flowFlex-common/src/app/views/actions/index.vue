@@ -30,52 +30,38 @@
 		</PageHeader>
 
 		<!-- Search and Filter Area -->
-		<el-card class="mb-6 rounded-md filter_card">
-			<template #default>
-				<div class="">
-					<el-form ref="searchFormRef" :model="searchForm" class="actionsSearch-form">
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-primary-500">
-									Tool ID or Tool Name
-								</label>
-								<el-input
-									v-model="searchForm.keyword"
-									placeholder="Enter Action ID or Action Name"
-									clearable
-									class="w-full rounded-md"
-									@change="handleSearch"
-								>
-									<template #prefix>
-										<el-icon>
-											<Search />
-										</el-icon>
-									</template>
-								</el-input>
-							</div>
-
-							<div class="space-y-2">
-								<label class="text-sm font-medium text-primary-500">Type</label>
-								<el-select
-									v-model="searchForm.type"
-									placeholder="Select Type"
-									clearable
-									class="w-full rounded-md"
-									@change="handleSearch"
-								>
-									<el-option
-										v-for="option in getActionTypeOptions()"
-										:key="option.value"
-										:label="option.label"
-										:value="option.value"
-									/>
-								</el-select>
-							</div>
-						</div>
-					</el-form>
+		<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+				<div class="space-y-2">
+					<label class="filter-label text-sm font-medium">Tool ID or Tool Name</label>
+					<el-input
+						v-model="searchForm.keyword"
+						placeholder="Enter Tool ID or Tool Name"
+						clearable
+						class="w-full rounded-md filter-input"
+						@change="handleSearch"
+					/>
 				</div>
-			</template>
-		</el-card>
+
+				<div class="space-y-2">
+					<label class="filter-label text-sm font-medium">Type</label>
+					<el-select
+						v-model="searchForm.type"
+						placeholder="Select Type"
+						clearable
+						class="w-full filter-select"
+						@change="handleSearch"
+					>
+						<el-option
+							v-for="option in getActionTypeOptions()"
+							:key="option.value"
+							:label="option.label"
+							:value="option.value"
+						/>
+					</el-select>
+				</div>
+			</div>
+		</div>
 
 		<!-- Tabs Area -->
 		<PrototypeTabs
@@ -215,7 +201,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, markRaw } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Download, Search, Edit, Delete } from '@element-plus/icons-vue';
+import { Plus, Download, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import PageHeader from '@/components/global/PageHeader/index.vue';
@@ -550,93 +536,95 @@ onMounted(() => {
 	font-weight: 500 !important;
 }
 
-.filter_card {
+/* 筛选面板样式 */
+.filter-panel {
+	@apply bg-white dark:bg-black-400;
 	border: 1px solid var(--primary-100);
+	@apply dark:border-black-200;
 }
 
-/* 搜索表单样式 */
-.actionsSearch-form :deep(.el-form-item) {
-	margin-bottom: 0;
+.filter-label {
+	color: var(--primary-700);
+	@apply dark:text-primary-300;
 }
 
-.actionsSearch-form :deep(.el-input__wrapper) {
-	transition: all 0.2s;
+/* Element Plus 组件样式覆盖 */
+:deep(.filter-input .el-input__wrapper) {
+	border-color: var(--primary-200);
+	@apply dark:border-black-200;
 }
 
-.actionsSearch-form :deep(.el-input__wrapper:hover) {
-	border-color: #9ca3af;
+:deep(.filter-input .el-input__wrapper:hover) {
+	border-color: var(--primary-400);
+	@apply dark:border-primary-600;
 }
 
-.actionsSearch-form :deep(.el-input__wrapper.is-focus) {
-	border-color: #3b82f6;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+:deep(.filter-input .el-input__wrapper.is-focus) {
+	border-color: var(--primary-500);
+	@apply dark:border-primary-500;
 }
 
-.actionsSearch-form :deep(.el-select__wrapper) {
-	transition: all 0.2s;
+:deep(.filter-select .el-input__wrapper) {
+	border-color: var(--primary-200);
+	@apply dark:border-black-200;
 }
 
-.actionsSearch-form :deep(.el-select__wrapper:hover) {
-	border-color: #9ca3af;
+:deep(.filter-select .el-input__wrapper:hover) {
+	border-color: var(--primary-400);
+	@apply dark:border-primary-600;
 }
 
-.actionsSearch-form :deep(.el-select__wrapper.is-focused) {
-	border-color: #3b82f6;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+:deep(.filter-select .el-input__wrapper.is-focus) {
+	border-color: var(--primary-500);
+	@apply dark:border-primary-500;
 }
 
 /* 暗色主题样式 */
 html.dark {
-	/* 卡片和容器背景 */
-	.filter_card {
-		background: linear-gradient(to right, var(--primary-900), var(--primary-800)) !important;
+	/* 筛选面板暗色主题 */
+	.filter-panel {
+		@apply bg-black-400 dark:border-black-200;
 	}
 
-	.rounded-md {
-		background-color: var(--black-400) !important;
-		border: 1px solid var(--black-200) !important;
+	.filter-label {
+		@apply dark:text-primary-300;
 	}
 
-	/* 搜索表单暗色主题 */
-	.actionsSearch-form :deep(.el-input__wrapper) {
-		background-color: #2d3748 !important;
-		border: 1px solid var(--black-200) !important;
+	/* Element Plus 组件暗色主题 */
+	:deep(.filter-input .el-input__wrapper) {
+		background-color: var(--black-200) !important;
+		border-color: var(--black-200) !important;
 	}
 
-	.actionsSearch-form :deep(.el-input__wrapper:hover) {
+	:deep(.filter-input .el-input__wrapper:hover) {
 		border-color: var(--black-100) !important;
 	}
 
-	.actionsSearch-form :deep(.el-input__wrapper.is-focus) {
+	:deep(.filter-input .el-input__wrapper.is-focus) {
 		border-color: var(--primary-500);
 		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
 	}
 
-	.actionsSearch-form :deep(.el-input__inner) {
+	:deep(.filter-input .el-input__inner) {
 		@apply text-white-100;
 	}
 
-	/* Select 暗色主题 */
-	.actionsSearch-form :deep(.el-select__wrapper) {
-		background-color: #2d3748 !important;
-		border: 1px solid var(--black-200) !important;
+	:deep(.filter-select .el-input__wrapper) {
+		background-color: var(--black-200) !important;
+		border-color: var(--black-200) !important;
 	}
 
-	.actionsSearch-form :deep(.el-select__wrapper:hover) {
+	:deep(.filter-select .el-input__wrapper:hover) {
 		border-color: var(--black-100) !important;
 	}
 
-	.actionsSearch-form :deep(.el-select__wrapper.is-focused) {
+	:deep(.filter-select .el-input__wrapper.is-focus) {
 		border-color: var(--primary-500);
 		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
 	}
 
-	.actionsSearch-form :deep(.el-select__selection) {
+	:deep(.filter-select .el-input__inner) {
 		@apply text-white-100;
-	}
-
-	.actionsSearch-form :deep(.el-select__placeholder) {
-		color: var(--el-text-color-placeholder, #a8abb2);
 	}
 
 	/* 标签样式在暗色主题下的适配 */
