@@ -27,7 +27,29 @@ export const FRONTEND_TO_BACKEND_TYPE_MAPPING = {
 	email: 'SendEmail',
 } as const;
 
-const Api = () => {
+// Test result interface for different action types
+export interface TestResult {
+	success: boolean;
+	message?: string;
+	stdout?: string;
+	stderr?: string;
+	executionTime?: string;
+	memoryUsage?: number;
+	status?: string;
+	token?: string;
+	timestamp?: string;
+	// For HTTP API responses
+	statusCode?: number;
+	responseBody?: string;
+	responseHeaders?: Record<string, string>;
+	// For Email actions
+	emailSent?: boolean;
+	recipients?: string[];
+	// Generic data for other action types
+	data?: any;
+}
+
+const Api = (id?: string) => {
 	return {
 		action: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
 		actionDetail: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
@@ -43,6 +65,8 @@ const Api = () => {
 		stageAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings/trigger-source`,
 
 		mappingAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings`,
+
+		actionResult: `${globSetting.apiProName}/action/${globSetting.apiVersion}/executions/trigger-source/${id}/search`,
 	};
 };
 
@@ -147,24 +171,16 @@ export function addMappingAction(data: any) {
 	});
 }
 
-// Test result interface for different action types
-export interface TestResult {
-	success: boolean;
-	message?: string;
-	stdout?: string;
-	stderr?: string;
-	executionTime?: string;
-	memoryUsage?: number;
-	status?: string;
-	token?: string;
-	timestamp?: string;
-	// For HTTP API responses
-	statusCode?: number;
-	responseBody?: string;
-	responseHeaders?: Record<string, string>;
-	// For Email actions
-	emailSent?: boolean;
-	recipients?: string[];
-	// Generic data for other action types
-	data?: any;
+export function getActionResult(
+	id: string,
+	params: {
+		pageIndex: number;
+		pageSize: number;
+		jsonConditions: { jsonPath: string; operator: string; value: string }[];
+	}
+) {
+	return defHttp.post({
+		url: `${Api().actionResult}/${id}`,
+		params,
+	});
 }

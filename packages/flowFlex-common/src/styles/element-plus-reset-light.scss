@@ -489,4 +489,8 @@
 	.el-popper.is-light .el-popper__arrow::after {
 		border-color: #ffffff !important;
 	}
+
+	.el-message {
+		z-index: 9999 !important;
+	}
 }
