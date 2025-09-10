@@ -366,7 +366,7 @@ const handleEdit = async (row: ActionDefinition) => {
 			actionInfo.value = {
 				...actionDetailRes?.data,
 				actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
-				type: actionDetailRes?.data?.actionType === 1 ? 'python' : 'http',
+				type: actionDetailRes?.data?.actionType,
 			};
 		}
 	} catch (error) {

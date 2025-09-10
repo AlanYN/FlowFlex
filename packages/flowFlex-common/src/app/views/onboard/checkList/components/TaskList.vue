@@ -69,11 +69,9 @@
 									</div>
 
 									<!-- Right side items -->
-									<div
-										class="flex items-center gap-1 flex-shrink-0"
-										v-if="task.assigneeName"
-									>
+									<div class="flex items-center gap-1 flex-shrink-0">
 										<FlowflexUserSelector
+											v-if="task.assigneeId"
 											v-model="task.assigneeId"
 											selection-type="user"
 											readonly
@@ -107,33 +105,26 @@
 										<template #dropdown>
 											<el-dropdown-menu>
 												<!-- 如果已绑定 action，显示编辑和删除选项 -->
-												<template v-if="true">
-													<el-dropdown-item
-														@click="openActionEditor(task)"
-													>
-														<div class="flex items-center gap-2">
-															<Icon
-																icon="tabler:edit"
-																class="w-4 h-4"
-															/>
-															<span class="text-xs">Edit Action</span>
-														</div>
-													</el-dropdown-item>
-													<el-dropdown-item
-														v-if="task.actionId"
-														@click="removeActionBinding(task)"
-													>
-														<div class="flex items-center gap-2">
-															<Icon
-																icon="tabler:unlink"
-																class="w-4 h-4 text-red-500"
-															/>
-															<span class="text-xs text-red-500">
-																Remove Action
-															</span>
-														</div>
-													</el-dropdown-item>
-												</template>
+												<el-dropdown-item @click="openActionEditor(task)">
+													<div class="flex items-center gap-2">
+														<Icon icon="tabler:edit" class="w-4 h-4" />
+														<span class="text-xs">Edit Action</span>
+													</div>
+												</el-dropdown-item>
+												<el-dropdown-item
+													v-if="task.actionId"
+													@click="removeActionBinding(task)"
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="tabler:unlink"
+															class="w-4 h-4 text-red-500"
+														/>
+														<span class="text-xs text-red-500">
+															Remove Action
+														</span>
+													</div>
+												</el-dropdown-item>
 											</el-dropdown-menu>
 										</template>
 									</el-dropdown>
@@ -621,7 +612,7 @@ const openActionEditor = async (task) => {
 				actionInfo.value = {
 					...actionDetailRes?.data,
 					actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
-					type: actionDetailRes?.data?.actionType === 1 ? 'python' : 'http',
+					type: actionDetailRes?.data?.actionType,
 				};
 			}
 		} catch (error) {

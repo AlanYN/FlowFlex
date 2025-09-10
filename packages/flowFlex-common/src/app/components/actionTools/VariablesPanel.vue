@@ -336,6 +336,7 @@
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { User, Flag, Document, DocumentCopy } from '@element-plus/icons-vue';
+import { ActionType } from '@/apis/action';
 
 interface Variable {
 	name: string;
@@ -345,12 +346,12 @@ interface Variable {
 
 interface Props {
 	stageId?: string;
-	actionType?: 'python' | 'http';
+	actionType?: ActionType;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	stageId: '',
-	actionType: 'python',
+	actionType: ActionType.PYTHON_SCRIPT,
 });
 
 // State
@@ -645,7 +646,7 @@ const contextStructure = computed(() => {
 
 // Examples based on action type
 const variableExamples = computed(() => {
-	if (props.actionType === 'python') {
+	if (props.actionType === ActionType.PYTHON_SCRIPT) {
 		return [
 			{
 				title: 'Access Basic Event Information',
@@ -658,7 +659,7 @@ const variableExamples = computed(() => {
 				code: `import json\nanswers = context.get('components', {}).get('questionnaireAnswers', [])\nfor a in answers:\n    data = json.loads(a.get('answer', '{}'))\n    for r in data.get('responses', []):\n        print(r.get('question'), r.get('answer'))`,
 			},
 		];
-	} else {
+	} else if (props.actionType === ActionType.HTTP_API) {
 		return [
 			{
 				title: 'Dynamic URL',
@@ -671,6 +672,8 @@ const variableExamples = computed(() => {
 				code: `{"event_id":"{{context.eventId}}","workflow":"{{context.workflowName}}"}`,
 			},
 		];
+	} else {
+		return [];
 	}
 });
 
