@@ -102,7 +102,11 @@
 											:value="tool.id"
 										>
 											<div class="flex justify-between items-center">
-												<span>{{ tool.name }}</span>
+												<span>
+													{{ tool.name }}({{
+														tool?.actionCode || tool?.id
+													}})
+												</span>
 												<el-tag size="small" actionType="info">
 													{{ getActionTypeName(tool.actionType) }}
 												</el-tag>
