@@ -1,26 +1,21 @@
 <template>
 	<div class="questionnaire-container">
 		<!-- 页面头部 -->
-		<div class="page-header rounded-lg p-6 mb-6">
-			<div class="flex justify-between items-center">
-				<div>
-					<h1 class="text-3xl font-bold page-title">Questionnaires</h1>
-					<p class="page-subtitle mt-1">
-						Create and manage questionnaires for different workflow stages
-					</p>
-				</div>
-				<div class="flex space-x-2">
-					<el-button
-						type="primary"
-						@click="() => handleNewQuestionnaire()"
-						class="primary-button"
-					>
-						<el-icon class="mr-2"><Plus /></el-icon>
-						New Questionnaire
-					</el-button>
-				</div>
-			</div>
-		</div>
+		<PageHeader
+			title="Questionnaires"
+			description="Create and manage questionnaires for different workflow stages"
+		>
+			<template #actions>
+				<el-button
+					type="primary"
+					@click="() => handleNewQuestionnaire()"
+					class="page-header-btn page-header-btn-primary"
+				>
+					<el-icon class="mr-2"><Plus /></el-icon>
+					New Questionnaire
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<!-- 搜索和筛选区域 -->
 		<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
@@ -185,6 +180,7 @@ import QuestionnaireCardView from './components/QuestionnaireCardView.vue';
 import QuestionnaireListView from './components/QuestionnaireListView.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import InputTag from '@/components/global/u-input-tags/index.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 
 // 引入问卷相关API接口
 import {
@@ -573,32 +569,6 @@ const handleSortChange = (sort: any) => {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-}
-/* 页面头部样式 */
-.page-header {
-	@apply dark:from-primary-600 dark:to-primary-500;
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
-	flex-shrink: 0;
-}
-
-.page-title {
-	color: var(--primary-500);
-	@apply dark:text-white;
-}
-
-.page-subtitle {
-	color: var(--primary-600);
-}
-
-.primary-button {
-	background-color: var(--primary-500) !important;
-	border-color: var(--primary-500) !important;
-	color: white !important;
-}
-
-.primary-button:hover {
-	background-color: var(--primary-600) !important;
-	border-color: var(--primary-600) !important;
 }
 
 /* 筛选面板样式 */

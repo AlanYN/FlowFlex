@@ -1,21 +1,23 @@
 <template>
 	<div class="bg-gray-50">
 		<!-- 标题和操作区 -->
-		<div class="onboarding-header">
-			<h1 class="title">Cases</h1>
-			<div class="actions">
+		<PageHeader
+			title="Cases"
+			description="Manage and track business cases with customizable workflows and stage progression"
+		>
+			<template #actions>
 				<el-button
-					class="new-onboarding-btn"
+					class="page-header-btn page-header-btn-primary"
 					type="primary"
 					@click="handleNewOnboarding"
 					:disabled="loading"
 				>
 					<el-icon v-if="loading"><Loading /></el-icon>
-					<el-icon v-else><Plus /></el-icon>
+					<el-icon v-else class="mr-2"><Plus /></el-icon>
 					<span>New Case</span>
 				</el-button>
-			</div>
-		</div>
+			</template>
+		</PageHeader>
 
 		<PrototypeTabs
 			v-model="activeView"
@@ -569,7 +571,6 @@ import {
 	Loading,
 	VideoPlay,
 	VideoPause,
-	Check,
 	Close,
 	RefreshRight,
 	View,
@@ -598,6 +599,7 @@ import {
 } from '@/settings/projectSetting';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import OnboardFilter from './components/OnboardFilter.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import { timeZoneConvert, timeExpiredornot } from '@/hooks/time';
 import { useI18n } from '@/hooks/useI18n';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
@@ -1615,27 +1617,6 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-/* 头部标题栏样式 */
-.onboarding-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 0 24px 24px 24px;
-}
-
-.title {
-	font-size: 24px;
-	color: var(--primary-500, #2468f2);
-	margin: 0;
-	font-weight: 700;
-}
-
-.actions {
-	display: flex;
-	gap: 10px;
-	align-items: center;
-}
-
 /* 弹窗样式 */
 .dialog-header {
 	border-bottom: none;
@@ -1856,26 +1837,6 @@ html.dark {
 	/* 页面背景 - 使用项目标准的 black-400 */
 	.bg-gray-50 {
 		@apply bg-black-400 !important;
-	}
-
-	/* 头部标题栏暗色主题 */
-	.onboarding-header {
-		background-color: var(--black-400);
-	}
-
-	.title {
-		color: var(--primary-500, #2468f2);
-	}
-
-	.new-onboarding-btn {
-		background-color: var(--primary-500, #2468f2);
-		border-color: var(--primary-500, #2468f2);
-		color: white;
-	}
-
-	.new-onboarding-btn:hover {
-		background-color: var(--primary-600, #1d5ad8);
-		border-color: var(--primary-600, #1d5ad8);
 	}
 
 	/* 弹窗暗色主题 */

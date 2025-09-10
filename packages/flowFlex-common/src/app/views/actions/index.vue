@@ -1,23 +1,33 @@
 <template>
-	<div class="bg-gray-50">
+	<div class="">
 		<!-- Header and Action Area -->
-		<div class="actions-header">
-			<h1 class="title">Tools</h1>
-			<div class="actions">
-				<el-button class="new-action-btn" type="primary" @click="handleCreateAction">
-					<el-icon>
-						<Plus />
-					</el-icon>
-					<span>New Tool</span>
-				</el-button>
-				<el-button @click="handleExport" :loading="exportLoading">
-					<el-icon>
+		<PageHeader
+			title="Tools"
+			description="Configure and manage automation tools to streamline your business processes"
+		>
+			<template #actions>
+				<el-button
+					class="page-header-btn page-header-btn-secondary"
+					@click="handleExport"
+					:loading="exportLoading"
+				>
+					<el-icon class="mr-2">
 						<Download />
 					</el-icon>
 					<span>Export</span>
 				</el-button>
-			</div>
-		</div>
+				<el-button
+					class="page-header-btn page-header-btn-primary"
+					type="primary"
+					@click="handleCreateAction"
+				>
+					<el-icon class="mr-2">
+						<Plus />
+					</el-icon>
+					<span>New Tool</span>
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<!-- Search and Filter Area -->
 		<el-card class="mb-6 rounded-md filter_card">
@@ -118,17 +128,15 @@
 					</el-table>
 
 					<!-- Pagination -->
-					<div class="border-t bg-white rounded-b-md">
-						<CustomerPagination
-							:total="pagination.total"
-							:limit="pagination.pageSize"
-							:page="pagination.currentPage"
-							:background="true"
-							@pagination="handleLimitUpdate"
-							@update:page="handleCurrentChange"
-							@update:limit="handlePageUpdate"
-						/>
-					</div>
+					<CustomerPagination
+						:total="pagination.total"
+						:limit="pagination.pageSize"
+						:page="pagination.currentPage"
+						:background="true"
+						@pagination="handleLimitUpdate"
+						@update:page="handleCurrentChange"
+						@update:limit="handlePageUpdate"
+					/>
 				</div>
 			</TabPane>
 
@@ -210,6 +218,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Download, Search, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import {
 	getActionDefinitions,
@@ -501,27 +510,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* Header title bar styles */
-.actions-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 0 24px 24px 24px;
-}
-
-.title {
-	font-size: 24px;
-	color: var(--primary-500, #2468f2);
-	margin: 0;
-	font-weight: 700;
-}
-
-.actions {
-	display: flex;
-	gap: 10px;
-	align-items: center;
-}
-
 .assignments-list {
 	.assignment-item {
 		display: flex;
@@ -649,11 +637,6 @@ html.dark {
 
 	.actionsSearch-form :deep(.el-select__placeholder) {
 		color: var(--el-text-color-placeholder, #a8abb2);
-	}
-
-	/* 表格和分页暗色适配 */
-	.customer-block {
-		background-color: var(--black-400) !important;
 	}
 
 	/* 标签样式在暗色主题下的适配 */
