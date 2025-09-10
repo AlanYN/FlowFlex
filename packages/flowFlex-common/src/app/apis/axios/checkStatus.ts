@@ -74,7 +74,11 @@ export function checkStatus(
 		if (errorMessageMode === 'modal') {
 			ElMessage.error(t('sys.api.errorTip'));
 		} else if (errorMessageMode === 'message') {
-			ElMessage.error(errMessage);
+			ElMessage({
+				type: 'error',
+				message: errMessage,
+				duration: 5000,
+			});
 		}
 	}
 }

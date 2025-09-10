@@ -458,8 +458,8 @@ const getActionTypeName = (actionType: number) => {
 const handleConfigModeChange = async (mode: ToolsType) => {
 	// 清空当前选择
 	selectedToolId.value = '';
-	await changeConfigModeChange(mode);
 	resetFormData();
+	await changeConfigModeChange(mode);
 };
 
 const changeConfigModeChange = async (mode: ToolsType) => {
@@ -589,6 +589,7 @@ const handleExistingToolSelect = async (toolId: string) => {
 
 // 重置表单数据
 const resetFormData = () => {
+	formData.id = '';
 	formData.name = '';
 	formData.description = '';
 	formData.actionType = ActionType.PYTHON_SCRIPT;
@@ -796,7 +797,7 @@ defineExpose({
 	left: v-bind(buttonLeftPosition);
 	top: 10vh;
 	transform: translateY(-50%);
-	z-index: 4999;
+	z-index: 3000;
 	transition: left 0.3s ease;
 	animation: delayedFadeIn 0.6s ease-out;
 }
