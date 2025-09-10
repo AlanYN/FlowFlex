@@ -3,22 +3,22 @@
 		<!-- 加载状态 -->
 		<div>
 			<!-- 页面头部 -->
-			<div class="page-header rounded-lg p-6 mb-6">
-				<div class="flex justify-between items-center">
-					<div>
-						<h1 class="text-3xl font-bold page-title">Checklist Management</h1>
-						<p class="page-subtitle mt-1">
-							Task checklists for different teams during the onboarding process
-						</p>
-					</div>
-					<div class="flex space-x-2">
-						<el-button @click="openCreateDialog" type="primary" size="default">
-							<el-icon class="mr-2"><Plus /></el-icon>
-							New Checklist
-						</el-button>
-					</div>
-				</div>
-			</div>
+			<PageHeader
+				title="Checklist Management"
+				description="Task checklists for different teams during the onboarding process"
+			>
+				<template #actions>
+					<el-button
+						@click="openCreateDialog"
+						type="primary"
+						size="default"
+						class="page-header-btn page-header-btn-primary"
+					>
+						<el-icon class="mr-2"><Plus /></el-icon>
+						New Checklist
+					</el-button>
+				</template>
+			</PageHeader>
 
 			<!-- 搜索和筛选区域 -->
 			<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
@@ -218,6 +218,7 @@ import ChecklistListView from './components/ChecklistListView.vue';
 import TaskList from './components/TaskList.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import { Checklist } from '#/checklist';
 import { dialogWidth, bigDialogWidth } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
@@ -724,22 +725,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* 页面头部样式 */
-.page-header {
-	@apply dark:from-primary-600 dark:to-primary-500;
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
-	flex-shrink: 0;
-}
-
-.page-title {
-	color: var(--primary-500);
-	@apply dark:text-white;
-}
-
-.page-subtitle {
-	color: var(--primary-600);
-}
-
 /* 筛选面板样式 */
 .filter-panel {
 	@apply bg-white dark:bg-black-400;

@@ -1,13 +1,16 @@
 <template>
 	<div class="workflow-container">
 		<!-- 标题和操作区 -->
-		<div class="workflow-header">
-			<h1 class="title">Workflows</h1>
-			<div class="actions">
+		<PageHeader
+			title="Workflows"
+			description="Design and manage business workflows with customizable stages and automated processes"
+		>
+			<template #actions>
 				<el-button
 					type="primary"
 					@click="showNewWorkflowDialog"
 					:disabled="loading.createWorkflow"
+					class="page-header-btn page-header-btn-primary"
 				>
 					<el-icon v-if="loading.createWorkflow">
 						<Loading />
@@ -17,8 +20,8 @@
 					</el-icon>
 					<span>New Workflow</span>
 				</el-button>
-			</div>
-		</div>
+			</template>
+		</PageHeader>
 
 		<!-- 主要内容区 -->
 		<div>
@@ -566,6 +569,7 @@ import { getFlowflexUser } from '@/apis/global';
 import { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
 import { WFEMoudels } from '@/enums/appEnum';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 
 const { t } = useI18n();
 
@@ -1305,26 +1309,6 @@ const getUserGroup = async () => {
 	padding: 24px;
 	background-color: #fff;
 	margin-bottom: 24px;
-}
-
-.workflow-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 0 24px 24px 24px;
-}
-
-.title {
-	font-size: 24px;
-	color: var(--primary-500, #2468f2);
-	margin: 0;
-	font-weight: 700;
-}
-
-.actions {
-	display: flex;
-	gap: 10px;
-	align-items: center;
 }
 
 .workflow-card {
