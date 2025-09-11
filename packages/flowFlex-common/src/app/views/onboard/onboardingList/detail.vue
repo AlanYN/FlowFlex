@@ -378,7 +378,7 @@ const isCompleteStageDisabled = computed(() => {
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
 const isAbortedReadonly = computed(() => {
 	const status = onboardingData.value?.status;
-	return status && ['Aborted', 'Cancelled'].includes(status);
+	return !!status && ['Aborted', 'Cancelled'].includes(status);
 });
 
 // 添加组件引用
