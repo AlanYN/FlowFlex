@@ -23,9 +23,7 @@ namespace FlowFlex.Application.Notification
         private readonly IEventRepository _eventRepository;
         private readonly UserContext _userContext;
         private readonly IStageService _stageService;
-        private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
-        private readonly IChecklistTaskCompletionService _checklistTaskCompletionService;
         private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
 
         public OnboardingStageCompletedLogHandler(
@@ -34,9 +32,7 @@ namespace FlowFlex.Application.Notification
             IEventRepository eventRepository,
             UserContext userContext,
             IStageService stageService,
-            IChecklistService checklistService,
             IQuestionnaireService questionnaireService,
-            IChecklistTaskCompletionService checklistTaskCompletionService,
             IQuestionnaireAnswerService questionnaireAnswerService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -44,9 +40,7 @@ namespace FlowFlex.Application.Notification
             _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _stageService = stageService ?? throw new ArgumentNullException(nameof(stageService));
-            _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
-            _checklistTaskCompletionService = checklistTaskCompletionService ?? throw new ArgumentNullException(nameof(checklistTaskCompletionService));
             _questionnaireAnswerService = questionnaireAnswerService ?? throw new ArgumentNullException(nameof(questionnaireAnswerService));
         }
 
@@ -275,8 +269,8 @@ namespace FlowFlex.Application.Notification
 
                 _logger.LogDebug("Stage {StageId} 找到 {Count} 个组件", eventData.CompletedStageId, stageComponents.Count);
 
-                // 处理 checklist 组件
-                await ProcessChecklistComponentsAsync(eventData, contextData, currentUserId, stageComponents);
+                // 处理 checklist 组件现在通过 API 调用处理，不在这里处理
+                // await ProcessChecklistComponentsAsync(eventData, contextData, currentUserId, stageComponents);
 
                 // 处理 questionnaire 组件
                 await ProcessQuestionnaireComponentsAsync(eventData, contextData, currentUserId, stageComponents);
@@ -290,127 +284,6 @@ namespace FlowFlex.Application.Notification
             }
         }
 
-        /// <summary>
-        /// 处理 checklist 组件，为每个 task 发布 ActionTriggerEvent
-        /// </summary>
-        private async Task ProcessChecklistComponentsAsync(OnboardingStageCompletedEvent eventData, object contextData, long currentUserId, List<StageComponent> stageComponents)
-        {
-            try
-            {
-                // 获取所有 checklist 组件
-                var checklistComponents = stageComponents.Where(c => c.Key == "checklist").ToList();
-
-                if (!checklistComponents.Any())
-                {
-                    _logger.LogDebug("Stage {StageId} 没有 checklist 组件", eventData.CompletedStageId);
-                    return;
-                }
-
-                // 收集所有 checklist IDs
-                var checklistIds = checklistComponents
-                    .SelectMany(c => c.ChecklistIds ?? new List<long>())
-                    .Distinct()
-                    .ToList();
-
-                if (!checklistIds.Any())
-                {
-                    _logger.LogDebug("Stage {StageId} 的 checklist 组件没有配置 checklist IDs", eventData.CompletedStageId);
-                    return;
-                }
-
-                _logger.LogDebug("Stage {StageId} 找到 {Count} 个 checklist IDs: [{ChecklistIds}]",
-                    eventData.CompletedStageId, checklistIds.Count, string.Join(", ", checklistIds));
-
-                // 批量获取 checklists
-                var checklists = await _checklistService.GetByIdsAsync(checklistIds);
-
-                // 获取当前 onboarding 和 stage 的所有任务完成状态
-                var taskCompletions = await _checklistTaskCompletionService.GetByOnboardingAndStageAsync(eventData.OnboardingId, eventData.CompletedStageId);
-                var taskCompletionMap = taskCompletions.ToDictionary(tc => tc.TaskId, tc => tc.IsCompleted);
-
-                foreach (var checklist in checklists)
-                {
-                    if (checklist.Tasks != null && checklist.Tasks.Any())
-                    {
-                        foreach (var task in checklist.Tasks)
-                        {
-                            // 只为有 ActionId 的 task 创建 ActionTriggerEvent
-                            if (!task.ActionId.HasValue)
-                            {
-                                _logger.LogDebug("Task {TaskId} ({TaskName}) 没有配置 ActionId，跳过发布 ActionTriggerEvent",
-                                    task.Id, task.Name);
-                                continue;
-                            }
-
-                            // 检查 task 是否已完成
-                            var isCompleted = taskCompletionMap.ContainsKey(task.Id) && taskCompletionMap[task.Id];
-                            if (!isCompleted)
-                            {
-                                _logger.LogDebug("Task {TaskId} ({TaskName}) 尚未完成，跳过发布 ActionTriggerEvent",
-                                    task.Id, task.Name);
-                                continue;
-                            }
-
-                            // 为每个 task 创建 ActionTriggerEvent
-                            var taskContextData = new
-                            {
-                                // 包含原始上下文数据
-                                ((dynamic)contextData).OnboardingId,
-                                ((dynamic)contextData).LeadId,
-                                ((dynamic)contextData).WorkflowId,
-                                ((dynamic)contextData).WorkflowName,
-                                ((dynamic)contextData).CompletedStageId,
-                                ((dynamic)contextData).CompletedStageName,
-                                ((dynamic)contextData).NextStageId,
-                                ((dynamic)contextData).NextStageName,
-                                ((dynamic)contextData).CompletionRate,
-                                ((dynamic)contextData).IsFinalStage,
-                                ((dynamic)contextData).BusinessContext,
-                                ((dynamic)contextData).Components,
-                                ((dynamic)contextData).TenantId,
-                                ((dynamic)contextData).Source,
-                                ((dynamic)contextData).Priority,
-                                ((dynamic)contextData).OriginalEventId,
-
-                                // 添加 task 相关的上下文数据
-                                ChecklistId = checklist.Id,
-                                ChecklistName = checklist.Name,
-                                TaskId = task.Id,
-                                TaskName = task.Name,
-                                TaskType = task.TaskType,
-                                TaskIsRequired = task.IsRequired,
-                                TaskPriority = task.Priority,
-                                TaskAssigneeId = task.AssigneeId,
-                                TaskAssigneeName = task.AssigneeName,
-                                TaskAssignedTeam = task.AssignedTeam,
-                                TaskActionId = task.ActionId,
-                                TaskActionName = task.ActionName
-                            };
-
-                            var taskActionTriggerEvent = new ActionTriggerEvent(
-                                triggerSourceType: "",
-                                triggerSourceId: task.Id,
-                                triggerEventType: "Completed",
-                                contextData: taskContextData,
-                                userId: currentUserId > 0 ? currentUserId : null
-                            );
-
-                            await _mediator.Publish(taskActionTriggerEvent);
-
-                            _logger.LogDebug("已发布 Task ActionTriggerEvent: TaskId={TaskId}, TaskName={TaskName}, ChecklistId={ChecklistId}, StageId={StageId}",
-                                task.Id, task.Name, checklist.Id, eventData.CompletedStageId);
-                        }
-                    }
-                }
-
-                _logger.LogDebug("完成处理 checklist 组件: StageId={StageId}, ChecklistCount={ChecklistCount}",
-                    eventData.CompletedStageId, checklists.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "处理 checklist 组件时发生错误: StageId={StageId}", eventData.CompletedStageId);
-            }
-        }
 
         /// <summary>
         /// 处理 questionnaire 组件，为每个 question 发布 ActionTriggerEvent

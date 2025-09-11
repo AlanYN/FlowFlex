@@ -264,14 +264,78 @@ namespace FlowFlex.Application.Services.Action.Executors
 
         private object CreateSuccessResult(HttpResponseMessage response, string content)
         {
+            // 检查内容是否为二进制数据或包含不可打印字符
+            var processedContent = ProcessResponseContent(content, response.Content.Headers.ContentType?.MediaType);
+            
             return new
             {
                 success = response.IsSuccessStatusCode,
                 statusCode = (int)response.StatusCode,
-                response = content,
+                response = processedContent,
                 headers = response.Headers.ToDictionary(h => h.Key, h => h.Value),
                 timestamp = DateTimeOffset.UtcNow
             };
+        }
+
+        /// <summary>
+        /// 处理响应内容，过滤二进制数据或不可打印字符
+        /// </summary>
+        private string ProcessResponseContent(string content, string? contentType)
+        {
+            try
+            {
+                // 如果内容为空，直接返回
+                if (string.IsNullOrEmpty(content))
+                {
+                    return content;
+                }
+
+                // 检查是否为二进制内容类型
+                if (!string.IsNullOrEmpty(contentType))
+                {
+                    var lowerContentType = contentType.ToLower();
+                    if (lowerContentType.StartsWith("image/") || 
+                        lowerContentType.StartsWith("video/") || 
+                        lowerContentType.StartsWith("audio/") ||
+                        lowerContentType.Contains("octet-stream"))
+                    {
+                        return $"[Binary content: {contentType}, size: {content.Length} bytes]";
+                    }
+                }
+
+                // 检查内容是否包含大量不可打印字符（可能是二进制数据）
+                int unprintableCount = 0;
+                int totalChars = Math.Min(content.Length, 1000); // 只检查前1000个字符
+
+                for (int i = 0; i < totalChars; i++)
+                {
+                    char c = content[i];
+                    // 检查是否为控制字符或不可打印字符（排除常见的换行符等）
+                    if (char.IsControl(c) && c != '\n' && c != '\r' && c != '\t')
+                    {
+                        unprintableCount++;
+                    }
+                }
+
+                // 如果不可打印字符超过10%，认为是二进制内容
+                if ((double)unprintableCount / totalChars > 0.1)
+                {
+                    return $"[Binary content detected, size: {content.Length} bytes]";
+                }
+
+                // 如果内容过长（超过10KB），截断以避免数据库性能问题
+                if (content.Length > 10240)
+                {
+                    return content.Substring(0, 10240) + $"... [Truncated, total size: {content.Length} bytes]";
+                }
+
+                return content;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error processing response content");
+                return $"[Error processing content: {ex.Message}]";
+            }
         }
 
         private object CreateErrorResult(string message)
