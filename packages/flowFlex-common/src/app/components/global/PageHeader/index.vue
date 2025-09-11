@@ -14,20 +14,35 @@
 
 		<!-- 内容层 -->
 		<div class="relative z-20 flex justify-between items-center p-[18px] min-h-[70px]">
-			<div class="flex-1 max-w-[70%]">
-				<h1
-					class="text-2xl font-semibold text-primary-700 m-0 mb-1 leading-tight tracking-tight"
+			<div class="flex items-center flex-1 max-w-[70%]">
+				<!-- 返回按钮 -->
+				<el-button
+					v-if="showBackButton"
+					link
+					size="small"
+					@click="handleGoBack"
+					class="mr-3 !p-1 hover:bg-primary-100 dark:hover:bg-primary-800 rounded transition-colors"
 				>
-					<slot name="title">{{ title }}</slot>
-				</h1>
-				<p
-					v-if="description || $slots.description"
-					class="text-sm text-primary-600 m-0 leading-relaxed opacity-85 font-normal"
-				>
-					<slot name="description">{{ description }}</slot>
-				</p>
+					<el-icon class="text-lg text-primary-600 dark:text-primary-400">
+						<ArrowLeft />
+					</el-icon>
+				</el-button>
+
+				<div class="flex-1">
+					<h1
+						class="text-2xl font-semibold text-primary-700 m-0 mb-1 leading-tight tracking-tight"
+					>
+						<slot name="title">{{ title }}</slot>
+					</h1>
+					<p
+						v-if="description || $slots.description"
+						class="text-sm text-primary-600 m-0 leading-relaxed opacity-85 font-normal"
+					>
+						<slot name="description">{{ description }}</slot>
+					</p>
+				</div>
 			</div>
-			<div v-if="$slots.actions" class="flex items-center gap-3 flex-shrink-0">
+			<div v-if="$slots.actions" class="flex items-center flex-shrink-0">
 				<slot name="actions"></slot>
 			</div>
 		</div>
@@ -35,15 +50,27 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowLeft } from '@element-plus/icons-vue';
+
 interface Props {
 	title?: string;
 	description?: string;
+	showBackButton?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
 	title: '',
 	description: '',
+	showBackButton: false,
 });
+
+const emit = defineEmits<{
+	'go-back': [];
+}>();
+
+const handleGoBack = () => {
+	emit('go-back');
+};
 </script>
 
 <style scoped lang="scss">

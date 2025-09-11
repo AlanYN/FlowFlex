@@ -1,16 +1,24 @@
 <template>
 	<div class="create-questionnaire-container rounded-md">
 		<!-- 页面头部 -->
-		<QuestionnaireHeader
+		<PageHeader
 			:title="pageTitle"
 			:description="pageDescription"
-			:current-tab="currentTab"
-			:saving="saving"
-			:is-edit-mode="isEditMode"
+			:show-back-button="true"
 			@go-back="handleGoBack"
-			@toggle-preview="togglePreview"
-			@save-questionnaire="handleSaveQuestionnaire"
-		/>
+		>
+			<template #actions>
+				<el-button
+					type="primary"
+					class="page-header-btn page-header-btn-primary"
+					@click="handleSaveQuestionnaire"
+					:loading="saving"
+					:icon="Document"
+				>
+					{{ isEditMode ? 'Update Questionnaire' : 'Save Questionnaire' }}
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<!-- 主要内容区域 -->
 		<div class="main-content">
@@ -228,12 +236,12 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Edit, MoreFilled, Plus } from '@element-plus/icons-vue';
+import { Edit, MoreFilled, Plus, Document } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-import QuestionnaireHeader from './components/QuestionnaireHeader.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import QuestionnaireBasicInfo from './components/QuestionnaireBasicInfo.vue';
 import SectionManager from './components/SectionManager.vue';
 import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
@@ -580,10 +588,6 @@ const sectionsForJumpRules = computed(() => {
 // 方法定义
 const handleGoBack = () => {
 	router.push('/onboard/questionnaire');
-};
-
-const togglePreview = () => {
-	currentTab.value = currentTab.value === 'questions' ? 'preview' : 'questions';
 };
 
 const handleAddSection = async () => {
@@ -952,12 +956,10 @@ onMounted(async () => {
 .create-questionnaire-container {
 	display: flex;
 	flex-direction: column;
-	background-color: var(--el-bg-color-page);
 }
 
 .main-content {
 	flex: 1;
-	padding: 1.5rem 0;
 	overflow: hidden;
 }
 

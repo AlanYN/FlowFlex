@@ -154,7 +154,6 @@
 												(val) => updateTaskFormData('name', val)
 											"
 											placeholder="Task name"
-											size="small"
 										/>
 									</div>
 									<div class="flex-1 flex-shrink-0">
@@ -167,7 +166,6 @@
 											placeholder="Select assignee"
 											:clearable="true"
 											:max-count="1"
-											size="small"
 										/>
 									</div>
 								</div>

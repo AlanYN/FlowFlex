@@ -163,35 +163,21 @@
 			<main class="flex-1 p-6">
 				<!-- Onboarding Detail View -->
 				<div class="pb-6 bg-gray-50 dark:bg-black-400">
-					<!-- 顶部导航栏 -->
-					<div class="flex justify-between items-center mb-6">
-						<div class="flex items-center">
-							<el-button
-								link
-								size="small"
-								@click="handleBack"
-								class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
-							>
-								<el-icon class="text-lg">
-									<ArrowLeft />
-								</el-icon>
-								Back
-							</el-button>
-							<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-								Cases Details: {{ onboardingData?.leadId }}
-								{{ onboardingData?.leadName }}
-							</h1>
-						</div>
-						<div class="flex items-center space-x-2">
+					<!-- 统一页面头部 -->
+					<PageHeader
+						:title="`${onboardingData?.leadId || ''} ${onboardingData?.leadName || ''}`"
+						:show-back-button="true"
+						@go-back="handleBack"
+					>
+						<template #actions>
 							<el-button
 								type="primary"
 								@click="saveQuestionnaireAndField"
 								:loading="saveAllLoading"
 								:disabled="stagePortalPermission"
+								:icon="Document"
+								class="page-header-btn page-header-btn-primary"
 							>
-								<el-icon class="mr-1">
-									<Document />
-								</el-icon>
 								Save
 							</el-button>
 							<el-button
@@ -199,14 +185,13 @@
 								@click="handleCompleteStage"
 								:loading="completing"
 								:disabled="stagePortalPermission"
+								:icon="Check"
+								class="page-header-btn page-header-btn-primary"
 							>
-								<el-icon class="mr-1">
-									<Check />
-								</el-icon>
 								Complete Stage
 							</el-button>
-						</div>
-					</div>
+						</template>
+					</PageHeader>
 
 					<!-- 主要内容区域 -->
 					<div class="flex gap-6">
@@ -386,7 +371,7 @@
 					<!-- 编辑对话框 -->
 					<el-dialog
 						v-model="editDialogVisible"
-						title="Edit Cases"
+						title="Edit Case"
 						width="500px"
 						:before-close="handleEditDialogClose"
 					>
@@ -437,7 +422,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Loading, Check, Document } from '@element-plus/icons-vue';
+import { Loading, Check, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
@@ -463,6 +448,7 @@ import CheckList from '../onboardingList/components/CheckList.vue';
 import Documents from '../onboardingList/components/Documents.vue';
 import StaticForm from '../onboardingList/components/StaticForm.vue';
 import AISummary from '../onboardingList/components/AISummary.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import { StageComponentPortal } from '@/enums/appEnum';
 
 // 图标组件
@@ -528,12 +514,12 @@ const customerData = computed(() => {
 // 导航菜单
 const navigation = ref([
 	{
-		name: 'Cases Progress',
+		name: 'Case Progress',
 		view: 'progress',
 		icon: HomeIcon,
 	},
 	{
-		name: 'Cases Detail',
+		name: 'Case Detail',
 		view: 'onboarding',
 		icon: DetailsIcon,
 	},

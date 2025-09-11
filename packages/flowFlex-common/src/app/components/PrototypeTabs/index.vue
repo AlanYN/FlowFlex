@@ -1,7 +1,7 @@
 <template>
 	<div class="prototype-tabs">
-		<!-- Tab List -->
-		<el-scrollbar class="">
+		<!-- Tab List - 条件渲染 -->
+		<el-scrollbar v-if="!hiddenTab" class="">
 			<div ref="tabsListRef" class="tabs-list" :class="tabsListClass">
 				<!-- 移动指示器 -->
 				<div ref="indicatorRef" class="tab-indicator"></div>
@@ -64,6 +64,7 @@ interface Props {
 	type?: 'default' | 'card' | 'border-card' | 'adaptive';
 	tabsListClass?: string;
 	contentClass?: string;
+	hiddenTab?: boolean; // 新增：是否隐藏tab按钮部分
 	keys?: {
 		label: string;
 		value: string;
@@ -75,6 +76,7 @@ const props = withDefaults(defineProps<Props>(), {
 	type: 'default',
 	tabsListClass: '',
 	contentClass: '',
+	hiddenTab: false, // 默认显示tab按钮
 	keys: () => ({
 		label: 'label',
 		value: 'value',

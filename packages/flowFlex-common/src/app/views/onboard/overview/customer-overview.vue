@@ -1,38 +1,34 @@
 <template>
 	<div class="pb-6 bg-gray-50 dark:bg-black-400">
 		<!-- 加载状态 -->
+		<PageHeader
+			:title="`Customer Overview: ${customerData?.leadName || 'Loading...'}`"
+			:show-back-button="true"
+			@go-back="handleBack"
+		>
+			<template #actions>
+				<el-button
+					@click="handleExportExcel"
+					:disabled="!customerData"
+					class="page-header-btn page-header-btn-secondary"
+					:icon="Download"
+				>
+					Export Excel
+				</el-button>
+				<el-button
+					@click="handleExportPDF"
+					:disabled="!customerData"
+					class="page-header-btn page-header-btn-secondary"
+					:icon="Document"
+				>
+					Export PDF
+				</el-button>
+			</template>
+		</PageHeader>
 		<customer-overview-loading v-if="loading" />
 
 		<!-- 主要内容 -->
 		<div v-else>
-			<!-- 顶部导航栏 -->
-			<div class="flex justify-between items-center mb-6">
-				<div class="flex items-center">
-					<el-button
-						link
-						size="small"
-						@click="handleBack"
-						class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
-					>
-						<el-icon class="text-lg"><ArrowLeft /></el-icon>
-						Back
-					</el-button>
-					<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-						Customer Overview: {{ customerData?.leadName || 'Loading...' }}
-					</h1>
-				</div>
-				<div class="flex items-center space-x-2">
-					<el-button @click="handleExportExcel" :disabled="!customerData">
-						<el-icon><Download /></el-icon>
-						&nbsp;&nbsp;Export Excel
-					</el-button>
-					<el-button @click="handleExportPDF" :disabled="!customerData">
-						<el-icon><Document /></el-icon>
-						&nbsp;&nbsp;Export PDF
-					</el-button>
-				</div>
-			</div>
-
 			<!-- Customer Info Card -->
 			<el-card class="mb-6" v-if="customerData">
 				<template #header>
@@ -61,80 +57,89 @@
 			</el-card>
 
 			<!-- Search and Filters -->
-			<el-card class="mb-6">
-				<div class="pt-6">
-					<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-						<div class="space-y-2">
-							<label class="text-sm font-medium">Search Questions & Answers</label>
-							<el-input
-								v-model="searchTerm"
-								placeholder="Search questions, answers, or sections..."
-								clearable
-							>
-								<template #prefix>
-									<el-icon><Search /></el-icon>
-								</template>
-							</el-input>
-						</div>
-
-						<div class="space-y-2">
-							<label class="text-sm font-medium">Filter by Questionnaires</label>
-							<el-select
-								v-model="selectedQuestionnaires"
-								multiple
-								filterable
-								collapse-tags
-								collapse-tags-tooltip
-								placeholder="Search questionnaires..."
-								class="w-full"
-								no-data-text="No questionnaires found"
-								filter-placeholder="Type to search questionnaires..."
-							>
-								<el-option
-									v-for="questionnaire in questionnaires"
-									:key="questionnaire.id"
-									:label="questionnaire.name"
-									:value="questionnaire.id"
-								/>
-							</el-select>
-						</div>
-
-						<div class="space-y-2">
-							<label class="text-sm font-medium">Filter by Sections</label>
-							<el-select
-								v-model="selectedSections"
-								multiple
-								filterable
-								collapse-tags
-								collapse-tags-tooltip
-								placeholder="Search sections..."
-								class="w-full"
-								no-data-text="No sections found"
-								filter-placeholder="Type to search sections..."
-							>
-								<el-option
-									v-for="section in sections"
-									:key="section"
-									:label="section"
-									:value="section"
-								/>
-							</el-select>
-						</div>
-
-						<div class="space-y-2">
-							<label class="text-sm font-medium">Actions</label>
-							<div class="flex space-x-2">
-								<el-button @click="applyFilters" type="primary" class="flex-1">
-									<el-icon><Filter /></el-icon>
-									&nbsp;&nbsp;Search
-								</el-button>
-								<el-button @click="clearFilters">
-									<el-icon><Close /></el-icon>
-								</el-button>
-							</div>
-						</div>
+			<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					<div class="space-y-2">
+						<label class="filter-label text-sm font-medium">
+							Search Questions & Answers
+						</label>
+						<el-input
+							v-model="searchTerm"
+							placeholder="Search questions, answers, or sections..."
+							clearable
+							class="w-full rounded-md"
+						>
+							<template #prefix>
+								<el-icon><Search /></el-icon>
+							</template>
+						</el-input>
 					</div>
 
+					<div class="space-y-2">
+						<label class="filter-label text-sm font-medium">
+							Filter by Questionnaires
+						</label>
+						<el-select
+							v-model="selectedQuestionnaires"
+							multiple
+							filterable
+							collapse-tags
+							collapse-tags-tooltip
+							placeholder="Search questionnaires..."
+							class="w-full filter-select"
+							no-data-text="No questionnaires found"
+							filter-placeholder="Type to search questionnaires..."
+						>
+							<el-option
+								v-for="questionnaire in questionnaires"
+								:key="questionnaire.id"
+								:label="questionnaire.name"
+								:value="questionnaire.id"
+							/>
+						</el-select>
+					</div>
+
+					<div class="space-y-2">
+						<label class="filter-label text-sm font-medium">Filter by Sections</label>
+						<el-select
+							v-model="selectedSections"
+							multiple
+							filterable
+							collapse-tags
+							collapse-tags-tooltip
+							placeholder="Search sections..."
+							class="w-full filter-select"
+							no-data-text="No sections found"
+							filter-placeholder="Type to search sections..."
+						>
+							<el-option
+								v-for="section in sections"
+								:key="section"
+								:label="section"
+								:value="section"
+							/>
+						</el-select>
+					</div>
+				</div>
+
+				<div class="flex justify-end space-x-2 mt-4">
+					<el-button @click="clearFilters">
+						<el-icon><Close /></el-icon>
+						Reset
+					</el-button>
+					<el-button type="primary" @click="applyFilters">
+						<el-icon><Filter /></el-icon>
+						Search
+					</el-button>
+				</div>
+
+				<div
+					class="flex items-center justify-between text-sm text-gray-500 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600"
+				>
+					<span>
+						Showing {{ visibleResponses.length }} of {{ totalResponsesCount }} responses
+						from {{ filteredData.length }} questionnaires
+					</span>
 					<div class="flex items-center justify-between text-sm text-gray-500">
 						<span>
 							Showing {{ visibleResponses.length }} of
@@ -152,7 +157,7 @@
 						</div>
 					</div>
 				</div>
-			</el-card>
+			</div>
 
 			<!-- Questionnaire Responses -->
 			<div class="space-y-6">
@@ -742,7 +747,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import '../styles/errorDialog.css';
 import {
-	ArrowLeft,
 	Download,
 	Document,
 	Search,
@@ -750,7 +754,8 @@ import {
 	Close,
 	User,
 	Clock,
-	Calendar,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	Calendar, // Used in dynamic component
 	Check,
 } from '@element-plus/icons-vue';
 import IconStar from '~icons/mdi/star';
@@ -765,6 +770,7 @@ import html2canvas from 'html2canvas';
 import { getOnboardingDetail } from '@/apis/ow/onboarding';
 import { getStageQuestionnairesBatch, getQuestionnaireAnswersBatch } from '@/apis/ow/questionnaire';
 import CustomerOverviewLoading from './customer-overview-loading.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 
 // Types
 interface OnboardingData {
@@ -1080,7 +1086,9 @@ const processQuestionnaireData = (
 											rowsMap[label] = String(v);
 										}
 									});
-								} catch {}
+								} catch {
+									console.error('Error parsing grid answer:');
+								}
 							}
 
 							if (ga?.changeHistory && Array.isArray(ga.changeHistory)) {
@@ -1503,7 +1511,8 @@ const allResponses = computed(() => {
 	return responses;
 });
 
-// All questions for export (includes questions without answers)
+// All questions for export (includes questions without answers) - kept for potential future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const allQuestionsForExport = computed(() => {
 	const responses: any[] = [];
 	processedData.value.forEach((questionnaire) => {
@@ -2920,187 +2929,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.space-y-2 > * + * {
-	margin-top: 0.5rem;
-}
-
-.space-y-6 > * + * {
-	margin-top: 1.5rem;
-}
-
-.space-x-2 > * + * {
-	margin-left: 0.5rem;
-}
-
-.grid {
-	display: grid;
-}
-
-.grid-cols-1 {
-	grid-template-columns: repeat(1, minmax(0, 1fr));
-}
-
-@media (min-width: 768px) {
-	.md\:grid-cols-4 {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-	}
-}
-
-.gap-4 {
-	gap: 1rem;
-}
-
-.text-2xl {
-	font-size: 1.5rem;
-	line-height: 2rem;
-}
-
-.font-bold {
-	font-weight: 700;
-}
-
-.font-medium {
-	font-weight: 500;
-}
-
-.text-sm {
-	font-size: 0.875rem;
-	line-height: 1.25rem;
-}
-
-.text-xs {
-	font-size: 0.75rem;
-	line-height: 1rem;
-}
-
-.text-lg {
-	font-size: 1.125rem;
-	line-height: 1.75rem;
-}
-
-.text-gray-500 {
-	color: #6b7280;
-}
-
-.text-gray-700 {
-	color: #374151;
-}
-
-.text-gray-900 {
-	color: #111827;
-}
-
-.text-blue-600 {
-	color: #2563eb;
-}
-
-.text-green-600 {
-	color: #16a34a;
-}
-
-.text-purple-600 {
-	color: #9333ea;
-}
-
-.text-orange-600 {
-	color: #ea580c;
-}
-
-.bg-blue-50 {
-	background-color: var(--primary-10);
-}
-
-.rounded {
-	border-radius: 0.25rem;
-}
-
-.p-2 {
-	padding: 0.5rem;
-}
-
-.p-4 {
-	padding: 1rem;
-}
-
-.py-6 {
-	padding-top: 1.5rem;
-	padding-bottom: 1.5rem;
-}
-
-.py-12 {
-	padding-top: 3rem;
-	padding-bottom: 3rem;
-}
-
-.px-4 {
-	padding-left: 1rem;
-	padding-right: 1rem;
-}
-
-.mb-2 {
-	margin-bottom: 0.5rem;
-}
-
-.mb-4 {
-	margin-bottom: 1rem;
-}
-
-.mb-6 {
-	margin-bottom: 1.5rem;
-}
-
-.mt-6 {
-	margin-top: 1.5rem;
-}
-
-.mr-1 {
-	margin-right: 0.25rem;
-}
-
-.mr-2 {
-	margin-right: 0.5rem;
-}
-
-.text-center {
-	text-align: center;
-}
-
-.flex {
-	display: flex;
-}
-
-.flex-1 {
-	flex: 1 1 0%;
-}
-
-.items-center {
-	align-items: center;
-}
-
-.justify-between {
-	justify-content: space-between;
-}
-
-.w-full {
-	width: 100%;
-}
-
-/* 暗色主题样式 */
-html.dark {
-	.bg-gray-50 {
-		@apply bg-black-400 !important;
-	}
-
-	.text-gray-900 {
-		@apply text-white-100 !important;
-	}
-
-	.text-gray-600,
-	.text-gray-500 {
-		@apply text-gray-300 !important;
-	}
-}
-
 /* 表格全宽样式 */
 :deep(.el-table) {
 	width: 100% !important;
@@ -3237,5 +3065,54 @@ html.dark {
 /* 暗色主题下的题目序号样式 */
 html.dark .question-number {
 	color: #60a5fa;
+}
+
+/* 筛选面板样式 */
+.filter-panel {
+	background-color: #ffffff;
+	border: 1px solid var(--primary-100);
+}
+
+html.dark .filter-panel {
+	background-color: var(--black-400);
+	border-color: var(--black-200);
+}
+
+.filter-label {
+	color: var(--primary-700);
+}
+
+html.dark .filter-label {
+	color: var(--primary-300);
+}
+
+/* Element Plus 组件样式覆盖 */
+:deep(.filter-select .el-input__wrapper) {
+	border-color: var(--primary-200);
+}
+
+html.dark :deep(.filter-select .el-input__wrapper) {
+	border-color: var(--black-200);
+}
+
+:deep(.filter-select .el-input__wrapper:hover) {
+	border-color: var(--primary-400);
+}
+
+html.dark :deep(.filter-select .el-input__wrapper:hover) {
+	border-color: var(--primary-600);
+}
+
+:deep(.filter-select .el-input__wrapper.is-focus) {
+	border-color: var(--primary-500);
+}
+
+html.dark :deep(.filter-select .el-input__wrapper.is-focus) {
+	border-color: var(--primary-500);
+	box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
+}
+
+html.dark :deep(.filter-select .el-input__inner) {
+	color: var(--white-100);
 }
 </style>

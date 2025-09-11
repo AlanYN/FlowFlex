@@ -180,7 +180,7 @@ export function getActionResult(
 	}
 ) {
 	return defHttp.post({
-		url: `${Api().actionResult}/${id}`,
+		url: `${Api(id).actionResult}`,
 		params,
 	});
 }

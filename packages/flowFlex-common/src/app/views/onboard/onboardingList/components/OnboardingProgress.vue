@@ -11,7 +11,7 @@
 						<el-icon class="transition-transform" :class="{ 'rotate-90': isOpen }">
 							<ArrowRight />
 						</el-icon>
-						<h3 class="text-lg font-semibold">Cases Progress</h3>
+						<h3 class="text-lg font-semibold">Case Progress</h3>
 					</div>
 					<div class="flex items-center space-x-2">
 						<span class="text-sm font-medium">{{ progressPercentage }}% Complete</span>
@@ -93,11 +93,32 @@
 										{{ getOriginalStageIndex(stage) + 1 }}.
 									</span>
 									<div class="flex-1">
-										<div
-											class="text-gray-900 dark:text-white-100 text-sm stage-title-text"
-											:title="stage.title"
-										>
-											{{ stage.title }}
+										<div class="flex items-center gap-2">
+											<div
+												class="text-gray-900 dark:text-white-100 text-sm stage-title-text"
+												:title="stage.title"
+											>
+												{{ stage.title }}
+											</div>
+											<!-- Action Tag for completed stages -->
+											<div
+												v-if="stage.completed && stage.actions"
+												class="flex items-center gap-2"
+											>
+												<template
+													v-for="action in stage.actions"
+													:key="action.id"
+												>
+													<ActionTag
+														:action="action"
+														:trigger-source-id="action.id"
+														trigger-source-type="action"
+														:onboarding-id="onboardingData.id"
+														type="warning"
+														size="small"
+													/>
+												</template>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -132,15 +153,16 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { Check, Clock, ArrowDown, ArrowUp, ArrowRight } from '@element-plus/icons-vue';
-import { OnboardingItem } from '#/onboard';
+import { OnboardingItem, Stage } from '#/onboard';
 import { timeZoneConvert } from '@/hooks/time';
 import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import ActionTag from '@/components/actionTools/ActionTag.vue';
 
 // Props
 interface Props {
 	activeStage: string;
 	onboardingData: OnboardingItem;
-	workflowStages: any[]; // 从父组件传递的工作流阶段
+	workflowStages: Stage[]; // 从父组件传递的工作流阶段
 	stageAccessCheck?: (stageId: string) => boolean; // 阶段访问权限检查函数
 }
 
@@ -191,7 +213,10 @@ const stages = computed(() => {
 		saveTime: timeZoneConvert(stage?.saveTime || '', false, projectTenMinutesSsecondsDate),
 		assignee: stage.defaultAssignedGroup || defaultStr,
 		completedBy: stage.completedBy,
-		showSaveOrComplete: getSaveOrCompleteFlag(stage?.completionTime, stage?.saveTime),
+		showSaveOrComplete: getSaveOrCompleteFlag(
+			stage?.completionTime || '',
+			stage?.saveTime || ''
+		),
 	}));
 });
 
@@ -240,7 +265,8 @@ const toggleStagesView = () => {
 	showAllStages.value = !showAllStages.value;
 };
 
-const handleStageClick = (stageId: string) => {
+const handleStageClick = (stageId?: string) => {
+	if (!stageId) return;
 	// 如果提供了权限检查函数，先检查权限
 	if (props.stageAccessCheck && !props.stageAccessCheck(stageId)) {
 		// 权限检查失败，不发送事件，让父组件处理

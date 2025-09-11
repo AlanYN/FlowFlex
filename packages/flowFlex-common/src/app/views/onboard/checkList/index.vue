@@ -8,13 +8,22 @@
 				description="Task checklists for different teams during the onboarding process"
 			>
 				<template #actions>
+					<!-- Tab切换器 -->
+					<TabButtonGroup
+						v-model="activeView"
+						:tabs="tabsConfig"
+						size="small"
+						type="adaptive"
+						class="mr-4"
+						@tab-change="handleViewChange"
+					/>
 					<el-button
 						@click="openCreateDialog"
 						type="primary"
 						size="default"
 						class="page-header-btn page-header-btn-primary"
+						:icon="Plus"
 					>
-						<el-icon class="mr-2"><Plus /></el-icon>
 						New Checklist
 					</el-button>
 				</template>
@@ -61,6 +70,7 @@
 				:tabs="tabsConfig"
 				type="adaptive"
 				size="default"
+				:hidden-tab="true"
 				@tab-change="handleViewChange"
 			>
 				<!-- 卡片视图 -->
@@ -211,7 +221,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 import { exportChecklistToPdf } from '@/utils/pdfExport';
-import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import { Plus } from '@element-plus/icons-vue';
 import ChecklistCardView from './components/ChecklistCardView.vue';
 import ChecklistListView from './components/ChecklistListView.vue';

@@ -38,13 +38,30 @@
 						:class="{ '!bg-white !border-none': question.type == 'page_break' }"
 					>
 						<div class="mb-2" v-if="question.type !== 'page_break'">
-							<span class="text-sm font-medium text-gray-700">
-								{{ currentSectionIndex + 1 }}-{{
-									getQuestionNumber(questionIndex)
-								}}.
-								{{ question.title }}
-								<span v-if="question.required" class="text-red-500">*</span>
-							</span>
+							<div class="flex items-center gap-2">
+								<span class="text-sm font-medium text-gray-700">
+									{{ currentSectionIndex + 1 }}-{{
+										getQuestionNumber(questionIndex)
+									}}.
+									{{ question.title }}
+									<span v-if="question.required" class="text-red-500">*</span>
+								</span>
+								<!-- Action Tag for question -->
+								<ActionTag
+									v-if="
+										question.action &&
+										question.action.id &&
+										question.action.name &&
+										onboardingId
+									"
+									:action="question.action"
+									:trigger-source-id="question.id"
+									trigger-source-type="question"
+									:onboarding-id="onboardingId"
+									type="success"
+									size="small"
+								/>
+							</div>
 							<p v-if="question.description" class="text-xs text-gray-500 mt-1">
 								{{ question.description }}
 							</p>
@@ -135,17 +152,33 @@
 											placeholder="Enter other"
 										/>
 									</div>
-									<span
-										v-else
-										class="text-sm"
-										:class="{
-											'text-primary-500 font-bold':
-												formData[question.id] ===
-												(option.value || option.label),
-										}"
-									>
-										{{ option.label || option.text || option.value }}
-									</span>
+									<div v-else class="flex items-center gap-2">
+										<span
+											class="text-sm"
+											:class="{
+												'text-primary-500 font-bold':
+													formData[question.id] ===
+													(option.value || option.label),
+											}"
+										>
+											{{ option.label || option.text || option.value }}
+										</span>
+										<!-- Action Tag for option -->
+										<ActionTag
+											v-if="
+												option.action &&
+												option.action.id &&
+												option.action.name &&
+												onboardingId
+											"
+											:action="option.action"
+											:trigger-source-id="option.id || option.temporaryId"
+											trigger-source-type="option"
+											:onboarding-id="onboardingId"
+											type="success"
+											size="small"
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -604,6 +637,7 @@ import {
 	notesPageTextraMaxLength,
 	questionMaxlength,
 } from '@/settings/projectSetting';
+import ActionTag from '@/components/actionTools/ActionTag.vue';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';

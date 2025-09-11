@@ -38,6 +38,7 @@
 						placeholder="Select Stage"
 						clearable
 						class="w-full filter-select"
+						@change="handleAutoSearch"
 					>
 						<el-option label="All Stages" value="" />
 						<el-option
@@ -56,7 +57,7 @@
 						placeholder="Select Work Flow"
 						clearable
 						class="w-full filter-select"
-						@change="handleWorkflowChange"
+						@change="handleWorkflowChangeWithSearch"
 					>
 						<el-option label="All Work Flows" value="" />
 						<el-option
@@ -77,6 +78,7 @@
 						class="w-full filter-select"
 						:disabled="!searchParams.workFlowId || stagesLoading"
 						:loading="stagesLoading"
+						@change="handleAutoSearch"
 					>
 						<el-option label="All Stages" value="" />
 						<el-option
@@ -107,6 +109,7 @@
 						placeholder="Select Priority"
 						clearable
 						class="w-full filter-select"
+						@change="handleAutoSearch"
 					>
 						<el-option label="All Priorities" value="" />
 						<el-option label="High" value="High" />
@@ -115,29 +118,13 @@
 					</el-select>
 				</div>
 			</div>
-
-			<div class="flex justify-end space-x-2">
-				<el-button @click="handleReset">
-					<el-icon><Close /></el-icon>
-					Reset
-				</el-button>
-				<el-button type="primary" @click="handleSearch">
-					<el-icon><Search /></el-icon>
-					Search
-				</el-button>
-				<el-button @click="handleExport" :loading="loading" :disabled="loading">
-					<el-icon><Download /></el-icon>
-					Export
-					{{ selectedItems.length > 0 ? `(${selectedItems.length})` : 'All' }}
-				</el-button>
-			</div>
 		</el-form>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
-import { Search, Close, Download } from '@element-plus/icons-vue';
+// Icons removed as buttons are moved to parent component
 import { SearchParams } from '#/onboard';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 import { getStagesByWorkflow } from '@/apis/ow';
@@ -163,7 +150,6 @@ const props = withDefaults(defineProps<Props>(), {
 // Emits
 const emit = defineEmits<{
 	search: [params: SearchParams];
-	reset: [];
 	export: [];
 }>();
 
@@ -235,17 +221,41 @@ const handleWorkflowChange = async (workflowId: string) => {
 	}
 };
 
+// 处理 workflow 变化并触发搜索
+const handleWorkflowChangeWithSearch = async (workflowId: string) => {
+	await handleWorkflowChange(workflowId);
+	handleAutoSearch();
+};
+
+// 防抖搜索
+let searchTimeout: any = null;
+
+// 自动搜索函数
+const handleAutoSearch = () => {
+	// 清除之前的定时器
+	if (searchTimeout) {
+		clearTimeout(searchTimeout);
+	}
+	// 设置新的定时器，实现防抖
+	searchTimeout = setTimeout(() => {
+		handleSearch();
+	}, 300);
+};
+
 // 标签变化处理函数
 const handleLeadIdTagsChange = (tags: string[]) => {
 	searchParams.leadId = tags.join(',');
+	handleAutoSearch();
 };
 
 const handleLeadNameTagsChange = (tags: string[]) => {
 	searchParams.leadName = tags.join(',');
+	handleAutoSearch();
 };
 
 const handleUpdatedByTagsChange = (tags: string[]) => {
 	searchParams.updatedBy = tags.join(',');
+	handleAutoSearch();
 };
 
 // 事件处理函数
@@ -259,29 +269,15 @@ const handleSearch = () => {
 	};
 	emit('search', searchParamsWithTags);
 };
-
-const handleReset = () => {
-	// 重置搜索参数
-	searchParams.leadId = '';
-	searchParams.leadName = '';
-	searchParams.lifeCycleStageName = '';
-	searchParams.currentStageId = '';
-	searchParams.updatedBy = '';
-	searchParams.priority = '';
-	searchParams.workFlowId = '';
-	// 重置标签数组
-	leadIdTags.value = [];
-	leadNameTags.value = [];
-	updatedByTags.value = [];
-	// 重置动态 stages 为原始数据
-	dynamicOnboardingStages.value = props.onboardingStages;
-
-	emit('reset');
-};
-
 const handleExport = () => {
 	emit('export');
 };
+
+// 暴露给父组件的方法
+defineExpose({
+	handleSearch,
+	handleExport,
+});
 </script>
 
 <style scoped lang="scss">

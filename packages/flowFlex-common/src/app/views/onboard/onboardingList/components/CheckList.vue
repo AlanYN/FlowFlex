@@ -19,7 +19,7 @@
 				</div>
 				<div class="progress-info">
 					<span class="progress-percentage">{{ overallCompletionRate }}%</span>
-					<span class="progress-label">Complete</span>
+					<span class="progress-label">Completeed</span>
 				</div>
 			</div>
 			<!-- 统一进度条 -->
@@ -98,6 +98,16 @@
 										<icon icon="mynaui:message" />
 										{{ task?.notesCount || 0 }}
 									</div>
+									<!-- Action Tag -->
+									<ActionTag
+										v-if="task.actionId && task.actionName"
+										:action="{ id: task.actionId, name: task.actionName }"
+										:trigger-source-id="task.id"
+										trigger-source-type="task"
+										:onboarding-id="props.onboardingId"
+										type="success"
+										size="small"
+									/>
 								</div>
 							</div>
 
@@ -144,6 +154,7 @@ import { ArrowRight } from '@element-plus/icons-vue';
 import { ChecklistData, TaskData } from '#/onboard';
 import { useI18n } from '@/hooks/useI18n';
 import TaskDetailsDialog from './TaskDetailsDialog.vue';
+import ActionTag from '@/components/actionTools/ActionTag.vue';
 import { defaultStr } from '@/settings/projectSetting';
 
 const { t } = useI18n();
@@ -526,8 +537,8 @@ const getAssigneeInitials = (fullName: string) => {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
+	-webkit-line-clamp: 1;
+	line-clamp: 1;
 	-webkit-box-orient: vertical;
 
 	.completed & {
@@ -570,8 +581,8 @@ const getAssigneeInitials = (fullName: string) => {
 	/* 限制描述文本最多显示3行 */
 	overflow: hidden;
 	display: -webkit-box;
-	-webkit-line-clamp: 3;
-	line-clamp: 3;
+	-webkit-line-clamp: 1;
+	line-clamp: 1;
 	-webkit-box-orient: vertical;
 }
 

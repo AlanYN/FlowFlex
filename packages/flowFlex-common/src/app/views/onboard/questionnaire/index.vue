@@ -6,12 +6,21 @@
 			description="Create and manage questionnaires for different workflow stages"
 		>
 			<template #actions>
+				<!-- Tab切换器 -->
+				<TabButtonGroup
+					v-model="activeView"
+					:tabs="tabsConfig"
+					size="small"
+					type="adaptive"
+					class="mr-4"
+					@tab-change="handleViewChange"
+				/>
 				<el-button
 					type="primary"
 					@click="() => handleNewQuestionnaire()"
 					class="page-header-btn page-header-btn-primary"
+					:icon="Plus"
 				>
-					<el-icon class="mr-2"><Plus /></el-icon>
 					New Questionnaire
 				</el-button>
 			</template>
@@ -77,6 +86,7 @@
 			:tabs="tabsConfig"
 			type="adaptive"
 			size="default"
+			:hidden-tab="true"
 			@tab-change="handleViewChange"
 		>
 			<!-- 卡片视图 -->
@@ -193,7 +203,7 @@ import { getWorkflows, getStagesByWorkflow, getAllStages } from '@/apis/ow';
 import { Questionnaire } from '#/onboard';
 import { useRouter } from 'vue-router';
 import { smallDialogWidth } from '@/settings/projectSetting';
-import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 
