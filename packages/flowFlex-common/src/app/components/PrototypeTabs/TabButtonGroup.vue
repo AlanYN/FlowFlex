@@ -1,5 +1,5 @@
 <template>
-	<div :class="tabsListClasses">
+	<div :class="[tabsListClasses, 'tab-button-group']">
 		<el-tooltip
 			v-for="(tab, index) in tabs"
 			:key="tab[keys.value]"
@@ -98,7 +98,7 @@ const handleTabClick = (value: string, index: number) => {
 @use './index.scss';
 
 // 针对TabButtonGroup的特殊样式调整
-.tabs-list {
+.tab-button-group.tabs-list {
 	// 隐藏文字标签，只显示图标
 	.tab-label {
 		display: none;
