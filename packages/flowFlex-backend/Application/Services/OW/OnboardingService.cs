@@ -22,6 +22,8 @@ using FlowFlex.Domain.Shared.Models;
 using System.Linq.Expressions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Shared.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Infrastructure.Extensions;
@@ -50,6 +52,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOperatorContextService _operatorContextService;
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private readonly IActionManagementService _actionManagementService;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -72,7 +75,8 @@ namespace FlowFlex.Application.Services.OW
             IQuestionnaireService questionnaireService,
             IOperatorContextService operatorContextService,
             IServiceScopeFactory serviceScopeFactory,
-            IBackgroundTaskQueue backgroundTaskQueue)
+            IBackgroundTaskQueue backgroundTaskQueue,
+            IActionManagementService actionManagementService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -91,6 +95,7 @@ namespace FlowFlex.Application.Services.OW
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
             _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
             _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
+            _actionManagementService = actionManagementService ?? throw new ArgumentNullException(nameof(actionManagementService));
         }
 
         /// <summary>
@@ -792,6 +797,25 @@ namespace FlowFlex.Application.Services.OW
                     if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
                     {
                         result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
+                    }
+                }
+
+                // Get actions for each stage in stagesProgress
+                if (result.StagesProgress != null)
+                {
+                    foreach (var stageProgress in result.StagesProgress)
+                    {
+                        try
+                        {
+                            var actions = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(stageProgress.StageId);
+                            stageProgress.Actions = actions;
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log error but don't fail the entire request
+                            // Debug logging handled by structured logging
+                            stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
+                        }
                     }
                 }
 
@@ -2780,6 +2804,22 @@ namespace FlowFlex.Application.Services.OW
 
             // Map stages progress to DTO
             var stagesProgressDto = _mapper.Map<List<OnboardingStageProgressDto>>(entity.StagesProgress);
+
+            // Get actions for each stage
+            foreach (var stageProgress in stagesProgressDto)
+            {
+                try
+                {
+                    var actions = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(stageProgress.StageId);
+                    stageProgress.Actions = actions;
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the entire request
+                    // Debug logging handled by structured logging
+                    stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
+                }
+            }
 
             return new OnboardingProgressDto
             {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
@@ -132,5 +133,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public decimal? AiSummaryConfidence { get; set; }
         public string AiSummaryModel { get; set; }
         public string AiSummaryData { get; set; }
+
+        /// <summary>
+        /// Actions associated with this stage
+        /// 与此阶段关联的动作列表
+        /// </summary>
+        public List<ActionTriggerMappingWithActionInfo> Actions { get; set; } = new List<ActionTriggerMappingWithActionInfo>();
     }
 }
