@@ -1154,12 +1154,12 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-/* 头部卡片样式 - 现代青色渐变 */
+/* 头部卡片样式 - 现代灰色渐变 */
 .change-log-header-card {
-	background: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%);
+	background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
 	padding: 10px;
 	color: white;
-	box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
+	box-shadow: 0 4px 12px rgba(107, 114, 128, 0.2);
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -1167,15 +1167,15 @@ defineExpose({
 	transition: all 0.2s ease;
 
 	&:hover {
-		box-shadow: 0 6px 16px rgba(20, 184, 166, 0.3);
+		box-shadow: 0 6px 16px rgba(107, 114, 128, 0.3);
 		transform: translateY(-1px);
-		background: linear-gradient(135deg, #0f766e 0%, #0d5858 100%);
+		background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
 	}
 
 	&.expanded {
 		border-bottom-left-radius: 0;
 		border-bottom-right-radius: 0;
-		background: linear-gradient(135deg, #0f766e 0%, #0d5858 100%);
+		background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
 	}
 }
 
@@ -1237,16 +1237,16 @@ defineExpose({
 // 暗色主题支持
 .dark {
 	.change-log-header-card {
-		background: linear-gradient(135deg, #0f766e 0%, #0d5858 100%);
-		box-shadow: 0 4px 12px rgba(15, 118, 110, 0.3);
+		background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+		box-shadow: 0 4px 12px rgba(75, 85, 99, 0.3);
 
 		&:hover {
-			box-shadow: 0 6px 16px rgba(15, 118, 110, 0.4);
-			background: linear-gradient(135deg, #0d5858 0%, #134e4a 100%);
+			box-shadow: 0 6px 16px rgba(75, 85, 99, 0.4);
+			background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
 		}
 
 		&.expanded {
-			background: linear-gradient(135deg, #0d5858 0%, #134e4a 100%);
+			background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
 		}
 	}
 }

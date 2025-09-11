@@ -1,39 +1,30 @@
 <template>
 	<div class="pb-6 bg-gray-50 dark:bg-black-400">
-		<!-- 顶部导航栏 -->
-		<div class="flex justify-between items-center mb-6">
-			<div class="flex items-center">
-				<el-button
-					link
-					size="small"
-					@click="handleBack"
-					class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
-				>
-					<el-icon class="text-lg">
-						<ArrowLeft />
-					</el-icon>
-					Back
-				</el-button>
-				<div class="flex flex-col">
-					<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-						Cases Details: {{ onboardingData?.leadId }} {{ onboardingData?.leadName }}
-					</h1>
-					<!-- 状态显示 -->
-					<div class="flex items-center mt-1" v-if="onboardingData?.status">
-						<span class="text-sm text-gray-500 dark:text-gray-400 mr-2">Status:</span>
-						<el-tag :type="getStatusTagType(onboardingData.status)">
-							{{ getDisplayStatus(onboardingData.status) }}
-						</el-tag>
-					</div>
+		<!-- 页面头部 -->
+		<PageHeader
+			:title="`${onboardingData?.leadId || ''} ${onboardingData?.leadName || ''}`"
+			:show-back-button="true"
+			@go-back="handleBack"
+		>
+			<template #description>
+				<!-- 状态显示 -->
+				<div class="flex items-center" v-if="onboardingData?.status">
+					<GradientTag
+						:type="statusTagType"
+						:text="statusDisplayText"
+						:pulse="statusShouldPulse"
+						size="small"
+					/>
 				</div>
-			</div>
-			<div class="flex items-center space-x-2">
+			</template>
+			<template #actions>
 				<el-button
 					type="primary"
 					@click="saveQuestionnaireAndField"
 					:loading="saveAllLoading"
 					:disabled="isSaveDisabled"
 					:icon="Document"
+					class="page-header-btn page-header-btn-primary"
 				>
 					Save
 				</el-button>
@@ -42,27 +33,27 @@
 					@click="handleCompleteStage"
 					:loading="completing"
 					:disabled="isCompleteStageDisabled"
+					class="page-header-btn page-header-btn-primary"
+					:icon="Check"
 				>
-					<el-icon class="mr-1">
-						<Check />
-					</el-icon>
-					Complete Stage
+					Complete
 				</el-button>
-				<el-button @click="handleCustomerOverview">Customer Overview</el-button>
-				<el-button @click="portalAccessDialogVisible = true">
-					<el-icon>
-						<User />
-					</el-icon>
-					&nbsp;&nbsp;Portal Access Management
+				<el-button
+					@click="handleCustomerOverview"
+					class="page-header-btn page-header-btn-secondary"
+					:icon="View"
+				>
+					Overview
 				</el-button>
-				<!-- <el-button type="primary" @click="messageDialogVisible = true">
-					<el-icon>
-						<ChatDotSquare />
-					</el-icon>
-					&nbsp;&nbsp;Send Message
-				</el-button> -->
-			</div>
-		</div>
+				<el-button
+					@click="portalAccessDialogVisible = true"
+					class="page-header-btn page-header-btn-secondary"
+					:icon="User"
+				>
+					Share
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<!-- 主要内容区域 -->
 		<div class="flex w-full gap-6">
@@ -241,7 +232,7 @@
 import { ref, computed, onMounted, nextTick, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Loading, User, Document, Check } from '@element-plus/icons-vue';
+import { Loading, User, Document, Check, View } from '@element-plus/icons-vue';
 import { getTokenobj } from '@/utils/auth';
 import { getTimeZoneInfo } from '@/hooks/time';
 import { useGlobSetting } from '@/settings';
@@ -256,12 +247,14 @@ import {
 	completeCurrentStage,
 	onboardingSave,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
+import { OnboardingItem, ComponentData, SectionAnswer, Stage } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
 import { useUserStore } from '@/stores/modules/user';
 // 导入组件
+import PageHeader from '@/components/global/PageHeader/index.vue';
+import GradientTag from '@/components/global/GradientTag/index.vue';
 import OnboardingProgress from './components/OnboardingProgress.vue';
 import QuestionnaireDetails from './components/QuestionnaireDetails.vue';
 import InternalNotes from './components/InternalNotes.vue';
@@ -284,7 +277,7 @@ const route = useRoute();
 // 响应式数据
 const onboardingData = ref<OnboardingItem | null>(null);
 const activeStage = ref<string>(''); // 初始为空，等待从服务器获取当前阶段
-const workflowStages = ref<any[]>([]);
+const workflowStages = ref<Stage[]>([]);
 const messageDialogVisible = ref(false);
 const portalAccessDialogVisible = ref(false);
 
@@ -320,8 +313,11 @@ const onboardingId = computed(() => {
 	return id;
 });
 
-// 状态标签类型
-const getStatusTagType = (status: string) => {
+// 状态显示映射
+const statusTagType = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return 'default';
+
 	switch (status) {
 		case 'Inactive':
 			return 'info';
@@ -339,24 +335,27 @@ const getStatusTagType = (status: string) => {
 		default:
 			return 'info';
 	}
-};
+});
 
-// 状态显示转换函数 - 统一显示逻辑
-const getDisplayStatus = (status: string) => {
-	if (status === undefined || status === null) {
-		return 'Unknown';
-	}
+const statusDisplayText = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return defaultStr;
 
 	switch (status) {
 		case 'Active':
 		case 'Started':
-			return 'InProgress';
+			return 'In progress';
 		case 'Cancelled':
 			return 'Aborted';
 		default:
 			return status;
 	}
-};
+});
+
+const statusShouldPulse = computed(() => {
+	const status = onboardingData.value?.status;
+	return ['Active', 'InProgress', 'Started', 'Paused'].includes(status || '');
+});
 
 // 计算是否禁用保存按钮
 const isSaveDisabled = computed(() => {
@@ -385,7 +384,7 @@ const isAbortedReadonly = computed(() => {
 // 添加组件引用
 const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
-const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+const onboardingActiveStageInfo = ref<Stage | null>(null);
 const documentsRef = ref<any[]>([]);
 
 // 在组件更新前重置 refs，避免多次渲染导致重复收集
@@ -479,9 +478,8 @@ const processOnboardingData = (responseData: any) => {
 	const newStageId =
 		firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
 
-	onboardingActiveStageInfo.value = workflowStages.value.find(
-		(stage) => stage.stageId === newStageId
-	);
+	onboardingActiveStageInfo.value =
+		workflowStages.value.find((stage) => stage.stageId === newStageId) || null;
 
 	// 更新AI Summary显示
 	updateAISummaryFromStageInfo();
@@ -759,9 +757,8 @@ const setActiveStage = async (stageId: string) => {
 
 	// 更新activeStage
 	activeStage.value = stageId;
-	onboardingActiveStageInfo.value = workflowStages.value.find(
-		(stage) => stage.stageId === stageId
-	);
+	onboardingActiveStageInfo.value =
+		workflowStages.value.find((stage) => stage.stageId === stageId) || null;
 
 	// 更新AI Summary显示
 	updateAISummaryFromStageInfo();
@@ -1214,19 +1211,6 @@ onMounted(async () => {
 
 /* 暗色主题样式 */
 html.dark {
-	.bg-gray-50 {
-		@apply bg-black-400 !important;
-	}
-
-	.text-gray-900 {
-		@apply text-white-100 !important;
-	}
-
-	.text-gray-600,
-	.text-gray-500 {
-		@apply text-gray-300 !important;
-	}
-
 	:deep(.el-scrollbar__thumb) {
 		background-color: rgba(255, 255, 255, 0.2);
 	}

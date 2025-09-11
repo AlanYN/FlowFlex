@@ -20,7 +20,7 @@
 				</div>
 				<div class="progress-info">
 					<span class="progress-percentage">{{ completionRate }}%</span>
-					<span class="progress-label">Answer</span>
+					<span class="progress-label">Answered</span>
 				</div>
 			</div>
 			<!-- 进度条 -->

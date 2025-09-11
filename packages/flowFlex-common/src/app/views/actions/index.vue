@@ -6,24 +6,29 @@
 			description="Configure and manage automation tools to streamline your business processes"
 		>
 			<template #actions>
+				<!-- Tab切换器 -->
+				<TabButtonGroup
+					v-model="activeTab"
+					:tabs="tabsConfig"
+					size="small"
+					type="adaptive"
+					class="mr-4"
+					@tab-change="handleTabChange"
+				/>
 				<el-button
 					class="page-header-btn page-header-btn-secondary"
 					@click="handleExport"
 					:loading="exportLoading"
+					:icon="Download"
 				>
-					<el-icon class="mr-2">
-						<Download />
-					</el-icon>
 					<span>Export</span>
 				</el-button>
 				<el-button
 					class="page-header-btn page-header-btn-primary"
 					type="primary"
 					@click="handleCreateAction"
+					:icon="Plus"
 				>
-					<el-icon class="mr-2">
-						<Plus />
-					</el-icon>
 					<span>New Tool</span>
 				</el-button>
 			</template>
@@ -69,6 +74,7 @@
 			:tabs="tabsConfig"
 			type="adaptive"
 			size="default"
+			:hidden-tab="true"
 			@tab-change="handleTabChange"
 		>
 			<!-- Tools Tab -->
@@ -205,7 +211,7 @@ import { Plus, Download, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import PageHeader from '@/components/global/PageHeader/index.vue';
-import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import {
 	getActionDefinitions,
 	deleteAction,

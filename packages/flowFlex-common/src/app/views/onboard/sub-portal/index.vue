@@ -176,11 +176,12 @@
 						</div>
 					</div>
 
-					<!-- Header -->
-					<div v-else>
-						<h1 class="text-2xl font-bold text-gray-900">Cases Progress</h1>
-						<p class="text-gray-600">Track your journey with us</p>
-					</div>
+					<!-- 统一页面头部 -->
+					<PageHeader
+						v-else
+						title="Case Progress"
+						description="Track your journey with us"
+					/>
 
 					<!-- Overall Progress -->
 					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
@@ -373,7 +374,7 @@
 					<!-- Stages Timeline -->
 					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
 						<div class="mb-6">
-							<h3 class="text-lg font-semibold text-gray-900">Cases Stages</h3>
+							<h3 class="text-lg font-semibold text-gray-900">Case Stages</h3>
 							<p class="text-sm text-gray-600">
 								Track your progress through each stage
 							</p>
@@ -541,6 +542,7 @@ import { formatDateUS } from '@/hooks/time';
 import MessageCenter from './components/MessageCenter.vue';
 import DocumentCenter from './components/DocumentCenter.vue';
 import ContactUs from './components/ContactUs.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 
 // Icon components
 const HomeIcon = {
@@ -589,6 +591,7 @@ export default {
 		MessageCenter,
 		DocumentCenter,
 		ContactUs,
+		PageHeader,
 		HomeIcon,
 		DetailsIcon,
 		MessageSquareIcon,
@@ -608,12 +611,12 @@ export default {
 		// 导航菜单
 		const navigation = ref([
 			{
-				name: 'Cases Progress',
+				name: 'Case Progress',
 				view: 'progress',
 				icon: HomeIcon,
 			},
 			{
-				name: 'Cases Detail',
+				name: 'Case Detail',
 				view: 'detail',
 				icon: DetailsIcon,
 			},

@@ -163,57 +163,46 @@
 			<main class="flex-1 p-6">
 				<!-- Onboarding Detail View -->
 				<div class="pb-6 bg-gray-50 dark:bg-black-400">
-					<!-- 顶部导航栏 -->
-					<div class="flex justify-between items-center mb-6">
-						<div class="flex items-center">
-							<el-button
-								link
-								size="small"
-								@click="handleBack"
-								class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
-							>
-								<el-icon class="text-lg">
-									<ArrowLeft />
-								</el-icon>
-								Back
-							</el-button>
-							<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-								Cases Details: {{ onboardingData?.leadId }}
-								{{ onboardingData?.leadName }}
-							</h1>
-						</div>
-						<div class="flex items-center space-x-2">
+					<!-- 统一页面头部 -->
+					<PageHeader
+						:title="`${onboardingData?.leadId || ''} ${onboardingData?.leadName || ''}`"
+						:show-back-button="true"
+						@go-back="handleBack"
+					>
+						<template #description>
 							<!-- 状态显示 -->
-							<div class="flex items-center mr-4" v-if="onboardingData?.status">
-								<span class="text-sm text-gray-500 mr-2">Status:</span>
-								<el-tag :type="getStatusTagType(onboardingData.status)">
-									{{ getDisplayStatus(onboardingData.status) }}
-								</el-tag>
+							<div class="flex items-center" v-if="onboardingData?.status">
+								<GradientTag
+									:type="statusTagType"
+									:text="statusDisplayText"
+									:pulse="statusShouldPulse"
+									size="small"
+								/>
 							</div>
+						</template>
+						<template #actions>
 							<el-button
 								type="primary"
 								@click="saveQuestionnaireAndField"
 								:loading="saveAllLoading"
-								:disabled="isSaveDisabled"
+								:disabled="stagePortalPermission"
+								:icon="Document"
+								class="page-header-btn page-header-btn-primary"
 							>
-								<el-icon class="mr-1">
-									<Document />
-								</el-icon>
 								Save
 							</el-button>
 							<el-button
 								type="primary"
 								@click="handleCompleteStage"
 								:loading="completing"
-								:disabled="isCompleteStageDisabled"
+								:disabled="stagePortalPermission"
+								:icon="Check"
+								class="page-header-btn page-header-btn-primary"
 							>
-								<el-icon class="mr-1">
-									<Check />
-								</el-icon>
 								Complete Stage
 							</el-button>
-						</div>
-					</div>
+						</template>
+					</PageHeader>
 
 					<!-- 主要内容区域 -->
 					<div class="flex gap-6">
@@ -397,7 +386,7 @@
 					<!-- 编辑对话框 -->
 					<el-dialog
 						v-model="editDialogVisible"
-						title="Edit Cases"
+						title="Edit Case"
 						width="500px"
 						:before-close="handleEditDialogClose"
 					>
@@ -448,7 +437,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Loading, Check, Document } from '@element-plus/icons-vue';
+import { Loading, Check, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
 	getStaticFieldValuesByOnboarding,
@@ -474,7 +463,9 @@ import CheckList from '../onboardingList/components/CheckList.vue';
 import Documents from '../onboardingList/components/Documents.vue';
 import StaticForm from '../onboardingList/components/StaticForm.vue';
 import AISummary from '../onboardingList/components/AISummary.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import { StageComponentPortal } from '@/enums/appEnum';
+import GradientTag from '@/components/global/GradientTag/index.vue';
 
 // 图标组件
 const HomeIcon = {
@@ -539,12 +530,12 @@ const customerData = computed(() => {
 // 导航菜单
 const navigation = ref([
 	{
-		name: 'Cases Progress',
+		name: 'Case Progress',
 		view: 'progress',
 		icon: HomeIcon,
 	},
 	{
-		name: 'Cases Detail',
+		name: 'Case Detail',
 		view: 'onboarding',
 		icon: DetailsIcon,
 	},
@@ -626,62 +617,48 @@ const stagePortalPermission = computed(() => {
 	return currentStage?.portalPermission == 1 ? true : false;
 });
 
-// 状态显示相关函数
-const getStatusTagType = (status: string) => {
-	if (!status) return 'info';
+// 状态显示映射
+const statusTagType = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return 'default';
 
-	switch (status.toLowerCase()) {
-		case 'inactive':
+	switch (status) {
+		case 'Inactive':
 			return 'info';
-		case 'active':
-		case 'inprogress':
-		case 'started':
+		case 'Active':
+		case 'InProgress':
+		case 'Started':
+			return 'primary';
+		case 'Completed':
 			return 'success';
-		case 'completed':
-			return 'success';
-		case 'paused':
+		case 'Paused':
 			return 'warning';
-		case 'aborted':
-		case 'cancelled':
+		case 'Aborted':
+		case 'Cancelled':
 			return 'danger';
 		default:
 			return 'info';
 	}
-};
+});
 
-const getDisplayStatus = (status: string) => {
-	if (!status) return status;
+const statusDisplayText = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return defaultStr;
 
-	switch (status.toLowerCase()) {
-		case 'active':
-		case 'inprogress':
-		case 'started':
-			return 'InProgress';
-		case 'cancelled':
+	switch (status) {
+		case 'Active':
+		case 'Started':
+			return 'In progress';
+		case 'Cancelled':
 			return 'Aborted';
 		default:
 			return status;
 	}
-};
-
-// 计算是否禁用保存按钮
-const isSaveDisabled = computed(() => {
-	const status = onboardingData.value?.status;
-	if (!status) return stagePortalPermission.value;
-
-	// 对于已中止或已取消的状态，禁用保存
-	const isStatusDisabled = ['Aborted', 'Cancelled'].includes(status);
-	return stagePortalPermission.value || isStatusDisabled;
 });
 
-// 计算是否禁用完成阶段按钮
-const isCompleteStageDisabled = computed(() => {
+const statusShouldPulse = computed(() => {
 	const status = onboardingData.value?.status;
-	if (!status) return stagePortalPermission.value;
-
-	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	const isStatusDisabled = ['Aborted', 'Cancelled', 'Paused'].includes(status);
-	return stagePortalPermission.value || isStatusDisabled;
+	return ['Active', 'InProgress', 'Started', 'Paused'].includes(status || '');
 });
 
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）

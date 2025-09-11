@@ -87,3 +87,29 @@ export interface ActionListItem {
 	actionName?: string;
 	actionDefinitionId?: string;
 }
+
+// Action execution result interface
+export interface ActionExecutionResult {
+	id: string;
+	actionDefinitionId: string;
+	actionCode: string;
+	executionId: string;
+	actionTriggerMappingId: string;
+	actionName: string;
+	actionType: string;
+	triggerContext: string;
+	executionStatus: string;
+	startedAt: string;
+	completedAt: string;
+	executionInput: string;
+	executionOutput: string;
+	errorMessage: string;
+	errorStackTrace: string;
+	executorInfo: string;
+	createdAt: string;
+	createdBy: string;
+	// Computed properties
+	status?: string; // Derived from executionStatus
+	duration?: number; // Computed from startedAt and completedAt
+	triggerSource?: string; // Derived from triggerContext
+}

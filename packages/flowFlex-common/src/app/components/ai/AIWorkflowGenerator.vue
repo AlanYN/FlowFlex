@@ -1750,7 +1750,7 @@ const generateWorkflow = async () => {
 					},
 					{
 						id: 'test-cases',
-						title: 'Write Test Cases',
+						title: 'Write Test Case',
 						description: 'Create detailed test cases',
 						isRequired: true,
 					},

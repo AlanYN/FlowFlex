@@ -6,14 +6,32 @@
 			description="Manage and track business cases with customizable workflows and stage progression"
 		>
 			<template #actions>
+				<!-- Tab切换器 -->
+				<TabButtonGroup
+					v-model="activeView"
+					:tabs="tabsConfig"
+					size="small"
+					type="adaptive"
+					class="mr-4"
+					@tab-change="handleViewChange"
+				/>
+				<el-button
+					class="page-header-btn page-header-btn-secondary"
+					@click="handleExport"
+					:loading="loading"
+					:disabled="loading"
+				>
+					<el-icon><Download /></el-icon>
+					Export {{ selectedItems.length > 0 ? `(${selectedItems.length})` : 'All' }}
+				</el-button>
 				<el-button
 					class="page-header-btn page-header-btn-primary"
 					type="primary"
 					@click="handleNewOnboarding"
 					:disabled="loading"
+					:loading="loading"
+					:icon="Plus"
 				>
-					<el-icon v-if="loading"><Loading /></el-icon>
-					<el-icon v-else class="mr-2"><Plus /></el-icon>
 					<span>New Case</span>
 				</el-button>
 			</template>
@@ -25,6 +43,7 @@
 			type="adaptive"
 			size="default"
 			class="mb-6"
+			:hidden-tab="true"
 			@tab-change="handleViewChange"
 		>
 			<!-- 表格视图 -->
@@ -38,7 +57,6 @@
 					:selected-items="selectedItems"
 					filterType="table"
 					@search="handleFilterSearch"
-					@reset="handleFilterReset"
 					@export="handleExport"
 				/>
 				<div class="customer-block !p-0 !ml-0">
@@ -373,7 +391,6 @@
 					:selected-items="selectedItems"
 					filterType="pipeline"
 					@search="handleFilterSearch"
-					@reset="handleFilterReset"
 					@export="handleExport"
 				/>
 				<PrototypeTabs
@@ -568,13 +585,13 @@ import {
 	Edit,
 	Delete,
 	Plus,
-	Loading,
 	VideoPlay,
 	VideoPause,
 	Close,
 	RefreshRight,
 	View,
 	Warning,
+	Download,
 } from '@element-plus/icons-vue';
 import {
 	queryOnboardings,
@@ -590,7 +607,7 @@ import {
 } from '@/apis/ow/onboarding';
 import { getAllStages, getWorkflowList } from '@/apis/ow';
 import { OnboardingItem, SearchParams, OnboardingQueryRequest, ApiResponse } from '#/onboard';
-import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import {
 	defaultStr,
 	projectTenMinutesSsecondsDate,
@@ -1000,22 +1017,6 @@ const handleFilterSearch = async (params: SearchParams) => {
 	Object.assign(searchParams, params);
 	currentPage.value = 1;
 	searchParams.page = 1;
-	await loadOnboardingList();
-};
-
-const handleFilterReset = async () => {
-	// 重置搜索参数，但保留分页参数
-	searchParams.leadId = '';
-	searchParams.leadName = '';
-	searchParams.lifeCycleStageName = '';
-	searchParams.currentStageId = '';
-	searchParams.updatedBy = '';
-	searchParams.priority = '';
-	searchParams.workFlowId = '';
-
-	currentPage.value = 1;
-	searchParams.page = 1;
-
 	await loadOnboardingList();
 };
 
