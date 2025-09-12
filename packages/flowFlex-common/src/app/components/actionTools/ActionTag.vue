@@ -16,7 +16,7 @@
 			v-model="dialogVisible"
 			:actions="shouldPassActionsArray ? actualActions : undefined"
 			:action="shouldPassActionsArray ? undefined : action"
-			:triggerSourceId="shouldPassActionsArray ? undefined : triggerSourceId"
+			:triggerSourceId="triggerSourceId"
 			:actionName="dialogActionName"
 			:onboardingId="onboardingId"
 		/>
