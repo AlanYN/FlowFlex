@@ -30,8 +30,8 @@
 						<div class="section-info">
 							<div class="section-name">{{ index + 1 }}. {{ section.name }}</div>
 							<div class="section-count">
-								{{ section.items.length }}
-								{{ section.items.length > 1 ? 'items' : 'item' }}
+								{{ section.questions.length }}
+								{{ section.questions.length > 1 ? 'items' : 'item' }}
 							</div>
 						</div>
 						<el-button

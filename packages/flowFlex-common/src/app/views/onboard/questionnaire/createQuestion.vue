@@ -188,7 +188,7 @@
 
 									<!-- 问题列表 -->
 									<QuestionsList
-										:questions="currentSection.items"
+										:questions="currentSection.questions"
 										:question-types="questionTypes"
 										:sections="sectionsForJumpRules"
 										:current-section-index="currentSectionIndex"
@@ -308,8 +308,8 @@ const loadQuestionnaireData = async () => {
 					description: section.description || '',
 					// 处理 isDefault 字段的兼容性
 					isDefault: !!section.isDefault,
-					// 处理questions字段（API返回的是questions，我们内部使用items）
-					items: (section.questions || section.items || []).map((item: any) => ({
+					// 处理questions字段（API返回的是questions，我们内部也使用questions）
+					questions: (section.questions || []).map((item: any) => ({
 						...item,
 						temporaryId: item?.temporaryId ? item.temporaryId : item.id,
 						type: item?.type || 'short_answer',
@@ -341,7 +341,7 @@ const loadQuestionnaireData = async () => {
 						temporaryId: `section-${Date.now()}`,
 						name: 'Untitled Section',
 						description: '',
-						items: [],
+						questions: [],
 						isDefault: true, // 如果没有分区，创建默认分区
 					},
 				];
@@ -488,7 +488,7 @@ const questionnaire = reactive({
 			name: 'Untitled Section',
 			description: '',
 			isDefault: true, // 标识为默认分区
-			items: [] as Array<{
+			questions: [] as Array<{
 				temporaryId: string;
 				type: string;
 				question: string;
@@ -549,20 +549,20 @@ const previewData = computed(() => {
 		sections: questionnaire.sections || [],
 		totalQuestions:
 			questionnaire.sections?.reduce(
-				(total: number, section) => total + (section.items?.length || 0),
+				(total: number, section) => total + (section.questions?.length || 0),
 				0
 			) || 0,
 		requiredQuestions:
 			questionnaire.sections?.reduce(
 				(total: number, section) =>
-					total + (section.items?.filter((item) => item.required)?.length || 0),
+					total + (section.questions?.filter((item) => item.required)?.length || 0),
 				0
 			) || 0,
 		status: 'draft',
 		version: '1.0',
 		estimatedMinutes: Math.ceil(
 			(questionnaire.sections?.reduce(
-				(total: number, section) => total + (section.items?.length || 0),
+				(total: number, section) => total + (section.questions?.length || 0),
 				0
 			) || 0) * 0.5
 		),
@@ -579,9 +579,8 @@ const sectionsForJumpRules = computed(() => {
 		...section,
 		name: section.name,
 		description: section.description,
-		questions: section.items.map((item) => item.temporaryId).filter(Boolean) as string[],
+		questionIds: section.questions.map((item) => item.temporaryId).filter(Boolean) as string[],
 		order: index,
-		items: section.items,
 	}));
 });
 
@@ -597,7 +596,7 @@ const handleAddSection = async () => {
 
 	if (hasOnlyDefaultSection) {
 		// 检查默认分区是否有问题
-		const hasQuestions = questionnaire.sections[0].items.length > 0;
+		const hasQuestions = questionnaire.sections[0].questions.length > 0;
 
 		if (hasQuestions) {
 			try {
@@ -635,7 +634,7 @@ const handleAddSection = async () => {
 			temporaryId: `section-${Date.now()}`,
 			name: `Section ${questionnaire.sections.length + 1}`,
 			description: '',
-			items: [],
+			questions: [],
 			// 不设置 isDefault，默认为 undefined（非默认分区）
 		});
 		currentSectionIndex.value = questionnaire.sections.length - 1;
@@ -644,7 +643,7 @@ const handleAddSection = async () => {
 
 const handleRemoveSection = async (index: number) => {
 	const sectionToRemove = questionnaire.sections[index];
-	const questionCount = sectionToRemove.items.length;
+	const questionCount = sectionToRemove.questions.length;
 	const sectionName = sectionToRemove.name || 'Untitled Section';
 
 	// 构建确认消息
@@ -672,7 +671,7 @@ const handleRemoveSection = async (index: number) => {
 		// 如果只剩一个分区，将其转换为默认分区（回到简单模式）
 		questionnaire.sections[0].isDefault = true;
 		questionnaire.sections[0].name = 'Untitled Section';
-		questionnaire.sections[0].items = [];
+		questionnaire.sections[0].questions = [];
 		questionnaire.sections[0].temporaryId = `section-${Date.now()}`;
 		questionnaire.sections[0].description = '';
 		currentSectionIndex.value = 0;
@@ -740,7 +739,7 @@ const handleAddQuestion = (questionData: any) => {
 		columns: [...questionData.columns],
 	};
 
-	questionnaire.sections[currentSectionIndex.value].items.push(question);
+	questionnaire.sections[currentSectionIndex.value].questions.push(question);
 };
 
 // 当前分区索引（用于文件上传）
@@ -749,7 +748,7 @@ const currentSectionIndexForUpload = ref<number>(0);
 const handleAddContent = async (command: string) => {
 	switch (command) {
 		case 'page-break':
-			questionnaire.sections[currentSectionIndex.value].items.push({
+			questionnaire.sections[currentSectionIndex.value].questions.push({
 				temporaryId: `page-break-${Date.now()}`,
 				type: 'page_break',
 				question: 'Page Break',
@@ -778,24 +777,24 @@ const handleFileUpload = async (type: 'video' | 'image') => {
 				required: false,
 			};
 
-			questionnaire.sections[currentSectionIndexForUpload.value].items.push(mediaItem);
+			questionnaire.sections[currentSectionIndexForUpload.value].questions.push(mediaItem);
 		}
 	});
 };
 
 const handleRemoveQuestion = (index: number) => {
-	questionnaire.sections[currentSectionIndex.value].items.splice(index, 1);
+	questionnaire.sections[currentSectionIndex.value].questions.splice(index, 1);
 };
 
 const handleQuestionDragEnd = (questions: any[]) => {
 	// 更新当前分区的问题列表
-	questionnaire.sections[currentSectionIndex.value].items = questions;
+	questionnaire.sections[currentSectionIndex.value].questions = questions;
 };
 
 const handleUpdateJumpRules = (questionIndex: number, rules: any[]) => {
 	console.log('rules:', rules);
 	// 更新指定问题的跳转规则
-	const question = questionnaire.sections[currentSectionIndex.value].items[questionIndex];
+	const question = questionnaire.sections[currentSectionIndex.value].questions[questionIndex];
 	if (question) {
 		question.jumpRules = rules;
 	}
@@ -816,8 +815,8 @@ const handleSaveQuestionnaire = async () => {
 				temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 				name: section.name,
 				description: section.description,
-				// API期望的是questions字段，不是items
-				questions: section.items.map((item) => ({
+				// API期望的是questions字段
+				questions: section.questions.map((item) => ({
 					...item,
 					temporaryId: item?.temporaryId ? item.temporaryId : item.id,
 					title: item.question, // API期望的是title字段，不是question
@@ -845,12 +844,12 @@ const handleSaveQuestionnaire = async () => {
 
 		// 计算问题统计
 		const totalQuestions = questionnaire.sections.reduce(
-			(total: number, section) => total + section.items.length,
+			(total: number, section) => total + section.questions.length,
 			0
 		);
 		const requiredQuestions = questionnaire.sections.reduce(
 			(total: number, section) =>
-				total + (section.items?.filter((item) => item.required)?.length || 0),
+				total + (section.questions?.filter((item) => item.required)?.length || 0),
 			0
 		);
 
@@ -893,7 +892,7 @@ const isEditingQuestion = ref(false);
 const editingQuestion = ref<any>(null);
 
 const handleEditQuestion = (index: number) => {
-	const question = questionnaire.sections[currentSectionIndex.value].items[index];
+	const question = questionnaire.sections[currentSectionIndex.value].questions[index];
 	if (question) {
 		isEditingQuestion.value = true;
 		editingQuestion.value = { ...question };
@@ -920,18 +919,18 @@ const cancelEditQuestion = () => {
 };
 
 const handleUpdateQuestion = (updatedQuestion: any) => {
-	const index = questionnaire.sections[currentSectionIndex.value].items.findIndex(
+	const index = questionnaire.sections[currentSectionIndex.value].questions.findIndex(
 		(item) => item.temporaryId === updatedQuestion.temporaryId
 	);
 	if (index !== -1) {
-		questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
+		questionnaire.sections[currentSectionIndex.value].questions[index] = updatedQuestion;
 	}
 	isEditingQuestion.value = false;
 	editingQuestion.value = null;
 };
 
 const handleUpdateQuestionFromList = (index: number, updatedQuestion: any) => {
-	questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
+	questionnaire.sections[currentSectionIndex.value].questions[index] = updatedQuestion;
 };
 
 // 获取所有stages

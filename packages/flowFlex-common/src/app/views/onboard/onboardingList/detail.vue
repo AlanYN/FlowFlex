@@ -56,16 +56,14 @@
 		</PageHeader>
 
 		<!-- 主要内容区域 -->
-		<div class="flex w-full gap-6">
+		<div class="flex w-full gap-2">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
 			<div class="flex-[2] min-w-0 overflow-hidden">
-				<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
-					<div
-						class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
-					>
-						<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
-					</div>
-				</div>
+				<EditableStageHeader
+					:current-stage="onboardingActiveStageInfo"
+					:disabled="isAbortedReadonly"
+					@update:stage-data="handleStageDataUpdate"
+				/>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4 w-full">
 					<div class="space-y-6 mt-4">
 						<!-- AI Summary 组件 -->
@@ -265,6 +263,7 @@ import Documents from './components/Documents.vue';
 import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
 import AISummary from './components/AISummary.vue';
+import EditableStageHeader from './components/EditableStageHeader.vue';
 
 const { t } = useI18n();
 const userStore = useUserStore();
@@ -486,12 +485,6 @@ const processOnboardingData = (responseData: any) => {
 
 	return newStageId;
 };
-
-// 计算属性
-const currentStageTitle = computed(() => {
-	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
-	return currentStage?.stageName || defaultStr;
-});
 
 // API调用函数
 const loadOnboardingDetail = async () => {
@@ -985,6 +978,33 @@ const changeLogRef = ref<InstanceType<typeof ChangeLog>>();
 const refreshChangeLog = () => {
 	if (!changeLogRef.value) return;
 	changeLogRef.value.loadChangeLogs();
+};
+
+// 处理阶段数据更新
+const handleStageDataUpdate = async (updateData: {
+	stageId: string;
+	startDate?: string;
+	estimatedDays?: number;
+	endDate?: string;
+}) => {
+	try {
+		// 这里应该调用API来更新阶段数据
+		// 暂时先更新本地数据，实际项目中需要调用相应的API
+		console.log('Stage data update:', updateData);
+
+		// 刷新变更日志
+		refreshChangeLog();
+
+		// TODO: 在实际项目中，这里应该调用API保存数据
+		// const response = await updateStageData(updateData);
+		// if (response.code === '200') {
+		//   ElMessage.success('Stage data updated successfully');
+		//   loadOnboardingDetail(); // 重新加载数据
+		// }
+	} catch (error) {
+		console.error('Error updating stage data:', error);
+		ElMessage.error('Failed to update stage data');
+	}
 };
 
 // AI Summary相关方法

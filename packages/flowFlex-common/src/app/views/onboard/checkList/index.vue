@@ -34,32 +34,27 @@
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div class="space-y-2">
 						<label class="filter-label text-sm font-medium">Search</label>
-						<el-input-tag
+						<InputTag
 							v-model="searchTags"
 							placeholder="Enter checklist name and press enter"
-							:max="10"
 							:disabled="loading"
+							style-type="normal"
+							:limit="10"
 							@change="handleSearchTagsChange"
-							class="w-full"
+							class="w-full rounded-md"
 						/>
 					</div>
 
 					<div class="space-y-2">
 						<label class="filter-label text-sm font-medium">Team</label>
-						<el-select
+						<FlowflexUserSelector
 							v-model="selectedTeam"
 							placeholder="Select team"
-							class="w-full filter-select"
+							selectionType="team"
+							:clearable="true"
+							:max-count="1"
 							@change="handleSearchTagsChange"
-						>
-							<el-option label="All Teams" value="all" />
-							<el-option
-								v-for="team in defaultAssignedGroup"
-								:key="team.key"
-								:label="team.value"
-								:value="team.key"
-							/>
-						</el-select>
+						/>
 					</div>
 				</div>
 			</div>
@@ -178,14 +173,13 @@
 				</el-form-item>
 
 				<el-form-item label="Team" required>
-					<el-select v-model="formData.team" placeholder="Select team" class="w-full">
-						<el-option
-							v-for="team in defaultAssignedGroup"
-							:key="team.value"
-							:label="team.key"
-							:value="team.value"
-						/>
-					</el-select>
+					<FlowflexUserSelector
+						v-model="formData.team"
+						selectionType="team"
+						placeholder="Select team"
+						:clearable="true"
+						:max-count="1"
+					/>
 				</el-form-item>
 			</el-form>
 
@@ -219,7 +213,6 @@ import {
 import { getWorkflows, getAllStages } from '@/apis/ow';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 import { exportChecklistToPdf } from '@/utils/pdfExport';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import { Plus } from '@element-plus/icons-vue';
@@ -233,6 +226,8 @@ import { Checklist } from '#/checklist';
 import { dialogWidth, bigDialogWidth } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
+import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 
 interface Workflow {
 	id: string;

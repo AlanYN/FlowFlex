@@ -1,18 +1,19 @@
 <template>
-	<el-card class="shadow-sm">
-		<template #header>
-			<div
-				class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white -mx-5 -mt-5 px-5 py-[14px] rounded-t-lg cursor-pointer hover:from-blue-700 hover:to-indigo-700 transition-colors"
-				@click="toggleOpen"
-			>
-				<div class="flex items-center gap-2">
-					<el-icon class="transition-transform" :class="{ 'rotate-90': isOpen }">
+	<div class="customer-block">
+		<!-- 统一的头部卡片 -->
+		<div class="notes-header-card rounded-md" :class="{ expanded: isOpen }" @click="toggleOpen">
+			<div class="">
+				<div class="flex items-center">
+					<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isOpen }">
 						<ArrowRight />
 					</el-icon>
-					<h2 class="text-lg text-sm">Internal Notes</h2>
+					<h3 class="notes-title">Internal Notes</h3>
+				</div>
+				<div class="notes-subtitle">
+					{{ notes.length }} {{ notes.length > 1 ? 'notes' : 'note' }}
 				</div>
 			</div>
-		</template>
+		</div>
 
 		<!-- 可折叠的内容 -->
 		<el-collapse-transition>
@@ -160,7 +161,7 @@
 				</div>
 			</div>
 		</el-collapse-transition>
-	</el-card>
+	</div>
 </template>
 
 <script setup lang="ts">
@@ -458,12 +459,95 @@ const getAuthorInitial = (createBy: string | undefined | null): string => {
 </script>
 
 <style scoped lang="scss">
-:deep(.el-card__body) {
-	@apply p-0;
+/* 统一的头部卡片样式 */
+.notes-header-card {
+	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+	padding: 10px;
+	color: white;
+	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+
+	&:hover {
+		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+		transform: translateY(-1px);
+	}
+
+	&.expanded {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
 }
 
-:deep(.el-card__header) {
-	@apply pb-0;
+.notes-title {
+	font-size: 16px;
+	font-weight: 600;
+	margin: 0;
+}
+
+.notes-subtitle {
+	font-size: 14px;
+	opacity: 0.9;
+	margin-top: 4px;
+}
+
+.progress-info {
+	text-align: right;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+}
+
+.progress-percentage {
+	font-size: 20px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.progress-label {
+	font-size: 12px;
+	opacity: 0.8;
+	letter-spacing: 0.5px;
+}
+
+.expand-icon {
+	transition: transform 0.2s ease;
+
+	&.rotated {
+		transform: rotate(90deg);
+	}
+}
+
+.customer-block {
+	margin-bottom: 16px;
+
+	&:last-child {
+		margin-bottom: 0;
+	}
+}
+
+/* 暗色主题样式 */
+html.dark {
+	.notes-header-card {
+		background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+		box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+	}
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+	.notes-header-card {
+		padding: 16px;
+	}
+
+	.progress-info {
+		align-items: flex-start;
+		text-align: left;
+	}
 }
 
 .rotate-180 {
