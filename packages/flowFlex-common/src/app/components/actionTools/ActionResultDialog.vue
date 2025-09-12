@@ -172,7 +172,7 @@
 				:limit="pageSize"
 				:page="currentPage"
 				:background="true"
-				@pagination="loadResults"
+				@pagination="handlePagination"
 				@update:page="handleCurrentChange"
 				@update:limit="handlePageUpdate"
 			/>
@@ -444,13 +444,16 @@ const handlePageUpdate = (size: number) => {
 	expandedRows.value.clear();
 	pageSize.value = size;
 	currentPage.value = 1;
-	loadResults();
 };
 
 const handleCurrentChange = (page: number) => {
 	// 切换页码时关闭所有展开的详情
 	expandedRows.value.clear();
 	currentPage.value = page;
+};
+
+const handlePagination = () => {
+	// 统一的分页处理函数，只负责调用 API
 	loadResults();
 };
 
