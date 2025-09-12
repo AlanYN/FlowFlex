@@ -111,33 +111,16 @@ namespace FlowFlex.Application.Services.Action.Executors
 
             bool result;
 
-            // Choose API based on useValidationApi flag or action code pattern
-            if (useValidationApi)
-            {
-                _logger.LogInformation("Using validation API (COMP-STG) for stage {StageId} in onboarding {OnboardingId} with operator: {Operator}",
-                    stageId.Value, onboardingId.Value, operatorInfo);
+            // Use internal completion method to avoid event publishing and prevent circular dependencies
+            _logger.LogInformation("Using internal completion API (no events) for stage {StageId} in onboarding {OnboardingId} with operator: {Operator}",
+                stageId.Value, onboardingId.Value, operatorInfo);
 
-                // Use the validation API that calls complete-stage-with-validation endpoint
-                result = await _onboardingService.CompleteCurrentStageAsync(onboardingId.Value, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
-                {
-                    StageId = stageId.Value,
-                    CompletionNotes = enhancedNotes,
-                    ForceComplete = false
-                });
-            }
-            else
+            result = await _onboardingService.CompleteCurrentStageInternalAsync(onboardingId.Value, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
             {
-                _logger.LogInformation("Using standard completion API for stage {StageId} in onboarding {OnboardingId} with operator: {Operator}",
-                    stageId.Value, onboardingId.Value, operatorInfo);
-
-                // Use standard completion API
-                result = await _onboardingService.CompleteCurrentStageAsync(onboardingId.Value, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
-                {
-                    StageId = stageId.Value,
-                    CompletionNotes = enhancedNotes,
-                    ForceComplete = false
-                });
-            }
+                StageId = stageId.Value,
+                CompletionNotes = enhancedNotes,
+                ForceComplete = false
+            });
 
             // If autoMoveToNext is true and stage completion was successful, move to next stage
             if (result && autoMoveToNext)
@@ -156,14 +139,14 @@ namespace FlowFlex.Application.Services.Action.Executors
             return new
             {
                 success = result,
-                message = result ? "Stage completed successfully" : "Failed to complete stage",
+                message = result ? "Stage completed successfully (internal - no events)" : "Failed to complete stage",
                 timestamp = DateTimeOffset.UtcNow,
                 stageId = stageId.Value,
                 onboardingId = onboardingId.Value,
                 completionNotes = enhancedNotes,
                 autoMoveToNext = autoMoveToNext,
-                useValidationApi = useValidationApi,
-                operatorInfo = operatorInfo
+                operatorInfo = operatorInfo,
+                internalCompletion = true // Indicates this was completed without event publishing
             };
         }
 

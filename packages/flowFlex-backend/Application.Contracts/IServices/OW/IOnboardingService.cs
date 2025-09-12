@@ -63,6 +63,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> CompleteCurrentStageAsync(long id);
 
         /// <summary>
+        /// Complete current stage with validation - Internal version without event publishing
+        /// </summary>
+        Task<bool> CompleteCurrentStageInternalAsync(long id, CompleteCurrentStageInputDto input);
+
+        /// <summary>
         /// Complete current stage with validation
         /// </summary>
         Task<bool> CompleteCurrentStageAsync(long id, CompleteCurrentStageInputDto input);

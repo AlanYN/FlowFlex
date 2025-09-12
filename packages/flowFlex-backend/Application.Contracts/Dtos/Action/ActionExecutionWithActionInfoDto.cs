@@ -53,7 +53,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         public string TriggerContext { get; set; }
 
         /// <summary>
-        /// Execution status (Pending, Running, Success, Failed, Cancelled)
+        /// Execution status (Pending, Running, Success/Completed, Failed, Cancelled)
         /// </summary>
         public string ExecutionStatus { get; set; } = "Pending";
 

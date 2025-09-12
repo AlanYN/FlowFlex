@@ -1797,6 +1797,125 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Complete specified stage with validation (supports non-sequential completion) - Internal version without event publishing
+        /// </summary>
+        public async Task<bool> CompleteCurrentStageInternalAsync(long id, CompleteCurrentStageInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            if (entity.Status == "Completed")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
+            }
+
+            // Ensure stages progress is initialized
+            await EnsureStagesProgressInitializedAsync(entity);
+
+            // Get all stages for this workflow
+            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+            var orderedStages = stages.OrderBy(x => x.Order).ToList();
+
+            // Get target stage ID with backward compatibility
+            long stageIdToComplete;
+            try
+            {
+                stageIdToComplete = input.GetTargetStageId();
+            }
+            catch (ArgumentException ex)
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid stage ID parameters: {ex.Message}");
+            }
+
+            // Find the stage to complete
+            var stageToComplete = orderedStages.FirstOrDefault(s => s.Id == stageIdToComplete);
+            if (stageToComplete == null)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage with ID {stageIdToComplete} not found in workflow");
+            }
+
+            // Validate if this stage can be completed
+            (bool canComplete, string validationError) = await ValidateStageCanBeCompletedAsync(entity, stageIdToComplete);
+            if (!canComplete && !input.ForceComplete)
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
+            }
+
+            // Update stages progress
+            await UpdateStagesProgressAsync(entity, stageIdToComplete, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
+
+            // Check if all stages are completed
+            var allStagesCompleted = entity.StagesProgress.All(sp => sp.IsCompleted);
+
+            if (allStagesCompleted)
+            {
+                // Complete the entire onboarding
+                entity.Status = "Completed";
+                entity.CompletionRate = 100;
+                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
+            }
+            else
+            {
+                // Update completion rate
+                entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+
+                // Update current stage if needed
+                if (entity.CurrentStageId == stageToComplete.Id)
+                {
+                    // If we completed the current stage, advance to the next incomplete stage
+                    var nextIncompleteStage = orderedStages
+                        .Where(stage => stage.Order > stageToComplete.Order &&
+                                       !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                        .OrderBy(stage => stage.Order)
+                        .FirstOrDefault();
+
+                    if (nextIncompleteStage != null)
+                    {
+                        entity.CurrentStageId = nextIncompleteStage.Id;
+                        entity.CurrentStageOrder = nextIncompleteStage.Order;
+                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                    }
+                }
+                else if (entity.CurrentStageId != stageToComplete.Id)
+                {
+                    // If we completed a different stage (not the current one), 
+                    // advance to the next incomplete stage AFTER the completed stage (only look forward)
+                    var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
+                    var nextIncompleteStage = orderedStages
+                        .Where(stage => stage.Order > completedStageOrder &&
+                                       !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                        .OrderBy(stage => stage.Order)
+                        .FirstOrDefault();
+
+                    if (nextIncompleteStage != null)
+                    {
+                        entity.CurrentStageId = nextIncompleteStage.Id;
+                        entity.CurrentStageOrder = nextIncompleteStage.Order;
+                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                    }
+                }
+
+                // Add completion notes if provided
+                if (!string.IsNullOrEmpty(input.CompletionNotes))
+                {
+                    var noteText = $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}";
+                    SafeAppendToNotes(entity, noteText);
+                }
+            }
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            // Update the entity using safe method - NO EVENT PUBLISHING
+            var result = await SafeUpdateOnboardingAsync(entity);
+            
+            return result;
+        }
+
+        /// <summary>
         /// Complete specified stage with validation (supports non-sequential completion)
         /// </summary>
         public async Task<bool> CompleteCurrentStageAsync(long id, CompleteCurrentStageInputDto input)

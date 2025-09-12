@@ -516,21 +516,19 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionName = "CompleteStage",
                     DisplayName = "Complete Stage",
                     Description = "Complete a specific stage in the workflow",
-                    ConfigSchema = new
-                    {
-                        actionName = "CompleteStage",
-                        stageId = "Optional: Stage ID to complete (can be extracted from trigger context)",
-                        onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
-                        completionNotes = "Optional: Completion notes (default: 'Completed by system action')",
-                        autoMoveToNext = "Optional: Auto move to next stage (default: true)",
-                        useValidationApi = "Optional: Use complete-stage-with-validation API for COMP-STG actions (default: false)"
-                    },
-                    ExampleConfig = @"{
-  ""actionName"": ""CompleteStage"",
-  ""completionNotes"": ""Stage completed automatically"",
-  ""autoMoveToNext"": true,
-  ""useValidationApi"": true
-}"
+                     ConfigSchema = new
+                     {
+                         actionName = "CompleteStage",
+                         stageId = "Optional: Stage ID to complete (can be extracted from trigger context)",
+                         onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
+                         completionNotes = "Optional: Completion notes (default: 'Completed by system action')",
+                         autoMoveToNext = "Optional: Auto move to next stage (default: true)"
+                     },
+                     ExampleConfig = @"{
+   ""actionName"": ""CompleteStage"",
+   ""completionNotes"": ""Stage completed automatically"",
+   ""autoMoveToNext"": true
+ }"
                 },
                 new SystemActionDefinitionDto
                 {
@@ -592,22 +590,20 @@ namespace FlowFlex.WebApi.Controllers.Action
                 ["CompleteStage"] = new SystemActionTemplateDto
                 {
                     ActionName = "CompleteStage",
-                    Template = @"{
-  ""actionName"": ""CompleteStage"",
-  ""stageId"": null,
-  ""onboardingId"": null,
-  ""completionNotes"": ""Completed by system action"",
-  ""autoMoveToNext"": true,
-  ""useValidationApi"": false
-}",
-                    Parameters = new List<SystemActionParameterDto>
-                    {
-                        new SystemActionParameterDto { Name = "stageId", Type = "number", Required = false, Description = "Stage ID to complete (can be extracted from trigger context)" },
-                        new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
-                        new SystemActionParameterDto { Name = "completionNotes", Type = "string", Required = false, Description = "Completion notes" },
-                        new SystemActionParameterDto { Name = "autoMoveToNext", Type = "boolean", Required = false, Description = "Auto move to next stage" },
-                        new SystemActionParameterDto { Name = "useValidationApi", Type = "boolean", Required = false, Description = "Use complete-stage-with-validation API for COMP-STG actions" }
-                    }
+                     Template = @"{
+   ""actionName"": ""CompleteStage"",
+   ""stageId"": null,
+   ""onboardingId"": null,
+   ""completionNotes"": ""Completed by system action"",
+   ""autoMoveToNext"": true
+ }",
+                     Parameters = new List<SystemActionParameterDto>
+                     {
+                         new SystemActionParameterDto { Name = "stageId", Type = "number", Required = false, Description = "Stage ID to complete (can be extracted from trigger context)" },
+                         new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
+                         new SystemActionParameterDto { Name = "completionNotes", Type = "string", Required = false, Description = "Completion notes" },
+                         new SystemActionParameterDto { Name = "autoMoveToNext", Type = "boolean", Required = false, Description = "Auto move to next stage" }
+                     }
                 },
                 ["MoveToStage"] = new SystemActionTemplateDto
                 {

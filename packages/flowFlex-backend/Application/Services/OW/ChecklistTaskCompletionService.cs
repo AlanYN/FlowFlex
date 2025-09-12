@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using FlowFlex.Domain.Repository.Action;
 using Newtonsoft.Json.Linq;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.Application.Services.OW;
 
@@ -38,6 +39,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     private readonly ILogger<ChecklistTaskCompletionService> _logger;
     private readonly IChecklistService _checklistService;
     private readonly IActionDefinitionRepository _actionDefinitionRepository;
+    private readonly IServiceProvider _serviceProvider;
 
     public ChecklistTaskCompletionService(
     IChecklistTaskCompletionRepository completionRepository,
@@ -53,7 +55,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     IMediator mediator,
     ILogger<ChecklistTaskCompletionService> logger,
     IChecklistService checklistService,
-    IActionDefinitionRepository actionDefinitionRepository)
+    IActionDefinitionRepository actionDefinitionRepository,
+    IServiceProvider serviceProvider)
     {
         _completionRepository = completionRepository;
         _taskRepository = taskRepository;
@@ -69,6 +72,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
         _actionDefinitionRepository = actionDefinitionRepository ?? throw new ArgumentNullException(nameof(actionDefinitionRepository));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
     /// <summary>
@@ -937,24 +941,17 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 TriggerActionId = task.ActionId
             };
 
-            // 发布 CompleteStageRequestEvent，避免循环依赖
-            var completeStageRequestEvent = new CompleteStageRequestEvent(
-                onboardingId: onboarding.Id,
-                stageId: stageIdToComplete,
-                completionNotes: completeStageContext.CompletionNotes,
-                completedBy: completeStageContext.CompletedBy,
-                autoMoveToNext: completeStageContext.AutoMoveToNext,
-                source: completeStageContext.Source,
-                triggerTaskId: completeStageContext.TriggerTaskId,
-                triggerTaskName: completeStageContext.TriggerTaskName,
-                triggerActionId: completeStageContext.TriggerActionId,
-                userId: GetCurrentUserId() > 0 ? GetCurrentUserId() : null
-            );
+            // 直接调用内部完成方法，避免事件发布和循环依赖
+            var onboardingService = _serviceProvider.GetRequiredService<IOnboardingService>();
+            var completed = await onboardingService.CompleteCurrentStageInternalAsync(onboarding.Id, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
+            {
+                StageId = stageIdToComplete,
+                CompletionNotes = completeStageContext.CompletionNotes,
+                ForceComplete = false
+            });
 
-            await _mediator.Publish(completeStageRequestEvent);
-
-            _logger.LogInformation("已发布 CompleteStageRequestEvent: OnboardingId={OnboardingId}, StageId={StageId}, TaskId={TaskId}, TaskName={TaskName}",
-                onboarding.Id, stageIdToComplete, task.Id, task.Name);
+            _logger.LogInformation("直接完成 Stage (无事件): OnboardingId={OnboardingId}, StageId={StageId}, TaskId={TaskId}, TaskName={TaskName}, Success={Success}",
+                onboarding.Id, stageIdToComplete, task.Id, task.Name, completed);
         }
         catch (Exception ex)
         {
