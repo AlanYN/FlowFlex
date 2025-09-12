@@ -141,7 +141,12 @@
 
 				<el-table-column prop="executionStatus" label="Status" width="120">
 					<template #default="{ row }">
-						<el-tag :class="getStatusClass(row.executionStatus)" size="small">
+						<el-tag
+							:class="getStatusClass(row.executionStatus)"
+							size="small"
+							:type="undefined"
+							class="status-tag"
+						>
 							{{ getStatusText(row.executionStatus) }}
 						</el-tag>
 					</template>
@@ -321,16 +326,14 @@ const getStatusClass = (status: string): string => {
 	if (!status) return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
 
 	const statusMap = new Map<string, string>([
-		['success', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
 		['completed', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
+		['success', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
 		['failed', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
 		['error', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
-		['running', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
-		['executing', 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'],
 		['pending', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
+		['running', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
+		['executing', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
 		['waiting', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
-		['cancelled', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'],
-		['aborted', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'],
 	]);
 
 	return (
@@ -343,16 +346,14 @@ const getStatusText = (status: string): string => {
 	if (!status) return 'Unknown';
 
 	const statusTextMap = new Map<string, string>([
-		['success', 'Success'],
 		['completed', 'Completed'],
+		['success', 'Success'],
 		['failed', 'Failed'],
 		['error', 'Error'],
+		['pending', 'Pending'],
 		['running', 'Running'],
 		['executing', 'Executing'],
-		['pending', 'Pending'],
 		['waiting', 'Waiting'],
-		['cancelled', 'Cancelled'],
-		['aborted', 'Aborted'],
 	]);
 
 	return statusTextMap.get(status.toLowerCase()) ?? status;
@@ -533,6 +534,39 @@ watch(
 	font-weight: 500 !important;
 }
 
+/* Status tag styles - 覆盖 el-tag 默认样式 */
+.status-tag {
+	border: none !important;
+	border-radius: 12px !important;
+	padding: 4px 8px !important;
+	font-size: 12px !important;
+	font-weight: 500 !important;
+}
+
+/* 成功状态 - 绿色 */
+.status-tag.bg-green-100 {
+	background-color: #dcfce7 !important;
+	color: #166534 !important;
+}
+
+/* 失败状态 - 红色 */
+.status-tag.bg-red-100 {
+	background-color: #fee2e2 !important;
+	color: #991b1b !important;
+}
+
+/* 等待/进行中状态 - 橙色 */
+.status-tag.bg-orange-100 {
+	background-color: #fed7aa !important;
+	color: #c2410c !important;
+}
+
+/* 未知状态 - 灰色 */
+.status-tag.bg-gray-100 {
+	background-color: #f3f4f6 !important;
+	color: #374151 !important;
+}
+
 /* Execution detail styles */
 .execution-detail-section {
 	margin-bottom: 1rem;
@@ -568,6 +602,27 @@ html.dark {
 		background: #1f2937;
 		border-color: #374151;
 		color: #f9fafb;
+	}
+
+	/* 暗色模式下的状态标签 */
+	.status-tag.bg-green-100 {
+		background-color: #166534 !important;
+		color: #dcfce7 !important;
+	}
+
+	.status-tag.bg-red-100 {
+		background-color: #991b1b !important;
+		color: #fee2e2 !important;
+	}
+
+	.status-tag.bg-orange-100 {
+		background-color: #c2410c !important;
+		color: #fed7aa !important;
+	}
+
+	.status-tag.bg-gray-100 {
+		background-color: #374151 !important;
+		color: #f3f4f6 !important;
 	}
 }
 </style>
