@@ -98,7 +98,7 @@
 								<Document />
 							</el-icon>
 							{{ questionnaire.totalQuestions }}
-							{{ questionnaire.totalQuestions?.length > 1 ? 'items' : 'item' }}
+							{{ questionnaire.totalQuestions > 1 ? 'items' : 'item' }}
 						</div>
 						<div
 							v-if="questionnaire.requiredQuestions"
@@ -146,8 +146,8 @@
 							</p>
 						</div>
 						<div class="text-sm text-gray-500">
-							{{ section.items?.length || 0 }}
-							{{ section.items?.length > 1 ? 'items' : 'item' }}
+							{{ section.questions?.length || 0 }}
+							{{ section.questions?.length > 1 ? 'items' : 'item' }}
 						</div>
 					</div>
 				</div>
@@ -155,7 +155,7 @@
 				<!-- 章节问题 -->
 				<div class="p-4 space-y-6">
 					<div
-						v-for="(item, itemIndex) in section.items"
+						v-for="(item, itemIndex) in section.questions"
 						:key="item.id || itemIndex"
 						class="question-item space-y-3 pb-6 border-b border-gray-50 last:border-b-0 last:pb-0"
 					>
@@ -814,7 +814,7 @@ const initializePreviewData = () => {
 	const newPreviewData: Record<string, any> = {};
 
 	props.questionnaire.sections.forEach((section: any, sectionIndex: number) => {
-		section.items?.forEach((item: any, itemIndex: number) => {
+		section.questions?.forEach((item: any, itemIndex: number) => {
 			const key = getItemKey(sectionIndex, itemIndex);
 
 			// 根据问题类型设置默认值
@@ -1029,7 +1029,7 @@ const validateForm = (): ValidationResult => {
 	}
 
 	props.questionnaire.sections.forEach((section: any, sectionIndex: number) => {
-		section.items?.forEach((item: any, itemIndex: number) => {
+		section.questions?.forEach((item: any, itemIndex: number) => {
 			// 只校验必填字段
 			if (!item.required) return;
 
@@ -1281,11 +1281,11 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 	if (!props.questionnaire?.sections) return itemIndex + 1;
 
 	const section = props.questionnaire.sections[sectionIndex];
-	if (!section?.items) return itemIndex + 1;
+	if (!section?.questions) return itemIndex + 1;
 
 	let actualQuestionNumber = 1;
 	for (let i = 0; i <= itemIndex; i++) {
-		const item = section.items[i];
+		const item = section.questions[i];
 		if (item.type !== 'page_break') {
 			if (i === itemIndex) {
 				return actualQuestionNumber;

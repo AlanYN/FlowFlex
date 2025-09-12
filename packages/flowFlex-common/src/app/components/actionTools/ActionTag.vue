@@ -6,7 +6,7 @@
 				@click="handleClick"
 			>
 				<!-- 始终显示图标 -->
-				<Icon icon="mdi:webhook" class="action-icon" />
+				<Icon icon="material-symbols:smart-toy-outline-sharp" class="action-icon" />
 				<!-- 多个 actions 时显示 +数量 -->
 				<span v-if="isMultipleActions" class="action-count">+{{ actionCount }}</span>
 			</div>
@@ -156,7 +156,7 @@ const handleClick = () => {
 	position: absolute;
 	top: -6px;
 	right: -6px;
-	background-color: #ef4444;
+	background-color: #f59e0b;
 	color: white;
 	font-size: 0.6em;
 	font-weight: 600;

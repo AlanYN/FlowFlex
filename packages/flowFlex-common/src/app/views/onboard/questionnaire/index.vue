@@ -420,8 +420,8 @@ const handlePreviewQuestionnaire = async (id: string) => {
 					temporaryId: section?.temporaryId || `section-${Date.now()}-${Math.random()}`,
 					title: section.title || 'Untitled Section',
 					description: section.description || '',
-					// 处理questions字段（API返回的是questions，PreviewContent期望的是items）
-					items: (section.questions || section.items || []).map((item: any) => ({
+					// 处理questions字段（API返回的是questions，PreviewContent也使用questions）
+					questions: (section.questions || []).map((item: any) => ({
 						id: item?.id || null,
 						temporaryId: item?.temporaryId || `question-${Date.now()}-${Math.random()}`,
 						type: item.type || 'text',

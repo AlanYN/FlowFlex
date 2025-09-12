@@ -31,7 +31,7 @@
 				</div>
 			</div>
 			<div v-else class="text-gray-400 text-sm">
-				{{ 'No users selected' }}
+				{{ readonlyNoDataText }}
 			</div>
 		</div>
 
@@ -43,49 +43,63 @@
 			@click="openModal"
 		>
 			<!-- 已选择的用户头像 -->
-			<div v-if="selectedItems.length > 0" class="flex flex-wrap gap-1.5 items-center flex-1">
-				<div
-					v-for="item in selectedItems.filter((item, index) => index < maxShowCount)"
-					:key="item.id"
-					class="relative"
-				>
-					<el-tooltip
-						:content="
-							item.name +
-							(showEmail && item?.userDetails?.email
-								? ` (${item?.userDetails?.email})`
-								: '')
-						"
-						:show-after="500"
+			<div v-if="selectedItems.length > 0" class="flex items-center justify-between w-full">
+				<div class="flex flex-wrap gap-1.5 items-center flex-1 min-w-0">
+					<div
+						v-for="item in selectedItems.filter((item, index) => index < maxShowCount)"
+						:key="item.id"
+						class="relative"
 					>
-						<div class="flex items-center gap-1">
-							<div
-								class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
-								:class="{ 'cursor-not-allowed': disabled }"
-								:style="{ backgroundColor: getAvatarColor(item.name) }"
-							>
-								{{ getInitials(item.name) }}
+						<el-tooltip
+							:content="
+								item.name +
+								(showEmail && item?.userDetails?.email
+									? ` (${item?.userDetails?.email})`
+									: '')
+							"
+							:show-after="500"
+						>
+							<div class="flex items-center gap-1">
 								<div
-									v-if="!disabled"
-									class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
-									@click.stop="removeSelectedItem(item.id)"
+									class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
+									:class="{ 'cursor-not-allowed': disabled }"
+									:style="{ backgroundColor: getAvatarColor(item.name) }"
 								>
-									<el-icon class="text-[8px]"><Close /></el-icon>
+									{{ getInitials(item.name) }}
+									<div
+										v-if="!disabled"
+										class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
+										@click.stop="removeSelectedItem(item.id)"
+									>
+										<el-icon class="text-[8px]"><Close /></el-icon>
+									</div>
 								</div>
+								<div>{{ item.name }}</div>
 							</div>
-							<div>{{ item.name }}</div>
-						</div>
-					</el-tooltip>
+						</el-tooltip>
+					</div>
+					<div
+						v-if="selectedItems.length > maxShowCount"
+						class="w-8 h-6 ml-2 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
+						:class="{ 'cursor-not-allowed': disabled }"
+						:style="{
+							backgroundColor: getAvatarColor(
+								`+${selectedItems.length - maxShowCount}`
+							),
+						}"
+					>
+						+{{ selectedItems.length - maxShowCount }}
+					</div>
 				</div>
-				<div
-					v-if="selectedItems.length > maxShowCount"
-					class="w-8 h-6 ml-2 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
-					:class="{ 'cursor-not-allowed': disabled }"
-					:style="{
-						backgroundColor: getAvatarColor(`+${selectedItems.length - maxShowCount}`),
-					}"
-				>
-					+{{ selectedItems.length - maxShowCount }}
+				<!-- Clear 按钮固定到右侧 -->
+				<div v-if="clearable" class="flex-shrink-0 ml-1">
+					<el-button
+						circle
+						@click.stop="clearSelection"
+						class="!w-4 !h-4 !min-w-4 !min-h-4 !p-0 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+					>
+						<el-icon class="!text-xs"><Close /></el-icon>
+					</el-button>
 				</div>
 			</div>
 
@@ -297,6 +311,8 @@ interface Props {
 	minCount?: number; // 最小选择数量
 	readonly?: boolean; // 只读模式，只显示用户不显示输入框样式
 	maxShowCount?: number; // 最大显示数量
+	readonlyNoDataText?: string; // 只读模式下没有数据时的文本
+	clearable?: boolean; // 是否可清除
 }
 
 interface Emits {
@@ -321,6 +337,7 @@ const props = withDefaults(defineProps<Props>(), {
 	minCount: 0,
 	readonly: false,
 	maxShowCount: 10,
+	readonlyNoDataText: 'No users selected',
 });
 
 // 计算 placeholder
@@ -550,6 +567,12 @@ const confirmSelection = () => {
 	selectedItems.value = [...tempSelectedItems.value];
 	updateModelValue();
 	handleModalClose();
+};
+
+const clearSelection = () => {
+	selectedItems.value = [];
+	updateModelValue();
+	emit('clear');
 };
 
 // 获取可用用户数量

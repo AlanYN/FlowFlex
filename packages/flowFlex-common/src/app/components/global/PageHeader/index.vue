@@ -6,10 +6,8 @@
 		<div class="absolute inset-0 z-10">
 			<!-- 渐变背景 -->
 			<div
-				class="absolute inset-0 bg-gradient-to-br from-primary-50 via-primary-100 to-primary-200 opacity-80"
+				class="absolute inset-0 bg-gradient-to-r from-primary-600 to-indigo-600 opacity-80"
 			></div>
-			<!-- 动态图案 -->
-			<div class="page-header-pattern absolute inset-0"></div>
 		</div>
 
 		<!-- 内容层 -->
@@ -21,22 +19,22 @@
 					link
 					size="small"
 					@click="handleGoBack"
-					class="mr-3 !p-1 hover:bg-primary-100 dark:hover:bg-primary-800 rounded transition-colors"
+					class="mr-3 !p-1 hover:bg-white/20 rounded transition-colors"
 				>
-					<el-icon class="text-lg text-primary-600 dark:text-primary-400">
+					<el-icon class="text-lg text-white">
 						<ArrowLeft />
 					</el-icon>
 				</el-button>
 
 				<div class="flex-1">
 					<h1
-						class="text-2xl font-semibold text-primary-700 m-0 mb-1 leading-tight tracking-tight"
+						class="text-2xl font-semibold text-white m-0 mb-1 leading-tight tracking-tight"
 					>
 						<slot name="title">{{ title }}</slot>
 					</h1>
 					<p
 						v-if="description || $slots.description"
-						class="text-sm text-primary-600 m-0 leading-relaxed opacity-85 font-normal"
+						class="text-sm text-white m-0 leading-relaxed opacity-85 font-normal"
 					>
 						<slot name="description">{{ description }}</slot>
 					</p>
@@ -74,45 +72,9 @@ const handleGoBack = () => {
 </script>
 
 <style scoped lang="scss">
-/* 动态背景图案动画 */
-.page-header-pattern {
-	background-image: radial-gradient(
-			circle at 25% 40%,
-			rgba(255, 255, 255, 0.08) 0%,
-			transparent 40%
-		),
-		radial-gradient(circle at 75% 30%, rgba(255, 255, 255, 0.04) 0%, transparent 40%);
-	background-size:
-		200px 200px,
-		150px 150px;
-	background-position:
-		0 0,
-		80px 0;
-	animation: float 30s ease-in-out infinite;
-}
-
-@keyframes float {
-	0%,
-	100% {
-		transform: translate(0, 0) rotate(0deg);
-	}
-
-	33% {
-		transform: translate(10px, -10px) rotate(1deg);
-	}
-
-	66% {
-		transform: translate(-5px, 5px) rotate(-1deg);
-	}
-}
-
-/* 标题渐变文字效果 */
+/* 标题白色文字效果 */
 h1 {
-	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-	background: linear-gradient(135deg, var(--primary-600), var(--primary-800));
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
-	background-clip: text;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* 为插槽中的按钮提供统一样式类 */
@@ -122,10 +84,10 @@ h1 {
 
 :deep(.page-header-btn-primary) {
 	@apply text-white shadow-lg;
-	background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+	background: linear-gradient(135deg, #6366f1, #4f46e5);
 	box-shadow:
-		0 2px 8px rgba(var(--primary-500-rgb), 0.2),
-		0 1px 3px rgba(0, 0, 0, 0.1);
+		0 2px 8px rgba(99, 102, 241, 0.3),
+		0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 :deep(.page-header-btn-primary::before) {
@@ -137,10 +99,10 @@ h1 {
 
 :deep(.page-header-btn-primary:hover) {
 	@apply -translate-y-0.5;
-	background: linear-gradient(135deg, var(--primary-600), var(--primary-700));
+	background: linear-gradient(135deg, #4f46e5, #3730a3);
 	box-shadow:
-		0 4px 12px rgba(var(--primary-500-rgb), 0.3),
-		0 2px 6px rgba(0, 0, 0, 0.1);
+		0 4px 12px rgba(99, 102, 241, 0.4),
+		0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 :deep(.page-header-btn-primary:hover::before) {
@@ -152,14 +114,14 @@ h1 {
 }
 
 :deep(.page-header-btn-secondary) {
-	@apply text-primary-600 border border-primary-200;
-	background: rgba(var(--primary-500-rgb), 0.1);
+	@apply text-white border border-white/30;
+	background: rgba(255, 255, 255, 0.1);
 }
 
 :deep(.page-header-btn-secondary:hover) {
 	@apply -translate-y-px shadow-lg;
-	background: rgba(var(--primary-500-rgb), 0.15);
-	box-shadow: 0 2px 8px rgba(var(--primary-500-rgb), 0.2);
+	background: rgba(255, 255, 255, 0.2);
+	box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
 }
 
 :deep(.page-header-btn .mr-2) {
@@ -203,16 +165,18 @@ html.dark {
 
 	/* 暗色标题样式 */
 	h1 {
-		@apply text-white-100;
-		background: linear-gradient(135deg, var(--primary-400), var(--primary-300));
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
+		@apply text-white;
+		background: none !important;
+		-webkit-background-clip: unset !important;
+		-webkit-text-fill-color: unset !important;
+		background-clip: unset !important;
+		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 	}
 
 	/* 暗色描述文字 */
 	p {
-		@apply text-gray-300;
+		@apply text-white;
+		opacity: 0.8;
 	}
 
 	/* 暗色模式下隐藏背景图案 */
