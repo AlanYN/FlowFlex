@@ -648,6 +648,18 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Update custom fields for a specific stage in onboarding's stagesProgress
+        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// </summary>
+        [HttpPost("{id}/stage/update-custom-fields")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> UpdateStageCustomFieldsAsync(long id, [FromBody] UpdateStageCustomFieldsInputDto input)
+        {
+            bool result = await _onboardingService.UpdateStageCustomFieldsAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Save a specific stage in onboarding's stagesProgress
         /// Updates the stage's IsSaved, SaveTime, and SavedById fields
         /// </summary>

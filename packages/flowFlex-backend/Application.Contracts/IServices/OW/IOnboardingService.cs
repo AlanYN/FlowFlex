@@ -212,6 +212,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> UpdateOnboardingStageAISummaryAsync(long onboardingId, long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed);
 
         /// <summary>
+        /// Update custom fields for a specific stage in onboarding's stagesProgress
+        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="input">Update stage custom fields input</param>
+        /// <returns>Success status</returns>
+        Task<bool> UpdateStageCustomFieldsAsync(long onboardingId, UpdateStageCustomFieldsInputDto input);
+
+        /// <summary>
         /// Save a specific stage in onboarding's stagesProgress
         /// Updates the stage's IsSaved, SaveTime, and SavedById fields
         /// </summary>

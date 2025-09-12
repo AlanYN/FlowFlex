@@ -39,15 +39,30 @@ namespace FlowFlex.Domain.Entities.OW
 
         /// <summary>
         /// End Time - Estimated end time based on StartTime + EstimatedDays (UTC)
+        /// Priority: CustomEndTime > StartTime + CustomEstimatedDays > StartTime + EstimatedDays
         /// </summary>
         public DateTimeOffset? EndTime
         {
             get
             {
+                // Priority 1: Use custom end time if set
+                if (CustomEndTime.HasValue)
+                {
+                    return CustomEndTime.Value;
+                }
+
+                // Priority 2: Use custom estimated days if available
+                if (StartTime.HasValue && CustomEstimatedDays.HasValue && CustomEstimatedDays > 0)
+                {
+                    return StartTime.Value.AddDays((double)CustomEstimatedDays.Value);
+                }
+
+                // Priority 3: Use default estimated days from Stage
                 if (StartTime.HasValue && EstimatedDays.HasValue && EstimatedDays > 0)
                 {
                     return StartTime.Value.AddDays((double)EstimatedDays.Value);
                 }
+
                 return null;
             }
         }
@@ -120,6 +135,18 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [JsonIgnore]
         public decimal? EstimatedDays { get; set; }
+
+        /// <summary>
+        /// Custom Estimated Days - User-defined estimated days (overrides EstimatedDays from Stage)
+        /// Stored in JSON for per-onboarding customization
+        /// </summary>
+        public decimal? CustomEstimatedDays { get; set; }
+
+        /// <summary>
+        /// Custom End Time - User-defined end time (overrides calculated EndTime)
+        /// Stored in JSON for per-onboarding customization
+        /// </summary>
+        public DateTimeOffset? CustomEndTime { get; set; }
 
         /// <summary>
         /// Actual Days (calculated) - Not stored in JSON

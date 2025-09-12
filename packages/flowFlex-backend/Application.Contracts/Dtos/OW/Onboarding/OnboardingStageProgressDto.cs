@@ -66,9 +66,21 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string CompletedBy { get; set; }
 
         /// <summary>
-        /// 预计完成天数（支持小数）
+        /// 预计完成天数（支持小数）- 显示优先级：CustomEstimatedDays > Stage配置的EstimatedDays
+        /// 如果用户设置了CustomEstimatedDays，则显示自定义值；否则显示Stage配置的默认值
         /// </summary>
         public decimal? EstimatedDays { get; set; }
+
+        /// <summary>
+        /// 用户自定义预计完成天数（支持小数）- 用于覆盖Stage配置
+        /// 当此字段有值时，EstimatedDays将显示此自定义值
+        /// </summary>
+        public decimal? CustomEstimatedDays { get; set; }
+
+        /// <summary>
+        /// 用户自定义结束时间 - 覆盖计算的EndTime
+        /// </summary>
+        public DateTimeOffset? CustomEndTime { get; set; }
 
         /// <summary>
         /// 实际用时天数

@@ -23,6 +23,7 @@ using System.Linq.Expressions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Shared.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IActionManagementService _actionManagementService;
+        private readonly IOperationChangeLogService _operationChangeLogService;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -76,7 +78,8 @@ namespace FlowFlex.Application.Services.OW
             IOperatorContextService operatorContextService,
             IServiceScopeFactory serviceScopeFactory,
             IBackgroundTaskQueue backgroundTaskQueue,
-            IActionManagementService actionManagementService)
+            IActionManagementService actionManagementService,
+            IOperationChangeLogService operationChangeLogService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -96,6 +99,7 @@ namespace FlowFlex.Application.Services.OW
             _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
             _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
             _actionManagementService = actionManagementService ?? throw new ArgumentNullException(nameof(actionManagementService));
+            _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
         }
 
         /// <summary>
@@ -4058,7 +4062,7 @@ namespace FlowFlex.Application.Services.OW
                         StageId = stage.Id,
                         Status = sequentialOrder == 1 ? "InProgress" : "Pending", // First stage starts as InProgress
                         IsCompleted = false,
-                        StartTime = sequentialOrder == 1 ? currentTime : null, // First stage starts immediately
+                        StartTime = null, // StartTime is now null by default, will be set when stage is saved or completed
                         CompletionTime = null,
                         CompletedById = null,
                         CompletedBy = null,
@@ -4135,6 +4139,12 @@ namespace FlowFlex.Application.Services.OW
                     completedStage.IsCurrent = false;
                     completedStage.LastUpdatedTime = currentTime;
                     completedStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
+
+                    // Set StartTime if not already set (for stages that were completed without being saved first)
+                    if (!completedStage.StartTime.HasValue)
+                    {
+                        completedStage.StartTime = currentTime;
+                    }
 
                     if (!string.IsNullOrEmpty(notes))
                     {
@@ -5479,6 +5489,163 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Update custom fields for a specific stage in onboarding's stagesProgress
+        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// </summary>
+        public async Task<bool> UpdateStageCustomFieldsAsync(long onboardingId, UpdateStageCustomFieldsInputDto input)
+        {
+            try
+            {
+                // Get current onboarding
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Load stages progress from JSON
+                LoadStagesProgressFromJson(onboarding);
+
+                // Find the stage progress entry
+                var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == input.StageId);
+                if (stageProgress == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage {input.StageId} not found in onboarding {onboardingId}");
+                }
+
+                // Capture original values for comparison
+                var originalEstimatedDays = stageProgress.CustomEstimatedDays;
+                var originalEndTime = stageProgress.CustomEndTime;
+
+                // Capture before data for change log
+                var beforeData = JsonSerializer.Serialize(new
+                {
+                    CustomEstimatedDays = stageProgress.CustomEstimatedDays,
+                    CustomEndTime = stageProgress.CustomEndTime,
+                    LastUpdatedTime = stageProgress.LastUpdatedTime,
+                    LastUpdatedBy = stageProgress.LastUpdatedBy
+                });
+
+                // Update custom fields
+                stageProgress.CustomEstimatedDays = input.CustomEstimatedDays;
+                stageProgress.CustomEndTime = input.CustomEndTime;
+
+                // Add notes if provided
+                if (!string.IsNullOrEmpty(input.Notes))
+                {
+                    var currentTime = DateTimeOffset.UtcNow;
+                    var currentUser = GetCurrentUserName();
+                    var updateNote = $"[Custom fields updated {currentTime:yyyy-MM-dd HH:mm:ss} by {currentUser}] {input.Notes}";
+                    
+                    if (string.IsNullOrEmpty(stageProgress.Notes))
+                    {
+                        stageProgress.Notes = updateNote;
+                    }
+                    else
+                    {
+                        stageProgress.Notes += $"\n{updateNote}";
+                    }
+                }
+
+                // Update last modified fields
+                stageProgress.LastUpdatedTime = DateTimeOffset.UtcNow;
+                stageProgress.LastUpdatedBy = GetCurrentUserName();
+
+                // Capture after data for change log
+                var afterData = JsonSerializer.Serialize(new
+                {
+                    CustomEstimatedDays = stageProgress.CustomEstimatedDays,
+                    CustomEndTime = stageProgress.CustomEndTime,
+                    LastUpdatedTime = stageProgress.LastUpdatedTime,
+                    LastUpdatedBy = stageProgress.LastUpdatedBy
+                });
+
+                // Save stages progress back to JSON
+                onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
+
+                // Update in database
+                var result = await SafeUpdateOnboardingAsync(onboarding);
+
+                // Log the operation if update was successful
+                if (result)
+                {
+                    var changedFields = new List<string>();
+                    var changeDetails = new List<string>();
+                    
+                    // Check for actual changes in CustomEstimatedDays
+                    if (input.CustomEstimatedDays.HasValue && originalEstimatedDays != input.CustomEstimatedDays) 
+                    {
+                        changedFields.Add("CustomEstimatedDays");
+                        var beforeValue = originalEstimatedDays?.ToString() ?? "null";
+                        changeDetails.Add($"EstimatedDays: {beforeValue} → {input.CustomEstimatedDays}");
+                    }
+                    
+                    // Check for actual changes in CustomEndTime
+                    if (input.CustomEndTime.HasValue && originalEndTime != input.CustomEndTime) 
+                    {
+                        changedFields.Add("CustomEndTime");
+                        var beforeValue = originalEndTime?.ToString("yyyy-MM-dd HH:mm") ?? "null";
+                        changeDetails.Add($"EndTime: {beforeValue} → {input.CustomEndTime?.ToString("yyyy-MM-dd HH:mm")}");
+                    }
+                    
+                    // Check if notes were added
+                    if (!string.IsNullOrEmpty(input.Notes)) 
+                    {
+                        changedFields.Add("Notes");
+                        changeDetails.Add("Notes: Added");
+                    }
+
+                    // Only log if there are actual changes or notes added
+                    if (changeDetails.Any())
+                    {
+                        var operationTitle = $"Update Stage Custom Fields: {string.Join(", ", changeDetails)}";
+                        var operationDescription = $"Updated custom fields for stage {input.StageId} in onboarding {onboardingId}";
+
+                        // Log the stage custom fields update operation
+                        await _operationChangeLogService.LogOperationAsync(
+                            operationType: OperationTypeEnum.StageUpdate,
+                            businessModule: BusinessModuleEnum.Stage,
+                            businessId: input.StageId,
+                            onboardingId: onboardingId,
+                            stageId: input.StageId,
+                            operationTitle: operationTitle,
+                            operationDescription: operationDescription,
+                            beforeData: beforeData,
+                            afterData: afterData,
+                            changedFields: changedFields,
+                            extendedData: JsonSerializer.Serialize(new { 
+                                Notes = input.Notes,
+                                OperationSource = "UpdateStageCustomFieldsAsync",
+                                HasActualChanges = true
+                            })
+                        );
+                    }
+                    // Note: No log entry is created when there are no actual changes
+                    // This reduces log noise and focuses on meaningful operations
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Log the failed operation
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: OperationTypeEnum.StageUpdate,
+                    businessModule: BusinessModuleEnum.Stage,
+                    businessId: input.StageId,
+                    onboardingId: onboardingId,
+                    stageId: input.StageId,
+                    operationTitle: "Update Stage Custom Fields",
+                    operationDescription: $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}",
+                    operationStatus: OperationStatusEnum.Failed,
+                    errorMessage: ex.Message
+                );
+
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Save a specific stage in onboarding's stagesProgress
         /// Updates the stage's IsSaved, SaveTime, and SavedById fields
         /// </summary>
@@ -5508,6 +5675,12 @@ namespace FlowFlex.Application.Services.OW
                 stageProgress.SaveTime = DateTimeOffset.UtcNow;
                 stageProgress.SavedById = GetCurrentUserId()?.ToString();
                 stageProgress.SavedBy = GetCurrentUserName();
+
+                // Set StartTime if not already set
+                if (!stageProgress.StartTime.HasValue)
+                {
+                    stageProgress.StartTime = DateTimeOffset.UtcNow;
+                }
 
                 // Save stages progress back to JSON
                 onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
