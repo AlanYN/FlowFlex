@@ -111,6 +111,7 @@
 											>
 												<ActionTag
 													:actions="stage.actions"
+													:triggerSourceId="stage.stageId"
 													:onboarding-id="onboardingData.id"
 													type="warning"
 													size="small"
