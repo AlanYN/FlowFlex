@@ -1,23 +1,23 @@
 <template>
 	<div class="flex justify-center items-center" @click.stop>
-		<el-tooltip
-			v-if="action"
-			:content="action.name || action.actionName || 'Action'"
-			placement="top"
-		>
+		<el-tooltip v-if="displayAction" :content="tooltipContent" placement="top">
 			<div
 				:class="['action-icon-tag', sizeClasses, cursorClasses, { 'opacity-50': disabled }]"
 				@click="handleClick"
 			>
-				<Icon icon="mdi:script-text" class="action-icon" />
+				<!-- 始终显示图标 -->
+				<Icon icon="mdi:webhook" class="action-icon" />
+				<!-- 多个 actions 时显示 +数量 -->
+				<span v-if="isMultipleActions" class="action-count">+{{ actionCount }}</span>
 			</div>
 		</el-tooltip>
 
 		<ActionResultDialog
 			v-model="dialogVisible"
-			:triggerSourceId="triggerSourceId"
-			:triggerSourceType="triggerSourceType"
-			:actionName="action?.name || action?.actionName || ''"
+			:actions="shouldPassActionsArray ? actualActions : undefined"
+			:action="shouldPassActionsArray ? undefined : action"
+			:triggerSourceId="shouldPassActionsArray ? undefined : triggerSourceId"
+			:actionName="dialogActionName"
 			:onboardingId="onboardingId"
 		/>
 	</div>
@@ -35,9 +35,10 @@ interface ActionInfo {
 }
 
 interface Props {
-	action?: ActionInfo;
-	triggerSourceId: string; // question id, option id, task id, or stage id
-	triggerSourceType: string; // 'question', 'option', 'task', 'stage'
+	action?: ActionInfo; // 单个 action（向后兼容）
+	actions?: ActionInfo[]; // 多个 actions（新增）
+	triggerSourceId?: string; // question id, option id, task id, or stage id（单个 action 时需要）
+	triggerSourceType?: string; // 'question', 'option', 'task', 'stage'（单个 action 时需要）
 	onboardingId: string; // current case/onboarding id
 	size?: 'large' | 'default' | 'small';
 	type?: 'success' | 'info' | 'warning' | 'danger';
@@ -58,6 +59,58 @@ defineEmits<{
 
 const dialogVisible = ref(false);
 
+// 计算属性：获取实际的 actions 数组
+const actualActions = computed(() => {
+	if (props.actions && props.actions.length > 0) {
+		return props.actions;
+	} else if (props.action) {
+		return [props.action];
+	}
+	return [];
+});
+
+// 计算属性：是否有可显示的 action
+const displayAction = computed(() => {
+	return actualActions.value.length > 0;
+});
+
+// 计算属性：是否是多个 actions
+const isMultipleActions = computed(() => {
+	return actualActions.value.length > 1;
+});
+
+// 计算属性：action 数量
+const actionCount = computed(() => {
+	return actualActions.value.length;
+});
+
+// 计算属性：tooltip 内容
+const tooltipContent = computed(() => {
+	if (isMultipleActions.value) {
+		return `${actionCount.value} Actions`;
+	} else if (actualActions.value.length === 1) {
+		const action = actualActions.value[0];
+		return action.name || action.actionName || 'Action';
+	}
+	return 'Action';
+});
+
+// 计算属性：对话框中显示的 action 名称
+const dialogActionName = computed(() => {
+	if (isMultipleActions.value) {
+		return `${actionCount.value} Actions`;
+	} else if (actualActions.value.length === 1) {
+		const action = actualActions.value[0];
+		return action.name || action.actionName || '';
+	}
+	return '';
+});
+
+// 计算属性：是否传递 actions 数组给 dialog
+const shouldPassActionsArray = computed(() => {
+	return isMultipleActions.value;
+});
+
 // Size classes
 const sizeClasses = computed(() => {
 	const sizeMap = {
@@ -74,7 +127,7 @@ const cursorClasses = computed(() => {
 });
 
 const handleClick = () => {
-	if (props.disabled || !props.action) return;
+	if (props.disabled || !displayAction.value) return;
 	dialogVisible.value = true;
 };
 </script>
@@ -90,12 +143,33 @@ const handleClick = () => {
 	background-color: #f3f4f6;
 	border: 1px solid #e5e7eb;
 	color: #6366f1;
+	position: relative;
 }
 
 .action-icon {
 	width: 1.2em;
 	height: 1.2em;
 	flex-shrink: 0;
+}
+
+.action-count {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	background-color: #ef4444;
+	color: white;
+	font-size: 0.6em;
+	font-weight: 600;
+	line-height: 1;
+	padding: 2px 4px;
+	border-radius: 8px;
+	min-width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid white;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .action-icon-tag:hover {
@@ -125,5 +199,10 @@ html.dark .action-icon-tag:hover {
 	background-color: #4338ca;
 	border-color: #6366f1;
 	color: #c7d2fe;
+}
+
+html.dark .action-count {
+	background-color: #dc2626;
+	border-color: #374151;
 }
 </style>

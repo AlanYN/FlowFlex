@@ -102,22 +102,19 @@
 											</div>
 											<!-- Action Tag for completed stages -->
 											<div
-												v-if="stage.completed && stage.actions"
+												v-if="
+													stage.completed &&
+													stage.actions &&
+													stage.actions.length > 0
+												"
 												class="flex items-center gap-2"
 											>
-												<template
-													v-for="action in stage.actions"
-													:key="action.id"
-												>
-													<ActionTag
-														:action="action"
-														:trigger-source-id="action.id"
-														trigger-source-type="action"
-														:onboarding-id="onboardingData.id"
-														type="warning"
-														size="small"
-													/>
-												</template>
+												<ActionTag
+													:actions="stage.actions"
+													:onboarding-id="onboardingData.id"
+													type="warning"
+													size="small"
+												/>
 											</div>
 										</div>
 									</div>

@@ -2,96 +2,137 @@
 	<el-dialog
 		v-model="dialogVisible"
 		:title="dialogTitle"
-		width="80%"
+		:width="bigDialogWidth"
+		draggable
 		:before-close="handleClose"
 		:append-to-body="true"
 		:destroy-on-close="true"
 		:close-on-click-modal="false"
 		class="action-result-dialog"
 	>
-		<div class="action-result-content">
+		<div class="action-result-content p-2">
 			<!-- Filter Section -->
 			<div class="mb-4 flex items-center gap-4">
+				<!-- Action Selector (for multiple actions) -->
 				<el-select
-					v-model="localFilters.status"
-					placeholder="Status Filter"
-					clearable
-					class="w-40"
-					@change="handleFilterChange"
+					v-if="isMultipleActionsMode"
+					v-model="selectedActionId"
+					placeholder="Select Action"
+					class="w-48"
+					@change="handleActionChange"
 				>
-					<el-option label="Success" value="success" />
-					<el-option label="Failed" value="failed" />
-					<el-option label="Running" value="running" />
-					<el-option label="Pending" value="pending" />
+					<el-option
+						v-for="actionItem in props.actions"
+						:key="actionItem.id"
+						:label="
+							actionItem.name || actionItem.actionName || `Action ${actionItem.id}`
+						"
+						:value="actionItem.id"
+					/>
 				</el-select>
-
-				<el-button @click="resetFilters" :icon="RefreshRight">Reset</el-button>
 			</div>
 
 			<!-- Loading State -->
-			<div v-if="loading" class="flex justify-center items-center py-8">
-				<el-icon class="is-loading text-2xl text-primary mr-2">
-					<Loading />
-				</el-icon>
-				<span>Loading execution records...</span>
-			</div>
-
 			<!-- Results Table -->
-			<el-table
-				v-else
-				:data="results"
-				v-loading="loading"
-				class="w-full"
-				:empty-text="'No execution records'"
-			>
-				<el-table-column prop="executionId" label="Execution ID" width="200">
+			<el-table :data="results" v-loading="loading" class="w-full">
+				<!-- Custom Empty State -->
+				<template #empty>
+					<div class="empty-state-container">
+						<div class="empty-state-content">
+							<!-- Icon -->
+							<div class="empty-state-icon">
+								<el-icon class="text-6xl text-gray-300 dark:text-gray-600">
+									<Document />
+								</el-icon>
+							</div>
+
+							<!-- Title -->
+							<h3 class="empty-state-title">
+								{{ getEmptyStateTitle() }}
+							</h3>
+
+							<!-- Description -->
+							<p class="empty-state-description">
+								{{ getEmptyStateDescription() }}
+							</p>
+
+							<!-- Action Suggestion -->
+							<div
+								v-if="isMultipleActionsMode && !selectedActionId"
+								class="empty-state-suggestion"
+							>
+								<el-button
+									type="primary"
+									size="small"
+									@click="handleEmptyStateAction"
+									:icon="RefreshRight"
+								/>
+							</div>
+						</div>
+					</div>
+				</template>
+				<el-table-column prop="actionCode" label="Action Code" width="120">
 					<template #default="{ row }">
-						<span class="font-mono text-sm">{{ row.executionId }}</span>
+						<span class="font-mono text-sm">{{ row.actionCode }}</span>
 					</template>
 				</el-table-column>
 
-				<el-table-column prop="status" label="Status" width="120">
+				<el-table-column prop="actionName" label="Action Name" min-width="200">
 					<template #default="{ row }">
-						<el-tag :class="getStatusClass(row.status)" size="small">
-							{{ getStatusText(row.status) }}
+						<span class="font-medium">{{ row.actionName }}</span>
+					</template>
+				</el-table-column>
+
+				<el-table-column prop="actionType" label="Type" width="100">
+					<template #default="{ row }">
+						<el-tag size="small" class="type-tag">
+							{{ row.actionType }}
 						</el-tag>
 					</template>
 				</el-table-column>
 
-				<el-table-column prop="startedAt" label="Started At" width="180">
+				<el-table-column prop="executionStatus" label="Status" width="120">
 					<template #default="{ row }">
-						{{ formatDateTime(row.startedAt) }}
+						<el-tag :class="getStatusClass(row.executionStatus)" size="small">
+							{{ getStatusText(row.executionStatus) }}
+						</el-tag>
+					</template>
+				</el-table-column>
+
+				<el-table-column prop="startedAt" label="Started At" width="160">
+					<template #default="{ row }">
+						{{ timeZoneConvert(row.startedAt, false, projectTenMinutesSsecondsDate) }}
+					</template>
+				</el-table-column>
+
+				<el-table-column prop="completedAt" label="Completed At" width="160">
+					<template #default="{ row }">
+						{{ timeZoneConvert(row.completedAt, false, projectTenMinutesSsecondsDate) }}
 					</template>
 				</el-table-column>
 
 				<el-table-column prop="duration" label="Duration" width="100">
 					<template #default="{ row }">
-						{{ formatDuration(row.duration || 0) }}
+						{{ calculateDuration(row.startedAt, row.completedAt) }}
 					</template>
 				</el-table-column>
 
-				<el-table-column prop="executionOutput" label="Output Summary" min-width="200">
+				<el-table-column label="Actions" width="80" fixed="right">
 					<template #default="{ row }">
-						<div
-							class="max-w-xs truncate"
-							:title="getExecutionOutputSummary(row.executionOutput)"
-						>
-							{{ getExecutionOutputSummary(row.executionOutput) }}
-						</div>
-					</template>
-				</el-table-column>
-
-				<el-table-column label="Actions" width="120" fixed="right">
-					<template #default="{ row }">
-						<el-button
-							size="small"
-							@click="toggleDetails(row.executionId)"
-							:icon="expandedRows.has(row.executionId) ? ArrowUp : ArrowDown"
-						>
-							{{
+						<el-tooltip
+							:content="
 								expandedRows.has(row.executionId) ? 'Hide Details' : 'View Details'
-							}}
-						</el-button>
+							"
+							placement="top"
+						>
+							<el-button
+								size="small"
+								type="primary"
+								link
+								@click="toggleDetails(row.executionId)"
+								:icon="expandedRows.has(row.executionId) ? ArrowUp : View"
+							/>
+						</el-tooltip>
 					</template>
 				</el-table-column>
 			</el-table>
@@ -100,94 +141,79 @@
 			<div v-for="row in results" :key="row.executionId">
 				<div
 					v-if="expandedRows.has(row.executionId)"
-					class="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border"
+					class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
 				>
-					<h4 class="font-semibold mb-3">Execution Details</h4>
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-						<div>
-							<label class="block text-sm font-medium mb-1">Action Name:</label>
-							<p class="text-sm">{{ row.actionName }}</p>
+					<!-- 只显示执行内容，不重复表格中的信息 -->
+					<div class="space-y-3">
+						<!-- Input Details -->
+						<div v-if="row.executionInput">
+							<div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+								Execution Input
+							</div>
+							<pre
+								class="text-xs bg-white dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-600 overflow-y-auto font-mono"
+								>{{ formatJsonOutput(row.executionInput) }}</pre
+							>
 						</div>
-						<div>
-							<label class="block text-sm font-medium mb-1">Action Type:</label>
-							<p class="text-sm">{{ row.actionType }}</p>
-						</div>
-						<div>
-							<label class="block text-sm font-medium mb-1">Trigger Source:</label>
-							<p class="text-sm">{{ row.triggerSource }}</p>
-						</div>
-						<div>
-							<label class="block text-sm font-medium mb-1">Completed At:</label>
-							<p class="text-sm">{{ formatDateTime(row.completedAt || '') }}</p>
-						</div>
-					</div>
 
-					<!-- Input Details -->
-					<div v-if="row.executionInput" class="mb-4">
-						<label class="block text-sm font-medium mb-2">Input:</label>
-						<el-collapse>
-							<el-collapse-item title="View Input Details" name="input">
-								<pre
-									class="text-xs bg-white dark:bg-gray-900 p-3 rounded border overflow-auto max-h-60"
-									>{{ formatJsonOutput(row.executionInput) }}</pre
-								>
-							</el-collapse-item>
-						</el-collapse>
-					</div>
+						<!-- Output Details -->
+						<div v-if="row.executionOutput">
+							<div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+								Execution Output
+							</div>
+							<pre
+								class="text-xs bg-white dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-600 overflow-y-auto font-mono"
+								>{{ formatJsonOutput(row.executionOutput) }}</pre
+							>
+						</div>
 
-					<!-- Output Details -->
-					<div v-if="row.executionOutput" class="mb-4">
-						<label class="block text-sm font-medium mb-2">Output:</label>
-						<el-collapse>
-							<el-collapse-item title="View Output Details" name="output">
-								<pre
-									class="text-xs bg-white dark:bg-gray-900 p-3 rounded border overflow-auto max-h-60"
-									>{{ formatJsonOutput(row.executionOutput) }}</pre
-								>
-							</el-collapse-item>
-						</el-collapse>
-					</div>
+						<!-- Error Details -->
+						<div v-if="row.errorMessage">
+							<div class="text-xs font-medium text-red-500 mb-1">Error Message</div>
+							<div
+								class="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 leading-relaxed"
+							>
+								{{ row.errorMessage }}
+							</div>
+						</div>
 
-					<!-- Error Details -->
-					<div v-if="row.errorMessage" class="mb-4">
-						<label class="block text-sm font-medium mb-2 text-red-600">
-							Error Message:
-						</label>
+						<!-- Stack Trace -->
+						<div v-if="row.errorStackTrace">
+							<div class="text-xs font-medium text-red-500 mb-1">Stack Trace</div>
+							<pre
+								class="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 max-h-24 overflow-y-auto font-mono leading-relaxed"
+								>{{ row.errorStackTrace }}</pre
+							>
+						</div>
+
+						<!-- 如果没有任何执行内容，显示提示 -->
 						<div
-							class="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border"
+							v-if="
+								!row.executionInput &&
+								!row.executionOutput &&
+								!row.errorMessage &&
+								!row.errorStackTrace
+							"
+							class="text-center py-4"
 						>
-							{{ row.errorMessage }}
+							<div class="text-gray-400 dark:text-gray-500 text-xs">
+								No execution details available
+							</div>
 						</div>
-					</div>
-
-					<div v-if="row.errorStackTrace" class="mb-4">
-						<label class="block text-sm font-medium mb-2 text-red-600">
-							Stack Trace:
-						</label>
-						<el-collapse>
-							<el-collapse-item title="View Stack Trace" name="stackTrace">
-								<pre
-									class="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border overflow-auto max-h-40"
-									>{{ row.errorStackTrace }}</pre
-								>
-							</el-collapse-item>
-						</el-collapse>
 					</div>
 				</div>
 			</div>
 
 			<!-- Pagination -->
-			<div class="mt-6 flex justify-center">
-				<el-pagination
-					v-model:current-page="currentPage"
-					v-model:page-size="pageSize"
-					:page-sizes="[10, 20, 50, 100]"
-					:total="total"
-					layout="total, sizes, prev, pager, next, jumper"
-					@size-change="handleSizeChange"
-					@current-change="handleCurrentChange"
-				/>
-			</div>
+			<CustomerPagination
+				:total="total"
+				:limit="pageSize"
+				:page="currentPage"
+				:background="true"
+				@pagination="loadResults"
+				@update:page="handleCurrentChange"
+				@update:limit="handlePageUpdate"
+			/>
 		</div>
 	</el-dialog>
 </template>
@@ -195,15 +221,26 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Loading, ArrowUp, ArrowDown, RefreshRight } from '@element-plus/icons-vue';
+import { ArrowUp, RefreshRight, Document, View } from '@element-plus/icons-vue';
+import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import { bigDialogWidth, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { getActionResult } from '@/apis/action';
 import { timeZoneConvert } from '@/hooks/time';
 import type { ActionExecutionResult } from '#/action';
 
+interface ActionInfo {
+	id: string;
+	name?: string;
+	actionName?: string;
+}
+
 interface Props {
 	modelValue: boolean;
-	triggerSourceId: string;
-	triggerSourceType: string;
+	// 单个 action 模式的参数
+	action?: ActionInfo;
+	triggerSourceId?: string;
+	// 多个 actions 模式的参数
+	actions?: ActionInfo[];
 	actionName: string;
 	onboardingId: string;
 }
@@ -234,32 +271,27 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 
-// Filters
-const localFilters = ref({
-	status: '',
+// Multiple actions mode
+const selectedActionId = ref('');
+const isMultipleActionsMode = computed(() => {
+	return props.actions && props.actions.length > 0;
 });
 
 // Utility functions
-const extractTriggerSource = (triggerContext: string): string => {
-	try {
-		const context = JSON.parse(triggerContext);
-		if (context.TaskName) return `Task: ${context.TaskName}`;
-		if (context.StageName) return `Stage: ${context.StageName}`;
-		if (context.QuestionText) return `Question: ${context.QuestionText}`;
-		if (context.OptionText) return `Option: ${context.OptionText}`;
-		return 'Unknown';
-	} catch (error) {
-		return 'Unknown';
-	}
-};
+const calculateDuration = (startedAt: string, completedAt: string): string => {
+	if (!startedAt || !completedAt) return 'N/A';
 
-const formatDateTime = (dateString: string): string => {
-	if (!dateString) return '';
 	try {
-		return timeZoneConvert(dateString, false, 'MM/DD/YYYY HH:mm:ss');
+		const startTime = new Date(startedAt).getTime();
+		const endTime = new Date(completedAt).getTime();
+		const durationMs = endTime - startTime;
+
+		if (durationMs < 0) return 'N/A';
+
+		return formatDuration(durationMs);
 	} catch (error) {
-		console.error('Date format error:', error);
-		return dateString;
+		console.error('Duration calculation error:', error);
+		return 'N/A';
 	}
 };
 
@@ -365,6 +397,34 @@ const getStatusText = (status: string): string => {
 	return statusTextMap.get(status.toLowerCase()) ?? status;
 };
 
+// Empty state methods
+const getEmptyStateTitle = (): string => {
+	if (isMultipleActionsMode.value && !selectedActionId.value) {
+		return 'Select an Action';
+	}
+	return 'No Execution Records Found';
+};
+
+const getEmptyStateDescription = (): string => {
+	if (isMultipleActionsMode.value && !selectedActionId.value) {
+		return 'Please select an action from the dropdown above to view its execution records.';
+	}
+
+	if (isMultipleActionsMode.value) {
+		const selectedAction = props.actions?.find(
+			(action) => action.id === selectedActionId.value
+		);
+		const actionName = selectedAction?.name || selectedAction?.actionName || 'this action';
+		return `No execution records found for ${actionName}. This action may not have been executed yet.`;
+	}
+
+	return 'This action has not been executed yet, or no execution records match the current criteria.';
+};
+
+const handleEmptyStateAction = () => {
+	loadResults();
+};
+
 // Build JSON conditions for API
 const buildJsonConditions = () => {
 	const conditions: any[] = [];
@@ -378,49 +438,66 @@ const buildJsonConditions = () => {
 		});
 	}
 
-	// Status filter
-	if (localFilters.value.status) {
-		conditions.push({
-			jsonPath: '$.status',
-			operator: 'eq',
-			value: localFilters.value.status,
-		});
-	}
-
 	return conditions;
 };
 
 // Load action execution results
 const loadResults = async () => {
-	if (!props.triggerSourceId || !props.onboardingId) {
-		console.warn('Missing triggerSourceId or onboardingId for loading action results');
+	// 验证必要参数
+	if (!props.onboardingId) {
+		console.warn('Missing onboardingId for loading action results');
 		return;
+	}
+
+	// 根据模式验证参数
+	if (isMultipleActionsMode.value) {
+		if (!props.actions || props.actions.length === 0) {
+			console.warn('Missing actions array for multiple actions mode');
+			return;
+		}
+	} else {
+		if (!props.triggerSourceId) {
+			console.warn('Missing triggerSourceId for single action mode');
+			return;
+		}
 	}
 
 	loading.value = true;
 
 	try {
+		let response;
+
 		const conditions = buildJsonConditions();
-		const response = await getActionResult(props.triggerSourceId, {
-			pageIndex: currentPage.value, // API uses 0-based index
-			pageSize: pageSize.value,
-			jsonConditions: conditions,
-		});
+
+		if (isMultipleActionsMode.value) {
+			// 多个 actions 模式：使用选中的 action ID 查询
+			const targetActionId = selectedActionId.value;
+			if (!targetActionId) {
+				console.warn('No action selected in multiple actions mode');
+				return;
+			}
+			response = await getActionResult(targetActionId, {
+				pageIndex: currentPage.value,
+				pageSize: pageSize.value,
+				jsonConditions: conditions,
+			});
+		} else {
+			// 单个 action 模式：使用 triggerSourceId 查询
+			response = await getActionResult(props.triggerSourceId!, {
+				pageIndex: currentPage.value,
+				pageSize: pageSize.value,
+				jsonConditions: conditions,
+			});
+		}
 
 		if (response.success) {
 			const rawData = response.data?.data || [];
+
 			// Process and enhance the data
 			results.value = rawData.map((item: any) => ({
 				...item,
-				// Map executionStatus to status for compatibility
-				status: item.executionStatus,
-				// Calculate duration from startedAt and completedAt
-				duration:
-					item.startedAt && item.completedAt
-						? new Date(item.completedAt).getTime() - new Date(item.startedAt).getTime()
-						: 0,
-				// Extract trigger source from triggerContext if needed
-				triggerSource: item.triggerContext ? extractTriggerSource(item.triggerContext) : '',
+				// Format output summary for display
+				formattedOutput: getExecutionOutputSummary(item.executionOutput),
 			}));
 			total.value = response.data?.total || 0;
 		} else {
@@ -448,30 +525,33 @@ const handleClose = () => {
 
 const toggleDetails = (executionId: string) => {
 	if (expandedRows.value.has(executionId)) {
+		// 如果当前行已展开，则关闭它
 		expandedRows.value.delete(executionId);
 	} else {
+		// 关闭所有其他展开的行，只展开当前行
+		expandedRows.value.clear();
 		expandedRows.value.add(executionId);
 	}
 };
 
-const handleFilterChange = () => {
+const handleActionChange = () => {
+	// 切换 action 时关闭所有展开的详情
+	expandedRows.value.clear();
 	currentPage.value = 1;
 	loadResults();
 };
 
-const resetFilters = () => {
-	localFilters.value.status = '';
-	currentPage.value = 1;
-	loadResults();
-};
-
-const handleSizeChange = (size: number) => {
+const handlePageUpdate = (size: number) => {
+	// 切换页面大小时关闭所有展开的详情
+	expandedRows.value.clear();
 	pageSize.value = size;
 	currentPage.value = 1;
 	loadResults();
 };
 
 const handleCurrentChange = (page: number) => {
+	// 切换页码时关闭所有展开的详情
+	expandedRows.value.clear();
 	currentPage.value = page;
 	loadResults();
 };
@@ -480,10 +560,21 @@ const handleCurrentChange = (page: number) => {
 watch(
 	() => props.modelValue,
 	(visible) => {
-		if (visible && props.triggerSourceId && props.onboardingId) {
-			expandedRows.value.clear();
-			currentPage.value = 1;
-			loadResults();
+		if (visible && props.onboardingId) {
+			// 检查是否有必要的参数
+			const hasRequiredParams = isMultipleActionsMode.value
+				? props.actions && props.actions.length > 0
+				: props.triggerSourceId;
+
+			if (hasRequiredParams) {
+				expandedRows.value.clear();
+				currentPage.value = 1;
+				// 多个 actions 模式时默认选择第一个 action
+				if (isMultipleActionsMode.value && props.actions && props.actions.length > 0) {
+					selectedActionId.value = props.actions[0].id;
+				}
+				loadResults();
+			}
 		}
 	}
 );
@@ -501,8 +592,65 @@ watch(
 	overflow-y: auto;
 }
 
-pre {
-	white-space: pre-wrap;
-	word-wrap: break-word;
+/* Empty State Styles */
+.empty-state-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 300px;
+	padding: 40px 20px;
+}
+
+.empty-state-content {
+	text-align: center;
+	max-width: 400px;
+}
+
+.empty-state-icon {
+	margin-bottom: 24px;
+	display: flex;
+	justify-content: center;
+}
+
+.empty-state-title {
+	font-size: 18px;
+	font-weight: 600;
+	color: var(--el-text-color-primary);
+	margin: 0 0 12px 0;
+	line-height: 1.4;
+}
+
+.empty-state-description {
+	font-size: 14px;
+	color: var(--el-text-color-regular);
+	margin: 0 0 24px 0;
+	line-height: 1.6;
+}
+
+.empty-state-suggestion {
+	display: flex;
+	justify-content: center;
+}
+
+/* Type tag styles */
+.type-tag {
+	background-color: #e6f3ff !important;
+	border-color: #b3d9ff !important;
+	color: #2468f2 !important;
+	border-radius: 16px !important;
+	padding: 4px 12px !important;
+	font-size: 12px !important;
+	font-weight: 500 !important;
+}
+
+/* Dark mode support */
+html.dark {
+	.empty-state-title {
+		color: var(--white-100);
+	}
+
+	.empty-state-description {
+		color: var(--gray-300);
+	}
 }
 </style>
