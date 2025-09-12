@@ -245,8 +245,8 @@ const selectedQuestionnaireData = ref<any>(null);
 // 视图切换
 const activeView = ref('list');
 const tabsConfig = ref([
-	{ label: 'Table View', value: 'list', icon: markRaw(ProgressViewIcon) },
-	{ label: 'Card View', value: 'card', icon: markRaw(TableViewIcon) },
+	{ label: 'Table View', value: 'list', icon: markRaw(TableViewIcon) },
+	{ label: 'Card View', value: 'card', icon: markRaw(ProgressViewIcon) },
 ]);
 
 // 方法
