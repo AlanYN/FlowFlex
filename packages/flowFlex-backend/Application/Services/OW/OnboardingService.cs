@@ -1982,9 +1982,7 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
                     var noteText = $"[Onboarding Completed] Final stage '{stageToComplete.Name}' completed: {input.CompletionNotes}";
-                    entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                        ? noteText
-                        : $"{entity.Notes}\n{noteText}";
+                    SafeAppendToNotes(entity, noteText);
                     // Debug logging handled by structured logging
                 }
             }
@@ -2035,9 +2033,7 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
                     var noteText = $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}";
-                    entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                        ? noteText
-                        : $"{entity.Notes}\n{noteText}";
+                    SafeAppendToNotes(entity, noteText);
                     // Debug logging handled by structured logging
                 }
             }
@@ -2128,27 +2124,21 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.CompletionNotes))
             {
                 var noteText = $"[Stage Completed] {currentStage.Name}: {input.CompletionNotes}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? noteText
-                    : $"{entity.Notes}\n{noteText}";
+                SafeAppendToNotes(entity, noteText);
             }
 
             // Add rating if provided
             if (input.Rating.HasValue)
             {
                 var ratingText = $"[Stage Rating] {currentStage.Name}: {input.Rating}/5 stars";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? ratingText
-                    : $"{entity.Notes}\n{ratingText}";
+                SafeAppendToNotes(entity, ratingText);
             }
 
             // Add feedback if provided
             if (!string.IsNullOrEmpty(input.Feedback))
             {
                 var feedbackText = $"[Stage Feedback] {currentStage.Name}: {input.Feedback}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? feedbackText
-                    : $"{entity.Notes}\n{feedbackText}";
+                SafeAppendToNotes(entity, feedbackText);
             }
 
             // Update stage tracking info
@@ -2241,7 +2231,19 @@ namespace FlowFlex.Application.Services.OW
             // Update notes with cancellation reason
             if (!string.IsNullOrEmpty(reason))
             {
-                entity.Notes = $"Cancelled: {reason}. {entity.Notes}".Trim();
+                var cancellationNote = $"Cancelled: {reason}";
+                // For cancellation, we want to prepend the note, so we'll handle this specially
+                var currentNotes = entity.Notes ?? string.Empty;
+                var newContent = string.IsNullOrEmpty(currentNotes) 
+                    ? cancellationNote 
+                    : $"{cancellationNote}. {currentNotes}";
+                
+                // Ensure we don't exceed the length limit
+                if (newContent.Length > 1000)
+                {
+                    newContent = newContent.Substring(0, 1000);
+                }
+                entity.Notes = newContent;
                 await SafeUpdateOnboardingAsync(entity);
             }
 
@@ -2291,9 +2293,7 @@ namespace FlowFlex.Application.Services.OW
             }
             rejectionNote += $" - {(input.TerminateWorkflow ? "Terminated" : "Rejected")} by: {input.RejectedBy} at {currentTime:yyyy-MM-dd HH:mm:ss}";
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? rejectionNote
-                : $"{entity.Notes}\n{rejectionNote}";
+            SafeAppendToNotes(entity, rejectionNote);
 
             // Update stages progress to reflect rejection/termination
             LoadStagesProgressFromJson(entity);
@@ -2597,9 +2597,7 @@ namespace FlowFlex.Application.Services.OW
                 noteText = $"[{input.Type}] {noteText}";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? noteText
-                : $"{entity.Notes}\n{noteText}";
+            SafeAppendToNotes(entity, noteText);
 
             return await SafeUpdateOnboardingAsync(entity);
         }
@@ -2627,9 +2625,7 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.Remarks))
             {
                 var remarkText = $"[Status Update] {input.Remarks}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? remarkText
-                    : $"{entity.Notes}\n{remarkText}";
+                SafeAppendToNotes(entity, remarkText);
             }
 
             // Update stage tracking info
@@ -2661,9 +2657,7 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.Remarks))
             {
                 var remarkText = $"[Priority Update] Priority set to {input.Priority}. {input.Remarks}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? remarkText
-                    : $"{entity.Notes}\n{remarkText}";
+                SafeAppendToNotes(entity, remarkText);
             }
 
             // Update stage tracking info
@@ -2697,27 +2691,21 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.CompletionNotes))
             {
                 var noteText = $"[Completion] {input.CompletionNotes}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? noteText
-                    : $"{entity.Notes}\n{noteText}";
+                SafeAppendToNotes(entity, noteText);
             }
 
             // Add rating if provided
             if (input.Rating.HasValue)
             {
                 var ratingText = $"[Rating] {input.Rating}/5 stars";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? ratingText
-                    : $"{entity.Notes}\n{ratingText}";
+                SafeAppendToNotes(entity, ratingText);
             }
 
             // Add feedback if provided
             if (!string.IsNullOrEmpty(input.Feedback))
             {
                 var feedbackText = $"[Feedback] {input.Feedback}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? feedbackText
-                    : $"{entity.Notes}\n{feedbackText}";
+                SafeAppendToNotes(entity, feedbackText);
             }
 
             // Update stage tracking info
@@ -2764,9 +2752,7 @@ namespace FlowFlex.Application.Services.OW
                 restartText += $" - Notes: {input.Notes}";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? restartText
-                : $"{entity.Notes}\n{restartText}";
+            SafeAppendToNotes(entity, restartText);
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
@@ -4843,6 +4829,62 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Safely append text to Notes field with length validation
+        /// Ensures the total length doesn't exceed the database constraint (1000 characters)
+        /// </summary>
+        private static void SafeAppendToNotes(Onboarding entity, string noteText)
+        {
+            const int maxNotesLength = 1000;
+            
+            if (string.IsNullOrEmpty(noteText))
+                return;
+
+            var currentNotes = entity.Notes ?? string.Empty;
+            var newContent = string.IsNullOrEmpty(currentNotes) 
+                ? noteText 
+                : $"{currentNotes}\n{noteText}";
+
+            // If the new content exceeds the limit, truncate it intelligently
+            if (newContent.Length > maxNotesLength)
+            {
+                // Try to keep the most recent notes by truncating from the beginning
+                var truncationMessage = "[...truncated older notes...]\n";
+                var availableSpace = maxNotesLength - truncationMessage.Length - noteText.Length - 1; // -1 for newline
+                
+                if (availableSpace > 0 && currentNotes.Length > availableSpace)
+                {
+                    // Keep the most recent part of existing notes
+                    var recentNotes = currentNotes.Substring(currentNotes.Length - availableSpace);
+                    // Find the first newline to avoid cutting in the middle of a note
+                    var firstNewlineIndex = recentNotes.IndexOf('\n');
+                    if (firstNewlineIndex > 0)
+                    {
+                        recentNotes = recentNotes.Substring(firstNewlineIndex + 1);
+                    }
+                    entity.Notes = $"{truncationMessage}{recentNotes}\n{noteText}";
+                }
+                else
+                {
+                    // If even the new note is too long, truncate it
+                    var maxNewNoteLength = maxNotesLength - truncationMessage.Length - 1;
+                    if (maxNewNoteLength > 0)
+                    {
+                        entity.Notes = $"{truncationMessage}{noteText.Substring(0, maxNewNoteLength)}";
+                    }
+                    else
+                    {
+                        // Fallback: just use the first part of the new note
+                        entity.Notes = noteText.Substring(0, Math.Min(noteText.Length, maxNotesLength));
+                    }
+                }
+            }
+            else
+            {
+                entity.Notes = newContent;
+            }
+        }
+
+        /// <summary>
         /// Safely update onboarding entity with JSONB compatibility
         /// This method handles the JSONB type conversion issue for stages_progress_json
         /// </summary>
@@ -5437,9 +5479,7 @@ namespace FlowFlex.Application.Services.OW
                 startText += $" - Notes: {input.Notes}";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? startText
-                : $"{entity.Notes}\n{startText}";
+            SafeAppendToNotes(entity, startText);
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
@@ -5477,9 +5517,7 @@ namespace FlowFlex.Application.Services.OW
                 abortText += $" - Notes: {input.Notes}";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? abortText
-                : $"{entity.Notes}\n{abortText}";
+            SafeAppendToNotes(entity, abortText);
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
@@ -5559,9 +5597,7 @@ namespace FlowFlex.Application.Services.OW
                 reactivateText += " - Questionnaire answers preserved";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? reactivateText
-                : $"{entity.Notes}\n{reactivateText}";
+            SafeAppendToNotes(entity, reactivateText);
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
@@ -5616,9 +5652,7 @@ namespace FlowFlex.Application.Services.OW
                 resumeText += $" - Notes: {input.Notes}";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? resumeText
-                : $"{entity.Notes}\n{resumeText}";
+            SafeAppendToNotes(entity, resumeText);
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);

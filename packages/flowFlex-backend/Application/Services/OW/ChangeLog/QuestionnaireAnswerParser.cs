@@ -81,14 +81,26 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                         if (!beforeMap.TryGetValue(questionId, out dynamic beforeResp))
                         {
-                            // New answer
+                            // New answer - but skip file upload questions
+                            if (IsFileUploadQuestion(afterResp))
+                            {
+                                // Skip file upload questions to reduce log noise
+                                continue;
+                            }
+                            
                             var formattedAnswer = FormatAnswerWithConfig(afterResp, questionnaireConfig);
                             changesList.Add($"{questionTitle}: {formattedAnswer}");
                             // Debug: Added new answer
                         }
                         else if (!AreAnswersEqual(beforeResp?.answer, afterResp?.answer))
                         {
-                            // Modified answer
+                            // Modified answer - but skip file upload questions
+                            if (IsFileUploadQuestion(afterResp) || IsFileUploadQuestion(beforeResp))
+                            {
+                                // Skip file upload questions to reduce log noise
+                                continue;
+                            }
+                            
                             var beforeAnswer = FormatAnswerWithConfig(beforeResp, questionnaireConfig);
                             var afterAnswer = FormatAnswerWithConfig(afterResp, questionnaireConfig);
                             changesList.Add($"{questionTitle}: {beforeAnswer} → {afterAnswer}");
@@ -696,7 +708,38 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (answer == null)
                     return "No file";
 
+                // Handle different answer types
+                if (answer is JsonElement jsonElement)
+                {
+                    return FormatFileAnswerFromJsonElement(jsonElement);
+                }
+
                 var answerStr = answer.ToString();
+                
+                // Handle common array type string representation
+                if (answerStr == "System.String[]" || answerStr == "System.Object[]")
+                {
+                    try
+                    {
+                        // Try to convert to array and extract file information
+                        if (answer is IEnumerable<object> enumerable)
+                        {
+                            var fileNames = new List<string>();
+                            foreach (var item in enumerable)
+                            {
+                                var fileName = ExtractFileNameFromObject(item);
+                                if (!string.IsNullOrEmpty(fileName))
+                                {
+                                    fileNames.Add(fileName);
+                                }
+                            }
+                            return fileNames.Count > 0 ? $"Files: {string.Join(", ", fileNames)}" : "Files uploaded";
+                        }
+                    }
+                    catch { }
+                    return "Files uploaded";
+                }
+
                 if (answerStr == "[object Object]")
                     return "File uploaded (name not available)";
 
@@ -704,26 +747,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 try
                 {
                     var files = JsonSerializer.Deserialize<JsonElement>(answerStr);
-                    if (files.ValueKind == JsonValueKind.Array)
-                    {
-                        var fileNames = new List<string>();
-                        foreach (var file in files.EnumerateArray())
-                        {
-                            if (file.TryGetProperty("name", out JsonElement name))
-                            {
-                                fileNames.Add(name.GetString());
-                            }
-                            else if (file.TryGetProperty("fileName", out JsonElement fileName))
-                            {
-                                fileNames.Add(fileName.GetString());
-                            }
-                        }
-                        return fileNames.Count > 0 ? $"Files: {string.Join(", ", fileNames)}" : "Files uploaded";
-                    }
-                    else if (files.TryGetProperty("name", out JsonElement singleName))
-                    {
-                        return $"File: {singleName.GetString()}";
-                    }
+                    return FormatFileAnswerFromJsonElement(files);
                 }
                 catch { }
 
@@ -732,6 +756,96 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             catch
             {
                 return "File uploaded";
+            }
+        }
+
+        /// <summary>
+        /// Format file answer from JsonElement
+        /// </summary>
+        private string FormatFileAnswerFromJsonElement(JsonElement files)
+        {
+            if (files.ValueKind == JsonValueKind.Array)
+            {
+                var fileNames = new List<string>();
+                foreach (var file in files.EnumerateArray())
+                {
+                    if (file.TryGetProperty("name", out JsonElement name) && name.ValueKind == JsonValueKind.String)
+                    {
+                        fileNames.Add(name.GetString());
+                    }
+                    else if (file.TryGetProperty("fileName", out JsonElement fileName) && fileName.ValueKind == JsonValueKind.String)
+                    {
+                        fileNames.Add(fileName.GetString());
+                    }
+                    else if (file.ValueKind == JsonValueKind.String)
+                    {
+                        fileNames.Add(file.GetString());
+                    }
+                }
+                return fileNames.Count > 0 ? $"Files: {string.Join(", ", fileNames)}" : "Files uploaded";
+            }
+            else if (files.TryGetProperty("name", out JsonElement singleName) && singleName.ValueKind == JsonValueKind.String)
+            {
+                return $"File: {singleName.GetString()}";
+            }
+            else if (files.ValueKind == JsonValueKind.String)
+            {
+                return $"File: {files.GetString()}";
+            }
+
+            return "File uploaded";
+        }
+
+        /// <summary>
+        /// Extract file name from dynamic object
+        /// </summary>
+        private string ExtractFileNameFromObject(object item)
+        {
+            if (item == null) return null;
+
+            try
+            {
+                // Try to get name property via reflection
+                var type = item.GetType();
+                var nameProperty = type.GetProperty("name") ?? type.GetProperty("Name");
+                if (nameProperty != null)
+                {
+                    var nameValue = nameProperty.GetValue(item);
+                    return nameValue?.ToString();
+                }
+
+                // Try to get fileName property
+                var fileNameProperty = type.GetProperty("fileName") ?? type.GetProperty("FileName");
+                if (fileNameProperty != null)
+                {
+                    var fileNameValue = fileNameProperty.GetValue(item);
+                    return fileNameValue?.ToString();
+                }
+
+                // Try to parse as JSON string
+                var itemStr = item.ToString();
+                if (!string.IsNullOrEmpty(itemStr) && itemStr.StartsWith("{"))
+                {
+                    try
+                    {
+                        var jsonElement = JsonSerializer.Deserialize<JsonElement>(itemStr);
+                        if (jsonElement.TryGetProperty("name", out JsonElement name) && name.ValueKind == JsonValueKind.String)
+                        {
+                            return name.GetString();
+                        }
+                        if (jsonElement.TryGetProperty("fileName", out JsonElement fileName) && fileName.ValueKind == JsonValueKind.String)
+                        {
+                            return fileName.GetString();
+                        }
+                    }
+                    catch { }
+                }
+
+                return itemStr;
+            }
+            catch
+            {
+                return item.ToString();
             }
         }
 
@@ -814,18 +928,49 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 if (answer is IEnumerable<object> enumerable)
                 {
-                    return enumerable.Select(x => x?.ToString()).Where(x => !string.IsNullOrEmpty(x)).ToList();
+                    var results = new List<string>();
+                    foreach (var item in enumerable)
+                    {
+                        var itemStr = item?.ToString();
+                        if (!string.IsNullOrEmpty(itemStr))
+                        {
+                            results.Add(itemStr);
+                        }
+                    }
+                    return results;
                 }
 
                 var answerStr = answer.ToString();
                 if (answerStr.StartsWith("[") && answerStr.EndsWith("]"))
                 {
                     var array = JsonSerializer.Deserialize<string[]>(answerStr);
-                    return array?.Where((Func<string, bool>)(x => !string.IsNullOrEmpty(x))).ToList() ?? new List<string>();
+                    if (array != null)
+                    {
+                        var results = new List<string>();
+                        foreach (var item in array)
+                        {
+                            if (!string.IsNullOrEmpty(item))
+                            {
+                                results.Add(item);
+                            }
+                        }
+                        return results;
+                    }
+                    return new List<string>();
                 }
 
                 // Comma-separated string
-                return answerStr.Split(',').Select((Func<string, string>)(x => x.Trim())).Where((Func<string, bool>)(x => !string.IsNullOrEmpty(x))).ToList();
+                var parts = answerStr.Split(',');
+                var trimmedResults = new List<string>();
+                foreach (var part in parts)
+                {
+                    var trimmed = part.Trim();
+                    if (!string.IsNullOrEmpty(trimmed))
+                    {
+                        trimmedResults.Add(trimmed);
+                    }
+                }
+                return trimmedResults;
             }
             catch
             {
@@ -940,11 +1085,292 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
-                return JsonSerializer.Serialize(answer1) == JsonSerializer.Serialize(answer2);
+                // Handle null cases
+                if (answer1 == null && answer2 == null) return true;
+                if (answer1 == null || answer2 == null) return false;
+
+                // For file upload answers, compare the meaningful content
+                if (IsFileUploadAnswer(answer1) || IsFileUploadAnswer(answer2))
+                {
+                    return AreFileAnswersEqual(answer1, answer2);
+                }
+
+                // For array answers, use deep comparison
+                if (IsArrayAnswer(answer1) || IsArrayAnswer(answer2))
+                {
+                    return AreArrayAnswersEqual(answer1, answer2);
+                }
+
+                // Default JSON serialization comparison
+                var json1 = JsonSerializer.Serialize(answer1);
+                var json2 = JsonSerializer.Serialize(answer2);
+                return json1 == json2;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to compare answers using JSON serialization, falling back to string comparison");
+                return answer1?.ToString() == answer2?.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Check if question is a file upload question
+        /// </summary>
+        private bool IsFileUploadQuestion(dynamic response)
+        {
+            if (response == null) return false;
+
+            try
+            {
+                // Check question type
+                var type = response.type?.ToString();
+                if (type == "file" || type == "file_upload")
+                    return true;
+
+                // Check if answer contains file upload indicators
+                return IsFileUploadAnswer(response.answer);
             }
             catch
             {
-                return answer1?.ToString() == answer2?.ToString();
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if answer is a file upload answer
+        /// </summary>
+        private bool IsFileUploadAnswer(dynamic answer)
+        {
+            if (answer == null) return false;
+
+            try
+            {
+                var answerStr = answer.ToString();
+                
+                // Check for common file upload indicators
+                if (answerStr.Contains("\"name\"") && answerStr.Contains("\"size\""))
+                    return true;
+                
+                if (answerStr.Contains("\"fileName\""))
+                    return true;
+
+                // Check if it's an array of file objects
+                if (answer is IEnumerable<object> enumerable)
+                {
+                    foreach (var item in enumerable.Take(1)) // Check first item only
+                    {
+                        var itemStr = item?.ToString() ?? "";
+                        if (itemStr.Contains("\"name\"") && itemStr.Contains("\"size\""))
+                            return true;
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check if answer is an array answer
+        /// </summary>
+        private bool IsArrayAnswer(dynamic answer)
+        {
+            if (answer == null) return false;
+
+            try
+            {
+                return answer is IEnumerable<object> && !(answer is string);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Compare file upload answers by meaningful content
+        /// </summary>
+        private bool AreFileAnswersEqual(dynamic answer1, dynamic answer2)
+        {
+            try
+            {
+                List<FileInfo> files1 = ExtractFileInfoList(answer1);
+                List<FileInfo> files2 = ExtractFileInfoList(answer2);
+
+                if (files1.Count != files2.Count)
+                    return false;
+
+                // Sort by name for consistent comparison
+                files1.Sort(CompareFileInfoByName);
+                files2.Sort(CompareFileInfoByName);
+
+                for (int i = 0; i < files1.Count; i++)
+                {
+                    if (!files1[i].Equals(files2[i]))
+                        return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to compare file answers, falling back to JSON comparison");
+                return JsonSerializer.Serialize(answer1) == JsonSerializer.Serialize(answer2);
+            }
+        }
+
+        /// <summary>
+        /// Compare array answers
+        /// </summary>
+        private bool AreArrayAnswersEqual(dynamic answer1, dynamic answer2)
+        {
+            try
+            {
+                if (!(answer1 is IEnumerable<object> enum1) || !(answer2 is IEnumerable<object> enum2))
+                {
+                    return JsonSerializer.Serialize(answer1) == JsonSerializer.Serialize(answer2);
+                }
+
+                var list1 = enum1.ToList();
+                var list2 = enum2.ToList();
+
+                if (list1.Count != list2.Count)
+                    return false;
+
+                for (int i = 0; i < list1.Count; i++)
+                {
+                    var item1Json = JsonSerializer.Serialize(list1[i]);
+                    var item2Json = JsonSerializer.Serialize(list2[i]);
+                    if (item1Json != item2Json)
+                        return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to compare array answers, falling back to JSON comparison");
+                return JsonSerializer.Serialize(answer1) == JsonSerializer.Serialize(answer2);
+            }
+        }
+
+        /// <summary>
+        /// Extract file information from answer
+        /// </summary>
+        private List<FileInfo> ExtractFileInfoList(dynamic answer)
+        {
+            var fileInfos = new List<FileInfo>();
+
+            if (answer == null)
+                return fileInfos;
+
+            try
+            {
+                if (answer is IEnumerable<object> enumerable)
+                {
+                    foreach (var item in enumerable)
+                    {
+                        var fileInfo = ExtractFileInfo(item);
+                        if (fileInfo != null)
+                            fileInfos.Add(fileInfo);
+                    }
+                }
+                else
+                {
+                    var fileInfo = ExtractFileInfo(answer);
+                    if (fileInfo != null)
+                        fileInfos.Add(fileInfo);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to extract file info list from answer");
+            }
+
+            return fileInfos;
+        }
+
+        /// <summary>
+        /// Extract file information from a single file object
+        /// </summary>
+        private FileInfo ExtractFileInfo(dynamic fileObj)
+        {
+            if (fileObj == null)
+                return null;
+
+            try
+            {
+                var fileObjStr = fileObj.ToString();
+                if (string.IsNullOrEmpty(fileObjStr))
+                    return null;
+
+                // Try to parse as JSON
+                if (fileObjStr.StartsWith("{"))
+                {
+                    var jsonElement = JsonSerializer.Deserialize<JsonElement>(fileObjStr);
+                    
+                    var name = "";
+                    var size = 0L;
+                    var uid = "";
+
+                    if (jsonElement.TryGetProperty("name", out JsonElement nameElement))
+                        name = nameElement.GetString() ?? "";
+                    
+                    if (jsonElement.TryGetProperty("size", out JsonElement sizeElement))
+                        size = sizeElement.GetInt64();
+                    
+                    if (jsonElement.TryGetProperty("uid", out JsonElement uidElement))
+                        uid = uidElement.GetString() ?? "";
+
+                    return new FileInfo { Name = name, Size = size, Uid = uid };
+                }
+
+                // Fallback to string representation
+                return new FileInfo { Name = fileObjStr, Size = 0, Uid = "" };
+            }
+            catch
+            {
+                return new FileInfo { Name = fileObj.ToString() ?? "", Size = 0, Uid = "" };
+            }
+        }
+
+        /// <summary>
+        /// Compare FileInfo objects by name
+        /// </summary>
+        private static int CompareFileInfoByName(FileInfo a, FileInfo b)
+        {
+            if (a == null && b == null) return 0;
+            if (a == null) return -1;
+            if (b == null) return 1;
+            return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Simple file info class for comparison
+        /// </summary>
+        private class FileInfo : IEquatable<FileInfo>
+        {
+            public string Name { get; set; } = "";
+            public long Size { get; set; }
+            public string Uid { get; set; } = "";
+
+            public bool Equals(FileInfo other)
+            {
+                if (other == null) return false;
+                return Name == other.Name && Size == other.Size && Uid == other.Uid;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return Equals(obj as FileInfo);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Name, Size, Uid);
             }
         }
 

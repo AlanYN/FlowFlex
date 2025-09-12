@@ -54,6 +54,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 var changedFields = GetChangedFieldsFromJson(beforeData, afterData);
 
+                var operationType = isUpdate ? OperationTypeEnum.QuestionnaireAnswerUpdate : OperationTypeEnum.QuestionnaireAnswerSubmit;
+                var operationAction = isUpdate ? "Updated" : "Submitted";
+
+                // Build operation description and check if there are meaningful changes
+                var operationDescription = await BuildAnswerOperationDescriptionAsync(operationAction, questionnaireId, beforeData, afterData);
+                
+                // If no meaningful changes detected, skip logging
+                if (string.IsNullOrEmpty(operationDescription))
+                {
+                    _logger.LogDebug("Skipping operation log for questionnaire answer {AnswerId} as no meaningful changes were detected", answerId);
+                    return true;
+                }
+
                 var extendedData = new
                 {
                     AnswerId = answerId,
@@ -63,9 +76,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     ChangedFieldsCount = changedFields.Count
                 };
 
-                var operationType = isUpdate ? OperationTypeEnum.QuestionnaireAnswerUpdate : OperationTypeEnum.QuestionnaireAnswerSubmit;
-                var operationAction = isUpdate ? "Updated" : "Submitted";
-
                 var operationLog = BuildOperationLogEntity(
                     operationType,
                     BusinessModuleEnum.QuestionnaireAnswer,
@@ -73,7 +83,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     onboardingId,
                     stageId,
                     $"Questionnaire Answer {operationAction}",
-                    await BuildAnswerOperationDescriptionAsync(operationAction, questionnaireId, beforeData, afterData),
+                    operationDescription,
                     beforeData,
                     afterData,
                     changedFields,
@@ -597,9 +607,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         changesText = changesText.Substring(0, 1997) + "...";
                     }
                     baseDescription += $". Changes: {changesText}";
+                    return baseDescription;
                 }
-
-                return baseDescription;
+                else
+                {
+                    // No meaningful changes detected, return null to indicate no logging needed
+                    return null;
+                }
             }
             catch (Exception ex)
             {
