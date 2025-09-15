@@ -133,7 +133,7 @@
 
 				<el-table-column prop="actionType" label="Type" width="100">
 					<template #default="{ row }">
-						<el-tag size="small" class="type-tag">
+						<el-tag class="type-tag">
 							{{ row.actionType }}
 						</el-tag>
 					</template>
@@ -143,7 +143,6 @@
 					<template #default="{ row }">
 						<el-tag
 							:class="getStatusClass(row.executionStatus)"
-							size="small"
 							:type="undefined"
 							class="status-tag"
 						>

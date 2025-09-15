@@ -31,7 +31,6 @@
 								</div>
 								<div class="flex items-center space-x-2">
 									<el-button
-										size="small"
 										type="primary"
 										:icon="DocumentCopy"
 										@click.stop="copyStructure(contextStructure)"
@@ -79,12 +78,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -114,12 +108,7 @@
 											{{ variable.description }}
 										</span>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -147,12 +136,7 @@
 											{{ variable.description }}
 										</span>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -182,12 +166,7 @@
 											{{ variable.description }}
 										</span>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -221,12 +200,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -256,12 +230,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -291,12 +260,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -315,7 +279,6 @@
 							<div class="example-code">
 								<pre>{{ example.code }}</pre>
 								<el-button
-									size="small"
 									text
 									:icon="DocumentCopy"
 									@click="copyToClipboard(example.code)"

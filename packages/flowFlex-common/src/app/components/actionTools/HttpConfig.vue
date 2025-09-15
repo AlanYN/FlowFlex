@@ -3,7 +3,7 @@
 		<!-- Import Section -->
 		<div class="import-section flex justify-between items-center mb-4">
 			<h4 class="font-medium text-gray-700 dark:text-gray-300">HTTP Configuration</h4>
-			<el-button type="primary" size="small" @click="showImportDialog" :disabled="disabled">
+			<el-button type="primary" @click="showImportDialog" :disabled="disabled">
 				Import
 			</el-button>
 		</div>
@@ -56,6 +56,28 @@
 							placeholder="Paste your cURL command here...&#10;&#10;Example:&#10;curl -X POST 'https://api.example.com/users' \&#10;  -H 'Content-Type: application/json' \&#10;  -H 'Authorization: Bearer your-token' \&#10;  -d '{&#10;    &quot;name&quot;: &quot;John Doe&quot;,&#10;    &quot;email&quot;: &quot;john@example.com&quot;&#10;  }'"
 							class="font-mono text-sm"
 						/>
+
+						<!-- 错误信息显示区域 -->
+						<div v-if="importError" class="import-error-message">
+							<div class="flex items-start space-x-3">
+								<div class="flex-shrink-0">
+									<Icon
+										icon="heroicons:exclamation-triangle"
+										class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5"
+									/>
+								</div>
+								<div class="flex-1">
+									<h4
+										class="text-sm font-medium text-red-900 dark:text-red-100 mb-1"
+									>
+										Import Failed
+									</h4>
+									<p class="text-sm text-red-700 dark:text-red-300">
+										{{ importError }}
+									</p>
+								</div>
+							</div>
+						</div>
 					</div>
 				</TabPane>
 
@@ -99,7 +121,8 @@
 						v-if="activeImportTab === 'curl'"
 						type="primary"
 						@click="handleCurlImport"
-						:disabled="!curlInput.trim()"
+						:disabled="!curlInput.trim() || importLoading"
+						:loading="importLoading"
 					>
 						Import
 					</el-button>
@@ -461,18 +484,18 @@
 										<el-button
 											type="primary"
 											@click="formatRawContent"
-											:disabled="disabled || !formConfig.rawBody.trim()"
+											:disabled="disabled || !formConfig.body.trim()"
 											class="format-btn"
 										>
 											<el-icon><DocumentCopy /></el-icon>
-											Format
+											Beautify
 										</el-button>
 									</div>
 								</div>
 								<div class="raw-textarea-container">
 									<variable-auto-complete
-										:model-value="formConfig.rawBody"
-										@update:model-value="setRawBody"
+										:model-value="formConfig.body"
+										@update:model-value="setBody"
 										type="textarea"
 										:rows="8"
 										placeholder="Enter your content here, type '/' to insert variables..."
@@ -493,7 +516,6 @@
 				<h5 class="font-medium text-gray-700 dark:text-gray-300">Test API Call</h5>
 				<el-button
 					type="success"
-					size="small"
 					@click="handleTest"
 					:loading="testing"
 					:disabled="!formConfig.url"
@@ -540,8 +562,7 @@ interface Props {
 		formData?: Record<string, string>;
 		urlEncoded?: Record<string, string>;
 		rawFormat?: string;
-		rawBody?: string;
-		body?: string;
+		body?: string; // 统一的请求体字段，当bodyType为'raw'时存储raw内容
 		timeout?: number;
 		followRedirects?: boolean;
 		// Prefer lists to preserve order and duplicates in UI
@@ -583,8 +604,7 @@ const props = withDefaults(defineProps<Props>(), {
 		formData: {},
 		urlEncoded: {},
 		rawFormat: 'json',
-		rawBody: '',
-		body: '',
+		body: '', // 统一的请求体字段
 		timeout: 30,
 		followRedirects: true,
 		headersList: [],
@@ -659,8 +679,7 @@ const formConfig = computed({
 			method: data.method || 'GET',
 			bodyType: data.bodyType || 'none',
 			rawFormat: data.rawFormat || 'json',
-			rawBody: data.rawBody || '',
-			body: data.body || '',
+			body: data.body || '', // 统一的请求体字段
 			timeout: data.timeout || 30,
 			followRedirects: data.followRedirects !== undefined ? data.followRedirects : true,
 			// 转换后的数组格式，用于模板显示（保留到 modelValue）
@@ -739,8 +758,8 @@ const setRawFormat = (val: string) => {
 	formConfig.value = { ...formConfig.value, rawFormat: val } as any;
 };
 
-const setRawBody = (val: string) => {
-	formConfig.value = { ...formConfig.value, rawBody: val } as any;
+const setBody = (val: string) => {
+	formConfig.value = { ...formConfig.value, body: val } as any;
 };
 
 // 在每次更新后，确保末尾存在一行空白输入
@@ -930,7 +949,7 @@ const setUrlEncodedFocused = (index: number, focused: boolean) => {
 // 格式化Raw内容
 const formatRawContent = () => {
 	try {
-		const content = formConfig.value.rawBody.trim();
+		const content = formConfig.value.body.trim();
 		if (!content) {
 			ElMessage.warning(t('sys.api.formatEmptyContent'));
 			return;
@@ -967,7 +986,7 @@ const formatRawContent = () => {
 				return;
 		}
 
-		setRawBody(formattedContent);
+		setBody(formattedContent);
 		ElMessage.success(t('sys.api.formatSuccess'));
 	} catch (error) {
 		console.error('格式化失败:', error);
@@ -1026,6 +1045,8 @@ const formatJavaScript = (content: string): string => {
 const importDialogVisible = ref(false);
 const activeImportTab = ref('curl');
 const curlInput = ref('');
+const importError = ref(''); // 导入错误信息
+const importLoading = ref(false); // 导入加载状态
 
 // 导入标签页配置
 const importTabsConfig = [
@@ -1044,19 +1065,25 @@ const showImportDialog = () => {
 	importDialogVisible.value = true;
 	activeImportTab.value = 'curl';
 	curlInput.value = '';
+	importError.value = ''; // 清空错误信息
+	importLoading.value = false; // 重置加载状态
 };
 
 // 关闭导入弹窗
 const handleImportDialogClose = () => {
 	importDialogVisible.value = false;
 	curlInput.value = '';
+	importError.value = ''; // 清空错误信息
+	importLoading.value = false; // 重置加载状态
 };
 
 // 处理cURL导入
 const handleCurlImport = async () => {
+	importError.value = ''; // 清空之前的错误
+	importLoading.value = true; // 开始加载
 	try {
 		if (!curlInput.value.trim()) {
-			ElMessage.warning('Please enter a cURL command');
+			importError.value = 'Please enter a cURL command';
 			return;
 		}
 
@@ -1065,10 +1092,14 @@ const handleCurlImport = async () => {
 		// 更新表单配置
 		await updateFormFromParsedCurl(parsedConfig);
 
-		ElMessage.success('cURL command imported successfully');
+		// 成功后关闭弹窗
 		handleImportDialogClose();
+		ElMessage.success('cURL command imported successfully');
 	} catch (error) {
-		ElMessage.error(error instanceof Error ? error.message : 'Failed to parse cURL command');
+		// 显示通用的格式错误信息
+		importError.value = 'Incorrect format, please input the right format to import';
+	} finally {
+		importLoading.value = false; // 结束加载
 	}
 };
 
@@ -1099,7 +1130,7 @@ const convertToKeyValueList = (obj: Record<string, string>): KeyValueItem[] => {
 const resetBodyFields = () => {
 	formConfig.value.formDataList = [{ key: '', value: '' }];
 	formConfig.value.urlEncodedList = [{ key: '', value: '' }];
-	formConfig.value.rawBody = '';
+	formConfig.value.body = '';
 	formConfig.value.rawFormat = 'json';
 };
 
@@ -1124,7 +1155,7 @@ const updateFormFromParsedCurl = async (parsedConfig: ParsedCurlConfig) => {
 			case 'form-data':
 				// 重置其他body字段
 				formConfig.value.urlEncodedList = [{ key: '', value: '' }];
-				formConfig.value.rawBody = '';
+				formConfig.value.body = '';
 				// 设置form-data
 				formConfig.value.formDataList = convertToKeyValueList(parsedConfig.formData || {});
 				break;
@@ -1132,7 +1163,7 @@ const updateFormFromParsedCurl = async (parsedConfig: ParsedCurlConfig) => {
 			case 'x-www-form-urlencoded':
 				// 重置其他body字段
 				formConfig.value.formDataList = [{ key: '', value: '' }];
-				formConfig.value.rawBody = '';
+				formConfig.value.body = '';
 				// 设置url-encoded
 				formConfig.value.urlEncodedList = convertToKeyValueList(
 					parsedConfig.urlEncoded || {}
@@ -1144,7 +1175,7 @@ const updateFormFromParsedCurl = async (parsedConfig: ParsedCurlConfig) => {
 				formConfig.value.formDataList = [{ key: '', value: '' }];
 				formConfig.value.urlEncodedList = [{ key: '', value: '' }];
 				// 设置raw body
-				formConfig.value.rawBody = parsedConfig.rawBody || '';
+				formConfig.value.body = parsedConfig.rawBody || '';
 				formConfig.value.rawFormat = parsedConfig.rawFormat || 'json';
 				break;
 
@@ -1399,5 +1430,10 @@ const handleTest = () => {
 :deep(.request-url-input .el-input .el-input__wrapper) {
 	border-top-left-radius: 0 !important;
 	border-bottom-left-radius: 0 !important;
+}
+
+// 导入错误信息样式
+.import-error-message {
+	@apply mt-4 p-4 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20;
 }
 </style>

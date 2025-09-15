@@ -21,7 +21,6 @@
 				<div class="button-group">
 					<el-button
 						type="primary"
-						size="small"
 						@click="showAICodeGenerator"
 						:icon="Star"
 						:disabled="disabled"
@@ -30,7 +29,6 @@
 					</el-button>
 					<el-button
 						type="success"
-						size="small"
 						@click="handleTest"
 						:loading="testing"
 						:disabled="!sourceCode || isCodeEditorLoading"
