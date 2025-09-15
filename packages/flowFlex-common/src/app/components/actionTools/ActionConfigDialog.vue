@@ -102,7 +102,7 @@
 											<span>
 												{{ tool.name }}({{ tool?.actionCode || tool?.id }})
 											</span>
-											<el-tag size="small" actionType="info">
+											<el-tag actionType="info">
 												{{ getActionTypeName(tool.actionType) }}
 											</el-tag>
 										</div>
@@ -224,7 +224,7 @@
 			<template #footer>
 				<div class="dialog-footer">
 					<el-button @click="onCancel">Cancel</el-button>
-					<el-button actionType="primary" @click="onSave" :loading="saving">
+					<el-button type="primary" @click="onSave" :loading="saving">
 						{{ isEditing ? 'Update' : 'Add' }} Action
 					</el-button>
 				</div>
