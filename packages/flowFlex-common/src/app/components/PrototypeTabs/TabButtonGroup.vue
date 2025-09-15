@@ -8,6 +8,7 @@
 			:show-after="500"
 		>
 			<button
+				type="button"
 				:class="[
 					'tab-trigger',
 					{

@@ -18,217 +18,208 @@
 			@close="onCancel"
 			@opened="opened"
 		>
-			<el-scrollbar class="action-config-scrollbar">
-				<div class="flex gap-4 w-full h-full min-h-0">
-					<div v-if="leftPanelVisible" class="flex-1 min-w-0 min-h-0 flex flex-col">
-						<el-scrollbar ref="scrollbarRefLeft" class="h-full">
-							<VariablesPanel
-								:stage-id="triggerSourceId"
-								:action-actionType="formData.actionType"
-							/>
-						</el-scrollbar>
-					</div>
+			<div class="flex gap-4 w-full h-full min-h-0">
+				<div v-if="leftPanelVisible" class="flex-1 min-w-0 min-h-0 flex flex-col">
+					<el-scrollbar ref="scrollbarRefLeft" class="h-full">
+						<VariablesPanel
+							:stage-id="triggerSourceId"
+							:action-actionType="formData.actionType"
+						/>
+					</el-scrollbar>
+				</div>
 
-					<div
-						class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
-						v-loading="loading"
-					>
-						<el-scrollbar ref="scrollbarRefRight" class="h-full">
-							<!-- 选择模式 - 位于表单最前方 -->
-							<div
-								v-if="!isConfigModeDisabled"
-								class="mode-selection-section mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border"
-							>
-								<div class="flex items-center gap-4">
-									<span
-										class="text-sm font-medium text-gray-700 dark:text-gray-300"
+				<div
+					class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
+					v-loading="loading"
+				>
+					<el-scrollbar ref="scrollbarRefRight" class="h-full">
+						<!-- 选择模式 - 位于表单最前方 -->
+						<div
+							v-if="!isConfigModeDisabled"
+							class="mode-selection-section mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border"
+						>
+							<div class="flex items-center gap-4">
+								<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+									Configuration Mode:
+								</span>
+								<el-radio-group
+									v-model="configMode"
+									@change="handleConfigModeChange"
+									:disabled="isConfigModeDisabled"
+								>
+									<el-radio
+										:value="ToolsType.UseTool"
+										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										Configuration Mode:
-									</span>
-									<el-radio-group
-										v-model="configMode"
-										@change="handleConfigModeChange"
-										:disabled="isConfigModeDisabled"
+										<span class="text-sm">Use tool</span>
+									</el-radio>
+									<el-radio
+										:value="ToolsType.MyTool"
+										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										<el-radio
-											:value="ToolsType.UseTool"
-											:disabled="props.isEditing || isConfigModeDisabled"
-										>
-											<span class="text-sm">Use tool</span>
-										</el-radio>
-										<el-radio
-											:value="ToolsType.MyTool"
-											:disabled="props.isEditing || isConfigModeDisabled"
-										>
-											<span class="text-sm">My action</span>
-										</el-radio>
-										<el-radio
-											:value="ToolsType.NewTool"
-											:disabled="props.isEditing || isConfigModeDisabled"
-										>
-											<span class="text-sm">Create new action</span>
-										</el-radio>
-										<el-radio
-											:value="ToolsType.SystemTools"
-											:disabled="props.isEditing || isConfigModeDisabled"
-										>
-											<span class="text-sm">System tool</span>
-										</el-radio>
-									</el-radio-group>
-								</div>
-
-								<!-- 选择已有工具的下拉框 -->
-								<div v-if="useExistingTool" class="mt-4">
-									<label
-										class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+										<span class="text-sm">My action</span>
+									</el-radio>
+									<el-radio
+										:value="ToolsType.NewTool"
+										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										Select Tool
-									</label>
-
-									<el-select
-										v-model="selectedToolId"
-										placeholder="Please select an existing tool"
-										clearable
-										filterable
-										:loading="loadingExistingTools"
-										@change="handleExistingToolSelect"
-										class="w-full"
-										:disabled="isConfigModeDisabled"
+										<span class="text-sm">Create new action</span>
+									</el-radio>
+									<el-radio
+										:value="ToolsType.SystemTools"
+										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										<el-option
-											v-for="tool in existingToolsList"
-											:key="tool.id"
-											:label="`${tool.name} (${tool.actionCode || tool.id})`"
-											:value="tool.id"
-										>
-											<div class="flex justify-between items-center">
-												<span>
-													{{ tool.name }}({{
-														tool?.actionCode || tool?.id
-													}})
-												</span>
-												<el-tag size="small" actionType="info">
-													{{ getActionTypeName(tool.actionType) }}
-												</el-tag>
-											</div>
-										</el-option>
-									</el-select>
-								</div>
+										<span class="text-sm">System tool</span>
+									</el-radio>
+								</el-radio-group>
 							</div>
 
-							<el-form
-								v-if="configMode !== ToolsType.SystemTools"
-								ref="formRef"
-								:model="formData"
-								:rules="rules"
-								label-position="top"
-								label-width="120px"
-								class="p-1 pr-4"
-							>
-								<!-- Basic Info -->
-								<el-form-item label="Action Name" prop="name">
-									<el-input
-										v-model="formData.name"
-										placeholder="Enter action name"
-										:disabled="shouldDisableFields"
-									/>
-								</el-form-item>
+							<!-- 选择已有工具的下拉框 -->
+							<div v-if="useExistingTool" class="mt-4">
+								<label
+									class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+								>
+									Select Tool
+								</label>
 
-								<el-form-item label="Condition" prop="condition">
-									<el-select
-										v-model="formData.condition"
-										placeholder="Enter action id"
-										:disabled="shouldDisableFields"
+								<el-select
+									v-model="selectedToolId"
+									placeholder="Please select an existing tool"
+									clearable
+									filterable
+									:loading="loadingExistingTools"
+									@change="handleExistingToolSelect"
+									class="w-full"
+									:disabled="isConfigModeDisabled"
+								>
+									<el-option
+										v-for="tool in existingToolsList"
+										:key="tool.id"
+										:label="`${tool.name} (${tool.actionCode || tool.id})`"
+										:value="tool.id"
 									>
-										<el-option
-											label="Stage Completed"
-											value="Stage Completed"
-										/>
-									</el-select>
-								</el-form-item>
+										<div class="flex justify-between items-center">
+											<span>
+												{{ tool.name }}({{ tool?.actionCode || tool?.id }})
+											</span>
+											<el-tag size="small" actionType="info">
+												{{ getActionTypeName(tool.actionType) }}
+											</el-tag>
+										</div>
+									</el-option>
+								</el-select>
+							</div>
+						</div>
 
-								<el-form-item label="Description" prop="description">
-									<el-input
-										v-model="formData.description"
-										actionType="textarea"
-										:rows="3"
-										placeholder="Enter action description"
-										:disabled="shouldDisableFields"
-									/>
-								</el-form-item>
+						<el-form
+							v-if="configMode !== ToolsType.SystemTools"
+							ref="formRef"
+							:model="formData"
+							:rules="rules"
+							label-position="top"
+							label-width="120px"
+							class="p-1 pr-4"
+						>
+							<!-- Basic Info -->
+							<el-form-item label="Action Name" prop="name">
+								<el-input
+									v-model="formData.name"
+									placeholder="Enter action name"
+									:disabled="shouldDisableFields"
+								/>
+							</el-form-item>
 
-								<el-form-item label="Action Type" prop="actionType">
-									<el-radio-group
-										v-model="formData.actionType"
-										@change="handleActionTypeChange"
-										:disabled="shouldDisableFields"
+							<el-form-item label="Condition" prop="condition">
+								<el-select
+									v-model="formData.condition"
+									placeholder="Enter action id"
+									:disabled="shouldDisableFields"
+								>
+									<el-option label="Stage Completed" value="Stage Completed" />
+								</el-select>
+							</el-form-item>
+
+							<el-form-item label="Description" prop="description">
+								<el-input
+									v-model="formData.description"
+									actionType="textarea"
+									:rows="3"
+									placeholder="Enter action description"
+									:disabled="shouldDisableFields"
+								/>
+							</el-form-item>
+
+							<el-form-item label="Action Type" prop="actionType">
+								<el-radio-group
+									v-model="formData.actionType"
+									@change="handleActionTypeChange"
+									:disabled="shouldDisableFields"
+								>
+									<el-radio
+										v-for="actionType in actionTypes"
+										:key="actionType.value"
+										:value="actionType.value"
+										class="action-actionType-option"
+										:disabled="isEditing || shouldDisableFields"
 									>
-										<el-radio
-											v-for="actionType in actionTypes"
-											:key="actionType.value"
-											:value="actionType.value"
-											class="action-actionType-option"
-											:disabled="isEditing || shouldDisableFields"
-										>
-											<div class="flex items-center space-x-3">
-												<div
-													class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
-												>
-													<el-icon class="text-primary-500" size="20">
-														<component :is="actionType.icon" />
-													</el-icon>
-												</div>
-												<div class="flex">
-													<span
-														class="font-medium text-gray-900 dark:text-white"
-													>
-														{{ actionType.label }}
-													</span>
-												</div>
+										<div class="flex items-center space-x-3">
+											<div
+												class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
+											>
+												<el-icon class="text-primary-500" size="20">
+													<component :is="actionType.icon" />
+												</el-icon>
 											</div>
-										</el-radio>
-									</el-radio-group>
-								</el-form-item>
+											<div class="flex">
+												<span
+													class="font-medium text-gray-900 dark:text-white"
+												>
+													{{ actionType.label }}
+												</span>
+											</div>
+										</div>
+									</el-radio>
+								</el-radio-group>
+							</el-form-item>
 
-								<!-- Action Configuration -->
-								<div v-if="formData.actionType" class="action-config-section">
-									<!-- Python Script Configuration -->
-									<PythonConfig
-										v-if="formData.actionType === ActionType.PYTHON_SCRIPT"
-										v-model="formData.actionConfig"
-										@test="onTest"
-										:testing="testing"
-										:test-result="testResult"
-										ref="pythonConfigRef"
-										:id-editing="isEditing"
-										:disabled="shouldDisableFields"
-									/>
+							<!-- Action Configuration -->
+							<div v-if="formData.actionType" class="action-config-section">
+								<!-- Python Script Configuration -->
+								<PythonConfig
+									v-if="formData.actionType === ActionType.PYTHON_SCRIPT"
+									v-model="formData.actionConfig"
+									@test="onTest"
+									:testing="testing"
+									:test-result="testResult"
+									ref="pythonConfigRef"
+									:id-editing="isEditing"
+									:disabled="shouldDisableFields"
+								/>
 
-									<!-- HTTP API Configuration -->
-									<HttpConfig
-										v-else-if="formData.actionType === ActionType.HTTP_API"
-										v-model="formData.actionConfig"
-										@test="onTest"
-										:testing="testing"
-										:test-result="testResult"
-										ref="httpConfigRef"
-										:id-editing="isEditing"
-										:disabled="shouldDisableFields"
-									/>
-								</div>
+								<!-- HTTP API Configuration -->
+								<HttpConfig
+									v-else-if="formData.actionType === ActionType.HTTP_API"
+									v-model="formData.actionConfig"
+									@test="onTest"
+									:testing="testing"
+									:test-result="testResult"
+									ref="httpConfigRef"
+									:id-editing="isEditing"
+									:disabled="shouldDisableFields"
+								/>
+							</div>
 
-								<!-- <el-form-item prop="IsTools" v-if="!shouldDisableFields">
+							<!-- <el-form-item prop="IsTools" v-if="!shouldDisableFields">
 									<el-checkbox
 										v-model="formData.isTools"
 										label="Is Tool"
 										:disabled="shouldDisableFields"
 									/>
 								</el-form-item> -->
-							</el-form>
-						</el-scrollbar>
-					</div>
+						</el-form>
+					</el-scrollbar>
 				</div>
-			</el-scrollbar>
+			</div>
 
 			<template #footer>
 				<div class="dialog-footer">
@@ -244,7 +235,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, useZIndex } from 'element-plus';
 import { Operation, Connection } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
@@ -269,6 +260,9 @@ const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHe
 
 const { scrollbarRef: scrollbarRefRight, updateScrollbarHeight: updateScrollbarHeightRight } =
 	useAdaptiveScrollbar(80);
+
+// 使用Element Plus的z-index管理
+const { nextZIndex } = useZIndex();
 
 interface Props {
 	modelValue?: boolean;
@@ -370,6 +364,19 @@ const drawerSize = computed(() => {
 const buttonLeftPosition = computed(() => {
 	const drawerWidth = leftPanelVisible.value ? 0.8 : 0.4;
 	return `calc(100vw - ${drawerWidth * 100}vw - 30px)`;
+});
+
+// 为variables按钮分配z-index
+const variablesButtonZIndex = ref<number>(0);
+
+// 当drawer显示时分配一个固定的z-index
+watch(visible, (isVisible) => {
+	if (isVisible) {
+		// 只在首次显示时分配z-index，避免每次计算都调用nextZIndex()
+		nextTick(() => {
+			variablesButtonZIndex.value = nextZIndex();
+		});
+	}
 });
 
 const showVariablesPanel = () => {
@@ -744,36 +751,31 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-.action-config-scrollbar {
-	@apply h-full;
-	max-height: calc(100vh - 120px);
+:deep(.el-scrollbar__view) {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
 
-	:deep(.el-scrollbar__view) {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-	}
+:deep(.el-scrollbar__wrap) {
+	/* avoid nested scrollbars fighting */
+	max-height: 100%;
+}
 
-	:deep(.el-scrollbar__wrap) {
-		/* avoid nested scrollbars fighting */
-		max-height: 100%;
-	}
+:deep(.el-scrollbar__bar.is-vertical > div) {
+	@apply bg-gray-300 dark:bg-gray-600 opacity-80;
+	border-radius: 4px;
+	width: 6px;
+}
 
-	:deep(.el-scrollbar__bar.is-vertical > div) {
-		@apply bg-gray-300 dark:bg-gray-600 opacity-80;
-		border-radius: 4px;
-		width: 6px;
-	}
+:deep(.el-scrollbar__bar.is-vertical) {
+	@apply opacity-80;
+	width: 8px;
+	right: 2px;
+}
 
-	:deep(.el-scrollbar__bar.is-vertical) {
-		@apply opacity-80;
-		width: 8px;
-		right: 2px;
-	}
-
-	:deep(.el-scrollbar__bar.is-vertical:hover > div) {
-		@apply bg-gray-400 dark:bg-gray-500;
-	}
+:deep(.el-scrollbar__bar.is-vertical:hover > div) {
+	@apply bg-gray-400 dark:bg-gray-500;
 }
 
 .action-config-container {
@@ -801,7 +803,7 @@ defineExpose({
 	left: v-bind(buttonLeftPosition);
 	top: 10vh;
 	transform: translateY(-50%);
-	z-index: 3000;
+	z-index: v-bind(variablesButtonZIndex);
 	transition: left 0.3s ease;
 	animation: delayedFadeIn 0.6s ease-out;
 }

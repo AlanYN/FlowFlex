@@ -10,6 +10,7 @@
 					v-for="(tab, index) in tabs"
 					:key="tab[keys.value]"
 					ref="tabButtonRefs"
+					type="button"
 					:class="[
 						'tab-trigger',
 						{
