@@ -32,7 +32,7 @@
 
 		<!-- 可折叠内容 -->
 		<el-collapse-transition>
-			<div v-show="isExpanded" class="">
+			<div v-show="isExpanded" class="p-2">
 				<div class="p-0" v-loading="loading">
 					<el-table
 						:data="processedChanges"
@@ -1171,12 +1171,6 @@ defineExpose({
 		transform: translateY(-1px);
 		background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
 	}
-
-	&.expanded {
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
-		background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
-	}
 }
 
 .change-log-title {
@@ -1242,10 +1236,6 @@ defineExpose({
 
 		&:hover {
 			box-shadow: 0 6px 16px rgba(75, 85, 99, 0.4);
-			background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
-		}
-
-		&.expanded {
 			background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
 		}
 	}

@@ -398,11 +398,6 @@ defineExpose({
 		box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
 		transform: translateY(-1px);
 	}
-
-	&.expanded {
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
-	}
 }
 
 .questionnaire-title {

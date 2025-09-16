@@ -461,10 +461,10 @@ const getAuthorInitial = (createBy: string | undefined | null): string => {
 <style scoped lang="scss">
 /* 统一的头部卡片样式 */
 .notes-header-card {
-	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+	background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
 	padding: 10px;
 	color: white;
-	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -472,18 +472,13 @@ const getAuthorInitial = (createBy: string | undefined | null): string => {
 	transition: all 0.2s ease;
 
 	&:hover {
-		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+		box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
 		transform: translateY(-1px);
-	}
-
-	&.expanded {
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
 	}
 }
 
 .notes-title {
-	font-size: 16px;
+	font-size: 18px;
 	font-weight: 600;
 	margin: 0;
 }

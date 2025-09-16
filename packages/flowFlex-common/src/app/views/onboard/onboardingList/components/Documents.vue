@@ -590,11 +590,6 @@ defineExpose({
 		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
 		transform: translateY(-1px);
 	}
-
-	&.expanded {
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
-	}
 }
 
 .documents-title {

@@ -1,7 +1,7 @@
 <template>
-	<div class="customer-block">
+	<div class="">
 		<div
-			class="editable-header-card rounded-md text-white px-6 py-5"
+			class="editable-header-card rounded-md text-white p-2.5"
 			style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
 		>
 			<!-- 显示状态 -->
@@ -11,7 +11,7 @@
 					<h2 class="text-xl font-semibold">{{ displayTitle }}</h2>
 					<el-button
 						link
-						class="!text-white hover:bg-white/10 p-2 rounded-md transition-colors"
+						class="!text-white hover:bg-white/10 p-2 transition-colors"
 						@click="handleEdit"
 						:icon="Edit"
 						:disabled="disabled"
@@ -43,7 +43,7 @@
 					<div class="flex items-center gap-2">
 						<el-button
 							link
-							class="!text-white hover:bg-white/10 px-3 py-1 rounded-md transition-colors text-sm"
+							class="!text-white hover:bg-white/10 px-3 py-1 transition-colors text-sm"
 							@click="handleCancel"
 							:disabled="saving"
 						>
@@ -51,7 +51,7 @@
 						</el-button>
 						<el-button
 							link
-							class="!text-white hover:bg-white/10 px-3 py-1 rounded-md transition-colors text-sm font-medium"
+							class="!text-white hover:bg-white/10 px-3 py-1 transition-colors text-sm font-medium"
 							@click="handleSave"
 							:loading="saving"
 						>
@@ -62,29 +62,30 @@
 
 				<!-- 编辑表单网格 -->
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+					<!-- Start Date - 只读显示 -->
 					<div>
 						<div class="text-white/70 mb-2">Start Date</div>
-						<el-date-picker
-							v-model="editForm.startDate"
-							type="date"
-							placeholder="Select start date"
-							class="w-full stage-edit-input"
-							:disabled="saving"
-						/>
+						<div
+							class="bg-white/5 border border-white/20 px-3 py-2 text-white font-medium"
+						>
+							{{ displayStartDate }}
+						</div>
 					</div>
+					<!-- Est. Duration - 可编辑 -->
 					<div>
 						<div class="text-white/70 mb-2">Est. Duration (days)</div>
 						<InputNumber
-							v-model="editForm.estimatedDays as number"
+							v-model="editForm.customEstimatedDays as number"
 							placeholder="Enter days"
 							class="w-full stage-edit-input"
 							:disabled="saving"
 						/>
 					</div>
+					<!-- End Time - 可编辑 -->
 					<div>
-						<div class="text-white/70 mb-2">ETA</div>
+						<div class="text-white/70 mb-2">End Time</div>
 						<el-date-picker
-							v-model="editForm.endDate"
+							v-model="editForm.customEndTime"
 							type="date"
 							placeholder="Select end date"
 							class="w-full stage-edit-input"
@@ -118,16 +119,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Emits 定义
-const emit = defineEmits<{
-	'update:stage-data': [
-		data: {
-			stageId: string;
-			startDate?: string;
-			estimatedDays?: number;
-			endDate?: string;
-		},
-	];
-}>();
+const emit = defineEmits(['update:stage-data']);
 
 // 响应式数据
 const isEditing = ref(false);
@@ -135,9 +127,8 @@ const saving = ref(false);
 
 // 编辑表单数据
 const editForm = ref({
-	startDate: null as Date | null,
-	estimatedDays: null as number | null,
-	endDate: null as Date | null,
+	customEstimatedDays: null as number | null,
+	customEndTime: null as Date | null,
 });
 
 // 计算属性 - 显示标题
@@ -187,16 +178,16 @@ const initEditForm = () => {
 	if (!props.currentStage) return;
 
 	editForm.value = {
-		startDate: props.currentStage.startTime ? new Date(props.currentStage.startTime) : null,
-		estimatedDays: props.currentStage.estimatedDays || null,
-		endDate: null, // ETA 是计算得出的，不直接编辑
+		customEstimatedDays: props.currentStage.estimatedDays || null,
+		customEndTime: null, // 可以直接编辑结束时间
 	};
 
-	// 如果有开始时间和预估天数，计算结束时间
-	if (editForm.value.startDate && editForm.value.estimatedDays) {
-		const endDate = new Date(editForm.value.startDate);
-		endDate.setDate(endDate.getDate() + editForm.value.estimatedDays);
-		editForm.value.endDate = endDate;
+	// 如果有开始时间和预估天数，计算默认结束时间
+	if (props.currentStage.startTime && editForm.value.customEstimatedDays) {
+		const startDate = new Date(props.currentStage.startTime);
+		const endDate = new Date(startDate);
+		endDate.setDate(endDate.getDate() + editForm.value.customEstimatedDays);
+		editForm.value.customEndTime = endDate;
 	}
 };
 
@@ -211,16 +202,17 @@ watch(
 	{ immediate: true }
 );
 
-// 监听编辑表单中开始时间和预估天数的变化，自动计算结束时间
+// 监听编辑表单中预估天数的变化，自动计算结束时间
 watch(
-	[() => editForm.value.startDate, () => editForm.value.estimatedDays],
-	([startDate, estimatedDays]) => {
-		if (startDate && estimatedDays && estimatedDays > 0) {
+	() => editForm.value.customEstimatedDays,
+	(estimatedDays) => {
+		if (props.currentStage?.startTime && estimatedDays && estimatedDays > 0) {
+			const startDate = new Date(props.currentStage.startTime);
 			const endDate = new Date(startDate);
 			endDate.setDate(endDate.getDate() + estimatedDays);
-			editForm.value.endDate = endDate;
-		} else {
-			editForm.value.endDate = null;
+			editForm.value.customEndTime = endDate;
+		} else if (!estimatedDays) {
+			editForm.value.customEndTime = null;
 		}
 	}
 );
@@ -244,13 +236,13 @@ const handleSave = async () => {
 	}
 
 	// 表单验证
-	if (!editForm.value.startDate) {
-		ElMessage.error('Start date is required');
+	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 1) {
+		ElMessage.error('Estimated duration must be at least 1 day');
 		return;
 	}
 
-	if (!editForm.value.estimatedDays || editForm.value.estimatedDays < 1) {
-		ElMessage.error('Estimated duration must be at least 1 day');
+	if (!editForm.value.customEndTime) {
+		ElMessage.error('End time is required');
 		return;
 	}
 
@@ -260,9 +252,8 @@ const handleSave = async () => {
 		// 准备更新数据
 		const updateData = {
 			stageId: props.currentStage.stageId,
-			startDate: editForm.value.startDate.toISOString(),
-			estimatedDays: editForm.value.estimatedDays,
-			endDate: editForm.value.endDate?.toISOString(),
+			customEstimatedDays: editForm.value.customEstimatedDays,
+			customEndTime: editForm.value.customEndTime.toISOString(),
 		};
 
 		// 发送更新事件给父组件
@@ -293,14 +284,6 @@ const handleSave = async () => {
 	&:hover {
 		box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
 		transform: translateY(-1px);
-	}
-}
-
-.customer-block {
-	margin-bottom: 16px;
-
-	&:last-child {
-		margin-bottom: 0;
 	}
 }
 
