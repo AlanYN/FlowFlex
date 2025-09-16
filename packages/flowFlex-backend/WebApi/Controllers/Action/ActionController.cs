@@ -516,6 +516,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionName = "CompleteStage",
                     DisplayName = "Complete Stage",
                     Description = "Complete a specific stage in the workflow",
+                    TriggerType = TriggerTypeEnum.Task, // 在Task完成时触发
                      ConfigSchema = new
                      {
                          actionName = "CompleteStage",
@@ -525,16 +526,17 @@ namespace FlowFlex.WebApi.Controllers.Action
                          autoMoveToNext = "Optional: Auto move to next stage (default: true)"
                      },
                      ExampleConfig = @"{
-   ""actionName"": ""CompleteStage"",
-   ""completionNotes"": ""Stage completed automatically"",
-   ""autoMoveToNext"": true
- }"
+  ""actionName"": ""CompleteStage"",
+  ""completionNotes"": ""Stage completed automatically"",
+  ""autoMoveToNext"": true
+}"
                 },
                 new SystemActionDefinitionDto
                 {
                     ActionName = "MoveToStage",
                     DisplayName = "Move to Stage",
                     Description = "Move onboarding to a specific stage",
+                    TriggerType = TriggerTypeEnum.Stage, // 在Stage完成时触发
                     ConfigSchema = new
                     {
                         actionName = "MoveToStage",
@@ -553,6 +555,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionName = "AssignOnboarding",
                     DisplayName = "Assign Onboarding",
                     Description = "Assign an onboarding to a specific user",
+                    TriggerType = TriggerTypeEnum.Workflow, // 在Workflow级别触发
                     ConfigSchema = new
                     {
                         actionName = "AssignOnboarding",

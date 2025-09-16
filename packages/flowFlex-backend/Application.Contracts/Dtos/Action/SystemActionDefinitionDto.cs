@@ -1,3 +1,5 @@
+using FlowFlex.Domain.Shared.Enums.Action;
+
 namespace FlowFlex.Application.Contracts.Dtos.Action
 {
     /// <summary>
@@ -29,5 +31,10 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Example configuration JSON
         /// </summary>
         public string ExampleConfig { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Trigger type scope - defines where this system action can be used (Stage, Task, Question, Workflow)
+        /// </summary>
+        public TriggerTypeEnum TriggerType { get; set; } = TriggerTypeEnum.Task;
     }
 }

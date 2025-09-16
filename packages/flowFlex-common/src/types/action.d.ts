@@ -1,4 +1,5 @@
 import { ActionType } from '@/apis/action';
+import { TriggerTypeEnum } from '@/enums/appEnum';
 
 export interface ActionDefinition {
 	id?: string;
@@ -8,6 +9,8 @@ export interface ActionDefinition {
 	actionType: number;
 	actionConfig: string;
 	isEnabled?: boolean;
+	isAIGenerated?: boolean;
+	actionTriggerType?: string; // Action本身的触发类型(Stage, Task, Question, Workflow)
 	createdAt?: string;
 	updatedAt?: string;
 	triggerMappings?: TriggerMapping[];
@@ -112,4 +115,30 @@ export interface ActionExecutionResult {
 	status?: string; // Derived from executionStatus
 	duration?: number; // Computed from startedAt and completedAt
 	triggerSource?: string; // Derived from triggerContext
+}
+
+// System action definition interface
+export interface SystemActionDefinitionDto {
+	actionName: string;
+	displayName: string;
+	description: string;
+	configSchema: object;
+	exampleConfig: string;
+	triggerType: TriggerTypeEnum;
+}
+
+// System action template interface
+export interface SystemActionTemplateDto {
+	actionName: string;
+	template: string;
+	parameters: SystemActionParameterDto[];
+}
+
+// System action parameter interface
+export interface SystemActionParameterDto {
+	name: string;
+	type: string;
+	required: boolean;
+	description: string;
+	defaultValue?: any;
 }

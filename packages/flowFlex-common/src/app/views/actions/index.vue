@@ -89,7 +89,24 @@
 					>
 						<el-table-column type="selection" width="55" />
 						<el-table-column prop="actionCode" label="Tool ID" width="120" />
-						<el-table-column prop="name" label="Tool Name" min-width="200" />
+						<el-table-column prop="name" label="Tool Name" min-width="200">
+							<template #default="{ row }">
+								<div class="flex items-center gap-2">
+									<span>{{ row.name }}</span>
+									<span
+										v-if="row.isAIGenerated"
+										class="el-tag el-tag--primary el-tag--small el-tag--light ai-tag rounded-md"
+									>
+										<span class="el-tag__content">
+											<div class="flex items-center gap-1">
+												<span class="ai-sparkles">✨</span>
+												AI
+											</div>
+										</span>
+									</span>
+								</div>
+							</template>
+						</el-table-column>
 						<el-table-column prop="actionType" label="Type" width="150">
 							<template #default="{ row }">
 								<el-tag class="type-tag">
@@ -144,7 +161,24 @@
 					>
 						<el-table-column type="selection" width="55" />
 						<el-table-column prop="actionCode" label="Tool ID" width="120" />
-						<el-table-column prop="name" label="Tool Name" min-width="200" />
+						<el-table-column prop="name" label="Tool Name" min-width="200">
+							<template #default="{ row }">
+								<div class="flex items-center gap-2">
+									<span>{{ row.name }}</span>
+									<span
+										v-if="row.isAIGenerated"
+										class="el-tag el-tag--primary el-tag--small el-tag--light ai-tag rounded-md"
+									>
+										<span class="el-tag__content">
+											<div class="flex items-center gap-1">
+												<span class="ai-sparkles">✨</span>
+												AI
+											</div>
+										</span>
+									</span>
+								</div>
+							</template>
+						</el-table-column>
 						<el-table-column prop="actionType" label="Type" width="150">
 							<template #default="{ row }">
 								<el-tag class="type-tag">
@@ -540,6 +574,24 @@ onMounted(() => {
 	padding: 4px 12px !important;
 	font-size: 12px !important;
 	font-weight: 500 !important;
+}
+
+/* AI标签样式 */
+.ai-tag {
+	background-color: #e6f3ff !important;
+	border-color: #b3d9ff !important;
+	color: #2468f2 !important;
+	border-radius: 4px !important;
+	padding: 2px 6px !important;
+	font-size: 11px !important;
+	font-weight: 500 !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 2px !important;
+}
+
+.ai-sparkles {
+	font-size: 10px !important;
 }
 
 /* 筛选面板样式 */

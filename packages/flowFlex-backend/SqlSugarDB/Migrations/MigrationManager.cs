@@ -77,7 +77,9 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250125000004_FixChecklistTaskNoteModifiedFields", (Action)(() => _20250125000003_FixChecklistTaskNoteModifiedFields.Up(_db))),
                     ("20250125000005_AddFilesJsonToChecklistTaskCompletion", (Action)(() => _20250125000004_AddFilesJsonToChecklistTaskCompletion.Up(_db))),
                     ("20250126000001_RemoveAISummaryFieldsFromStage", (Action)(() => RemoveAISummaryFieldsFromStage_20250126000001.Up(_db))),
-                    ("20250109000001_ConvertStageDefaultAssigneeToJsonb", (Action)(() => ConvertStageDefaultAssigneeToJsonb_20250109000001.Up(_db)))
+                    ("20250109000001_ConvertStageDefaultAssigneeToJsonb", (Action)(() => ConvertStageDefaultAssigneeToJsonb_20250109000001.Up(_db))),
+                    ("20250904000001_AddWorkflowStageFieldsToActionMapping", (Action)(() => AddWorkflowStageFieldsToActionMapping_20250904000001.Up(_db))),
+                    ("20250916000001_AddIsAIGeneratedToActionDefinitions", (Action)(() => AddIsAIGeneratedToActionDefinitions_20250916000001.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

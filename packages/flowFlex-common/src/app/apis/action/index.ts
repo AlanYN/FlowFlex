@@ -1,5 +1,10 @@
 import { defHttp } from '@/apis/axios';
-import { ActionDefinition, ActionQueryRequest } from '#/action';
+import {
+	ActionDefinition,
+	ActionQueryRequest,
+	SystemActionDefinitionDto,
+	SystemActionTemplateDto,
+} from '#/action';
 import { useGlobSetting } from '@/settings';
 
 const globSetting = useGlobSetting();
@@ -93,6 +98,24 @@ export function getActionDefinitions(params: ActionQueryRequest) {
 export function deleteAction(id: string) {
 	return defHttp.delete({
 		url: `${Api().action}/${id}`,
+	});
+}
+
+/**
+ * Get system predefined actions
+ */
+export function getSystemPredefinedActions() {
+	return defHttp.get<SystemActionDefinitionDto[]>({
+		url: `${Api().action}/system/predefined`,
+	});
+}
+
+/**
+ * Get system action configuration template
+ */
+export function getSystemActionTemplate(actionName: string) {
+	return defHttp.get<SystemActionTemplateDto>({
+		url: `${Api().action}/system/template/${actionName}`,
 	});
 }
 
