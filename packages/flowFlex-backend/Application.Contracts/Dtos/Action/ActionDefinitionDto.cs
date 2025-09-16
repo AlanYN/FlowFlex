@@ -77,7 +77,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Trigger type for the action (Stage, Task, Question, Workflow)
         /// Defines where this action can be used or triggered
         /// </summary>
-        public string TriggerType { get; set; } = "Task";
+        public string TriggerType { get; set; } 
 
         /// <summary>
         /// Trigger mappings with related entity details
