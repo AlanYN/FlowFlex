@@ -478,11 +478,12 @@ const getFieldsComponent = (): StageComponentData => {
 	return (
 		components.find((c) => c.key === 'fields') || {
 			key: 'fields',
-			order: 1,
+			order: props?.modelValue?.components?.length + 1,
 			isEnabled: false,
 			staticFields: [],
 			checklistIds: [],
 			questionnaireIds: [],
+			customerPortalAccess: StageComponentPortal.Hidden,
 		}
 	);
 };
@@ -533,9 +534,14 @@ const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 		};
 		newComponents.push({ ...defaultComponent, ...updates });
 	}
-
-	const newModelValue = { ...props.modelValue, components: newComponents };
-	console.log('newModelValue:', newModelValue);
+	const newModelValue = {
+		...props.modelValue,
+		components: newComponents
+			.filter((item) => item.isEnabled)
+			.map((item, index) => {
+				return { ...item, order: index + 1 };
+			}),
+	};
 	// 发送整个 formData 对象，只更新 components 字段
 	emit('update:modelValue', newModelValue);
 };
@@ -595,6 +601,7 @@ const toggleField = (fieldKey: string, checked: boolean) => {
 	updateComponent('fields', {
 		staticFields: newStaticFields,
 		isEnabled: newStaticFields.length > 0,
+		customerPortalAccess: StageComponentPortal.Hidden,
 	});
 };
 
@@ -617,6 +624,7 @@ const toggleChecklist = (checklistId: string, checked: boolean) => {
 				questionnaireIds: [],
 				checklistNames: [checklistName],
 				questionnaireNames: [],
+				customerPortalAccess: StageComponentPortal.Hidden,
 			};
 			addComponentItem(newComponent);
 		}
@@ -645,6 +653,7 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 				questionnaireIds: [questionnaireId],
 				checklistNames: [],
 				questionnaireNames: [questionnaireName],
+				customerPortalAccess: StageComponentPortal.Hidden,
 			};
 			addComponentItem(newComponent);
 		}
@@ -659,6 +668,7 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 const toggleFileComponent = (enabled: boolean) => {
 	updateComponent('files', {
 		isEnabled: enabled,
+		customerPortalAccess: StageComponentPortal.Hidden,
 	});
 };
 
@@ -738,6 +748,7 @@ const removeFieldTag = (fieldKey: string) => {
 	updateComponent('fields', {
 		staticFields: newStaticFields,
 		isEnabled: newStaticFields.length > 0,
+		customerPortalAccess: StageComponentPortal.Hidden,
 	});
 };
 

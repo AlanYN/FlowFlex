@@ -827,6 +827,9 @@ const handleTaskToggled = async (task: any) => {
 						checklist.completionRate =
 							totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 					}
+					if (task.actionId) {
+						loadOnboardingDetail();
+					}
 				}
 			});
 			refreshChangeLog();

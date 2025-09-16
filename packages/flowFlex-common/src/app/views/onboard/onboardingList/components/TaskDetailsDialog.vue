@@ -61,7 +61,7 @@
 				</div>
 
 				<!-- Notes 列表 -->
-				<div class="notes-content" v-loading="notesLoading">
+				<div class="notes-content" v-loading="notesLoading" v-if="!showAddNoteInput">
 					<template v-if="notes && notes.length > 0">
 						<el-scrollbar class="notes-scrollbar" max-height="300px">
 							<div class="notes-list">

@@ -270,6 +270,7 @@ onMounted(() => {
 
 // Method to update components data
 function updateComponentsData(val: ComponentsData) {
+	console.log('更新的val:', val);
 	formData.value.components = val.components;
 	formData.value.visibleInPortal = val.visibleInPortal ?? false;
 	if (val.portalPermission !== undefined) {
