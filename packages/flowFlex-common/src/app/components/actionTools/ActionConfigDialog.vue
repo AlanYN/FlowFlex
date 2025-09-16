@@ -404,7 +404,7 @@ const actionTypes = [
 
 // Form Rules
 const rules = {
-	name: [{ required: true, message: 'Please enter action name', trigger: 'blur' }],
+	name: [{ required: true, message: 'Please enter action name', trigger: 'change' }],
 	actionType: [{ required: true, message: 'Please select action actionType', trigger: 'change' }],
 	condition: [{ required: true, message: 'Please select condition', trigger: 'change' }],
 };
@@ -513,7 +513,13 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 
 		if (response.code === '200' && response.success) {
 			// 过滤出标记为工具的 action
-			existingToolsList.value = response.data?.data || [];
+			existingToolsList.value =
+				response.data?.data.filter((item) => {
+					return (
+						!item.triggerType ||
+						(item.triggerType && item.triggerType == props.triggerType)
+					);
+				}) || [];
 		} else {
 			ElMessage.error('Failed to load existing tools');
 			existingToolsList.value = [];
@@ -605,6 +611,7 @@ const resetFormData = () => {
 	formData.description = '';
 	formData.actionType = ActionType.PYTHON_SCRIPT;
 	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+	formRef.value?.clearValidate();
 };
 
 // Handle test result - 参考 detail.vue 的 handleTestResult 逻辑
