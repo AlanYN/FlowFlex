@@ -67,7 +67,7 @@
 								<p v-if="task.description" class="item-description">
 									{{ task.description }}
 								</p>
-								<div class="flex gap-3">
+								<div class="flex gap-3 text-sm">
 									<div class="flex items-center gap-1 flex-shrink-0">
 										<!-- Assignee 缩写 -->
 										<icon
@@ -75,7 +75,7 @@
 											style="color: var(--primary-500)"
 										/>
 										<span
-											class="text-xs font-medium text-primary-500"
+											class="font-medium text-primary-500"
 											:title="task.assigneeName || defaultStr"
 										>
 											{{
@@ -421,7 +421,7 @@ const getAssigneeInitials = (fullName: string) => {
 
 /* 检查项分组标题 */
 .checklist-group-title {
-	font-size: 16px;
+	font-size: 14px;
 	font-weight: 600;
 	color: #374151;
 	margin: 16px 0 8px 0;
@@ -529,7 +529,7 @@ const getAssigneeInitials = (fullName: string) => {
 }
 
 .item-title {
-	font-size: 16px;
+	font-size: 14px;
 	font-weight: 600;
 	color: #1f2937;
 	line-height: 1.5;
