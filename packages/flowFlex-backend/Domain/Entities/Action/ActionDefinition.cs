@@ -70,6 +70,6 @@ namespace FlowFlex.Domain.Entities.Action
         /// </summary>
         [StringLength(50)]
         [SugarColumn(ColumnName = "trigger_type")]
-        public string TriggerType { get; set; } = "Task";
+        public string TriggerType { get; set; } 
     }
 }

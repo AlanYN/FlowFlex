@@ -110,12 +110,34 @@
 													Generated HTTP Configuration:
 												</h5>
 												<div class="config-details">
+													<!-- Action Name Input -->
+													<div class="config-item">
+														<span class="config-label">
+															Action Name:
+														</span>
+														<div class="config-value-input">
+															<el-input
+																v-model="
+																	message.httpConfig.actionName
+																"
+																placeholder="Enter custom action name"
+																size="small"
+																class="action-name-input"
+																@input="
+																	updateActionName(
+																		message,
+																		$event
+																	)
+																"
+															/>
+														</div>
+													</div>
 													<div class="config-item">
 														<span class="config-label">Method:</span>
 														<span class="config-value">
 															{{ message.httpConfig.method }}
 														</span>
-							</div>
+													</div>
 													<div class="config-item">
 														<span class="config-label">URL:</span>
 														<span class="config-value">
@@ -184,7 +206,7 @@
 											v-model="aiCurrentInput"
 											type="textarea"
 											:rows="3"
-											placeholder="Describe your API requirements (e.g., 'Create a POST request to submit user registration data with JSON body')..."
+											placeholder="Describe your API requirements"
 											@keydown="handleAIKeydown"
 											class="ai-chat-input"
 										/>
@@ -233,22 +255,28 @@
 										</div>
 										<div class="input-right-actions">
 											<!-- File Upload for Analysis -->
-											<el-upload
-												ref="fileUploadRef"
-												:show-file-list="false"
-												:before-upload="handleFileUpload"
-												accept=".json,.txt,.md,.yaml,.yml,.xml"
-												class="file-upload-btn"
+											<el-tooltip
+												content="Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON"
+												placement="top"
+												effect="dark"
 											>
-												<el-button
-													type="text"
-													size="small"
-													class="upload-button"
-													:disabled="aiGenerating"
+												<el-upload
+													ref="fileUploadRef"
+													:show-file-list="false"
+													:before-upload="handleFileUpload"
+													accept=".txt,.pdf,.docx,.xlsx,.csv,.md,.json"
+													class="file-upload-btn"
 												>
-													<el-icon><Paperclip /></el-icon>
-												</el-button>
-											</el-upload>
+													<el-button
+														type="text"
+														size="small"
+														class="upload-button"
+														:disabled="aiGenerating"
+													>
+														<el-icon :size="18"><Paperclip /></el-icon>
+													</el-button>
+												</el-upload>
+											</el-tooltip>
 											<el-button
 												type="primary"
 												@click="sendAIMessage"
@@ -729,6 +757,71 @@ import VariableAutoComplete from './VariableAutoComplete.vue';
 import PrototypeTabs from '@/components/PrototypeTabs/index.vue';
 import TabPane from '@/components/PrototypeTabs/TabPane.vue';
 import { parseCurl, type ParsedCurlConfig } from '@/utils/curlParser';
+import * as XLSX from 'xlsx-js-style';
+
+// External library loaders (CDN-based to avoid local dependency issues)
+const PDF_JS_VERSION = '3.11.174';
+const MAMMOTH_VERSION = '1.6.0';
+
+let pdfJsLoadingPromise: Promise<any> | null = null;
+let mammothLoadingPromise: Promise<any> | null = null;
+
+const loadScriptOnce = (src: string): Promise<void> => {
+	return new Promise((resolve, reject) => {
+		const existing = Array.from(document.getElementsByTagName('script')).find(
+			(s) => s.src === src
+		);
+		if (existing) {
+			if ((existing as any)._loaded) {
+				resolve();
+			} else {
+				existing.addEventListener('load', () => resolve());
+				existing.addEventListener('error', () =>
+					reject(new Error(`Failed to load ${src}`))
+				);
+			}
+			return;
+		}
+		const script = document.createElement('script');
+		script.src = src;
+		script.async = true;
+		script.addEventListener('load', () => {
+			(script as any)._loaded = true;
+			resolve();
+		});
+		script.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
+		document.head.appendChild(script);
+	});
+};
+
+const loadPdfJs = async () => {
+	if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
+	if (!pdfJsLoadingPromise) {
+		pdfJsLoadingPromise = (async () => {
+			const url = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.min.js`;
+			await loadScriptOnce(url);
+			const pdfjsLib = (window as any).pdfjsLib;
+			if (!pdfjsLib) throw new Error('pdfjsLib not available after loading');
+			pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.worker.min.js`;
+			return pdfjsLib;
+		})();
+	}
+	return pdfJsLoadingPromise;
+};
+
+const loadMammoth = async () => {
+	if ((window as any).mammoth) return (window as any).mammoth;
+	if (!mammothLoadingPromise) {
+		mammothLoadingPromise = (async () => {
+			const url = `https://cdnjs.cloudflare.com/ajax/libs/mammoth/${MAMMOTH_VERSION}/mammoth.browser.min.js`;
+			await loadScriptOnce(url);
+			const mammoth = (window as any).mammoth;
+			if (!mammoth) throw new Error('mammoth not available after loading');
+			return mammoth;
+		})();
+	}
+	return mammothLoadingPromise;
+};
 
 interface KeyValueItem {
 	key: string;
@@ -926,6 +1019,15 @@ const formConfig = computed({
 });
 
 // Controlled setters to trigger computed.set via whole-object assignment
+// Update action name for generated HTTP config
+const updateActionName = (message: any, newName: string) => {
+	console.log('📝 Updating action name:', newName);
+	if (message.httpConfig) {
+		message.httpConfig.actionName = newName;
+		console.log('✅ Action name updated to:', newName);
+	}
+};
+
 const setUrl = (val: string) => {
 	formConfig.value = { ...formConfig.value, url: val } as any;
 };
@@ -1250,6 +1352,14 @@ const uploadedFile = ref<File | null>(null);
 const chatMessagesRef = ref<HTMLElement>();
 const fileUploadRef = ref();
 
+// File Types Configuration
+const maxFileSize = 10 * 1024 * 1024; // 10MB
+
+// Computed
+const supportedFormats = computed(() => {
+	return ['txt', 'pdf', 'docx', 'xlsx', 'csv', 'md', 'json'];
+});
+
 // AI Model Configuration interface
 interface AIModelConfig {
 	id: number;
@@ -1433,9 +1543,25 @@ const sendAIMessage = async () => {
 		timestamp: new Date().toISOString(),
 	};
 
-	// 如果有上传的文件，添加文件信息到消息中
+	// 如果有上传的文件，解析文件内容并添加到消息中
 	if (uploadedFile.value) {
-		userMessage.content += `\n\n[Uploaded file: ${uploadedFile.value.name}]`;
+		try {
+			console.log('📄 Reading file content for display...', uploadedFile.value.name);
+			const fileContent = await readFileContent(uploadedFile.value);
+			const truncatedContent =
+				fileContent.length > 1000
+					? fileContent.substring(0, 1000) + '\n\n[Content truncated for display...]'
+					: fileContent;
+			userMessage.content += `\n\n📎 **File Content** (${uploadedFile.value.name}):\n\`\`\`\n${truncatedContent}\n\`\`\``;
+			console.log('✅ File content added to message, length:', fileContent.length);
+		} catch (error) {
+			console.error('❌ Error reading file content:', error);
+			userMessage.content += `\n\n📎 **File** (${
+				uploadedFile.value.name
+			}): ❌ Failed to read content - ${
+				error instanceof Error ? error.message : 'Unknown error'
+			}`;
+		}
 	}
 
 	aiChatMessages.value.push(userMessage);
@@ -1507,9 +1633,19 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 		await streamAnalyzeRequest(input, file, (chunk, data) => {
 			console.log('📥 Received chunk:', chunk);
 
-			if (chunk.type === 'analysis' || chunk.type === 'progress') {
-				console.log('📝 Processing analysis/progress chunk:', chunk.content);
-				streamingContent += chunk.content;
+			// 统一处理大小写问题
+			const chunkType = chunk.type || chunk.Type;
+			const chunkContent = chunk.content || chunk.Content;
+			const chunkActionData = chunk.actionData || chunk.ActionData;
+
+			console.log('🔍 Normalized chunk type:', chunkType);
+			if (chunkType === 'complete') {
+				console.log('🔍 Complete chunk actionData exists:', !!chunkActionData);
+			}
+
+			if (chunkType === 'analysis' || chunkType === 'progress') {
+				console.log('📝 Processing analysis/progress chunk:', chunkContent);
+				streamingContent += chunkContent;
 
 				// 直接修改数组中的最后一个消息（助手消息）
 				// 保留初始的"Initializing AI analysis..."内容，然后追加流式内容
@@ -1537,9 +1673,35 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 						chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
 					}
 				});
-			} else if (chunk.type === 'complete' && chunk.actionData) {
-				console.log('✅ Analysis completed, actionData:', chunk.actionData);
-				analysisResult = chunk.actionData;
+			} else if (chunkType === 'complete' && chunkActionData) {
+				console.log('✅ Analysis completed, actionData:', chunkActionData);
+
+				// 检查 ActionData 的成功状态
+				console.log('🔍 Checking ActionData.Success:', chunkActionData.Success);
+				console.log('🔍 ActionItems count:', chunkActionData.ActionItems?.length || 0);
+
+				if (chunkActionData.Success === false) {
+					console.warn(
+						'⚠️ Analysis completed but marked as unsuccessful:',
+						chunkActionData.Message
+					);
+					// 即使标记为不成功，如果有 ActionItems，我们仍然可以继续
+					if (chunkActionData.ActionItems && chunkActionData.ActionItems.length > 0) {
+						console.log(
+							'📋 Found',
+							chunkActionData.ActionItems.length,
+							'action items, proceeding with creation...'
+						);
+						analysisResult = chunkActionData;
+					} else {
+						console.error('❌ No action items found in analysis result');
+						analysisResult = null;
+					}
+				} else {
+					console.log('✅ Analysis marked as successful');
+					analysisResult = chunkActionData;
+				}
+
 				streamingContent +=
 					'\n\n✅ Analysis completed. Now creating HTTP configuration...\n\n';
 
@@ -1561,20 +1723,44 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 			}
 		});
 
+		// 更详细的错误检查
 		if (!analysisResult) {
-			throw new Error('Failed to analyze request');
+			console.error('❌ Analysis result is null or undefined');
+			throw new Error('Failed to analyze request: No analysis result received');
 		}
+
+		if (!analysisResult.ActionItems || analysisResult.ActionItems.length === 0) {
+			console.error('❌ No action items found in analysis result:', analysisResult);
+			throw new Error('Failed to analyze request: No actionable items identified');
+		}
+
+		console.log(
+			'✅ Analysis result validated, proceeding with',
+			analysisResult.ActionItems.length,
+			'action items'
+		);
 
 		console.log('🔄 Starting HTTP configuration creation...');
 
 		// 第二步：流式创建HTTP配置
 		await streamCreateAction(analysisResult, (chunk, data) => {
 			console.log('📦 Received creation chunk:', chunk);
+			console.log('📦 Chunk raw data:', JSON.stringify(chunk).substring(0, 200) + '...');
 
-			if (chunk.type === 'creation' || chunk.type === 'progress') {
-				console.log('🛠️ Processing creation/progress chunk:', chunk.content);
+			// 统一处理大小写问题
+			const chunkType = chunk.type || chunk.Type;
+			const chunkContent = chunk.content || chunk.Content;
+			const chunkActionData = chunk.actionData || chunk.ActionData;
+
+			console.log('🔍 Creation chunk type:', chunkType);
+			if (chunkType === 'complete') {
+				console.log('🔍 Creation complete chunk actionData exists:', !!chunkActionData);
+			}
+
+			if (chunkType === 'creation' || chunkType === 'progress') {
+				console.log('🛠️ Processing creation/progress chunk:', chunkContent);
 				// 累积创建阶段的内容
-				creationContent += chunk.content;
+				creationContent += chunkContent;
 
 				// 组合完整内容：初始内容 + 分析内容 + 创建内容
 				const initialContent = 'Initializing AI analysis...\n\n';
@@ -1600,10 +1786,10 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 						chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
 					}
 				});
-			} else if (chunk.type === 'complete' && chunk.actionData) {
-				console.log('🎉 Creation completed, actionData:', chunk.actionData);
+			} else if (chunkType === 'complete' && chunkActionData) {
+				console.log('🎉 Creation completed, actionData:', chunkActionData);
 				// 从生成的行动计划中提取HTTP配置
-				const httpConfig = extractHttpConfigFromActionPlan(chunk.actionData);
+				const httpConfig = extractHttpConfigFromActionPlan(chunkActionData);
 				console.log('🔧 Extracted HTTP config:', httpConfig);
 
 				// 直接修改数组中的最后一个消息（助手消息）
@@ -1945,132 +2131,9 @@ const streamCreateAction = async (
 	});
 };
 
-const analyzeUserRequest = async (input: string, file: File | null) => {
-	const conversationHistory = [
-		{
-			role: 'user',
-			content: input,
-			timestamp: new Date().toISOString(),
-		},
-	];
+// Removed unused analyzeUserRequest function
 
-	// 如果有文件，读取文件内容并添加到上下文中
-	let context = 'HTTP API configuration generation request';
-	if (file) {
-		try {
-			const fileContent = await readFileContent(file);
-			context += `\n\nFile content (${file.name}):\n${fileContent}`;
-		} catch (error) {
-			console.warn('Failed to read file content:', error);
-		}
-	}
-
-	const payload = {
-		conversationHistory,
-		sessionId: `http_config_${Date.now()}`,
-		context,
-		focusAreas: ['HTTP configuration', 'API design', 'request structure'],
-		modelId: currentAIModel.value?.id?.toString(),
-		modelProvider: currentAIModel.value?.provider || selectedAIModel.value,
-		modelName:
-			currentAIModel.value?.modelName ||
-			(selectedAIModel.value === 'zhipuai'
-				? 'glm-4'
-				: selectedAIModel.value === 'openai'
-				? 'gpt-4'
-				: 'claude-3'),
-	};
-
-	// 获取认证信息
-	const tokenObj = getTokenobj();
-	const userStore = useUserStoreWithOut();
-	const userInfo = userStore.getUserInfo;
-	const globSetting = useGlobSetting();
-
-	// 构建请求头
-	const headers: Record<string, string> = {
-		'Content-Type': 'application/json',
-		'Time-Zone': getTimeZoneInfo().timeZone,
-		'Application-code': globSetting?.ssoCode || '',
-	};
-
-	// 添加认证头
-	if (tokenObj?.accessToken?.token) {
-		const token = tokenObj.accessToken.token;
-		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
-		headers.Authorization = `${tokenType} ${token}`;
-	}
-
-	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
-	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = String(userInfo.tenantId);
-	}
-
-	const response = await fetch('/api/ai/v1/actions/analyze', {
-		method: 'POST',
-		headers,
-		body: JSON.stringify(payload),
-	});
-
-	return await response.json();
-};
-
-const createHttpAction = async (analysisResult: any) => {
-	const payload = {
-		analysisResult,
-		context: 'Generate HTTP API configuration based on user requirements',
-		stakeholders: ['Developer', 'API Consumer'],
-		priority: 'High',
-		modelId: currentAIModel.value?.id?.toString(),
-		modelProvider: currentAIModel.value?.provider || selectedAIModel.value,
-		modelName:
-			currentAIModel.value?.modelName ||
-			(selectedAIModel.value === 'zhipuai'
-				? 'glm-4'
-				: selectedAIModel.value === 'openai'
-				? 'gpt-4'
-				: 'claude-3'),
-	};
-
-	// 获取认证信息
-	const tokenObj = getTokenobj();
-	const userStore = useUserStoreWithOut();
-	const userInfo = userStore.getUserInfo;
-	const globSetting = useGlobSetting();
-
-	// 构建请求头
-	const headers: Record<string, string> = {
-		'Content-Type': 'application/json',
-		'Time-Zone': getTimeZoneInfo().timeZone,
-		'Application-code': globSetting?.ssoCode || '',
-	};
-
-	// 添加认证头
-	if (tokenObj?.accessToken?.token) {
-		const token = tokenObj.accessToken.token;
-		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
-		headers.Authorization = `${tokenType} ${token}`;
-	}
-
-	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
-	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = String(userInfo.tenantId);
-	}
-
-	const response = await fetch('/api/ai/v1/actions/create', {
-		method: 'POST',
-		headers,
-		body: JSON.stringify(payload),
-	});
-
-	return await response.json();
-};
+// Removed unused createHttpAction function
 
 // 解析curl命令的函数
 const parseCurlCommand = (input: string) => {
@@ -2144,6 +2207,8 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 	const curlConfig = parseCurlCommand(userInput);
 	if (curlConfig.url) {
 		console.log('✅ Successfully parsed curl command:', curlConfig);
+		// 添加默认的action名称
+		curlConfig.actionName = generateActionName(curlConfig.method, curlConfig.url);
 		return curlConfig;
 	}
 
@@ -2201,11 +2266,13 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			config.headers['Authorization'] = 'Bearer {{token}}';
 		}
 
+		// 添加默认的action名称
+		config.actionName = generateActionName(config.method, config.url);
 		return config;
 	}
 
 	// 默认配置
-	return {
+	const defaultConfig = {
 		method: 'GET',
 		url: 'https://api.example.com/endpoint',
 		headers: {
@@ -2213,24 +2280,193 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		},
 		bodyType: 'none',
 		body: '',
+		actionName: 'custom_api_action',
 	};
+	return defaultConfig;
 };
 
-const readFileContent = (file: File): Promise<string> => {
+// Enhanced file content reading functions
+const isValidFileType = (file: File): boolean => {
+	const extension = file.name.toLowerCase().split('.').pop();
+	return supportedFormats.value.includes(extension || '');
+};
+
+const formatFileSize = (bytes: number): string => {
+	if (bytes === 0) return '0 Bytes';
+	const k = 1024;
+	const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const readTextFile = (file: File): Promise<string> => {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
-		reader.onload = (e) => {
-			resolve(e.target?.result as string);
-		};
-		reader.onerror = () => {
-			reject(new Error('Failed to read file'));
-		};
+		reader.onload = (e) => resolve((e.target?.result as string) || '');
+		reader.onerror = () => reject(new Error('Failed to read text file'));
 		reader.readAsText(file);
 	});
 };
 
-const handleFileUpload = (file: File) => {
+const readCSVFile = async (file: File): Promise<string> => {
+	const text = await readTextFile(file);
+	const lines = text.split('\n');
+	return lines.map((line) => line.replace(/,/g, ' | ')).join('\n');
+};
+
+const readExcelFile = (file: File): Promise<string> => {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const data = new Uint8Array(e.target?.result as ArrayBuffer);
+				const workbook = XLSX.read(data, { type: 'array' });
+
+				let content = '';
+				workbook.SheetNames.forEach((sheetName) => {
+					const worksheet = workbook.Sheets[sheetName];
+					const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+					content += `Sheet: ${sheetName}\n`;
+					jsonData.forEach((row: any) => {
+						if (Array.isArray(row) && row.length > 0) {
+							content += row.join(' | ') + '\n';
+						}
+					});
+					content += '\n';
+				});
+
+				resolve(content);
+			} catch (error) {
+				reject(new Error('Failed to parse Excel file'));
+			}
+		};
+		reader.onerror = () => reject(new Error('Failed to read Excel file'));
+		reader.readAsArrayBuffer(file);
+	});
+};
+
+const readPDFFile = async (file: File): Promise<string> => {
+	try {
+		const pdfjsLib = await loadPdfJs();
+		const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(new Error('Failed to read PDF file'));
+			reader.readAsArrayBuffer(file);
+		});
+		const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+		let fullText = '';
+		for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+			const page = await pdf.getPage(pageNum);
+			const textContent = await page.getTextContent();
+			const pageText = textContent.items.map((item: any) => item.str).join(' ');
+			fullText += `Page ${pageNum}:\n${pageText}\n\n`;
+		}
+		return fullText.trim();
+	} catch (error) {
+		console.error('PDF parsing error:', error);
+		throw new Error('Failed to parse PDF file. Please ensure the file is not corrupted.');
+	}
+};
+
+const readDocxFile = async (file: File): Promise<string> => {
+	try {
+		const mammoth = await loadMammoth();
+		const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(new Error('Failed to read DOCX file'));
+			reader.readAsArrayBuffer(file);
+		});
+		const result = await mammoth.extractRawText({ arrayBuffer });
+		if (result.messages && result.messages.length > 0) {
+			console.warn('DOCX parsing warnings:', result.messages);
+		}
+		return result.value || '';
+	} catch (error) {
+		console.error('DOCX parsing error:', error);
+		throw new Error('Failed to parse DOCX file. Please ensure the file is not corrupted.');
+	}
+};
+
+const readFileContent = async (file: File): Promise<string> => {
+	// Validate file type
+	if (!isValidFileType(file)) {
+		throw new Error(
+			`Unsupported file type: ${file.name}. Supported formats: ${supportedFormats.value.join(
+				', '
+			)}`
+		);
+	}
+
+	// Validate file size
+	if (file.size > maxFileSize) {
+		throw new Error(`File size exceeds 10MB limit. Current size: ${formatFileSize(file.size)}`);
+	}
+
+	// Extract content based on file type
+	const extension = file.name.toLowerCase().split('.').pop();
+	let content = '';
+
+	try {
+		switch (extension) {
+			case 'txt':
+			case 'md':
+			case 'json':
+				content = await readTextFile(file);
+				break;
+			case 'csv':
+				content = await readCSVFile(file);
+				break;
+			case 'xlsx':
+				content = await readExcelFile(file);
+				break;
+			case 'pdf':
+				content = await readPDFFile(file);
+				break;
+			case 'docx':
+				content = await readDocxFile(file);
+				break;
+			default:
+				throw new Error(`Unsupported file type: ${extension}`);
+		}
+
+		if (!content.trim()) {
+			throw new Error('No readable content found in the file');
+		}
+
+		return content.trim();
+	} catch (error) {
+		console.error('File processing error:', error);
+		throw error;
+	}
+};
+
+const handleFileUpload = async (file: File) => {
+	// Validate file type
+	if (!isValidFileType(file)) {
+		ElMessage.error(
+			`Unsupported file type: ${file.name}. Supported formats: ${supportedFormats.value.join(
+				', '
+			)}`
+		);
+		return false;
+	}
+
+	// Validate file size
+	if (file.size > maxFileSize) {
+		ElMessage.error(`File size exceeds 10MB limit. Current size: ${formatFileSize(file.size)}`);
+		return false;
+	}
+
 	uploadedFile.value = file;
+	ElMessage.success(
+		`File "${file.name}" selected successfully. Supported format: ${file.name
+			.split('.')
+			.pop()
+			?.toUpperCase()}`
+	);
 	return false; // 阻止自动上传
 };
 
@@ -2360,8 +2596,9 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 	try {
 		console.log('🚀 Creating HTTP Action automatically...');
 
-		// 生成Action名称（基于URL）
-		const actionName = generateActionName(httpConfig.url, httpConfig.method);
+		// 使用自定义的Action名称，如果没有则生成默认名称
+		const actionName =
+			httpConfig.actionName || generateActionName(httpConfig.url, httpConfig.method);
 
 		// 准备Action配置
 		const actionConfig = {
@@ -2817,6 +3054,14 @@ onMounted(() => {
 
 .config-item {
 	@apply flex flex-col space-y-1 mb-2;
+}
+
+.config-value-input {
+	@apply w-full;
+}
+
+.action-name-input {
+	@apply w-full;
 }
 
 .config-item-inline {
