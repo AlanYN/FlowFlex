@@ -2,7 +2,7 @@
 	<el-dialog
 		v-model="dialogVisible"
 		:title="dialogTitle"
-		:width="bigDialogWidth"
+		width="80%"
 		draggable
 		:before-close="handleClose"
 		:append-to-body="true"
@@ -18,6 +18,7 @@
 				v-loading="loading"
 				class="w-full"
 				max-height="500"
+				border
 				:expand-row-keys="Array.from(expandedRows)"
 				row-key="executionId"
 			>
@@ -46,74 +47,91 @@
 				<!-- Expand Column -->
 				<el-table-column type="expand" width="40" fixed="left">
 					<template #default="{ row }">
-						<div
-							class="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700"
-						>
-							<div class="space-y-4">
+						<div>
+							<div v-if="row.executionInput || row.executionOutput" class="flex">
 								<!-- Input Details -->
-								<div v-if="row.executionInput" class="execution-detail-section">
-									<h4
-										class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-									>
-										Execution Input
-									</h4>
-									<pre class="execution-code-block">{{
-										formatJsonOutput(row.executionInput)
-									}}</pre>
-								</div>
-
-								<!-- Output Details -->
-								<div v-if="row.executionOutput" class="execution-detail-section">
-									<h4
-										class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-									>
-										Execution Output
-									</h4>
-									<pre class="execution-code-block">{{
-										formatJsonOutput(row.executionOutput)
-									}}</pre>
-								</div>
-
-								<!-- Error Details -->
-								<div v-if="row.errorMessage" class="execution-detail-section">
-									<h4
-										class="text-sm font-medium text-red-600 dark:text-red-400 mb-2"
-									>
-										Error Message
-									</h4>
-									<div
-										class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800"
-									>
-										{{ row.errorMessage }}
+								<div v-if="row.executionInput" class="flex-1 pr-4">
+									<div class="mb-2 ml-2">
+										<div class="flex items-center space-x-2">
+											<div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+											<h4
+												class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+											>
+												Input
+											</h4>
+										</div>
+									</div>
+									<div class="p-0">
+										<el-scrollbar max-height="200px">
+											<pre
+												class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
+												>{{ formatJsonOutput(row.executionInput) }}</pre
+											>
+										</el-scrollbar>
 									</div>
 								</div>
+								<div
+									class="w-px border-l border-dashed border-gray-300 dark:border-gray-500 my-4"
+								></div>
+								<div v-if="row.executionOutput" class="flex-1 pr-4">
+									<div class="mb-2 ml-2">
+										<div class="flex items-center space-x-2">
+											<div class="w-2 h-2 bg-green-500 rounded-full"></div>
+											<h4
+												class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+											>
+												Output
+											</h4>
+										</div>
+									</div>
+									<div class="p-0">
+										<el-scrollbar max-height="200px">
+											<pre
+												class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 border-0 rounded-none p-4 m-0 whitespace-pre-wrap break-words"
+												>{{ formatJsonOutput(row.executionOutput) }}</pre
+											>
+										</el-scrollbar>
+									</div>
+								</div>
+							</div>
 
-								<!-- Stack Trace -->
-								<div v-if="row.errorStackTrace" class="execution-detail-section">
-									<h4
-										class="text-sm font-medium text-red-600 dark:text-red-400 mb-2"
-									>
-										Stack Trace
-									</h4>
+							<!-- Error Details -->
+							<div v-if="row.errorMessage" class="">
+								<h4 class="text-sm font-medium text-red-600 dark:text-red-400 mb-2">
+									Error Message
+								</h4>
+								<div
+									class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800"
+								>
+									{{ row.errorMessage }}
+								</div>
+							</div>
+
+							<!-- Stack Trace -->
+							<div v-if="row.errorStackTrace" class="execution-detail-section">
+								<h4 class="text-sm font-medium text-red-600 dark:text-red-400 mb-2">
+									Stack Trace
+								</h4>
+								<el-scrollbar max-height="128px">
 									<pre
-										class="execution-code-block text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 max-h-32"
+										class="execution-code-block text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
 										>{{ row.errorStackTrace }}</pre
 									>
-								</div>
+								</el-scrollbar>
+							</div>
 
-								<!-- Empty State -->
-								<div
-									v-if="
-										!row.executionInput &&
-										!row.executionOutput &&
-										!row.errorMessage &&
-										!row.errorStackTrace
-									"
-									class="text-center py-8"
-								>
-									<div class="text-gray-400 dark:text-gray-500 text-sm">
-										No execution details available
-									</div>
+							<!-- Empty State -->
+							<div
+								v-if="
+									!row.executionInput &&
+									!row.executionOutput &&
+									!row.errorMessage &&
+									!row.errorStackTrace
+								"
+								class="text-center py-8"
+							>
+								<div class="text-gray-400 dark:text-gray-500 text-sm">
+									No execution details available
 								</div>
 							</div>
 						</div>
@@ -189,7 +207,7 @@ import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Document } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
-import { bigDialogWidth, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { getActionResult } from '@/apis/action';
 import { timeZoneConvert } from '@/hooks/time';
 import type { ActionExecutionResult } from '#/action';
@@ -564,11 +582,6 @@ watch(
 .status-tag.bg-gray-100 {
 	background-color: #f3f4f6 !important;
 	color: #374151 !important;
-}
-
-/* Execution detail styles */
-.execution-detail-section {
-	margin-bottom: 1rem;
 }
 
 .execution-code-block {
