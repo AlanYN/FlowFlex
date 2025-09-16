@@ -5,7 +5,7 @@
 			v-model="unitDiscountModel.invoiceMonth"
 			:disabled="disabled"
 			:placeholder="`${t('sys.placeholder.selectPlaceholder')} month`"
-			class="rounded-lg w-[150px]"
+			class="rounded-xl w-[150px]"
 			clearable
 			filterable
 			@change="handleMonthChange"
@@ -21,7 +21,7 @@
 			v-model="unitDiscountModel.invoiceDate"
 			:disabled="disabled"
 			:placeholder="`${t('sys.placeholder.selectPlaceholder')} date`"
-			class="rounded-lg w-[150px]"
+			class="rounded-xl w-[150px]"
 			clearable
 			filterable
 		>
@@ -99,7 +99,7 @@ const handleMonthChange = () => {
 
 <style lang="scss" scoped>
 :deep(.el-input .el-input__wrapper) {
-	border-radius: 0px 0.5rem 0.5rem 0px !important;
+	@apply rounded-xl;
 }
 </style>
 

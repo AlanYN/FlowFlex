@@ -86,11 +86,11 @@ defineExpose({
 	gap: 12px;
 	width: 380px;
 	height: 188px;
-	border-radius: 8px;
 	flex: none;
 	order: 1;
 	align-self: stretch;
 	flex-grow: 1;
+	@apply rounded-xl;
 }
 
 .green-zone {
@@ -203,10 +203,10 @@ defineExpose({
 	gap: 10px;
 	height: 20px;
 	background: #fefce8;
-	border-radius: 4px;
 	flex: none;
 	order: 1;
 	flex-grow: 0;
+	@apply rounded-xl;
 
 	text {
 		height: 20px;

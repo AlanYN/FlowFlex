@@ -189,10 +189,10 @@ refreshModels();
 	}
 
 	.test-result-container {
+		@apply rounded-xl;
 		height: 400px;
 		overflow-y: auto;
 		background-color: #f5f5f5;
-		border-radius: 4px;
 		padding: 12px;
 
 		.test-output {

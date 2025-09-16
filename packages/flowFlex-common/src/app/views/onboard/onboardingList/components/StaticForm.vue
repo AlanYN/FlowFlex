@@ -2,7 +2,7 @@
 	<div class="customer-block">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="static-form-header-card rounded-md"
+			class="static-form-header-card rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>

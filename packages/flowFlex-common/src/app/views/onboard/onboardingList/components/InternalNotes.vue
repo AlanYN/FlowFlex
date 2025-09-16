@@ -1,7 +1,7 @@
 <template>
 	<div class="customer-block">
 		<!-- 统一的头部卡片 -->
-		<div class="notes-header-card rounded-md" :class="{ expanded: isOpen }" @click="toggleOpen">
+		<div class="notes-header-card rounded-xl" :class="{ expanded: isOpen }" @click="toggleOpen">
 			<div class="">
 				<div class="flex items-center">
 					<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isOpen }">
@@ -32,7 +32,7 @@
 						<div
 							v-for="note in notes"
 							:key="note.id"
-							class="flex space-x-3 p-3 bg-gray-50 dark:bg-black-200 rounded-lg"
+							class="flex space-x-3 p-3 bg-gray-50 dark:bg-black-200 rounded-xl"
 						>
 							<div
 								class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
@@ -420,7 +420,7 @@ const renderNoteContent = (content: string): VNode => {
 					'span',
 					{
 						key: `mention-${index}`,
-						class: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded font-medium cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors duration-200',
+						class: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded-xl font-medium cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors duration-200',
 						onClick: () => handleMentionClick(segment.content),
 					},
 					`@${segment.content}`

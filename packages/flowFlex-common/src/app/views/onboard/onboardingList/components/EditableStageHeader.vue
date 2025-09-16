@@ -1,7 +1,7 @@
 <template>
 	<div class="">
 		<div
-			class="editable-header-card rounded-md text-white p-2.5"
+			class="editable-header-card rounded-xl text-white p-2.5"
 			style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
 		>
 			<!-- 显示状态 -->
@@ -65,11 +65,11 @@
 					<!-- Start Date - 只读显示 -->
 					<div>
 						<div class="text-white/70 mb-2">Start Date</div>
-						<div
-							class="bg-white/5 border border-white/20 px-3 py-2 text-white font-medium"
-						>
-							{{ displayStartDate }}
-						</div>
+						<el-input
+							v-model="displayStartDate"
+							class="w-full stage-edit-input"
+							disabled
+						/>
 					</div>
 					<!-- Est. Duration - 可编辑 -->
 					<div>
@@ -79,6 +79,7 @@
 							placeholder="Enter days"
 							class="w-full stage-edit-input"
 							:disabled="saving"
+							@change="handleEstimatedDaysChange"
 						/>
 					</div>
 					<!-- End Time - 可编辑 -->
@@ -86,10 +87,14 @@
 						<div class="text-white/70 mb-2">End Time</div>
 						<el-date-picker
 							v-model="editForm.customEndTime"
-							type="date"
+							type="datetime"
 							placeholder="Select end date"
 							class="w-full stage-edit-input"
 							:disabled="saving"
+							:format="projectTenMinutesSsecondsDate"
+							:value-format="projectTenMinutesSsecondsDate"
+							:disabledDate="disabledEndDate"
+							@change="handleEndTimeChange"
 						/>
 					</div>
 				</div>
@@ -128,7 +133,7 @@ const saving = ref(false);
 // 编辑表单数据
 const editForm = ref({
 	customEstimatedDays: null as number | null,
-	customEndTime: null as Date | null,
+	customEndTime: null as string | null,
 });
 
 // 计算属性 - 显示标题
@@ -184,10 +189,25 @@ const initEditForm = () => {
 
 	// 如果有开始时间和预估天数，计算默认结束时间
 	if (props.currentStage.startTime && editForm.value.customEstimatedDays) {
-		const startDate = new Date(props.currentStage.startTime);
-		const endDate = new Date(startDate);
-		endDate.setDate(endDate.getDate() + editForm.value.customEstimatedDays);
-		editForm.value.customEndTime = endDate;
+		try {
+			// 直接使用原始的ISO时间字符串创建Date对象
+			const startDate = new Date(props.currentStage.startTime);
+
+			// 使用毫秒计算支持小数天数，保持原始时分秒
+			const millisecondsToAdd = editForm.value.customEstimatedDays * 24 * 60 * 60 * 1000;
+			const endDate = new Date(startDate.getTime() + millisecondsToAdd);
+
+			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
+			const endTimeFormatted = timeZoneConvert(
+				endDate.toISOString(),
+				false,
+				projectTenMinutesSsecondsDate
+			);
+			editForm.value.customEndTime = endTimeFormatted;
+		} catch (error) {
+			console.error('Error initializing end time:', error);
+			editForm.value.customEndTime = null;
+		}
 	}
 };
 
@@ -202,20 +222,95 @@ watch(
 	{ immediate: true }
 );
 
-// 监听编辑表单中预估天数的变化，自动计算结束时间
-watch(
-	() => editForm.value.customEstimatedDays,
-	(estimatedDays) => {
-		if (props.currentStage?.startTime && estimatedDays && estimatedDays > 0) {
+// 预估天数变化时，自动计算结束时间
+const handleEstimatedDaysChange = (estimatedDays: number | null) => {
+	if (props.currentStage?.startTime && estimatedDays && estimatedDays > 0) {
+		try {
+			// 直接使用原始的ISO时间字符串创建Date对象
 			const startDate = new Date(props.currentStage.startTime);
-			const endDate = new Date(startDate);
-			endDate.setDate(endDate.getDate() + estimatedDays);
-			editForm.value.customEndTime = endDate;
-		} else if (!estimatedDays) {
+
+			// 使用毫秒计算支持小数天数，保持原始时分秒
+			const millisecondsToAdd = estimatedDays * 24 * 60 * 60 * 1000;
+			const endDate = new Date(startDate.getTime() + millisecondsToAdd);
+
+			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
+			const endTimeFormatted = timeZoneConvert(
+				endDate.toISOString(),
+				false,
+				projectTenMinutesSsecondsDate
+			);
+			editForm.value.customEndTime = endTimeFormatted;
+		} catch (error) {
+			console.error('Error calculating end time from estimated days:', error);
 			editForm.value.customEndTime = null;
 		}
+	} else if (!estimatedDays) {
+		editForm.value.customEndTime = null;
 	}
-);
+};
+
+// 禁用结束日期选择器中开始日期之前的日期
+const disabledEndDate = (time: Date) => {
+	if (!props.currentStage?.startTime) {
+		return false;
+	}
+
+	try {
+		// 将开始时间转换为本地时区的格式化字符串
+		const startTimeFormatted = timeZoneConvert(
+			props.currentStage.startTime,
+			false,
+			projectTenMinutesSsecondsDate
+		);
+
+		const startDate = new Date(startTimeFormatted);
+		const startDateOnly = new Date(
+			startDate.getFullYear(),
+			startDate.getMonth(),
+			startDate.getDate()
+		);
+		const timeOnly = new Date(time.getFullYear(), time.getMonth(), time.getDate());
+
+		// 禁用早于开始日期的所有日期
+		return timeOnly < startDateOnly;
+	} catch (error) {
+		console.error('Error in disabledEndDate:', error);
+		return false;
+	}
+};
+
+// 结束时间变化时，自动计算预估天数
+const handleEndTimeChange = (endTime: string | Date | null) => {
+	if (props.currentStage?.startTime && endTime) {
+		try {
+			// 直接使用原始的ISO时间字符串创建Date对象
+			const startDate = new Date(props.currentStage.startTime);
+			const endDate = new Date(endTime);
+
+			// 验证结束时间不能小于开始时间
+			if (endDate < startDate) {
+				ElMessage.error('End time cannot be earlier than start time');
+				// 重置为之前的有效值或null
+				editForm.value.customEndTime = null;
+				editForm.value.customEstimatedDays = null;
+				return;
+			}
+
+			// 计算天数差，支持小数
+			const timeDiff = endDate.getTime() - startDate.getTime();
+			const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+
+			// 更新预估天数，保留一位小数
+			editForm.value.customEstimatedDays =
+				daysDiff > 0 ? Math.round(daysDiff * 10) / 10 : 0.1;
+		} catch (error) {
+			console.error('Error calculating estimated days from end time:', error);
+			editForm.value.customEstimatedDays = null;
+		}
+	} else if (!endTime) {
+		editForm.value.customEstimatedDays = null;
+	}
+};
 
 // 事件处理函数
 const handleEdit = () => {
@@ -236,8 +331,8 @@ const handleSave = async () => {
 	}
 
 	// 表单验证
-	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 1) {
-		ElMessage.error('Estimated duration must be at least 1 day');
+	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 0.1) {
+		ElMessage.error('Estimated duration must be at least 0.1 day');
 		return;
 	}
 
@@ -246,14 +341,40 @@ const handleSave = async () => {
 		return;
 	}
 
+	// 验证结束时间不能小于开始时间
+	if (props.currentStage.startTime) {
+		try {
+			// 直接使用原始的ISO时间字符串创建Date对象
+			const startDate = new Date(props.currentStage.startTime);
+			const endDate = new Date(editForm.value.customEndTime);
+
+			if (endDate < startDate) {
+				ElMessage.error('End time cannot be earlier than start time');
+				return;
+			}
+		} catch (error) {
+			console.error('Error validating dates:', error);
+			ElMessage.error('Invalid date format');
+			return;
+		}
+	}
+
 	saving.value = true;
 
 	try {
-		// 准备更新数据
+		// 准备更新数据，使用 timeZoneConvert 处理时间格式
+		// 将格式化的时间字符串转换为Date对象，再转为ISO字符串，最后转换为UTC格式
+		const endTimeDate = new Date(editForm.value.customEndTime);
+		const customEndTimeStr = timeZoneConvert(
+			endTimeDate.toISOString(),
+			true,
+			projectTenMinutesSsecondsDate
+		);
+
 		const updateData = {
 			stageId: props.currentStage.stageId,
 			customEstimatedDays: editForm.value.customEstimatedDays,
-			customEndTime: editForm.value.customEndTime.toISOString(),
+			customEndTime: customEndTimeStr,
 		};
 
 		// 发送更新事件给父组件

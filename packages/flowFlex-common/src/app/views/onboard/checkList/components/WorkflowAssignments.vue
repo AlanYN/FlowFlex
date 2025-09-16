@@ -361,9 +361,8 @@ defineExpose({
 .assignment-item {
 	background: var(--primary-50);
 	border: 1px solid var(--primary-200);
-	border-radius: 0.5rem;
 	padding: 1rem;
-	@apply dark:bg-primary-700 dark:border-primary-600;
+	@apply dark:bg-primary-700 dark:border-primary-600 rounded-xl;
 }
 
 .assignment-item-header {
@@ -398,9 +397,8 @@ defineExpose({
 	text-align: center;
 	padding: 2rem;
 	border: 1px dashed var(--primary-200);
-	border-radius: 0.5rem;
 	background: var(--primary-25);
-	@apply dark:bg-primary-700 dark:border-primary-600;
+	@apply dark:bg-primary-700 dark:border-primary-600  rounded-xl;
 }
 
 .inactive-icon {

@@ -30,7 +30,7 @@
 			</PageHeader>
 
 			<!-- 搜索和筛选区域 -->
-			<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+			<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div class="space-y-2">
 						<label class="filter-label text-sm font-medium">Search</label>
@@ -41,7 +41,7 @@
 							style-type="normal"
 							:limit="10"
 							@change="handleSearchTagsChange"
-							class="w-full rounded-md"
+							class="w-full rounded-xl"
 						/>
 					</div>
 

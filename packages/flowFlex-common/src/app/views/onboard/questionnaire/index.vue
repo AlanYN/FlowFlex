@@ -27,7 +27,7 @@
 		</PageHeader>
 
 		<!-- 搜索和筛选区域 -->
-		<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+		<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<div class="space-y-2">
 					<label class="filter-label text-sm font-medium">Search</label>
@@ -37,7 +37,7 @@
 						style-type="normal"
 						:limit="10"
 						@change="handleSearchTagsChange"
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</div>
 
@@ -630,7 +630,6 @@ const handleSortChange = (sort: any) => {
 :deep(.filter-panel .layout) {
 	min-height: 32px;
 	border: 1px solid var(--el-border-color, #dcdfe6);
-	border-radius: 8px;
 	padding: 4px 11px;
 	background-color: var(--el-fill-color-blank, #ffffff);
 	transition: all var(--el-transition-duration, 0.2s);
@@ -640,6 +639,7 @@ const handleSortChange = (sort: any) => {
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 4px;
+	@apply rounded-xl;
 }
 
 :deep(.filter-panel .layout:hover) {
@@ -672,13 +672,13 @@ const handleSortChange = (sort: any) => {
 :deep(.filter-panel .label-box) {
 	height: 24px;
 	margin: 0;
-	border-radius: 12px;
 	background-color: var(--el-fill-color-light, #f5f7fa);
 	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
 	display: inline-flex;
 	align-items: center;
 	padding: 0 8px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 :deep(.filter-panel .label-title) {
@@ -739,7 +739,7 @@ const handleSortChange = (sort: any) => {
 
 /* 自定义卡片样式 */
 :deep(.el-card) {
-	/* border-radius removed - using rounded-md class */
+	/* border-radius removed - using rounded-xl class */
 	box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 	@apply dark:shadow-black-50;
 }

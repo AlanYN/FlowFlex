@@ -396,7 +396,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .customer-questionnaire {
 	padding: 20px;
 }
@@ -442,8 +442,8 @@ export default {
 	margin-bottom: 40px;
 	padding: 24px;
 	background: #f9fafb;
-	border-radius: 8px;
 	border-left: 4px solid #3b82f6;
+	@apply rounded-xl;
 }
 
 .section-header {

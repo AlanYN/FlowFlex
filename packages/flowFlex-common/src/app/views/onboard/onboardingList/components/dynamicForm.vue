@@ -1546,8 +1546,8 @@ defineExpose({
 	color: #ef4444;
 	background-color: #fef2f2;
 	padding: 2px 8px;
-	border-radius: 4px;
 	border: 1px solid #fecaca;
+	@apply rounded-xl;
 }
 
 .questionnaire-error {
@@ -1559,12 +1559,12 @@ defineExpose({
 	margin-top: 32px;
 	padding: 20px;
 	background-color: #f9fafb;
-	border-radius: 8px;
 	border: 1px solid #e5e7eb;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	min-height: 60px;
+	@apply rounded-xl;
 }
 
 /* 左侧导航区域 */
@@ -1648,8 +1648,8 @@ defineExpose({
 .question-item {
 	padding: 16px;
 	border: 1px solid #e5e7eb;
-	border-radius: 8px;
 	background-color: #f9fafb;
+	@apply rounded-xl;
 
 	&:hover {
 		border-color: #d1d5db;
@@ -1740,8 +1740,8 @@ html.dark {
 
 	.grid-container {
 		border: 1px solid var(--el-border-color);
-		border-radius: 4px;
 		overflow: hidden;
+		@apply rounded-xl;
 	}
 
 	.grid-header {

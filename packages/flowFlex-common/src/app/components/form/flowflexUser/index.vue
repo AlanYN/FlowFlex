@@ -38,7 +38,7 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full min-h-8 border border-gray-300 rounded-md px-3 py-1.5 bg-white cursor-pointer transition-colors duration-200 flex items-center"
+			class="w-full min-h-8 border border-gray-300 rounded-xl px-3 py-1.5 bg-white cursor-pointer transition-colors duration-200 flex items-center"
 			:class="[disabled ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-400']"
 			@click="openModal"
 		>
@@ -125,7 +125,7 @@
 				<div class="flex gap-5 h-[450px]">
 					<!-- 左侧：可选用户 -->
 					<div
-						class="flex-1 flex flex-col border border-gray-200 rounded-md overflow-hidden"
+						class="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden"
 					>
 						<div
 							class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2"
@@ -215,7 +215,7 @@
 
 					<!-- 右侧：已选用户 -->
 					<div
-						class="flex-1 flex flex-col border border-gray-200 rounded-md overflow-hidden"
+						class="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden"
 					>
 						<div
 							class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2"
@@ -244,7 +244,7 @@
 									<div
 										v-for="item in tempSelectedItems"
 										:key="item.id"
-										class="flex items-center gap-3 p-2 bg-gray-50 rounded-md transition-colors duration-200 hover:bg-gray-100"
+										class="flex items-center gap-3 p-2 bg-gray-50 rounded-xl transition-colors duration-200 hover:bg-gray-100"
 									>
 										<div
 											class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-base flex-shrink-0"

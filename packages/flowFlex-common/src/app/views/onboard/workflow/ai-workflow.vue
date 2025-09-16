@@ -45,7 +45,7 @@
 							<div
 								v-for="workflow in workflowList"
 								:key="workflow.id"
-								class="workflow-item border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
+								class="workflow-item border border-gray-200 rounded-xl p-3 hover:bg-gray-50 transition-colors"
 							>
 								<div class="flex items-center justify-between mb-2">
 									<div class="flex items-center gap-2">
@@ -223,7 +223,7 @@ onMounted(() => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .ai-workflow-page {
 	padding: 24px;
 	max-width: 1400px;
@@ -234,8 +234,8 @@ onMounted(() => {
 	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 	color: white;
 	padding: 24px;
-	border-radius: 12px;
 	margin-bottom: 24px;
+	@apply rounded-xl;
 }
 
 .page-header h1,
@@ -307,9 +307,9 @@ onMounted(() => {
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
 	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-	border-radius: 12px;
 	padding: 2rem;
 	margin: 1rem 0;
+	@apply rounded-xl;
 }
 
 /* New styles for AI dialog */
@@ -317,7 +317,7 @@ onMounted(() => {
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	color: white;
 	padding: 1.5rem;
-	border-radius: 12px 12px 0 0;
+	@apply rounded-xl;
 }
 
 .ai-workflow-dialog .el-dialog__header .el-dialog__title {
@@ -381,9 +381,9 @@ onMounted(() => {
 	background-color: #e0e7ff;
 	color: #4f46e5;
 	border: 1px solid #d1d5db;
-	border-radius: 6px;
 	padding: 0.25rem 0.75rem;
 	font-weight: 600;
+	@apply rounded-xl;
 }
 
 .meta-divider {
@@ -410,10 +410,10 @@ onMounted(() => {
 .stage-card {
 	background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
 	border: 1px solid #e5e7eb;
-	border-radius: 12px;
 	padding: 1.25rem;
 	transition: all 0.2s ease-in-out;
 	height: fit-content;
+	@apply rounded-xl;
 }
 
 .stage-card:hover {
@@ -432,12 +432,12 @@ onMounted(() => {
 .stage-number-badge {
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	color: white;
-	border-radius: 8px;
 	padding: 0.375rem 0.75rem;
 	font-weight: 600;
 	font-size: 0.875rem;
 	min-width: 2rem;
 	text-align: center;
+	@apply rounded-xl;
 }
 
 .stage-title-section {
@@ -445,9 +445,9 @@ onMounted(() => {
 }
 
 .stage-title-input .el-input__inner {
-	border-radius: 8px;
 	border-color: #d1d5db;
 	font-weight: 600;
+	@apply rounded-xl;
 }
 
 .stage-title-input .el-input__inner:focus {
@@ -463,10 +463,10 @@ onMounted(() => {
 .remove-stage-btn {
 	width: 32px;
 	height: 32px;
-	border-radius: 6px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	@apply rounded-xl;
 }
 
 .remove-stage-btn .el-button__inner {
@@ -512,8 +512,8 @@ onMounted(() => {
 }
 
 .team-select .el-input__inner {
-	border-radius: 6px;
 	border-color: #d1d5db;
+	@apply rounded-xl;
 }
 
 .team-select .el-input__inner:focus {
@@ -526,8 +526,8 @@ onMounted(() => {
 }
 
 .duration-input .el-input__inner {
-	border-radius: 6px;
 	border-color: #d1d5db;
+	@apply rounded-xl;
 }
 
 .duration-input .el-input__inner:focus {
@@ -542,10 +542,10 @@ onMounted(() => {
 }
 
 .description-textarea .el-textarea__inner {
-	border-radius: 8px;
 	border-color: #d1d5db;
 	resize: vertical;
 	min-height: 80px;
+	@apply rounded-xl;
 }
 
 .description-textarea .el-textarea__inner:focus {
@@ -579,11 +579,11 @@ onMounted(() => {
 
 .add-field-btn {
 	align-self: flex-start;
-	border-radius: 6px;
 	border: 1px dashed #d1d5db;
 	background-color: #f9fafb;
 	color: #6b7280;
 	transition: all 0.2s ease-in-out;
+	@apply rounded-xl;
 }
 
 .add-field-btn:hover {
@@ -706,7 +706,7 @@ onMounted(() => {
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	color: white;
 	padding: 1.5rem;
-	border-radius: 12px 12px 0 0;
+	@apply rounded-xl;
 }
 
 .ai-field-dialog .el-dialog__header .el-dialog__title {
@@ -723,8 +723,8 @@ onMounted(() => {
 }
 
 .ai-field-input .el-input__inner {
-	border-radius: 8px;
 	border-color: #d1d5db;
+	@apply rounded-xl;
 }
 
 .ai-field-input .el-input__inner:focus {
@@ -748,7 +748,7 @@ onMounted(() => {
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	color: white;
 	padding: 1.5rem;
-	border-radius: 12px 12px 0 0;
+	@apply rounded-xl;
 }
 
 .ai-enhance-dialog .el-dialog__header .el-dialog__title {
@@ -765,8 +765,8 @@ onMounted(() => {
 }
 
 .ai-enhance-input .el-input__inner {
-	border-radius: 8px;
 	border-color: #d1d5db;
+	@apply rounded-xl;
 }
 
 .ai-enhance-input .el-input__inner:focus {
@@ -840,7 +840,7 @@ onMounted(() => {
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 	color: white;
 	padding: 1.5rem;
-	border-radius: 12px 12px 0 0;
+	@apply rounded-xl;
 }
 
 .ai-config-dialog .el-dialog__header .el-dialog__title {

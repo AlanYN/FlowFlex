@@ -504,8 +504,8 @@ defineExpose({
 .new-question-editor {
 	padding: 1rem;
 	background-color: var(--primary-50);
-	border-radius: 0.375rem;
 	border: 1px solid var(--primary-100);
+	@apply rounded-xl;
 }
 
 .editor-title {

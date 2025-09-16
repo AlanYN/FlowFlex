@@ -1,5 +1,5 @@
 <template>
-	<div class="bg-white dark:bg-black-300 rounded-lg">
+	<div class="bg-white dark:bg-black-300 rounded-xl">
 		<!-- 加载状态 -->
 		<div v-if="loading" class="text-center py-12">
 			<el-icon class="is-loading text-4xl text-primary-500 mb-4">
@@ -9,7 +9,7 @@
 		</div>
 		<div v-else-if="questionnaire" class="space-y-4 p-4">
 			<!-- 问卷基本信息 -->
-			<div class="questionnaire-header p-4 rounded-lg border">
+			<div class="questionnaire-header p-4 rounded-xl border">
 				<div class="flex items-start justify-between mb-4">
 					<div class="flex-1">
 						<h2 class="text-2xl font-bold questionnaire-title mb-2">
@@ -132,7 +132,7 @@
 			<div
 				v-for="(section, sectionIndex) in questionnaire.sections"
 				:key="section.id || sectionIndex"
-				class="section-container border rounded-lg overflow-hidden"
+				class="section-container border rounded-xl overflow-hidden"
 			>
 				<!-- 章节标题 -->
 				<div class="section-header p-4 border-b" v-if="!section.isDefault">
@@ -1517,9 +1517,8 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 
 	.grid-container {
 		border: 1px solid var(--primary-200);
-		border-radius: 0.375rem;
 		overflow: hidden;
-		@apply dark:border-black-200;
+		@apply dark:border-black-200 rounded-xl;
 	}
 
 	.grid-header {

@@ -330,7 +330,7 @@ defineExpose({
 }
 
 .code-editor-wrapper {
-	@apply border rounded-md border-primary-200 bg-white overflow-hidden relative;
+	@apply border rounded-xl border-primary-200 bg-white overflow-hidden relative;
 	height: v-bind(height);
 	min-height: 200px;
 }
@@ -342,7 +342,7 @@ defineExpose({
 
 // Monaco editor custom styles
 :deep(.monaco-editor) {
-	@apply rounded-md;
+	@apply rounded-xl;
 }
 
 :deep(.monaco-editor .margin) {

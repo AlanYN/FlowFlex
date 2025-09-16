@@ -26,13 +26,13 @@
 		<!-- 主要内容区 -->
 		<div>
 			<!-- 加载中状态 -->
-			<div v-if="loading.workflows" class="loading-container rounded-md">
+			<div v-if="loading.workflows" class="loading-container rounded-xl">
 				<el-skeleton style="width: 100%" :rows="10" animated />
 			</div>
 
 			<!-- 工作流内容 -->
 			<div class="workflow-list" v-else-if="workflow">
-				<div class="workflow-card rounded-md" :class="{ active: workflow.isActive }">
+				<div class="workflow-card rounded-xl" :class="{ active: workflow.isActive }">
 					<div class="workflow-card-header">
 						<div class="left-section">
 							<div class="title-and-tags">
@@ -43,7 +43,7 @@
 									v-if="workflow.isAIGenerated"
 									type="primary"
 									size="small"
-									class="ai-tag rounded-md"
+									class="ai-tag rounded-xl"
 								>
 									<div class="flex items-center gap-1">
 										<span class="ai-sparkles">✨</span>
@@ -54,7 +54,7 @@
 									v-if="workflow.isDefault"
 									type="warning"
 									size="small"
-									class="default-tag rounded-md"
+									class="default-tag rounded-xl"
 								>
 									<div class="flex items-center gapx-2">
 										<StarIcon class="star-icon" />
@@ -65,11 +65,11 @@
 									v-if="workflow.status === 'active'"
 									type="success"
 									size="small"
-									class="rounded-md"
+									class="rounded-xl"
 								>
 									Active
 								</el-tag>
-								<el-tag v-else type="danger" size="small" class="rounded-md">
+								<el-tag v-else type="danger" size="small" class="rounded-xl">
 									Inactive
 								</el-tag>
 							</div>
@@ -144,7 +144,7 @@
 								}"
 							>
 								<el-button
-									class="more-actions-btn rounded-md"
+									class="more-actions-btn rounded-xl"
 									aria-label="More actions"
 									:aria-expanded="false"
 								>
@@ -319,7 +319,7 @@
 			</div>
 
 			<!-- 空状态 - 没有工作流时显示 -->
-			<div v-else class="empty-state-container rounded-md">
+			<div v-else class="empty-state-container rounded-xl">
 				<div class="empty-state-content">
 					<el-icon class="empty-state-icon"><DocumentAdd /></el-icon>
 					<h2 class="empty-state-title">No Workflows Found</h2>
@@ -1575,10 +1575,10 @@ const getUserGroup = async () => {
 	background-color: transparent;
 	border: 1px solid var(--primary-500, #2468f2);
 	color: var(--primary-500, #2468f2);
-	border-radius: 4px;
 	padding: 6px 12px;
 	cursor: pointer;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .add-stage-btn:hover {
@@ -1640,8 +1640,8 @@ const getUserGroup = async () => {
 .stage-item-select {
 	padding: 8px;
 	margin-bottom: 4px;
-	border-radius: 4px;
 	transition: background-color 0.2s;
+	@apply rounded-xl;
 }
 
 .stage-item-select:hover {
@@ -1739,8 +1739,8 @@ const getUserGroup = async () => {
 
 /* 版本历史对话框样式 */
 :deep(.version-history-dialog) {
-	border-radius: 12px;
 	overflow: hidden;
+	@apply rounded-xl;
 }
 
 :deep(.version-history-dialog .el-dialog__header) {
@@ -1878,8 +1878,8 @@ const getUserGroup = async () => {
 
 .edit-btn {
 	padding: 4px;
-	border-radius: 4px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .edit-btn:hover {
@@ -2001,7 +2001,7 @@ const getUserGroup = async () => {
 <style lang="scss">
 /* 删除确认对话框样式 */
 .delete-confirmation-dialog {
-	/* border-radius removed - using rounded-md class */
+	/* border-radius removed - using rounded-xl class */
 
 	.el-message-box__message {
 		color: #606266;

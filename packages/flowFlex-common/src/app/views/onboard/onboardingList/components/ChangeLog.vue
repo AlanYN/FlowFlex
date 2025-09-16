@@ -2,7 +2,7 @@
 	<div class="customer-block">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="change-log-header-card rounded-md"
+			class="change-log-header-card rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
@@ -68,7 +68,7 @@
 											<div
 												v-for="(change, index) in row.fieldChanges"
 												:key="index"
-												class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border-l-4 border-yellow-400"
+												class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-xl border-l-4 border-yellow-400"
 											>
 												<div class="text-sm">
 													<div
@@ -86,7 +86,7 @@
 																	Before:
 																</span>
 																<span
-																	class="bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded text-red-800 dark:text-red-200"
+																	class="bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded-xl text-red-800 dark:text-red-200"
 																>
 																	{{ change.beforeValue }}
 																</span>
@@ -98,7 +98,7 @@
 																	After:
 																</span>
 																<span
-																	class="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-green-800 dark:text-green-200"
+																	class="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-xl text-green-800 dark:text-green-200"
 																>
 																	{{ change.afterValue || 'N/A' }}
 																</span>
@@ -113,7 +113,7 @@
 																	Value Set:
 																</span>
 																<span
-																	class="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded text-blue-800 dark:text-blue-200"
+																	class="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded-xl text-blue-800 dark:text-blue-200"
 																>
 																	{{ change.afterValue || 'N/A' }}
 																</span>
@@ -135,7 +135,7 @@
 										"
 									>
 										<div
-											class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-sm border-l-4 border-blue-400"
+											class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-sm border-l-4 border-blue-400"
 										>
 											<div
 												class="text-gray-700 dark:text-gray-300 whitespace-pre-line"
@@ -148,7 +148,7 @@
 									<!-- 文件上传详情 -->
 									<div v-else-if="row.type === 'File Upload' && row.fileInfo">
 										<div
-											class="bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded text-xs border-l-4 border-cyan-400"
+											class="bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-xl text-xs border-l-4 border-cyan-400"
 										>
 											<div class="flex items-center">
 												<el-icon class="mr-2 text-cyan-600">
@@ -176,7 +176,7 @@
 										"
 									>
 										<div
-											class="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs border-l-4 border-green-400"
+											class="bg-green-50 dark:bg-green-900/20 p-2 rounded-xl text-xs border-l-4 border-green-400"
 										>
 											<div class="text-gray-600 mt-1">
 												{{ row.taskInfo.statusChange }}
@@ -205,7 +205,7 @@
 									>
 										<div
 											:class="getActionExecutionBgClass(row.type)"
-											class="p-3 rounded-md border-l-4"
+											class="p-3 rounded-xl border-l-4"
 										>
 											<div class="text-sm">
 												<div
@@ -218,7 +218,7 @@
 														:class="
 															getActionExecutionStatusClass(row.type)
 														"
-														class="px-2 py-1 rounded text-xs font-medium"
+														class="px-2 py-1 rounded-xl text-xs font-medium"
 													>
 														{{ getActionExecutionStatusText(row.type) }}
 													</span>
@@ -253,7 +253,7 @@
 														</span>
 														<span
 															:class="getActionSourceClass(row.type)"
-															class="px-2 py-1 rounded text-xs font-medium"
+															class="px-2 py-1 rounded-xl text-xs font-medium"
 														>
 															{{ getActionSource(row.type) }}
 														</span>
@@ -282,7 +282,7 @@
 																	row.actionInfo.executionStatus
 																)
 															"
-															class="px-2 py-1 rounded text-xs font-medium"
+															class="px-2 py-1 rounded-xl text-xs font-medium"
 														>
 															{{ row.actionInfo.executionStatus }}
 														</span>
@@ -366,7 +366,7 @@
 															Output:
 														</div>
 														<div
-															class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
+															class="bg-gray-100 dark:bg-gray-800 p-2 rounded-xl text-xs"
 														>
 															{{
 																getExecutionOutputSummary(
@@ -389,7 +389,7 @@
 															Input:
 														</div>
 														<div
-															class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
+															class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-xl text-xs"
 														>
 															{{
 																getExecutionInputSummary(
@@ -424,7 +424,7 @@
 																Stack Trace
 															</summary>
 															<pre
-																class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
+																class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded-xl text-xs overflow-x-auto"
 																>{{
 																	row.actionInfo.errorStackTrace
 																}}</pre

@@ -132,7 +132,7 @@ const handleClick = () => {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .action-icon-tag {
 	display: inline-flex;
 	align-items: center;
@@ -153,6 +153,7 @@ const handleClick = () => {
 }
 
 .action-count {
+	@apply rounded-xl;
 	position: absolute;
 	top: -6px;
 	right: -6px;
@@ -162,7 +163,6 @@ const handleClick = () => {
 	font-weight: 600;
 	line-height: 1;
 	padding: 2px 4px;
-	border-radius: 8px;
 	min-width: 16px;
 	height: 16px;
 	display: flex;

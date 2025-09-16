@@ -92,8 +92,8 @@ const clickPopover = () => {
 <style lang="scss" scoped>
 :deep(.connection-popover) {
 	padding: 0;
-	border-radius: 8px;
 	box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+	@apply rounded-xl;
 }
 
 :deep(.el-link) {

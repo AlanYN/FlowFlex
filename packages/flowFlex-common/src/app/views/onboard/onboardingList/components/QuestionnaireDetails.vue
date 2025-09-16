@@ -2,7 +2,7 @@
 	<div class="customer-block" v-if="hasQuestionnaireData">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="questionnaire-header-card rounded-md"
+			class="questionnaire-header-card rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
@@ -25,9 +25,9 @@
 			</div>
 			<!-- 进度条 -->
 			<div class="progress-bar-container">
-				<div class="progress-bar rounded-md">
+				<div class="progress-bar rounded-xl">
 					<div
-						class="progress-fill rounded-md"
+						class="progress-fill rounded-xl"
 						:style="{ width: `${completionRate}%` }"
 					></div>
 				</div>

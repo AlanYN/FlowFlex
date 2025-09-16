@@ -222,13 +222,13 @@ $full-progress-color: #3b82f6;
 	width: 100%;
 	height: 100%;
 	background-color: #e5e7eb;
-	border-radius: 20px;
 	overflow: hidden;
 	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 12px;
+	@apply rounded-xl;
 }
 
 .progress-fill {

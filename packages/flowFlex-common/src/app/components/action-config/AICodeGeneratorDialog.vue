@@ -35,7 +35,7 @@
 				<!-- Left: Instructions -->
 				<div class="flex-1 flex flex-col h-80 lg:h-auto">
 					<div class="font-medium text-gray-900 mb-2">Instructions</div>
-					<div class="flex-1 border-gray-200 rounded overflow-hidden">
+					<div class="flex-1 border-gray-200 rounded-xl overflow-hidden">
 						<el-input
 							v-model="aiInstructions"
 							type="textarea"
@@ -50,7 +50,7 @@
 				<div class="flex-1 flex flex-col h-80 lg:h-auto">
 					<div class="font-medium text-gray-900 mb-2">Code Preview</div>
 					<div
-						class="flex-1 bg-gray-50 border border-gray-200 rounded p-3 overflow-auto"
+						class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 overflow-auto"
 						v-loading="generating"
 					>
 						<div

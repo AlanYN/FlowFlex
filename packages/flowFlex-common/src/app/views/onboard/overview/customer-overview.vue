@@ -57,7 +57,7 @@
 			</el-card>
 
 			<!-- Search and Filters -->
-			<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+			<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 					<div class="space-y-2">
 						<label class="filter-label text-sm font-medium">
@@ -67,7 +67,7 @@
 							v-model="searchTerm"
 							placeholder="Search questions, answers, or sections..."
 							clearable
-							class="w-full rounded-md"
+							class="w-full rounded-xl"
 						>
 							<template #prefix>
 								<el-icon><Search /></el-icon>
@@ -211,7 +211,7 @@
 							</el-table-column>
 							<el-table-column label="Answer" show-overflow-tooltip min-width="200">
 								<template #default="{ row }">
-									<div class="answer-cell bg-blue-50 p-2 rounded text-sm">
+									<div class="answer-cell bg-blue-50 p-2 rounded-xl text-sm">
 										<!-- 短答题 -->
 										<div
 											v-if="isShortAnswerType(row.questionType)"
@@ -593,7 +593,7 @@
 																{{ gridData.row }}:
 															</span>
 															<span
-																class="text-gray-800 bg-gray-50 px-2 py-1 rounded flex-1"
+																class="text-gray-800 bg-gray-50 px-2 py-1 rounded-xl flex-1"
 															>
 																{{ gridData.value }}
 															</span>
@@ -2189,7 +2189,6 @@ const handleExportPDF = async () => {
 				margin-top: 24px !important;
 				background-color: #ffffff !important;
 				border: 1px solid #ebeef5 !important;
-				border-radius: 4px !important;
 				box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1) !important;
 				overflow: visible !important;
 				transform: none !important;
@@ -2966,9 +2965,9 @@ onUnmounted(() => {
 		display: inline-flex;
 		align-items: center;
 		margin: 2px;
-		border-radius: 12px;
 		font-weight: 500;
 		transition: all 0.2s ease;
+		@apply rounded-xl;
 
 		.el-icon {
 			opacity: 0.8;
@@ -3003,11 +3002,11 @@ onUnmounted(() => {
 			span:last-child {
 				background-color: #f8fafc;
 				border: 1px solid #e2e8f0;
-				border-radius: 4px;
 				padding: 2px 8px;
 				font-size: 0.875rem;
 				color: #374151;
 				word-break: break-word;
+				@apply rounded-xl;
 			}
 		}
 	}

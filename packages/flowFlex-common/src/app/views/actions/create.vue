@@ -1,7 +1,7 @@
 <template>
-	<div class="create-action-container rounded-md">
+	<div class="create-action-container rounded-xl">
 		<!-- 页面头部 -->
-		<div class="page-header rounded-md">
+		<div class="page-header rounded-xl">
 			<div class="header-content">
 				<div class="header-left">
 					<el-button type="primary" link class="back-button" @click="goBack" size="small">
@@ -666,8 +666,8 @@ onMounted(() => {
 		.assignment-item {
 			padding: 12px;
 			border: 1px solid #e5e7eb;
-			border-radius: 6px;
 			margin-bottom: 12px;
+			@apply rounded-xl
 
 			.assignment-header {
 				display: flex;
@@ -701,7 +701,6 @@ onMounted(() => {
 	// 	.condition-item {
 	// 		padding: 12px;
 	// 		border: 1px solid #e5e7eb;
-	// 		border-radius: 6px;
 	// 		margin-bottom: 12px;
 
 	// 		.condition-header {

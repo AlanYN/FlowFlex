@@ -1,5 +1,5 @@
 <template>
-	<div class="empty-state-container rounded-lg bg-white shadow-sm border border-gray-200">
+	<div class="empty-state-container rounded-xl bg-white shadow-sm border border-gray-200">
 		<div class="empty-state-content">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

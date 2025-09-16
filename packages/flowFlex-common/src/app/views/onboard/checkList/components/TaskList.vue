@@ -31,7 +31,7 @@
 				>
 					<template #item="{ element: task }">
 						<div
-							class="flex items-center gap-3 p-3 transition-all duration-200 border border-transparent rounded-lg task-item max-w-full"
+							class="flex items-center gap-3 p-3 transition-all duration-200 border border-transparent rounded-xl task-item max-w-full"
 							:class="{
 								'task-disabled':
 									isDragging && draggingChecklistId !== props.checklist.id,
@@ -192,7 +192,7 @@
 			<!-- 添加任务表单 -->
 			<div
 				v-if="addingTaskTo === props.checklist.id"
-				class="border border-gray-200 rounded-lg p-2 mt-4 bg-gray-50"
+				class="border border-gray-200 rounded-xl p-2 mt-4 bg-gray-50"
 			>
 				<div class="">
 					<div class="flex items-center gap-3">
@@ -752,10 +752,10 @@ defineExpose({
 	transition: all 0.3s ease;
 	background-color: #ffffff;
 	border: 1px solid transparent;
-	border-radius: 8px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	position: relative;
 	cursor: pointer;
+	@apply rounded-xl;
 }
 
 .task-item:hover:not(.task-disabled):not(.task-sorting) {

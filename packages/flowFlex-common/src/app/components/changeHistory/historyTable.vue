@@ -194,7 +194,7 @@ const renderFieldChange = (change: any) => {
 	if (change.operationType === 'QuestionnaireUpdate') {
 		return h(
 			'div',
-			{ class: 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border-l-4 border-blue-400' },
+			{ class: 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border-l-4 border-blue-400' },
 			[
 				h(
 					'div',
@@ -232,7 +232,7 @@ const renderFieldChange = (change: any) => {
 
 	return h(
 		'div',
-		{ class: 'bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md border-l-4 border-yellow-400' },
+		{ class: 'bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-xl border-l-4 border-yellow-400' },
 		[
 			h(
 				'div',
@@ -257,7 +257,7 @@ const renderFieldChange = (change: any) => {
 						h(
 							'span',
 							{
-								class: 'bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded text-red-800 dark:text-red-200',
+								class: 'bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded-xl text-red-800 dark:text-red-200',
 							},
 							String(beforeObj[fieldName] || 'N/A')
 						),
@@ -271,7 +271,7 @@ const renderFieldChange = (change: any) => {
 						h(
 							'span',
 							{
-								class: 'bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-green-800 dark:text-green-200',
+								class: 'bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-xl text-green-800 dark:text-green-200',
 							},
 							String(afterObj[fieldName] || 'N/A')
 						),
@@ -291,7 +291,7 @@ const renderFileUpload = (change: any) => {
 
 	return h(
 		'div',
-		{ class: 'bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded text-xs border-l-4 border-cyan-400' },
+		{ class: 'bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-xl text-xs border-l-4 border-cyan-400' },
 		[
 			h('div', { class: 'flex items-center' }, [
 				h('span', { class: 'mr-2 text-cyan-600' }, '📁'),
@@ -314,7 +314,7 @@ const renderTaskChange = (change: any) => {
 		? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400'
 		: 'bg-green-50 dark:bg-green-900/20 border-green-400';
 
-	return h('div', { class: `${bgClass} p-3 rounded-md border-l-4` }, [
+	return h('div', { class: `${bgClass} p-3 rounded-xl border-l-4` }, [
 		h(
 			'div',
 			{ class: 'font-semibold mb-2 text-gray-800 dark:text-gray-200' },
@@ -330,7 +330,7 @@ const renderActionChange = (change: any) => {
 		? 'bg-green-50 dark:bg-green-900/20 border-green-400'
 		: 'bg-red-50 dark:bg-red-900/20 border-red-400';
 
-	return h('div', { class: `${bgClass} p-3 rounded-md border-l-4` }, [
+	return h('div', { class: `${bgClass} p-3 rounded-xl border-l-4` }, [
 		h(
 			'div',
 			{ class: 'font-semibold mb-2 text-gray-800 dark:text-gray-200' },

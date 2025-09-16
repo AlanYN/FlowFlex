@@ -247,9 +247,9 @@ const saveOptionEdit = (id: string) => {
 
 .current-options-container {
 	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
 	padding: 0.75rem;
 	background-color: var(--primary-50);
+	@apply rounded-xl;
 }
 
 .current-options-label {
@@ -272,9 +272,9 @@ const saveOptionEdit = (id: string) => {
 	justify-content: space-between;
 	padding: 0.5rem;
 	border: 1px solid var(--primary-100);
-	border-radius: 0.375rem;
 	background-color: var(--el-bg-color);
 	transition: background-color 0.2s;
+	@apply rounded-xl;
 }
 
 .option-item:hover {
@@ -361,7 +361,7 @@ const saveOptionEdit = (id: string) => {
 	padding: 0.75rem;
 	background-color: var(--el-color-success-light-9);
 	border: 1px dashed var(--el-color-success-light-7);
-	border-radius: 0.375rem;
+	@apply rounded-xl;
 }
 
 .add-other-btn {

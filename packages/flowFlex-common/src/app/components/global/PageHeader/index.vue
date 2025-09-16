@@ -1,6 +1,6 @@
 <template>
 	<div
-		class="relative rounded-lg overflow-hidden mb-5 shadow-sm transition-all duration-300 ease-in-out"
+		class="relative rounded-xl overflow-hidden mb-5 shadow-sm transition-all duration-300 ease-in-out"
 	>
 		<!-- 背景层 -->
 		<div class="absolute inset-0 z-10">
@@ -19,7 +19,7 @@
 					link
 					size="small"
 					@click="handleGoBack"
-					class="mr-3 !p-1 hover:bg-white/20 rounded transition-colors"
+					class="mr-3 !p-1 hover:bg-white/20 rounded-xl transition-colors"
 				>
 					<el-icon class="text-lg text-white">
 						<ArrowLeft />
@@ -79,7 +79,7 @@ h1 {
 
 /* 为插槽中的按钮提供统一样式类 */
 :deep(.page-header-btn) {
-	@apply font-medium text-sm px-4 py-2 rounded-md transition-all duration-300 ease-in-out relative overflow-hidden border-0;
+	@apply font-medium text-sm px-4 py-2 rounded-xl transition-all duration-300 ease-in-out relative overflow-hidden border-0;
 }
 
 :deep(.page-header-btn-primary) {

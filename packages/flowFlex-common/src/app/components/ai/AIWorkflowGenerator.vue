@@ -3852,7 +3852,7 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .ai-workflow-assistant {
 	width: 100%;
 }
@@ -3974,13 +3974,13 @@ onMounted(async () => {
 
 .chat-messages::-webkit-scrollbar-track {
 	background: #f1f5f9;
-	border-radius: 4px;
+	@apply rounded-xl;
 }
 
 .chat-messages::-webkit-scrollbar-thumb {
 	background: #cbd5e1;
-	border-radius: 4px;
 	transition: background 0.2s ease;
+	@apply rounded-xl;
 }
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
@@ -4012,8 +4012,8 @@ onMounted(async () => {
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	color: white;
 	padding: 0.75rem 1rem;
-	border-radius: 18px 18px 4px 18px;
 	max-width: 70%;
+	@apply rounded-xl;
 }
 
 .user-message .message-avatar {
@@ -4048,8 +4048,8 @@ onMounted(async () => {
 .ai-message .message-content {
 	background: #f3f4f6;
 	padding: 0.75rem 1rem;
-	border-radius: 18px 18px 18px 4px;
 	max-width: 70%;
+	@apply rounded-xl;
 }
 
 .ai-message.streaming .message-content {
@@ -4112,9 +4112,9 @@ onMounted(async () => {
 .generation-complete {
 	background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
 	border: 1px solid #bbf7d0;
-	border-radius: 16px;
 	padding: 1.5rem;
 	margin: 1rem 0;
+	@apply rounded-xl;
 }
 
 .complete-header {
@@ -4199,12 +4199,12 @@ onMounted(async () => {
 
 .status {
 	padding: 4px 12px;
-	border-radius: 20px;
 	font-size: 12px;
 	font-weight: 500;
 	background: #f1f5f9;
 	color: #64748b;
 	white-space: nowrap;
+	@apply rounded-xl;
 }
 
 .status.active {
@@ -4235,13 +4235,13 @@ onMounted(async () => {
 .stage-card {
 	background: white;
 	border: 1px solid #e5e7eb;
-	border-radius: 12px;
 	padding: 1rem;
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
 	transition: all 0.2s ease;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	@apply rounded-xl;
 }
 
 .stage-card:hover {
@@ -4267,13 +4267,13 @@ onMounted(async () => {
 	color: white;
 	width: 28px;
 	height: 28px;
-	border-radius: 8px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 14px;
 	font-weight: 700;
 	box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+	@apply rounded-xl;
 }
 
 .stage-card-content {
@@ -4307,8 +4307,8 @@ onMounted(async () => {
 	gap: 0.75rem;
 	padding: 0.75rem;
 	background: #f8fafc;
-	border-radius: 8px;
 	border: 1px solid #e2e8f0;
+	@apply rounded-xl;
 }
 
 .meta-item {
@@ -4338,9 +4338,9 @@ onMounted(async () => {
 	border: 2px dashed #d1d5db;
 	background: #f9fafb;
 	color: #6b7280;
-	border-radius: 8px;
 	padding: 0.75rem 1rem;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .add-stage-btn:hover {
@@ -4392,8 +4392,8 @@ onMounted(async () => {
 	font-weight: 600;
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 	border: none;
-	border-radius: 12px;
 	transition: all 0.3s ease;
+	@apply rounded-xl;
 }
 
 .apply-btn:hover {
@@ -4487,9 +4487,9 @@ onMounted(async () => {
 	font-weight: 600;
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	border: none;
-	border-radius: 8px;
 	transition: all 0.3s ease;
 	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+	@apply rounded-xl;
 }
 
 .generate-workflow-btn-right:hover {
@@ -4525,9 +4525,9 @@ onMounted(async () => {
 	padding: 8px 12px;
 	background: #f0f9ff;
 	border: 1px solid #bae6fd;
-	border-radius: 6px;
 	font-size: 12px;
 	color: #0369a1;
+	@apply rounded-xl;
 }
 
 .file-icon {
@@ -4542,11 +4542,11 @@ onMounted(async () => {
 .file-type-badge {
 	font-size: 10px;
 	padding: 2px 6px;
-	border-radius: 4px;
 	background: #3b82f6;
 	color: white;
 	font-weight: 600;
 	margin-left: 8px;
+	@apply rounded-xl;
 }
 
 .file-type-badge.word {
@@ -4580,9 +4580,9 @@ onMounted(async () => {
 }
 
 .image-preview {
-	border-radius: 6px;
 	overflow: hidden;
 	border: 1px solid #e5e7eb;
+	@apply rounded-xl;
 }
 
 .preview-image {
@@ -4595,9 +4595,9 @@ onMounted(async () => {
 
 .document-preview {
 	padding: 12px;
-	border-radius: 8px;
 	border: 1px solid #e5e7eb;
 	background: #f8fafc;
+	@apply rounded-xl;
 }
 
 .document-preview.pdf-preview {
@@ -4753,11 +4753,11 @@ onMounted(async () => {
 	line-height: 1.5;
 	min-height: 70px !important;
 	height: 70px !important;
-	border-radius: 12px;
 	border: 1px solid #d1d5db;
 	padding: 12px 80px 12px 16px;
 	font-size: 14px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .chat-input .el-textarea__inner:focus {
@@ -4778,7 +4778,7 @@ onMounted(async () => {
 .chat-history.collapsed {
 	width: 60px;
 	box-shadow: -1px 0 4px rgba(0, 0, 0, 0.02);
-	border-radius: 16px 0 0 16px;
+	@apply rounded-xl;
 }
 
 .history-header {
@@ -4816,8 +4816,8 @@ onMounted(async () => {
 	font-weight: 500;
 	background: #f1f5f9;
 	padding: 2px 8px;
-	border-radius: 12px;
 	display: inline-block;
+	@apply rounded-xl;
 }
 
 .header-actions {
@@ -4829,13 +4829,13 @@ onMounted(async () => {
 .new-chat-btn {
 	font-size: 12px;
 	padding: 8px 14px;
-	border-radius: 8px;
 	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 	border: none;
 	color: white;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
 	font-weight: 600;
+	@apply rounded-xl;
 }
 
 .new-chat-btn:hover {
@@ -4849,9 +4849,9 @@ onMounted(async () => {
 	padding: 6px;
 	min-width: 32px;
 	height: 32px;
-	border-radius: 8px;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	border: 1px solid transparent;
+	@apply rounded-xl;
 }
 
 .menu-btn:hover,
@@ -4866,7 +4866,7 @@ onMounted(async () => {
 }
 
 .history-search .el-input {
-	border-radius: 12px;
+	@apply rounded-xl;
 }
 
 .history-search .el-input__wrapper {
@@ -4917,7 +4917,7 @@ onMounted(async () => {
 	bottom: 0;
 	width: 3px;
 	background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
-	border-radius: 0 2px 2px 0;
+	@apply rounded-xl;
 }
 
 .pinned-section,
@@ -4929,7 +4929,6 @@ onMounted(async () => {
 	display: flex;
 	align-items: center;
 	padding: 1rem;
-	border-radius: 12px;
 	cursor: pointer;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	margin-bottom: 0.75rem;
@@ -4937,6 +4936,7 @@ onMounted(async () => {
 	border: 1px solid #f1f5f9;
 	position: relative;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	@apply rounded-xl;
 }
 
 .history-item::before {
@@ -4948,8 +4948,8 @@ onMounted(async () => {
 	width: 0;
 	height: 60%;
 	background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
-	border-radius: 0 2px 2px 0;
 	transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	@apply rounded-xl;
 }
 
 .history-item:hover {
@@ -5037,7 +5037,7 @@ onMounted(async () => {
 	font-weight: 500;
 	background: #f8fafc;
 	padding: 2px 6px;
-	border-radius: 8px;
+	@apply rounded-xl;
 }
 
 .message-count {
@@ -5045,9 +5045,9 @@ onMounted(async () => {
 	color: #64748b;
 	background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
 	padding: 3px 8px;
-	border-radius: 12px;
 	font-weight: 600;
 	border: 1px solid #e2e8f0;
+	@apply rounded-xl;
 }
 
 .item-actions {
@@ -5074,10 +5074,10 @@ onMounted(async () => {
 	padding: 4px;
 	min-width: 24px;
 	height: 24px;
-	border-radius: 6px;
 	color: #64748b;
 	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	border: 1px solid transparent;
+	@apply rounded-xl;
 }
 
 .action-btn:hover {
@@ -5136,11 +5136,11 @@ onMounted(async () => {
 	border: none;
 	color: white;
 	padding: 10px 20px;
-	border-radius: 8px;
 	font-weight: 600;
 	font-size: 14px;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+	@apply rounded-xl;
 }
 
 .start-chat-btn:hover {
@@ -5166,15 +5166,15 @@ onMounted(async () => {
 
 .history-list::-webkit-scrollbar-track {
 	background: #f8fafc;
-	border-radius: 4px;
 	margin: 4px 0;
+	@apply rounded-xl;
 }
 
 .history-list::-webkit-scrollbar-thumb {
 	background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
-	border-radius: 4px;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	border: 1px solid #e2e8f0;
+	@apply rounded-xl;
 }
 
 .history-list::-webkit-scrollbar-thumb:hover {
@@ -5192,16 +5192,16 @@ onMounted(async () => {
 		width: 100%;
 		border: 1px solid #e2e8f0;
 		border-bottom: none;
-		border-radius: 16px 16px 0 0;
 		max-height: 350px;
 		box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+		@apply rounded-xl;
 	}
 
 	.chat-history.collapsed {
 		width: 100%;
 		height: 60px;
 		max-height: 60px;
-		border-radius: 16px 16px 0 0;
+		@apply rounded-xl;
 	}
 
 	.additional-components {
@@ -5248,8 +5248,8 @@ onMounted(async () => {
 	flex: 1;
 	background: #f8fafc;
 	border: 1px solid #e2e8f0;
-	border-radius: 12px;
 	padding: 1rem;
+	@apply rounded-xl;
 }
 
 .workflow-header h4 {
@@ -5262,9 +5262,9 @@ onMounted(async () => {
 .workflow-info-card {
 	background: white;
 	border: 1px solid #e2e8f0;
-	border-radius: 8px;
 	padding: 1rem;
 	margin-bottom: 1rem;
+	@apply rounded-xl;
 }
 
 .workflow-details h5 {
@@ -5288,11 +5288,11 @@ onMounted(async () => {
 
 .workflow-meta .status {
 	padding: 0.25rem 0.75rem;
-	border-radius: 12px;
 	font-size: 12px;
 	font-weight: 500;
 	background: #f1f5f9;
 	color: #64748b;
+	@apply rounded-xl;
 }
 
 .workflow-meta .status.active {
@@ -5305,7 +5305,7 @@ onMounted(async () => {
 	color: #64748b;
 	background: #f1f5f9;
 	padding: 0.25rem 0.75rem;
-	border-radius: 12px;
+	@apply rounded-xl;
 }
 
 .stages-list h6 {
@@ -5421,8 +5421,8 @@ onMounted(async () => {
 	flex: 1;
 	background: #f8fafc;
 	border: 1px solid #e2e8f0;
-	border-radius: 12px;
 	padding: 1rem;
+	@apply rounded-xl;
 }
 
 .selection-header h4 {
@@ -5444,10 +5444,10 @@ onMounted(async () => {
 	justify-content: space-between;
 	background: white;
 	border: 1px solid #e2e8f0;
-	border-radius: 8px;
 	padding: 1rem;
 	cursor: pointer;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .workflow-option:hover {
@@ -5551,7 +5551,7 @@ onMounted(async () => {
 	width: 4px;
 	height: 20px;
 	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-	border-radius: 2px;
+	@apply rounded-xl;
 }
 
 .collapse-toggle {
@@ -5577,9 +5577,9 @@ onMounted(async () => {
 .checklist-card {
 	background: #f8fafc;
 	border: 1px solid #e2e8f0;
-	border-radius: 12px;
 	padding: 1rem;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .checklist-card:hover {
@@ -5616,8 +5616,8 @@ onMounted(async () => {
 .checklist-name-input .el-input__wrapper {
 	background: transparent;
 	border: 1px dashed #d1d5db;
-	border-radius: 6px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .checklist-name-input .el-input__wrapper:hover {
@@ -5662,7 +5662,7 @@ onMounted(async () => {
 	font-size: 16px;
 	background: #3b82f6;
 	padding: 4px 12px;
-	border-radius: 6px;
+	@apply rounded-xl;
 }
 
 .checklist-type {
@@ -5697,8 +5697,8 @@ onMounted(async () => {
 .task-item {
 	background: white;
 	border: 1px solid #e2e8f0;
-	border-radius: 8px;
 	padding: 0.75rem;
+	@apply rounded-xl;
 }
 
 .task-header {
@@ -5737,9 +5737,9 @@ onMounted(async () => {
 .questionnaire-card {
 	background: #fefce8;
 	border: 1px solid #fde047;
-	border-radius: 12px;
 	padding: 1rem;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .questionnaire-card:hover {
@@ -5768,8 +5768,8 @@ onMounted(async () => {
 .questionnaire-name-input .el-input__wrapper {
 	background: transparent;
 	border: 1px dashed #d1d5db;
-	border-radius: 6px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .questionnaire-name-input .el-input__wrapper:hover {
@@ -5811,8 +5811,8 @@ onMounted(async () => {
 .question-item {
 	background: white;
 	border: 1px solid #fde047;
-	border-radius: 8px;
 	padding: 0.75rem;
+	@apply rounded-xl;
 }
 
 .question-header {

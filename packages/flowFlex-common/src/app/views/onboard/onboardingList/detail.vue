@@ -79,7 +79,7 @@
 						<!-- Stage Details 加载状态 -->
 						<div
 							v-if="stageDataLoading"
-							class="bg-white dark:bg-black-300 rounded-md p-8"
+							class="bg-white dark:bg-black-300 rounded-xl p-8"
 						>
 							<div class="flex flex-col items-center justify-center space-y-4">
 								<el-icon class="is-loading text-4xl text-primary-500">

@@ -1,5 +1,5 @@
 <template>
-	<div class="create-questionnaire-container rounded-md">
+	<div class="create-questionnaire-container rounded-xl">
 		<!-- 页面头部 -->
 		<PageHeader
 			:title="pageTitle"
@@ -37,7 +37,7 @@
 				<!-- 左侧配置面板 -->
 				<div class="config-panel">
 					<el-scrollbar ref="configScrollbarRef">
-						<el-card class="config-card rounded-md">
+						<el-card class="config-card rounded-xl">
 							<!-- 基本信息 -->
 							<QuestionnaireBasicInfo
 								:questionnaire="{
@@ -97,7 +97,7 @@
 					>
 						<el-scrollbar ref="editorScrollbarRef">
 							<TabPane value="questions" class="questions-pane">
-								<el-card class="editor-card rounded-md">
+								<el-card class="editor-card rounded-xl">
 									<!-- 当前分区信息 -->
 									<div
 										v-if="showSectionManagement"
@@ -1040,8 +1040,8 @@ onMounted(async () => {
 	margin-bottom: 1.5rem;
 	padding: 1rem;
 	background-color: var(--primary-50);
-	border-radius: 0.375rem;
 	border: 1px solid var(--primary-100);
+	@apply rounded-xl;
 }
 
 /* 深色模式支持 */

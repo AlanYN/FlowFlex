@@ -270,7 +270,7 @@
 		<!-- 空状态 -->
 		<div
 			v-if="questionnaires.length === 0 && !loading"
-			class="empty-state flex flex-col items-center justify-center py-12 text-center rounded-lg shadow-sm"
+			class="empty-state flex flex-col items-center justify-center py-12 text-center rounded-xl shadow-sm"
 		>
 			<div class="empty-icon-bg p-4 rounded-full mb-4">
 				<el-icon class="h-12 w-12 empty-icon"><Document /></el-icon>

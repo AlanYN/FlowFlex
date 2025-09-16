@@ -2,7 +2,7 @@
 	<div class="customer-block">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="progress-header-card rounded-md"
+			class="progress-header-card rounded-xl"
 			:class="{ expanded: isOpen }"
 			@click="toggleOpen"
 		>
@@ -23,9 +23,9 @@
 			</div>
 			<!-- 统一进度条 -->
 			<div class="progress-bar-container">
-				<div class="progress-bar rounded-md">
+				<div class="progress-bar rounded-xl">
 					<div
-						class="progress-fill rounded-md"
+						class="progress-fill rounded-xl"
 						:style="{ width: `${progressPercentage}%` }"
 					></div>
 				</div>
@@ -52,7 +52,7 @@
 						<div
 							v-for="(stage, index) in displayedStages"
 							:key="stage.stageId"
-							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-lg min-w-0 w-full"
+							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-xl min-w-0 w-full"
 							:class="[
 								stage.completed
 									? 'border-green-500'

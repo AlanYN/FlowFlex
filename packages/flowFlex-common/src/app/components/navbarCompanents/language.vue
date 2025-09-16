@@ -3,7 +3,7 @@
 		<div class="flex flex-row justify-between items-center">
 			<IonLanguage width="24px" height="24px" />
 			<ul
-				class="absolute top-full rounded-lg right-[-30px] w-[100px] p-[10px] hidden group-hover:block bg-siderbarGray dark:bg-black-300 z-[10000]"
+				class="absolute top-full rounded-xl right-[-30px] w-[100px] p-[10px] hidden group-hover:block bg-siderbarGray dark:bg-black-300 z-[10000]"
 			>
 				<li
 					v-for="item in localeArr"

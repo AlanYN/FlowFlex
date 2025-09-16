@@ -215,7 +215,7 @@ const submitForm = async () => {
 const emit = defineEmits(['submit', 'cancel']);
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .new-workflow-form {
 	margin-top: 5px;
 }
@@ -260,8 +260,8 @@ const emit = defineEmits(['submit', 'cancel']);
 
 :deep(.el-input__wrapper),
 :deep(.el-textarea__wrapper) {
-	border-radius: 4px;
 	box-shadow: 0 0 0 1px #dcdfe6 inset;
+	@apply rounded-xl;
 }
 
 :deep(.el-input__wrapper:hover),

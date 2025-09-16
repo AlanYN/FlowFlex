@@ -1,7 +1,7 @@
 <!-- 组件功能：按压enter键后，生成自定义标签。还可以同时选择固定标签 -->
 <template>
 	<div
-		class="flex flex-wrap shrink-0 rounded-lg px-8 py-6"
+		class="flex flex-wrap shrink-0 rounded-xl px-8 py-6"
 		:class="hasBg ? 'bg-gray-50 dark:bg-gray-900' : ''"
 	>
 		<div
