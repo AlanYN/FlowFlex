@@ -201,6 +201,8 @@
 									v-else-if="formData.actionType === ActionType.HTTP_API"
 									v-model="formData.actionConfig"
 									@test="onTest"
+									@update:action-name="updateActionName"
+									@ai-config-applied="handleAiConfigApplied"
 									:testing="testing"
 									:test-result="testResult"
 									ref="httpConfigRef"
@@ -307,6 +309,8 @@ const useExistingTool = computed(
 const selectedToolId = ref(''); // 选中的工具 ID
 const loadingExistingTools = ref(false); // 加载已有工具列表状态
 const existingToolsList = ref<ActionDefinition[]>([]); // 已有工具列表
+const isAiGenerated = ref(false); // 标识当前action是否为AI生成
+const aiGeneratedConfig = ref<any>(null); // 存储AI生成的配置数据
 
 const formData = reactive<ActionItem>({
 	id: '',
@@ -447,6 +451,10 @@ const resetForm = () => {
 	selectedToolId.value = '';
 	existingToolsList.value = [];
 
+	// 重置AI生成状态
+	isAiGenerated.value = false;
+	aiGeneratedConfig.value = null;
+
 	// 重置配置模式为默认值
 	// 如果 forceEditable 为 true 且没有 action，设置为 NewTool 模式
 	if (props.forceEditable && !props.action) {
@@ -458,6 +466,21 @@ const resetForm = () => {
 
 const handleActionTypeChange = (actionType: ActionType) => {
 	formData.actionConfig = getDefaultConfig(actionType);
+};
+
+// Update action name from HttpConfig component
+const updateActionName = (actionName: string) => {
+	if (actionName && typeof actionName === 'string' && actionName.trim()) {
+		formData.name = actionName.trim();
+		console.log('📝 Action name updated in dialog:', actionName);
+	}
+};
+
+// Handle AI config applied from HttpConfig component
+const handleAiConfigApplied = (config: any) => {
+	isAiGenerated.value = true;
+	aiGeneratedConfig.value = config;
+	console.log('🤖 AI config applied, marking action as AI-generated:', config);
 };
 
 // Action Type 名称映射方法
@@ -713,6 +736,10 @@ const onSave = async () => {
 				actionType: formData.actionType,
 				triggerSourceId: props?.triggerSourceId || null,
 				triggerType: props?.triggerType || null,
+				isAIGenerated: isAiGenerated.value, // 添加AI生成标识
+				aiGeneratedConfig: aiGeneratedConfig.value
+					? JSON.stringify(aiGeneratedConfig.value)
+					: null, // 添加AI生成的配置数据
 			};
 
 			const res: any = formData.id

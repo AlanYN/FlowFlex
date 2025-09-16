@@ -894,6 +894,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
 	'update:modelValue': [value: any];
+	'update:actionName': [name: string];
+	'ai-config-applied': [config: any];
 	test: [];
 }>();
 
@@ -1019,6 +1021,104 @@ const formConfig = computed({
 });
 
 // Controlled setters to trigger computed.set via whole-object assignment
+// Filter stream content to show only essential progress information
+const filterStreamContent = (content: string): string => {
+	// 过滤掉所有JSON内容和代码块
+	if (
+		content.includes('```json') ||
+		content.includes('```') ||
+		content.includes('{') ||
+		content.includes('}') ||
+		content.includes('[') ||
+		content.includes(']') ||
+		content.includes('"') ||
+		content.match(/\s*"[\w]+"\s*:/) // JSON键值对格式
+	) {
+		return '';
+	}
+
+	// 过滤掉包含特定关键词的详细内容
+	const skipKeywords = [
+		'actionItems',
+		'keyInsights',
+		'nextSteps',
+		'stakeholders',
+		'description',
+		'category',
+		'priority',
+		'assignedTo',
+		'dependencies',
+		'tags',
+		'actionPlan',
+		'implementation',
+		'riskFactors',
+		'successMetrics',
+		'confidenceScore',
+		'Creating action plan',
+		'Processing',
+		'json',
+	];
+
+	// 如果内容包含要跳过的关键词，直接过滤
+	if (skipKeywords.some((keyword) => content.toLowerCase().includes(keyword.toLowerCase()))) {
+		return '';
+	}
+
+	// 只保留简短的关键进度信息
+	const progressKeywords = [
+		'Initializing',
+		'Analysis completed',
+		'Now creating',
+		'Generated successfully',
+		'Starting',
+		'Completed',
+		'✅',
+		'🔄',
+	];
+
+	// 过滤掉重复的"Generating..."消息
+	if (content.trim() === 'Generating...' || content.trim() === 'Generating') {
+		return '';
+	}
+
+	// 进一步简化内容
+	if (content.includes('Analysis completed')) {
+		return '✅ Analysis completed\n';
+	}
+	if (content.includes('Now creating')) {
+		return '🔄 Creating HTTP configuration...\n';
+	}
+	if (content.includes('Generated successfully')) {
+		return '✅ HTTP configuration generated successfully!\n';
+	}
+	if (content.includes('Initializing')) {
+		return '🚀 Initializing analysis...\n';
+	}
+	if (content.includes('Generating HTTP configuration')) {
+		return '🔄 Processing...\n';
+	}
+
+	// 只保留包含关键进度信息且简短的内容
+	if (progressKeywords.some((keyword) => content.includes(keyword))) {
+		if (content.length <= 50) {
+			return content + '\n';
+		}
+		return '';
+	}
+
+	// 过滤掉过长的内容
+	if (content.length > 50) {
+		return '';
+	}
+
+	// 过滤掉只包含空白字符的内容
+	if (content.trim() === '') {
+		return '';
+	}
+
+	return content.includes('.') || content.includes('!') ? content + '\n' : '';
+};
+
 // Update action name for generated HTTP config
 const updateActionName = (message: any, newName: string) => {
 	console.log('📝 Updating action name:', newName);
@@ -1611,26 +1711,24 @@ const sendAIMessage = async () => {
 	}
 };
 
-// 流式处理AI请求
+// 流式处理AI请求 - 使用优化的单步流程
 const processAIRequestWithStreaming = async (input: string, file: File | null) => {
 	// 创建一个助手消息用于显示流式内容
 	const assistantMessage = {
 		role: 'assistant' as const,
-		content: 'Initializing AI analysis...',
+		content: '🚀 Generating HTTP configuration...',
 		timestamp: new Date().toISOString(),
 		httpConfig: null as any,
 	};
 	aiChatMessages.value.push(assistantMessage);
 
-	let analysisResult: any = null;
 	let streamingContent = '';
-	let creationContent = '';
 
 	try {
-		console.log('🚀 Starting AI analysis stream...');
+		console.log('🚀 Starting optimized HTTP config generation...');
 
-		// 第一步：流式分析用户请求
-		await streamAnalyzeRequest(input, file, (chunk, data) => {
+		// 使用新的优化端点直接生成HTTP配置
+		await streamGenerateHttpConfigDirect(input, file, (chunk, data) => {
 			console.log('📥 Received chunk:', chunk);
 
 			// 统一处理大小写问题
@@ -1638,176 +1736,44 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 			const chunkContent = chunk.content || chunk.Content;
 			const chunkActionData = chunk.actionData || chunk.ActionData;
 
-			console.log('🔍 Normalized chunk type:', chunkType);
-			if (chunkType === 'complete') {
-				console.log('🔍 Complete chunk actionData exists:', !!chunkActionData);
-			}
+			console.log('🔍 Chunk type:', chunkType);
 
-			if (chunkType === 'analysis' || chunkType === 'progress') {
-				console.log('📝 Processing analysis/progress chunk:', chunkContent);
-				streamingContent += chunkContent;
+			if (chunkType === 'progress' || chunkType === 'generation') {
+				console.log('📝 Processing progress chunk:', chunkContent);
 
-				// 直接修改数组中的最后一个消息（助手消息）
-				// 保留初始的"Initializing AI analysis..."内容，然后追加流式内容
-				const lastMessageIndex = aiChatMessages.value.length - 1;
-				if (lastMessageIndex >= 0) {
-					const initialContent = 'Initializing AI analysis...\n\n';
-					const fullContent = initialContent + streamingContent;
-					aiChatMessages.value[lastMessageIndex].content = fullContent;
-					console.log(
-						'🔄 Updated array message at index',
-						lastMessageIndex,
-						'new content length:',
-						fullContent.length
-					);
-					console.log(
-						'🔍 Current message content preview:',
-						fullContent.substring(0, 100) + '...'
-					);
-				}
-				console.log('📄 Updated message content length:', streamingContent.length);
+				// 过滤并显示简洁的进度信息
+				const filteredContent = filterStreamContent(chunkContent);
+				if (filteredContent && !streamingContent.includes(filteredContent.trim())) {
+					streamingContent += filteredContent;
 
-				// 实时滚动到底部
-				nextTick(() => {
-					if (chatMessagesRef.value) {
-						chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
+					// 更新UI显示
+					const lastMessageIndex = aiChatMessages.value.length - 1;
+					if (lastMessageIndex >= 0) {
+						const baseContent = '🚀 Generating HTTP configuration...\n\n';
+						const fullContent = baseContent + streamingContent;
+						aiChatMessages.value[lastMessageIndex].content = fullContent;
 					}
-				});
+
+					// 实时滚动到底部
+					nextTick(() => {
+						if (chatMessagesRef.value) {
+							chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
+						}
+					});
+				}
 			} else if (chunkType === 'complete' && chunkActionData) {
-				console.log('✅ Analysis completed, actionData:', chunkActionData);
+				console.log('🎉 HTTP config generation completed, actionData:', chunkActionData);
 
-				// 检查 ActionData 的成功状态
-				console.log('🔍 Checking ActionData.Success:', chunkActionData.Success);
-				console.log('🔍 ActionItems count:', chunkActionData.ActionItems?.length || 0);
-
-				if (chunkActionData.Success === false) {
-					console.warn(
-						'⚠️ Analysis completed but marked as unsuccessful:',
-						chunkActionData.Message
-					);
-					// 即使标记为不成功，如果有 ActionItems，我们仍然可以继续
-					if (chunkActionData.ActionItems && chunkActionData.ActionItems.length > 0) {
-						console.log(
-							'📋 Found',
-							chunkActionData.ActionItems.length,
-							'action items, proceeding with creation...'
-						);
-						analysisResult = chunkActionData;
-					} else {
-						console.error('❌ No action items found in analysis result');
-						analysisResult = null;
-					}
-				} else {
-					console.log('✅ Analysis marked as successful');
-					analysisResult = chunkActionData;
-				}
-
-				streamingContent +=
-					'\n\n✅ Analysis completed. Now creating HTTP configuration...\n\n';
-
-				// 直接修改数组中的最后一个消息（助手消息）
-				// 保留初始内容和分析内容
-				const lastMessageIndex = aiChatMessages.value.length - 1;
-				if (lastMessageIndex >= 0) {
-					const initialContent = 'Initializing AI analysis...\n\n';
-					aiChatMessages.value[lastMessageIndex].content =
-						initialContent + streamingContent;
-				}
-
-				// 滚动到底部
-				nextTick(() => {
-					if (chatMessagesRef.value) {
-						chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
-					}
-				});
-			}
-		});
-
-		// 更详细的错误检查
-		if (!analysisResult) {
-			console.error('❌ Analysis result is null or undefined');
-			throw new Error('Failed to analyze request: No analysis result received');
-		}
-
-		if (!analysisResult.ActionItems || analysisResult.ActionItems.length === 0) {
-			console.error('❌ No action items found in analysis result:', analysisResult);
-			throw new Error('Failed to analyze request: No actionable items identified');
-		}
-
-		console.log(
-			'✅ Analysis result validated, proceeding with',
-			analysisResult.ActionItems.length,
-			'action items'
-		);
-
-		console.log('🔄 Starting HTTP configuration creation...');
-
-		// 第二步：流式创建HTTP配置
-		await streamCreateAction(analysisResult, (chunk, data) => {
-			console.log('📦 Received creation chunk:', chunk);
-			console.log('📦 Chunk raw data:', JSON.stringify(chunk).substring(0, 200) + '...');
-
-			// 统一处理大小写问题
-			const chunkType = chunk.type || chunk.Type;
-			const chunkContent = chunk.content || chunk.Content;
-			const chunkActionData = chunk.actionData || chunk.ActionData;
-
-			console.log('🔍 Creation chunk type:', chunkType);
-			if (chunkType === 'complete') {
-				console.log('🔍 Creation complete chunk actionData exists:', !!chunkActionData);
-			}
-
-			if (chunkType === 'creation' || chunkType === 'progress') {
-				console.log('🛠️ Processing creation/progress chunk:', chunkContent);
-				// 累积创建阶段的内容
-				creationContent += chunkContent;
-
-				// 组合完整内容：初始内容 + 分析内容 + 创建内容
-				const initialContent = 'Initializing AI analysis...\n\n';
-				const analysisCompleteText =
-					streamingContent +
-					'\n\n✅ Analysis completed. Now creating HTTP configuration...\n\n';
-				const fullContent = initialContent + analysisCompleteText + creationContent;
-
-				// 直接修改数组中的最后一个消息（助手消息）
-				const lastMessageIndex = aiChatMessages.value.length - 1;
-				if (lastMessageIndex >= 0) {
-					aiChatMessages.value[lastMessageIndex].content = fullContent;
-				}
-				console.log('📄 Updated creation content length:', fullContent.length);
-				console.log(
-					'🔍 Creation content preview:',
-					creationContent.substring(0, 50) + '...'
-				);
-
-				// 实时滚动到底部
-				nextTick(() => {
-					if (chatMessagesRef.value) {
-						chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
-					}
-				});
-			} else if (chunkType === 'complete' && chunkActionData) {
-				console.log('🎉 Creation completed, actionData:', chunkActionData);
-				// 从生成的行动计划中提取HTTP配置
+				// 直接从响应中提取HTTP配置
 				const httpConfig = extractHttpConfigFromActionPlan(chunkActionData);
 				console.log('🔧 Extracted HTTP config:', httpConfig);
 
-				// 直接修改数组中的最后一个消息（助手消息）
-				// 保留所有分析和创建内容，只添加HTTP配置
+				// 更新最终消息
 				const lastMessageIndex = aiChatMessages.value.length - 1;
 				if (lastMessageIndex >= 0) {
 					aiChatMessages.value[lastMessageIndex].httpConfig = httpConfig;
-					// 保留完整的分析和创建内容，添加完成提示
-					const initialContent = 'Initializing AI analysis...\n\n';
-					const analysisCompleteText =
-						streamingContent +
-						'\n\n✅ Analysis completed. Now creating HTTP configuration...\n\n';
-					const finalContent =
-						initialContent +
-						analysisCompleteText +
-						creationContent +
-						'\n\n✅ HTTP configuration generated successfully!';
-					aiChatMessages.value[lastMessageIndex].content = finalContent;
+					aiChatMessages.value[lastMessageIndex].content =
+						'🚀 Generating HTTP configuration...\n\n✅ HTTP configuration generated successfully!';
 				}
 
 				// 最终滚动到底部
@@ -1819,12 +1785,12 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 			}
 		});
 	} catch (error) {
-		console.error('Streaming error:', error);
+		console.error('HTTP config generation error:', error);
 
 		// 直接修改数组中的最后一个消息（助手消息）
 		const lastMessageIndex = aiChatMessages.value.length - 1;
 		if (lastMessageIndex >= 0) {
-			aiChatMessages.value[lastMessageIndex].content = `Error: ${
+			aiChatMessages.value[lastMessageIndex].content = `❌ Error: ${
 				error instanceof Error ? error.message : 'Unknown error'
 			}`;
 		}
@@ -1832,17 +1798,179 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 	}
 };
 
-// 流式分析请求
-const streamAnalyzeRequest = async (
+// 优化的单步HTTP配置生成
+const streamGenerateHttpConfigDirect = async (
 	input: string,
 	file: File | null,
 	onChunk: (chunk: any, data?: any) => void
 ) => {
-	const conversationHistory = [
-		{
-			role: 'user',
-			content: input,
-			timestamp: new Date().toISOString(),
+	// 构建优化的请求负载
+	let context = 'Generate HTTP API configuration directly from user input';
+	let fileContent = '';
+	let fileName = '';
+
+	// 如果有文件，读取文件内容
+	if (file) {
+		try {
+			fileContent = await readFileContent(file);
+			fileName = file.name;
+			console.log('📄 File content read successfully:', fileName, fileContent.length);
+		} catch (error) {
+			console.error('Error reading file:', error);
+		}
+	}
+
+	const payload = {
+		userInput: input,
+		context,
+		fileContent,
+		fileName,
+		sessionId: `http_config_${Date.now()}`,
+		outputFormat: 'direct_config',
+		skipDetailedAnalysis: true,
+		modelId: currentAIModel.value?.id?.toString(),
+		modelProvider: currentAIModel.value?.provider || selectedAIModel.value,
+		modelName:
+			currentAIModel.value?.modelName ||
+			(selectedAIModel.value === 'zhipuai'
+				? 'glm-4'
+				: selectedAIModel.value === 'openai'
+				? 'gpt-4'
+				: 'claude-3'),
+	};
+
+	// 获取认证信息
+	const tokenObj = getTokenobj();
+	const userStore = useUserStoreWithOut();
+	const userInfo = userStore.getUserInfo;
+	const globSetting = useGlobSetting();
+
+	// 构建请求头
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json',
+		'Time-Zone': getTimeZoneInfo().timeZone,
+		'Application-code': globSetting?.ssoCode || '',
+		Accept: 'text/event-stream',
+		'Cache-Control': 'no-cache',
+	};
+
+	// 添加认证头
+	if (tokenObj?.accessToken?.token) {
+		const token = tokenObj.accessToken.token;
+		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
+		headers.Authorization = `${tokenType} ${token}`;
+	}
+
+	// 添加用户相关头信息
+	if (userInfo?.appCode) {
+		headers['X-App-Code'] = String(userInfo.appCode);
+	}
+	if (userInfo?.tenantId) {
+		headers['X-Tenant-Id'] = String(userInfo.tenantId);
+	}
+
+	console.log(
+		'🌐 Starting optimized HTTP config generation:',
+		'/api/ai/v1/http-config/generate/stream'
+	);
+	console.log('📤 Request payload:', payload);
+
+	// 使用新的专用端点
+	return new Promise<void>((resolve, reject) => {
+		fetch('/api/ai/v1/http-config/generate/stream', {
+			method: 'POST',
+			headers: headers,
+			body: JSON.stringify(payload),
+		})
+			.then((response) => {
+				console.log('📡 Response received:', response.status, response.statusText);
+
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
+
+				const reader = response.body?.getReader();
+				if (!reader) {
+					throw new Error('No response body reader available');
+				}
+
+				const decoder = new TextDecoder();
+
+				const readStream = async () => {
+					try {
+						console.log('📖 Starting to read stream...');
+						for (;;) {
+							const { done, value } = await reader.read();
+							if (done) {
+								console.log('✅ Stream reading completed');
+								break;
+							}
+
+							const chunk = decoder.decode(value, { stream: true });
+							console.log('📝 Raw chunk received:', chunk);
+							const lines = chunk.split('\n');
+
+							for (const line of lines) {
+								if (line.startsWith('data: ')) {
+									const data = line.substring(6);
+									console.log('📊 Processing data line:', data);
+
+									if (data === '[DONE]') {
+										console.log('🏁 Received [DONE] signal');
+										resolve();
+										return;
+									}
+
+									try {
+										const parsed = JSON.parse(data);
+										console.log('✨ Parsed JSON data:', parsed);
+										onChunk(parsed);
+
+										if (parsed.type === 'complete') {
+											console.log('🎯 Stream completed');
+											resolve();
+											return;
+										} else if (parsed.type === 'error') {
+											console.error('❌ Stream error:', parsed.content);
+											reject(new Error(parsed.content));
+											return;
+										}
+									} catch (e) {
+										console.warn('⚠️ Failed to parse JSON:', data, e);
+										// Skip invalid JSON
+										continue;
+									}
+								}
+							}
+						}
+						resolve();
+					} catch (error) {
+						console.error('💥 Stream reading error:', error);
+						reject(error);
+					}
+				};
+
+				readStream();
+			})
+			.catch((error) => {
+				console.error('🚫 Fetch error:', error);
+				reject(error);
+			});
+	});
+};
+
+// 流式分析请求 (已移除，使用优化的单步流程)
+/*
+	const streamAnalyzeRequest = async (
+		input: string,
+		file: File | null,
+		onChunk: (chunk: any, data?: any) => void
+	) => {
+		const conversationHistory = [
+			{
+				role: 'user',
+				content: input,
+				timestamp: new Date().toISOString(),
 		},
 	];
 
@@ -1988,10 +2116,11 @@ const streamAnalyzeRequest = async (
 				reject(error);
 			});
 	});
-};
+	*/
 
-// 流式创建Action
-const streamCreateAction = async (
+// 流式创建Action (已移除，使用优化的单步流程)
+/*
+	const streamCreateAction = async (
 	analysisResult: any,
 	onChunk: (chunk: any, data?: any) => void
 ) => {
@@ -2129,7 +2258,7 @@ const streamCreateAction = async (
 				reject(error);
 			});
 	});
-};
+	*/
 
 // Removed unused analyzeUserRequest function
 
@@ -2205,29 +2334,40 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 	console.log('📝 User input for parsing:', userInput);
 
 	const curlConfig = parseCurlCommand(userInput);
-	if (curlConfig.url) {
+	if (curlConfig.url && curlConfig.url !== '') {
 		console.log('✅ Successfully parsed curl command:', curlConfig);
 		// 添加默认的action名称
-		curlConfig.actionName = generateActionName(curlConfig.method, curlConfig.url);
+		curlConfig.actionName = generateActionName(curlConfig.url, curlConfig.method);
 		return curlConfig;
 	}
 
 	// 如果curl解析失败，回退到从AI响应中解析
-	const actions = actionPlan.actions || [];
+	const actions = actionPlan.ActionItems || actionPlan.actions || [];
+	console.log('🔍 Searching in ActionItems/actions:', actions);
 
 	// 查找包含HTTP配置信息的行动项目
 	const httpAction = actions.find(
 		(action: any) =>
 			action.title?.toLowerCase().includes('http') ||
+			action.title?.toLowerCase().includes('api') ||
+			action.title?.toLowerCase().includes('request') ||
 			action.description?.toLowerCase().includes('request') ||
+			action.description?.toLowerCase().includes('endpoint') ||
+			action.description?.toLowerCase().includes('api') ||
 			action.category?.toLowerCase().includes('api')
 	);
 
+	console.log('🎯 Found HTTP action:', httpAction);
+
 	if (httpAction) {
 		// 尝试从描述中解析HTTP配置
+		const title = httpAction.title || '';
 		const description = httpAction.description || '';
+		const fullText = `${title} ${description}`.toLowerCase();
 
-		// 简单的解析逻辑，实际应用中可能需要更复杂的解析
+		console.log('📖 Analyzing text:', fullText);
+
+		// 初始化配置对象
 		const config: any = {
 			method: 'GET',
 			url: '',
@@ -2236,47 +2376,90 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			body: '',
 		};
 
-		// 解析HTTP方法
-		const methodMatch = description.match(/\b(GET|POST|PUT|DELETE|PATCH)\b/i);
+		// 解析HTTP方法 - 更强健的正则表达式
+		const methodMatch = fullText.match(/\b(get|post|put|delete|patch)\b/i);
 		if (methodMatch) {
 			config.method = methodMatch[1].toUpperCase();
+			console.log('📡 Found method:', config.method);
 		}
 
-		// 解析URL
-		const urlMatch = description.match(/(?:url|endpoint|api):\s*([^\s\n]+)/i);
-		if (urlMatch) {
-			config.url = urlMatch[1];
+		// 解析URL - 改进的URL匹配模式
+		const urlPatterns = [
+			/(?:url|endpoint|api):\s*(https?:\/\/[^\s\n]+)/i, // url: http://...
+			/(?:to|at)\s+(https?:\/\/[^\s\n]+)/i, // to/at http://...
+			/(https?:\/\/[^\s\n]+)/i, // 任何 http://...
+			/(?:\/[a-zA-Z0-9\-_/]+)/, // 相对路径 /api/...
+		];
+
+		for (const pattern of urlPatterns) {
+			const urlMatch = fullText.match(pattern);
+			if (urlMatch) {
+				config.url = urlMatch[1] || urlMatch[0];
+				console.log('🌐 Found URL:', config.url);
+				break;
+			}
+		}
+
+		// 如果没有找到完整URL，尝试构建一个基础URL
+		if (!config.url || config.url === '') {
+			// 查找API路径
+			const pathMatch =
+				fullText.match(/\/api\/[^\s\n]*/i) || fullText.match(/\/[a-zA-Z0-9\-_/]+/);
+			if (pathMatch) {
+				config.url = `https://api.example.com${pathMatch[0]}`;
+				console.log('🔧 Constructed URL from path:', config.url);
+			} else {
+				config.url = 'https://api.example.com/endpoint';
+				console.log('🔧 Using default URL');
+			}
 		}
 
 		// 解析Content-Type
-		if (description.toLowerCase().includes('json')) {
+		if (fullText.includes('json')) {
 			config.headers['Content-Type'] = 'application/json';
-			config.bodyType = 'raw';
-			config.rawFormat = 'json';
-		} else if (description.toLowerCase().includes('form')) {
+			if (config.method !== 'GET') {
+				config.bodyType = 'raw';
+				config.rawFormat = 'json';
+			}
+			console.log('📋 Set JSON content type');
+		} else if (fullText.includes('form')) {
 			config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-			config.bodyType = 'x-www-form-urlencoded';
+			if (config.method !== 'GET') {
+				config.bodyType = 'x-www-form-urlencoded';
+			}
+			console.log('📋 Set form content type');
 		}
 
 		// 解析认证头
 		if (
-			description.toLowerCase().includes('authorization') ||
-			description.toLowerCase().includes('token')
+			fullText.includes('authorization') ||
+			fullText.includes('token') ||
+			fullText.includes('auth')
 		) {
 			config.headers['Authorization'] = 'Bearer {{token}}';
+			console.log('🔐 Added authorization header');
+		}
+
+		// 添加一些常用的默认头部
+		if (!config.headers.Accept) {
+			config.headers.Accept = 'application/json';
 		}
 
 		// 添加默认的action名称
-		config.actionName = generateActionName(config.method, config.url);
+		config.actionName = generateActionName(config.url, config.method);
+		console.log('✅ Generated action name:', config.actionName);
+		console.log('✅ Final config:', config);
 		return config;
 	}
 
+	console.log('⚠️ No HTTP action found, using default config');
 	// 默认配置
 	const defaultConfig = {
 		method: 'GET',
 		url: 'https://api.example.com/endpoint',
 		headers: {
 			'Content-Type': 'application/json',
+			Accept: 'application/json',
 		},
 		bodyType: 'none',
 		body: '',
@@ -2495,150 +2678,146 @@ const generateActionName = (url: string, method: string): string => {
 	}
 };
 
-// 创建HTTP Action的API调用函数
-const createHttpActionAPI = async (actionParams: any) => {
-	// 获取认证信息
-	const tokenObj = getTokenobj();
-	const userStore = useUserStoreWithOut();
-	const userInfo = userStore.getUserInfo;
-	const globSetting = useGlobSetting();
-
-	// 构建请求头
-	const headers: Record<string, string> = {
-		'Content-Type': 'application/json',
-		'Time-Zone': getTimeZoneInfo().timeZone,
-		'Application-code': globSetting?.ssoCode || '',
-	};
-
-	// 添加认证头
-	if (tokenObj?.accessToken?.token) {
-		const token = tokenObj.accessToken.token;
-		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
-		headers.Authorization = `${tokenType} ${token}`;
-	}
-
-	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
-	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = String(userInfo.tenantId);
-	}
-
-	console.log('🌐 Calling addAction API with params:', actionParams);
-	console.log('📋 Request headers:', headers);
-
-	const response = await fetch('/api/action/v1/definitions', {
-		method: 'POST',
-		headers,
-		body: JSON.stringify(actionParams),
-	});
-
-	console.log('📡 HTTP Response Status:', response.status, response.statusText);
-
-	if (!response.ok) {
-		console.error('❌ HTTP Error:', response.status, response.statusText);
-		throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-	}
-
-	const result = await response.json();
-	console.log('📨 API Response:', result);
-
-	return result;
-};
-
 const applyGeneratedConfig = async (httpConfig: any) => {
 	console.log('🔧 Applying generated HTTP config:', httpConfig);
 
-	// 应用生成的配置到表单
-	if (httpConfig.url) {
-		formConfig.value.url = httpConfig.url;
-		console.log('✅ Applied URL:', httpConfig.url);
+	// 验证配置有效性
+	if (!httpConfig || typeof httpConfig !== 'object') {
+		console.error('❌ Invalid HTTP config provided:', httpConfig);
+		ElMessage.error('Invalid HTTP configuration provided');
+		return;
 	}
-	if (httpConfig.method) {
-		formConfig.value.method = httpConfig.method;
-		console.log('✅ Applied Method:', httpConfig.method);
+
+	// 构建新的配置对象
+	const newConfig = { ...formConfig.value };
+
+	// 应用URL
+	if (httpConfig.url && typeof httpConfig.url === 'string' && httpConfig.url.trim() !== '') {
+		// 确保URL是有效的
+		let validUrl = httpConfig.url.trim();
+		// 如果URL不包含协议，尝试添加https://
+		if (!validUrl.match(/^https?:\/\//)) {
+			if (validUrl.startsWith('//')) {
+				validUrl = 'https:' + validUrl;
+			} else if (validUrl.startsWith('/')) {
+				validUrl = 'https://api.example.com' + validUrl;
+			} else if (!validUrl.includes('://')) {
+				validUrl = 'https://' + validUrl;
+			}
+		}
+		newConfig.url = validUrl;
+		console.log('✅ Applied URL:', validUrl);
+	} else {
+		console.warn('⚠️ No valid URL provided, using default');
+		newConfig.url = 'https://api.example.com/endpoint';
 	}
-	if (httpConfig.headers) {
-		const headersList = Object.entries(httpConfig.headers).map(([key, value]) => ({
-			key,
-			value: value as string,
-		}));
+
+	// 应用HTTP方法
+	if (httpConfig.method && typeof httpConfig.method === 'string') {
+		const validMethod = httpConfig.method.toUpperCase();
+		if (['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(validMethod)) {
+			newConfig.method = validMethod;
+			console.log('✅ Applied Method:', validMethod);
+		} else {
+			console.warn('⚠️ Invalid HTTP method:', httpConfig.method, 'using GET');
+			newConfig.method = 'GET';
+		}
+	}
+
+	// 应用Headers
+	if (httpConfig.headers && typeof httpConfig.headers === 'object') {
+		const headersList = Object.entries(httpConfig.headers)
+			.filter(([key, value]) => key && value) // 过滤空值
+			.map(([key, value]) => ({
+				key: String(key).trim(),
+				value: String(value).trim(),
+			}));
 		headersList.push({ key: '', value: '' }); // 添加空行
-		formConfig.value.headersList = headersList;
+		newConfig.headersList = headersList;
 		console.log('✅ Applied Headers:', headersList);
 	}
-	if (httpConfig.bodyType) {
-		formConfig.value.bodyType = httpConfig.bodyType;
-		console.log('✅ Applied Body Type:', httpConfig.bodyType);
+
+	// 应用Body Type
+	if (httpConfig.bodyType && typeof httpConfig.bodyType === 'string') {
+		const validBodyTypes = ['none', 'form-data', 'x-www-form-urlencoded', 'raw'];
+		if (validBodyTypes.includes(httpConfig.bodyType)) {
+			newConfig.bodyType = httpConfig.bodyType;
+			console.log('✅ Applied Body Type:', httpConfig.bodyType);
+		} else {
+			console.warn('⚠️ Invalid body type:', httpConfig.bodyType, 'using none');
+			newConfig.bodyType = 'none';
+		}
 	}
-	if (httpConfig.body) {
-		formConfig.value.body = httpConfig.body;
+
+	// 应用Body内容
+	if (httpConfig.body && typeof httpConfig.body === 'string') {
+		newConfig.body = httpConfig.body;
 		console.log('✅ Applied Body:', httpConfig.body);
 	}
-	if (httpConfig.rawFormat) {
-		formConfig.value.rawFormat = httpConfig.rawFormat;
-		console.log('✅ Applied Raw Format:', httpConfig.rawFormat);
+
+	// 应用Raw格式
+	if (httpConfig.rawFormat && typeof httpConfig.rawFormat === 'string') {
+		const validFormats = ['json', 'text', 'xml', 'html', 'javascript'];
+		if (validFormats.includes(httpConfig.rawFormat)) {
+			newConfig.rawFormat = httpConfig.rawFormat;
+			console.log('✅ Applied Raw Format:', httpConfig.rawFormat);
+		} else {
+			console.warn('⚠️ Invalid raw format:', httpConfig.rawFormat, 'using json');
+			newConfig.rawFormat = 'json';
+		}
 	}
 
-	// 显示配置应用成功消息
-	ElMessage.success('HTTP configuration applied successfully!');
+	// 确保基本的列表字段存在
+	if (!newConfig.paramsList || newConfig.paramsList.length === 0) {
+		newConfig.paramsList = [{ key: '', value: '' }];
+	}
+	if (!newConfig.formDataList || newConfig.formDataList.length === 0) {
+		newConfig.formDataList = [{ key: '', value: '' }];
+	}
+	if (!newConfig.urlEncodedList || newConfig.urlEncodedList.length === 0) {
+		newConfig.urlEncodedList = [{ key: '', value: '' }];
+	}
 
-	// 滚动到表单顶部以便用户看到应用的配置
-	nextTick(() => {
-		const formElement = document.querySelector('.space-y-6.import-dialog');
-		if (formElement) {
-			formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		}
+	// 一次性应用所有配置
+	console.log('🔄 Applying complete configuration...');
+	formConfig.value = newConfig;
+
+	// 等待DOM更新
+	await nextTick();
+
+	console.log('🔍 Current formConfig after update:', {
+		url: formConfig.value.url,
+		method: formConfig.value.method,
+		headersList: formConfig.value.headersList,
+		bodyType: formConfig.value.bodyType,
 	});
 
-	// 自动创建HTTP Action
-	try {
-		console.log('🚀 Creating HTTP Action automatically...');
-
-		// 使用自定义的Action名称，如果没有则生成默认名称
-		const actionName =
-			httpConfig.actionName || generateActionName(httpConfig.url, httpConfig.method);
-
-		// 准备Action配置
-		const actionConfig = {
-			url: httpConfig.url || '',
-			method: httpConfig.method || 'GET',
-			headers: httpConfig.headers || {},
-			params: {},
-			body: httpConfig.body || '',
-			timeout: 30,
-			followRedirects: true,
-		};
-
-		// 准备创建Action的参数
-		const actionParams = {
-			name: actionName,
-			description: `Auto-generated HTTP Action for ${httpConfig.method} ${httpConfig.url}`,
-			actionType: 2, // ActionTypeEnum.HttpApi = 2
-			actionConfig: JSON.stringify(actionConfig),
-			workflowId: null,
-			triggerSourceId: null,
-			triggerType: null,
-			isAIGenerated: true, // ✨ 标记为AI生成
-		};
-
-		console.log('📝 Action params:', actionParams);
-
-		// 调用创建Action的API
-		const result = await createHttpActionAPI(actionParams);
-
-		if (result.code === '200') {
-			ElMessage.success(`HTTP Action "${actionName}" created successfully!`);
-			console.log('✅ HTTP Action created:', result.data);
-		} else {
-			ElMessage.error(`Failed to create HTTP Action: ${result.msg || 'Unknown error'}`);
-			console.error('❌ Failed to create HTTP Action:', result);
-		}
-	} catch (error) {
-		console.error('❌ Error creating HTTP Action:', error);
-		ElMessage.error('Failed to create HTTP Action. Please try again.');
+	// 应用Action名称到表单（通过emit传递给父组件）
+	if (httpConfig.actionName && typeof httpConfig.actionName === 'string') {
+		emit('update:actionName', httpConfig.actionName);
+		console.log('✅ Applied Action Name:', httpConfig.actionName);
 	}
+
+	// 通知父组件这是AI生成的配置
+	emit('ai-config-applied', httpConfig);
+	console.log('🤖 Notified parent that this is AI-generated config');
+
+	// 显示配置应用成功消息
+	ElMessage.success(
+		'HTTP configuration applied to form! Please review and create the action manually.'
+	);
+
+	// 关闭导入对话框
+	importDialogVisible.value = false;
+
+	// 滚动到表单顶部以便用户看到应用的配置
+	await nextTick();
+	const formElement = document.querySelector('.http-form');
+	if (formElement) {
+		formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	console.log('✅ Configuration applied to form, ready for user review and manual creation');
 };
 
 // Model management
