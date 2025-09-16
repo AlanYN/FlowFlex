@@ -1,7 +1,7 @@
 <template>
-	<div class="action-detail-container rounded-md">
+	<div class="action-detail-container rounded-xl">
 		<!-- 页面头部 -->
-		<div class="page-header rounded-md">
+		<div class="page-header rounded-xl">
 			<div class="header-content">
 				<div class="header-left">
 					<el-button type="primary" link class="back-button" @click="goBack" size="small">
@@ -790,8 +790,8 @@ onMounted(() => {
 		.assignment-item {
 			padding: 12px;
 			border: 1px solid #e5e7eb;
-			border-radius: 6px;
 			margin-bottom: 12px;
+			@apply rounded-xl
 
 			.assignment-header {
 				display: flex;
@@ -822,8 +822,8 @@ onMounted(() => {
 		.history-item {
 			padding: 12px;
 			border: 1px solid #e5e7eb;
-			border-radius: 6px;
 			margin-bottom: 12px;
+			@apply rounded-xl
 
 			.history-header {
 				display: flex;
@@ -833,9 +833,9 @@ onMounted(() => {
 
 				.history-status {
 					padding: 2px 8px;
-					border-radius: 4px;
 					font-size: 12px;
 					font-weight: 500;
+					@apply rounded-xl
 
 					&.success {
 						background: #dcfce7;

@@ -2,7 +2,7 @@
 	<div class="customer-block">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="documents-header-card rounded-md"
+			class="documents-header-card rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
@@ -45,7 +45,7 @@
 				<div>
 					<el-upload
 						ref="uploadRef"
-						class="upload-demo rounded-md"
+						class="upload-demo rounded-xl"
 						drag
 						:auto-upload="false"
 						:on-change="handleFileChange"

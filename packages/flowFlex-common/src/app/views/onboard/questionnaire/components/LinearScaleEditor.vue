@@ -110,9 +110,8 @@ const updateMaxLabel = (label: string) => {
 	margin-top: 1.5rem;
 	padding: 1rem;
 	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
 	background-color: var(--primary-25);
-	@apply dark:bg-primary-700 dark:border-primary-600;
+	@apply dark:bg-primary-700 dark:border-primary-600 rounded-xl;
 }
 
 .linear-scale-section {

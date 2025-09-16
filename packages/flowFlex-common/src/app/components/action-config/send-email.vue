@@ -154,9 +154,9 @@ const handleTestRun = async () => {
 		overflow-y: auto;
 
 		.test-output {
+			@apply rounded-xl;
 			background-color: #f5f5f5;
 			padding: 12px;
-			border-radius: 4px;
 			font-family: 'Courier New', monospace;
 			font-size: 14px;
 			line-height: 1.4;

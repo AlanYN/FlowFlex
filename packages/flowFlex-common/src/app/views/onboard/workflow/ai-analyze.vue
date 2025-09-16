@@ -512,7 +512,7 @@ const onModelIdChange = (val: string) => {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .ai-analyze-page {
 	padding: 24px;
 	max-width: 1200px;
@@ -531,8 +531,8 @@ const onModelIdChange = (val: string) => {
 .card {
 	background: #fff;
 	border: 1px solid #e5e7eb;
-	border-radius: 12px;
 	padding: 16px;
+	@apply rounded-xl;
 }
 .upload {
 	width: 100%;

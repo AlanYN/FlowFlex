@@ -74,14 +74,13 @@ const selectQuestionType = (typeId: string) => {
 	align-items: center;
 	padding: 0.5rem 0.75rem;
 	border: 1px solid var(--primary-100);
-	border-radius: 0.375rem;
 	cursor: pointer;
 	transition: all 0.2s;
 	min-height: 2.5rem;
 	width: 100%;
 	min-width: 0;
 	box-sizing: border-box;
-	@apply dark:border-black-200;
+	@apply dark:border-black-200 rounded-xl;
 }
 
 .question-type-item:hover {

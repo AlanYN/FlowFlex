@@ -36,7 +36,7 @@
 						<!-- 选择模式 - 位于表单最前方 -->
 						<div
 							v-if="!isConfigModeDisabled"
-							class="mode-selection-section mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border"
+							class="mode-selection-section mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border"
 						>
 							<div class="flex items-center gap-4">
 								<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -164,7 +164,7 @@
 									>
 										<div class="flex items-center space-x-3">
 											<div
-												class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700"
+												class="flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700"
 											>
 												<el-icon class="text-primary-500" size="20">
 													<component :is="actionType.icon" />
@@ -770,8 +770,7 @@ defineExpose({
 }
 
 :deep(.el-scrollbar__bar.is-vertical > div) {
-	@apply bg-gray-300 dark:bg-gray-600 opacity-80;
-	border-radius: 4px;
+	@apply bg-gray-300 dark:bg-gray-600 opacity-80 rounded-xl;
 	width: 6px;
 }
 
@@ -855,8 +854,7 @@ defineExpose({
 }
 
 .variables-panel-container {
-	@apply flex-1 min-w-0 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-800;
-	border-radius: 8px;
+	@apply flex-1 min-w-0 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-800 rounded-xl;
 	border: 1px solid #e2e8f0;
 
 	.dark & {

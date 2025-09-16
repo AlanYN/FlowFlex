@@ -1,7 +1,7 @@
 <template>
 	<div class="customer-block" v-if="checklistData && checklistData.length > 0">
 		<div
-			class="checklist-header-card rounded-md"
+			class="checklist-header-card rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
@@ -24,9 +24,9 @@
 			</div>
 			<!-- 统一进度条 -->
 			<div class="progress-bar-container">
-				<div class="progress-bar rounded-md">
+				<div class="progress-bar rounded-xl">
 					<div
-						class="progress-fill rounded-md"
+						class="progress-fill rounded-xl"
 						:style="{ width: `${overallCompletionRate}%` }"
 					></div>
 				</div>
@@ -45,7 +45,7 @@
 						<div
 							v-for="task in checklist.tasks"
 							:key="`task-${task.id}`"
-							class="checklist-item-card rounded-md"
+							class="checklist-item-card rounded-xl"
 						>
 							<!-- 任务内容 -->
 							<div
@@ -447,7 +447,6 @@ const getAssigneeInitials = (fullName: string) => {
 	justify-content: space-between;
 	background-color: #ffffff;
 	border: 1px solid #e5e7eb;
-	border-radius: 8px;
 	/* 优化动画性能 */
 	transition:
 		transform 0.15s ease,
@@ -462,6 +461,7 @@ const getAssigneeInitials = (fullName: string) => {
 	backface-visibility: hidden;
 	/* 避免重绘 */
 	contain: layout style;
+	@apply rounded-xl;
 
 	&:hover {
 		border-color: #d1d5db;

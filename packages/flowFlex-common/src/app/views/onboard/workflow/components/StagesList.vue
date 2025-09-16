@@ -166,7 +166,7 @@
 										:ref="(el) => (dropdownRefs[index] = el)"
 									>
 										<div
-											class="inline-flex items-center justify-center h-9 rounded-md px-3 hover:bg-accent hover:text-accent-foreground"
+											class="inline-flex items-center justify-center h-9 rounded-xl px-3 hover:bg-accent hover:text-accent-foreground"
 											:class="{
 												'dropdown-disabled': isLoading,
 												'dropdown-sorting': isSorting,
@@ -669,12 +669,12 @@ const getPortalPermissionTooltip = (permission?: number) => {
 .stage-item {
 	background-color: white;
 	border: 1px solid var(--el-border-color-light, #e4e7ed);
-	border-radius: var(--el-border-radius-base, 8px);
 	overflow: hidden;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	position: relative;
 	border-left-width: 4px;
 	border-left-style: solid;
+	@apply rounded-xl;
 }
 
 .stage-item:hover {
@@ -856,9 +856,9 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	gap: 12px;
 	padding: 8px 12px;
 	background-color: #f8f9fa;
-	border-radius: 6px;
 	border: 1px solid #e9ecef;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .component-item:hover {
@@ -909,17 +909,17 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	color: #6b7280;
 	background-color: #f3f4f6;
 	padding: 2px 8px;
-	border-radius: 12px;
 	text-transform: lowercase;
 	flex-shrink: 0;
+	@apply rounded-xl;
 }
 
 .no-components {
 	padding: 12px;
 	text-align: center;
 	background-color: #f8f9fa;
-	border-radius: 6px;
 	border: 1px dashed #dee2e6;
+	@apply rounded-xl;
 }
 
 .stage-info-section {
@@ -942,7 +942,6 @@ const getPortalPermissionTooltip = (permission?: number) => {
 .field-tag {
 	display: inline-flex;
 	align-items: center;
-	border-radius: 12px;
 	padding: 4px 10px;
 	font-size: 11px;
 	font-weight: 600;
@@ -951,6 +950,7 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	border: 1px solid #bae6fd;
 	white-space: nowrap;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .field-tag:hover {
@@ -1028,12 +1028,12 @@ const getPortalPermissionTooltip = (permission?: number) => {
 .stage-skeleton {
 	background-color: white;
 	border: 1px solid var(--el-border-color-light, #e4e7ed);
-	border-radius: var(--el-border-radius-base, 8px);
 	overflow: hidden;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	border-left-width: 4px;
 	border-left-style: solid;
 	border-left-color: #e5e7eb;
+	@apply rounded-xl;
 }
 
 .skeleton-header {
@@ -1063,9 +1063,9 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
-	border-radius: 4px;
 	margin-bottom: 8px;
 	width: 60%;
+	@apply rounded-xl;
 }
 
 .skeleton-description {
@@ -1073,8 +1073,8 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
-	border-radius: 4px;
 	width: 80%;
+	@apply rounded-xl;
 }
 
 .skeleton-tags {
@@ -1088,7 +1088,7 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
-	border-radius: 12px;
+	@apply rounded-xl;
 }
 
 @keyframes skeleton-loading {
@@ -1105,10 +1105,10 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	position: relative;
 	background: linear-gradient(135deg, rgba(36, 104, 242, 0.08), rgba(139, 92, 246, 0.08));
 	border: 1px solid rgba(36, 104, 242, 0.2);
-	border-radius: 8px;
 	padding: 12px 16px;
 	margin-bottom: 16px;
 	animation: banner-slide-down 0.3s ease-out;
+	@apply rounded-xl;
 }
 
 /* Fixed sorting banner styles - sticky within scroll container */
@@ -1119,11 +1119,11 @@ const getPortalPermissionTooltip = (permission?: number) => {
 	background: linear-gradient(135deg, rgba(36, 104, 242, 0.95), rgba(139, 92, 246, 0.95));
 	backdrop-filter: blur(8px);
 	border: 1px solid rgba(36, 104, 242, 0.3);
-	border-radius: 8px;
 	padding: 12px 16px;
 	margin-bottom: 16px;
 	box-shadow: 0 2px 8px rgba(36, 104, 242, 0.15);
 	animation: banner-slide-down 0.3s ease-out;
+	@apply rounded-xl;
 }
 
 .sorting-content {
@@ -1152,8 +1152,8 @@ const getPortalPermissionTooltip = (permission?: number) => {
 .line {
 	height: 2px;
 	background: var(--primary-500, #2468f2);
-	border-radius: 1px;
 	animation: sorting-wave 1.5s infinite ease-in-out;
+	@apply rounded-xl;
 }
 
 .line-1 {

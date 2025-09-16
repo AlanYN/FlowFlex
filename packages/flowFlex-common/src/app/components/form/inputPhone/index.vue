@@ -5,7 +5,7 @@
 				<el-select
 					v-model="phoneNumberPrefixesId"
 					:placeholder="t('sys.placeholder.selectPlaceholder')"
-					class="rounded-lg w-[120px]"
+					class="rounded-xl w-[120px]"
 					clearable
 					filterable
 					:filter-method="filterPhoneCode"
@@ -106,7 +106,7 @@ const validatePhoneNumber = (val) => {
 
 <style lang="scss" scoped>
 :deep(.el-input .el-input__wrapper) {
-	border-radius: 0px 0.5rem 0.5rem 0px !important;
+	@apply rounded-xl;
 }
 </style>
 

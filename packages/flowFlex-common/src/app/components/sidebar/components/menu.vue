@@ -171,9 +171,9 @@ const computedActiveMenu = computed((): string => {
 		padding: 0 8px;
 		background-color: var(--primary-100);
 		color: var(--primary-500);
-		border-radius: 4px;
 		line-height: 20px;
 		letter-spacing: 1.5px;
+		@apply rounded-xl;
 	}
 }
 </style>

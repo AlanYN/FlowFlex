@@ -142,7 +142,6 @@ defineExpose({
 	width: 100%;
 	min-height: 32px;
 	border: 1px solid var(--el-border-color, #dcdfe6);
-	border-radius: 8px;
 	padding: 4px 11px;
 	background-color: var(--el-fill-color-blank, #ffffff);
 	transition: all var(--el-transition-duration, 0.2s);
@@ -157,6 +156,7 @@ defineExpose({
 	text-align: left;
 	word-wrap: break-word;
 	overflow: hidden;
+	@apply rounded-xl;
 }
 
 .layout:hover {
@@ -185,7 +185,6 @@ defineExpose({
 .label-box {
 	height: 24px;
 	margin: 0;
-	border-radius: 12px;
 	background-color: var(--el-fill-color-light, #f5f7fa);
 	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
 	display: inline-flex;
@@ -193,6 +192,7 @@ defineExpose({
 	padding: 0 8px;
 	transition: all 0.2s ease;
 	flex-shrink: 0;
+	@apply rounded-xl;
 }
 
 .label-title {

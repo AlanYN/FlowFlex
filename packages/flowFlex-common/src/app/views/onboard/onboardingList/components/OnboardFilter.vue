@@ -1,5 +1,5 @@
 <template>
-	<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+	<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
 		<el-form
 			ref="searchFormRef"
 			:model="searchParams"
@@ -15,7 +15,7 @@
 						style-type="normal"
 						:limit="10"
 						@change="handleLeadIdTagsChange"
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</div>
 
@@ -27,7 +27,7 @@
 						style-type="normal"
 						:limit="10"
 						@change="handleLeadNameTagsChange"
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</div>
 
@@ -98,7 +98,7 @@
 						style-type="normal"
 						:limit="10"
 						@change="handleUpdatedByTagsChange"
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</div>
 

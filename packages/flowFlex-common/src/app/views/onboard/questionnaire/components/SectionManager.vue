@@ -133,10 +133,10 @@ const handleDragEnd = (evt: any) => {
 	align-items: center;
 	padding: 0.75rem;
 	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
 	cursor: pointer;
 	transition: all 0.2s;
 	gap: 0.5rem;
+	@apply rounded-xl;
 }
 
 .section-item:hover {

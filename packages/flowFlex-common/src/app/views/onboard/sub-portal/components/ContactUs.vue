@@ -371,7 +371,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .contact-us {
 	padding: 20px;
 }
@@ -497,7 +497,7 @@ export default {
 	margin-bottom: 20px;
 	padding: 16px;
 	background: #f9fafb;
-	border-radius: 8px;
+	@apply rounded-xl;
 }
 
 .contact-icon {
@@ -557,7 +557,7 @@ export default {
 .service-commitment {
 	background: #f9fafb;
 	padding: 32px;
-	border-radius: 12px;
+	@apply rounded-xl;
 }
 
 .service-commitment h3 {

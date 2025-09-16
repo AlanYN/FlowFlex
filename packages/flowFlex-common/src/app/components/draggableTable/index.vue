@@ -77,7 +77,8 @@
 								>
 									<img
 										v-if="item.headUrl"
-										style="width: 20px; border-radius: 10px"
+										class="rounded-xl"
+										style="width: 20px"
 										:src="item.headUrl"
 									/>
 									<div
@@ -365,12 +366,11 @@ const changeItem = (item) => {
 .deal-card {
 	width: 100%;
 	border: 1px solid var(--black-500);
-	border-radius: 8px;
 	margin-bottom: 10px;
 	padding: 15px;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
-	@apply text-sm;
+	@apply text-sm rounded-xl;
 }
 
 div[name='flip-list'] {

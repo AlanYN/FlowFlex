@@ -1,7 +1,7 @@
 <template>
 	<div class="">
 		<div
-			class="editable-header-card rounded-md text-white p-2.5"
+			class="editable-header-card rounded-xl text-white p-2.5"
 			style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
 		>
 			<!-- 显示状态 -->
@@ -65,11 +65,11 @@
 					<!-- Start Date - 只读显示 -->
 					<div>
 						<div class="text-white/70 mb-2">Start Date</div>
-						<div
-							class="bg-white/5 border border-white/20 px-3 py-2 text-white font-medium"
-						>
-							{{ displayStartDate }}
-						</div>
+						<el-input
+							v-model="displayStartDate"
+							class="w-full stage-edit-input"
+							disabled
+						/>
 					</div>
 					<!-- Est. Duration - 可编辑 -->
 					<div>

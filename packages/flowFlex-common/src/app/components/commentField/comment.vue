@@ -350,10 +350,10 @@ defineExpose({ handleClearContent });
 	width: 100%;
 	padding: 8px;
 	border: 1px solid #ccc;
-	border-radius: 4px;
 	font-size: 14px;
 	resize: none;
 	line-height: 1.5;
+	@apply rounded-xl;
 
 	&:focus {
 		outline: none;
@@ -364,11 +364,11 @@ defineExpose({ handleClearContent });
 	position: fixed;
 	background-color: var(--black-400);
 	border: 1px solid var(--black-400);
-	border-radius: 4px;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	max-height: 200px;
 	overflow-y: auto;
 	z-index: 99999;
+	@apply rounded-xl;
 }
 
 .suggestion-item {

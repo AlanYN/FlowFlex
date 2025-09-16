@@ -252,7 +252,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .onboarding-progress {
 	padding: 20px;
 }
@@ -355,10 +355,10 @@ export default {
 .stage-content {
 	flex: 1;
 	background: #f9fafb;
-	border-radius: 8px;
 	padding: 16px;
 	border-left: 4px solid transparent;
 	transition: all 0.3s ease;
+	@apply rounded-xl;
 }
 
 .stage-item.completed .stage-content {

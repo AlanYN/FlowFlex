@@ -196,7 +196,7 @@ function handleCurrentChange(val: number) {
 
 		li.is-active {
 			background-color: rgb(227 235 247 / var(--tw-bg-opacity));
-			@apply relative block rounded-lg px-3 py-1.5 text-sm dark:bg-night-200;
+			@apply relative block rounded-xl px-3 py-1.5 text-sm dark:bg-night-200;
 		}
 
 		li:hover {

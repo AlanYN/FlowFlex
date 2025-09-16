@@ -10,7 +10,7 @@
 				class="stage-card-skeleton"
 			>
 				<template #template>
-					<el-card class="stage-card shadow-sm rounded-md">
+					<el-card class="stage-card shadow-sm rounded-xl">
 						<template #header>
 							<div class="flex justify-between items-center py-1">
 								<div class="flex items-center">
@@ -56,7 +56,7 @@
 			<el-card
 				v-for="stage in activeStages"
 				:key="stage"
-				class="stage-card shadow-sm rounded-md"
+				class="stage-card shadow-sm rounded-xl"
 			>
 				<template #header>
 					<div class="flex justify-between items-center cursor-pointer py-1">
@@ -146,7 +146,7 @@
 							</template>
 							<el-button
 								size="small"
-								class="pipeline-lead-button rounded-md"
+								class="pipeline-lead-button rounded-xl"
 								:class="[
 									getPriorityBorderClass(lead.priority),
 									isOverdue(lead.currentStageEndTime) ? 'border-red-500' : '',
@@ -187,7 +187,7 @@
 
 		<div
 			v-if="!loading && activeStages.length === 0"
-			class="text-center py-10 bg-gray-50 rounded-lg"
+			class="text-center py-10 bg-gray-50 rounded-xl"
 		>
 			<p class="text-gray-500">
 				No stages selected. Please select at least one stage to view.

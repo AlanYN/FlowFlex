@@ -188,7 +188,7 @@ interface TabItem {
 
 <style scoped>
 .custom-tabs-list {
-  border-radius: 12px;
+  @apply rounded-xl
   padding: 6px;
 }
 
@@ -196,7 +196,7 @@ interface TabItem {
   margin-top: 24px;
   padding: 16px;
   border: 1px solid var(--primary-100);
-  border-radius: 8px;
+  @apply rounded-xl
 }
 </style>
 ```

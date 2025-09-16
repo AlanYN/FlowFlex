@@ -10,7 +10,7 @@
 		/>
 
 		<!-- Description -->
-		<div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
+		<div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
 			<p class="text-sm text-blue-700 dark:text-blue-300">
 				Create login credentials for customers to access the customer portal. They will
 				receive an email with instructions to set up their password and complete the
@@ -29,7 +29,7 @@
 		</div>
 
 		<!-- Portal Users Table -->
-		<div v-if="portalUsers.length > 0" class="border rounded-md overflow-hidden">
+		<div v-if="portalUsers.length > 0" class="border rounded-xl overflow-hidden">
 			<el-table :data="portalUsers" style="width: 100%" class="portal-table">
 				<el-table-column label="Email" prop="email" />
 				<el-table-column label="Status" width="120">
@@ -87,7 +87,7 @@
 		</div>
 
 		<!-- Empty State -->
-		<div v-else class="text-center p-8 border border-dashed rounded-md">
+		<div v-else class="text-center p-8 border border-dashed rounded-xl">
 			<el-icon class="h-10 w-10 mx-auto text-gray-400 mb-2">
 				<Message />
 			</el-icon>
@@ -109,7 +109,7 @@
 						:limit="10"
 						@change="handleEmailTagsChange"
 						style="width: 100%; height: 32px"
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 					<div class="text-xs text-gray-500 mt-1">
 						Type email addresses and press Enter to add them. You can add multiple
@@ -139,7 +139,7 @@
 			<div class="space-y-4">
 				<div>
 					<h4 class="text-lg font-medium mb-2">Invitation Details</h4>
-					<div class="bg-gray-50 p-4 rounded-lg">
+					<div class="bg-gray-50 p-4 rounded-xl">
 						<div class="grid grid-cols-2 gap-4">
 							<div>
 								<span class="text-sm font-medium text-gray-600">Email:</span>
@@ -171,7 +171,7 @@
 					</div>
 				</div>
 
-				<div class="bg-blue-50 p-4 rounded-lg">
+				<div class="bg-blue-50 p-4 rounded-xl">
 					<p class="text-sm text-blue-800">
 						<strong>Note:</strong>
 						Share this link with the customer to access their onboarding portal. The
@@ -487,112 +487,6 @@ watchEffect(async () => {
 </script>
 
 <style scoped lang="scss">
-.space-y-2 > * + * {
-	margin-top: 0.5rem;
-}
-
-.space-y-4 > * + * {
-	margin-top: 1rem;
-}
-
-.space-y-6 > * + * {
-	margin-top: 1.5rem;
-}
-
-.space-x-2 > * + * {
-	margin-left: 0.5rem;
-}
-
-.text-sm {
-	font-size: 0.875rem;
-	line-height: 1.25rem;
-}
-
-.text-gray-500 {
-	color: #6b7280;
-}
-
-.rounded-md {
-	border-radius: 0.375rem;
-}
-
-.p-4 {
-	padding: 1rem;
-}
-
-.p-8 {
-	padding: 2rem;
-}
-
-.mb-2 {
-	margin-bottom: 0.5rem;
-}
-
-.mb-4 {
-	margin-bottom: 1rem;
-}
-
-.pt-4 {
-	padding-top: 1rem;
-}
-
-.text-center {
-	text-align: center;
-}
-
-.flex {
-	display: flex;
-}
-
-.items-center {
-	align-items: center;
-}
-
-.justify-end {
-	justify-content: flex-end;
-}
-
-.w-3 {
-	width: 0.75rem;
-}
-
-.w-10 {
-	width: 2.5rem;
-}
-
-.h-3 {
-	height: 0.75rem;
-}
-
-.h-10 {
-	height: 2.5rem;
-}
-
-.mr-1 {
-	margin-right: 0.25rem;
-}
-
-.mx-auto {
-	margin-left: auto;
-	margin-right: auto;
-}
-
-.border {
-	border-width: 1px;
-}
-
-.border-t {
-	border-top-width: 1px;
-}
-
-.border-dashed {
-	border-style: dashed;
-}
-
-.overflow-hidden {
-	overflow: hidden;
-}
-
 /* Portal Table 样式 */
 :deep(.portal-table .el-table__header-wrapper) {
 	background-color: var(--primary-10);
@@ -642,7 +536,6 @@ html.dark {
 	min-height: 32px;
 	height: 32px;
 	border: 1px solid var(--el-border-color, #dcdfe6);
-	border-radius: 8px;
 	padding: 4px 11px;
 	background-color: var(--el-fill-color-blank, #ffffff);
 	transition: all var(--el-transition-duration, 0.2s);
@@ -652,6 +545,7 @@ html.dark {
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 4px;
+	@apply rounded-xl;
 }
 
 :deep(.layout:hover) {
@@ -684,13 +578,13 @@ html.dark {
 :deep(.label-box) {
 	height: 24px;
 	margin: 0;
-	border-radius: 12px;
 	background-color: var(--el-fill-color-light, #f5f7fa);
 	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
 	display: inline-flex;
 	align-items: center;
 	padding: 0 8px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 :deep(.label-title) {

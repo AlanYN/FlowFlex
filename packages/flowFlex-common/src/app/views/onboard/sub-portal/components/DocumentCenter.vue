@@ -433,7 +433,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .document-center {
 	padding: 20px;
 }
@@ -471,8 +471,8 @@ export default {
 .stat-icon {
 	font-size: 24px;
 	padding: 12px;
-	border-radius: 8px;
 	background-color: #f3f4f6;
+	@apply rounded-xl;
 }
 
 .stat-value {

@@ -35,7 +35,7 @@
 		</PageHeader>
 
 		<!-- Search and Filter Area -->
-		<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+		<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				<div class="space-y-2">
 					<label class="filter-label text-sm font-medium">Tool ID or Tool Name</label>
@@ -43,7 +43,7 @@
 						v-model="searchForm.keyword"
 						placeholder="Enter Tool ID or Tool Name"
 						clearable
-						class="w-full rounded-md filter-input"
+						class="w-full rounded-xl filter-input"
 						@change="handleSearch"
 					/>
 				</div>
@@ -536,7 +536,6 @@ onMounted(() => {
 	background-color: #e6f3ff !important;
 	border-color: #b3d9ff !important;
 	color: #2468f2 !important;
-	border-radius: 16px !important;
 	padding: 4px 12px !important;
 	font-size: 12px !important;
 	font-weight: 500 !important;

@@ -471,7 +471,7 @@
 						v-model="formData.leadName"
 						placeholder="Input Customer Name"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</el-form-item>
 
@@ -480,7 +480,7 @@
 						v-model="formData.leadId"
 						placeholder="Enter Lead ID"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</el-form-item>
 
@@ -490,7 +490,7 @@
 							v-model="formData.ContactPerson"
 							placeholder="Enter Contact Name"
 							clearable
-							class="w-full rounded-md"
+							class="w-full rounded-xl"
 						/>
 					</el-form-item>
 
@@ -500,7 +500,7 @@
 							placeholder="Enter Contact Email Address"
 							clearable
 							type="email"
-							class="w-full rounded-md"
+							class="w-full rounded-xl"
 						/>
 					</el-form-item>
 				</div>
@@ -510,7 +510,7 @@
 						v-model="formData.lifeCycleStageId"
 						placeholder="Select Life Cycle Stage"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 						@change="changeLifeCycleStage"
 					>
 						<el-option
@@ -527,7 +527,7 @@
 						v-model="formData.priority"
 						placeholder="Select Priority"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					>
 						<el-option label="High" value="High" />
 						<el-option label="Medium" value="Medium" />
@@ -540,7 +540,7 @@
 						v-model="formData.workFlowId"
 						placeholder="Select Work Flow"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					>
 						<el-option
 							v-for="workflow in allWorkflows"

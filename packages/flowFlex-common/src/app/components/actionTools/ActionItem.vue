@@ -1,6 +1,6 @@
 <template>
 	<div
-		class="action-item border border-gray-200 dark:border-gray-700 rounded-lg p-4 transition-all duration-200"
+		class="action-item border border-gray-200 dark:border-gray-700 rounded-xl p-4 transition-all duration-200"
 		:class="{
 			'action-dragging': isDragging,
 		}"

@@ -3,10 +3,10 @@
 }
 /* Tab List 样式 */
 .tabs-list {
+	@apply rounded-xl;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--el-border-radius-base);
 	background-color: var(--primary-50);
 	border: 1px solid var(--primary-100);
 	color: var(--primary-600);
@@ -55,8 +55,8 @@
 	&--border-card {
 		background-color: var(--black-400);
 		border: 1px solid var(--primary-200);
-		border-radius: var(--el-border-radius-base) var(--el-border-radius-base) 0 0;
 		border-bottom: none;
+		@apply rounded-xl;
 
 		:root.dark & {
 			background-color: var(--black-300);
@@ -71,7 +71,7 @@
 		min-height: 2.5rem;
 		background-color: #fff;
 		border-color: #e2e8f0;
-		border-radius: var(--el-border-radius-base);
+		@apply rounded-xl;
 
 		:root.dark & {
 			background-color: #2d3748;
@@ -94,7 +94,7 @@
 	left: 0;
 	height: 2rem; /* 固定高度，只覆盖按钮区域 */
 	background-color: var(--primary-500);
-	border-radius: calc(var(--el-border-radius-base) - 2px);
+	@apply rounded-xl;
 	z-index: 0;
 	pointer-events: none;
 	box-shadow:
@@ -114,8 +114,8 @@
 		left: 0;
 		height: 2rem; /* 固定高度，只覆盖按钮区域 */
 		background-color: white;
-		border-radius: calc(var(--el-border-radius-base) - 2px);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		@apply rounded-xl;
 
 		:root.dark & {
 			background-color: #4a5568;
@@ -145,7 +145,6 @@
 	align-items: center;
 	justify-content: center;
 	white-space: nowrap;
-	border-radius: calc(var(--el-border-radius-base) - 2px);
 	padding: 0.375rem 0.75rem;
 	font-size: 0.875rem;
 	font-weight: 500;
@@ -159,6 +158,7 @@
 	z-index: 1;
 	flex: 1; /* 让按钮自动填充可用空间 */
 	min-width: 0; /* 允许按钮收缩 */
+	@apply rounded-xl;
 
 	/* Adaptive 类型中的按钮样式 */
 	.tabs-list--adaptive & {

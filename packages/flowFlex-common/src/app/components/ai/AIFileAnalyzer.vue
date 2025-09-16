@@ -525,7 +525,7 @@ const cancelProcessing = () => {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .ai-file-analyzer {
 	display: inline-block;
 }
@@ -549,7 +549,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 .attachment-btn:hover {
 	color: #4f46e5 !important;
 	background: #f3f4f6 !important;
-	border-radius: 4px !important;
+	@apply rounded-xl;
 }
 
 .attachment-icon {
@@ -569,7 +569,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	gap: 1rem;
 	padding: 1rem;
 	background: #f8fafc;
-	border-radius: 8px;
+	@apply rounded-xl;
 }
 
 .file-icon {
@@ -605,8 +605,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	align-items: flex-start;
 	gap: 1rem;
 	padding: 0.75rem;
-	border-radius: 8px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .step-item.active {
@@ -700,8 +700,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 .content-preview {
 	padding: 1rem;
 	background: #f8fafc;
-	border-radius: 8px;
 	border: 1px solid #e5e7eb;
+	@apply rounded-xl;
 }
 
 .content-preview h4 {
@@ -714,7 +714,6 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 .preview-text {
 	padding: 0.75rem;
 	background: white;
-	border-radius: 6px;
 	border: 1px solid #d1d5db;
 	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 	font-size: 13px;
@@ -724,6 +723,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	word-break: break-word;
 	max-height: 200px;
 	overflow-y: auto;
+	@apply rounded-xl;
 }
 
 .content-stats {

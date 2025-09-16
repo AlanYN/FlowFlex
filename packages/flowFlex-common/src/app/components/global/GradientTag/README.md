@@ -97,7 +97,7 @@ import GradientTag from '@/components/global/GradientTag/index.vue';
 | `closable` | `boolean` | `false` | Whether the tag can be closed |
 | `dot` | `boolean` | `false` | Whether to show status dot |
 | `pulse` | `boolean` | `false` | Whether the dot should pulse |
-| `round` | `boolean` | `true` | Whether to use rounded corners |
+| `round` | `boolean` | `true` | Whether to use rounded-xl corners |
 
 ## Events
 
@@ -219,7 +219,7 @@ const selectTag = (id) => {
   <GradientTag type="success" size="large">
     <el-icon class="mr-1"><Check /></el-icon>
     <span>Completed</span>
-    <span class="ml-2 bg-white bg-opacity-20 px-1 rounded text-xs">5</span>
+    <span class="ml-2 bg-white bg-opacity-20 px-1 rounded-xl text-xs">5</span>
   </GradientTag>
 </template>
 ```

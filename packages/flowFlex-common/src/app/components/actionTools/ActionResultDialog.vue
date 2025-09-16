@@ -101,7 +101,7 @@
 									Error Message
 								</h4>
 								<div
-									class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800"
+									class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800"
 								>
 									{{ row.errorMessage }}
 								</div>
@@ -545,7 +545,6 @@ watch(
 	background-color: #e6f3ff !important;
 	border-color: #b3d9ff !important;
 	color: #2468f2 !important;
-	border-radius: 16px !important;
 	padding: 4px 12px !important;
 	font-size: 12px !important;
 	font-weight: 500 !important;
@@ -554,7 +553,6 @@ watch(
 /* Status tag styles - 覆盖 el-tag 默认样式 */
 .status-tag {
 	border: none !important;
-	border-radius: 12px !important;
 	padding: 4px 8px !important;
 	font-size: 12px !important;
 	font-weight: 500 !important;
@@ -585,12 +583,12 @@ watch(
 }
 
 .execution-code-block {
+	@apply rounded-xl;
 	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 	font-size: 12px;
 	line-height: 1.5;
 	background: white;
 	border: 1px solid #e5e7eb;
-	border-radius: 6px;
 	padding: 12px;
 	margin: 0;
 	overflow-x: auto;

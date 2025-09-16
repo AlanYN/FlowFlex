@@ -6,7 +6,7 @@
 			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
 				<div class="flex h-16 items-center justify-between px-4 border-b">
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
-					<button @click="sidebarOpen = false" class="p-1 rounded-md hover:bg-gray-100">
+					<button @click="sidebarOpen = false" class="p-1 rounded-xl hover:bg-gray-100">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -22,7 +22,7 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
 							currentView === item.view
 								? 'bg-blue-100 text-blue-900'
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
@@ -36,7 +36,7 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-lg border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
 							<div class="bg-blue-100 p-2 rounded-full">
 								<svg
@@ -78,7 +78,7 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
 							currentView === item.view
 								? 'bg-blue-100 text-blue-900'
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
@@ -92,7 +92,7 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-lg border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
 							<div class="bg-blue-100 p-2 rounded-full">
 								<svg
@@ -145,7 +145,7 @@
 		<div class="lg:pl-64">
 			<!-- Mobile header -->
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
-				<button @click="sidebarOpen = true" class="p-1 rounded-md hover:bg-gray-100">
+				<button @click="sidebarOpen = true" class="p-1 rounded-xl hover:bg-gray-100">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -209,7 +209,7 @@
 						<!-- 左侧阶段详情 (2/3 宽度) -->
 						<div class="flex-[2] min-w-0 overflow-hidden">
 							<div
-								class="rounded-md el-card is-always-shadow rounded-md el-card__header"
+								class="rounded-xl el-card is-always-shadow rounded-xl el-card__header"
 							>
 								<div
 									class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
@@ -233,7 +233,7 @@
 									<!-- Stage Details 加载状态 -->
 									<div
 										v-if="stageDataLoading"
-										class="bg-white dark:bg-black-300 rounded-md p-8"
+										class="bg-white dark:bg-black-300 rounded-xl p-8"
 									>
 										<div
 											class="flex flex-col items-center justify-center space-y-4"
@@ -360,7 +360,7 @@
 							<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
 								<div class="space-y-6">
 									<!-- OnboardingProgress组件 -->
-									<div class="rounded-md overflow-hidden">
+									<div class="rounded-xl overflow-hidden">
 										<OnboardingProgress
 											v-if="onboardingData && onboardingId"
 											:active-stage="activeStage"
@@ -369,12 +369,12 @@
 											:stage-access-check="isStageAccessible"
 											@set-active-stage="setActiveStageWithData"
 											@stage-completed="loadOnboardingDetail"
-											class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600"
+											class="bg-white dark:bg-black-300 rounded-xl shadow-lg border border-gray-200 dark:border-gray-600"
 										/>
 									</div>
 
 									<!-- 笔记区域 -->
-									<!-- <div class="rounded-md overflow-hidden">
+									<!-- <div class="rounded-xl overflow-hidden">
 										<InternalNotes v-if="activeStage && onboardingId" :onboarding-id="onboardingId"
 											:stage-id="activeStage" @note-added="handleNoteAdded" />
 									</div> -->
@@ -1481,19 +1481,6 @@ watch(stageIdFromRoute, async (newStageId) => {
 </script>
 
 <style scoped>
-/* Ensure consistent border radius */
-.rounded-lg {
-	border-radius: 0.5rem;
-}
-
-.rounded-md {
-	border-radius: 0.375rem;
-}
-
-.rounded-full {
-	border-radius: 9999px;
-}
-
 /* Smooth transitions */
 .transition-colors {
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;

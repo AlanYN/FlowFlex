@@ -217,8 +217,8 @@ const handleRefresh = () => {
 		);
 		background-size: 300% 300%;
 		animation: gradient-shift 6s ease infinite;
-		border-radius: 5px;
 		z-index: -1;
+		@apply rounded-xl;
 	}
 
 	/* AI粒子效果 */
@@ -281,7 +281,6 @@ const handleRefresh = () => {
 	align-items: center;
 	gap: 4px;
 	padding: 3px 8px;
-	border-radius: 12px;
 	font-weight: 500;
 	font-size: 10px;
 	text-transform: uppercase;
@@ -290,13 +289,14 @@ const handleRefresh = () => {
 	backdrop-filter: blur(10px);
 	border: 1px solid rgba(255, 255, 255, 0.2);
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+	@apply rounded-xl;
 
 	.status-dot {
 		width: 6px;
 		height: 6px;
-		border-radius: 50%;
 		margin-right: 2px;
 		box-shadow: 0 0 6px currentColor;
+		@apply rounded-xl;
 	}
 
 	&.generating {
@@ -361,11 +361,11 @@ const handleRefresh = () => {
 /* AI内容样式 */
 .ai-content-wrapper {
 	position: relative;
-	border-radius: 8px;
 	width: 100%;
 	max-width: 100%;
 	overflow-wrap: break-word;
 	word-break: break-word;
+	@apply rounded-xl;
 }
 
 .ai-streaming {
@@ -377,8 +377,8 @@ const handleRefresh = () => {
 	);
 	background-size: 200% 100%;
 	animation: ai-shimmer 2s infinite;
-	border-radius: 6px;
 	padding: 8px;
+	@apply rounded-xl;
 }
 
 .ai-typing-cursor {
@@ -411,8 +411,8 @@ const handleRefresh = () => {
 		width: 100%;
 		height: 4px;
 		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%);
-		border-radius: 2px;
 		animation: brain-wave-animation 1.5s ease-in-out infinite;
+		@apply rounded-xl;
 
 		&:nth-child(1) {
 			top: 12px;
@@ -436,15 +436,15 @@ const handleRefresh = () => {
 	max-width: 200px;
 	height: 3px;
 	background: rgba(59, 130, 246, 0.1);
-	border-radius: 2px;
 	overflow: hidden;
 	margin-top: 1rem;
+	@apply rounded-xl;
 
 	.progress-bar {
 		height: 100%;
 		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
-		border-radius: 2px;
 		animation: progress-flow 2s ease-in-out infinite;
+		@apply rounded-xl;
 	}
 }
 
@@ -473,7 +473,7 @@ const handleRefresh = () => {
 	padding: 8px;
 	margin-top: 8px;
 	background: rgba(59, 130, 246, 0.05);
-	border-radius: 6px;
+	@apply rounded-xl;
 }
 
 .streaming-dots {

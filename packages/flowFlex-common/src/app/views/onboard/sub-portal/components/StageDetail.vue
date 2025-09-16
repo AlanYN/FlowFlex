@@ -593,7 +593,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .stage-detail {
 	padding: 20px;
 	max-height: 70vh;
@@ -645,7 +645,7 @@ export default {
 	margin-bottom: 24px;
 	padding: 16px;
 	background: #f9fafb;
-	border-radius: 8px;
+	@apply rounded-xl;
 }
 
 .stage-progress-section h4 {
@@ -686,8 +686,8 @@ export default {
 	padding: 16px;
 	margin-bottom: 12px;
 	background: #f9fafb;
-	border-radius: 8px;
 	border-left: 4px solid transparent;
+	@apply rounded-xl;
 }
 
 .task-item.completed {
@@ -780,7 +780,7 @@ export default {
 	padding: 12px;
 	margin-bottom: 8px;
 	background: #f9fafb;
-	border-radius: 6px;
+	@apply rounded-xl;
 }
 
 .note-header {

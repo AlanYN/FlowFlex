@@ -155,7 +155,7 @@
 							<!-- 显示已上传的文件 -->
 							<div
 								v-if="item.questionProps && item.questionProps.fileUrl"
-								class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+								class="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700"
 							>
 								<div class="flex items-center justify-between gap-3">
 									<div class="flex items-center gap-2 flex-1 min-w-0">
@@ -657,9 +657,9 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 .question-item {
 	padding: 0.75rem;
 	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
 	background-color: white;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 .question-item:hover {

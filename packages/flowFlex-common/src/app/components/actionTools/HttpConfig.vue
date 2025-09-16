@@ -26,7 +26,7 @@
 				<TabPane value="curl">
 					<div class="curl-import-content space-y-4">
 						<div
-							class="bg-blue-50 dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-gray-700"
+							class="bg-blue-50 dark:bg-gray-800 p-4 rounded-xl border border-blue-200 dark:border-gray-700"
 						>
 							<div class="flex items-start space-x-3">
 								<div class="flex-shrink-0">
@@ -99,7 +99,7 @@
 								you.
 							</p>
 							<div
-								class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-800 p-4 rounded-lg border border-purple-200 dark:border-gray-700"
+								class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-800 p-4 rounded-xl border border-purple-200 dark:border-gray-700"
 							>
 								<p class="text-sm text-purple-700 dark:text-purple-300 font-medium">
 									🚀 Coming Soon
@@ -525,7 +525,7 @@
 			</div>
 
 			<div v-if="testResult" class="test-result">
-				<div class="bg-gray-50 dark:bg-gray-800 rounded p-3">
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
 					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
 					<pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{
 						testResult.stdout || testResult
@@ -1200,17 +1200,17 @@ const handleTest = () => {
 
 <style scoped lang="scss">
 .http-form {
-	@apply dark:border-gray-700 rounded-lg;
+	@apply dark:border-gray-700 rounded-xl;
 }
 
 // Params Section Styles (Legacy)
 .params-section {
-	@apply w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden;
+	@apply w-full border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden;
 }
 
 // Enhanced Params Section Styles (New)
 .params-section-enhanced {
-	@apply w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden;
+	@apply w-full border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden;
 }
 
 .params-header-enhanced {
@@ -1290,7 +1290,7 @@ const handleTest = () => {
 
 // 文本域右上角的按钮组
 .param-textarea-actions {
-	@apply absolute top-2 right-2 flex items-center space-x-1 bg-white dark:bg-gray-800 px-2 py-1 rounded shadow-sm border border-gray-200 dark:border-gray-600;
+	@apply absolute top-2 right-2 flex items-center space-x-1 bg-white dark:bg-gray-800 px-2 py-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600;
 	z-index: 10;
 }
 
@@ -1299,7 +1299,7 @@ const handleTest = () => {
 }
 
 .param-delete-enhanced {
-	@apply w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors;
+	@apply w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors;
 }
 
 .params-header {
@@ -1406,7 +1406,7 @@ const handleTest = () => {
 
 // Options Section
 .options-section {
-	@apply border border-gray-200 dark:border-gray-700 rounded-lg p-4;
+	@apply border border-gray-200 dark:border-gray-700 rounded-xl p-4;
 }
 
 .test-section {
@@ -1434,6 +1434,6 @@ const handleTest = () => {
 
 // 导入错误信息样式
 .import-error-message {
-	@apply mt-4 p-4 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20;
+	@apply mt-4 p-4 rounded-xl border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20;
 }
 </style>

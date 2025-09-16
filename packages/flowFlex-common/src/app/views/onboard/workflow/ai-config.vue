@@ -552,7 +552,7 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .ai-config-page {
 	padding: 16px 24px;
 	width: 100%;
@@ -567,9 +567,9 @@ onMounted(async () => {
 	padding: 20px 32px;
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 	color: white;
-	border-radius: 12px;
 	width: 100%;
 	box-sizing: border-box;
+	@apply rounded-xl;
 }
 
 .header-content h1 {
@@ -586,11 +586,11 @@ onMounted(async () => {
 
 .models-table {
 	background: white;
-	border-radius: 12px;
 	padding: 20px;
 	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 	width: 100%;
 	box-sizing: border-box;
+	@apply rounded-xl;
 }
 
 /* 表格容器优化 */
@@ -686,14 +686,6 @@ onMounted(async () => {
 	}
 }
 
-.mr-1 {
-	margin-right: 4px;
-}
-
-.text-green-500 {
-	color: #10b981;
-}
-
 .el-slider {
 	width: 100%;
 }
@@ -719,8 +711,8 @@ onMounted(async () => {
 
 /* 表格样式优化 */
 :deep(.el-table) {
-	border-radius: 8px;
 	overflow: hidden;
+	@apply rounded-xl;
 }
 
 :deep(.el-table th) {

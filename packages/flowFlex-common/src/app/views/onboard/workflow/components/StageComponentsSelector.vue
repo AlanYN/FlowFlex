@@ -12,7 +12,7 @@
 					<p class="text-sm text-primary-600 dark:text-primary-400">
 						Select fields that are required for this stage
 					</p>
-					<div class="border rounded-md border-primary-200">
+					<div class="border rounded-xl border-primary-200">
 						<div class="p-2 border-b border-primary-100">
 							<el-input
 								v-model="searchQuery"
@@ -64,7 +64,7 @@
 					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
 						Selected Fields
 					</label>
-					<div class="border rounded-md p-2 border-primary-200 bg-primary-50">
+					<div class="border rounded-xl p-2 border-primary-200 bg-primary-50">
 						<div class="flex flex-wrap gap-1">
 							<el-tag
 								v-for="fieldTag in getSelectedFieldTags()"
@@ -87,7 +87,7 @@
 					<p class="text-sm text-primary-600 dark:text-primary-400">
 						Select checklists to include in this stage
 					</p>
-					<div class="border rounded-md border-primary-200">
+					<div class="border rounded-xl border-primary-200">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
@@ -134,7 +134,7 @@
 					<p class="text-sm text-primary-600 dark:text-primary-400">
 						Select questionnaires to include in this stage
 					</p>
-					<div class="border rounded-md border-primary-200">
+					<div class="border rounded-xl border-primary-200">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
@@ -187,7 +187,7 @@
 						Enable file upload and attachment functionality
 					</p>
 					<div
-						class="flex items-center space-x-2 p-2 border rounded-md border-primary-200 bg-primary-50"
+						class="flex items-center space-x-2 p-2 border rounded-xl border-primary-200 bg-primary-50"
 					>
 						<el-switch
 							:model-value="getFileComponent().isEnabled"
@@ -211,7 +211,7 @@
 					<!-- Attachment Management Needed -->
 					<div
 						v-if="getFileComponent().isEnabled"
-						class="flex items-center space-x-2 p-2 border rounded-md border-primary-200 bg-primary-50 mt-2"
+						class="flex items-center space-x-2 p-2 border rounded-xl border-primary-200 bg-primary-50 mt-2"
 					>
 						<el-switch
 							:model-value="props.modelValue.attachmentManagementNeeded || false"
@@ -245,7 +245,7 @@
 						Items that will be included in this stage (drag to reorder)
 					</p>
 					<div
-						class="border rounded-md p-3 min-h-[600px] border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 w-full overflow-hidden"
+						class="border rounded-xl p-3 min-h-[600px] border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 w-full overflow-hidden"
 					>
 						<draggable
 							v-model="selectedItems"
@@ -259,19 +259,19 @@
 						>
 							<template #item="{ element, index }">
 								<div
-									class="bg-white border rounded-md shadow-sm hover:shadow-md transition-all border-primary-200 w-full overflow-hidden"
+									class="bg-white border rounded-xl shadow-sm hover:shadow-md transition-all border-primary-200 w-full overflow-hidden"
 								>
 									<div class="flex items-center p-2">
 										<div class="flex items-center space-x-3 flex-1 min-w-0">
 											<div
-												class="drag-handle flex items-center justify-center w-5 h-5 bg-primary-100 rounded cursor-move hover:bg-primary-200 transition-colors flex-shrink-0"
+												class="drag-handle flex items-center justify-center w-5 h-5 bg-primary-100 rounded-xl cursor-move hover:bg-primary-200 transition-colors flex-shrink-0"
 											>
 												<el-icon class="text-primary-600 text-sm">
 													<GripVertical />
 												</el-icon>
 											</div>
 											<span
-												class="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded font-medium flex-shrink-0"
+												class="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded-xl font-medium flex-shrink-0"
 											>
 												{{ index + 1 }}
 											</span>
@@ -700,7 +700,7 @@ const getElementPortalAccessLabel = (element: SelectedItem): string => {
 
 // 获取元素的 Portal Access 标签样式类
 const getElementPortalAccessBadgeClass = (element: SelectedItem): string => {
-	const baseClass = 'px-2 py-0.5 rounded text-xs font-medium';
+	const baseClass = 'px-2 py-0.5 rounded-xl text-xs font-medium';
 
 	switch (element.customerPortalAccess) {
 		case StageComponentPortal.Hidden:

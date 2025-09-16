@@ -268,8 +268,8 @@ const handleCancel = () => {
 			gap: 1rem;
 			padding: 0.75rem;
 			border: 1px solid var(--el-border-color);
-			border-radius: 0.375rem;
 			background-color: var(--el-bg-color);
+			@apply rounded-xl;
 
 			.option-label {
 				min-width: 150px;

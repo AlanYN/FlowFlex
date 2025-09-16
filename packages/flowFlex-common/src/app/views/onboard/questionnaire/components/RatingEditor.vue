@@ -1,6 +1,6 @@
 <template>
 	<div
-		class="mt-6 p-4 border border-primary-200 rounded-md bg-primary-25 dark:bg-primary-700 dark:border-primary-600"
+		class="mt-6 p-4 border border-primary-200 rounded-xl bg-primary-25 dark:bg-primary-700 dark:border-primary-600"
 	>
 		<div class="flex flex-col gap-4">
 			<div class="flex justify-between items-center mb-2">
@@ -37,7 +37,7 @@
 							/>
 						</div>
 						<div
-							class="p-2 bg-primary-50 dark:bg-primary-600 rounded border border-primary-100 dark:border-primary-500"
+							class="p-2 bg-primary-50 dark:bg-primary-600 rounded-xl border border-primary-100 dark:border-primary-500"
 						>
 							<span
 								class="text-sm text-primary-600 dark:text-primary-200 font-medium"
@@ -62,7 +62,7 @@
 							<div
 								v-for="iconOption in iconOptions"
 								:key="iconOption.value"
-								class="flex flex-col items-center gap-2 p-3 border-2 border-primary-200 dark:border-primary-600 rounded-md cursor-pointer transition-all bg-white dark:bg-primary-800 min-w-[80px] hover:border-primary-400 hover:bg-primary-25 dark:hover:border-primary-400 dark:hover:bg-primary-600"
+								class="flex flex-col items-center gap-2 p-3 border-2 border-primary-200 dark:border-primary-600 rounded-xl cursor-pointer transition-all bg-white dark:bg-primary-800 min-w-[80px] hover:border-primary-400 hover:bg-primary-25 dark:hover:border-primary-400 dark:hover:bg-primary-600"
 								:class="{
 									'border-primary-600 bg-primary-50 dark:border-primary-400 dark:bg-primary-600':
 										iconType === iconOption.value,
@@ -91,7 +91,7 @@
 					</h4>
 				</div>
 				<div
-					class="flex items-center gap-3 p-4 bg-white rounded-md border border-primary-100 dark:border-primary-500"
+					class="flex items-center gap-3 p-4 bg-white rounded-xl border border-primary-100 dark:border-primary-500"
 				>
 					<el-rate
 						v-model="previewValue"

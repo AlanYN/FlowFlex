@@ -458,8 +458,8 @@ onMounted(async () => {
 
 .models-list {
 	background: white;
-	border-radius: 8px;
 	overflow: hidden;
+	@apply rounded-xl;
 }
 
 .action-buttons {
