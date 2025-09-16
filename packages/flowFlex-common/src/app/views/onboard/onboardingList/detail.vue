@@ -56,16 +56,16 @@
 		</PageHeader>
 
 		<!-- 主要内容区域 -->
-		<div class="flex w-full gap-2">
+		<div class="flex w-full">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
-			<div class="flex-[2] min-w-0 overflow-hidden">
+			<div class="flex-[2] min-w-0 overflow-hidden customer-block">
 				<EditableStageHeader
 					:current-stage="onboardingActiveStageInfo"
 					:disabled="isAbortedReadonly"
 					@update:stage-data="handleStageDataUpdate"
 				/>
-				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4 w-full">
-					<div class="space-y-6 mt-4">
+				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-2 w-full">
+					<div class="space-y-4 mt-4">
 						<!-- AI Summary 组件 -->
 						<AISummary
 							:show-a-i-summary-section="showAISummarySection"
@@ -171,31 +171,26 @@
 			</div>
 
 			<!-- 右侧进度和笔记 (1/3 宽度) -->
-			<div class="flex-1 flex-shrink-0">
+			<div class="flex-1 flex-shrink-0 min-w-0">
 				<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
-					<div class="space-y-6">
+					<div class="space-y-4">
 						<!-- OnboardingProgress组件 -->
-						<div class="rounded-md overflow-hidden">
-							<OnboardingProgress
-								v-if="onboardingData && onboardingId"
-								:active-stage="activeStage"
-								:onboarding-data="onboardingData"
-								:workflow-stages="workflowStages"
-								@set-active-stage="setActiveStage"
-								@stage-completed="loadOnboardingDetail"
-								class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600"
-							/>
-						</div>
+						<OnboardingProgress
+							v-if="onboardingData && onboardingId"
+							:active-stage="activeStage"
+							:onboarding-data="onboardingData"
+							:workflow-stages="workflowStages"
+							@set-active-stage="setActiveStage"
+							@stage-completed="loadOnboardingDetail"
+						/>
 
 						<!-- 笔记区域 -->
-						<div class="rounded-md overflow-hidden">
-							<InternalNotes
-								v-if="activeStage && onboardingId"
-								:onboarding-id="onboardingId"
-								:stage-id="activeStage"
-								@note-added="handleNoteAdded"
-							/>
-						</div>
+						<InternalNotes
+							v-if="activeStage && onboardingId"
+							:onboarding-id="onboardingId"
+							:stage-id="activeStage"
+							@note-added="handleNoteAdded"
+						/>
 					</div>
 				</el-scrollbar>
 			</div>
@@ -244,6 +239,7 @@ import {
 	getQuestionnaireAnswer,
 	completeCurrentStage,
 	onboardingSave,
+	updateStageFields,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, ComponentData, SectionAnswer, Stage } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -986,24 +982,21 @@ const refreshChangeLog = () => {
 // 处理阶段数据更新
 const handleStageDataUpdate = async (updateData: {
 	stageId: string;
-	startDate?: string;
-	estimatedDays?: number;
-	endDate?: string;
+	customEstimatedDays: number;
+	customEndTime: string;
 }) => {
 	try {
 		// 这里应该调用API来更新阶段数据
 		// 暂时先更新本地数据，实际项目中需要调用相应的API
 		console.log('Stage data update:', updateData);
-
-		// 刷新变更日志
-		refreshChangeLog();
-
-		// TODO: 在实际项目中，这里应该调用API保存数据
-		// const response = await updateStageData(updateData);
-		// if (response.code === '200') {
-		//   ElMessage.success('Stage data updated successfully');
-		//   loadOnboardingDetail(); // 重新加载数据
-		// }
+		const res = await updateStageFields(onboardingId.value, updateData);
+		if (res.code === '200') {
+			ElMessage.success('Stage data updated successfully');
+			loadOnboardingDetail();
+			refreshChangeLog();
+		} else {
+			ElMessage.error(res.msg || 'Failed to update stage data');
+		}
 	} catch (error) {
 		console.error('Error updating stage data:', error);
 		ElMessage.error('Failed to update stage data');

@@ -14,10 +14,11 @@
 						</el-icon>
 						<h3 class="progress-title">Case Progress</h3>
 					</div>
+					<div class="progress-subtitle"></div>
 				</div>
 				<div class="progress-info">
 					<span class="progress-percentage">{{ progressPercentage }}%</span>
-					<span class="progress-label">Complete</span>
+					<span class="progress-label">Completed</span>
 				</div>
 			</div>
 			<!-- 统一进度条 -->
@@ -51,7 +52,7 @@
 						<div
 							v-for="(stage, index) in displayedStages"
 							:key="stage.stageId"
-							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-lg"
+							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-lg min-w-0 w-full"
 							:class="[
 								stage.completed
 									? 'border-green-500'
@@ -68,7 +69,7 @@
 						>
 							<!-- 阶段状态图标 -->
 							<div
-								class="w-6 h-6 rounded-full flex items-center justify-center"
+								class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
 								:class="[
 									stage.completed
 										? 'bg-green-500 text-white'
@@ -89,17 +90,17 @@
 							</div>
 
 							<!-- 阶段内容 -->
-							<div class="space-y-1">
-								<div class="font-medium flex items-start">
+							<div class="space-y-1 w-full min-w-0">
+								<div class="font-medium flex items-start min-w-0">
 									<span
-										class="mr-2 text-sm font-bold text-gray-500 dark:text-gray-400"
+										class="mr-2 text-sm font-bold text-gray-500 dark:text-gray-400 flex-shrink-0"
 									>
 										{{ getOriginalStageIndex(stage) + 1 }}.
 									</span>
-									<div class="flex-1">
-										<div class="flex items-center gap-2">
+									<div class="flex-1 min-w-0">
+										<div class="flex items-center gap-2 min-w-0">
 											<div
-												class="text-gray-900 dark:text-white-100 text-sm stage-title-text"
+												class="text-gray-900 dark:text-white-100 text-sm stage-title-text flex-1 min-w-0"
 												:title="stage.title"
 											>
 												{{ stage.title }}
@@ -111,7 +112,7 @@
 													stage.actions &&
 													stage.actions.length > 0
 												"
-												class="flex items-center gap-2"
+												class="flex items-center gap-2 flex-shrink-0"
 											>
 												<ActionTag
 													:actions="stage.actions"
@@ -126,10 +127,10 @@
 								</div>
 								<div
 									v-if="stage.completedBy || stage.savedBy"
-									class="text-xs text-green-600 dark:text-green-400 ml-6"
+									class="text-xs text-green-600 dark:text-green-400 ml-6 min-w-0"
 								>
 									<span
-										class="completion-info-text"
+										class="completion-info-text block min-w-0"
 										:title="
 											stage.showSaveOrComplete
 												? `Save by ${stage.savedBy} on ${stage.saveTime}`
@@ -306,43 +307,38 @@ watch(
 		box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
 		transform: translateY(-1px);
 	}
-
-	&.expanded {
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
-	}
 }
 
 .progress-title {
-	font-size: 16px;
+	font-size: 18px;
 	font-weight: 600;
-	margin: 0;
+	margin: 0 0 4px 0;
 }
 
 .progress-subtitle {
 	font-size: 14px;
 	opacity: 0.9;
-	margin-top: 4px;
+	height: 21px;
 }
 
 .progress-info {
-	text-align: right;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-end;
-	gap: 2px;
+	text-align: right;
 }
 
 .progress-percentage {
-	font-size: 20px;
+	font-size: 24px;
 	font-weight: 700;
 	line-height: 1;
+	color: white;
 }
 
 .progress-label {
 	font-size: 12px;
-	opacity: 0.8;
-	letter-spacing: 0.5px;
+	color: rgba(255, 255, 255, 0.9);
+	margin-top: 2px;
 }
 
 .progress-bar-container {
@@ -368,14 +364,6 @@ watch(
 
 	&.rotated {
 		transform: rotate(90deg);
-	}
-}
-
-.customer-block {
-	margin-bottom: 16px;
-
-	&:last-child {
-		margin-bottom: 0;
 	}
 }
 
@@ -417,8 +405,7 @@ html.dark {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	max-width: 100%;
-	display: block;
+	width: 100%;
 	cursor: help;
 }
 
@@ -427,7 +414,6 @@ html.dark {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	max-width: 100%;
-	display: block;
+	width: 100%;
 }
 </style>

@@ -19,7 +19,7 @@
 				</div>
 				<div class="progress-info">
 					<span class="progress-percentage">{{ overallCompletionRate }}%</span>
-					<span class="progress-label">Completeed</span>
+					<span class="progress-label">Completed</span>
 				</div>
 			</div>
 			<!-- 统一进度条 -->
@@ -332,11 +332,6 @@ const getAssigneeInitials = (fullName: string) => {
 	&:hover {
 		box-shadow: 0 6px 16px rgba(255, 107, 53, 0.3);
 		transform: translateY(-1px);
-	}
-
-	&.expanded {
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
 	}
 }
 

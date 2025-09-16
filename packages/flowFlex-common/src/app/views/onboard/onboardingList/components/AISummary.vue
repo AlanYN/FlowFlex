@@ -1,8 +1,8 @@
 <template>
-	<div class="customer-block" v-if="showAISummarySection">
+	<div class="customer-block !rounded-3xl" v-if="showAISummarySection">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="ai-summary-header-card rounded-md"
+			class="ai-summary-header-card rounded-3xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
@@ -190,11 +190,11 @@ const handleRefresh = () => {
 	/* 主要渐变背景 */
 	background: linear-gradient(
 		135deg,
-		#1e3a8a 0%,
-		#3730a3 25%,
-		#1e40af 50%,
-		#0f172a 75%,
-		#1e3a8a 100%
+		#60a5fa 0%,
+		#818cf8 25%,
+		#8b5cf6 50%,
+		#6366f1 75%,
+		#60a5fa 100%
 	);
 	background-size: 300% 300%;
 	animation: gradient-shift 6s ease infinite;
@@ -209,11 +209,11 @@ const handleRefresh = () => {
 		bottom: 3px;
 		background: linear-gradient(
 			135deg,
-			#1e3a8a 0%,
-			#3730a3 25%,
-			#1e40af 50%,
-			#0f172a 75%,
-			#1e3a8a 100%
+			#60a5fa 0%,
+			#818cf8 25%,
+			#8b5cf6 50%,
+			#6366f1 75%,
+			#60a5fa 100%
 		);
 		background-size: 300% 300%;
 		animation: gradient-shift 6s ease infinite;
@@ -230,7 +230,7 @@ const handleRefresh = () => {
 			),
 			radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.3) 1px, transparent 1px),
 			radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.3) 1px, transparent 1px),
-			linear-gradient(135deg, #1e3a8a 0%, #3730a3 25%, #1e40af 50%, #0f172a 75%, #1e3a8a 100%);
+			linear-gradient(135deg, #60a5fa 0%, #818cf8 25%, #8b5cf6 50%, #6366f1 75%, #60a5fa 100%);
 		background-size:
 			50px 50px,
 			30px 30px,
@@ -241,26 +241,6 @@ const handleRefresh = () => {
 			particles-float 8s ease-in-out infinite;
 	}
 
-	&:hover {
-		transform: translateY(-2px);
-	}
-
-	&.expanded {
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
-
-		&::before {
-			border-bottom-left-radius: 0;
-			border-bottom-right-radius: 0;
-		}
-
-		&::after {
-			border-bottom-left-radius: 0;
-			border-bottom-right-radius: 0;
-		}
-	}
-
-	/* 确保内容在最上层 */
 	> * {
 		position: relative;
 		z-index: 1;
@@ -536,12 +516,12 @@ const handleRefresh = () => {
 		/* 暗色主题下增强的渐变背景 */
 		background: linear-gradient(
 			135deg,
-			#0c1427 0%,
-			#1e3a8a 20%,
-			#3730a3 40%,
-			#1e40af 60%,
-			#0f172a 80%,
-			#0c1427 100%
+			#3b82f6 0%,
+			#60a5fa 20%,
+			#818cf8 40%,
+			#8b5cf6 60%,
+			#6366f1 80%,
+			#3b82f6 100%
 		);
 		background-size: 300% 300%;
 		animation: gradient-shift 6s ease infinite;
@@ -549,12 +529,12 @@ const handleRefresh = () => {
 		&::after {
 			background: linear-gradient(
 				135deg,
-				#0c1427 0%,
-				#1e3a8a 20%,
-				#3730a3 40%,
-				#1e40af 60%,
-				#0f172a 80%,
-				#0c1427 100%
+				#3b82f6 0%,
+				#60a5fa 20%,
+				#818cf8 40%,
+				#8b5cf6 60%,
+				#6366f1 80%,
+				#3b82f6 100%
 			);
 
 			/* 增强粒子效果可见性 */
@@ -573,12 +553,12 @@ const handleRefresh = () => {
 				radial-gradient(circle at 30% 70%, rgba(248, 113, 113, 0.5) 1px, transparent 1px),
 				linear-gradient(
 					135deg,
-					#0c1427 0%,
-					#1e3a8a 20%,
-					#3730a3 40%,
-					#1e40af 60%,
-					#0f172a 80%,
-					#0c1427 100%
+					#3b82f6 0%,
+					#60a5fa 20%,
+					#818cf8 40%,
+					#8b5cf6 60%,
+					#6366f1 80%,
+					#3b82f6 100%
 				);
 			background-size:
 				60px 60px,

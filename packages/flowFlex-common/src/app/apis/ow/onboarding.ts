@@ -83,6 +83,8 @@ const Api = (id?: string | number) => {
 		onboardingTaskNote: `${globSetting.apiProName}/ow/checklist-task-notes/${globSetting.apiVersion}`,
 
 		checklistTaskFile: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/upload-file`,
+
+		updateStageFields: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/stage/update-custom-fields`,
 	};
 };
 
@@ -860,4 +862,15 @@ export function uploadCheckListTaskFile(
 		},
 		params
 	);
+}
+
+export function updateStageFields(
+	id: string,
+	params: {
+		stageId: string;
+		customEstimatedDays: number;
+		customEndTime: string;
+	}
+) {
+	return defHttp.post({ url: `${Api(id).updateStageFields}`, params });
 }
