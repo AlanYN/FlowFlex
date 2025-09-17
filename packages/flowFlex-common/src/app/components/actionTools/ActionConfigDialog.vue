@@ -283,7 +283,6 @@ const props = withDefaults(defineProps<Props>(), {
 	isEditing: false,
 	triggerSourceId: '',
 	workflowId: '',
-	triggerType: TriggerTypeEnum.Stage,
 	forceEditable: false,
 });
 

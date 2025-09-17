@@ -10,3 +10,6 @@
 @use '@styles/global.scss' as *;
 @use '@styles/mixins' as *;
 @use 'nprogress/nprogress.css' as *; //这个样式必须引入
+
+// JSON语法高亮样式
+@import './styles/json-syntax-highlight.scss';

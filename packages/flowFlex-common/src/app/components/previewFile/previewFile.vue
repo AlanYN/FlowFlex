@@ -156,6 +156,7 @@ const closeOffice = () => {
 .office_block {
 	@apply fixed inset-0 z-50 flex items-center justify-center;
 	background-color: rgba(0, 0, 0, 0.3);
+	z-index: 9999;
 }
 
 .office_block-item {

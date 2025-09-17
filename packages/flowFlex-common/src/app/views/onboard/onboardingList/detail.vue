@@ -2,7 +2,7 @@
 	<div class="pb-6 bg-gray-50 dark:bg-black-400">
 		<!-- 页面头部 -->
 		<PageHeader
-			:title="`${onboardingData?.leadId || ''} ${onboardingData?.leadName || ''}`"
+			:title="`${onboardingData?.leadId || ''} - ${onboardingData?.leadName || ''}`"
 			:show-back-button="true"
 			@go-back="handleBack"
 		>
@@ -61,7 +61,7 @@
 			<div class="flex-[2] min-w-0 overflow-hidden customer-block">
 				<EditableStageHeader
 					:current-stage="onboardingActiveStageInfo"
-					:disabled="isAbortedReadonly"
+					:disabled="isAbortedReadonly || onboardingStageStatus"
 					@update:stage-data="handleStageDataUpdate"
 				/>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-2 w-full">
@@ -374,6 +374,13 @@ const isCompleteStageDisabled = computed(() => {
 const isAbortedReadonly = computed(() => {
 	const status = onboardingData.value?.status;
 	return !!status && ['Aborted', 'Cancelled'].includes(status);
+});
+
+const onboardingStageStatus = computed(() => {
+	const onboardingActiveStage = workflowStages.value.find(
+		(stage) => stage?.stageId === activeStage?.value
+	);
+	return !!onboardingActiveStage?.completedBy;
 });
 
 // 添加组件引用
@@ -988,12 +995,10 @@ const handleStageDataUpdate = async (updateData: {
 	try {
 		// 这里应该调用API来更新阶段数据
 		// 暂时先更新本地数据，实际项目中需要调用相应的API
-		console.log('Stage data update:', updateData);
 		const res = await updateStageFields(onboardingId.value, updateData);
 		if (res.code === '200') {
 			ElMessage.success('Stage data updated successfully');
 			loadOnboardingDetail();
-			refreshChangeLog();
 		} else {
 			ElMessage.error(res.msg || 'Failed to update stage data');
 		}

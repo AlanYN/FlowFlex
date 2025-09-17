@@ -2,7 +2,7 @@
 	<el-dialog
 		v-model="dialogVisible"
 		:title="dialogTitle"
-		width="80%"
+		:width="moreDialogWidth"
 		draggable
 		:before-close="handleClose"
 		:append-to-body="true"
@@ -50,59 +50,137 @@
 						<div>
 							<div v-if="row.executionInput || row.executionOutput" class="flex">
 								<!-- Input Details -->
-								<div v-if="row.executionInput" class="flex-1 pr-4">
-									<div class="mb-2 ml-2">
-										<div class="flex items-center space-x-2">
-											<div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-											<h4
-												class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
-											>
-												Input
-											</h4>
-										</div>
-									</div>
+								<div v-if="row.executionInput" class="flex-1 shrink-0 min-w-0 pr-4">
 									<div class="p-0">
-										<el-scrollbar max-height="200px">
-											<pre
-												class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
-												>{{ formatJsonOutput(row.executionInput) }}</pre
+										<!-- 智能渲染输入数据 -->
+										<template v-if="row.inputType">
+											<FileResultRenderer
+												v-if="row.inputType.type === 'file'"
+												:output-type="row.inputType"
+												@preview="handleFilePreview"
+												@download="handleFileDownload"
+											/>
+											<JsonResultRenderer
+												v-else-if="row.inputType.type === 'json'"
+												:output-type="row.inputType"
+												:max-height="'300px'"
+												@copy="handleJsonCopy"
+												@format="handleJsonFormat"
 											>
-										</el-scrollbar>
+												<template #label>
+													<div class="flex items-center space-x-2">
+														<div
+															class="w-2 h-2 bg-blue-500 rounded-full"
+														></div>
+														<h4
+															class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+														>
+															Input
+														</h4>
+													</div>
+												</template>
+											</JsonResultRenderer>
+											<div v-else class="text-renderer">
+												<el-scrollbar max-height="300px">
+													<pre
+														class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
+														>{{ row.inputType.data }}</pre
+													>
+												</el-scrollbar>
+											</div>
+										</template>
+										<!-- 降级方案：使用原有格式化 -->
+										<template v-else>
+											<el-scrollbar max-height="300px">
+												<pre
+													class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
+													>{{ formatJsonOutput(row.executionInput) }}</pre
+												>
+											</el-scrollbar>
+										</template>
 									</div>
 								</div>
 								<div
 									class="w-px border-l border-dashed border-gray-300 dark:border-gray-500 my-4"
 								></div>
-								<div v-if="row.executionOutput" class="flex-1 pr-4">
-									<div class="mb-2 ml-2">
-										<div class="flex items-center space-x-2">
-											<div class="w-2 h-2 bg-green-500 rounded-full"></div>
-											<h4
-												class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
-											>
-												Output
-											</h4>
-										</div>
-									</div>
+								<div
+									v-if="row.executionOutput"
+									class="flex-1 shrink-0 min-w-0 pr-4"
+								>
 									<div class="p-0">
-										<el-scrollbar max-height="200px">
-											<pre
-												class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 border-0 rounded-none p-4 m-0 whitespace-pre-wrap break-words"
-												>{{ formatJsonOutput(row.executionOutput) }}</pre
+										<!-- 智能渲染输出数据 -->
+										<template v-if="row.outputType">
+											<FileResultRenderer
+												v-if="row.outputType.type === 'file'"
+												:output-type="row.outputType"
+												@preview="handleFilePreview"
+												@download="handleFileDownload"
 											>
-										</el-scrollbar>
+												<template #label>
+													<div class="flex items-center space-x-2">
+														<div
+															class="w-2 h-2 bg-green-500 rounded-full"
+														></div>
+														<h4
+															class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+														>
+															Output
+														</h4>
+													</div>
+												</template>
+											</FileResultRenderer>
+											<JsonResultRenderer
+												v-else-if="row.outputType.type === 'json'"
+												:output-type="row.outputType"
+												:max-height="'300px'"
+												@copy="handleJsonCopy"
+												@format="handleJsonFormat"
+											>
+												<template #label>
+													<div class="flex items-center space-x-2">
+														<div
+															class="w-2 h-2 bg-green-500 rounded-full"
+														></div>
+														<h4
+															class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+														>
+															Output
+														</h4>
+													</div>
+												</template>
+											</JsonResultRenderer>
+											<div v-else class="text-renderer">
+												<el-scrollbar max-height="300px">
+													<pre
+														class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
+														>{{ row.outputType.data }}</pre
+													>
+												</el-scrollbar>
+											</div>
+										</template>
+										<!-- 降级方案：使用原有格式化 -->
+										<template v-else>
+											<el-scrollbar max-height="300px">
+												<pre
+													class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 border-0 rounded-none p-4 m-0 whitespace-pre-wrap break-words"
+													>{{
+														formatJsonOutput(row.executionOutput)
+													}}</pre
+												>
+											</el-scrollbar>
+										</template>
 									</div>
 								</div>
 							</div>
 
 							<!-- Error Details -->
-							<div v-if="row.errorMessage" class="">
-								<h4 class="text-sm font-medium text-red-600 dark:text-red-400 mb-2">
-									Error Message
-								</h4>
+							<div v-if="row.errorMessage" class="p-2">
 								<div
-									class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800"
+									class="flex items-center gap-x-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800"
 								>
+									<h4 class="text-sm font-medium text-red-600 dark:text-red-400">
+										Error Message:
+									</h4>
 									{{ row.errorMessage }}
 								</div>
 							</div>
@@ -207,15 +285,26 @@ import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Document } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
-import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { projectTenMinutesSsecondsDate, moreDialogWidth } from '@/settings/projectSetting';
 import { getActionResult } from '@/apis/action';
 import { timeZoneConvert } from '@/hooks/time';
 import type { ActionExecutionResult } from '#/action';
+// 新增导入
+import { detectOutputType, type OutputType } from '@/utils/output-type-detector';
+import FileResultRenderer from './FileResultRenderer.vue';
+import JsonResultRenderer from './JsonResultRenderer.vue';
 
 interface ActionInfo {
 	id: string;
 	name?: string;
 	actionName?: string;
+}
+
+// 扩展ActionExecutionResult接口
+interface EnhancedActionExecutionResult extends ActionExecutionResult {
+	formattedOutput?: string;
+	outputType?: OutputType;
+	inputType?: OutputType;
 }
 
 interface Props {
@@ -247,7 +336,7 @@ const dialogTitle = computed(() => {
 
 // Data state
 const loading = ref(false);
-const results = ref<ActionExecutionResult[]>([]);
+const results = ref<EnhancedActionExecutionResult[]>([]);
 const expandedRows = ref(new Set<string>());
 
 // Pagination
@@ -427,12 +516,44 @@ const loadResults = async () => {
 		if (response.success) {
 			const rawData = response.data?.data || [];
 
-			// Process and enhance the data
-			results.value = rawData.map((item: any) => ({
-				...item,
-				// Format output summary for display
-				formattedOutput: getExecutionOutputSummary(item.executionOutput),
-			}));
+			// Process and enhance the data with type detection
+			results.value = rawData.map((item: any) => {
+				const enhanced: EnhancedActionExecutionResult = {
+					...item,
+					// Format output summary for display
+					formattedOutput: getExecutionOutputSummary(item.executionOutput),
+				};
+
+				// Detect output type if executionOutput exists
+				if (item.executionOutput) {
+					try {
+						enhanced.outputType = detectOutputType(item.executionOutput);
+					} catch (error) {
+						console.warn('Failed to detect output type:', error);
+						// Fallback to text type
+						enhanced.outputType = {
+							type: 'text',
+							data: item.executionOutput,
+						};
+					}
+				}
+
+				// Detect input type if executionInput exists
+				if (item.executionInput) {
+					try {
+						enhanced.inputType = detectOutputType(item.executionInput);
+					} catch (error) {
+						console.warn('Failed to detect input type:', error);
+						// Fallback to text type
+						enhanced.inputType = {
+							type: 'text',
+							data: item.executionInput,
+						};
+					}
+				}
+
+				return enhanced;
+			});
 			total.value = response.data?.total || 0;
 		} else {
 			ElMessage.error(response.msg || 'Failed to load action execution results');
@@ -473,6 +594,27 @@ const handleCurrentChange = (page: number) => {
 const handlePagination = () => {
 	// 统一的分页处理函数，只负责调用 API
 	loadResults();
+};
+
+// 新增事件处理函数
+const handleFilePreview = (outputType: OutputType) => {
+	console.log('File preview requested:', outputType);
+	// 文件预览逻辑已在FileResultRenderer组件内部处理
+};
+
+const handleFileDownload = (outputType: OutputType) => {
+	console.log('File download requested:', outputType);
+	// 文件下载逻辑已在FileResultRenderer组件内部处理
+};
+
+const handleJsonCopy = (outputType: OutputType) => {
+	console.log('JSON copy requested:', outputType);
+	// JSON复制逻辑已在JsonResultRenderer组件内部处理
+};
+
+const handleJsonFormat = (outputType: OutputType) => {
+	console.log('JSON format requested:', outputType);
+	// JSON格式化逻辑已在JsonResultRenderer组件内部处理
 };
 
 // Watch for dialog visibility changes
@@ -634,5 +776,26 @@ html.dark {
 		background-color: #374151 !important;
 		color: #f3f4f6 !important;
 	}
+}
+
+/* 新增渲染组件样式 */
+.text-renderer {
+	@apply bg-white dark:bg-gray-900 rounded-xl;
+}
+
+.text-renderer pre {
+	@apply bg-transparent border-0 rounded-none;
+}
+
+/* 确保新组件与现有样式一致 */
+:deep(.file-result-renderer),
+:deep(.json-result-renderer) {
+	@apply w-full;
+}
+
+/* 调整新组件在展开面板中的间距 */
+:deep(.file-result-renderer .file-info-card),
+:deep(.json-result-renderer .json-toolbar) {
+	@apply mb-0;
 }
 </style>
