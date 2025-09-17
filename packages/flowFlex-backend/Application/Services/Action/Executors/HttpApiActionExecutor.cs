@@ -87,13 +87,44 @@ namespace FlowFlex.Application.Services.Action.Executors
             var processedUrl = ReplacePlaceholders(config.Url, triggerContext);
             var request = new HttpRequestMessage(GetHttpMethod(config.Method), processedUrl);
 
-            // Add headers with placeholder replacement
+            // Separate headers into request headers and content headers
+            var requestHeaders = new Dictionary<string, string>();
+            var contentHeaders = new Dictionary<string, string>();
+
             foreach (var header in config.Headers)
+            {
+                var key = header.Key?.Trim();
+                var value = header.Value?.Trim();
+                
+                if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value))
+                    continue;
+
+                var processedValue = ReplacePlaceholders(value, triggerContext);
+
+                // Content headers should be added to HttpContent, not HttpRequestMessage
+                if (IsContentHeader(key))
+                {
+                    contentHeaders[key] = processedValue;
+                }
+                else
+                {
+                    requestHeaders[key] = processedValue;
+                }
+            }
+
+            // Add request headers
+            foreach (var header in requestHeaders)
             {
                 if (!request.Headers.Contains(header.Key))
                 {
-                    var processedValue = ReplacePlaceholders(header.Value, triggerContext);
-                    request.Headers.Add(header.Key, processedValue);
+                    try
+                    {
+                        request.Headers.Add(header.Key, header.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Failed to add request header {HeaderName}: {Error}", header.Key, ex.Message);
+                    }
                 }
             }
 
@@ -101,7 +132,43 @@ namespace FlowFlex.Application.Services.Action.Executors
             if (!string.IsNullOrEmpty(config.Body))
             {
                 var processedBody = ReplacePlaceholders(config.Body, triggerContext);
-                request.Content = new StringContent(processedBody, System.Text.Encoding.UTF8, "application/json");
+                
+                // Determine content type from config or default to application/json
+                var contentType = contentHeaders.GetValueOrDefault("Content-Type", "application/json");
+                request.Content = new StringContent(processedBody, System.Text.Encoding.UTF8, contentType);
+                
+                // Remove Content-Type from contentHeaders since it's already set in StringContent
+                contentHeaders.Remove("Content-Type");
+                
+                // Add remaining content headers
+                foreach (var header in contentHeaders)
+                {
+                    try
+                    {
+                        request.Content.Headers.Add(header.Key, header.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Failed to add content header {HeaderName}: {Error}", header.Key, ex.Message);
+                    }
+                }
+            }
+            else if (contentHeaders.Count > 0)
+            {
+                // If there are content headers but no body, create empty content
+                request.Content = new StringContent(string.Empty, System.Text.Encoding.UTF8, "text/plain");
+                
+                foreach (var header in contentHeaders)
+                {
+                    try
+                    {
+                        request.Content.Headers.Add(header.Key, header.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Failed to add content header {HeaderName}: {Error}", header.Key, ex.Message);
+                    }
+                }
             }
 
             try
@@ -656,6 +723,29 @@ namespace FlowFlex.Application.Services.Action.Executors
             {
                 return new MemoryStream(_fileBytes, false);
             }
+        }
+
+        /// <summary>
+        /// Determines if a header should be added to HttpContent instead of HttpRequestMessage
+        /// </summary>
+        private static bool IsContentHeader(string headerName)
+        {
+            if (string.IsNullOrEmpty(headerName))
+                return false;
+
+            var name = headerName.Trim();
+            
+            // Content headers that belong to HttpContent
+            return name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Content-Length", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Content-Encoding", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Content-Language", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Content-Location", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Content-MD5", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Content-Range", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Content-Disposition", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Expires", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Last-Modified", StringComparison.OrdinalIgnoreCase);
         }
 
         #endregion

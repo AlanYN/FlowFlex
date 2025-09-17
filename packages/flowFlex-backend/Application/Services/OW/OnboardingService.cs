@@ -1883,10 +1883,11 @@ namespace FlowFlex.Application.Services.OW
                         entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
                     }
                 }
-                else if (entity.CurrentStageId != stageToComplete.Id)
+                else if (entity.CurrentStageId != stageToComplete.Id && !input.PreventAutoMove)
                 {
                     // If we completed a different stage (not the current one), 
                     // advance to the next incomplete stage AFTER the completed stage (only look forward)
+                    // 但如果 PreventAutoMove 为 true，则不自动移动（用于系统动作的精确控制）
                     var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
                     var nextIncompleteStage = orderedStages
                         .Where(stage => stage.Order > completedStageOrder &&
@@ -4140,7 +4141,8 @@ namespace FlowFlex.Application.Services.OW
                     completedStage.LastUpdatedTime = currentTime;
                     completedStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
 
-                    // Set StartTime if not already set (for stages that were completed without being saved first)
+                    // Set StartTime if not already set (only during complete operations)
+                    // This ensures StartTime is set when user actually completes work, not during status changes
                     if (!completedStage.StartTime.HasValue)
                     {
                         completedStage.StartTime = currentTime;
@@ -4177,7 +4179,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Activate the next incomplete stage
                         nextStage.Status = "InProgress";
-                        nextStage.StartTime = currentTime;
+                        // Don't set StartTime here - only set it during save or complete operations
                         nextStage.IsCurrent = true;
                         nextStage.LastUpdatedTime = currentTime;
                         nextStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
@@ -5676,7 +5678,8 @@ namespace FlowFlex.Application.Services.OW
                 stageProgress.SavedById = GetCurrentUserId()?.ToString();
                 stageProgress.SavedBy = GetCurrentUserName();
 
-                // Set StartTime if not already set
+                // Set StartTime if not already set (only during save operations)
+                // This ensures StartTime is only set when user actually saves or completes work
                 if (!stageProgress.StartTime.HasValue)
                 {
                     stageProgress.StartTime = DateTimeOffset.UtcNow;
@@ -5864,7 +5867,7 @@ namespace FlowFlex.Application.Services.OW
                         if (stage.StageOrder == 1)
                         {
                             stage.Status = "InProgress";
-                            stage.StartTime = DateTimeOffset.UtcNow;
+                            stage.StartTime = DateTimeOffset.UtcNow; // Set StartTime for system reset operation
                             stage.IsCurrent = true;
                             entity.CurrentStageId = stage.StageId;
                             entity.CurrentStageOrder = 1;

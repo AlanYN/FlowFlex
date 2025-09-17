@@ -34,11 +34,12 @@ namespace FlowFlex.Application.Notification
                 {
                     StageId = notification.StageId, // 指定要完成的 Stage ID
                     CompletionNotes = notification.CompletionNotes,
-                    ForceComplete = false // 不强制完成，会进行验证
+                    ForceComplete = false, // 不强制完成，会进行验证
+                    PreventAutoMove = true // 防止自动移动到下一阶段，严格按照指定阶段执行
                 };
 
-                // 调用 OnboardingService 完成指定 Stage (使用带验证的 complete-stage-with-validation API)
-                var result = await _onboardingService.CompleteCurrentStageAsync(notification.OnboardingId, completeCurrentStageInput);
+                // 调用 OnboardingService 完成指定 Stage (使用内部方法避免事件循环)
+                var result = await _onboardingService.CompleteCurrentStageInternalAsync(notification.OnboardingId, completeCurrentStageInput);
 
                 if (result)
                 {

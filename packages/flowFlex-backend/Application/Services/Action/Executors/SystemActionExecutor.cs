@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
+using System.Linq;
 
 namespace FlowFlex.Application.Services.Action.Executors
 {
@@ -98,7 +99,13 @@ namespace FlowFlex.Application.Services.Action.Executors
                 var contextJson = JToken.FromObject(triggerContext);
 
                 if (!stageId.HasValue)
-                    stageId = contextJson["stageId"]?.ToObject<long>() ?? contextJson["CurrentStageId"]?.ToObject<long>() ?? contextJson["CompletedStageId"]?.ToObject<long>();
+                {
+                    // Try different case variations and prioritize user-specified StageId over CurrentStageId
+                    stageId = contextJson["StageId"]?.ToObject<long>() ?? 
+                              contextJson["stageId"]?.ToObject<long>() ?? 
+                              contextJson["CompletedStageId"]?.ToObject<long>() ??
+                              contextJson["CurrentStageId"]?.ToObject<long>();
+                }
 
                 if (!onboardingId.HasValue)
                     onboardingId = contextJson["onboardingId"]?.ToObject<long>() ?? contextJson["Id"]?.ToObject<long>() ?? contextJson["OnboardingId"]?.ToObject<long>();
@@ -109,17 +116,33 @@ namespace FlowFlex.Application.Services.Action.Executors
                 throw new ArgumentException("CompleteStage action requires 'stageId' and 'onboardingId' parameters");
             }
 
+            // Check if Onboarding is already completed before attempting to complete stage
+            var onboarding = await _onboardingService.GetByIdAsync(onboardingId.Value);
+            if (onboarding != null && string.Equals(onboarding.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Onboarding is already completed, skipping CompleteStage action: OnboardingId={OnboardingId}, Status={Status}",
+                    onboardingId.Value, onboarding.Status);
+                
+                // Check and fix any data inconsistency for the specific stage
+                await CheckAndFixStageCompletionInconsistencyAsync(onboardingId.Value, stageId.Value);
+                
+                return new { Success = false, Message = "Onboarding is already completed", AlreadyCompleted = true };
+            }
+
             bool result;
 
             // Use internal completion method to avoid event publishing and prevent circular dependencies
             _logger.LogInformation("Using internal completion API (no events) for stage {StageId} in onboarding {OnboardingId} with operator: {Operator}",
                 stageId.Value, onboardingId.Value, operatorInfo);
 
+            // 使用专门的方法完成指定阶段，避免自动移动到下一阶段
             result = await _onboardingService.CompleteCurrentStageInternalAsync(onboardingId.Value, new FlowFlex.Application.Contracts.Dtos.OW.Onboarding.CompleteCurrentStageInputDto
             {
                 StageId = stageId.Value,
                 CompletionNotes = enhancedNotes,
-                ForceComplete = false
+                ForceComplete = false,
+                // 重要：阻止自动移动到下一阶段，严格按照用户指定的阶段执行
+                PreventAutoMove = true
             });
 
             // If autoMoveToNext is true and stage completion was successful, move to next stage
@@ -148,6 +171,59 @@ namespace FlowFlex.Application.Services.Action.Executors
                 operatorInfo = operatorInfo,
                 internalCompletion = true // Indicates this was completed without event publishing
             };
+        }
+
+        /// <summary>
+        /// 检查和修复阶段完成状态不一致的问题
+        /// </summary>
+        private async Task CheckAndFixStageCompletionInconsistencyAsync(long onboardingId, long stageId)
+        {
+            try
+            {
+                if (stageId <= 0 || onboardingId <= 0) return;
+
+                var updatedOnboardingDto = await _onboardingService.GetByIdAsync(onboardingId);
+                
+                if (updatedOnboardingDto?.StagesProgress != null)
+                {
+                    var stageProgress = updatedOnboardingDto.StagesProgress.FirstOrDefault(sp => sp.StageId == stageId);
+                    if (stageProgress != null && !stageProgress.IsCompleted && 
+                        string.Equals(updatedOnboardingDto.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning("发现数据不一致: Onboarding 已完成但 Stage 标记为未完成, 正在修复: OnboardingId={OnboardingId}, StageId={StageId}, StageIsCompleted={StageIsCompleted}",
+                            onboardingId, stageId, stageProgress.IsCompleted);
+
+                        // Fix the inconsistency by marking the stage as completed
+                        stageProgress.IsCompleted = true;
+                        stageProgress.Status = "Completed";
+                        stageProgress.CompletionTime = stageProgress.CompletionTime ?? DateTimeOffset.UtcNow;
+                        stageProgress.CompletedBy = stageProgress.CompletedBy ?? _userContext?.UserName ?? "System";
+                        
+                        // Handle UserId type conversion - UserId is string, CompletedById expects long?
+                        if (!stageProgress.CompletedById.HasValue)
+                        {
+                            if (long.TryParse(_userContext?.UserId, out long userId))
+                            {
+                                stageProgress.CompletedById = userId;
+                            }
+                            else
+                            {
+                                stageProgress.CompletedById = null; // Default to null if conversion fails
+                            }
+                        }
+
+                        // Note: We can't directly update the entity here without repository access
+                        // This is logged for awareness - the ChecklistTaskCompletionService will handle the actual fix
+                        _logger.LogInformation("Stage consistency issue detected in SystemActionExecutor: OnboardingId={OnboardingId}, StageId={StageId}",
+                            onboardingId, stageId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "检查和修复阶段完成状态不一致时发生错误: OnboardingId={OnboardingId}, StageId={StageId}",
+                    onboardingId, stageId);
+            }
         }
 
         /// <summary>

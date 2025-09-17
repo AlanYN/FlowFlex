@@ -53,5 +53,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// Preferred language for AI summary output (e.g., zh-CN, en-US)
         /// </summary>
         public string? Language { get; set; }
+
+        /// <summary>
+        /// 是否阻止自动移动到下一阶段（用于系统动作，严格按照指定阶段完成）
+        /// </summary>
+        public bool PreventAutoMove { get; set; } = false;
     }
 }

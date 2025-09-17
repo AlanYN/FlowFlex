@@ -868,6 +868,80 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     }
 
     /// <summary>
+    /// 检查和修复阶段完成状态不一致的问题
+    /// </summary>
+    private async Task CheckAndFixStageCompletionInconsistencyAsync(Onboarding onboarding, long stageId)
+    {
+        try
+        {
+            if (stageId <= 0) return;
+
+            var onboardingService = _serviceProvider.GetRequiredService<IOnboardingService>();
+            var updatedOnboardingDto = await onboardingService.GetByIdAsync(onboarding.Id);
+            
+            if (updatedOnboardingDto?.StagesProgress != null)
+            {
+                var stageProgress = updatedOnboardingDto.StagesProgress.FirstOrDefault(sp => sp.StageId == stageId);
+                if (stageProgress != null && !stageProgress.IsCompleted && 
+                    string.Equals(updatedOnboardingDto.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("发现数据不一致: Onboarding 已完成但 Stage 标记为未完成, 正在修复: OnboardingId={OnboardingId}, StageId={StageId}, StageIsCompleted={StageIsCompleted}",
+                        onboarding.Id, stageId, stageProgress.IsCompleted);
+
+                    // Fix the inconsistency by marking the stage as completed
+                    stageProgress.IsCompleted = true;
+                    stageProgress.Status = "Completed";
+                    stageProgress.CompletionTime = stageProgress.CompletionTime ?? DateTimeOffset.UtcNow;
+                    stageProgress.CompletedBy = stageProgress.CompletedBy ?? _userContext?.UserName ?? "System";
+                    
+                    // Handle UserId type conversion - UserId is string, CompletedById expects long?
+                    if (!stageProgress.CompletedById.HasValue)
+                    {
+                        if (long.TryParse(_userContext?.UserId, out long userId))
+                        {
+                            stageProgress.CompletedById = userId;
+                        }
+                        else
+                        {
+                            stageProgress.CompletedById = null; // Default to null if conversion fails
+                        }
+                    }
+
+                    // Use raw SQL to update JSONB field to avoid type conversion issues
+                    try
+                    {
+                        var jsonOptions = new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            WriteIndented = false
+                        };
+                        var stagesProgressJson = System.Text.Json.JsonSerializer.Serialize(updatedOnboardingDto.StagesProgress, jsonOptions);
+                        
+                        // Use SqlSugar's native SQL execution to handle JSONB update with proper casting
+                        var updateSql = "UPDATE ff_onboarding SET stages_progress_json = @stagesProgressJson::jsonb WHERE id = @onboardingId";
+                        var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
+                        await sqlSugarClient.Ado.ExecuteCommandAsync(updateSql, new { stagesProgressJson, onboardingId = onboarding.Id });
+
+                        _logger.LogInformation("已修复数据不一致性: OnboardingId={OnboardingId}, StageId={StageId}, 现在标记为已完成",
+                            onboarding.Id, stageId);
+                    }
+                    catch (Exception updateEx)
+                    {
+                        _logger.LogError(updateEx, "更新 JSONB 字段时发生错误: OnboardingId={OnboardingId}, StageId={StageId}",
+                            onboarding.Id, stageId);
+                        // Don't re-throw to avoid breaking the main flow
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "检查和修复阶段完成状态不一致时发生错误: OnboardingId={OnboardingId}, StageId={StageId}",
+                onboarding.Id, stageId);
+        }
+    }
+
+    /// <summary>
     /// 检查是否是 CompleteStage System Action
     /// </summary>
     private async Task<bool> IsCompleteStageSystemActionAsync(Domain.Entities.Action.ActionDefinition actionDefinition)
@@ -915,12 +989,26 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     {
         try
         {
-            // 确定要完成的 Stage ID
-            long stageIdToComplete = completion.StageId ?? onboarding.CurrentStageId ?? 0;
+            // Check if Onboarding is already completed to avoid redundant operations
+            if (string.Equals(onboarding.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Onboarding 已完成，跳过 CompleteStage 操作: OnboardingId={OnboardingId}, Status={Status}, TaskId={TaskId}",
+                    onboarding.Id, onboarding.Status, task.Id);
+                
+                // However, check for data inconsistency - if Onboarding is completed but specific stage shows as incomplete
+                await CheckAndFixStageCompletionInconsistencyAsync(onboarding, completion.StageId ?? onboarding.CurrentStageId ?? 0);
+                return;
+            }
 
+            // 确定要完成的 Stage ID - 优先使用用户指定的阶段，避免自动使用当前阶段导致错误的阶段完成
+            // 用户在任务完成时明确指定了要完成的阶段，应该严格按照用户的意图执行
+            long stageIdToComplete = completion.StageId ?? 0;
+            
+            // 如果用户没有指定 StageId，记录警告但不使用当前阶段（避免误操作）
             if (stageIdToComplete <= 0)
             {
-                _logger.LogWarning("无法确定要完成的 Stage ID: OnboardingId={OnboardingId}, TaskId={TaskId}", onboarding.Id, task.Id);
+                _logger.LogWarning("CompleteStage System Action 需要明确的 StageId，但用户未提供: OnboardingId={OnboardingId}, TaskId={TaskId}, CurrentStageId={CurrentStageId}",
+                    onboarding.Id, task.Id, onboarding.CurrentStageId);
                 return;
             }
 
@@ -947,11 +1035,18 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             {
                 StageId = stageIdToComplete,
                 CompletionNotes = completeStageContext.CompletionNotes,
-                ForceComplete = false
+                ForceComplete = false,
+                PreventAutoMove = true // 阻止自动移动，确保严格按照用户指定的阶段执行
             });
 
             _logger.LogInformation("直接完成 Stage (无事件): OnboardingId={OnboardingId}, StageId={StageId}, TaskId={TaskId}, TaskName={TaskName}, Success={Success}",
                 onboarding.Id, stageIdToComplete, task.Id, task.Name, completed);
+
+            if (!completed)
+            {
+                _logger.LogWarning("Stage 完成操作未成功: OnboardingId={OnboardingId}, StageId={StageId}, TaskId={TaskId}",
+                    onboarding.Id, stageIdToComplete, task.Id);
+            }
         }
         catch (Exception ex)
         {
