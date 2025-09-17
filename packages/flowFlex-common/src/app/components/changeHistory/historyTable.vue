@@ -3,13 +3,13 @@
 		v-model="dialogTableVisible"
 		:close-on-click-modal="false"
 		title="Change History"
-		:width="bigDialogWidth"
+		:width="moreDialogWidth"
 		@close="closeVisible"
 		draggable
 	>
 		<el-table
 			:data="tablePagesCount"
-			max-height="384px"
+			:max-height="tableMaxHeight"
 			class="w-full"
 			border
 			stripe
@@ -96,8 +96,9 @@ import { timeZoneConvert } from '@/hooks/time';
 import { Document, Clock } from '@element-plus/icons-vue';
 import {
 	projectTenMinutesSsecondsDate,
-	bigDialogWidth,
+	moreDialogWidth,
 	defaultStr,
+	tableMaxHeight,
 } from '@/settings/projectSetting';
 import { WFEMoudels } from '@/enums/appEnum';
 import { getOperationTypeInfo } from '@/apis/ow/change-log';
@@ -291,7 +292,9 @@ const renderFileUpload = (change: any) => {
 
 	return h(
 		'div',
-		{ class: 'bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-xl text-xs border-l-4 border-cyan-400' },
+		{
+			class: 'bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-xl text-xs border-l-4 border-cyan-400',
+		},
 		[
 			h('div', { class: 'flex items-center' }, [
 				h('span', { class: 'mr-2 text-cyan-600' }, '📁'),

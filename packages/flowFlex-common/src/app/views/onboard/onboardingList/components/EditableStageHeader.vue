@@ -171,7 +171,7 @@ const displayETA = computed(() => {
 		const startDate = new Date(props.currentStage.startTime);
 		const etaDate = new Date(startDate);
 		etaDate.setDate(startDate.getDate() + props.currentStage.estimatedDays);
-		return timeZoneConvert(etaDate.toISOString(), false, projectTenMinutesSsecondsDate);
+		return timeZoneConvert(etaDate.toString(), false, projectTenMinutesSsecondsDate);
 	} catch (error) {
 		console.error('Error calculating ETA:', error);
 		return defaultStr;
@@ -199,7 +199,7 @@ const initEditForm = () => {
 
 			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
 			const endTimeFormatted = timeZoneConvert(
-				endDate.toISOString(),
+				endDate.toString(),
 				false,
 				projectTenMinutesSsecondsDate
 			);
@@ -235,7 +235,7 @@ const handleEstimatedDaysChange = (estimatedDays: number | null) => {
 
 			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
 			const endTimeFormatted = timeZoneConvert(
-				endDate.toISOString(),
+				endDate.toString(),
 				false,
 				projectTenMinutesSsecondsDate
 			);
@@ -366,11 +366,10 @@ const handleSave = async () => {
 		// 将格式化的时间字符串转换为Date对象，再转为ISO字符串，最后转换为UTC格式
 		const endTimeDate = new Date(editForm.value.customEndTime);
 		const customEndTimeStr = timeZoneConvert(
-			endTimeDate.toISOString(),
+			endTimeDate.toString(),
 			true,
 			projectTenMinutesSsecondsDate
 		);
-
 		const updateData = {
 			stageId: props.currentStage.stageId,
 			customEstimatedDays: editForm.value.customEstimatedDays,

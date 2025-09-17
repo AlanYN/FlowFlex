@@ -652,9 +652,6 @@ export default {
 				} else {
 					ElMessage.error('Failed to load onboarding data');
 				}
-			} catch (error) {
-				console.error('Error loading onboarding data:', error);
-				ElMessage.error('Failed to load onboarding data');
 			} finally {
 				loading.value = false;
 			}
