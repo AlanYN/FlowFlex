@@ -122,17 +122,6 @@ const leads: AppRouteModule = {
 				status: true,
 			},
 		},
-		{
-			path: 'actionDetail/:actionId',
-			name: 'ActionDetail',
-			component: () => import('@/views/actions/detail.vue'),
-			hidden: true,
-			meta: {
-				title: t('sys.router.actionDetail'),
-				ordinal: 7,
-				activeMenu: '/onboard/actions',
-			},
-		},
 	],
 };
 

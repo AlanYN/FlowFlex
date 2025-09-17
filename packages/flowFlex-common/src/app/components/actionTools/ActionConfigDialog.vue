@@ -637,7 +637,6 @@ const resetFormData = () => {
 	formRef.value?.clearValidate();
 };
 
-// Handle test result - 参考 detail.vue 的 handleTestResult 逻辑
 const onTest = async () => {
 	try {
 		testing.value = true;
