@@ -133,17 +133,6 @@ const leads: AppRouteModule = {
 				activeMenu: '/onboard/actions',
 			},
 		},
-		{
-			path: 'createAction',
-			name: 'CreateAction',
-			component: () => import('@/views/actions/create.vue'),
-			hidden: true,
-			meta: {
-				title: t('sys.router.createAction'),
-				ordinal: 8,
-				activeMenu: '/onboard/actions',
-			},
-		},
 	],
 };
 
