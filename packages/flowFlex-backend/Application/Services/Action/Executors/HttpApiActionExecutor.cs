@@ -5,6 +5,8 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
+using FlowFlex.Application.Contracts;
+using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.Application.Services.Action.Executors
 {
@@ -15,14 +17,17 @@ namespace FlowFlex.Application.Services.Action.Executors
     {
         private readonly ILogger<HttpApiActionExecutor> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IFileStorageService _fileStorageService;
         private readonly JsonSerializerOptions _jsonOptions;
 
         public HttpApiActionExecutor(
             ILogger<HttpApiActionExecutor> logger,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            IFileStorageService fileStorageService)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _fileStorageService = fileStorageService;
             _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         }
 
@@ -102,13 +107,23 @@ namespace FlowFlex.Application.Services.Action.Executors
             try
             {
                 var response = await client.SendAsync(request);
-                var content = await response.Content.ReadAsStringAsync();
 
                 _logger.LogInformation(
                     "HTTP API request completed: {Method} {Url} - Status: {StatusCode}",
                     config.Method, processedUrl, (int)response.StatusCode);
 
-                return CreateSuccessResult(response, content);
+                // Check if auto download is enabled or if content should be auto-downloaded
+                var shouldDownload = config.AutoDownloadFile || ShouldAutoDownloadContent(response);
+                
+                if (shouldDownload && response.IsSuccessStatusCode)
+                {
+                    return await HandleFileDownloadAsync(response, config, processedUrl);
+                }
+                else
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    return CreateSuccessResult(response, content);
+                }
             }
             catch (HttpRequestException ex)
             {
@@ -347,5 +362,302 @@ namespace FlowFlex.Application.Services.Action.Executors
                 timestamp = DateTimeOffset.UtcNow
             };
         }
+
+        #region File Download Methods
+
+        /// <summary>
+        /// Determine if content should be automatically downloaded based on content type and size
+        /// </summary>
+        private bool ShouldAutoDownloadContent(HttpResponseMessage response)
+        {
+            try
+            {
+                var contentType = response.Content.Headers.ContentType?.MediaType?.ToLower();
+                var contentLength = response.Content.Headers.ContentLength;
+
+                // Auto-download binary content types
+                if (!string.IsNullOrEmpty(contentType))
+                {
+                    var binaryContentTypes = new[]
+                    {
+                        "application/pdf",
+                        "application/zip",
+                        "application/x-rar-compressed",
+                        "application/vnd.ms-excel",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "application/vnd.ms-powerpoint",
+                        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        "application/octet-stream",
+                        "image/jpeg",
+                        "image/png",
+                        "image/gif",
+                        "image/bmp",
+                        "image/tiff",
+                        "audio/mpeg",
+                        "audio/wav",
+                        "video/mp4",
+                        "video/avi",
+                        "video/mov"
+                    };
+
+                    if (binaryContentTypes.Contains(contentType))
+                    {
+                        _logger.LogInformation("Auto-downloading binary content: ContentType={ContentType}, Size={Size}", 
+                            contentType, contentLength?.ToString() ?? "unknown");
+                        return true;
+                    }
+                }
+
+                // Auto-download large content (likely binary)
+                if (contentLength.HasValue && contentLength.Value > 1048576) // > 1MB
+                {
+                    _logger.LogInformation("Auto-downloading large content: Size={Size} bytes", contentLength.Value);
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error determining if content should be auto-downloaded");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Handle file download from HTTP response
+        /// </summary>
+        private async Task<object> HandleFileDownloadAsync(HttpResponseMessage response, HttpApiConfigDto config, string requestUrl)
+        {
+            try
+            {
+                // Check content length
+                var contentLength = response.Content.Headers.ContentLength;
+                var maxDownloadSize = config.MaxDownloadSize > 0 ? config.MaxDownloadSize : 104857600; // Default 100MB
+                if (contentLength.HasValue && contentLength.Value > maxDownloadSize)
+                {
+                    _logger.LogWarning("File size {Size} bytes exceeds maximum download size {MaxSize} bytes", 
+                        contentLength.Value, maxDownloadSize);
+                    
+                    return CreateErrorResult($"File size {contentLength.Value} bytes exceeds maximum download size {maxDownloadSize} bytes");
+                }
+
+                // Get content type
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                
+                // Determine file name
+                var fileName = DetermineFileName(response, config, requestUrl);
+                
+                _logger.LogInformation("Starting file download: {FileName}, ContentType: {ContentType}, Size: {Size}", 
+                    fileName, contentType, contentLength?.ToString() ?? "unknown");
+
+                // Read response content as byte array to avoid stream disposal issues
+                var responseBytes = await response.Content.ReadAsByteArrayAsync();
+                var totalBytesRead = responseBytes.Length;
+                
+                // Check size limit
+                if (totalBytesRead > maxDownloadSize)
+                {
+                    _logger.LogWarning("Download exceeded maximum size limit: {Size} bytes", totalBytesRead);
+                    return CreateErrorResult($"Download exceeded maximum size limit {maxDownloadSize} bytes");
+                }
+
+                // Save file using IFileStorageService
+                var fileCategory = string.IsNullOrWhiteSpace(config.FileCategory) ? "HttpApiDownload" : config.FileCategory;
+                var fileResult = await SaveDownloadedFileAsync(responseBytes, fileName, contentType, fileCategory);
+                
+                if (!fileResult.Success)
+                {
+                    _logger.LogError("Failed to save downloaded file: {Error}", fileResult.ErrorMessage);
+                    return CreateErrorResult($"Failed to save file: {fileResult.ErrorMessage}");
+                }
+
+                _logger.LogInformation("File downloaded and saved successfully: {FilePath}, AccessUrl: {AccessUrl}", 
+                    fileResult.FilePath, fileResult.AccessUrl);
+
+                // Return success result with file information
+                return CreateFileDownloadSuccessResult(response, fileResult, totalBytesRead, contentType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during file download");
+                return CreateErrorResult($"File download failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Determine file name from response headers or config
+        /// </summary>
+        private string DetermineFileName(HttpResponseMessage response, HttpApiConfigDto config, string requestUrl)
+        {
+            // Use custom file name if provided
+            if (!string.IsNullOrWhiteSpace(config.CustomFileName))
+            {
+                return config.CustomFileName;
+            }
+
+            // Try to get file name from Content-Disposition header
+            var contentDisposition = response.Content.Headers.ContentDisposition;
+            if (contentDisposition?.FileName != null)
+            {
+                var headerFileName = contentDisposition.FileName.Trim('"');
+                if (!string.IsNullOrWhiteSpace(headerFileName))
+                {
+                    return headerFileName;
+                }
+            }
+
+            // Try to extract file name from URL
+            try
+            {
+                var uri = new Uri(requestUrl);
+                var pathSegments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (pathSegments.Length > 0)
+                {
+                    var lastSegment = pathSegments.Last();
+                    if (lastSegment.Contains('.'))
+                    {
+                        return lastSegment;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract file name from URL: {Url}", requestUrl);
+            }
+
+            // Generate file name based on content type
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+            var extension = GetFileExtensionFromContentType(contentType);
+            var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd_HHmmss");
+            
+            return $"download_{timestamp}{extension}";
+        }
+
+        /// <summary>
+        /// Get file extension from content type
+        /// </summary>
+        private string GetFileExtensionFromContentType(string contentType)
+        {
+            return contentType.ToLower() switch
+            {
+                "application/pdf" => ".pdf",
+                "application/json" => ".json",
+                "application/xml" => ".xml",
+                "text/plain" => ".txt",
+                "text/html" => ".html",
+                "text/css" => ".css",
+                "text/javascript" => ".js",
+                "application/javascript" => ".js",
+                "image/jpeg" => ".jpg",
+                "image/png" => ".png",
+                "image/gif" => ".gif",
+                "image/svg+xml" => ".svg",
+                "application/zip" => ".zip",
+                "application/x-rar-compressed" => ".rar",
+                "application/vnd.ms-excel" => ".xls",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
+                "application/msword" => ".doc",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
+                _ => ".bin"
+            };
+        }
+
+        /// <summary>
+        /// Save downloaded file using IFileStorageService
+        /// </summary>
+        private async Task<FileStorageResult> SaveDownloadedFileAsync(byte[] fileBytes, string fileName, string contentType, string category)
+        {
+            try
+            {
+                // Create IFormFile from byte array
+                var formFile = new FormFileFromBytes(fileBytes, fileName, contentType);
+                
+                // Save using file storage service
+                return await _fileStorageService.SaveFileAsync(formFile, category);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving downloaded file: {FileName}", fileName);
+                return new FileStorageResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// Create success result for file download
+        /// </summary>
+        private object CreateFileDownloadSuccessResult(HttpResponseMessage response, FileStorageResult fileResult, long downloadedBytes, string contentType)
+        {
+            return new
+            {
+                success = response.IsSuccessStatusCode,
+                statusCode = (int)response.StatusCode,
+                fileDownload = new
+                {
+                    downloaded = true,
+                    fileName = fileResult.FileName,
+                    originalFileName = fileResult.OriginalFileName,
+                    filePath = fileResult.FilePath,
+                    accessUrl = fileResult.AccessUrl,
+                    fileSize = downloadedBytes,
+                    contentType = contentType,
+                    fileHash = fileResult.FileHash
+                },
+                response = $"[File downloaded and saved: {fileResult.FileName}, size: {downloadedBytes} bytes]",
+                headers = response.Headers.ToDictionary(h => h.Key, h => h.Value),
+                timestamp = DateTimeOffset.UtcNow
+            };
+        }
+
+        #endregion
+
+        #region Helper Classes
+
+        /// <summary>
+        /// IFormFile implementation from byte array for file storage service
+        /// </summary>
+        private class FormFileFromBytes : IFormFile
+        {
+            private readonly byte[] _fileBytes;
+            private readonly string _fileName;
+            private readonly string _contentType;
+
+            public FormFileFromBytes(byte[] fileBytes, string fileName, string contentType)
+            {
+                _fileBytes = fileBytes ?? throw new ArgumentNullException(nameof(fileBytes));
+                _fileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
+                _contentType = contentType ?? "application/octet-stream";
+            }
+
+            public string ContentType => _contentType;
+            public string ContentDisposition => $"form-data; name=\"file\"; filename=\"{_fileName}\"";
+            public IHeaderDictionary Headers => new HeaderDictionary();
+            public long Length => _fileBytes.Length;
+            public string Name => "file";
+            public string FileName => _fileName;
+
+            public void CopyTo(Stream target)
+            {
+                target.Write(_fileBytes, 0, _fileBytes.Length);
+            }
+
+            public async Task CopyToAsync(Stream target, CancellationToken cancellationToken = default)
+            {
+                await target.WriteAsync(_fileBytes, 0, _fileBytes.Length, cancellationToken);
+            }
+
+            public Stream OpenReadStream()
+            {
+                return new MemoryStream(_fileBytes, false);
+            }
+        }
+
+        #endregion
     }
 }

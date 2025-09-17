@@ -87,7 +87,7 @@ namespace FlowFlex.Application.Services.Action
                     // Update execution record with success
                     execution.ExecutionStatus = ActionExecutionStatusEnum.Completed.ToString();
                     execution.CompletedAt = DateTime.UtcNow;
-                    execution.ExecutionOutput = result != null ? JToken.FromObject(result) : new JObject();
+                    execution.ExecutionOutput = result != null ? SafeCreateJToken(result) : new JObject();
                     execution.InitUpdateInfo(_userContext);
                     await _actionExecutionRepository.UpdateAsync(execution);
 
@@ -167,6 +167,98 @@ namespace FlowFlex.Application.Services.Action
             {
                 _logger.LogError(ex, "Error in GetExecutionsByTriggerSourceIdAsync: TriggerSourceId={TriggerSourceId}", triggerSourceId);
                 throw;
+            }
+        }
+
+        #endregion
+
+        #region Private Helper Methods
+
+        /// <summary>
+        /// Safely create JToken from object, handling potential Unicode escape sequence issues
+        /// </summary>
+        private JToken SafeCreateJToken(object obj)
+        {
+            try
+            {
+                // First attempt: direct conversion
+                return JToken.FromObject(obj);
+            }
+            catch (Exception ex) when (ex.Message.Contains("Unicode") || ex.Message.Contains("escape"))
+            {
+                _logger.LogWarning(ex, "Failed to create JToken directly, attempting safe conversion");
+                
+                try
+                {
+                    // Second attempt: serialize to JSON string first, then sanitize
+                    var jsonString = JsonConvert.SerializeObject(obj);
+                    var sanitizedJson = SanitizeJsonString(jsonString);
+                    return JToken.Parse(sanitizedJson);
+                }
+                catch (Exception innerEx)
+                {
+                    _logger.LogError(innerEx, "Failed to create JToken with sanitization, creating error object");
+                    
+                    // Fallback: create a safe error object
+                    return JObject.FromObject(new
+                    {
+                        success = false,
+                        error = "Failed to serialize execution output due to encoding issues",
+                        originalError = ex.Message,
+                        timestamp = DateTimeOffset.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error creating JToken, creating error object");
+                
+                return JObject.FromObject(new
+                {
+                    success = false,
+                    error = "Failed to serialize execution output",
+                    originalError = ex.Message,
+                    timestamp = DateTimeOffset.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Sanitize JSON string to remove problematic Unicode escape sequences
+        /// </summary>
+        private string SanitizeJsonString(string jsonString)
+        {
+            if (string.IsNullOrEmpty(jsonString))
+                return jsonString;
+
+            try
+            {
+                // Replace problematic Unicode escape sequences that might cause PostgreSQL issues
+                var sanitized = jsonString;
+                
+                // Remove or replace null characters and other control characters that cause issues
+                sanitized = System.Text.RegularExpressions.Regex.Replace(
+                    sanitized, 
+                    @"\\u000[0-8]|\\u000[bB]|\\u000[eE-fF]|\\u001[0-9a-fA-F]", 
+                    "");
+                
+                // Ensure the result is still valid JSON
+                JToken.Parse(sanitized); // This will throw if invalid
+                
+                return sanitized;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to sanitize JSON string, returning safe placeholder");
+                
+                // Return a safe JSON object if sanitization fails
+                return JsonConvert.SerializeObject(new
+                {
+                    success = true,
+                    message = "Content sanitized due to encoding issues",
+                    originalLength = jsonString.Length,
+                    timestamp = DateTimeOffset.UtcNow
+                });
             }
         }
 

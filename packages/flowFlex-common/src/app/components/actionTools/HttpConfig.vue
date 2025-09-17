@@ -1453,7 +1453,7 @@ const chatMessagesRef = ref<HTMLElement>();
 const fileUploadRef = ref();
 
 // File Types Configuration
-const maxFileSize = 10 * 1024 * 1024; // 10MB
+const maxFileSize = 5 * 1024 * 1024; // 5MB
 
 // Computed
 const supportedFormats = computed(() => {
@@ -1620,9 +1620,17 @@ const handleTest = () => {
 
 // AI 相关方法
 const handleAIKeydown = (event: KeyboardEvent) => {
-	if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-		event.preventDefault();
-		sendAIMessage();
+	if (event.key === 'Enter') {
+		if (event.shiftKey) {
+			// Shift+Enter: Allow default behavior (new line)
+			return;
+		} else {
+			// Enter: Send message
+			event.preventDefault();
+			if ((aiCurrentInput.value.trim() || uploadedFile.value) && !aiGenerating.value) {
+				sendAIMessage();
+			}
+		}
 	}
 };
 
@@ -2585,7 +2593,7 @@ const readFileContent = async (file: File): Promise<string> => {
 
 	// Validate file size
 	if (file.size > maxFileSize) {
-		throw new Error(`File size exceeds 10MB limit. Current size: ${formatFileSize(file.size)}`);
+		throw new Error(`File size exceeds 5MB limit. Current size: ${formatFileSize(file.size)}`);
 	}
 
 	// Extract content based on file type
@@ -2639,7 +2647,7 @@ const handleFileUpload = async (file: File) => {
 
 	// Validate file size
 	if (file.size > maxFileSize) {
-		ElMessage.error(`File size exceeds 10MB limit. Current size: ${formatFileSize(file.size)}`);
+		ElMessage.error(`File size exceeds 5MB limit. Current size: ${formatFileSize(file.size)}`);
 		return false;
 	}
 
