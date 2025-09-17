@@ -149,6 +149,13 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <param name="input">Action creation input</param>
         /// <returns>Streaming action creation</returns>
         IAsyncEnumerable<AIActionStreamResult> StreamCreateActionAsync(AIActionCreationInput input);
+
+        /// <summary>
+        /// Generate HTTP configuration directly from user input (optimized single-step process)
+        /// </summary>
+        /// <param name="input">HTTP configuration generation input</param>
+        /// <returns>Streaming HTTP configuration generation</returns>
+        IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigAsync(AIHttpConfigGenerationInput input);
     }
 
     /// <summary>
@@ -561,6 +568,66 @@ namespace FlowFlex.Application.Contracts.IServices
         [Newtonsoft.Json.JsonProperty("sessionId")]
         [System.Text.Json.Serialization.JsonPropertyName("sessionId")]
         public string SessionId { get; set; } = string.Empty;
+    }
+
+    #endregion
+
+    #region AI HTTP Config DTOs
+
+    /// <summary>
+    /// AI HTTP configuration generation input
+    /// </summary>
+    public class AIHttpConfigGenerationInput
+    {
+        /// <summary>
+        /// User input describing the API requirements
+        /// </summary>
+        public string UserInput { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Additional context for HTTP configuration
+        /// </summary>
+        public string Context { get; set; } = string.Empty;
+
+        /// <summary>
+        /// File content if provided
+        /// </summary>
+        public string? FileContent { get; set; }
+
+        /// <summary>
+        /// File name if provided
+        /// </summary>
+        public string? FileName { get; set; }
+
+        /// <summary>
+        /// Session ID for tracking
+        /// </summary>
+        public string SessionId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// AI model ID to use (optional)
+        /// </summary>
+        public string? ModelId { get; set; }
+
+        /// <summary>
+        /// AI model provider (optional)
+        /// </summary>
+        public string? ModelProvider { get; set; }
+
+        /// <summary>
+        /// AI model name (optional)
+        /// </summary>
+        public string? ModelName { get; set; }
+
+        /// <summary>
+        /// Expected output format (direct_config, action_plan, etc.)
+        /// </summary>
+        public string OutputFormat { get; set; } = "direct_config";
+
+        /// <summary>
+        /// Skip detailed analysis for faster generation
+        /// </summary>
+        public bool SkipDetailedAnalysis { get; set; } = true;
     }
 
     #endregion

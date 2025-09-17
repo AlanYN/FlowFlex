@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.Net;
+using System.Text.Json;
 
 namespace FlowFlex.WebApi.Controllers.AI
 {
@@ -326,6 +327,70 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 _logger.LogError(ex, "Error in analyze and create action workflow, SessionId: {SessionId}", input.SessionId);
                 return BadRequest($"Failed to analyze and create action: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Generate HTTP configuration directly (optimized single-step process)
+        /// </summary>
+        /// <param name="input">HTTP configuration generation input</param>
+        /// <returns>Streaming HTTP configuration generation</returns>
+        [HttpPost("http-config/generate/stream")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(ErrorResponse), (int)HttpStatusCode.BadRequest)]
+        public async Task StreamGenerateHttpConfigAsync([FromBody] AIHttpConfigGenerationInput input)
+        {
+            try
+            {
+                _logger.LogInformation("Starting optimized HTTP config generation, SessionId: {SessionId}", input.SessionId);
+                
+                Response.Headers.Append("Content-Type", "text/event-stream");
+                Response.Headers.Append("Cache-Control", "no-cache");
+                Response.Headers.Append("Connection", "keep-alive");
+                Response.Headers.Append("Access-Control-Allow-Origin", "*");
+
+                await foreach (var result in _aiService.StreamGenerateHttpConfigAsync(input))
+                {
+                    var json = JsonSerializer.Serialize(result, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        WriteIndented = false
+                    });
+                    
+                    await Response.WriteAsync($"data: {json}\n\n");
+                    await Response.Body.FlushAsync();
+
+                    if (result.IsComplete)
+                    {
+                        break;
+                    }
+                }
+
+                await Response.WriteAsync("data: [DONE]\n\n");
+                await Response.Body.FlushAsync();
+                
+                _logger.LogInformation("Optimized HTTP config generation completed, SessionId: {SessionId}", input.SessionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in optimized HTTP config generation, SessionId: {SessionId}", input.SessionId);
+                
+                var errorResult = new AIActionStreamResult
+                {
+                    Type = "error",
+                    Content = $"HTTP config generation failed: {ex.Message}",
+                    IsComplete = true,
+                    SessionId = input.SessionId ?? Guid.NewGuid().ToString(),
+                    Progress = 100
+                };
+                
+                var errorJson = JsonSerializer.Serialize(errorResult, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                
+                await Response.WriteAsync($"data: {errorJson}\n\n");
+                await Response.Body.FlushAsync();
             }
         }
 

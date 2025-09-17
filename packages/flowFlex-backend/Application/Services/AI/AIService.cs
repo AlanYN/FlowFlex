@@ -8608,6 +8608,278 @@ Please return the results in JSON format with the following structure:
             return null;
         }
 
+        /// <summary>
+        /// Generate HTTP configuration directly from user input (optimized single-step process)
+        /// </summary>
+        public async IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigAsync(AIHttpConfigGenerationInput input)
+        {
+            var startTime = DateTime.UtcNow;
+            var sessionId = input.SessionId ?? Guid.NewGuid().ToString();
+
+            _logger.LogInformation("Starting optimized HTTP config generation for SessionId: {SessionId}", sessionId);
+
+            // Send initial progress
+            yield return new AIActionStreamResult
+            {
+                Type = "progress",
+                Content = "Generating HTTP configuration...",
+                IsComplete = false,
+                SessionId = sessionId,
+                Progress = 20
+            };
+
+            // Build optimized prompt for direct HTTP config generation
+            var prompt = BuildHttpConfigGenerationPrompt(input);
+
+            // Call streaming generation method
+            await foreach (var result in StreamGenerateHttpConfigInternalAsync(input, prompt, sessionId, startTime))
+            {
+                yield return result;
+            }
+        }
+
+        /// <summary>
+        /// Internal streaming HTTP config generation method
+        /// </summary>
+        private async IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigInternalAsync(
+            AIHttpConfigGenerationInput input, string prompt, string sessionId, DateTime startTime)
+        {
+            var streamingContent = new StringBuilder();
+            var hasReceivedContent = false;
+            Exception? processingException = null;
+
+            // Call AI provider with streaming support
+            await foreach (var chunk in CallAIProviderStreamForActionAsync(prompt, input.ModelId, input.ModelProvider, input.ModelName))
+            {
+                if (!string.IsNullOrEmpty(chunk))
+                {
+                    hasReceivedContent = true;
+                    streamingContent.Append(chunk);
+
+                    // Send minimal streaming update
+                    yield return new AIActionStreamResult
+                    {
+                        Type = "generation",
+                        Content = "Generating...",
+                        IsComplete = false,
+                        SessionId = sessionId,
+                        Progress = Math.Min(90, 30 + (streamingContent.Length / 100))
+                    };
+                }
+            }
+
+            if (hasReceivedContent)
+            {
+                var fullContent = streamingContent.ToString();
+                _logger.LogInformation("Processing HTTP config generation response, length: {Length}", fullContent.Length);
+
+                object? httpConfigResult = null;
+                string resultMessage = "HTTP configuration generated successfully!";
+
+                try
+                {
+                    // Parse the HTTP configuration directly
+                    httpConfigResult = ParseHttpConfigGenerationResponse(fullContent, input);
+                }
+                catch (Exception ex)
+                {
+                    processingException = ex;
+                    _logger.LogError(ex, "Error processing HTTP config generation response");
+
+                    // Generate fallback config
+                    httpConfigResult = GenerateFallbackHttpConfig(input);
+                    resultMessage = "HTTP configuration generated (fallback mode)!";
+                }
+
+                // Send completion result
+                yield return new AIActionStreamResult
+                {
+                    Type = "complete",
+                    Content = resultMessage,
+                    IsComplete = true,
+                    SessionId = sessionId,
+                    Progress = 100,
+                    ActionData = httpConfigResult
+                };
+
+                // Save prompt history (only if parsing was successful)
+                if (processingException == null)
+                {
+                    try
+                    {
+                        var aiResponse = new AIProviderResponse
+                        {
+                            Success = true,
+                            Content = fullContent,
+                            Provider = input.ModelProvider ?? "default",
+                            ModelName = input.ModelName ?? "default",
+                            ModelId = input.ModelId ?? "default"
+                        };
+
+                        await SavePromptHistoryAsync("HTTP_CONFIG_GENERATION", "HTTP_CONFIG", null, null,
+                            prompt, aiResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId,
+                            JsonSerializer.Serialize(new { SessionId = sessionId, OutputFormat = input.OutputFormat }));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to save prompt history for HTTP config generation");
+                        // Don't fail the entire operation for logging issues
+                    }
+                }
+            }
+
+            if (processingException == null && !hasReceivedContent)
+            {
+                // Generate fallback config if no content received
+                var fallbackConfig = GenerateFallbackHttpConfig(input);
+                yield return new AIActionStreamResult
+                {
+                    Type = "complete",
+                    Content = "HTTP configuration generated (fallback mode)!",
+                    IsComplete = true,
+                    SessionId = sessionId,
+                    Progress = 100,
+                    ActionData = fallbackConfig
+                };
+            }
+        }
+
+        /// <summary>
+        /// Build optimized prompt for HTTP configuration generation
+        /// </summary>
+        private string BuildHttpConfigGenerationPrompt(AIHttpConfigGenerationInput input)
+        {
+            var userInput = input.UserInput?.Length > 1000 
+                ? input.UserInput.Substring(0, 1000) + "..." 
+                : input.UserInput ?? "";
+            
+            var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 500 
+                ? input.Context.Substring(0, 500) + "..." 
+                : input.Context ?? "";
+
+            var fileContentText = "";
+            if (!string.IsNullOrEmpty(input.FileContent))
+            {
+                var content = input.FileContent.Length > 2000 
+                    ? input.FileContent.Substring(0, 2000) + "..." 
+                    : input.FileContent;
+                fileContentText = $"\n\nFILE CONTENT ({input.FileName ?? "uploaded file"}):\n{content}";
+            }
+
+            return $@"Extract HTTP config from: {userInput}{fileContentText}
+
+Return JSON only:
+{{""actionPlan"":{{""actions"":[{{""httpConfig"":{{""method"":""GET"",""url"":""https://api.example.com"",""headers"":{{""Content-Type"":""application/json""}},""bodyType"":""none"",""body"":"""",""rawFormat"":""json"",""actionName"":""api_action""}}}}]}}}}
+
+Rules:
+- Extract method from: GET/POST/PUT/DELETE/PATCH
+- Extract full URL from curl -X or http://
+- Headers from -H flags or authentication
+- Body from -d flag or json payload
+- Generate actionName from URL path
+- Keep response under 100 words";
+        }
+
+        /// <summary>
+        /// Parse HTTP configuration generation response
+        /// </summary>
+        private object ParseHttpConfigGenerationResponse(string aiResponse, AIHttpConfigGenerationInput input)
+        {
+            try
+            {
+                var jsonResponse = JsonSerializer.Deserialize<JsonElement>(aiResponse);
+                
+                if (jsonResponse.TryGetProperty("actionPlan", out var actionPlan))
+                {
+                    return actionPlan;
+                }
+
+                // Try to extract from top-level structure
+                if (jsonResponse.TryGetProperty("actions", out var actions) && actions.ValueKind == JsonValueKind.Array)
+                {
+                    return new
+                    {
+                        id = "http_config_001",
+                        title = "HTTP API Configuration",
+                        description = "Generated HTTP configuration",
+                        actions = JsonSerializer.Deserialize<object[]>(actions.GetRawText())
+                    };
+                }
+
+                return JsonSerializer.Deserialize<object>(aiResponse) ?? GenerateFallbackHttpConfig(input);
+            }
+            catch (JsonException)
+            {
+                _logger.LogWarning("Failed to parse HTTP config JSON response, generating fallback");
+                return GenerateFallbackHttpConfig(input);
+            }
+        }
+
+        /// <summary>
+        /// Generate fallback HTTP configuration
+        /// </summary>
+        private object GenerateFallbackHttpConfig(AIHttpConfigGenerationInput input)
+        {
+            var userInput = input.UserInput?.ToLowerInvariant() ?? "";
+            var method = "GET";
+            var url = "https://api.example.com/endpoint";
+            var actionName = "api_request";
+
+            // Simple method detection
+            if (userInput.Contains("post")) method = "POST";
+            else if (userInput.Contains("put")) method = "PUT";
+            else if (userInput.Contains("delete")) method = "DELETE";
+            else if (userInput.Contains("patch")) method = "PATCH";
+
+            // Simple URL extraction
+            var urlMatch = System.Text.RegularExpressions.Regex.Match(userInput, @"https?://[^\s'""]+");
+            if (urlMatch.Success)
+            {
+                url = urlMatch.Value;
+                try
+                {
+                    var uri = new Uri(url);
+                    var pathSegments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    if (pathSegments.Length > 0)
+                    {
+                        actionName = $"{method.ToLowerInvariant()}_{pathSegments.Last().Replace("-", "_")}";
+                    }
+                }
+                catch
+                {
+                    // Ignore URI parsing errors
+                }
+            }
+
+            return new
+            {
+                id = "http_config_001",
+                title = "HTTP API Configuration",
+                description = "Generated HTTP configuration",
+                actions = new[] {
+                    new {
+                        id = "action_001",
+                        title = "API Configuration",
+                        description = $"HTTP API configuration with method: {method}, endpoint: {url}",
+                        category = "API",
+                        priority = "High",
+                        httpConfig = new {
+                            method = method,
+                            url = url,
+                            headers = new {
+                                ContentType = "application/json",
+                                Accept = "application/json"
+                            },
+                            bodyType = method == "GET" ? "none" : "raw",
+                            body = "",
+                            rawFormat = "json",
+                            actionName = actionName
+                        }
+                    }
+                }
+            };
+        }
+
         #endregion
     }
 }
