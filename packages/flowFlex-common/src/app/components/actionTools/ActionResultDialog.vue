@@ -562,9 +562,6 @@ const loadResults = async () => {
 		}
 	} catch (err) {
 		console.error('Load action results error:', err);
-		ElMessage.error(
-			err instanceof Error ? err.message : 'Failed to load action execution results'
-		);
 		results.value = [];
 		total.value = 0;
 	} finally {

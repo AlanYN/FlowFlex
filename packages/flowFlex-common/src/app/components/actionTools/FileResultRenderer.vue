@@ -356,7 +356,7 @@ const onPreviewRendered = () => {
 }
 
 .file-display {
-	@apply flex items-center justify-between p-2;
+	@apply flex items-center justify-between p-2 my-2;
 	transition: all 0.2s ease-in-out;
 	min-height: 48px;
 
