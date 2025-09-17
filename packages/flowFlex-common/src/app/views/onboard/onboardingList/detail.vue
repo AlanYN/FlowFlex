@@ -64,7 +64,7 @@
 					:disabled="isAbortedReadonly || onboardingStageStatus"
 					@update:stage-data="handleStageDataUpdate"
 				/>
-				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-2 w-full">
+				<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
 					<div class="space-y-4 mt-4">
 						<!-- AI Summary 组件 -->
 						<AISummary
@@ -172,7 +172,7 @@
 
 			<!-- 右侧进度和笔记 (1/3 宽度) -->
 			<div class="flex-1 flex-shrink-0 min-w-0">
-				<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
+				<el-scrollbar ref="rightScrollbarRef" class="h-full">
 					<div class="space-y-4">
 						<!-- OnboardingProgress组件 -->
 						<OnboardingProgress

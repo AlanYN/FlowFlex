@@ -1,6 +1,6 @@
 <template>
 	<div
-		class="relative rounded-xl overflow-hidden mb-5 shadow-sm transition-all duration-300 ease-in-out"
+		class="relative rounded-xl overflow-hidden mb-4 shadow-sm transition-all duration-300 ease-in-out"
 	>
 		<!-- 背景层 -->
 		<div class="absolute inset-0 z-10">
