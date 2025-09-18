@@ -652,13 +652,9 @@ const getFormData = () => {
 		);
 
 		if (formFieldName && formData[formFieldName] !== undefined) {
-			console.log('formData[formFieldName]:', formData[formFieldName]);
 			result.push({
 				fieldName: apiFieldName,
-				fieldValueJson:
-					typeof formData[formFieldName] === 'string'
-						? formData[formFieldName]
-						: JSON.stringify(formData[formFieldName]),
+				fieldValueJson: JSON.stringify(formData[formFieldName]),
 				fieldType: fieldTypeMap[formFieldName] || 'text',
 				isRequired: requiredFields.has(formFieldName),
 				fieldLabel: fieldLabelMap[apiFieldName] || apiFieldName,
