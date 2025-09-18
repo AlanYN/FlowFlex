@@ -389,7 +389,17 @@ export function parseCurl(curlCommand: string): ParsedCurlConfig {
 		// 检查是否有data数据
 		const dataArgs = args.d || args.data;
 		if (dataArgs && !formArgs) {
-			const rawData = Array.isArray(dataArgs) ? dataArgs.join('') : dataArgs;
+			// 如果是数组，说明可能是多行数据，需要正确连接
+			let rawData: string;
+			if (Array.isArray(dataArgs)) {
+				// 对于JSON数据，保持原有的格式和换行
+				rawData = dataArgs.join('\n');
+			} else {
+				rawData = dataArgs;
+			}
+
+			// 移除首尾的引号（如果存在）
+			rawData = removeQuotes(rawData);
 
 			// 根据Content-Type判断body类型
 			if (rawContentType && rawContentType.includes('application/x-www-form-urlencoded')) {

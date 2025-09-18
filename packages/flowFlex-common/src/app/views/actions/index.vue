@@ -319,26 +319,43 @@ const handleExport = async () => {
 		// Show export loading
 		exportLoading.value = true;
 
-		// Build query parameters (same as search)
-		const params: ActionQueryRequest = {
-			pageIndex: 1,
-			pageSize: 10000, // Export all data
-		};
+		// Build query parameters
+		let params: ActionQueryRequest = {};
+		let exportMessage = '';
 
-		// Add search conditions if any
-		if (searchForm.keyword) {
-			params.search = searchForm.keyword;
-		}
+		// If there are selected items, prioritize exporting selected data
+		if (selectedActions.value.length > 0) {
+			// Export selected data - use selected item IDs, converted to comma-separated string
+			const selectedActionIds = selectedActions.value.map((item) => item.id).join(',');
+			params = {
+				actionIds: selectedActionIds,
+				pageIndex: 1,
+				pageSize: 10000, // Large page to ensure all matching data is retrieved
+			};
 
-		if (searchForm.type && searchForm.type !== 'all') {
-			params.actionType = searchForm.type;
-		}
+			exportMessage = `Export completed successfully (${selectedActions.value.length} items selected)`;
+		} else {
+			// No selected data, export based on current search conditions
+			params = {
+				pageIndex: 1,
+				pageSize: 10000, // Large page to ensure all matching data is retrieved
+			};
 
-		// Handle tab-based filtering
-		if (activeTab.value === 'tools') {
-			params.isTools = true; // 只筛选 isTools = true 的记录
-		} else if (activeTab.value === 'myAction') {
-			params.isTools = false; // 只筛选 isTools = false 的记录
+			// Add search conditions
+			if (searchForm.keyword) {
+				params.search = searchForm.keyword;
+			}
+			if (searchForm.type && searchForm.type !== 'all') {
+				params.actionType = searchForm.type;
+			}
+			// Handle tab-based filtering
+			if (activeTab.value === 'tools') {
+				params.isTools = true; // 只筛选 isTools = true 的记录
+			} else if (activeTab.value === 'myAction') {
+				params.isTools = false; // 只筛选 isTools = false 的记录
+			}
+
+			exportMessage = 'Filtered data exported successfully';
 		}
 
 		// Call export API
@@ -351,13 +368,23 @@ const handleExport = async () => {
 		const url = window.URL.createObjectURL(blob);
 		const link = document.createElement('a');
 		link.href = url;
-		link.download = `actions_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+		// Set file name, including timestamp and export type
+		const timestamp = new Date()
+			.toISOString()
+			.slice(0, 19)
+			.replace(/[-:]/g, '')
+			.replace('T', '_');
+		const fileNameSuffix = selectedActions.value.length > 0 ? 'Selected' : 'Filtered';
+		link.download = `Actions_${fileNameSuffix}_${timestamp}.xlsx`;
+
+		// Trigger download
 		document.body.appendChild(link);
 		link.click();
 		document.body.removeChild(link);
 		window.URL.revokeObjectURL(url);
 
-		ElMessage.success('Export completed successfully');
+		ElMessage.success(exportMessage);
 	} catch (error) {
 		console.error('Export failed:', error);
 		ElMessage.error('Export failed. Please try again.');

@@ -273,9 +273,7 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														(stagePortalPermission ||
-															component.customerPortalAccess ==
-																StageComponentPortal.Viewable))
+														stagePortalPermission)
 												"
 												@save-success="refreshChangeLog"
 											/>
@@ -296,9 +294,7 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														(stagePortalPermission ||
-															component.customerPortalAccess ==
-																StageComponentPortal.Viewable))
+														stagePortalPermission)
 												"
 												@task-toggled="handleTaskToggled"
 												@refresh-checklist="loadCheckListData"
@@ -318,9 +314,7 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														(stagePortalPermission ||
-															component.customerPortalAccess ==
-																StageComponentPortal.Viewable))
+														stagePortalPermission)
 												"
 												:questionnaire-data="
 													getQuestionnaireDataForComponent(component)
@@ -342,9 +336,7 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														(stagePortalPermission ||
-															component.customerPortalAccess ==
-																StageComponentPortal.Viewable))
+														stagePortalPermission)
 												"
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
@@ -366,7 +358,6 @@
 											:active-stage="activeStage"
 											:onboarding-data="onboardingData"
 											:workflow-stages="workflowStages"
-											:stage-access-check="isStageAccessible"
 											@set-active-stage="setActiveStageWithData"
 											@stage-completed="loadOnboardingDetail"
 											class="bg-white dark:bg-black-300 rounded-xl shadow-lg border border-gray-200 dark:border-gray-600"
@@ -614,6 +605,8 @@ const currentStageTitle = computed(() => {
 
 const stagePortalPermission = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	// portalPermission == 1 (Viewable) means read-only, == 2 (Completable) means editable
+	// Return true to disable when permission is Viewable (1), false to enable when Completable (2)
 	return currentStage?.portalPermission == 1 ? true : false;
 });
 
@@ -1251,23 +1244,7 @@ const handleTaskToggled = async (task: any) => {
 	}
 };
 
-// 检查阶段是否可以访问
-const isStageAccessible = (stageId: string): boolean => {
-	// 当前阶段总是可以访问
-	if (activeStage.value === stageId) {
-		return true;
-	}
-
-	// 查找目标阶段
-	const targetStage = workflowStages.value.find((stage) => stage.stageId === stageId);
-	if (!targetStage) {
-		return false;
-	}
-
-	// 检查是否是当前业务阶段（currentStageId）或已完成的阶段
-	const isCurrentBusinessStage = onboardingData.value?.currentStageId === stageId;
-	return targetStage.isCompleted === true || isCurrentBusinessStage;
-};
+// Removed isStageAccessible function - allow access to all stages
 
 // 重新加载 activeStage 并加载相关数据
 const setActiveStageWithData = async (stageId: string) => {
@@ -1275,11 +1252,7 @@ const setActiveStageWithData = async (stageId: string) => {
 		return;
 	}
 
-	// 检查阶段访问权限
-	if (!isStageAccessible(stageId)) {
-		ElMessage.warning('You can only view the current stage or completed stages');
-		return;
-	}
+	// Removed stage access restriction - allow access to all stages
 
 	// 取消当前正在进行的AI摘要生成（如果有）
 	if (aiSummaryAbortController) {

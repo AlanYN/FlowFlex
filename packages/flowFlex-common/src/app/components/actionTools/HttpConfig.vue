@@ -766,31 +766,82 @@ const MAMMOTH_VERSION = '1.6.0';
 let pdfJsLoadingPromise: Promise<any> | null = null;
 let mammothLoadingPromise: Promise<any> | null = null;
 
-const loadScriptOnce = (src: string): Promise<void> => {
+// Helper to remove failed scripts
+const removeFailedScripts = (src: string) => {
+	const scripts = Array.from(document.getElementsByTagName('script')).filter(
+		(s) => s.src === src
+	);
+	scripts.forEach((script) => {
+		try {
+			document.head.removeChild(script);
+			console.log('Removed failed script:', src);
+		} catch (e) {
+			console.warn('Could not remove script:', src, e);
+		}
+	});
+};
+
+const loadScriptOnce = (src: string, timeout: number = 10000): Promise<void> => {
 	return new Promise((resolve, reject) => {
+		// Check if script already exists and is loaded
 		const existing = Array.from(document.getElementsByTagName('script')).find(
 			(s) => s.src === src
 		);
+
 		if (existing) {
 			if ((existing as any)._loaded) {
+				console.log('Script already loaded:', src);
 				resolve();
+				return;
 			} else {
-				existing.addEventListener('load', () => resolve());
-				existing.addEventListener('error', () =>
-					reject(new Error(`Failed to load ${src}`))
-				);
+				// Wait for existing script to load
+				existing.addEventListener('load', () => {
+					console.log('Existing script loaded:', src);
+					resolve();
+				});
+				existing.addEventListener('error', () => {
+					console.error('Existing script failed to load:', src);
+					reject(new Error(`Failed to load existing script: ${src}`));
+				});
+				return;
 			}
-			return;
 		}
+
+		console.log('Creating new script element for:', src);
 		const script = document.createElement('script');
 		script.src = src;
 		script.async = true;
+		script.crossOrigin = 'anonymous'; // Allow CORS for CDN scripts
+
+		// Set up timeout
+		const timeoutId = setTimeout(() => {
+			console.error('Script loading timeout:', src);
+			document.head.removeChild(script);
+			reject(new Error(`Script loading timeout: ${src}`));
+		}, timeout);
+
 		script.addEventListener('load', () => {
+			clearTimeout(timeoutId);
 			(script as any)._loaded = true;
+			console.log('Script loaded successfully:', src);
 			resolve();
 		});
-		script.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
-		document.head.appendChild(script);
+
+		script.addEventListener('error', (event) => {
+			clearTimeout(timeoutId);
+			console.error('Script loading error:', src, event);
+			document.head.removeChild(script);
+			reject(new Error(`Failed to load script: ${src}`));
+		});
+
+		try {
+			document.head.appendChild(script);
+			console.log('Script element appended to head:', src);
+		} catch (error) {
+			clearTimeout(timeoutId);
+			console.error('Error appending script to head:', error);
+			reject(new Error(`Failed to append script to document: ${src}`));
+		}
 	});
 };
 
@@ -810,14 +861,140 @@ const loadPdfJs = async () => {
 };
 
 const loadMammoth = async () => {
-	if ((window as any).mammoth) return (window as any).mammoth;
+	if ((window as any).mammoth) {
+		console.log('Mammoth already loaded');
+		return (window as any).mammoth;
+	}
+
+	// Reset the loading promise if there were previous failures
+	if (mammothLoadingPromise) {
+		try {
+			await mammothLoadingPromise;
+			if ((window as any).mammoth) {
+				return (window as any).mammoth;
+			}
+		} catch (error) {
+			console.log('Previous mammoth loading failed, resetting...');
+			mammothLoadingPromise = null;
+
+			// Clean up any failed script tags
+			const mammothUrls = [
+				`https://cdnjs.cloudflare.com/ajax/libs/mammoth/${MAMMOTH_VERSION}/mammoth.browser.min.js`,
+				`https://unpkg.com/mammoth@${MAMMOTH_VERSION}/mammoth.browser.min.js`,
+				`https://cdn.jsdelivr.net/npm/mammoth@${MAMMOTH_VERSION}/mammoth.browser.min.js`,
+			];
+			mammothUrls.forEach(removeFailedScripts);
+		}
+	}
+
 	if (!mammothLoadingPromise) {
 		mammothLoadingPromise = (async () => {
-			const url = `https://cdnjs.cloudflare.com/ajax/libs/mammoth/${MAMMOTH_VERSION}/mammoth.browser.min.js`;
-			await loadScriptOnce(url);
-			const mammoth = (window as any).mammoth;
-			if (!mammoth) throw new Error('mammoth not available after loading');
-			return mammoth;
+			try {
+				console.log('Loading mammoth library...');
+
+				// Temporarily disable AMD/RequireJS to avoid conflicts
+				const originalDefine = (window as any).define;
+				const originalRequire = (window as any).require;
+				if (originalDefine) {
+					(window as any).define = undefined;
+				}
+				if (originalRequire) {
+					(window as any).require = undefined;
+				}
+
+				try {
+					// Try multiple CDN sources for better reliability
+					const cdnUrls = [
+						`https://cdnjs.cloudflare.com/ajax/libs/mammoth/${MAMMOTH_VERSION}/mammoth.browser.min.js`,
+						`https://unpkg.com/mammoth@${MAMMOTH_VERSION}/mammoth.browser.min.js`,
+						`https://cdn.jsdelivr.net/npm/mammoth@${MAMMOTH_VERSION}/mammoth.browser.min.js`,
+					];
+
+					let lastError: Error | null = null;
+					let loadedSuccessfully = false;
+
+					for (const cdnUrl of cdnUrls) {
+						try {
+							console.log(`Trying to load mammoth from: ${cdnUrl}`);
+
+							// Check if this script is already loaded
+							const existingScript = Array.from(
+								document.getElementsByTagName('script')
+							).find((s) => s.src === cdnUrl);
+
+							if (!existingScript) {
+								console.log(`Loading new script: ${cdnUrl}`);
+								await loadScriptOnce(cdnUrl);
+								console.log(`Script loaded, checking for mammoth...`);
+							} else {
+								console.log(`Script already exists: ${cdnUrl}`);
+							}
+
+							// Wait a bit for the library to initialize
+							await new Promise((resolve) => setTimeout(resolve, 200));
+
+							// Check if mammoth is now available
+							const mammothLib = (window as any).mammoth;
+							console.log(`Mammoth check result:`, {
+								exists: !!mammothLib,
+								type: typeof mammothLib,
+								keys: mammothLib ? Object.keys(mammothLib) : [],
+								extractRawText: mammothLib
+									? typeof mammothLib.extractRawText
+									: 'undefined',
+							});
+
+							if (mammothLib && typeof mammothLib.extractRawText === 'function') {
+								console.log('Mammoth loaded successfully from:', cdnUrl);
+								loadedSuccessfully = true;
+								break;
+							} else if (mammothLib) {
+								console.warn(
+									'Mammoth object exists but missing extractRawText method:',
+									mammothLib
+								);
+								lastError = new Error(
+									`Mammoth library incomplete - missing extractRawText method`
+								);
+							} else {
+								lastError = new Error(
+									`Mammoth object not found after loading from ${cdnUrl}`
+								);
+							}
+						} catch (error) {
+							console.warn(`Failed to load from ${cdnUrl}:`, error);
+							lastError =
+								error instanceof Error
+									? error
+									: new Error(`Failed to load from ${cdnUrl}: ${String(error)}`);
+							continue;
+						}
+					}
+
+					if (!loadedSuccessfully && !(window as any).mammoth) {
+						throw new Error(
+							`Failed to load mammoth library from all CDN sources. Last error: ${
+								lastError?.message || 'Unknown error'
+							}`
+						);
+					}
+
+					return (window as any).mammoth;
+				} finally {
+					// Restore AMD/RequireJS
+					if (originalDefine) {
+						(window as any).define = originalDefine;
+					}
+					if (originalRequire) {
+						(window as any).require = originalRequire;
+					}
+				}
+			} catch (error) {
+				console.error('Mammoth loading error:', error);
+				throw new Error(
+					'Unable to load document processing library. Please check your internet connection and try again.'
+				);
+			}
 		})();
 	}
 	return mammothLoadingPromise;
@@ -1655,20 +1832,63 @@ const sendAIMessage = async () => {
 	if (uploadedFile.value) {
 		try {
 			console.log('📄 Reading file content for display...', uploadedFile.value.name);
+
+			// Show a loading message for DOCX files since they take longer
+			const isDocx = uploadedFile.value.name.toLowerCase().endsWith('.docx');
+			if (isDocx) {
+				ElMessage.info({
+					message: 'Processing DOCX file, this may take a moment...',
+					duration: 3000,
+				});
+			}
+
 			const fileContent = await readFileContent(uploadedFile.value);
-			const truncatedContent =
-				fileContent.length > 1000
-					? fileContent.substring(0, 1000) + '\n\n[Content truncated for display...]'
-					: fileContent;
+			// 对于 cURL 文件，不截断内容以确保完整的 JSON 数据能够被解析
+			const shouldTruncate = uploadedFile.value.name.toLowerCase().includes('curl')
+				? false
+				: fileContent.length > 1000;
+			const truncatedContent = shouldTruncate
+				? fileContent.substring(0, 1000) + '\n\n[Content truncated for display...]'
+				: fileContent;
 			userMessage.content += `\n\n📎 **File Content** (${uploadedFile.value.name}):\n\`\`\`\n${truncatedContent}\n\`\`\``;
 			console.log('✅ File content added to message, length:', fileContent.length);
+			console.log('🔍 Content truncated:', shouldTruncate);
+
+			ElMessage.success({
+				message: `File "${uploadedFile.value.name}" processed successfully!`,
+				duration: 2000,
+			});
 		} catch (error) {
 			console.error('❌ Error reading file content:', error);
-			userMessage.content += `\n\n📎 **File** (${
-				uploadedFile.value.name
-			}): ❌ Failed to read content - ${
-				error instanceof Error ? error.message : 'Unknown error'
-			}`;
+
+			// Provide specific error handling for different file types
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			const fileName = uploadedFile.value.name;
+			const fileExt = fileName.toLowerCase().split('.').pop();
+
+			let userFriendlyMessage = errorMessage;
+
+			// Special handling for DOCX files
+			if (fileExt === 'docx' || fileExt === 'doc') {
+				if (errorMessage.includes('library') || errorMessage.includes('mammoth')) {
+					userFriendlyMessage =
+						'Unable to process Word document due to library loading issues. Please try: 1) Converting to PDF or plain text format, 2) Refreshing the page and trying again, or 3) Copying the text directly into the input field.';
+				} else if (errorMessage.includes('corrupted') || errorMessage.includes('format')) {
+					userFriendlyMessage =
+						'Document file appears to be corrupted or in an unsupported format. Please try re-saving the document or converting it to PDF format.';
+				} else if (errorMessage.includes('AMD') || errorMessage.includes('define')) {
+					userFriendlyMessage =
+						'Document processing conflict detected. Please try refreshing the page or converting the document to PDF format.';
+				}
+			}
+
+			userMessage.content += `\n\n📎 **File** (${fileName}): ❌ ${userFriendlyMessage}`;
+
+			ElMessage.error({
+				message: `Failed to process ${fileName}: ${userFriendlyMessage}`,
+				duration: 5000,
+				showClose: true,
+			});
 		}
 	}
 
@@ -2315,19 +2535,133 @@ const parseCurlCommand = (input: string) => {
 	}
 	console.log('📋 Headers:', config.headers);
 
-	// 解析请求体
-	const dataMatch = input.match(/--data-raw\s+'([^']+)'|--data\s+'([^']+)'/);
-	if (dataMatch) {
-		config.body = dataMatch[1] || dataMatch[2];
+	// 解析请求体 - 使用更简单但更有效的方法
+	let bodyContent = '';
+
+	// 查找 --data-raw 或 --data 的位置
+	const dataRawIndex = input.indexOf('--data-raw');
+	const dataIndex = input.indexOf('--data');
+
+	let startIndex = -1;
+	if (dataRawIndex !== -1) {
+		startIndex = dataRawIndex;
+		console.log('📦 Found --data-raw at index:', startIndex);
+	} else if (dataIndex !== -1) {
+		startIndex = dataIndex;
+		console.log('📦 Found --data at index:', startIndex);
+	}
+
+	if (startIndex !== -1) {
+		// 从 --data-raw 或 --data 开始查找
+		const fromDataStart = input.substring(startIndex);
+		console.log('📦 Content from data start:', fromDataStart.substring(0, 100) + '...');
+
+		// 查找第一个引号并确定引号类型 - 移除$锚点以匹配整个剩余内容
+		const singleQuoteMatch = fromDataStart.match(/--data(?:-raw)?\s+'([\s\S]*)/);
+		const doubleQuoteMatch = fromDataStart.match(/--data(?:-raw)?\s+"([\s\S]*)/);
+
+		console.log('📦 Single quote match result:', singleQuoteMatch ? 'Found' : 'Not found');
+		console.log('📦 Double quote match result:', doubleQuoteMatch ? 'Found' : 'Not found');
+
+		let rawContent = '';
+		let quoteChar = '';
+
+		if (singleQuoteMatch) {
+			rawContent = singleQuoteMatch[1];
+			quoteChar = "'";
+			console.log('📦 Found single quote format');
+		} else if (doubleQuoteMatch) {
+			rawContent = doubleQuoteMatch[1];
+			quoteChar = '"';
+			console.log('📦 Found double quote format');
+		}
+
+		if (rawContent && quoteChar) {
+			console.log('📦 Raw content length:', rawContent.length);
+			console.log('📦 Raw content after quote:', rawContent.substring(0, 100) + '...');
+			console.log('📦 Raw content last 100 chars:', rawContent.slice(-100));
+
+			// 从末尾开始查找匹配的结束引号，但要确保它不在 JSON 字符串内部
+			// 简单的方法：查找行末的引号
+			const lines = rawContent.split('\n');
+			console.log('📦 Total lines in raw content:', lines.length);
+			let endQuoteLineIndex = -1;
+
+			// 从最后一行开始向前查找，寻找只包含引号和空白字符的行
+			for (let i = lines.length - 1; i >= 0; i--) {
+				const line = lines[i].trim();
+				console.log(`📦 Checking line ${i}: "${line}"`);
+				if (line === quoteChar || line.endsWith(quoteChar)) {
+					endQuoteLineIndex = i;
+					console.log('📦 Found ending quote at line:', i);
+					break;
+				}
+			}
+
+			if (endQuoteLineIndex !== -1) {
+				// 提取到结束引号行之前的所有内容
+				const contentLines = lines.slice(0, endQuoteLineIndex);
+				// 如果最后一行以引号结尾，需要移除引号
+				if (
+					endQuoteLineIndex < lines.length &&
+					lines[endQuoteLineIndex].trim() !== quoteChar
+				) {
+					const lastLine = lines[endQuoteLineIndex];
+					const quoteIndex = lastLine.lastIndexOf(quoteChar);
+					if (quoteIndex !== -1) {
+						contentLines.push(lastLine.substring(0, quoteIndex));
+					}
+				}
+				bodyContent = contentLines.join('\n');
+				console.log('📦 Extracted body content (lines 0 to ' + endQuoteLineIndex + ')');
+			} else {
+				// 如果找不到结束引号，使用整个内容
+				bodyContent = rawContent;
+				console.log('📦 No ending quote found, using entire content');
+			}
+
+			console.log('📦 Final body content length:', bodyContent.length);
+			console.log(
+				'📦 Final extracted content preview:',
+				bodyContent.substring(0, 200) + '...'
+			);
+			console.log('📦 Content ends with:', bodyContent.slice(-100));
+		}
+	}
+
+	if (bodyContent.trim()) {
+		config.body = bodyContent.trim();
 		config.bodyType = 'raw';
 
-		// 尝试检测JSON格式
+		// 尝试检测JSON格式 - 先清理换行符
 		try {
+			// 尝试解析原始内容
 			JSON.parse(config.body);
 			config.rawFormat = 'json';
-		} catch {
-			config.rawFormat = 'text';
+			console.log('✅ JSON format detected successfully');
+		} catch (error) {
+			// 如果失败，尝试清理 Windows 换行符后再解析
+			try {
+				const cleanedBody = config.body.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+				JSON.parse(cleanedBody);
+				config.rawFormat = 'json';
+				console.log('✅ JSON format detected after cleaning line endings');
+			} catch (secondError) {
+				// 检查是否看起来像 JSON（以 { 或 [ 开头）
+				const trimmedBody = config.body.trim();
+				if (trimmedBody.startsWith('{') || trimmedBody.startsWith('[')) {
+					config.rawFormat = 'json';
+					console.log('✅ JSON format detected by structure (starts with { or [)');
+				} else {
+					config.rawFormat = 'text';
+					console.log('❌ Not JSON format, setting as text');
+				}
+			}
 		}
+		console.log('🎯 Body type set to:', config.bodyType, 'Format:', config.rawFormat);
+		console.log('📦 Final body content length:', config.body.length);
+	} else {
+		console.log('❌ No request body found in input');
 	}
 
 	return config;
@@ -2478,8 +2812,36 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 
 // Enhanced file content reading functions
 const isValidFileType = (file: File): boolean => {
+	// Check file extension
 	const extension = file.name.toLowerCase().split('.').pop();
-	return supportedFormats.value.includes(extension || '');
+	const isExtensionSupported = supportedFormats.value.includes(extension || '');
+
+	// Additional MIME type validation for better reliability
+	const supportedMimeTypes = [
+		'text/plain',
+		'text/markdown',
+		'application/json',
+		'text/csv',
+		'application/pdf',
+		'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+		'application/msword', // .doc
+		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+		'application/vnd.ms-excel', // .xls
+	];
+
+	const isMimeTypeSupported = supportedMimeTypes.includes(file.type) || file.type === '';
+
+	// Log for debugging
+	console.log('File validation:', {
+		name: file.name,
+		extension,
+		mimeType: file.type,
+		size: file.size,
+		extensionSupported: isExtensionSupported,
+		mimeTypeSupported: isMimeTypeSupported,
+	});
+
+	return isExtensionSupported && (isMimeTypeSupported || file.type === '');
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -2564,24 +2926,96 @@ const readPDFFile = async (file: File): Promise<string> => {
 const readDocxFile = async (file: File): Promise<string> => {
 	try {
 		const mammoth = await loadMammoth();
+
+		// Validate file before processing
+		if (!file || file.size === 0) {
+			throw new Error('File is empty or corrupted');
+		}
+
+		// Check file extension
+		const fileName = file.name.toLowerCase();
+		if (!fileName.endsWith('.docx') && !fileName.endsWith('.doc')) {
+			throw new Error('Invalid file format. Expected .docx or .doc file');
+		}
+
+		console.log('Reading DOCX file:', file.name, 'Size:', file.size);
+
 		const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
 			const reader = new FileReader();
-			reader.onload = () => resolve(reader.result as ArrayBuffer);
-			reader.onerror = () => reject(new Error('Failed to read DOCX file'));
+			reader.onload = (e) => {
+				const result = e.target?.result;
+				if (!result) {
+					reject(new Error('Failed to read file content'));
+					return;
+				}
+				resolve(result as ArrayBuffer);
+			};
+			reader.onerror = () => reject(new Error('Failed to read DOCX file from disk'));
+			reader.onabort = () => reject(new Error('File reading was aborted'));
 			reader.readAsArrayBuffer(file);
 		});
+
+		// Validate array buffer
+		if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+			throw new Error('File content is empty or corrupted');
+		}
+
+		console.log('ArrayBuffer size:', arrayBuffer.byteLength);
+
+		// Extract text using mammoth
 		const result = await mammoth.extractRawText({ arrayBuffer });
+
+		// Log any warnings from mammoth
 		if (result.messages && result.messages.length > 0) {
 			console.warn('DOCX parsing warnings:', result.messages);
+			// Check for critical errors in messages
+			const errors = result.messages.filter((msg) => msg.type === 'error');
+			if (errors.length > 0) {
+				console.error('DOCX parsing errors:', errors);
+			}
 		}
-		return result.value || '';
+
+		const extractedText = result.value || '';
+		console.log('Extracted text length:', extractedText.length);
+
+		if (!extractedText.trim()) {
+			throw new Error('No readable text content found in the DOCX file');
+		}
+
+		return extractedText;
 	} catch (error) {
 		console.error('DOCX parsing error:', error);
-		throw new Error('Failed to parse DOCX file. Please ensure the file is not corrupted.');
+
+		// Provide more specific error messages
+		if (error instanceof Error) {
+			if (error.message.includes('mammoth')) {
+				throw new Error(
+					'Failed to load document processing library. Please try again or use a different file format.'
+				);
+			} else if (error.message.includes('arrayBuffer') || error.message.includes('buffer')) {
+				throw new Error(
+					'File appears to be corrupted or in an unsupported format. Please check the file and try again.'
+				);
+			} else if (error.message.includes('empty') || error.message.includes('content')) {
+				throw new Error('The document appears to be empty or contains no readable text.');
+			} else {
+				throw new Error(`DOCX processing failed: ${error.message}`);
+			}
+		} else {
+			throw new Error(
+				'Failed to parse DOCX file. Please ensure the file is not corrupted and try again.'
+			);
+		}
 	}
 };
 
 const readFileContent = async (file: File): Promise<string> => {
+	console.log('Starting file content reading:', {
+		name: file.name,
+		type: file.type,
+		size: file.size,
+	});
+
 	// Validate file type
 	if (!isValidFileType(file)) {
 		throw new Error(
@@ -2596,11 +3030,18 @@ const readFileContent = async (file: File): Promise<string> => {
 		throw new Error(`File size exceeds 5MB limit. Current size: ${formatFileSize(file.size)}`);
 	}
 
+	// Check if file is empty
+	if (file.size === 0) {
+		throw new Error(`File "${file.name}" is empty`);
+	}
+
 	// Extract content based on file type
 	const extension = file.name.toLowerCase().split('.').pop();
 	let content = '';
 
 	try {
+		console.log(`Processing ${extension} file...`);
+
 		switch (extension) {
 			case 'txt':
 			case 'md':
@@ -2617,47 +3058,106 @@ const readFileContent = async (file: File): Promise<string> => {
 				content = await readPDFFile(file);
 				break;
 			case 'docx':
+			case 'doc':
 				content = await readDocxFile(file);
 				break;
 			default:
 				throw new Error(`Unsupported file type: ${extension}`);
 		}
 
-		if (!content.trim()) {
-			throw new Error('No readable content found in the file');
+		if (!content || !content.trim()) {
+			throw new Error(
+				`No readable content found in the ${extension?.toUpperCase()} file. The file may be empty, corrupted, or in an unsupported format.`
+			);
 		}
 
+		console.log(`Successfully extracted content: ${content.length} characters`);
 		return content.trim();
 	} catch (error) {
 		console.error('File processing error:', error);
-		throw error;
+
+		// Re-throw with more specific context if needed
+		if (error instanceof Error) {
+			// If it's already a user-friendly error, pass it through
+			if (
+				error.message.includes('Failed to') ||
+				error.message.includes('appears to be') ||
+				error.message.includes('processing failed') ||
+				error.message.includes('No readable content')
+			) {
+				throw error;
+			} else {
+				// Wrap technical errors with user-friendly messages
+				throw new Error(
+					`Failed to process ${extension?.toUpperCase()} file: ${error.message}`
+				);
+			}
+		} else {
+			throw new Error(
+				`Failed to process ${extension?.toUpperCase()} file: Unknown error occurred`
+			);
+		}
 	}
 };
 
 const handleFileUpload = async (file: File) => {
-	// Validate file type
+	console.log('Handling file upload:', file.name, file.type, file.size);
+
+	// Validate file type with detailed feedback
 	if (!isValidFileType(file)) {
-		ElMessage.error(
-			`Unsupported file type: ${file.name}. Supported formats: ${supportedFormats.value.join(
-				', '
-			)}`
-		);
+		const extension = file.name.toLowerCase().split('.').pop();
+		ElMessage.error({
+			message: `Unsupported file type: "${extension}". Supported formats: ${supportedFormats.value
+				.join(', ')
+				.toUpperCase()}`,
+			duration: 5000,
+			showClose: true,
+		});
 		return false;
 	}
 
 	// Validate file size
 	if (file.size > maxFileSize) {
-		ElMessage.error(`File size exceeds 5MB limit. Current size: ${formatFileSize(file.size)}`);
+		ElMessage.error({
+			message: `File size exceeds 5MB limit. Current size: ${formatFileSize(
+				file.size
+			)}. Please compress or select a smaller file.`,
+			duration: 5000,
+			showClose: true,
+		});
 		return false;
 	}
 
+	// Check if file is empty
+	if (file.size === 0) {
+		ElMessage.error({
+			message: `File "${file.name}" appears to be empty. Please select a valid file.`,
+			duration: 5000,
+			showClose: true,
+		});
+		return false;
+	}
+
+	// Store the file
 	uploadedFile.value = file;
-	ElMessage.success(
-		`File "${file.name}" selected successfully. Supported format: ${file.name
-			.split('.')
-			.pop()
-			?.toUpperCase()}`
-	);
+
+	// Provide success feedback with file details
+	const extension = file.name.split('.').pop()?.toUpperCase();
+	ElMessage.success({
+		message: `File "${file.name}" (${extension}, ${formatFileSize(
+			file.size
+		)}) selected successfully!`,
+		duration: 3000,
+		showClose: true,
+	});
+
+	console.log('File upload successful:', {
+		name: file.name,
+		type: file.type,
+		size: file.size,
+		formattedSize: formatFileSize(file.size),
+	});
+
 	return false; // 阻止自动上传
 };
 
