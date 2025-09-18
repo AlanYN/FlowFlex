@@ -22,7 +22,7 @@
 						:show-after="500"
 					>
 						<div
-							class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 border-2 border-white"
+							class="w-6 h-6 rounded-full flex items-center justify-center text-white dark:text-black font-semibold text-xs flex-shrink-0 border-2 border-white"
 							:style="{ backgroundColor: getAvatarColor(item.name) }"
 						>
 							{{ getInitials(item.name) }}
@@ -38,8 +38,12 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full min-h-8 border border-gray-300 rounded-xl px-3 py-1.5 bg-white cursor-pointer transition-colors duration-200 flex items-center"
-			:class="[disabled ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-400']"
+			class="w-full min-h-8 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-1.5 bg-white dark:bg-gray-800 cursor-pointer transition-colors duration-200 flex items-center"
+			:class="[
+				disabled
+					? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed'
+					: 'hover:border-gray-400 dark:hover:border-gray-500',
+			]"
 			@click="openModal"
 		>
 			<!-- 已选择的用户头像 -->
@@ -74,7 +78,7 @@
 										<el-icon class="text-[8px]"><Close /></el-icon>
 									</div>
 								</div>
-								<div>{{ item.name }}</div>
+								<div class="text-gray-900 dark:text-gray-100">{{ item.name }}</div>
 							</div>
 						</el-tooltip>
 					</div>
@@ -106,7 +110,7 @@
 			<!-- 空状态占位符 -->
 			<div
 				v-if="selectedItems.length === 0"
-				class="text-gray-400 text-sm text-left select-none flex-1"
+				class="text-gray-400 dark:text-gray-500 text-sm text-left select-none flex-1"
 			>
 				{{ computedPlaceholder }}
 			</div>
@@ -125,12 +129,12 @@
 				<div class="flex gap-5 h-[450px]">
 					<!-- 左侧：可选用户 -->
 					<div
-						class="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden"
+						class="flex-1 flex flex-col border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden"
 					>
 						<div
-							class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2"
+							class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center gap-2"
 						>
-							<span class="font-semibold text-gray-800 text-sm">
+							<span class="font-semibold text-gray-800 dark:text-gray-200 text-sm">
 								{{
 									props.selectionType === 'user'
 										? 'Available Items'
@@ -144,7 +148,7 @@
 							</span>
 						</div>
 						<!-- 搜索框 -->
-						<div class="p-3 border-b border-gray-200">
+						<div class="p-3 border-b border-gray-200 dark:border-gray-600">
 							<el-input
 								v-model="searchText"
 								placeholder="Search..."
@@ -183,7 +187,7 @@
 
 												<div class="flex-1 min-w-0">
 													<div
-														class="font-medium text-gray-800 block overflow-hidden text-ellipsis whitespace-nowrap"
+														class="font-medium text-gray-800 dark:text-gray-200 block overflow-hidden text-ellipsis whitespace-nowrap"
 													>
 														{{ data.name }}
 													</div>
@@ -193,7 +197,7 @@
 															data.userDetails?.email &&
 															showEmail
 														"
-														class="text-gray-500 text-xs block overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
+														class="text-gray-500 dark:text-gray-400 text-xs block overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
 													>
 														{{ data.userDetails.email }}
 													</div>
@@ -201,7 +205,7 @@
 
 												<span
 													v-if="data.type === 'team' && data.memberCount"
-													class="text-gray-500 text-xs flex-shrink-0"
+													class="text-gray-500 dark:text-gray-400 text-xs flex-shrink-0"
 												>
 													({{ data.memberCount }})
 												</span>
@@ -215,12 +219,12 @@
 
 					<!-- 右侧：已选用户 -->
 					<div
-						class="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden"
+						class="flex-1 flex flex-col border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden"
 					>
 						<div
-							class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2"
+							class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center gap-2"
 						>
-							<span class="font-semibold text-gray-800 text-sm">
+							<span class="font-semibold text-gray-800 dark:text-gray-200 text-sm">
 								Selected {{ getSelectedTypeText() }}
 							</span>
 							<span
@@ -228,7 +232,10 @@
 							>
 								{{ tempSelectedItems.length }}
 							</span>
-							<span v-if="maxCount > 0" class="text-gray-500 text-xs">
+							<span
+								v-if="maxCount > 0"
+								class="text-gray-500 dark:text-gray-400 text-xs"
+							>
 								/ {{ maxCount }}
 							</span>
 						</div>
@@ -236,7 +243,7 @@
 							<div class="p-2">
 								<div
 									v-if="tempSelectedItems.length === 0"
-									class="flex items-center justify-center h-full text-gray-400 text-sm"
+									class="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm"
 								>
 									No {{ getSelectedTypeText().toLowerCase() }} selected
 								</div>
@@ -244,7 +251,7 @@
 									<div
 										v-for="item in tempSelectedItems"
 										:key="item.id"
-										class="flex items-center gap-3 p-2 bg-gray-50 rounded-xl transition-colors duration-200 hover:bg-gray-100"
+										class="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-700 rounded-xl transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-600"
 									>
 										<div
 											class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-base flex-shrink-0"
@@ -254,20 +261,20 @@
 										</div>
 										<div class="flex-1 min-w-0">
 											<div
-												class="font-medium text-gray-800 overflow-hidden text-ellipsis whitespace-nowrap"
+												class="font-medium text-gray-800 dark:text-gray-200 overflow-hidden text-ellipsis whitespace-nowrap"
 											>
 												{{ item.name }}
 											</div>
 											<div
 												v-if="item.userDetails?.email && showEmail"
-												class="text-gray-500 text-xs overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
+												class="text-gray-500 dark:text-gray-400 text-xs overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
 											>
 												{{ item.userDetails.email }}
 											</div>
 										</div>
 										<el-button
 											link
-											class="text-gray-500 p-1 hover:text-red-500"
+											class="text-gray-500 dark:text-gray-400 p-1 hover:text-red-500 dark:hover:text-red-400"
 											@click="removeFromSelection(item.id)"
 										>
 											<el-icon><Close /></el-icon>
@@ -832,6 +839,19 @@ defineExpose({
 	background-color: #f9fafb !important;
 }
 
+/* Dark mode 树形组件样式 */
+html.dark .el-tree-node__content:hover {
+	background-color: #374151 !important;
+}
+
+html.dark .el-tree-node__content {
+	color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-tree .el-tree-node__expand-icon {
+	color: var(--el-text-color-regular) !important;
+}
+
 /* 确保树节点内容正确换行 */
 .el-tree-node__label {
 	width: 100% !important;
@@ -841,5 +861,27 @@ defineExpose({
 /* 防止内容重叠 */
 .el-tree .el-tree-node {
 	white-space: normal !important;
+}
+
+html.dark .el-scrollbar__wrap {
+	background-color: transparent !important;
+}
+
+/* Dark mode 输入框样式 */
+html.dark .el-input__wrapper {
+	background-color: var(--el-fill-color-blank) !important;
+	border-color: var(--el-border-color) !important;
+}
+
+html.dark .el-input__wrapper:hover {
+	border-color: var(--el-border-color-hover) !important;
+}
+
+html.dark .el-input__inner {
+	color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-input__inner::placeholder {
+	color: var(--el-text-color-placeholder) !important;
 }
 </style>

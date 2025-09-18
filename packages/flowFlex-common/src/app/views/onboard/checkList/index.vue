@@ -153,7 +153,7 @@
 		>
 			<template #header>
 				<div>
-					<h3 class="text-lg font-medium text-gray-900">{{ dialogConfig.title }}</h3>
+					<h3 class="text-lg font-medium">{{ dialogConfig.title }}</h3>
 					<p class="text-sm text-gray-600 mt-1">{{ dialogConfig.description }}</p>
 				</div>
 			</template>
