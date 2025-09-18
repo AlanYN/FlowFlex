@@ -26,17 +26,25 @@
 		<!-- 主要内容区 -->
 		<div>
 			<!-- 加载中状态 -->
-			<div v-if="loading.workflows" class="loading-container rounded-xl">
+			<div
+				v-if="loading.workflows"
+				class="loading-container rounded-xl bg-white dark:bg-gray-800"
+			>
 				<el-skeleton style="width: 100%" :rows="10" animated />
 			</div>
 
 			<!-- 工作流内容 -->
 			<div class="workflow-list" v-else-if="workflow">
-				<div class="workflow-card rounded-xl" :class="{ active: workflow.isActive }">
-					<div class="workflow-card-header">
+				<div
+					class="workflow-card rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
+					:class="{ active: workflow.isActive }"
+				>
+					<div
+						class="workflow-card-header bg-blue-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600"
+					>
 						<div class="left-section">
 							<div class="title-and-tags">
-								<span class="workflow-name">
+								<span class="workflow-name text-gray-900 dark:text-gray-100">
 									{{ workflow.name }}
 								</span>
 								<el-tag
@@ -73,7 +81,7 @@
 									Inactive
 								</el-tag>
 							</div>
-							<span class="workflow-desc">
+							<span class="workflow-desc text-gray-600 dark:text-gray-400">
 								{{ workflow.description }}
 							</span>
 						</div>
@@ -240,7 +248,7 @@
 					</div>
 
 					<!-- Workflow 内容 -->
-					<div class="workflow-card-body">
+					<div class="workflow-card-body bg-blue-50/50 dark:bg-gray-800/50">
 						<div class="workflow-header-actions">
 							<div class="dates-container">
 								<el-tooltip content="last mdify by">
@@ -249,7 +257,9 @@
 											icon="ic:baseline-person-3"
 											class="text-primary-500 w-5 h-5"
 										/>
-										<span class="card-value font-medium">
+										<span
+											class="card-value font-medium text-gray-700 dark:text-gray-300"
+										>
 											{{ workflow.modifyBy }}
 										</span>
 									</div>
@@ -260,7 +270,9 @@
 											icon="ic:baseline-calendar-month"
 											class="text-primary-500 w-5 h-5"
 										/>
-										<span class="card-value font-medium">
+										<span
+											class="card-value font-medium text-gray-700 dark:text-gray-300"
+										>
 											{{
 												timeZoneConvert(
 													workflow.modifyDate,
@@ -274,7 +286,7 @@
 							</div>
 							<div class="action-buttons-group">
 								<button
-									class="add-stage-btn"
+									class="add-stage-btn bg-transparent border border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl px-3 py-1.5 text-sm transition-colors"
 									@click="addStage()"
 									:disabled="loading.createStage"
 								>
@@ -312,18 +324,29 @@
 					</div>
 
 					<!-- 总阶段数信息 -->
-					<div class="workflow-footer">
-						<p class="stage-count">Total stages: {{ workflow?.stages?.length || 0 }}</p>
+					<div
+						class="workflow-footer bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 px-6 py-4"
+					>
+						<p class="stage-count text-gray-600 dark:text-gray-400 text-sm">
+							Total stages: {{ workflow?.stages?.length || 0 }}
+						</p>
 					</div>
 				</div>
 			</div>
 
 			<!-- 空状态 - 没有工作流时显示 -->
-			<div v-else class="empty-state-container rounded-xl">
+			<div
+				v-else
+				class="empty-state-container rounded-xl bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600"
+			>
 				<div class="empty-state-content">
-					<el-icon class="empty-state-icon"><DocumentAdd /></el-icon>
-					<h2 class="empty-state-title">No Workflows Found</h2>
-					<p class="empty-state-desc">
+					<el-icon class="empty-state-icon text-primary-300 dark:text-primary-400">
+						<DocumentAdd />
+					</el-icon>
+					<h2 class="empty-state-title text-gray-900 dark:text-gray-100">
+						No Workflows Found
+					</h2>
+					<p class="empty-state-desc text-gray-600 dark:text-gray-400">
 						Workflows help you organize and manage the entire onboarding process. Create
 						your first workflow to get started.
 					</p>
@@ -1305,67 +1328,38 @@ const getUserGroup = async () => {
 	height: 100%;
 }
 
-.loading-container {
-	padding: 24px;
-	background-color: #fff;
-	margin-bottom: 24px;
-}
+/* 使用 Tailwind 类替代 */
 
 .workflow-card {
-	margin-bottom: 16px;
-	border: 1px solid var(--el-border-color-light, #e6edf7);
-	box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-	transition: all 0.3s ease;
-	background-color: #fff;
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
+	@apply mb-4 shadow-sm transition-all duration-300 overflow-hidden flex flex-col;
 }
 
 .workflow-card.active {
-	border-color: var(--primary-100, #e6f7ff);
+	@apply border-blue-200 dark:border-blue-600;
 }
 
 .workflow-card-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 24px;
-	border-bottom: 1px solid var(--el-border-color-light, #e6edf7);
-	background-color: var(--primary-50, #f0f5ff);
+	@apply flex justify-between items-center p-6;
 }
 
 .left-section {
-	display: flex;
-	align-items: flex-start;
-	flex-direction: column;
-	gap: 5px;
-	max-width: 60%;
+	@apply flex items-start flex-col gap-1 max-w-[60%];
 }
 
 .title-and-tags {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	flex-wrap: wrap;
+	@apply flex items-center gap-2.5 flex-wrap;
 }
 
 .workflow-name {
-	font-weight: 600;
-	font-size: 18px;
-	color: #303133;
+	@apply font-semibold text-lg;
 }
 
 .workflow-desc {
-	color: #606266;
-	font-size: 13px;
-	margin-top: 4px;
+	@apply text-xs mt-1;
 }
 
 .right-section {
-	display: flex;
-	align-items: center;
-	gap: 16px;
+	@apply flex items-center gap-4;
 }
 
 .workflow-selector {
@@ -1490,23 +1484,15 @@ const getUserGroup = async () => {
 }
 
 .workflow-card-body {
-	padding: 16px 10px 16px 24px;
-	background-color: rgba(var(--primary-500-rgb, 36, 104, 242), 0.05);
-	flex: 1;
+	@apply py-4 px-2.5 pl-6 flex-1;
 }
 
 .workflow-header-actions {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
+	@apply flex justify-between items-center;
 }
 
 .dates-container {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	color: #606266;
-	font-size: 14px;
+	@apply flex items-center gap-4 text-sm;
 }
 
 .date-item {
@@ -1562,33 +1548,14 @@ const getUserGroup = async () => {
 }
 
 .action-buttons-group {
-	display: flex;
-	align-items: center;
-	gap: 12px;
+	@apply flex items-center gap-3;
 }
 
 .add-stage-btn {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 12px;
-	background-color: transparent;
-	border: 1px solid var(--primary-500, #2468f2);
-	color: var(--primary-500, #2468f2);
-	padding: 6px 12px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	@apply rounded-xl;
+	@apply inline-flex items-center gap-1.5 cursor-pointer;
 }
 
-.add-stage-btn:hover {
-	background-color: rgba(var(--primary-500-rgb, 36, 104, 242), 0.1);
-}
-
-.add-stage-btn:disabled {
-	opacity: 0.6;
-	cursor: not-allowed;
-}
+/* Hover and disabled states handled by Tailwind classes */
 
 .drag-handle {
 	cursor: move;
@@ -1609,20 +1576,11 @@ const getUserGroup = async () => {
 }
 
 .workflow-footer {
-	display: flex;
-	justify-content: flex-start;
-	align-items: center;
-	padding: 16px 24px;
-	background-color: #f8fafc;
-	border-top: 1px solid #edf2f7;
-	margin: 0;
+	@apply flex justify-start items-center m-0;
 }
 
 .stage-count {
-	color: #64748b;
-	font-size: 14px;
-	font-weight: 400;
-	margin: 0;
+	@apply font-normal m-0;
 }
 
 .text-primary {
@@ -1656,47 +1614,6 @@ const getUserGroup = async () => {
 	display: inline-block;
 }
 
-.space-y-4 > * + * {
-	margin-top: 1rem;
-}
-
-.flex.justify-end {
-	display: flex;
-	justify-content: flex-end;
-}
-
-.space-x-2 > * + * {
-	margin-left: 0.5rem;
-}
-
-.mt-6 {
-	margin-top: 1.5rem;
-}
-
-.mb-4 {
-	margin-bottom: 1rem;
-}
-
-.w-full {
-	width: 100%;
-}
-
-.block {
-	display: block;
-}
-
-.text-sm {
-	font-size: 0.875rem;
-}
-
-.font-medium {
-	font-weight: 500;
-}
-
-.mb-1 {
-	margin-bottom: 0.25rem;
-}
-
 .disabled-btn {
 	opacity: 0.6;
 	cursor: not-allowed;
@@ -1709,7 +1626,6 @@ const getUserGroup = async () => {
 .dialog-title {
 	font-size: 18px;
 	font-weight: 600;
-	color: #303133;
 	margin: 0 0 4px 0;
 }
 
@@ -1956,44 +1872,27 @@ const getUserGroup = async () => {
 
 /* 空状态样式 */
 .empty-state-container {
-	background-color: #fff;
-	border: 1px dashed var(--el-border-color, #dcdfe6);
-	padding: 60px 20px;
-	text-align: center;
-	margin-bottom: 16px;
+	@apply py-16 px-5 text-center mb-4;
 }
 
 .empty-state-content {
-	max-width: 500px;
-	margin: 0 auto;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
+	@apply max-w-lg mx-auto flex flex-col items-center;
 }
 
 .empty-state-icon {
-	font-size: 64px;
-	color: var(--primary-300, #93c5fd);
-	margin-bottom: 24px;
+	@apply text-6xl mb-6;
 }
 
 .empty-state-title {
-	font-size: 24px;
-	font-weight: 600;
-	color: #303133;
-	margin: 0 0 16px 0;
+	@apply text-2xl font-semibold m-0 mb-4;
 }
 
 .empty-state-desc {
-	font-size: 16px;
-	color: #606266;
-	margin: 0 0 32px 0;
-	line-height: 1.6;
+	@apply text-base m-0 mb-8 leading-relaxed;
 }
 
 .create-workflow-btn {
-	padding: 12px 24px;
-	font-size: 16px;
+	@apply py-3 px-6 text-base;
 }
 </style>
 

@@ -189,7 +189,6 @@ const handleSend = async () => {
 
 <style scoped lang="scss">
 :deep(.el-dialog__header) {
-	background-color: #f0f9ff;
 	border-bottom: 1px solid #e0e7ff;
 	padding: 20px;
 }

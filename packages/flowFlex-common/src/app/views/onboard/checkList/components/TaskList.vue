@@ -13,7 +13,7 @@
 		<!-- 任务已加载完成时显示 -->
 		<div v-if="tasksLoaded">
 			<div class="flex items-center mb-4">
-				<h4 class="text-sm font-medium text-gray-900">Tasks</h4>
+				<h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">Tasks</h4>
 			</div>
 
 			<!-- 任务列表 -->
@@ -61,7 +61,7 @@
 									<!-- Task name -->
 									<div class="flex-1 min-w-0 pr-3">
 										<span
-											class="text-sm text-gray-900 truncate block"
+											class="text-sm truncate block text-gray-900 dark:text-gray-100"
 											:title="task?.name || ''"
 										>
 											{{ task.name }}
@@ -183,7 +183,7 @@
 					</template>
 				</draggable>
 			</div>
-			<div v-else class="text-center py-8 text-gray-500">
+			<div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
 				<p class="text-sm">
 					No tasks added yet. Click the "Add Task" button to add a task.
 				</p>
@@ -192,12 +192,12 @@
 			<!-- 添加任务表单 -->
 			<div
 				v-if="addingTaskTo === props.checklist.id"
-				class="border border-gray-200 rounded-xl p-2 mt-4 bg-gray-50"
+				class="border border-gray-200 dark:border-gray-600 rounded-xl p-2 mt-4 bg-gray-50 dark:bg-gray-800"
 			>
 				<div class="">
 					<div class="flex items-center gap-3">
 						<div class="flex-1 min-w-0 flex flex-col gap-2">
-							<div class="">Task name</div>
+							<div class="text-gray-700 dark:text-gray-300">Task name</div>
 							<el-input
 								v-model="newTaskText"
 								placeholder="Enter task name..."
@@ -205,7 +205,7 @@
 							/>
 						</div>
 						<div class="flex-1 min-w-0 flex-shrink-0 flex flex-col gap-2">
-							<div class="">Assignee</div>
+							<div class="text-gray-700 dark:text-gray-300">Assignee</div>
 							<flowflex-user-selector
 								ref="newTaskAssigneeSelectorRef"
 								v-model="newTaskAssignee"
@@ -813,11 +813,27 @@ defineExpose({
 /* 暗色主题 */
 html.dark {
 	.task-item {
-		@apply bg-black-300;
+		@apply bg-gray-800;
+		border-color: #374151;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 	}
 
 	.task-item:hover:not(.task-disabled):not(.task-sorting) {
-		@apply bg-black-200;
+		@apply bg-gray-700 !important;
+		border-color: #4b5563 !important;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+		transform: translateY(-1px);
+	}
+
+	.drag-handle:hover:not(.drag-disabled):not(.drag-sorting) {
+		background-color: #4b5563 !important;
+		color: #d1d5db !important;
+	}
+
+	.ghost-task {
+		background: #1e3a8a !important;
+		border: 1px dashed #3b82f6 !important;
+		box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 	}
 }
 </style>

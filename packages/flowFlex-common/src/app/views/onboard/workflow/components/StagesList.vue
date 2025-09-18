@@ -667,93 +667,56 @@ const getPortalPermissionTooltip = (permission?: number) => {
 }
 
 .stage-item {
-	background-color: white;
-	border: 1px solid var(--el-border-color-light, #e4e7ed);
-	overflow: hidden;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-	position: relative;
+	@apply bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-600 overflow-hidden relative rounded-xl;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 	border-left-width: 4px;
 	border-left-style: solid;
-	@apply rounded-xl;
+	transition: all 0.2s ease;
 }
 
 .stage-item:hover {
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+	transform: translateY(-1px);
+}
+
+/* Dark mode hover effect */
+html.dark .stage-item:hover {
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
 .stage-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 16px;
-	cursor: pointer;
-	background-color: #fff;
+	@apply flex justify-between items-center p-4 cursor-pointer bg-white dark:bg-gray-800 gap-4;
 	transition: background-color 0.2s;
-	gap: 16px;
 }
 
 .stage-header:hover {
-	background-color: rgba(0, 0, 0, 0.03);
+	@apply bg-blue-50/50 dark:bg-gray-700;
 }
 
 .left-section {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	flex: 1;
-	min-width: 0; /* 允许收缩 */
+	@apply flex items-center gap-2.5 flex-1 min-w-0;
 	max-width: calc(100% - 280px); /* 为右侧区域预留空间 */
 }
 
 .stage-avatar {
-	width: 32px;
-	height: 32px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: white;
-	font-weight: bold;
-	font-size: 12px;
-	flex-shrink: 0; /* 防止头像被压缩 */
+	@apply w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0;
 }
 
 .stage-info {
-	display: flex;
-	flex-direction: column;
-	flex: 1;
-	min-width: 0; /* 允许内容溢出处理 */
-	overflow: hidden;
+	@apply flex flex-col flex-1 min-w-0 overflow-hidden;
 }
 
 .stage-name-container {
-	display: flex;
-	align-items: center;
-	margin-bottom: 2px;
+	@apply flex items-center mb-0.5;
 }
 
 .stage-name {
-	font-weight: 500;
+	@apply font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0 flex items-center gap-1.5;
 	font-size: 15px;
-	color: #111827;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	flex: 1;
-	min-width: 0;
-	display: flex;
-	align-items: center;
-	gap: 6px;
 }
 
 .portal-icon {
-	width: 20px;
-	height: 20px;
-	color: #000000;
-	flex-shrink: 0;
-	outline: none;
-	border: none;
-	padding-top: 2px;
+	@apply w-5 h-5 text-gray-900 dark:text-gray-100 flex-shrink-0 outline-none border-none pt-0.5;
 }
 
 .portal-icon:focus,
@@ -765,57 +728,33 @@ const getPortalPermissionTooltip = (permission?: number) => {
 }
 
 .stage-description {
-	font-size: 12px;
-	color: #6b7280;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 100%;
+	@apply text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis max-w-full;
 }
 
 .right-section {
-	display: flex;
-	align-items: center;
-	flex-shrink: 0; /* 防止右侧区域被压缩 */
-	gap: 8px;
+	@apply flex items-center flex-shrink-0 gap-2;
 }
 
 /* 标签样式 */
 .stage-tag {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 9999px;
-	border: 1px solid #e5e7eb;
-	padding: 4px 10px;
-	font-size: 11px;
-	font-weight: 600;
-	background-color: white;
-	white-space: nowrap;
-	flex-shrink: 0;
+	@apply inline-flex items-center justify-center rounded-full border border-gray-100 dark:border-gray-600 px-2.5 py-1 text-xs font-semibold bg-gray-50 dark:bg-gray-700 whitespace-nowrap flex-shrink-0 overflow-hidden text-ellipsis transition-all duration-200;
 	max-width: 120px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	transition: all 0.2s ease;
 }
 
 .stage-tag:hover {
-	background-color: #f9fafb;
-	border-color: #d1d5db;
+	@apply bg-gray-100 dark:bg-gray-600 border-gray-200 dark:border-gray-500;
 }
 
 .stage-group-tag {
-	color: #374151;
+	@apply text-gray-700 dark:text-gray-300;
 }
 
 .stage-duration-tag {
-	color: #059669;
-	border-color: #d1fae5;
-	background-color: #ecfdf5;
+	@apply text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20;
 }
 
 .stage-duration-tag:hover {
-	background-color: #d1fae5;
+	@apply bg-emerald-100 dark:bg-emerald-900/30;
 }
 
 .drag-handle {
@@ -834,128 +773,70 @@ const getPortalPermissionTooltip = (permission?: number) => {
 
 /* 展开详情样式 */
 .stage-details {
-	padding: 0 16px 16px 16px;
-	border-top: 1px solid var(--el-border-color-light, #ebeef5);
-	background-color: rgba(255, 255, 255, 0.8);
+	@apply px-4 pb-4 border-t border-gray-100 dark:border-gray-600 bg-slate-50/50 dark:bg-gray-800/80;
 }
 
 /* Stage Components Section */
 .stage-components-section {
-	margin-bottom: 16px;
+	@apply mb-4;
 }
 
 .components-list {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
+	@apply flex flex-col gap-2;
 }
 
 .component-item {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 8px 12px;
-	background-color: #f8f9fa;
-	border: 1px solid #e9ecef;
-	transition: all 0.2s ease;
-	@apply rounded-xl;
+	@apply flex items-center gap-3 p-2 px-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl transition-all duration-200;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .component-item:hover {
-	background-color: #f1f3f4;
-	border-color: #dee2e6;
+	@apply bg-blue-50 dark:bg-gray-600 border-blue-100 dark:border-gray-500;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .component-number {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 20px;
-	height: 20px;
-	background-color: var(--primary-100, #dbeafe);
-	color: var(--primary-600, #2563eb);
-	border-radius: 50%;
-	font-size: 11px;
-	font-weight: 600;
-	flex-shrink: 0;
+	@apply flex items-center justify-center w-5 h-5 bg-blue-500 dark:bg-blue-600 text-white rounded-full text-xs font-semibold flex-shrink-0;
 }
 
 .component-icon {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 20px;
-	height: 20px;
-	color: var(--primary-600, #2563eb);
-	flex-shrink: 0;
+	@apply flex items-center justify-center w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0;
 }
 
 .component-icon svg {
-	width: 16px;
-	height: 16px;
+	@apply w-4 h-4;
 }
 
 .component-name {
-	flex: 1;
-	font-size: 13px;
-	font-weight: 500;
-	color: #374151;
-	min-width: 0;
+	@apply flex-1 text-sm font-medium text-gray-700 dark:text-gray-300 min-w-0;
 }
 
 .component-type {
-	font-size: 11px;
-	font-weight: 500;
-	color: #6b7280;
-	background-color: #f3f4f6;
-	padding: 2px 8px;
-	text-transform: lowercase;
-	flex-shrink: 0;
-	@apply rounded-xl;
+	@apply text-xs font-medium text-slate-600 dark:text-gray-400 bg-slate-100 dark:bg-gray-600 px-2 py-0.5 lowercase flex-shrink-0 rounded-xl;
 }
 
 .no-components {
-	padding: 12px;
-	text-align: center;
-	background-color: #f8f9fa;
-	border: 1px dashed #dee2e6;
-	@apply rounded-xl;
+	@apply p-3 text-center bg-gray-50 dark:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl;
 }
 
 .stage-info-section {
-	border-top: 1px solid #e5e7eb;
-	padding-top: 12px;
+	@apply border-t border-gray-200 dark:border-gray-600 pt-3;
 }
 
 .required-fields-section {
-	margin-top: 12px;
-	margin-bottom: 16px;
+	@apply mt-3 mb-4;
 }
 
 .required-fields-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-	margin-top: 8px;
+	@apply flex flex-wrap gap-1.5 mt-2;
 }
 
 .field-tag {
-	display: inline-flex;
-	align-items: center;
-	padding: 4px 10px;
-	font-size: 11px;
-	font-weight: 600;
-	background-color: #e0f2fe;
-	color: #0369a1;
-	border: 1px solid #bae6fd;
-	white-space: nowrap;
-	transition: all 0.2s ease;
-	@apply rounded-xl;
+	@apply inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 whitespace-nowrap transition-all duration-200 rounded-xl;
 }
 
 .field-tag:hover {
-	background-color: #bae6fd;
-	border-color: #7dd3fc;
+	@apply bg-indigo-100 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-600;
 }
 
 :deep(.el-checkbox__inner) {
@@ -969,23 +850,15 @@ const getPortalPermissionTooltip = (permission?: number) => {
 }
 
 .text-muted-foreground {
-	color: #6b7280;
-	margin-right: 8px;
+	@apply text-gray-500 dark:text-gray-400 mr-2;
 }
 
 .toggle-arrow {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	height: 28px;
-	width: 28px;
-	cursor: pointer;
-	margin-left: 4px;
+	@apply flex items-center justify-center h-7 w-7 cursor-pointer ml-1;
 }
 
 .toggle-arrow:hover {
-	background-color: rgba(0, 0, 0, 0.05);
-	border-radius: 50%;
+	@apply bg-blue-100 dark:bg-gray-600 rounded-full;
 }
 
 /* Loading states */
@@ -1019,28 +892,19 @@ const getPortalPermissionTooltip = (permission?: number) => {
 
 /* Loading skeleton styles */
 .stages-loading {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	margin-top: 10px;
+	@apply flex flex-col gap-4 mt-2.5;
 }
 
 .stage-skeleton {
-	background-color: white;
-	border: 1px solid var(--el-border-color-light, #e4e7ed);
-	overflow: hidden;
+	@apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 overflow-hidden rounded-xl;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	border-left-width: 4px;
 	border-left-style: solid;
 	border-left-color: #e5e7eb;
-	@apply rounded-xl;
 }
 
 .skeleton-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 16px;
+	@apply flex justify-between items-center p-4;
 }
 
 .skeleton-avatar {
@@ -1053,9 +917,7 @@ const getPortalPermissionTooltip = (permission?: number) => {
 }
 
 .skeleton-content {
-	flex: 1;
-	margin-left: 12px;
-	margin-right: 16px;
+	@apply flex-1 ml-3 mr-4;
 }
 
 .skeleton-title {
@@ -1078,8 +940,7 @@ const getPortalPermissionTooltip = (permission?: number) => {
 }
 
 .skeleton-tags {
-	display: flex;
-	gap: 8px;
+	@apply flex gap-2;
 }
 
 .skeleton-tag {
