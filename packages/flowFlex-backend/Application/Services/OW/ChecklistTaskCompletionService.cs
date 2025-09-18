@@ -138,21 +138,29 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         // Initialize create information with proper ID and timestamps
         completion.InitCreateInfo(_userContext);
 
-        var result = await _completionRepository.SaveTaskCompletionAsync(completion);
+        var (success, statusChanged) = await _completionRepository.SaveTaskCompletionAsync(completion);
 
         // Log task completion
-        if (result)
+        if (success)
         {
             await LogTaskCompletionAsync(onboarding, task, completion.IsCompleted, completion.CompletionNotes);
 
-            // 如果任务完成且有 ActionId，检查是否需要特殊处理并发布 ActionTriggerEvent
-            if (completion.IsCompleted && task.ActionId.HasValue)
+            // 只有当任务状态真正从未完成变为完成，且有 ActionId 时，才执行 ActionTriggerEvent
+            // 这避免了当 isCompleted 为 true 但没有变化时重复执行 action
+            if (completion.IsCompleted && task.ActionId.HasValue && statusChanged)
             {
+                _logger.LogInformation("Task completion status changed from false to true, executing action: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}",
+                    completion.OnboardingId, completion.TaskId, task.ActionId);
                 await HandleTaskActionAsync(onboarding, task, completion);
+            }
+            else if (completion.IsCompleted && task.ActionId.HasValue && !statusChanged)
+            {
+                _logger.LogDebug("Task completion status unchanged (already completed), skipping action execution: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}",
+                    completion.OnboardingId, completion.TaskId, task.ActionId);
             }
         }
 
-        return result;
+        return success;
     }
 
     /// <summary>
@@ -210,18 +218,21 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             completions.Add(completion);
         }
 
-        var result = await _completionRepository.BatchSaveTaskCompletionsAsync(completions);
+        var results = await _completionRepository.BatchSaveTaskCompletionsAsync(completions);
+
+        // Check if all operations were successful
+        var allSuccessful = results.All(r => r.success);
 
         // Log batch task completions
-        if (result)
+        if (allSuccessful)
         {
             await LogBatchTaskCompletionsAsync(inputs, completions);
 
-            // 为完成的且有 ActionId 的任务发布 ActionTriggerEvent
-            await PublishBatchTaskActionTriggerEventsAsync(inputs, completions);
+            // 只为状态真正发生变化的且有 ActionId 的任务发布 ActionTriggerEvent
+            await PublishBatchTaskActionTriggerEventsAsync(inputs, completions, results);
         }
 
-        return result;
+        return allSuccessful;
     }
 
     /// <summary>
@@ -1130,20 +1141,26 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     /// <summary>
     /// 为批量完成的 task 发布 ActionTriggerEvent
     /// </summary>
-    private async Task PublishBatchTaskActionTriggerEventsAsync(List<ChecklistTaskCompletionInputDto> inputs, List<ChecklistTaskCompletion> completions)
+    private async Task PublishBatchTaskActionTriggerEventsAsync(List<ChecklistTaskCompletionInputDto> inputs, List<ChecklistTaskCompletion> completions, List<(bool success, bool statusChanged)> results)
     {
         try
         {
             _logger.LogDebug("开始为批量完成的 task 发布 ActionTriggerEvent: Count={Count}", completions.Count);
 
-            for (int i = 0; i < inputs.Count && i < completions.Count; i++)
+            for (int i = 0; i < inputs.Count && i < completions.Count && i < results.Count; i++)
             {
                 var input = inputs[i];
                 var completion = completions[i];
+                var result = results[i];
 
-                // 只为完成的任务处理
-                if (!completion.IsCompleted)
+                // 只为完成的任务且状态真正发生变化的任务处理
+                if (!completion.IsCompleted || !result.statusChanged)
                 {
+                    if (completion.IsCompleted && !result.statusChanged)
+                    {
+                        _logger.LogDebug("Batch task completion status unchanged (already completed), skipping action execution: TaskId={TaskId}",
+                            input.TaskId);
+                    }
                     continue;
                 }
 
@@ -1166,6 +1183,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                     continue;
                 }
 
+                _logger.LogInformation("Batch task completion status changed from false to true, executing action: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}",
+                    input.OnboardingId, input.TaskId, task.ActionId);
                 await HandleTaskActionAsync(onboarding, task, completion);
             }
 
