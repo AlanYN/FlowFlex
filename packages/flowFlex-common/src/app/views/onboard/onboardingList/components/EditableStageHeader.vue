@@ -168,10 +168,11 @@ const displayETA = computed(() => {
 	}
 
 	try {
-		const startDate = new Date(props.currentStage.startTime);
-		const etaDate = new Date(startDate);
-		etaDate.setDate(startDate.getDate() + props.currentStage.estimatedDays);
-		return timeZoneConvert(etaDate.toString(), false, projectTenMinutesSsecondsDate);
+		return timeZoneConvert(
+			props.currentStage?.customEndTime || '',
+			false,
+			projectTenMinutesSsecondsDate
+		);
 	} catch (error) {
 		console.error('Error calculating ETA:', error);
 		return defaultStr;
@@ -181,7 +182,6 @@ const displayETA = computed(() => {
 // 初始化编辑表单
 const initEditForm = () => {
 	if (!props.currentStage) return;
-
 	editForm.value = {
 		customEstimatedDays: props.currentStage.estimatedDays || null,
 		customEndTime: null, // 可以直接编辑结束时间
@@ -192,11 +192,9 @@ const initEditForm = () => {
 		try {
 			// 直接使用原始的ISO时间字符串创建Date对象
 			const startDate = new Date(props.currentStage.startTime);
-
 			// 使用毫秒计算支持小数天数，保持原始时分秒
 			const millisecondsToAdd = editForm.value.customEstimatedDays * 24 * 60 * 60 * 1000;
 			const endDate = new Date(startDate.getTime() + millisecondsToAdd);
-
 			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
 			const endTimeFormatted = timeZoneConvert(
 				endDate.toString(),
@@ -215,9 +213,8 @@ const initEditForm = () => {
 watch(
 	() => props.currentStage,
 	() => {
-		if (!isEditing.value) {
-			initEditForm();
-		}
+		isEditing.value = false;
+		initEditForm();
 	},
 	{ immediate: true }
 );
@@ -286,7 +283,6 @@ const handleEndTimeChange = (endTime: string | Date | null) => {
 			// 直接使用原始的ISO时间字符串创建Date对象
 			const startDate = new Date(props.currentStage.startTime);
 			const endDate = new Date(endTime);
-
 			// 验证结束时间不能小于开始时间
 			if (endDate < startDate) {
 				ElMessage.error('End time cannot be earlier than start time');
@@ -364,12 +360,7 @@ const handleSave = async () => {
 	try {
 		// 准备更新数据，使用 timeZoneConvert 处理时间格式
 		// 将格式化的时间字符串转换为Date对象，再转为ISO字符串，最后转换为UTC格式
-		const endTimeDate = new Date(editForm.value.customEndTime);
-		const customEndTimeStr = timeZoneConvert(
-			endTimeDate.toString(),
-			true,
-			projectTenMinutesSsecondsDate
-		);
+		const customEndTimeStr = timeZoneConvert(editForm.value.customEndTime, true);
 		const updateData = {
 			stageId: props.currentStage.stageId,
 			customEstimatedDays: editForm.value.customEstimatedDays,
@@ -381,11 +372,6 @@ const handleSave = async () => {
 
 		// 退出编辑模式
 		isEditing.value = false;
-
-		ElMessage.success('Stage information updated successfully');
-	} catch (error) {
-		console.error('Error saving stage data:', error);
-		ElMessage.error('Failed to save stage information');
 	} finally {
 		saving.value = false;
 	}

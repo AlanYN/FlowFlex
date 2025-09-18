@@ -358,6 +358,7 @@ export interface Stage {
 	completionTime?: string;
 	completedBy?: string;
 	actions?: ActionListItem[];
+	customEndTime?: string;
 }
 
 // 检查清单任务完成记录相关类型定义
