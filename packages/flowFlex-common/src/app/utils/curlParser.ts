@@ -16,11 +16,47 @@ const replaceables: Record<string, string> = {
 };
 
 /**
+ * 处理 Windows CMD 特殊转义的 JSON 格式
+ */
+function processCmdJsonFormat(text: string): string {
+	// 处理 Windows CMD 格式的 JSON 转义
+	// 例如：^"^[^\^"1958417766709071872^\^"^]^" -> ["1958417766709071872"]
+	// 或者：^"{\n    \"Data\": {\n        \"UserName\": \"...\"\n    }\n}^" -> 标准JSON
+
+	let result = text;
+
+	// 处理数组格式：^"^[^\^"content^\^"^]^" -> ["content"]
+	const arrayPattern = /\^"\^\[\^\\\^"([^"]*?)\^\\\^"\^\]\^"/g;
+	result = result.replace(arrayPattern, '["$1"]');
+
+	// 处理简单的整体引用格式：^"content^" -> content (但保留内部的转义)
+	// 这种情况下，内容可能是一个复杂的 JSON 对象
+	const simplePattern = /^\^"(.+)\^"$/s;
+	if (simplePattern.test(result)) {
+		result = result.replace(simplePattern, '$1');
+
+		// 进一步清理内部的 CMD 转义
+		result = result
+			.replace(/\^\\\^"/g, '"') // 处理内部的 ^\^" -> "
+			.replace(/\^"/g, '"') // 处理简单的 ^" -> "
+			.replace(/\^'/g, "'") // 处理简单的 ^' -> '
+			.replace(/\\\n/g, '\n') // 处理转义的换行符
+			.replace(/\^%/g, '%') // 处理 ^% -> %
+			.replace(/\^&/g, '&'); // 处理 ^& -> &
+	}
+
+	return result;
+}
+
+/**
  * 基础清理函数（参考Hoppscotch的paperCuts，增强Windows转义符处理）
  */
 function paperCuts(curlCommand: string): string {
+	// 首先处理特殊的CMD JSON格式
+	const cleaned = processCmdJsonFormat(curlCommand);
+
 	return (
-		curlCommand
+		cleaned
 			// 移除反斜杠和换行符
 			.replace(/ ?\\ ?$/gm, ' ')
 			.replace(/\n/g, ' ')
@@ -389,7 +425,21 @@ export function parseCurl(curlCommand: string): ParsedCurlConfig {
 		// 检查是否有data数据
 		const dataArgs = args.d || args.data;
 		if (dataArgs && !formArgs) {
-			const rawData = Array.isArray(dataArgs) ? dataArgs.join('') : dataArgs;
+			let rawData = Array.isArray(dataArgs) ? dataArgs.join('') : dataArgs;
+
+			// 清理数据：移除引号和不必要的转义字符
+			rawData = removeQuotes(rawData);
+
+			// 进一步清理JSON数据中的格式问题
+			if (rawData && typeof rawData === 'string') {
+				// 移除可能的BOM和其他隐藏字符
+				rawData = rawData
+					.replace(/^\uFEFF/, '') // 移除BOM
+					// eslint-disable-next-line no-control-regex
+					.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '') // 移除控制字符但保留\t\n\r
+					.replace(/\u00A0/g, ' ') // 替换不间断空格为普通空格
+					.trim();
+			}
 
 			// 根据Content-Type判断body类型
 			if (rawContentType && rawContentType.includes('application/x-www-form-urlencoded')) {
