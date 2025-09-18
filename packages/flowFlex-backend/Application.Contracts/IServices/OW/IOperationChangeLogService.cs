@@ -204,11 +204,288 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessAsync(string businessModule, long businessId, int pageIndex = 1, int pageSize = 20);
 
         /// <summary>
+        /// Get operation logs by business ID (without specifying business module)
+        /// </summary>
+        /// <param name="businessId">Business ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Operation log paged list</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdAsync(long businessId, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Get operation logs by business ID with optional business type and related data
+        /// </summary>
+        /// <param name="businessId">Business ID</param>
+        /// <param name="businessType">Business type (optional)</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Operation log paged list</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdWithTypeAsync(long businessId, BusinessTypeEnum? businessType = null, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Get operation logs by multiple business IDs (batch query)
+        /// </summary>
+        /// <param name="businessIds">List of business IDs</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Operation log paged list</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetLogsByBusinessIdsAsync(List<long> businessIds, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
         /// Get operation statistics information
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="stageId">Stage ID (optional)</param>
         /// <returns>Operation statistics information</returns>
         Task<Dictionary<string, int>> GetOperationStatisticsAsync(long? onboardingId = null, long? stageId = null);
+
+        #region Workflow Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log workflow create operation
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflowName">Workflow name</param>
+        /// <param name="workflowDescription">Workflow description</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string extendedData = null);
+
+        /// <summary>
+        /// Log workflow update operation
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflowName">Workflow name</param>
+        /// <param name="beforeData">Before change data</param>
+        /// <param name="afterData">After change data</param>
+        /// <param name="changedFields">Changed field list</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogWorkflowUpdateAsync(long workflowId, string workflowName, string beforeData, string afterData, List<string> changedFields, string extendedData = null);
+
+        /// <summary>
+        /// Log workflow delete operation
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflowName">Workflow name</param>
+        /// <param name="reason">Deletion reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogWorkflowDeleteAsync(long workflowId, string workflowName, string reason = null, string extendedData = null);
+
+        /// <summary>
+        /// Log workflow publish operation
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflowName">Workflow name</param>
+        /// <param name="version">Published version</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogWorkflowPublishAsync(long workflowId, string workflowName, string version = null, string extendedData = null);
+
+        /// <summary>
+        /// Log workflow unpublish operation
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflowName">Workflow name</param>
+        /// <param name="reason">Unpublish reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogWorkflowUnpublishAsync(long workflowId, string workflowName, string reason = null, string extendedData = null);
+
+        /// <summary>
+        /// Log workflow activate operation
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflowName">Workflow name</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogWorkflowActivateAsync(long workflowId, string workflowName, string extendedData = null);
+
+        /// <summary>
+        /// Log workflow deactivate operation
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflowName">Workflow name</param>
+        /// <param name="reason">Deactivation reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogWorkflowDeactivateAsync(long workflowId, string workflowName, string reason = null, string extendedData = null);
+
+        #endregion
+
+        #region Stage Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log stage create operation
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="stageName">Stage name</param>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null);
+
+        /// <summary>
+        /// Log stage update operation
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="stageName">Stage name</param>
+        /// <param name="beforeData">Before change data</param>
+        /// <param name="afterData">After change data</param>
+        /// <param name="changedFields">Changed field list</param>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogStageUpdateAsync(long stageId, string stageName, string beforeData, string afterData, List<string> changedFields, long? workflowId = null, string extendedData = null);
+
+        /// <summary>
+        /// Log stage delete operation
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="stageName">Stage name</param>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="reason">Deletion reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogStageDeleteAsync(long stageId, string stageName, long? workflowId = null, string reason = null, string extendedData = null);
+
+        /// <summary>
+        /// Log stage order change operation
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="stageName">Stage name</param>
+        /// <param name="oldOrder">Old order</param>
+        /// <param name="newOrder">New order</param>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogStageOrderChangeAsync(long stageId, string stageName, int oldOrder, int newOrder, long? workflowId = null, string extendedData = null);
+
+        #endregion
+
+        #region Checklist Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log checklist create operation
+        /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="checklistName">Checklist name</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string extendedData = null);
+
+        /// <summary>
+        /// Log checklist update operation
+        /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="checklistName">Checklist name</param>
+        /// <param name="beforeData">Before change data</param>
+        /// <param name="afterData">After change data</param>
+        /// <param name="changedFields">Changed field list</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogChecklistUpdateAsync(long checklistId, string checklistName, string beforeData, string afterData, List<string> changedFields, string extendedData = null);
+
+        /// <summary>
+        /// Log checklist delete operation
+        /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="checklistName">Checklist name</param>
+        /// <param name="reason">Deletion reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogChecklistDeleteAsync(long checklistId, string checklistName, string reason = null, string extendedData = null);
+
+        /// <summary>
+        /// Log checklist task create operation
+        /// </summary>
+        /// <param name="taskId">Task ID</param>
+        /// <param name="taskName">Task name</param>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string extendedData = null);
+
+        /// <summary>
+        /// Log checklist task update operation
+        /// </summary>
+        /// <param name="taskId">Task ID</param>
+        /// <param name="taskName">Task name</param>
+        /// <param name="beforeData">Before change data</param>
+        /// <param name="afterData">After change data</param>
+        /// <param name="changedFields">Changed field list</param>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogChecklistTaskUpdateAsync(long taskId, string taskName, string beforeData, string afterData, List<string> changedFields, long checklistId, string extendedData = null);
+
+        /// <summary>
+        /// Log checklist task delete operation
+        /// </summary>
+        /// <param name="taskId">Task ID</param>
+        /// <param name="taskName">Task name</param>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="reason">Deletion reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogChecklistTaskDeleteAsync(long taskId, string taskName, long checklistId, string reason = null, string extendedData = null);
+
+        #endregion
+
+        #region Questionnaire Operations (Independent of Onboarding)
+
+        /// <summary>
+        /// Log questionnaire create operation
+        /// </summary>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <param name="questionnaireName">Questionnaire name</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string extendedData = null);
+
+        /// <summary>
+        /// Log questionnaire update operation
+        /// </summary>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <param name="questionnaireName">Questionnaire name</param>
+        /// <param name="beforeData">Before change data</param>
+        /// <param name="afterData">After change data</param>
+        /// <param name="changedFields">Changed field list</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogQuestionnaireUpdateAsync(long questionnaireId, string questionnaireName, string beforeData, string afterData, List<string> changedFields, string extendedData = null);
+
+        /// <summary>
+        /// Log questionnaire delete operation
+        /// </summary>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <param name="questionnaireName">Questionnaire name</param>
+        /// <param name="reason">Deletion reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogQuestionnaireDeleteAsync(long questionnaireId, string questionnaireName, string reason = null, string extendedData = null);
+
+        /// <summary>
+        /// Log questionnaire publish operation
+        /// </summary>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <param name="questionnaireName">Questionnaire name</param>
+        /// <param name="version">Published version</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogQuestionnairePublishAsync(long questionnaireId, string questionnaireName, string version = null, string extendedData = null);
+
+        /// <summary>
+        /// Log questionnaire unpublish operation
+        /// </summary>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <param name="questionnaireName">Questionnaire name</param>
+        /// <param name="reason">Unpublish reason</param>
+        /// <param name="extendedData">Extended data</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogQuestionnaireUnpublishAsync(long questionnaireId, string questionnaireName, string reason = null, string extendedData = null);
+
+        #endregion
     }
 }

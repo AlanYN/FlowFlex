@@ -12,7 +12,7 @@
 					<p class="text-sm text-primary-600 dark:text-primary-400">
 						Select fields that are required for this stage
 					</p>
-					<div class="border rounded-md border-primary-200">
+					<div class="border rounded-xl border-primary-200">
 						<div class="p-2 border-b border-primary-100">
 							<el-input
 								v-model="searchQuery"
@@ -64,7 +64,7 @@
 					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
 						Selected Fields
 					</label>
-					<div class="border rounded-md p-2 border-primary-200 bg-primary-50">
+					<div class="border rounded-xl p-2 border-primary-200 bg-primary-50">
 						<div class="flex flex-wrap gap-1">
 							<el-tag
 								v-for="fieldTag in getSelectedFieldTags()"
@@ -87,7 +87,7 @@
 					<p class="text-sm text-primary-600 dark:text-primary-400">
 						Select checklists to include in this stage
 					</p>
-					<div class="border rounded-md border-primary-200">
+					<div class="border rounded-xl border-primary-200">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
@@ -134,7 +134,7 @@
 					<p class="text-sm text-primary-600 dark:text-primary-400">
 						Select questionnaires to include in this stage
 					</p>
-					<div class="border rounded-md border-primary-200">
+					<div class="border rounded-xl border-primary-200">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
@@ -187,7 +187,7 @@
 						Enable file upload and attachment functionality
 					</p>
 					<div
-						class="flex items-center space-x-2 p-2 border rounded-md border-primary-200 bg-primary-50"
+						class="flex items-center space-x-2 p-2 border rounded-xl border-primary-200 bg-primary-50"
 					>
 						<el-switch
 							:model-value="getFileComponent().isEnabled"
@@ -211,7 +211,7 @@
 					<!-- Attachment Management Needed -->
 					<div
 						v-if="getFileComponent().isEnabled"
-						class="flex items-center space-x-2 p-2 border rounded-md border-primary-200 bg-primary-50 mt-2"
+						class="flex items-center space-x-2 p-2 border rounded-xl border-primary-200 bg-primary-50 mt-2"
 					>
 						<el-switch
 							:model-value="props.modelValue.attachmentManagementNeeded || false"
@@ -245,7 +245,7 @@
 						Items that will be included in this stage (drag to reorder)
 					</p>
 					<div
-						class="border rounded-md p-3 min-h-[300px] border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 w-full overflow-hidden"
+						class="border rounded-xl p-3 min-h-[600px] border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 w-full overflow-hidden"
 					>
 						<draggable
 							v-model="selectedItems"
@@ -259,62 +259,103 @@
 						>
 							<template #item="{ element, index }">
 								<div
-									class="flex items-center p-2 bg-white border rounded-md shadow-sm hover:shadow-md transition-all border-primary-200 w-full overflow-hidden"
+									class="bg-white border rounded-xl shadow-sm hover:shadow-md transition-all border-primary-200 w-full overflow-hidden"
 								>
-									<div class="flex items-center space-x-3 flex-1 min-w-0">
-										<div
-											class="drag-handle flex items-center justify-center w-5 h-5 bg-primary-100 rounded cursor-move hover:bg-primary-200 transition-colors flex-shrink-0"
-										>
-											<el-icon class="text-primary-600 text-sm">
-												<GripVertical />
+									<div class="flex items-center p-2">
+										<div class="flex items-center space-x-3 flex-1 min-w-0">
+											<div
+												class="drag-handle flex items-center justify-center w-5 h-5 bg-primary-100 rounded-xl cursor-move hover:bg-primary-200 transition-colors flex-shrink-0"
+											>
+												<el-icon class="text-primary-600 text-sm">
+													<GripVertical />
+												</el-icon>
+											</div>
+											<span
+												class="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded-xl font-medium flex-shrink-0"
+											>
+												{{ index + 1 }}
+											</span>
+											<el-icon class="text-primary-500 text-sm flex-shrink-0">
+												<component :is="getItemIcon(element.type)" />
 											</el-icon>
+											<div class="flex-1 min-w-0">
+												<el-tooltip
+													:content="element.name"
+													placement="top"
+													:disabled="element.name.length <= 25"
+												>
+													<span
+														class="text-sm font-medium block truncate"
+													>
+														{{ element.name }}
+													</span>
+												</el-tooltip>
+												<el-tooltip
+													v-if="element.description"
+													:content="element.description"
+													placement="top"
+													:disabled="element.description.length <= 40"
+												>
+													<p class="text-xs mt-1 truncate">
+														{{ element.description }}
+													</p>
+												</el-tooltip>
+											</div>
 										</div>
-										<span
-											class="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded font-medium flex-shrink-0"
-										>
-											{{ index + 1 }}
-										</span>
-										<el-icon class="text-primary-500 text-sm flex-shrink-0">
-											<component :is="getItemIcon(element.type)" />
-										</el-icon>
-										<div class="flex-1 min-w-0">
-											<el-tooltip
-												:content="element.name"
-												placement="top"
-												:disabled="element.name.length <= 25"
+										<div class="flex items-center space-x-2 flex-shrink-0 ml-2">
+											<el-tag
+												size="small"
+												class="border-primary-200"
+												:type="getItemTypeColor(element.type)"
 											>
-												<span class="text-sm font-medium block truncate">
-													{{ element.name }}
-												</span>
-											</el-tooltip>
-											<el-tooltip
-												v-if="element.description"
-												:content="element.description"
-												placement="top"
-												:disabled="element.description.length <= 40"
+												{{ getItemTypeLabel(element.type) }}
+											</el-tag>
+											<el-button
+												size="small"
+												type="danger"
+												link
+												@click="removeItem(element)"
 											>
-												<p class="text-xs mt-1 truncate">
-													{{ element.description }}
-												</p>
-											</el-tooltip>
+												<el-icon class="text-sm"><Close /></el-icon>
+											</el-button>
 										</div>
 									</div>
-									<div class="flex items-center space-x-2 flex-shrink-0 ml-2">
-										<el-tag
-											size="small"
-											class="border-primary-200"
-											:type="getItemTypeColor(element.type)"
+									<div
+										v-if="shouldShowPortalAccess"
+										class="border-t p-2 flex justify-between items-center"
+									>
+										<div class="font-bold text-primary-600">
+											Customer Portal Access
+										</div>
+										<el-dropdown
+											@command="
+												(value) => commandChangePortalAccess(element, value)
+											"
+											trigger="click"
 										>
-											{{ getItemTypeLabel(element.type) }}
-										</el-tag>
-										<el-button
-											size="small"
-											type="danger"
-											link
-											@click="removeItem(element)"
-										>
-											<el-icon class="text-sm"><Close /></el-icon>
-										</el-button>
+											<div
+												:class="getElementPortalAccessBadgeClass(element)"
+												class="cursor-pointer hover:opacity-80 transition-opacity inline-flex items-center"
+											>
+												{{ getElementPortalAccessLabel(element) }}
+												<el-icon class="ml-1 text-xs">
+													<ArrowDown />
+												</el-icon>
+											</div>
+											<template #dropdown>
+												<el-dropdown-menu>
+													<el-dropdown-item
+														v-for="option in getAvailablePortalOptions"
+														:key="option.value"
+														:command="option.value"
+													>
+														<span class="text-xs" :class="option.color">
+															{{ option.label }}
+														</span>
+													</el-dropdown-item>
+												</el-dropdown-menu>
+											</template>
+										</el-dropdown>
 									</div>
 								</div>
 							</template>
@@ -342,6 +383,7 @@ import {
 	List,
 	QuestionFilled,
 	FolderOpened,
+	ArrowDown,
 } from '@element-plus/icons-vue';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import draggable from 'vuedraggable';
@@ -356,6 +398,8 @@ import {
 	Checklist,
 	Questionnaire,
 } from '#/onboard';
+
+import { StageComponentPortal } from '@/enums/appEnum';
 
 // Props
 const props = defineProps<{
@@ -389,17 +433,57 @@ const filteredStaticFields = computed(() => {
 	);
 });
 
+// 判断是否显示Portal Access按钮
+const shouldShowPortalAccess = computed(() => {
+	return props.modelValue.visibleInPortal === true;
+});
+
+// 获取可用的Portal Access选项
+const getAvailablePortalOptions = computed(() => {
+	if (!shouldShowPortalAccess.value) {
+		return [];
+	}
+
+	const { portalPermission } = props.modelValue;
+
+	// 如果Stage设置为Viewable only，只显示Hidden和View Only选项
+	if (portalPermission === 1) {
+		// PortalPermissionEnum.Viewable
+		return [
+			{ value: StageComponentPortal.Hidden, label: 'Hidden', color: 'text-gray-600' },
+			{ value: StageComponentPortal.Viewable, label: 'View Only', color: 'text-blue-600' },
+		];
+	}
+
+	// 如果Stage设置为Completable，显示所有三个选项
+	if (portalPermission === 2) {
+		// PortalPermissionEnum.Completable
+		return [
+			{ value: StageComponentPortal.Hidden, label: 'Hidden', color: 'text-gray-600' },
+			{ value: StageComponentPortal.Viewable, label: 'View Only', color: 'text-blue-600' },
+			{
+				value: StageComponentPortal.Completable,
+				label: 'Completable',
+				color: 'text-green-600',
+			},
+		];
+	}
+
+	return [];
+});
+
 // Helper methods to get components
 const getFieldsComponent = (): StageComponentData => {
 	const components = props.modelValue.components || [];
 	return (
 		components.find((c) => c.key === 'fields') || {
 			key: 'fields',
-			order: 1,
+			order: props?.modelValue?.components?.length + 1,
 			isEnabled: false,
 			staticFields: [],
 			checklistIds: [],
 			questionnaireIds: [],
+			customerPortalAccess: StageComponentPortal.Hidden,
 		}
 	);
 };
@@ -421,7 +505,7 @@ const getFileComponent = (): StageComponentData => {
 	return (
 		components.find((c) => c.key === 'files') || {
 			key: 'files',
-			order: 4,
+			order: props?.modelValue?.components?.length + 1,
 			isEnabled: false,
 			staticFields: [],
 			checklistIds: [],
@@ -435,14 +519,12 @@ const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 	const components = props.modelValue.components || [];
 	const newComponents = [...components];
 	const index = newComponents.findIndex((c) => c.key === key);
-
 	if (index >= 0) {
 		newComponents[index] = { ...newComponents[index], ...updates };
 	} else {
 		const defaultComponent: StageComponentData = {
 			key: key as any,
-			order:
-				key === 'fields' ? 1 : key === 'checklist' ? 2 : key === 'questionnaires' ? 3 : 4,
+			order: components.length + 1,
 			isEnabled: false,
 			staticFields: [],
 			checklistIds: [],
@@ -452,8 +534,14 @@ const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 		};
 		newComponents.push({ ...defaultComponent, ...updates });
 	}
-
-	const newModelValue = { ...props.modelValue, components: newComponents };
+	const newModelValue = {
+		...props.modelValue,
+		components: newComponents
+			.filter((item) => item.isEnabled)
+			.map((item, index) => {
+				return { ...item, order: index + 1 };
+			}),
+	};
 	// 发送整个 formData 对象，只更新 components 字段
 	emit('update:modelValue', newModelValue);
 };
@@ -513,6 +601,7 @@ const toggleField = (fieldKey: string, checked: boolean) => {
 	updateComponent('fields', {
 		staticFields: newStaticFields,
 		isEnabled: newStaticFields.length > 0,
+		customerPortalAccess: StageComponentPortal.Hidden,
 	});
 };
 
@@ -535,6 +624,7 @@ const toggleChecklist = (checklistId: string, checked: boolean) => {
 				questionnaireIds: [],
 				checklistNames: [checklistName],
 				questionnaireNames: [],
+				customerPortalAccess: StageComponentPortal.Hidden,
 			};
 			addComponentItem(newComponent);
 		}
@@ -563,6 +653,7 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 				questionnaireIds: [questionnaireId],
 				checklistNames: [],
 				questionnaireNames: [questionnaireName],
+				customerPortalAccess: StageComponentPortal.Hidden,
 			};
 			addComponentItem(newComponent);
 		}
@@ -577,12 +668,64 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 const toggleFileComponent = (enabled: boolean) => {
 	updateComponent('files', {
 		isEnabled: enabled,
+		customerPortalAccess: StageComponentPortal.Hidden,
 	});
 };
 
 const updateAttachmentManagementNeeded = (needed: boolean) => {
 	const newModelValue = { ...props.modelValue, attachmentManagementNeeded: needed };
 	emit('update:modelValue', newModelValue);
+};
+
+// 获取元素的 Portal Access 标签
+const getElementPortalAccessLabel = (element: SelectedItem): string => {
+	const availableOptions = getAvailablePortalOptions.value;
+
+	// 如果当前值在可用选项中，直接返回对应标签
+	const currentOption = availableOptions.find(
+		(option) => option.value === element.customerPortalAccess
+	);
+	if (currentOption) {
+		return currentOption.label;
+	}
+
+	// 如果当前值不在可用选项中，返回第一个可用选项的标签
+	if (availableOptions.length > 0) {
+		return availableOptions[0].label;
+	}
+
+	// 默认返回
+	return 'View Only';
+};
+
+// 获取元素的 Portal Access 标签样式类
+const getElementPortalAccessBadgeClass = (element: SelectedItem): string => {
+	const baseClass = 'px-2 py-0.5 rounded-xl text-xs font-medium';
+
+	switch (element.customerPortalAccess) {
+		case StageComponentPortal.Hidden:
+			return `${baseClass} bg-gray-50 text-gray-600 border border-gray-200`;
+		case StageComponentPortal.Viewable:
+			return `${baseClass} bg-blue-50 text-blue-600 border border-blue-200`;
+		case StageComponentPortal.Completable:
+			return `${baseClass} bg-green-50 text-green-600 border border-green-200`;
+		default:
+			return `${baseClass} bg-blue-50 text-blue-600 border border-blue-200`;
+	}
+};
+
+const commandChangePortalAccess = (element: SelectedItem, value) => {
+	// 检查选择的值是否在允许的选项中
+	const availableOptions = getAvailablePortalOptions.value;
+	const isValidOption = availableOptions.some((option) => option.value === value);
+
+	if (!isValidOption) {
+		console.warn('Invalid portal access option selected:', value);
+		return;
+	}
+
+	element.customerPortalAccess = value;
+	updateItemOrder();
 };
 
 // 获取选中的字段tags
@@ -605,12 +748,33 @@ const removeFieldTag = (fieldKey: string) => {
 	updateComponent('fields', {
 		staticFields: newStaticFields,
 		isEnabled: newStaticFields.length > 0,
+		customerPortalAccess: StageComponentPortal.Hidden,
 	});
 };
 
 // 更新右侧显示的项目
 const updateItemsDisplay = () => {
 	const newSelectedItems: SelectedItem[] = [];
+
+	// 获取当前可用的Portal Access选项
+	const availableOptions = getAvailablePortalOptions.value;
+	const getValidPortalAccess = (componentAccess?: number) => {
+		// 如果没有可用选项，返回undefined
+		if (availableOptions.length === 0) {
+			return undefined;
+		}
+
+		// 如果组件的当前设置在可用选项中，保持不变
+		if (
+			componentAccess &&
+			availableOptions.some((option) => option.value === componentAccess)
+		) {
+			return componentAccess;
+		}
+
+		// 否则使用第一个可用选项作为默认值
+		return availableOptions[0].value;
+	};
 
 	// 根据组件数据生成选中项目
 	const components = props.modelValue.components || [];
@@ -626,6 +790,7 @@ const updateItemsDisplay = () => {
 						type: 'fields',
 						order: component.order,
 						key: component.key,
+						customerPortalAccess: getValidPortalAccess(component?.customerPortalAccess),
 					});
 					break;
 				case 'checklist':
@@ -648,6 +813,9 @@ const updateItemsDisplay = () => {
 							type: 'checklist',
 							order: component.order,
 							key: checklistId,
+							customerPortalAccess: getValidPortalAccess(
+								component?.customerPortalAccess
+							),
 						});
 					});
 					break;
@@ -673,6 +841,9 @@ const updateItemsDisplay = () => {
 							type: 'questionnaires',
 							order: component.order,
 							key: questionnaireId,
+							customerPortalAccess: getValidPortalAccess(
+								component?.customerPortalAccess
+							),
 						});
 					});
 					break;
@@ -685,16 +856,15 @@ const updateItemsDisplay = () => {
 						type: 'files',
 						order: component.order,
 						key: component.key,
+						customerPortalAccess: getValidPortalAccess(component?.customerPortalAccess),
 					});
 					break;
 			}
 		}
 	});
-
 	// 按顺序排序
-	newSelectedItems.sort((a, b) => a.order - b.order);
 
-	selectedItems.value = newSelectedItems;
+	selectedItems.value = newSelectedItems.sort((a, b) => a.order - b.order);
 };
 
 const removeItem = (item: SelectedItem) => {
@@ -738,6 +908,7 @@ const updateItemOrder = () => {
 			newComponents.push({
 				...existingFieldsComponent,
 				order,
+				customerPortalAccess: item?.customerPortalAccess,
 			});
 		} else if (item.type === 'checklist') {
 			// 为每个checklist项创建一个组件
@@ -748,6 +919,7 @@ const updateItemOrder = () => {
 				staticFields: [],
 				checklistIds: [item.key],
 				questionnaireIds: [],
+				customerPortalAccess: item?.customerPortalAccess,
 			});
 		} else if (item.type === 'questionnaires') {
 			// 为每个questionnaire项创建一个组件
@@ -758,6 +930,7 @@ const updateItemOrder = () => {
 				staticFields: [],
 				checklistIds: [],
 				questionnaireIds: [item.key],
+				customerPortalAccess: item?.customerPortalAccess,
 			});
 		} else if (item.type === 'files') {
 			// 查找现有的files组件
@@ -765,6 +938,7 @@ const updateItemOrder = () => {
 			newComponents.push({
 				...existingFileComponent,
 				order,
+				customerPortalAccess: item?.customerPortalAccess,
 			});
 		}
 	});

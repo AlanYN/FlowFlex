@@ -48,7 +48,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Field Value JSON Data
         /// </summary>
-        [SugarColumn(ColumnName = "field_value_json", ColumnDataType = "jsonb", IsJson = true)]
+        [SugarColumn(ColumnName = "field_value_json", ColumnDataType = "jsonb")]
         public string FieldValueJson { get; set; } = string.Empty;
 
         /// <summary>
@@ -159,7 +159,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Additional Metadata (JSON format)
         /// </summary>
-        [SugarColumn(ColumnName = "metadata", ColumnDataType = "jsonb", IsJson = true)]
+        [SugarColumn(ColumnName = "metadata", ColumnDataType = "jsonb")]
         public string Metadata { get; set; }
     }
 }

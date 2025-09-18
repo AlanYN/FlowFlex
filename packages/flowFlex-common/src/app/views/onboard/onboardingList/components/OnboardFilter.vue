@@ -1,155 +1,130 @@
 <template>
-	<el-card class="mb-6 rounded-md filter_card">
-		<template #default>
-			<div class="">
-				<el-form
-					ref="searchFormRef"
-					:model="searchParams"
-					@submit.prevent="handleSearch"
-					class="onboardSearch-form"
-				>
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">Lead ID</label>
-							<InputTag
-								v-model="leadIdTags"
-								placeholder="Enter Lead ID and press enter"
-								style-type="normal"
-								:limit="10"
-								@change="handleLeadIdTagsChange"
-								class="w-full rounded-md"
-							/>
-						</div>
+	<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
+		<el-form
+			ref="searchFormRef"
+			:model="searchParams"
+			@submit.prevent="handleSearch"
+			class="onboardSearch-form"
+		>
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+				<div class="space-y-2">
+					<label class="filter-label text-sm font-medium">Lead ID</label>
+					<InputTag
+						v-model="leadIdTags"
+						placeholder="Enter Lead ID and press enter"
+						style-type="normal"
+						:limit="10"
+						@change="handleLeadIdTagsChange"
+						class="w-full rounded-xl"
+					/>
+				</div>
 
-						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">
-								Company/Contact Name
-							</label>
-							<InputTag
-								v-model="leadNameTags"
-								placeholder="Enter Company/Contact Name and press enter"
-								style-type="normal"
-								:limit="10"
-								@change="handleLeadNameTagsChange"
-								class="w-full rounded-md"
-							/>
-						</div>
+				<div class="space-y-2">
+					<label class="filter-label text-sm font-medium">Company/Contact Name</label>
+					<InputTag
+						v-model="leadNameTags"
+						placeholder="Enter Company/Contact Name and press enter"
+						style-type="normal"
+						:limit="10"
+						@change="handleLeadNameTagsChange"
+						class="w-full rounded-xl"
+					/>
+				</div>
 
-						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">
-								Life Cycle Stage
-							</label>
-							<el-select
-								v-model="searchParams.lifeCycleStageName"
-								placeholder="Select Stage"
-								clearable
-								class="w-full rounded-md"
-							>
-								<el-option label="All Stages" value="" />
-								<el-option
-									v-for="stage in lifeCycleStage"
-									:key="stage.name"
-									:label="stage.name"
-									:value="stage.name"
-								/>
-							</el-select>
-						</div>
+				<div class="space-y-2">
+					<label class="filter-label text-sm font-medium">Life Cycle Stage</label>
+					<el-select
+						v-model="searchParams.lifeCycleStageName"
+						placeholder="Select Stage"
+						clearable
+						class="w-full filter-select"
+						@change="handleAutoSearch"
+					>
+						<el-option label="All Stages" value="" />
+						<el-option
+							v-for="stage in lifeCycleStage"
+							:key="stage.name"
+							:label="stage.name"
+							:value="stage.name"
+						/>
+					</el-select>
+				</div>
 
-						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium text-primary-500">
-								Onboard Workflow
-							</label>
-							<el-select
-								v-model="searchParams.workFlowId"
-								placeholder="Select Work Flow"
-								clearable
-								class="w-full rounded-md"
-								@change="handleWorkflowChange"
-							>
-								<el-option label="All Work Flows" value="" />
-								<el-option
-									v-for="workflow in allWorkflows"
-									:key="workflow.id"
-									:label="workflow.name"
-									:value="workflow.id"
-								/>
-							</el-select>
-						</div>
+				<div class="space-y-2" v-if="filterType === 'table'">
+					<label class="filter-label text-sm font-medium">Workflow</label>
+					<el-select
+						v-model="searchParams.workFlowId"
+						placeholder="Select Work Flow"
+						clearable
+						class="w-full filter-select"
+						@change="handleWorkflowChangeWithSearch"
+					>
+						<el-option label="All Work Flows" value="" />
+						<el-option
+							v-for="workflow in allWorkflows"
+							:key="workflow.id"
+							:label="workflow.name"
+							:value="workflow.id"
+						/>
+					</el-select>
+				</div>
 
-						<div class="space-y-2" v-if="filterType === 'table'">
-							<label class="text-sm font-medium text-primary-500">
-								Onboard Stage
-							</label>
-							<el-select
-								v-model="searchParams.currentStageId"
-								placeholder="Select Stage"
-								clearable
-								class="w-full rounded-md"
-								:disabled="!searchParams.workFlowId || stagesLoading"
-								:loading="stagesLoading"
-							>
-								<el-option label="All Stages" value="" />
-								<el-option
-									v-for="stage in dynamicOnboardingStages"
-									:key="stage.id"
-									:label="stage.name"
-									:value="stage.id"
-								/>
-							</el-select>
-						</div>
+				<div class="space-y-2" v-if="filterType === 'table'">
+					<label class="filter-label text-sm font-medium">Stage</label>
+					<el-select
+						v-model="searchParams.currentStageId"
+						placeholder="Select Stage"
+						clearable
+						class="w-full filter-select"
+						:disabled="!searchParams.workFlowId || stagesLoading"
+						:loading="stagesLoading"
+						@change="handleAutoSearch"
+					>
+						<el-option label="All Stages" value="" />
+						<el-option
+							v-for="stage in dynamicOnboardingStages"
+							:key="stage.id"
+							:label="stage.name"
+							:value="stage.id"
+						/>
+					</el-select>
+				</div>
 
-						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">Updated By</label>
-							<InputTag
-								v-model="updatedByTags"
-								placeholder="Enter User Name and press enter"
-								style-type="normal"
-								:limit="10"
-								@change="handleUpdatedByTagsChange"
-								class="w-full rounded-md"
-							/>
-						</div>
+				<div class="space-y-2">
+					<label class="filter-label text-sm font-medium">Updated By</label>
+					<InputTag
+						v-model="updatedByTags"
+						placeholder="Enter User Name and press enter"
+						style-type="normal"
+						:limit="10"
+						@change="handleUpdatedByTagsChange"
+						class="w-full rounded-xl"
+					/>
+				</div>
 
-						<div class="space-y-2">
-							<label class="text-sm font-medium text-primary-500">Priority</label>
-							<el-select
-								v-model="searchParams.priority"
-								placeholder="Select Priority"
-								clearable
-								class="w-full rounded-md"
-							>
-								<el-option label="All Priorities" value="" />
-								<el-option label="High" value="High" />
-								<el-option label="Medium" value="Medium" />
-								<el-option label="Low" value="Low" />
-							</el-select>
-						</div>
-					</div>
-
-					<div class="flex justify-end space-x-2">
-						<el-button @click="handleReset">
-							<el-icon><Close /></el-icon>
-							Reset
-						</el-button>
-						<el-button type="primary" @click="handleSearch">
-							<el-icon><Search /></el-icon>
-							Search
-						</el-button>
-						<el-button @click="handleExport" :loading="loading" :disabled="loading">
-							<el-icon><Download /></el-icon>
-							Export
-							{{ selectedItems.length > 0 ? `(${selectedItems.length})` : 'All' }}
-						</el-button>
-					</div>
-				</el-form>
+				<div class="space-y-2">
+					<label class="filter-label text-sm font-medium">Priority</label>
+					<el-select
+						v-model="searchParams.priority"
+						placeholder="Select Priority"
+						clearable
+						class="w-full filter-select"
+						@change="handleAutoSearch"
+					>
+						<el-option label="All Priorities" value="" />
+						<el-option label="High" value="High" />
+						<el-option label="Medium" value="Medium" />
+						<el-option label="Low" value="Low" />
+					</el-select>
+				</div>
 			</div>
-		</template>
-	</el-card>
+		</el-form>
+	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
-import { Search, Close, Download } from '@element-plus/icons-vue';
+// Icons removed as buttons are moved to parent component
 import { SearchParams } from '#/onboard';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 import { getStagesByWorkflow } from '@/apis/ow';
@@ -175,7 +150,6 @@ const props = withDefaults(defineProps<Props>(), {
 // Emits
 const emit = defineEmits<{
 	search: [params: SearchParams];
-	reset: [];
 	export: [];
 }>();
 
@@ -247,17 +221,41 @@ const handleWorkflowChange = async (workflowId: string) => {
 	}
 };
 
+// 处理 workflow 变化并触发搜索
+const handleWorkflowChangeWithSearch = async (workflowId: string) => {
+	await handleWorkflowChange(workflowId);
+	handleAutoSearch();
+};
+
+// 防抖搜索
+let searchTimeout: any = null;
+
+// 自动搜索函数
+const handleAutoSearch = () => {
+	// 清除之前的定时器
+	if (searchTimeout) {
+		clearTimeout(searchTimeout);
+	}
+	// 设置新的定时器，实现防抖
+	searchTimeout = setTimeout(() => {
+		handleSearch();
+	}, 300);
+};
+
 // 标签变化处理函数
 const handleLeadIdTagsChange = (tags: string[]) => {
 	searchParams.leadId = tags.join(',');
+	handleAutoSearch();
 };
 
 const handleLeadNameTagsChange = (tags: string[]) => {
 	searchParams.leadName = tags.join(',');
+	handleAutoSearch();
 };
 
 const handleUpdatedByTagsChange = (tags: string[]) => {
 	searchParams.updatedBy = tags.join(',');
+	handleAutoSearch();
 };
 
 // 事件处理函数
@@ -271,34 +269,44 @@ const handleSearch = () => {
 	};
 	emit('search', searchParamsWithTags);
 };
-
-const handleReset = () => {
-	// 重置搜索参数
-	searchParams.leadId = '';
-	searchParams.leadName = '';
-	searchParams.lifeCycleStageName = '';
-	searchParams.currentStageId = '';
-	searchParams.updatedBy = '';
-	searchParams.priority = '';
-	searchParams.workFlowId = '';
-	// 重置标签数组
-	leadIdTags.value = [];
-	leadNameTags.value = [];
-	updatedByTags.value = [];
-	// 重置动态 stages 为原始数据
-	dynamicOnboardingStages.value = props.onboardingStages;
-
-	emit('reset');
-};
-
 const handleExport = () => {
 	emit('export');
 };
+
+// 暴露给父组件的方法
+defineExpose({
+	handleSearch,
+	handleExport,
+});
 </script>
 
 <style scoped lang="scss">
-.filter_card {
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
+/* 筛选面板样式 */
+.filter-panel {
+	@apply bg-white dark:bg-black-400;
+	border: 1px solid var(--primary-100);
+	@apply dark:border-black-200;
+}
+
+.filter-label {
+	color: var(--primary-700);
+	@apply dark:text-primary-300;
+}
+
+/* Element Plus 组件样式覆盖 */
+:deep(.filter-select .el-input__wrapper) {
+	border-color: var(--primary-200);
+	@apply dark:border-black-200;
+}
+
+:deep(.filter-select .el-input__wrapper:hover) {
+	border-color: var(--primary-400);
+	@apply dark:border-primary-600;
+}
+
+:deep(.filter-select .el-input__wrapper.is-focus) {
+	border-color: var(--primary-500);
+	@apply dark:border-primary-500;
 }
 
 /* 搜索表单样式 */
@@ -306,174 +314,34 @@ const handleExport = () => {
 	margin-bottom: 0;
 }
 
-.onboardSearch-form :deep(.el-input__wrapper) {
-	transition: all 0.2s;
-}
-
-.onboardSearch-form :deep(.el-input__wrapper:hover) {
-	border-color: #9ca3af;
-}
-
-.onboardSearch-form :deep(.el-input__wrapper.is-focus) {
-	border-color: #3b82f6;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* InputTag组件样式调整 - 优化显示效果 */
-.onboardSearch-form :deep(.layout) {
-	min-height: 32px;
-	border: 1px solid var(--el-border-color, #dcdfe6);
-	border-radius: 8px;
-	padding: 4px 11px;
-	background-color: var(--el-fill-color-blank, #ffffff);
-	transition: all var(--el-transition-duration, 0.2s);
-	box-shadow: 0 0 0 1px transparent inset;
-	font-size: 14px;
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 4px;
-}
-
-.onboardSearch-form :deep(.layout:hover) {
-	border-color: var(--el-border-color-hover, #c0c4cc);
-}
-
-.onboardSearch-form :deep(.layout:focus-within) {
-	border-color: var(--primary-500, #409eff);
-	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
-}
-
-.onboardSearch-form :deep(.input-tag) {
-	min-width: 100px;
-	height: 24px;
-	line-height: 24px;
-	font-size: 14px;
-	color: var(--el-text-color-regular, #606266);
-	border: none;
-	outline: none;
-	background: transparent;
-	flex: 1;
-	padding: 0;
-}
-
-.onboardSearch-form :deep(.input-tag::placeholder) {
-	color: var(--el-text-color-placeholder, #a8abb2);
-	font-size: 14px;
-}
-
-.onboardSearch-form :deep(.label-box) {
-	height: 24px;
-	margin: 0;
-	border-radius: 12px;
-	background-color: var(--el-fill-color-light, #f5f7fa);
-	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-	display: inline-flex;
-	align-items: center;
-	padding: 0 8px;
-	transition: all 0.2s ease;
-}
-
-.onboardSearch-form :deep(.label-title) {
-	font-size: 12px;
-	padding: 0;
-	line-height: 24px;
-	color: var(--el-text-color-regular, #606266);
-	font-weight: 500;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 120px;
-}
-
-.onboardSearch-form :deep(.label-close) {
-	padding: 0;
-	margin-left: 6px;
-	color: var(--el-text-color-placeholder, #a8abb2);
-	cursor: pointer;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	background: var(--el-fill-color, #f0f2f5);
-	transition: all 0.2s ease;
-	transform: none;
-}
-
-.onboardSearch-form :deep(.label-close:hover) {
-	background: var(--el-fill-color-dark, #e6e8eb);
-	color: var(--el-text-color-regular, #606266);
-}
-
-.onboardSearch-form :deep(.label-close:after) {
-	content: '×';
-	font-size: 12px;
-	line-height: 1;
-	font-weight: bold;
-}
-
 /* 暗色主题样式 */
 html.dark {
-	/* 卡片和容器背景 */
-	.rounded-md {
-		background-color: var(--black-400) !important;
-		border: 1px solid var(--black-200) !important;
+	/* 筛选面板暗色主题 */
+	.filter-panel {
+		@apply bg-black-400 dark:border-black-200;
 	}
 
-	/* 搜索表单暗色主题 */
-	.onboardSearch-form :deep(.el-input__wrapper) {
-		background-color: #2d3748 !important;
-		border: 1px solid var(--black-200) !important;
+	.filter-label {
+		@apply dark:text-primary-300;
 	}
 
-	.onboardSearch-form :deep(.el-input__wrapper:hover) {
+	/* Element Plus 组件暗色主题 */
+	:deep(.filter-select .el-input__wrapper) {
+		background-color: var(--black-200) !important;
+		border-color: var(--black-200) !important;
+	}
+
+	:deep(.filter-select .el-input__wrapper:hover) {
 		border-color: var(--black-100) !important;
 	}
 
-	.onboardSearch-form :deep(.el-input__wrapper.is-focus) {
+	:deep(.filter-select .el-input__wrapper.is-focus) {
 		border-color: var(--primary-500);
 		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
 	}
 
-	.onboardSearch-form :deep(.el-input__inner) {
+	:deep(.filter-select .el-input__inner) {
 		@apply text-white-100;
-	}
-
-	/* InputTag暗色主题 - 优化暗色显示效果 */
-	.onboardSearch-form :deep(.layout) {
-		background-color: var(--black-200) !important;
-		border: 1px solid var(--black-200) !important;
-		color: var(--white-100) !important;
-	}
-
-	.onboardSearch-form :deep(.layout:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	.onboardSearch-form :deep(.layout:focus-within) {
-		border-color: var(--primary-500) !important;
-		box-shadow: 0 0 0 1px var(--primary-500) inset !important;
-	}
-
-	.onboardSearch-form :deep(.label-box) {
-		background-color: var(--black-300) !important;
-		border: 1px solid var(--black-100) !important;
-	}
-
-	.onboardSearch-form :deep(.label-title) {
-		color: var(--white-100) !important;
-	}
-
-	.onboardSearch-form :deep(.label-close) {
-		background: var(--black-200) !important;
-		color: var(--gray-300) !important;
-	}
-
-	.onboardSearch-form :deep(.label-close:hover) {
-		background: var(--black-100) !important;
-		color: var(--white-100) !important;
 	}
 }
 </style>

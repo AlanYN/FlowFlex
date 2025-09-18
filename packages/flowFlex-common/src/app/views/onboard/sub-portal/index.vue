@@ -6,7 +6,7 @@
 			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
 				<div class="flex h-16 items-center justify-between px-4 border-b">
 					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
-					<button @click="sidebarOpen = false" class="p-1 rounded-md hover:bg-gray-100">
+					<button @click="sidebarOpen = false" class="p-1 rounded-xl hover:bg-gray-100">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -22,7 +22,7 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
 							currentView === item.view
 								? 'bg-blue-100 text-blue-900'
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
@@ -39,7 +39,7 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-lg border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
 							<div class="bg-blue-100 p-2 rounded-full">
 								<svg
@@ -81,7 +81,7 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
 							currentView === item.view
 								? 'bg-blue-100 text-blue-900'
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
@@ -95,7 +95,7 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-lg border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-white p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
 							<div class="bg-blue-100 p-2 rounded-full">
 								<svg
@@ -148,7 +148,7 @@
 		<div class="lg:pl-64">
 			<!-- Mobile header -->
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
-				<button @click="sidebarOpen = true" class="p-1 rounded-md hover:bg-gray-100">
+				<button @click="sidebarOpen = true" class="p-1 rounded-xl hover:bg-gray-100">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -176,14 +176,15 @@
 						</div>
 					</div>
 
-					<!-- Header -->
-					<div v-else>
-						<h1 class="text-2xl font-bold text-gray-900">Onboarding Progress</h1>
-						<p class="text-gray-600">Track your journey with us</p>
-					</div>
+					<!-- 统一页面头部 -->
+					<PageHeader
+						v-else
+						title="Case Progress"
+						description="Track your journey with us"
+					/>
 
 					<!-- Overall Progress -->
-					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
+					<div v-if="!loading" class="rounded-xl border bg-white p-6 shadow-sm">
 						<div class="mb-6">
 							<div class="flex items-center mb-2">
 								<svg
@@ -257,7 +258,7 @@
 									</span>
 								</div>
 							</div>
-							<div v-if="currentStageData" class="mt-4 p-3 bg-blue-50 rounded-lg">
+							<div v-if="currentStageData" class="mt-4 p-3 bg-blue-50 rounded-xl">
 								<p class="text-sm font-medium text-blue-900">
 									Current Stage: {{ currentStageData.name }}
 								</p>
@@ -271,7 +272,7 @@
 					<!-- Next Steps - Action Required -->
 					<div
 						v-if="!loading"
-						class="rounded-lg border-2 border-orange-200 bg-orange-50 p-6 shadow-sm"
+						class="rounded-xl border-2 border-orange-200 bg-orange-50 p-6 shadow-sm"
 					>
 						<div class="mb-6">
 							<div class="flex items-center mb-2 text-orange-800">
@@ -294,7 +295,7 @@
 							<div
 								v-for="stage in nextSteps"
 								:key="stage.id"
-								class="flex items-center justify-between p-4 bg-white rounded-lg border border-orange-200 shadow-sm"
+								class="flex items-center justify-between p-4 bg-white rounded-xl border border-orange-200 shadow-sm"
 							>
 								<div class="flex items-center space-x-3">
 									<div class="flex-shrink-0">
@@ -330,7 +331,7 @@
 								<div class="flex items-center space-x-2">
 									<button
 										@click="handleStageAction(stage)"
-										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
 									>
 										Continue
 										<svg
@@ -371,9 +372,9 @@
 					</div>
 
 					<!-- Stages Timeline -->
-					<div v-if="!loading" class="rounded-lg border bg-white p-6 shadow-sm">
+					<div v-if="!loading" class="rounded-xl border bg-white p-6 shadow-sm">
 						<div class="mb-6">
-							<h3 class="text-lg font-semibold text-gray-900">Onboarding Stages</h3>
+							<h3 class="text-lg font-semibold text-gray-900">Case Stages</h3>
 							<p class="text-sm text-gray-600">
 								Track your progress through each stage
 							</p>
@@ -383,7 +384,7 @@
 								v-for="stage in customerStages"
 								:key="stage.id"
 								:class="[
-									'flex items-start space-x-4 p-4 rounded-lg border transition-colors',
+									'flex items-start space-x-4 p-4 rounded-xl border transition-colors',
 									stage.status === 'completed' && 'bg-green-50 border-green-200',
 									stage.status === 'in_progress' && 'bg-blue-50 border-blue-200',
 									stage.status === 'pending' && 'bg-gray-50 border-gray-200',
@@ -449,7 +450,7 @@
 														stage.status === 'in_progress')
 												"
 												@click="handleStageAction(stage)"
-												class="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+												class="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
 											>
 												<svg
 													v-if="stage.status === 'completed'"
@@ -500,7 +501,7 @@
 									</p>
 									<div
 										v-if="stage.status === 'in_progress'"
-										class="mt-2 p-2 bg-blue-100 rounded text-sm text-blue-700 flex items-center"
+										class="mt-2 p-2 bg-blue-100 rounded-xl text-sm text-blue-700 flex items-center"
 									>
 										<svg
 											class="h-4 w-4 mr-1"
@@ -541,6 +542,7 @@ import { formatDateUS } from '@/hooks/time';
 import MessageCenter from './components/MessageCenter.vue';
 import DocumentCenter from './components/DocumentCenter.vue';
 import ContactUs from './components/ContactUs.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 
 // Icon components
 const HomeIcon = {
@@ -589,6 +591,7 @@ export default {
 		MessageCenter,
 		DocumentCenter,
 		ContactUs,
+		PageHeader,
 		HomeIcon,
 		DetailsIcon,
 		MessageSquareIcon,
@@ -608,12 +611,12 @@ export default {
 		// 导航菜单
 		const navigation = ref([
 			{
-				name: 'Onboarding Progress',
+				name: 'Case Progress',
 				view: 'progress',
 				icon: HomeIcon,
 			},
 			{
-				name: 'Onboarding Detail',
+				name: 'Case Detail',
 				view: 'detail',
 				icon: DetailsIcon,
 			},
@@ -649,9 +652,6 @@ export default {
 				} else {
 					ElMessage.error('Failed to load onboarding data');
 				}
-			} catch (error) {
-				console.error('Error loading onboarding data:', error);
-				ElMessage.error('Failed to load onboarding data');
 			} finally {
 				loading.value = false;
 			}
@@ -900,21 +900,6 @@ export default {
 </script>
 
 <style scoped>
-/* Ensure consistent border radius */
-.rounded-lg {
-	border-radius: 0.5rem;
-}
-
-.rounded-md {
-	border-radius: 0.375rem;
-}
-
-.rounded-full {
-	border-radius: 9999px;
-}
-
-/* Custom gradient background - removed as we're using solid colors */
-
 /* Smooth transitions */
 .transition-colors {
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
@@ -937,138 +922,5 @@ button:focus {
 /* Hover effects */
 button:hover {
 	transition: all 0.15s ease-in-out;
-}
-
-/* Shadow styles to match original */
-.shadow-sm {
-	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-
-/* Ensure proper text colors */
-.text-gray-900 {
-	color: #111827;
-}
-
-.text-gray-700 {
-	color: #374151;
-}
-
-.text-gray-600 {
-	color: #4b5563;
-}
-
-.text-gray-500 {
-	color: #6b7280;
-}
-
-/* Background colors */
-.bg-gray-50 {
-	background-color: #f9fafb;
-}
-
-.bg-white {
-	background-color: #ffffff;
-}
-
-.bg-blue-50 {
-	background-color: var(--primary-10);
-}
-
-.bg-blue-100 {
-	background-color: #dbeafe;
-}
-
-.bg-blue-600 {
-	background-color: #2563eb;
-}
-
-.bg-green-50 {
-	background-color: #f0fdf4;
-}
-
-.bg-green-100 {
-	background-color: #dcfce7;
-}
-
-.bg-orange-50 {
-	background-color: #fefce8;
-}
-
-.bg-orange-600 {
-	background-color: #ea580c;
-}
-
-.bg-orange-700 {
-	background-color: #c2410c;
-}
-
-/* Border colors */
-.border-gray-200 {
-	border-color: #e5e7eb;
-}
-
-.border-gray-300 {
-	border-color: #d1d5db;
-}
-
-.border-blue-200 {
-	border-color: #bfdbfe;
-}
-
-.border-blue-300 {
-	border-color: #93c5fd;
-}
-
-.border-green-200 {
-	border-color: #bbf7d0;
-}
-
-.border-green-300 {
-	border-color: #86efac;
-}
-
-.border-orange-200 {
-	border-color: #fed7aa;
-}
-
-/* Text colors */
-.text-blue-600 {
-	color: #2563eb;
-}
-
-.text-blue-700 {
-	color: #1d4ed8;
-}
-
-.text-blue-800 {
-	color: #1e40af;
-}
-
-.text-blue-900 {
-	color: #1e3a8a;
-}
-
-.text-green-500 {
-	color: #22c55e;
-}
-
-.text-green-600 {
-	color: #16a34a;
-}
-
-.text-green-700 {
-	color: #15803d;
-}
-
-.text-orange-600 {
-	color: #ea580c;
-}
-
-.text-orange-700 {
-	color: #b45309;
-}
-
-.text-orange-800 {
-	color: #92400e;
 }
 </style>

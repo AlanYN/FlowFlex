@@ -105,4 +105,4 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         [JsonConverter(typeof(DateTimeJsonConverter))]
         public DateTimeOffset? LastApplied { get; set; }
     }
-} 
+}

@@ -4,6 +4,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
+using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -14,6 +15,8 @@ using System.Text.RegularExpressions;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Entities.OW;
 using System.Text.Json;
+using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -27,8 +30,11 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionCodeGeneratorService _actionCodeGeneratorService;
         private readonly IChecklistTaskRepository _checklistTaskRepository;
         private readonly IQuestionnaireRepository _questionnaireRepository;
+        private readonly IStageRepository _stageRepository;
+        private readonly IActionLogService _actionLogService;
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
+        private readonly UserContext _userContext;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -36,7 +42,10 @@ namespace FlowFlex.Application.Services.Action
             IActionCodeGeneratorService actionCodeGeneratorService,
             IChecklistTaskRepository checklistTaskRepository,
             IQuestionnaireRepository questionnaireRepository,
+            IStageRepository stageRepository,
+            IActionLogService actionLogService,
             IMapper mapper,
+            UserContext userContext,
             ILogger<ActionManagementService> logger)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
@@ -44,7 +53,10 @@ namespace FlowFlex.Application.Services.Action
             _actionCodeGeneratorService = actionCodeGeneratorService;
             _checklistTaskRepository = checklistTaskRepository;
             _questionnaireRepository = questionnaireRepository;
+            _stageRepository = stageRepository;
+            _actionLogService = actionLogService;
             _mapper = mapper;
+            _userContext = userContext;
             _logger = logger;
         }
 
@@ -125,6 +137,9 @@ namespace FlowFlex.Application.Services.Action
             var entity = _mapper.Map<ActionDefinition>(dto);
             entity.ActionCode = await _actionCodeGeneratorService.GeneratorActionCodeAsync();
 
+            // Initialize create information with proper tenant and app context
+            entity.InitCreateInfo(_userContext);
+
             await _actionDefinitionRepository.InsertAsync(entity);
             _logger.LogInformation("Created action definition: {ActionId}", entity.Id);
 
@@ -167,14 +182,38 @@ namespace FlowFlex.Application.Services.Action
                 throw new ArgumentException($"Action definition with ID {id} not found");
             }
 
-            ValidateActionConfig(dto.ActionType, dto.ActionConfig);
+            // Check if this is a System Action
+            if (entity.ActionType == ActionTypeEnum.System.ToString())
+            {
+                _logger.LogInformation("Updating System Action {ActionId}: only IsEnabled and IsTools fields will be updated, core configuration remains unchanged", id);
+                
+                // For System Actions, only update specific fields, ignore core configuration
+                entity.IsEnabled = dto.IsEnabled;
+                entity.IsTools = dto.IsTools;
+                
+                // Initialize update information with proper tenant and app context
+                entity.InitUpdateInfo(_userContext);
 
-            _mapper.Map(dto, entity);
+                await _actionDefinitionRepository.UpdateAsync(entity);
+                _logger.LogInformation("Updated System Action definition: {ActionId}", id);
 
-            await _actionDefinitionRepository.UpdateAsync(entity);
-            _logger.LogInformation("Updated action definition: {ActionId}", id);
+                return _mapper.Map<ActionDefinitionDto>(entity);
+            }
+            else
+            {
+                // For non-System Actions, perform full validation and update
+                ValidateActionConfig(dto.ActionType, dto.ActionConfig);
 
-            return _mapper.Map<ActionDefinitionDto>(entity);
+                _mapper.Map(dto, entity);
+
+                // Initialize update information with proper tenant and app context
+                entity.InitUpdateInfo(_userContext);
+
+                await _actionDefinitionRepository.UpdateAsync(entity);
+                _logger.LogInformation("Updated action definition: {ActionId}", id);
+
+                return _mapper.Map<ActionDefinitionDto>(entity);
+            }
         }
 
         public void ValidateActionConfig(ActionTypeEnum actionType, string actionConfig)
@@ -198,6 +237,9 @@ namespace FlowFlex.Application.Services.Action
                         break;
                     case ActionTypeEnum.SendEmail:
                         // TODO: Add Email config validation
+                        break;
+                    case ActionTypeEnum.System:
+                        ValidateSystemConfig(jToken);
                         break;
                     default:
                         throw new ArgumentException($"Unsupported action type: {actionType}");
@@ -275,6 +317,72 @@ namespace FlowFlex.Application.Services.Action
             _logger.LogInformation("HTTP API action configuration validated successfully");
         }
 
+        private void ValidateSystemConfig(JToken actionConfig)
+        {
+            var config = actionConfig.ToObject<Dictionary<string, object>>();
+
+            if (config == null)
+            {
+                throw new ArgumentException("Failed to parse System action configuration");
+            }
+
+            if (!config.ContainsKey("actionName") || string.IsNullOrWhiteSpace(config["actionName"]?.ToString()))
+            {
+                throw new ArgumentException("System action must specify 'actionName' in configuration");
+            }
+
+            var actionName = config["actionName"].ToString().ToLower();
+            var supportedActions = new[] { "completestage", "movetostage", "assignonboarding" };
+
+            if (!supportedActions.Contains(actionName))
+            {
+                throw new ArgumentException($"System action '{actionName}' is not supported. Supported actions: {string.Join(", ", supportedActions)}");
+            }
+
+            // Validate specific action configurations
+            switch (actionName)
+            {
+                case "completestage":
+                    ValidateCompleteStageConfig(config);
+                    break;
+                case "movetostage":
+                    ValidateMoveToStageConfig(config);
+                    break;
+                case "assignonboarding":
+                    ValidateAssignOnboardingConfig(config);
+                    break;
+            }
+
+            _logger.LogInformation("System action configuration validated successfully for action: {ActionName}", actionName);
+        }
+
+        private void ValidateCompleteStageConfig(Dictionary<string, object> config)
+        {
+            // Optional parameters - can be provided in config or extracted from trigger context
+            // No strict validation needed as parameters can come from context
+
+            // Validate useValidationApi parameter if present
+            if (config.ContainsKey("useValidationApi"))
+            {
+                if (!bool.TryParse(config["useValidationApi"]?.ToString(), out _))
+                {
+                    throw new ArgumentException("useValidationApi parameter must be a boolean value");
+                }
+            }
+        }
+
+        private void ValidateMoveToStageConfig(Dictionary<string, object> config)
+        {
+            // Optional parameters - can be provided in config or extracted from trigger context
+            // No strict validation needed as parameters can come from context
+        }
+
+        private void ValidateAssignOnboardingConfig(Dictionary<string, object> config)
+        {
+            // Optional parameters - can be provided in config or extracted from trigger context
+            // No strict validation needed as parameters can come from context
+        }
+
         public async Task<bool> DeleteActionDefinitionAsync(long id)
         {
             var entity = await _actionDefinitionRepository.GetByIdAsync(id);
@@ -328,16 +436,48 @@ namespace FlowFlex.Application.Services.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null,
+            string? actionIds = null)
         {
-            var (data, total) = await _actionDefinitionRepository.GetPagedAsync(1,
-                10000,
-                actionType.ToString(),
-                search,
-                isAssignmentStage,
-                isAssignmentChecklist,
-                isAssignmentQuestionnaire,
-                isAssignmentWorkflow);
+            List<ActionDefinition> data;
+
+            // If actionIds is provided, export specific actions by IDs
+            if (!string.IsNullOrWhiteSpace(actionIds))
+            {
+                var ids = actionIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                 .Select(id => long.TryParse(id.Trim(), out var parsedId) ? parsedId : (long?)null)
+                                 .Where(id => id.HasValue)
+                                 .Select(id => id.Value)
+                                 .ToList();
+
+                if (ids.Any())
+                {
+                    data = await _actionDefinitionRepository.GetByIdsAsync(ids);
+                    _logger.LogInformation("Exporting {Count} specific actions by IDs: {ActionIds}", data.Count, actionIds);
+                }
+                else
+                {
+                    _logger.LogWarning("No valid action IDs found in actionIds parameter: {ActionIds}", actionIds);
+                    data = new List<ActionDefinition>();
+                }
+            }
+            else
+            {
+                // Export with filtering conditions (existing logic)
+                var (pagedData, total) = await _actionDefinitionRepository.GetPagedAsync(1,
+                    10000,
+                    actionType.ToString(),
+                    search,
+                    isAssignmentStage,
+                    isAssignmentChecklist,
+                    isAssignmentQuestionnaire,
+                    isAssignmentWorkflow,
+                    isTools);
+
+                data = pagedData;
+                _logger.LogInformation("Exporting {Count} actions with filter conditions", data.Count);
+            }
 
             var map = _mapper.Map<List<ActionDefinitionDto>>(data);
             Stream result = ExcelHelper<ActionDefinitionDto>.ExportExcel(map);
@@ -381,12 +521,20 @@ namespace FlowFlex.Application.Services.Action
         public async Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto)
         {
             // Check if mapping already exists
-            var exists = await _actionTriggerMappingRepository.IsMappingExistsAsync(
-                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId);
+            // If exists, return the existing mapping instead of creating a new one
+            var workflowIdForCheck = dto.WorkFlowId ?? 0;
+            var existingMapping = await _actionTriggerMappingRepository.GetExistingMappingAsync(
+                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, workflowIdForCheck);
 
-            if (exists)
+            if (existingMapping != null)
             {
-                throw new InvalidOperationException("Mapping already exists for this action and trigger");
+                _logger.LogInformation("Mapping already exists for ActionDefinitionId={ActionDefinitionId}, TriggerType={TriggerType}, TriggerSourceId={TriggerSourceId}, WorkFlowId={WorkFlowId}. Returning existing mapping: {MappingId}",
+                    dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId?.ToString() ?? "None", existingMapping.Id);
+
+                // Update the associated task/source entity with mapping information even for existing mappings
+                await UpdateTriggerSourceWithMappingInfoAsync(dto, existingMapping.Id, existingMapping.ActionDefinitionId);
+
+                return _mapper.Map<ActionTriggerMappingDto>(existingMapping);
             }
 
             // Ensure TriggerEvent has a valid value - default to "Completed" if not provided or empty
@@ -399,8 +547,102 @@ namespace FlowFlex.Application.Services.Action
 
             var entity = _mapper.Map<ActionTriggerMapping>(dto);
 
+            // Temporary fix: Handle null values until database schema is updated
+            // TODO: Remove this after running database migration to make fields nullable
+            if (!entity.WorkFlowId.HasValue)
+            {
+                entity.WorkFlowId = 0; // Use 0 as placeholder for null workflow
+                _logger.LogDebug("Setting WorkFlowId to 0 (placeholder for null) for mapping: {MappingId}", entity.Id);
+            }
+            if (!entity.StageId.HasValue)
+            {
+                entity.StageId = 0; // Use 0 as placeholder for null stage
+                _logger.LogDebug("Setting StageId to 0 (placeholder for null) for mapping: {MappingId}", entity.Id);
+            }
+
             await _actionTriggerMappingRepository.InsertAsync(entity);
             _logger.LogInformation("Created action trigger mapping: {MappingId} with TriggerEvent: {TriggerEvent}", entity.Id, entity.TriggerEvent);
+
+            // Update the associated task/source entity with mapping information for new mappings
+            await UpdateTriggerSourceWithMappingInfoAsync(dto, entity.Id, dto.ActionDefinitionId);
+
+            // Log action trigger mapping association using structured logging and change log
+            try
+            {
+                var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(dto.ActionDefinitionId);
+                var triggerSourceName = await GetTriggerSourceNameAsync(dto.TriggerType, dto.TriggerSourceId);
+                var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+
+                // Structured logging (existing)
+                _logger.LogInformation("Action mapping associated: Action '{ActionName}' (ID: {ActionId}) has been associated with {TriggerType} '{TriggerSourceName}' (ID: {TriggerSourceId}) to trigger on '{TriggerEvent}' event by {UserName}. Mapping ID: {MappingId}, Workflow: {WorkflowId}, Stage: {StageId}",
+                    actionName,
+                    dto.ActionDefinitionId,
+                    dto.TriggerType,
+                    triggerSourceName,
+                    dto.TriggerSourceId,
+                    dto.TriggerEvent,
+                    _userContext?.UserName ?? "System",
+                    entity.Id,
+                    dto.WorkFlowId?.ToString() ?? "None",
+                    dto.StageId?.ToString() ?? "None");
+
+                // Change log recording (new) - get additional context for better log association
+                long? onboardingId = dto.WorkFlowId; // Use WorkFlowId as onboardingId for workflow-related logs
+                long? checklistId = null;
+
+                // For Task triggers, get associated checklist and onboarding information
+                if (dto.TriggerType?.ToLower() == "task")
+                {
+                    try
+                    {
+                        var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
+                        if (task != null)
+                        {
+                            checklistId = task.ChecklistId;
+                            // You might need to add a method to get onboarding ID from checklist ID
+                            // onboardingId = await GetOnboardingIdByChecklistIdAsync(task.ChecklistId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get task context for action mapping log: TaskId={TaskId}", dto.TriggerSourceId);
+                    }
+                }
+                // For Stage triggers, the workflow ID is already set as onboardingId above
+
+                // Create extended data with additional context
+                var extendedDataWithContext = JsonSerializer.Serialize(new
+                {
+                    MappingId = entity.Id,
+                    ActionDefinitionId = dto.ActionDefinitionId,
+                    ActionName = actionName,
+                    TriggerType = dto.TriggerType,
+                    TriggerSourceId = dto.TriggerSourceId,
+                    TriggerSourceName = triggerSourceName,
+                    TriggerEvent = dto.TriggerEvent,
+                    WorkflowId = dto.WorkFlowId,
+                    StageId = dto.StageId,
+                    ChecklistId = checklistId,
+                    OnboardingId = onboardingId,
+                    AssociatedAt = DateTimeOffset.UtcNow
+                });
+
+                await _actionLogService.LogActionMappingAssociateAsync(
+                    entity.Id,
+                    dto.ActionDefinitionId,
+                    actionName,
+                    dto.TriggerType,
+                    dto.TriggerSourceId,
+                    triggerSourceName,
+                    dto.TriggerEvent,
+                    dto.WorkFlowId,
+                    dto.StageId,
+                    extendedDataWithContext);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log action trigger mapping association details for mapping {MappingId}", entity.Id);
+            }
 
             return _mapper.Map<ActionTriggerMappingDto>(entity);
         }
@@ -413,6 +655,45 @@ namespace FlowFlex.Application.Services.Action
                 // Return true for idempotent delete operation - if mapping doesn't exist, consider it already deleted
                 _logger.LogInformation("Action trigger mapping {MappingId} not found, considering delete operation successful", id);
                 return true;
+            }
+
+            // Log action trigger mapping disassociation using structured logging and change log
+            try
+            {
+                var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(entity.ActionDefinitionId);
+                var triggerSourceName = await GetTriggerSourceNameAsync(entity.TriggerType, entity.TriggerSourceId);
+                var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+
+                // Structured logging (existing)
+                _logger.LogInformation("Action mapping disassociated: Action '{ActionName}' (ID: {ActionId}) has been disassociated from {TriggerType} '{TriggerSourceName}' (ID: {TriggerSourceId}) (was triggered on '{TriggerEvent}' event) by {UserName}. Mapping ID: {MappingId}, Workflow: {WorkflowId}, Stage: {StageId}, Was Enabled: {WasEnabled}",
+                    actionName,
+                    entity.ActionDefinitionId,
+                    entity.TriggerType,
+                    triggerSourceName,
+                    entity.TriggerSourceId,
+                    entity.TriggerEvent,
+                    _userContext?.UserName ?? "System",
+                    entity.Id,
+                    entity.WorkFlowId?.ToString() ?? "None",
+                    entity.StageId?.ToString() ?? "None",
+                    entity.IsEnabled);
+
+                // Change log recording (new)
+                await _actionLogService.LogActionMappingDisassociateAsync(
+                    entity.Id,
+                    entity.ActionDefinitionId,
+                    actionName,
+                    entity.TriggerType,
+                    entity.TriggerSourceId,
+                    triggerSourceName,
+                    entity.TriggerEvent,
+                    entity.WorkFlowId,
+                    entity.StageId,
+                    entity.IsEnabled);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log action trigger mapping disassociation details for mapping {MappingId}", id);
             }
 
             entity.IsValid = false;
@@ -442,18 +723,88 @@ namespace FlowFlex.Application.Services.Action
                 return false;
             }
 
+            var oldStatus = entity.IsEnabled;
             entity.IsEnabled = isEnabled;
             entity.ModifyDate = DateTimeOffset.UtcNow;
 
             await _actionTriggerMappingRepository.UpdateAsync(entity);
             _logger.LogInformation("Updated action trigger mapping status: {MappingId}, IsEnabled: {IsEnabled}", id, isEnabled);
 
+            // Log status change using ActionLogService
+            try
+            {
+                var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(entity.ActionDefinitionId);
+                var triggerSourceName = await GetTriggerSourceNameAsync(entity.TriggerType, entity.TriggerSourceId);
+                var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+
+                var statusAction = isEnabled ? "enabled" : "disabled";
+                var extendedData = JsonSerializer.Serialize(new
+                {
+                    MappingId = entity.Id,
+                    ActionDefinitionId = entity.ActionDefinitionId,
+                    ActionName = actionName,
+                    TriggerType = entity.TriggerType,
+                    TriggerSourceId = entity.TriggerSourceId,
+                    TriggerSourceName = triggerSourceName,
+                    TriggerEvent = entity.TriggerEvent,
+                    OldStatus = oldStatus,
+                    NewStatus = isEnabled,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                // Use a general ActionMapping update operation type
+                await _actionLogService.LogActionMappingUpdateAsync(
+                    entity.Id,
+                    entity.ActionDefinitionId,
+                    actionName,
+                    entity.TriggerType,
+                    entity.TriggerSourceId,
+                    triggerSourceName,
+                    $"Status {statusAction}",
+                    oldStatus.ToString(),
+                    isEnabled.ToString(),
+                    new List<string> { "IsEnabled" },
+                    extendedData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log action trigger mapping status update for mapping {MappingId}", id);
+            }
+
             return true;
         }
 
         public async Task<bool> BatchUpdateActionTriggerMappingStatusAsync(List<long> mappingIds, bool isEnabled)
         {
-            return await _actionTriggerMappingRepository.BatchUpdateEnabledStatusAsync(mappingIds, isEnabled);
+            var result = await _actionTriggerMappingRepository.BatchUpdateEnabledStatusAsync(mappingIds, isEnabled);
+
+            if (result)
+            {
+                _logger.LogInformation("Batch updated {Count} action trigger mapping statuses to IsEnabled: {IsEnabled}", mappingIds.Count, isEnabled);
+
+                // Log batch status change - simplified logging without individual details for performance
+                try
+                {
+                    var statusAction = isEnabled ? "enabled" : "disabled";
+                    var extendedData = JsonSerializer.Serialize(new
+                    {
+                        MappingIds = mappingIds,
+                        NewStatus = isEnabled,
+                        UpdatedAt = DateTimeOffset.UtcNow,
+                        UpdatedCount = mappingIds.Count
+                    });
+
+                    // Use a simple log entry for batch operations
+                    _logger.LogInformation("Batch Action Mapping Status Update: {Count} mappings have been {StatusAction} by {UserName}",
+                        mappingIds.Count, statusAction, _userContext?.UserName ?? "System");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log batch action trigger mapping status update for {Count} mappings", mappingIds.Count);
+                }
+            }
+
+            return result;
         }
 
         #endregion
@@ -475,7 +826,7 @@ namespace FlowFlex.Application.Services.Action
                 // Filter only valid mappings
                 actionMappings = actionMappings.Where(m => m.IsValid).ToList();
 
-                _logger.LogInformation("Found {Count} ActionTriggerMappings to cleanup for action {ActionId}", 
+                _logger.LogInformation("Found {Count} ActionTriggerMappings to cleanup for action {ActionId}",
                     actionMappings.Count, actionDefinitionId);
 
                 foreach (var mapping in actionMappings)
@@ -494,12 +845,12 @@ namespace FlowFlex.Application.Services.Action
                     mapping.IsValid = false;
                     mapping.ModifyDate = DateTimeOffset.UtcNow;
                     await _actionTriggerMappingRepository.UpdateAsync(mapping);
-                    
-                    _logger.LogDebug("Deleted ActionTriggerMapping {MappingId} (Type: {TriggerType}, SourceId: {TriggerSourceId}) for action {ActionId}", 
+
+                    _logger.LogDebug("Deleted ActionTriggerMapping {MappingId} (Type: {TriggerType}, SourceId: {TriggerSourceId}) for action {ActionId}",
                         mapping.Id, mapping.TriggerType, mapping.TriggerSourceId, actionDefinitionId);
                 }
 
-                _logger.LogInformation("Successfully cleaned up {Count} ActionTriggerMappings for action {ActionId} - Tasks: {TaskCount}, Questions: {QuestionCount}", 
+                _logger.LogInformation("Successfully cleaned up {Count} ActionTriggerMappings for action {ActionId} - Tasks: {TaskCount}, Questions: {QuestionCount}",
                     actionMappings.Count, actionDefinitionId, taskIds.Count, questionIds.Count);
 
                 return (taskIds.Distinct().ToList(), questionIds.Distinct().ToList());
@@ -545,7 +896,7 @@ namespace FlowFlex.Application.Services.Action
                     }
                 }
 
-                _logger.LogInformation("Successfully cleaned up {Count} ChecklistTask action references for action {ActionId} from {TotalIds} provided IDs", 
+                _logger.LogInformation("Successfully cleaned up {Count} ChecklistTask action references for action {ActionId} from {TotalIds} provided IDs",
                     cleanedCount, actionDefinitionId, taskIds.Count);
             }
             catch (Exception ex)
@@ -593,7 +944,7 @@ namespace FlowFlex.Application.Services.Action
                             foreach (var section in sectionsElement.EnumerateArray())
                             {
                                 // Process questions array - only clean matching IDs
-                                hasChanges |= CleanupActionReferencesInTargetedArray(section, structureObj.sections[sectionIndex], 
+                                hasChanges |= CleanupActionReferencesInTargetedArray(section, structureObj.sections[sectionIndex],
                                     "questions", actionDefinitionId, questionIdStrings);
 
                                 // Process subsections if they exist
@@ -602,8 +953,8 @@ namespace FlowFlex.Application.Services.Action
                                     var subsectionIndex = 0;
                                     foreach (var subsection in subsectionsElement.EnumerateArray())
                                     {
-                                        hasChanges |= CleanupActionReferencesInTargetedArray(subsection, 
-                                            structureObj.sections[sectionIndex].subsections[subsectionIndex], 
+                                        hasChanges |= CleanupActionReferencesInTargetedArray(subsection,
+                                            structureObj.sections[sectionIndex].subsections[subsectionIndex],
                                             "questions", actionDefinitionId, questionIdStrings);
                                         subsectionIndex++;
                                     }
@@ -618,18 +969,18 @@ namespace FlowFlex.Application.Services.Action
                             questionnaire.ModifyDate = DateTimeOffset.UtcNow;
                             await _questionnaireRepository.UpdateAsync(questionnaire);
                             updatedCount++;
-                            _logger.LogDebug("Updated questionnaire {QuestionnaireId} to remove targeted action references", 
+                            _logger.LogDebug("Updated questionnaire {QuestionnaireId} to remove targeted action references",
                                 questionnaire.Id);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Error processing questionnaire {QuestionnaireId} for targeted action cleanup", 
+                        _logger.LogWarning(ex, "Error processing questionnaire {QuestionnaireId} for targeted action cleanup",
                             questionnaire.Id);
                     }
                 }
 
-                _logger.LogInformation("Successfully cleaned up action references from {Count} questionnaires for action {ActionId} targeting {TargetCount} question/option IDs", 
+                _logger.LogInformation("Successfully cleaned up action references from {Count} questionnaires for action {ActionId} targeting {TargetCount} question/option IDs",
                     updatedCount, actionDefinitionId, questionIds.Count);
             }
             catch (Exception ex)
@@ -641,7 +992,7 @@ namespace FlowFlex.Application.Services.Action
         /// <summary>
         /// Helper method to clean up action references in question arrays - performance optimized for specific IDs
         /// </summary>
-        private bool CleanupActionReferencesInTargetedArray(JsonElement section, dynamic sectionObj, 
+        private bool CleanupActionReferencesInTargetedArray(JsonElement section, dynamic sectionObj,
             string arrayName, long actionDefinitionId, HashSet<string> targetQuestionIds)
         {
             var hasChanges = false;
@@ -652,14 +1003,14 @@ namespace FlowFlex.Application.Services.Action
                 foreach (var question in questionsElement.EnumerateArray())
                 {
                     var questionId = question.TryGetProperty("id", out var questionIdEl) ? questionIdEl.GetString() : null;
-                    
+
                     // Only process if this question ID is in our target list
                     if (!string.IsNullOrEmpty(questionId) && targetQuestionIds.Contains(questionId))
                     {
                         // Check and clean question action
                         if (question.TryGetProperty("action", out var actionElement))
                         {
-                            if (actionElement.TryGetProperty("id", out var actionIdEl) && 
+                            if (actionElement.TryGetProperty("id", out var actionIdEl) &&
                                 actionIdEl.GetString() == actionDefinitionId.ToString())
                             {
                                 sectionObj[arrayName][questionIndex].action = null;
@@ -674,7 +1025,7 @@ namespace FlowFlex.Application.Services.Action
                             var optionIndex = 0;
                             foreach (var option in optionsElement.EnumerateArray())
                             {
-                                var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : 
+                                var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() :
                                               option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
 
                                 // Check if this option ID is also in our target list
@@ -682,7 +1033,7 @@ namespace FlowFlex.Application.Services.Action
                                 {
                                     if (option.TryGetProperty("action", out var optionActionElement))
                                     {
-                                        if (optionActionElement.TryGetProperty("id", out var optionActionIdEl) && 
+                                        if (optionActionElement.TryGetProperty("id", out var optionActionIdEl) &&
                                             optionActionIdEl.GetString() == actionDefinitionId.ToString())
                                         {
                                             sectionObj[arrayName][questionIndex].options[optionIndex].action = null;
@@ -701,6 +1052,90 @@ namespace FlowFlex.Application.Services.Action
 
             return hasChanges;
         }
+
+        #endregion
+
+        #region Private Helper Methods for Logging
+
+        /// <summary>
+        /// Get trigger source name based on trigger type and source ID
+        /// </summary>
+        private async Task<string> GetTriggerSourceNameAsync(string triggerType, long triggerSourceId)
+        {
+            try
+            {
+                switch (triggerType?.ToLower())
+                {
+                    case "task":
+                        var task = await _checklistTaskRepository.GetByIdAsync(triggerSourceId);
+                        return task?.Name ?? $"Task {triggerSourceId}";
+
+                    case "question":
+                        var questionnaire = await _questionnaireRepository.GetByIdAsync(triggerSourceId);
+                        return questionnaire?.Name ?? $"Question {triggerSourceId}";
+
+                    case "stage":
+                        var stage = await _stageRepository.GetByIdAsync(triggerSourceId);
+                        return stage?.Name ?? $"Stage {triggerSourceId}";
+
+                    default:
+                        return $"{triggerType} {triggerSourceId}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get trigger source name for {TriggerType} {TriggerSourceId}", triggerType, triggerSourceId);
+                return $"{triggerType} {triggerSourceId}";
+            }
+        }
+
+        /// <summary>
+        /// Update trigger source entity (Task, Question, etc.) with action mapping information
+        /// </summary>
+        /// <param name="dto">Create action trigger mapping DTO</param>
+        /// <param name="mappingId">Action trigger mapping ID</param>
+        /// <param name="actionDefinitionId">Action definition ID</param>
+        private async Task UpdateTriggerSourceWithMappingInfoAsync(CreateActionTriggerMappingDto dto, long mappingId, long actionDefinitionId)
+        {
+            try
+            {
+                // Only update Tasks for now, can be extended for other trigger types if needed
+                if (dto.TriggerType?.ToLower() == "task")
+                {
+                    var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
+                    if (task != null && task.IsValid)
+                    {
+                        var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(actionDefinitionId);
+                        var actionName = actionDefinition?.ActionName ?? "Unknown Action";
+
+                        // Update task with action mapping information
+                        task.ActionId = actionDefinitionId;
+                        task.ActionName = actionName;
+                        task.ActionMappingId = mappingId;
+                        task.ModifyDate = DateTimeOffset.UtcNow;
+
+                        await _checklistTaskRepository.UpdateAsync(task);
+                        _logger.LogDebug("Updated task {TaskId} with action mapping info: ActionId={ActionId}, ActionName={ActionName}, MappingId={MappingId}",
+                            task.Id, actionDefinitionId, actionName, mappingId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Task {TaskId} not found or invalid when updating action mapping info", dto.TriggerSourceId);
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("TriggerType {TriggerType} does not require source entity update, skipping", dto.TriggerType);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating trigger source {TriggerType} {TriggerSourceId} with action mapping info",
+                    dto.TriggerType, dto.TriggerSourceId);
+                // Don't throw - this is not critical enough to fail the whole operation
+            }
+        }
+
 
         #endregion
     }

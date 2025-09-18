@@ -1,21 +1,41 @@
 <template>
 	<div class="bg-gray-50">
 		<!-- 标题和操作区 -->
-		<div class="onboarding-header">
-			<h1 class="title">Onboarding List</h1>
-			<div class="actions">
+		<PageHeader
+			title="Cases"
+			description="Manage and track business cases with customizable workflows and stage progression"
+		>
+			<template #actions>
+				<!-- Tab切换器 -->
+				<TabButtonGroup
+					v-model="activeView"
+					:tabs="tabsConfig"
+					size="small"
+					type="adaptive"
+					class="mr-4"
+					@tab-change="handleViewChange"
+				/>
 				<el-button
-					class="new-onboarding-btn"
+					class="page-header-btn page-header-btn-secondary"
+					@click="handleExport"
+					:loading="loading"
+					:disabled="loading"
+				>
+					<el-icon><Download /></el-icon>
+					Export {{ selectedItems.length > 0 ? `(${selectedItems.length})` : 'All' }}
+				</el-button>
+				<el-button
+					class="page-header-btn page-header-btn-primary"
 					type="primary"
 					@click="handleNewOnboarding"
 					:disabled="loading"
+					:loading="loading"
+					:icon="Plus"
 				>
-					<el-icon v-if="loading"><Loading /></el-icon>
-					<el-icon v-else><Plus /></el-icon>
-					<span>New Onboarding</span>
+					<span>New Case</span>
 				</el-button>
-			</div>
-		</div>
+			</template>
+		</PageHeader>
 
 		<PrototypeTabs
 			v-model="activeView"
@@ -23,6 +43,7 @@
 			type="adaptive"
 			size="default"
 			class="mb-6"
+			:hidden-tab="true"
 			@tab-change="handleViewChange"
 		>
 			<!-- 表格视图 -->
@@ -36,7 +57,6 @@
 					:selected-items="selectedItems"
 					filterType="table"
 					@search="handleFilterSearch"
-					@reset="handleFilterReset"
 					@export="handleExport"
 				/>
 				<div class="customer-block !p-0 !ml-0">
@@ -48,6 +68,7 @@
 						v-loading="loading"
 						:max-height="tableMaxHeight"
 						header-cell-class-name="bg-blue-50"
+						row-key="id"
 					>
 						<template #empty>
 							<slot name="empty">
@@ -67,10 +88,74 @@
 
 									<template #dropdown>
 										<el-dropdown-menu>
-											<el-dropdown-item @click="handleEdit(row.id)">
+											<!-- Start Onboarding - 只对Inactive状态显示 -->
+											<el-dropdown-item
+												v-if="row.status === 'Inactive'"
+												@click="handleStartOnboarding(row)"
+											>
+												<el-icon><VideoPlay /></el-icon>
+												Start Onboarding
+											</el-dropdown-item>
+
+											<!-- Proceed - 对进行中状态显示 -->
+											<el-dropdown-item
+												v-if="isInProgressStatus(row.status)"
+												@click="handleEdit(row.id)"
+											>
 												<el-icon><Edit /></el-icon>
 												Proceed
 											</el-dropdown-item>
+
+											<!-- View - 对Completed状态显示 -->
+											<el-dropdown-item
+												v-if="row.status === 'Completed'"
+												@click="handleEdit(row.id)"
+											>
+												<el-icon><View /></el-icon>
+												View
+											</el-dropdown-item>
+
+											<!-- Pause - 对进行中状态显示 -->
+											<el-dropdown-item
+												v-if="isInProgressStatus(row.status)"
+												@click="handlePause(row)"
+											>
+												<el-icon><VideoPause /></el-icon>
+												Pause
+											</el-dropdown-item>
+
+											<!-- Resume - 对Paused状态显示 -->
+											<el-dropdown-item
+												v-if="row.status === 'Paused'"
+												@click="handleResume(row)"
+											>
+												<el-icon><VideoPlay /></el-icon>
+												Resume
+											</el-dropdown-item>
+
+											<!-- Abort - 对进行中状态和暂停状态显示 -->
+											<el-dropdown-item
+												v-if="
+													isInProgressStatus(row.status) ||
+													row.status === 'Paused'
+												"
+												@click="handleAbort(row)"
+												class="text-red-500"
+											>
+												<el-icon><Close /></el-icon>
+												Abort
+											</el-dropdown-item>
+
+											<!-- Reactivate - 只对已中止状态显示 -->
+											<el-dropdown-item
+												v-if="isAbortedStatus(row.status)"
+												@click="handleReactivate(row)"
+											>
+												<el-icon><RefreshRight /></el-icon>
+												Reactivate
+											</el-dropdown-item>
+
+											<!-- Delete - 对所有状态显示，但有不同的限制 -->
 											<el-dropdown-item
 												@click="handleDelete(row.id)"
 												class="text-red-500"
@@ -141,7 +226,7 @@
 						</el-table-column>
 						<el-table-column
 							prop="workflowName"
-							label="Onboard Workflow"
+							label="Workflow"
 							sortable="custom"
 							min-width="200"
 						>
@@ -156,7 +241,7 @@
 						</el-table-column>
 						<el-table-column
 							prop="currentStageName"
-							label="Onboard Stage"
+							label="Stage"
 							sortable="custom"
 							min-width="200"
 						>
@@ -176,6 +261,20 @@
 								<el-tag :type="getPriorityTagType(row.priority)" class="text-white">
 									{{ row.priority }}
 								</el-tag>
+							</template>
+						</el-table-column>
+						<el-table-column label="Status" sortable="custom" width="180">
+							<template #default="{ row }">
+								<!-- 只对有效数据行显示状态 -->
+								<template v-if="row.id && row.status">
+									<el-tag :type="getStatusTagType(row.status)">
+										{{ getDisplayStatus(row.status) }}
+									</el-tag>
+								</template>
+								<!-- 对于虚拟行或无效数据，显示占位符 -->
+								<template v-else>
+									<el-tag type="info" class="opacity-30">--</el-tag>
+								</template>
 							</template>
 						</el-table-column>
 						<el-table-column label="Start Date" width="150" sortable="custom">
@@ -292,7 +391,6 @@
 					:selected-items="selectedItems"
 					filterType="pipeline"
 					@search="handleFilterSearch"
-					@reset="handleFilterReset"
 					@export="handleExport"
 				/>
 				<PrototypeTabs
@@ -344,7 +442,7 @@
 		<!-- 新建入职弹窗 -->
 		<el-dialog
 			v-model="dialogVisible"
-			title="Create New Onboarding"
+			title="Create New Cases"
 			:width="dialogWidth + 'px'"
 			destroy-on-close
 			custom-class="onboarding-dialog"
@@ -354,7 +452,7 @@
 		>
 			<template #header>
 				<div class="dialog-header">
-					<h2 class="dialog-title">Create New Onboarding</h2>
+					<h2 class="dialog-title">Create New Cases</h2>
 					<p class="dialog-subtitle">
 						Create a new onboarding record for lead management.
 					</p>
@@ -373,7 +471,7 @@
 						v-model="formData.leadName"
 						placeholder="Input Customer Name"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</el-form-item>
 
@@ -382,7 +480,7 @@
 						v-model="formData.leadId"
 						placeholder="Enter Lead ID"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</el-form-item>
 
@@ -392,7 +490,7 @@
 							v-model="formData.ContactPerson"
 							placeholder="Enter Contact Name"
 							clearable
-							class="w-full rounded-md"
+							class="w-full rounded-xl"
 						/>
 					</el-form-item>
 
@@ -402,7 +500,7 @@
 							placeholder="Enter Contact Email Address"
 							clearable
 							type="email"
-							class="w-full rounded-md"
+							class="w-full rounded-xl"
 						/>
 					</el-form-item>
 				</div>
@@ -412,7 +510,7 @@
 						v-model="formData.lifeCycleStageId"
 						placeholder="Select Life Cycle Stage"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 						@change="changeLifeCycleStage"
 					>
 						<el-option
@@ -429,7 +527,7 @@
 						v-model="formData.priority"
 						placeholder="Select Priority"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					>
 						<el-option label="High" value="High" />
 						<el-option label="Medium" value="Medium" />
@@ -442,7 +540,7 @@
 						v-model="formData.workFlowId"
 						placeholder="Select Work Flow"
 						clearable
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					>
 						<el-option
 							v-for="workflow in allWorkflows"
@@ -482,17 +580,34 @@ import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vu
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import '../styles/errorDialog.css';
-import { ArrowDownBold, Edit, Delete, Plus, Loading } from '@element-plus/icons-vue';
+import {
+	ArrowDownBold,
+	Edit,
+	Delete,
+	Plus,
+	VideoPlay,
+	VideoPause,
+	Close,
+	RefreshRight,
+	View,
+	Warning,
+	Download,
+} from '@element-plus/icons-vue';
 import {
 	queryOnboardings,
 	deleteOnboarding,
 	createOnboarding,
 	exportOnboarding,
 	batchUpdateStaticFieldValues,
+	startOnboarding,
+	abortOnboarding,
+	reactivateOnboarding,
+	pauseOnboarding,
+	resumeOnboardingWithConfirmation,
 } from '@/apis/ow/onboarding';
 import { getAllStages, getWorkflowList } from '@/apis/ow';
 import { OnboardingItem, SearchParams, OnboardingQueryRequest, ApiResponse } from '#/onboard';
-import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import {
 	defaultStr,
 	projectTenMinutesSsecondsDate,
@@ -501,6 +616,7 @@ import {
 } from '@/settings/projectSetting';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import OnboardFilter from './components/OnboardFilter.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import { timeZoneConvert, timeExpiredornot } from '@/hooks/time';
 import { useI18n } from '@/hooks/useI18n';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
@@ -518,6 +634,19 @@ const onboardingStages = ref<any[]>([]);
 const router = useRouter();
 const loading = ref(false);
 const onboardingList = ref<OnboardingItem[]>([]);
+
+// 监听onboardingList的变化（用于调试）
+watch(
+	onboardingList,
+	(newList) => {
+		// 检查是否有status字段丢失
+		const itemsWithoutStatus = newList.filter((item) => item.id && !item.status);
+		if (itemsWithoutStatus.length > 0) {
+			console.error('❌ [Watch] Found items without status:', itemsWithoutStatus);
+		}
+	},
+	{ deep: true }
+);
 const selectedItems = ref<OnboardingItem[]>([]);
 const activeView = ref('table');
 const currentPage = ref(1);
@@ -717,15 +846,28 @@ const getTableViewOnboarding = async (event) => {
 			),
 		};
 
+		console.log('🔍 [Onboarding List] Query params:', queryParams);
 		const res: ApiResponse<OnboardingItem> = await queryOnboardings(queryParams);
+		console.log('📊 [Onboarding List] API response:', res);
+
 		if (res.code === '200') {
-			onboardingList.value = res.data.data || [];
+			// 确保每个项目都有status字段
+			const processedData = (res.data.data || []).map((item) => ({
+				...item,
+				status: item.status || 'Unknown', // 确保status字段存在
+			}));
+
+			onboardingList.value = processedData;
 			totalElements.value = res.data.total || 0;
+
+			console.log('📋 [Onboarding List] Loaded items:', onboardingList.value.length);
 		} else {
+			console.warn('⚠️ [Onboarding List] API returned error:', res.code, res.msg);
 			onboardingList.value = [];
 			totalElements.value = 0;
 		}
-	} catch {
+	} catch (error) {
+		console.error('❌ [Onboarding List] API call failed:', error);
 		onboardingList.value = [];
 		totalElements.value = 0;
 	}
@@ -772,6 +914,60 @@ const getPriorityTagType = (priority: string) => {
 		default:
 			return 'info';
 	}
+};
+
+const getStatusTagType = (status: string) => {
+	// 处理Element Plus表格虚拟行的情况
+	if (status === undefined || status === null) {
+		// 这通常是Element Plus表格的虚拟行，静默处理
+		return 'info';
+	}
+
+	switch (status) {
+		case 'Inactive':
+			return 'info';
+		case 'Active':
+		case 'InProgress':
+		case 'Started':
+			return 'primary';
+		case 'Completed':
+			return 'success';
+		case 'Paused':
+			return 'warning';
+		case 'Aborted':
+		case 'Cancelled':
+			return 'danger';
+		default:
+			console.warn('⚠️ [Status Tag] Unknown status:', status);
+			return 'info';
+	}
+};
+
+// 状态显示转换函数 - 统一显示逻辑
+const getDisplayStatus = (status: string) => {
+	if (status === undefined || status === null) {
+		return 'Unknown';
+	}
+
+	switch (status) {
+		case 'Active':
+		case 'Started':
+			return 'InProgress';
+		case 'Cancelled':
+			return 'Aborted';
+		default:
+			return status;
+	}
+};
+
+// 判断是否为进行中状态的辅助函数
+const isInProgressStatus = (status: string) => {
+	return status === 'Active' || status === 'InProgress' || status === 'Started';
+};
+
+// 判断是否为已中止状态的辅助函数
+const isAbortedStatus = (status: string) => {
+	return status === 'Aborted' || status === 'Cancelled';
 };
 
 const getPriorityBorderClass = (priority: string) => {
@@ -824,22 +1020,6 @@ const handleFilterSearch = async (params: SearchParams) => {
 	await loadOnboardingList();
 };
 
-const handleFilterReset = async () => {
-	// 重置搜索参数，但保留分页参数
-	searchParams.leadId = '';
-	searchParams.leadName = '';
-	searchParams.lifeCycleStageName = '';
-	searchParams.currentStageId = '';
-	searchParams.updatedBy = '';
-	searchParams.priority = '';
-	searchParams.workFlowId = '';
-
-	currentPage.value = 1;
-	searchParams.page = 1;
-
-	await loadOnboardingList();
-};
-
 const handleSelectionChange = (selection: OnboardingItem[]) => {
 	selectedItems.value = selection;
 };
@@ -889,6 +1069,239 @@ const handleNewOnboarding = () => {
 const handleDelete = (itemId: string) => {
 	itemToDelete.value = itemId;
 	deleteDialogVisible.value = true;
+};
+
+// ========================= 状态管理函数 =========================
+
+const handleStartOnboarding = async (row: OnboardingItem) => {
+	console.log('🚀 [Start Onboarding] Clicked for row:', row);
+	console.log('🚀 [Start Onboarding] Row status:', row.status);
+	console.log('🚀 [Start Onboarding] Row ID:', row.id);
+
+	ElMessageBox.confirm(
+		`Are you sure you want to start the onboarding process for "${row.leadName}"? This will activate the onboarding and begin the workflow.`,
+		'⚡ Start Onboarding',
+		{
+			confirmButtonText: 'Start Onboarding',
+			cancelButtonText: 'Cancel',
+			distinguishCancelAndClose: true,
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Starting...';
+
+					try {
+						console.log('📡 [Start Onboarding] Calling API with params:', {
+							id: row.id,
+							params: {
+								reason: 'Manual activation from onboarding list',
+								resetProgress: true,
+							},
+						});
+
+						const res = await startOnboarding(row.id, {
+							reason: 'Manual activation from onboarding list',
+							resetProgress: true,
+						});
+
+						console.log('📡 [Start Onboarding] API response:', res);
+
+						if (res.code === '200') {
+							ElMessage.success('Onboarding started successfully');
+							await loadOnboardingList();
+						} else {
+							ElMessage.error(res.msg || 'Failed to start onboarding');
+						}
+					} catch (error) {
+						console.error('❌ [Start Onboarding] Error:', error);
+						ElMessage.error('Failed to start onboarding');
+					} finally {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Start Onboarding';
+					}
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
+};
+
+const handlePause = async (row: OnboardingItem) => {
+	ElMessageBox.confirm(
+		`Are you sure you want to pause the onboarding process for "${row.leadName}"? The account will stay at the current stage and lose ETA. All workflow content will become read-only.`,
+		'⏸️ Pause Onboarding',
+		{
+			confirmButtonText: 'Pause',
+			cancelButtonText: 'Cancel',
+			distinguishCancelAndClose: true,
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Pausing...';
+
+					try {
+						const res = await pauseOnboarding(row.id);
+
+						if (res.code === '200') {
+							ElMessage.success('Onboarding paused successfully');
+							await loadOnboardingList();
+						} else {
+							ElMessage.error(res.msg || 'Failed to pause onboarding');
+						}
+					} catch (error) {
+						ElMessage.error('Failed to pause onboarding');
+					} finally {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Pause';
+					}
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
+};
+
+const handleResume = async (row: OnboardingItem) => {
+	ElMessageBox.confirm(
+		`Are you sure you want to resume the onboarding process for "${row.leadName}"? The account will restore ETA and current stage timing will continue from where it was paused.`,
+		'▶️ Resume Onboarding',
+		{
+			confirmButtonText: 'Resume',
+			cancelButtonText: 'Cancel',
+			distinguishCancelAndClose: true,
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Resuming...';
+
+					try {
+						const res = await resumeOnboardingWithConfirmation(row.id, {
+							reason: 'Manual resume from onboarding list',
+						});
+
+						if (res.code === '200') {
+							ElMessage.success('Onboarding resumed successfully');
+							await loadOnboardingList();
+						} else {
+							ElMessage.error(res.msg || 'Failed to resume onboarding');
+						}
+					} catch (error) {
+						ElMessage.error('Failed to resume onboarding');
+					} finally {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Resume';
+					}
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
+};
+
+const handleAbort = async (row: OnboardingItem) => {
+	ElMessageBox.prompt(
+		`Are you sure you want to abort the onboarding process for "${row.leadName}"? This will terminate the process and the account will exit the onboarding workflow. Please provide a reason for this action.`,
+		'🛑 Abort Onboarding',
+		{
+			confirmButtonText: 'Abort',
+			cancelButtonText: 'Cancel',
+			inputPlaceholder: 'Enter reason for aborting...',
+			inputValidator: (value) => {
+				if (!value || value.trim().length === 0) {
+					return 'Reason is required for aborting onboarding';
+				}
+				return true;
+			},
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Aborting...';
+
+					try {
+						const res = await abortOnboarding(row.id, {
+							reason: instance.inputValue,
+							notes: 'Aborted from onboarding list',
+						});
+
+						if (res.code === '200') {
+							ElMessage.success('Onboarding aborted successfully');
+							await loadOnboardingList();
+						} else {
+							ElMessage.error(res.msg || 'Failed to abort onboarding');
+						}
+					} catch (error) {
+						ElMessage.error('Failed to abort onboarding');
+					} finally {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Abort';
+					}
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
+};
+
+const handleReactivate = async (row: OnboardingItem) => {
+	ElMessageBox.prompt(
+		`Are you sure you want to reactivate the onboarding process for "${row.leadName}"? This will restart the process from stage 1 while preserving questionnaire answers. Please provide a reason for this action.`,
+		'🔄 Reactivate Onboarding',
+		{
+			confirmButtonText: 'Reactivate',
+			cancelButtonText: 'Cancel',
+			inputPlaceholder: 'Enter reason for reactivation...',
+			inputValidator: (value) => {
+				if (!value || value.trim().length === 0) {
+					return 'Reason is required for reactivation';
+				}
+				return true;
+			},
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Reactivating...';
+
+					try {
+						const res = await reactivateOnboarding(row.id, {
+							reason: instance.inputValue,
+							resetProgress: true,
+							preserveAnswers: true,
+							notes: 'Reactivated from onboarding list',
+						});
+
+						if (res.code === '200') {
+							ElMessage.success('Onboarding reactivated successfully');
+							await loadOnboardingList();
+						} else {
+							ElMessage.error(res.msg || 'Failed to reactivate onboarding');
+						}
+					} catch (error) {
+						ElMessage.error('Failed to reactivate onboarding');
+					} finally {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Reactivate';
+					}
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
 };
 
 const confirmDelete = async () => {
@@ -965,7 +1378,7 @@ const handleExport = async () => {
 			.replace(/[-:]/g, '')
 			.replace('T', '_');
 		const fileNameSuffix = selectedItems.value.length > 0 ? 'Selected' : 'Filtered';
-		link.download = `Onboarding_List_${fileNameSuffix}_${timestamp}.xlsx`;
+		link.download = `Cases_${fileNameSuffix}_${timestamp}.xlsx`;
 
 		// 触发下载
 		document.body.appendChild(link);
@@ -1205,27 +1618,6 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-/* 头部标题栏样式 */
-.onboarding-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 0 24px 24px 24px;
-}
-
-.title {
-	font-size: 24px;
-	color: var(--primary-500, #2468f2);
-	margin: 0;
-	font-weight: 700;
-}
-
-.actions {
-	display: flex;
-	gap: 10px;
-	align-items: center;
-}
-
 /* 弹窗样式 */
 .dialog-header {
 	border-bottom: none;
@@ -1446,26 +1838,6 @@ html.dark {
 	/* 页面背景 - 使用项目标准的 black-400 */
 	.bg-gray-50 {
 		@apply bg-black-400 !important;
-	}
-
-	/* 头部标题栏暗色主题 */
-	.onboarding-header {
-		background-color: var(--black-400);
-	}
-
-	.title {
-		color: var(--primary-500, #2468f2);
-	}
-
-	.new-onboarding-btn {
-		background-color: var(--primary-500, #2468f2);
-		border-color: var(--primary-500, #2468f2);
-		color: white;
-	}
-
-	.new-onboarding-btn:hover {
-		background-color: var(--primary-600, #1d5ad8);
-		border-color: var(--primary-600, #1d5ad8);
 	}
 
 	/* 弹窗暗色主题 */

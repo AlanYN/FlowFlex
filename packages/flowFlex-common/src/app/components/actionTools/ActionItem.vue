@@ -1,6 +1,6 @@
 <template>
 	<div
-		class="action-item border border-gray-200 dark:border-gray-700 rounded-lg p-4 transition-all duration-200"
+		class="action-item border border-gray-200 dark:border-gray-700 rounded-xl p-4 transition-all duration-200"
 		:class="{
 			'action-dragging': isDragging,
 		}"
@@ -29,15 +29,10 @@
 				</div>
 			</div>
 			<div class="flex items-center space-x-2">
-				<el-button
-					size="small"
-					@click="onEdit"
-					:type="isSelected ? 'primary' : 'default'"
-					link
-				>
+				<el-button @click="onEdit" :type="isSelected ? 'primary' : 'default'" link>
 					{{ isSelected ? 'Editing' : 'Edit' }}
 				</el-button>
-				<el-button size="small" link type="danger" @click="onDelete" :icon="Delete" />
+				<el-button link type="danger" @click="onDelete" :icon="Delete" />
 			</div>
 		</div>
 

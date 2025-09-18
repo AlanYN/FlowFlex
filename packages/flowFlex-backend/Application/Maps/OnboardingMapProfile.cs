@@ -44,6 +44,11 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime))
+                // EstimatedDays priority: CustomEstimatedDays > EstimatedDays (from Stage)
+                .ForMember(dest => dest.EstimatedDays, opt => opt.MapFrom(src => src.CustomEstimatedDays ?? src.EstimatedDays))
+                // Keep CustomEstimatedDays for transparency
+                .ForMember(dest => dest.CustomEstimatedDays, opt => opt.MapFrom(src => src.CustomEstimatedDays))
+                .ForMember(dest => dest.CustomEndTime, opt => opt.MapFrom(src => src.CustomEndTime))
                 // AI summary fields
                 .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
                 .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))

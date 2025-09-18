@@ -137,109 +137,167 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-/* 外层div */
+/* 外层div - 统一样式 */
 .layout {
 	width: 100%;
+	min-height: 32px;
+	border: 1px solid var(--el-border-color, #dcdfe6);
+	padding: 4px 11px;
+	background-color: var(--el-fill-color-blank, #ffffff);
+	transition: all var(--el-transition-duration, 0.2s);
+	box-shadow: 0 0 0 1px transparent inset;
+	font-size: 14px;
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	min-height: 47px;
+	gap: 4px;
+	cursor: text;
 	box-sizing: border-box;
-	border: 1px solid;
-	border-radius: 8px;
-	font-size: 12px;
 	text-align: left;
-	padding: 6px 10px;
 	word-wrap: break-word;
 	overflow: hidden;
-	cursor: text;
-	@apply border-gray-200 bg-white-100;
+	@apply rounded-xl;
+}
+
+.layout:hover {
+	border-color: var(--el-border-color-hover, #c0c4cc);
+}
+
+.layout:focus-within {
+	border-color: var(--primary-500, #409eff);
+	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
 }
 
 .miniLayout {
 	min-height: 32px;
-	padding: 0 5px;
+	padding: 4px 11px;
 
 	.input-tag {
-		height: 32px;
-		line-height: 32px;
-		width: 250px;
-		font-size: 0.875rem;
-		padding: 0 5px;
+		height: 24px;
+		line-height: 24px;
+		min-width: 100px;
+		font-size: 14px;
+		padding: 0;
 	}
 }
 
-/* 标签 */
+/* 标签样式 - 统一设计 */
 .label-box {
+	height: 24px;
+	margin: 0;
+	background-color: var(--el-fill-color-light, #f5f7fa);
+	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px;
+	transition: all 0.2s ease;
 	flex-shrink: 0;
-	height: 25px;
-	margin: 2px 5px;
-	display: inline-block;
-	padding: 2px;
-	border: 1px solid;
-	border-radius: 6px;
-	@apply border-gray-400 bg-gray-100;
+	@apply rounded-xl;
 }
 
 .label-title {
-	line-height: 18px;
-	max-width: 99%;
-	position: relative;
-	display: inline-block;
-	padding-left: 8px;
-	color: #495060;
-	font-size: 14px;
-	opacity: 1;
+	font-size: 12px;
+	padding: 0;
+	line-height: 24px;
+	color: var(--el-text-color-regular, #606266);
+	font-weight: 500;
+	white-space: nowrap;
 	overflow: hidden;
-	transition: 0.25s linear;
+	text-overflow: ellipsis;
+	max-width: 120px;
 }
 
 .label-close {
-	padding: 0 10px 5px 8px;
-	display: inline-block;
-	opacity: 1;
-	filter: none;
+	padding: 0;
+	margin-left: 6px;
+	color: var(--el-text-color-placeholder, #a8abb2);
 	cursor: pointer;
-	transform: translateY(-6px);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--el-fill-color, #f0f2f5);
+	transition: all 0.2s ease;
+	transform: none;
+}
+
+.label-close:hover {
+	background: var(--el-fill-color-dark, #e6e8eb);
+	color: var(--el-text-color-regular, #606266);
 }
 
 .label-close:after {
-	content: 'x';
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-	line-height: 27px;
-}
-
-/* input */
-.input-tag {
+	content: '×';
 	font-size: 12px;
-	border: none;
-	box-shadow: none;
-	outline: none;
-	background-color: transparent;
-	padding: 0;
-	// width: 100%;
-	min-width: 150px;
-	height: 35px;
-	line-height: 35px;
+	line-height: 1;
+	font-weight: bold;
 }
 
-.dark {
+/* input样式 - 统一设计 */
+.input-tag {
+	min-width: 100px;
+	height: 24px;
+	line-height: 24px;
+	font-size: 14px;
+	color: var(--el-text-color-regular, #606266);
+	border: none;
+	outline: none;
+	background: transparent;
+	flex: 1;
+	padding: 0;
+	box-shadow: none;
+}
+
+.input-tag::placeholder {
+	color: var(--el-text-color-placeholder, #a8abb2);
+	font-size: 14px;
+}
+
+/* 暗色主题 - 统一设计 */
+html.dark {
 	.layout {
-		border: 0;
-		@apply bg-primary-500;
+		background-color: var(--black-200) !important;
+		border: 1px solid var(--black-200) !important;
+		color: var(--white-100) !important;
+	}
+
+	.layout:hover {
+		border-color: var(--black-100) !important;
+	}
+
+	.layout:focus-within {
+		border-color: var(--primary-500) !important;
+		box-shadow: 0 0 0 1px var(--primary-500) inset !important;
+	}
+
+	.input-tag {
+		color: var(--white-100) !important;
+		background-color: transparent !important;
+	}
+
+	.input-tag::placeholder {
+		color: var(--gray-300) !important;
 	}
 
 	.label-box {
-		@apply bg-transparent;
+		background-color: var(--black-300) !important;
+		border: 1px solid var(--black-100) !important;
+	}
 
-		.label-title {
-			@apply text-gray-50;
-		}
+	.label-title {
+		color: var(--white-100) !important;
+	}
 
-		.label-close {
-			@apply text-gray-400;
-		}
+	.label-close {
+		background: var(--black-200) !important;
+		color: var(--gray-300) !important;
+	}
+
+	.label-close:hover {
+		background: var(--black-100) !important;
+		color: var(--white-100) !important;
 	}
 }
 </style>

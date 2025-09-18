@@ -2,6 +2,8 @@
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Models;
 using SqlSugar;
+using Microsoft.AspNetCore.Http;
+using System.Linq;
 
 namespace FlowFlex.SqlSugarDB.Repositories.Action
 {
@@ -10,7 +12,12 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
     /// </summary>
     public class ActionExecutionRepository : BaseRepository<ActionExecution>, IActionExecutionRepository
     {
-        public ActionExecutionRepository(ISqlSugarClient dbContext) : base(dbContext) { }
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public ActionExecutionRepository(ISqlSugarClient dbContext, IHttpContextAccessor httpContextAccessor) : base(dbContext)
+        {
+            _httpContextAccessor = httpContextAccessor;
+        }
 
         /// <summary>
         /// Get executions by action definition ID
@@ -18,10 +25,15 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<List<ActionExecution>> GetByActionDefinitionIdAsync(long actionDefinitionId, int days = 30)
         {
             var startDate = DateTimeOffset.UtcNow.AddDays(-days);
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<ActionExecution>()
                 .Where(x => x.ActionDefinitionId == actionDefinitionId
                          && x.CreateDate >= startDate
-                         && x.IsValid)
+                         && x.IsValid
+                         && x.TenantId == currentTenantId
+                         && x.AppCode == currentAppCode)
                 .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
         }
@@ -32,10 +44,15 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         public async Task<List<ActionExecution>> GetByStatusAsync(string status, int days = 7)
         {
             var startDate = DateTimeOffset.UtcNow.AddDays(-days);
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<ActionExecution>()
                 .Where(x => x.ExecutionStatus == status
                          && x.CreateDate >= startDate
-                         && x.IsValid)
+                         && x.IsValid
+                         && x.TenantId == currentTenantId
+                         && x.AppCode == currentAppCode)
                 .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
         }
@@ -45,8 +62,14 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         /// </summary>
         public async Task<ActionExecution?> GetByExecutionIdAsync(string executionId)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<ActionExecution>()
-                .Where(x => x.ExecutionId == executionId && x.IsValid)
+                .Where(x => x.ExecutionId == executionId
+                         && x.IsValid
+                         && x.TenantId == currentTenantId
+                         && x.AppCode == currentAppCode)
                 .FirstAsync();
         }
 
@@ -55,9 +78,14 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         /// </summary>
         public async Task<List<ActionExecution>> GetFailedExecutionsAsync(int maxRetryCount = 3)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<ActionExecution>()
                 .Where(x => x.ExecutionStatus == "Failed"
-                         && x.IsValid)
+                         && x.IsValid
+                         && x.TenantId == currentTenantId
+                         && x.AppCode == currentAppCode)
                 .OrderBy(x => x.CreateDate)
                 .ToListAsync();
         }
@@ -73,8 +101,13 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             DateTimeOffset? startDate = null,
             DateTimeOffset? endDate = null)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             var query = db.Queryable<ActionExecution>()
-                .Where(x => x.IsValid);
+                .Where(x => x.IsValid
+                         && x.TenantId == currentTenantId
+                         && x.AppCode == currentAppCode);
 
             // Filter by action definition ID
             if (actionDefinitionId.HasValue)
@@ -173,11 +206,16 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             int pageSize = 10,
             List<JsonQueryCondition>? jsonConditions = null)
         {
+            // Get current tenant and app context for filtering
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             // Then query executions with action information
             var query = db.Queryable<ActionExecution>()
                 .InnerJoin<ActionTriggerMapping>((e, m) => e.ActionTriggerMappingId == m.Id)
                 .InnerJoin<ActionDefinition>((e, m, a) => m.ActionDefinitionId == a.Id && e.ActionDefinitionId == a.Id)
-                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId && e.IsValid);
+                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId && e.IsValid)
+                .Where((e, m, a) => e.TenantId == currentTenantId && e.AppCode == currentAppCode);
 
             // Apply JSON conditions if provided
             if (jsonConditions != null && jsonConditions.Count != 0)
@@ -286,6 +324,62 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             }
 
             return string.Join("->", pathParts);
+        }
+
+        /// <summary>
+        /// Get current tenant ID from HTTP context
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.TenantId;
+            }
+
+            // Fallback to headers
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault()
+                        ?? httpContext.Request.Headers["TenantId"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// Get current app code from HTTP context
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.AppCode;
+            }
+
+            // Fallback to headers
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault()
+                       ?? httpContext.Request.Headers["AppCode"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+
+            return "DEFAULT";
         }
     }
 }

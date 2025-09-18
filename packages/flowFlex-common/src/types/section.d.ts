@@ -5,9 +5,9 @@ export interface Section {
 	temporaryId: string;
 	name: string;
 	description?: string;
-	questions?: string[]; // 问题ID数组
+	questions: QuestionnaireSection[]; // 问题数组
 	order?: number;
-	items: QuestionnaireSection[];
+	isDefault?: boolean; // 标识是否为默认分区
 }
 
 export interface JumpRule {

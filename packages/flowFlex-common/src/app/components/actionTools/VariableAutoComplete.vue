@@ -671,7 +671,7 @@ watch(
 }
 
 .variables-dropdown {
-	@apply bg-white  dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden;
+	@apply bg-white  dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg overflow-hidden;
 	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 

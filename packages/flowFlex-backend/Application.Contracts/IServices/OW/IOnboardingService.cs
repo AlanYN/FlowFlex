@@ -63,6 +63,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> CompleteCurrentStageAsync(long id);
 
         /// <summary>
+        /// Complete current stage with validation - Internal version without event publishing
+        /// </summary>
+        Task<bool> CompleteCurrentStageInternalAsync(long id, CompleteCurrentStageInputDto input);
+
+        /// <summary>
         /// Complete current stage with validation
         /// </summary>
         Task<bool> CompleteCurrentStageAsync(long id, CompleteCurrentStageInputDto input);
@@ -207,6 +212,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> UpdateOnboardingStageAISummaryAsync(long onboardingId, long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed);
 
         /// <summary>
+        /// Update custom fields for a specific stage in onboarding's stagesProgress
+        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="input">Update stage custom fields input</param>
+        /// <returns>Success status</returns>
+        Task<bool> UpdateStageCustomFieldsAsync(long onboardingId, UpdateStageCustomFieldsInputDto input);
+
+        /// <summary>
         /// Save a specific stage in onboarding's stagesProgress
         /// Updates the stage's IsSaved, SaveTime, and SavedById fields
         /// </summary>
@@ -214,5 +228,26 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="stageId">Stage ID to save</param>
         /// <returns>Success status</returns>
         Task<bool> SaveStageAsync(long onboardingId, long stageId);
+
+        /// <summary>
+        /// Start onboarding (activate an inactive onboarding)
+        /// </summary>
+        Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input);
+
+
+        /// <summary>
+        /// Abort onboarding (terminate the process)
+        /// </summary>
+        Task<bool> AbortAsync(long id, AbortOnboardingInputDto input);
+
+        /// <summary>
+        /// Reactivate onboarding (restart an aborted onboarding)
+        /// </summary>
+        Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input);
+
+        /// <summary>
+        /// Resume onboarding with confirmation
+        /// </summary>
+        Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input);
     }
 }

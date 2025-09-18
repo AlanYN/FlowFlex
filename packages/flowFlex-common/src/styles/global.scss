@@ -72,8 +72,7 @@ body {
 
 ::-webkit-scrollbar-track {
 	-webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-	border-radius: 10px;
-	@apply bg-gray-800;
+	@apply bg-gray-800 rounded-xl;
 }
 
 ::-webkit-scrollbar-corner,
@@ -82,9 +81,8 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-	border-radius: 10px;
 	-webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-	@apply bg-gray-500;
+	@apply bg-gray-500 rounded-xl;
 }
 
 .opena8-switch {
@@ -104,8 +102,8 @@ body {
 }
 .opena8-switch.large > .opena8-switch-style {
 	height: 1.625rem !important;
-	border-radius: 1.625rem !important;
 	width: 3.375rem !important;
+	@apply rounded-xl;
 }
 .opena8-switch.large > .opena8-switch-style:before {
 	height: 1.5rem !important;
@@ -116,13 +114,13 @@ body {
 	height: 1rem;
 	left: 0;
 	background: #ea7724;
-	border-radius: 1rem;
 	display: inline-block;
 	position: relative;
 	top: 0;
 	transition: all 0.3s ease-in-out;
 	width: 2.5rem;
 	cursor: pointer;
+	@apply rounded-xl;
 }
 .opena8-switch-style:before {
 	display: block;
@@ -194,13 +192,13 @@ body {
 	align-items: center;
 	justify-content: center;
 	height: 24px;
-	border-radius: 4px;
 	font-style: normal;
 	font-weight: 400;
 	font-size: 14px;
 	line-height: 16px;
 	align-items: center;
 	text-align: center;
+	@apply rounded-xl;
 }
 
 .status_1 {
@@ -240,11 +238,11 @@ body {
 
 	background: #e6f1fa;
 	color: #000;
-	border-radius: 4px;
 
 	/* Inside auto layout */
 	flex: none;
 	flex-grow: 0;
+	@apply rounded-xl;
 }
 
 .status_inactive {
@@ -264,11 +262,11 @@ body {
 
 	background: #e6f3e8;
 	color: #000;
-	border-radius: 4px;
 
 	/* Inside auto layout */
 	flex: none;
 	flex-grow: 0;
+	@apply rounded-xl;
 }
 
 .el-select-dropdown__loading {

@@ -1,5 +1,5 @@
 <template>
-	<div class="bg-white dark:bg-black-300 rounded-lg">
+	<div class="bg-white dark:bg-black-300 rounded-xl">
 		<!-- 加载状态 -->
 		<div v-if="loading" class="text-center py-12">
 			<el-icon class="is-loading text-4xl text-primary-500 mb-4">
@@ -9,11 +9,11 @@
 		</div>
 		<div v-else-if="questionnaire" class="space-y-4 p-4">
 			<!-- 问卷基本信息 -->
-			<div class="questionnaire-header p-4 rounded-lg border">
+			<div class="questionnaire-header p-4 rounded-xl border">
 				<div class="flex items-start justify-between mb-4">
 					<div class="flex-1">
 						<h2 class="text-2xl font-bold questionnaire-title mb-2">
-							{{ questionnaire.title || questionnaire.name }}
+							{{ questionnaire.name }}
 						</h2>
 						<p
 							v-if="questionnaire.description"
@@ -97,7 +97,8 @@
 							<el-icon class="mr-1">
 								<Document />
 							</el-icon>
-							{{ questionnaire.totalQuestions }} items
+							{{ questionnaire.totalQuestions }}
+							{{ questionnaire.totalQuestions > 1 ? 'items' : 'item' }}
 						</div>
 						<div
 							v-if="questionnaire.requiredQuestions"
@@ -131,21 +132,22 @@
 			<div
 				v-for="(section, sectionIndex) in questionnaire.sections"
 				:key="section.id || sectionIndex"
-				class="section-container border rounded-lg overflow-hidden"
+				class="section-container border rounded-xl overflow-hidden"
 			>
 				<!-- 章节标题 -->
-				<div class="section-header p-4 border-b">
+				<div class="section-header p-4 border-b" v-if="!section.isDefault">
 					<div class="flex items-center justify-between">
 						<div>
 							<h3 class="text-lg font-medium section-title">
-								{{ section.name || `Section ${sectionIndex + 1}` }}
+								{{ section.name }}
 							</h3>
 							<p v-if="section.description" class="section-description mt-1">
 								{{ section.description }}
 							</p>
 						</div>
 						<div class="text-sm text-gray-500">
-							{{ section.items?.length || 0 }} items
+							{{ section.questions?.length || 0 }}
+							{{ section.questions?.length > 1 ? 'items' : 'item' }}
 						</div>
 					</div>
 				</div>
@@ -153,7 +155,7 @@
 				<!-- 章节问题 -->
 				<div class="p-4 space-y-6">
 					<div
-						v-for="(item, itemIndex) in section.items"
+						v-for="(item, itemIndex) in section.questions"
 						:key="item.id || itemIndex"
 						class="question-item space-y-3 pb-6 border-b border-gray-50 last:border-b-0 last:pb-0"
 					>
@@ -406,14 +408,14 @@
 									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 									:min="item.min"
 									:max="item.max"
-									:step="1"
+									:step="item.min"
 									:marks="getSliderMarks(item)"
 									:show-input="false"
 									class="preview-linear-scale"
 								/>
 								<div class="flex justify-between text-xs text-gray-500">
-									<span>{{ item.minLabel || item.min || 1 }}</span>
-									<span>{{ item.maxLabel || item.max || 5 }}</span>
+									<span>{{ item.minLabel || item.min }}</span>
+									<span>{{ item.maxLabel || item.max }}</span>
 								</div>
 							</div>
 
@@ -812,7 +814,7 @@ const initializePreviewData = () => {
 	const newPreviewData: Record<string, any> = {};
 
 	props.questionnaire.sections.forEach((section: any, sectionIndex: number) => {
-		section.items?.forEach((item: any, itemIndex: number) => {
+		section.questions?.forEach((item: any, itemIndex: number) => {
 			const key = getItemKey(sectionIndex, itemIndex);
 
 			// 根据问题类型设置默认值
@@ -839,10 +841,10 @@ const initializePreviewData = () => {
 					newPreviewData[key] = 0;
 					break;
 				case 'slider':
-					newPreviewData[key] = item.min || 0;
+					newPreviewData[key] = item?.min;
 					break;
 				case 'linear_scale':
-					newPreviewData[key] = item.min || 1;
+					newPreviewData[key] = item?.min;
 					break;
 				case 'multiple_choice_grid':
 					// 如果有网格数据（rows + columns），为每一行初始化多选值（数组）
@@ -1027,7 +1029,7 @@ const validateForm = (): ValidationResult => {
 	}
 
 	props.questionnaire.sections.forEach((section: any, sectionIndex: number) => {
-		section.items?.forEach((item: any, itemIndex: number) => {
+		section.questions?.forEach((item: any, itemIndex: number) => {
 			// 只校验必填字段
 			if (!item.required) return;
 
@@ -1264,8 +1266,8 @@ const getSelectedVoidIcon = (iconType: string) => {
 // 生成slider的刻度标记
 const getSliderMarks = (item: any) => {
 	const marks: Record<number, string> = {};
-	const min = item.min || 1;
-	const max = item.max || 5;
+	const min = item?.min;
+	const max = item?.max;
 
 	for (let i = min; i <= max; i++) {
 		marks[i] = '';
@@ -1279,11 +1281,11 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 	if (!props.questionnaire?.sections) return itemIndex + 1;
 
 	const section = props.questionnaire.sections[sectionIndex];
-	if (!section?.items) return itemIndex + 1;
+	if (!section?.questions) return itemIndex + 1;
 
 	let actualQuestionNumber = 1;
 	for (let i = 0; i <= itemIndex; i++) {
-		const item = section.items[i];
+		const item = section.questions[i];
 		if (item.type !== 'page_break') {
 			if (i === itemIndex) {
 				return actualQuestionNumber;
@@ -1515,9 +1517,8 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 
 	.grid-container {
 		border: 1px solid var(--primary-200);
-		border-radius: 0.375rem;
 		overflow: hidden;
-		@apply dark:border-black-200;
+		@apply dark:border-black-200 rounded-xl;
 	}
 
 	.grid-header {

@@ -61,7 +61,7 @@
 				</div>
 
 				<!-- Notes 列表 -->
-				<div class="notes-content" v-loading="notesLoading">
+				<div class="notes-content" v-loading="notesLoading" v-if="!showAddNoteInput">
 					<template v-if="notes && notes.length > 0">
 						<el-scrollbar class="notes-scrollbar" max-height="300px">
 							<div class="notes-list">
@@ -824,8 +824,8 @@ const formatFileSize = (bytes: number): string => {
 .task-basic-info {
 	background-color: #f8f9fa;
 	padding: 16px;
-	border-radius: 8px;
 	border-left: 4px solid #3b82f6;
+	@apply rounded-xl;
 }
 
 .task-info-item {
@@ -879,8 +879,8 @@ const formatFileSize = (bytes: number): string => {
 		margin-bottom: 16px;
 		padding: 12px;
 		background-color: #f8f9fa;
-		border-radius: 6px;
 		border: 1px solid #e5e7eb;
+		@apply rounded-xl;
 	}
 
 	.add-note-textarea {
@@ -893,8 +893,8 @@ const formatFileSize = (bytes: number): string => {
 	}
 
 	.notes-scrollbar {
-		border-radius: 6px;
 		border: 1px solid #e5e7eb;
+		@apply rounded-xl;
 	}
 
 	.notes-list {
@@ -911,8 +911,8 @@ const formatFileSize = (bytes: number): string => {
 		padding: 12px;
 		background-color: #f8f9fa;
 		border: 1px solid #e5e7eb;
-		border-radius: 6px;
 		transition: all 0.2s ease;
+		@apply rounded-xl;
 
 		&:hover {
 			border-color: #3b82f6;
@@ -979,8 +979,8 @@ const formatFileSize = (bytes: number): string => {
 		color: #9ca3af;
 		background-color: #f9fafb;
 		border: 2px dashed #d1d5db;
-		border-radius: 8px;
 		font-style: italic;
+		@apply rounded-xl;
 	}
 }
 
@@ -991,8 +991,8 @@ const formatFileSize = (bytes: number): string => {
 	}
 
 	.attachments-scrollbar {
-		border-radius: 6px;
 		border: 1px solid #e5e7eb;
+		@apply rounded-xl;
 	}
 
 	.attachments-list {
@@ -1009,8 +1009,8 @@ const formatFileSize = (bytes: number): string => {
 		padding: 12px;
 		background-color: #f8f9fa;
 		border: 1px solid #e5e7eb;
-		border-radius: 6px;
 		transition: all 0.2s ease;
+		@apply rounded-xl;
 
 		&:hover {
 			border-color: #3b82f6;
@@ -1067,8 +1067,8 @@ const formatFileSize = (bytes: number): string => {
 		color: #9ca3af;
 		background-color: #f9fafb;
 		border: 2px dashed #d1d5db;
-		border-radius: 8px;
 		font-style: italic;
+		@apply rounded-xl;
 	}
 }
 
@@ -1193,8 +1193,8 @@ const formatFileSize = (bytes: number): string => {
 	flex-direction: column;
 	gap: 8px;
 	padding: 8px;
-	border-radius: 6px;
 	border: 1px solid #e5e7eb;
+	@apply rounded-xl;
 }
 
 .progress-item {
@@ -1203,7 +1203,7 @@ const formatFileSize = (bytes: number): string => {
 	align-items: center;
 	padding: 8px;
 	background-color: #f8f9fa;
-	border-radius: 4px;
+	@apply rounded-xl;
 }
 
 .progress-info {

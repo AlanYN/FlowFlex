@@ -30,7 +30,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer
         /// 答案JSON
         /// </summary>
         [Required(ErrorMessage = "答案内容不能为空")]
-        [MaxLength(10000, ErrorMessage = "答案内容不能超过10000个字符")]
+        [MaxLength(100000, ErrorMessage = "答案内容不能超过100000个字符")] // 增加到100KB
         public string AnswerJson { get; set; } = string.Empty;
 
         /// <summary>

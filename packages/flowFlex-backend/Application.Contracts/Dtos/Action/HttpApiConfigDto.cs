@@ -34,5 +34,25 @@
         /// Whether to follow redirects
         /// </summary>
         public bool FollowRedirects { get; set; } = true;
+
+        /// <summary>
+        /// Whether to automatically download and save response content as file
+        /// </summary>
+        public bool AutoDownloadFile { get; set; } = false;
+
+        /// <summary>
+        /// File category for storage (used when AutoDownloadFile is true)
+        /// </summary>
+        public string FileCategory { get; set; } = "HttpApiDownload";
+
+        /// <summary>
+        /// Custom file name for downloaded file (optional, if not provided, will be generated)
+        /// </summary>
+        public string? CustomFileName { get; set; }
+
+        /// <summary>
+        /// Maximum file size to download in bytes (default: 100MB)
+        /// </summary>
+        public long MaxDownloadSize { get; set; } = 104857600; // 100MB
     }
 }

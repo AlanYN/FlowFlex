@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Http;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain;
@@ -23,12 +24,59 @@ namespace FlowFlex.Application.Services.OW
         private readonly EmailOptions _emailOptions;
         private readonly ILogger<EmailService> _logger;
         private readonly IEmailTemplateService _templateService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public EmailService(IOptions<EmailOptions> emailOptions, ILogger<EmailService> logger, IEmailTemplateService templateService)
+        public EmailService(
+            IOptions<EmailOptions> emailOptions,
+            ILogger<EmailService> logger,
+            IEmailTemplateService templateService,
+            IHttpContextAccessor httpContextAccessor)
         {
             _emailOptions = emailOptions.Value;
             _logger = logger;
             _templateService = templateService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private string GetRequestOrigin()
+        {
+            try
+            {
+                var context = _httpContextAccessor.HttpContext;
+                if (context == null)
+                {
+                    return "https://crm-staging.item.com";
+                }
+
+                var request = context.Request;
+
+                var scheme = request.Headers["X-Forwarded-Proto"].ToString();
+                if (string.IsNullOrWhiteSpace(scheme))
+                {
+                    scheme = request.Scheme;
+                }
+
+                var forwardedHost = request.Headers["X-Forwarded-Host"].ToString();
+                var host = !string.IsNullOrWhiteSpace(forwardedHost) ? forwardedHost : request.Host.Value;
+
+                //// Include forwarded port if provided and not already present in host
+                //var forwardedPort = request.Headers["X-Forwarded-Port"].ToString();
+                //if (!string.IsNullOrWhiteSpace(forwardedPort) && host != null && !host.Contains(":"))
+                //{
+                //    var isDefaultPort = (scheme == "https" && forwardedPort == "443") || (scheme == "http" && forwardedPort == "80");
+                //    if (!isDefaultPort)
+                //    {
+                //        host = $"{host}:{forwardedPort}";
+                //    }
+                //}
+
+                var origin = $"{scheme}://{host}".TrimEnd('/');
+                return string.IsNullOrWhiteSpace(origin) ? "https://crm-staging.item.com" : origin;
+            }
+            catch
+            {
+                return "https://crm-staging.item.com";
+            }
         }
 
         /// <summary>
@@ -69,11 +117,12 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var subject = "Welcome to ITEM WFE!";
+                var loginUrl = GetRequestOrigin();
                 var body = _templateService.Render("welcome_en", new Dictionary<string, object>
                 {
                     ["username"] = username,
                     ["email"] = to,
-                    ["loginUrl"] = "https://crm-staging.item.com",
+                    ["loginUrl"] = loginUrl,
                     ["year"] = DateTime.UtcNow.Year.ToString()
                 });
 

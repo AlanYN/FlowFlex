@@ -102,6 +102,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask
         public bool IsActive { get; set; }
 
         /// <summary>
+        /// 任务状态
+        /// </summary>
+        [StringLength(20)]
+        public string Status { get; set; }
+
+        /// <summary>
         /// 关联动作ID
         /// </summary>
         public long? ActionId { get; set; }

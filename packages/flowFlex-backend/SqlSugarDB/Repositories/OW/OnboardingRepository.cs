@@ -5,6 +5,7 @@ using FlowFlex.Domain.Shared;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using System.Linq.Expressions;
+using System.Collections.Generic;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
@@ -277,7 +278,14 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             entity.CurrentStageOrder = stageOrder;
             entity.ModifyDate = DateTimeOffset.UtcNow;
 
-            return await UpdateAsync(entity);
+            // Use selective update to avoid JSONB type conflicts
+            return await UpdateAsync(entity, it => new { 
+                it.CurrentStageId, 
+                it.CurrentStageOrder, 
+                it.ModifyDate,
+                it.ModifyBy,
+                it.ModifyUserId
+            });
         }
 
         /// <summary>
@@ -382,17 +390,34 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            entity.Status = status;
-            entity.ModifyDate = DateTimeOffset.UtcNow;
+            // Only update specific fields to avoid JSONB type conversion issues
+            var updateable = db.Updateable<Onboarding>()
+                .SetColumns(x => new Onboarding
+                {
+                    Status = status,
+                    ModifyDate = DateTimeOffset.UtcNow,
+                    ModifyBy = entity.ModifyBy,
+                    ModifyUserId = entity.ModifyUserId
+                })
+                .Where(x => x.Id == id);
 
             // If completed, set actual completion date
             if (status == "Completed" && !entity.ActualCompletionDate.HasValue)
             {
-                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
-                entity.CompletionRate = 100;
+                updateable = updateable.SetColumns(x => new Onboarding
+                {
+                    Status = status,
+                    ModifyDate = DateTimeOffset.UtcNow,
+                    ModifyBy = entity.ModifyBy,
+                    ModifyUserId = entity.ModifyUserId,
+                    ActualCompletionDate = DateTimeOffset.UtcNow,
+                    CompletionRate = 100
+                });
             }
 
-            return await UpdateAsync(entity);
+            var result = await updateable.ExecuteCommandAsync();
+
+            return result > 0;
         }
 
         /// <summary>
@@ -401,15 +426,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<Dictionary<string, object>> GetStatisticsAsync()
         {
             var totalCount = await CountAsync(x => x.IsValid);
-            var inProgressCount = await CountAsync(x => x.Status == "InProgress" && x.IsValid);
-            var completedCount = await CountAsync(x => x.Status == "Completed" && x.IsValid);
+            var inactiveCount = await CountAsync(x => x.Status == "Inactive" && x.IsValid);
+            var activeCount = await CountAsync(x => x.Status == "Active" && x.IsValid);
+            var completedCount = await CountAsync(x => (x.Status == "Completed" || x.Status == "Force Completed") && x.IsValid);
             var pausedCount = await CountAsync(x => x.Status == "Paused" && x.IsValid);
+            var abortedCount = await CountAsync(x => x.Status == "Aborted" && x.IsValid);
+
+            // Legacy status support for backward compatibility
+            var inProgressCount = await CountAsync(x => x.Status == "InProgress" && x.IsValid);
             var cancelledCount = await CountAsync(x => x.Status == "Cancelled" && x.IsValid);
 
             var overdueCount = await CountAsync(x =>
                 x.EstimatedCompletionDate.HasValue &&
                 x.EstimatedCompletionDate.Value < DateTimeOffset.UtcNow &&
                 x.Status != "Completed" &&
+                x.Status != "Force Completed" &&
+                x.Status != "Aborted" &&
                 x.IsValid);
 
             var allOnboardings = await GetListAsync(x => x.IsValid);
@@ -418,9 +450,13 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             return new Dictionary<string, object>
             {
                 { "TotalCount", totalCount },
-                { "InProgressCount", inProgressCount },
+                { "InactiveCount", inactiveCount },
+                { "ActiveCount", activeCount },
                 { "CompletedCount", completedCount },
                 { "PausedCount", pausedCount },
+                { "AbortedCount", abortedCount },
+                // Legacy status counts for backward compatibility
+                { "InProgressCount", inProgressCount },
                 { "CancelledCount", cancelledCount },
                 { "OverdueCount", overdueCount },
                 { "AverageCompletionRate", averageCompletionRate }
@@ -493,21 +529,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // 显式添加租户和应用过滤条件
             var query = db.Queryable<Onboarding>().Where(x => x.IsValid == true);
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetListAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 显式添加过滤条件
             query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 执行查询
             var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync(cancellationToken);
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetListAsync returned {result.Count} onboardings with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -531,21 +567,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
                 _logger.LogInformation($"[OnboardingRepository] GetPageListAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
             }
-            
+
             // 获取当前租户ID和应用代码
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetPageListAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             // 添加租户和应用过滤条件
             whereExpressionList.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-            
+
             // 调用基类方法
             var result = await base.GetPageListAsync(whereExpressionList, pageIndex, pageSize, orderByExpression, isAsc, selectedColumnExpression, cancellationToken);
-            
+
             _logger.LogInformation($"[OnboardingRepository] GetPageListAsync returned {result.datas.Count} onboardings out of {result.total} total with TenantId={currentTenantId}, AppCode={currentAppCode}");
-            
+
             return result;
         }
 
@@ -555,22 +591,22 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<List<Onboarding>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
         {
             _logger.LogInformation($"[OnboardingRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
-            
+
             // 临时禁用全局过滤器
             db.QueryFilter.ClearAndBackup();
-            
+
             try
             {
                 // 使用显式过滤条件
                 var query = db.Queryable<Onboarding>()
                     .Where(x => x.IsValid == true)
                     .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
-                
+
                 // 执行查询
                 var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
-                
+
                 _logger.LogInformation($"[OnboardingRepository] GetListWithExplicitFiltersAsync returned {result.Count} onboardings with explicit filters");
-                
+
                 return result;
             }
             finally

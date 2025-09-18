@@ -40,6 +40,8 @@ export const smallDialogWidth = '344'; // 项目简单操作弹窗的宽
 
 export const bigDialogWidth = '844'; // 项目复杂操作弹窗的宽
 
+export const moreDialogWidth = '80%'; // 项目复杂操作弹窗的宽
+
 export const searchButton = false; // 是否显示搜索按钮
 
 export const changeI18nButton = false; // 是否显示切换语言按钮

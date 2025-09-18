@@ -47,7 +47,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     Console.WriteLine("Creating AIPromptHistory table...");
                     db.CodeFirst.InitTables<AIPromptHistory>();
                     Console.WriteLine("AIPromptHistory table created successfully.");
-                    
+
                     // 验证表结构
                     var columns = db.DbMaintenance.GetColumnInfosByTableName("ff_ai_prompt_history", false);
                     Console.WriteLine($"Table created with {columns.Count} columns:");
@@ -67,76 +67,76 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         ALTER TABLE ff_ai_prompt_history 
                         ALTER COLUMN onboarding_id DROP NOT NULL;
                     ");
-                    
+
                     // 创建索引以提高查询性能
                     Console.WriteLine("Creating indexes on AIPromptHistory...");
-                    
+
                     // 1. 按实体类型和ID查询的索引（用于查找特定实体的AI历史）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_entity 
                         ON ff_ai_prompt_history (entity_type, entity_id, create_date DESC) 
                         WHERE entity_type IS NOT NULL AND entity_id IS NOT NULL;
                     ");
-                    
+
                     // 2. 按Onboarding ID查询的索引（用于查找特定入职流程的AI历史）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_onboarding 
                         ON ff_ai_prompt_history (onboarding_id, create_date DESC) 
                         WHERE onboarding_id IS NOT NULL;
                     ");
-                    
+
                     // 3. 按用户查询的索引（用于查找特定用户的AI使用历史）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_user 
                         ON ff_ai_prompt_history (user_id, create_date DESC) 
                         WHERE user_id IS NOT NULL;
                     ");
-                    
+
                     // 4. 按Prompt类型查询的索引（用于分析不同AI功能的使用情况）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_type 
                         ON ff_ai_prompt_history (prompt_type, create_date DESC);
                     ");
-                    
+
                     // 5. 按模型提供商查询的索引（用于分析不同AI模型的使用情况）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_provider 
                         ON ff_ai_prompt_history (model_provider, create_date DESC) 
                         WHERE model_provider IS NOT NULL;
                     ");
-                    
+
                     // 6. 按成功状态查询的索引（用于查找失败的AI请求）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_success 
                         ON ff_ai_prompt_history (is_success, create_date DESC);
                     ");
-                    
+
                     // 7. 按租户和应用过滤的复合索引（多租户支持）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_tenant_app 
                         ON ff_ai_prompt_history (tenant_id, app_code, is_valid, create_date DESC);
                     ");
-                    
+
                     // 8. 按响应时间查询的索引（用于性能分析）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_performance 
                         ON ff_ai_prompt_history (response_time_ms DESC, create_date DESC) 
                         WHERE response_time_ms IS NOT NULL;
                     ");
-                    
+
                     // 9. 按模型和类型的复合索引（用于分析特定模型在特定功能上的表现）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_model_type 
                         ON ff_ai_prompt_history (model_provider, prompt_type, create_date DESC) 
                         WHERE model_provider IS NOT NULL;
                     ");
-                    
+
                     // 10. 按日期范围查询的索引（用于时间范围分析）
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_date_range 
                         ON ff_ai_prompt_history (create_date DESC, prompt_type, is_success);
                     ");
-                    
+
                     // 11. 用于清理旧记录的索引
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_ai_prompt_history_cleanup 
@@ -145,7 +145,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ");
 
                     Console.WriteLine("All 11 indexes created successfully.");
-                    
+
                     // 添加表注释（如果数据库支持）
                     try
                     {

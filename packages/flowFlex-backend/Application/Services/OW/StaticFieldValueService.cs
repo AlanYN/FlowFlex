@@ -23,7 +23,7 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly IStaticFieldValueRepository _staticFieldValueRepository;
         private readonly IStageRepository _stageRepository;
-    
+
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IMapper _mapper;
@@ -32,7 +32,7 @@ namespace FlowFlex.Application.Services.OW
         public StaticFieldValueService(
             IStaticFieldValueRepository staticFieldValueRepository,
             IStageRepository stageRepository,
-    
+
             IOnboardingRepository onboardingRepository,
             IOperationChangeLogService operationChangeLogService,
             IMapper mapper,
@@ -40,7 +40,7 @@ namespace FlowFlex.Application.Services.OW
         {
             _staticFieldValueRepository = staticFieldValueRepository;
             _stageRepository = stageRepository;
-    
+
             _onboardingRepository = onboardingRepository;
             _operationChangeLogService = operationChangeLogService;
             _mapper = mapper;
@@ -97,6 +97,9 @@ namespace FlowFlex.Application.Services.OW
         public async Task<long> SaveAsync(StaticFieldValueInputDto input)
         {
             var entity = _mapper.Map<StaticFieldValue>(input);
+
+            // Ensure FieldValueJson is properly formatted as JSON
+            entity.FieldValueJson = EnsureValidJson(entity.FieldValueJson);
 
             // Check if record exists
             var existingEntity = await _staticFieldValueRepository.GetByOnboardingStageAndFieldAsync(
@@ -168,6 +171,9 @@ namespace FlowFlex.Application.Services.OW
                 entity.Source = input.Source;
                 entity.IpAddress = input.IpAddress;
                 entity.UserAgent = input.UserAgent;
+
+                // Ensure FieldValueJson is properly formatted as JSON
+                entity.FieldValueJson = EnsureValidJson(entity.FieldValueJson);
 
                 // Initialize create/update information
                 entity.InitCreateInfo(_userContext);
@@ -393,7 +399,7 @@ namespace FlowFlex.Application.Services.OW
                         StageId = sourceFieldValue.StageId,
                         FieldName = sourceFieldValue.FieldName,
                         DisplayName = sourceFieldValue.DisplayName,
-                        FieldValueJson = sourceFieldValue.FieldValueJson,
+                        FieldValueJson = EnsureValidJson(sourceFieldValue.FieldValueJson),
                         FieldType = sourceFieldValue.FieldType,
                         IsRequired = sourceFieldValue.IsRequired,
                         Status = "Draft",
@@ -490,6 +496,32 @@ namespace FlowFlex.Application.Services.OW
                 changedFields.Add("ValidationStatus");
 
             return changedFields;
+        }
+
+        /// <summary>
+        /// Ensure the input string is valid JSON format
+        /// If not valid JSON, convert to JSON string
+        /// </summary>
+        /// <param name="input">Input string</param>
+        /// <returns>Valid JSON string</returns>
+        private static string EnsureValidJson(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return "null";
+            }
+
+            // Try to parse as JSON first
+            try
+            {
+                JsonDocument.Parse(input);
+                return input; // Already valid JSON
+            }
+            catch (JsonException)
+            {
+                // Not valid JSON, serialize as JSON string
+                return JsonSerializer.Serialize(input);
+            }
         }
     }
 }

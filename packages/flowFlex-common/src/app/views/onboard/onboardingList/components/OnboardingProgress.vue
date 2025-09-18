@@ -1,33 +1,40 @@
 <template>
-	<el-card class="shadow-sm">
-		<!-- 可折叠的头部 -->
-		<template #header>
-			<div
-				class="bg-gradient-to-r from-primary-600 to-indigo-600 text-white -mx-5 -mt-5 px-5 py-4 rounded-t-lg cursor-pointer hover:from-primary-700 hover:to-indigo-700 transition-colors"
-				@click="toggleOpen"
-			>
-				<div class="flex items-center justify-between">
-					<h3 class="text-lg font-semibold">Onboarding Progress</h3>
-					<div class="flex items-center space-x-2">
-						<span class="text-sm font-medium">{{ progressPercentage }}% Complete</span>
-						<el-icon class="transition-transform" :class="{ 'rotate-180': !isOpen }">
-							<ArrowDown />
+	<div class="customer-block">
+		<!-- 统一的头部卡片 -->
+		<div
+			class="progress-header-card rounded-xl"
+			:class="{ expanded: isOpen }"
+			@click="toggleOpen"
+		>
+			<div class="flex justify-between">
+				<div>
+					<div class="flex items-center">
+						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isOpen }">
+							<ArrowRight />
 						</el-icon>
+						<h3 class="progress-title">Case Progress</h3>
 					</div>
+					<div class="progress-subtitle"></div>
 				</div>
-				<!-- 进度条 -->
-				<div class="w-full bg-white/25 rounded-full h-1.5 mt-6">
+				<div class="progress-info">
+					<span class="progress-percentage">{{ progressPercentage }}%</span>
+					<span class="progress-label">Completed</span>
+				</div>
+			</div>
+			<!-- 统一进度条 -->
+			<div class="progress-bar-container">
+				<div class="progress-bar rounded-xl">
 					<div
-						class="bg-white h-1.5 rounded-full transition-all duration-300"
+						class="progress-fill rounded-xl"
 						:style="{ width: `${progressPercentage}%` }"
 					></div>
 				</div>
 			</div>
-		</template>
+		</div>
 
 		<!-- 可折叠的内容 -->
 		<el-collapse-transition>
-			<div v-show="isOpen" class="pt-4 p-4">
+			<div v-show="isOpen" class="p-4">
 				<!-- View All Stages 切换按钮 -->
 				<div class="mb-4">
 					<el-button
@@ -45,21 +52,24 @@
 						<div
 							v-for="(stage, index) in displayedStages"
 							:key="stage.stageId"
-							class="relative pl-8 py-3 pr-4 ml-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-black-300 rounded-r-lg"
+							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-xl min-w-0 w-full"
 							:class="[
 								stage.completed
 									? 'border-green-500'
 									: 'border-gray-300 dark:border-gray-600',
 								activeStage === stage.stageId
-									? 'bg-primary-50 dark:bg-primary-900/20'
+									? 'bg-indigo-50 dark:bg-indigo-900/30'
 									: '',
 								index === displayedStages.length - 1 ? '!border-l-0' : '',
+								isStageAccessible(stage)
+									? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-indigo-900/20'
+									: 'cursor-not-allowed opacity-60 hover:bg-gray-100 dark:hover:bg-indigo-900/10',
 							]"
 							@click="handleStageClick(stage.stageId)"
 						>
 							<!-- 阶段状态图标 -->
 							<div
-								class="absolute left-0 top-3 w-6 h-6 rounded-full flex items-center justify-center"
+								class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
 								:class="[
 									stage.completed
 										? 'bg-green-500 text-white'
@@ -80,32 +90,58 @@
 							</div>
 
 							<!-- 阶段内容 -->
-							<div class="space-y-1">
-								<div class="font-medium flex items-start">
+							<div class="space-y-1 w-full min-w-0">
+								<div class="font-medium flex items-start min-w-0">
 									<span
-										class="mr-2 text-sm font-bold text-gray-500 dark:text-gray-400"
+										class="mr-2 text-sm font-bold text-gray-500 dark:text-gray-400 flex-shrink-0"
 									>
 										{{ getOriginalStageIndex(stage) + 1 }}.
 									</span>
-									<div class="flex-1">
-										<div
-											class="text-gray-900 dark:text-white-100 text-sm stage-title-text"
-											:title="stage.title"
-										>
-											{{ stage.title }}
+									<div class="flex-1 min-w-0">
+										<div class="flex items-center gap-2 min-w-0">
+											<div
+												class="text-gray-900 dark:text-white-100 text-sm stage-title-text flex-1 min-w-0"
+												:title="stage.title"
+											>
+												{{ stage.title }}
+											</div>
+											<!-- Action Tag for completed stages -->
+											<div
+												v-if="
+													stage.completed &&
+													stage.actions &&
+													stage.actions.length > 0
+												"
+												class="flex items-center gap-2 flex-shrink-0"
+											>
+												<ActionTag
+													:actions="stage.actions"
+													:triggerSourceId="stage.stageId"
+													:onboarding-id="onboardingData.id"
+													type="warning"
+													size="small"
+												/>
+											</div>
 										</div>
 									</div>
 								</div>
 								<div
-									v-if="stage.completed && stage.date"
-									class="text-xs text-green-600 dark:text-green-400 ml-6"
+									v-if="stage.completedBy || stage.savedBy"
+									class="text-xs text-green-600 dark:text-green-400 ml-6 min-w-0"
 								>
 									<span
-										class="completion-info-text"
-										:title="`Completed by ${stage.completedBy} on ${stage.date}`"
+										class="completion-info-text block min-w-0"
+										:title="
+											stage.showSaveOrComplete
+												? `Save by ${stage.savedBy} on ${stage.saveTime}`
+												: `Completed by ${stage.completedBy} on ${stage.date}`
+										"
 									>
-										Completed by {{ stage.completedBy }} on
-										{{ stage.date }}
+										{{
+											stage.showSaveOrComplete
+												? `Save by ${stage.savedBy} on ${stage.saveTime}`
+												: `Completed by ${stage.completedBy} on ${stage.date}`
+										}}
 									</span>
 								</div>
 							</div>
@@ -114,21 +150,23 @@
 				</el-scrollbar>
 			</div>
 		</el-collapse-transition>
-	</el-card>
+	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Check, Clock, ArrowDown, ArrowUp } from '@element-plus/icons-vue';
-import { OnboardingItem } from '#/onboard';
+import { Check, Clock, ArrowDown, ArrowUp, ArrowRight } from '@element-plus/icons-vue';
+import { OnboardingItem, Stage } from '#/onboard';
 import { timeZoneConvert } from '@/hooks/time';
 import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import ActionTag from '@/components/actionTools/ActionTag.vue';
 
 // Props
 interface Props {
 	activeStage: string;
 	onboardingData: OnboardingItem;
-	workflowStages: any[]; // 从父组件传递的工作流阶段
+	workflowStages: Stage[]; // 从父组件传递的工作流阶段
+	stageAccessCheck?: (stageId: string) => boolean; // 阶段访问权限检查函数
 }
 
 const props = defineProps<Props>();
@@ -143,6 +181,30 @@ const emit = defineEmits<{
 const isOpen = ref(true);
 const showAllStages = ref(true);
 
+// 判断显示保存还是完成状态的函数
+const getSaveOrCompleteFlag = (completionTime: string, saveTime: string): boolean => {
+	// 如果没有保存时间或完成时间，返回false
+	if (!saveTime || !completionTime) {
+		return !!saveTime;
+	}
+
+	try {
+		const saveDate = new Date(saveTime);
+		const completeDate = new Date(completionTime);
+
+		// 验证日期是否有效
+		if (isNaN(saveDate.getTime()) || isNaN(completeDate.getTime())) {
+			return false;
+		}
+
+		// 如果saveTime的时间比completionTime更大，则显示保存状态
+		return saveDate > completeDate;
+	} catch (error) {
+		console.error('Error comparing times:', error);
+		return false;
+	}
+};
+
 // 计算属性
 const stages = computed(() => {
 	// 根据传入的工作流阶段和当前业务数据设置阶段完成状态
@@ -151,8 +213,13 @@ const stages = computed(() => {
 		title: stage.stageName, // 使用 name 作为 title
 		completed: stage.isCompleted,
 		date: timeZoneConvert(stage?.completionTime || '', false, projectTenMinutesSsecondsDate),
+		saveTime: timeZoneConvert(stage?.saveTime || '', false, projectTenMinutesSsecondsDate),
 		assignee: stage.defaultAssignedGroup || defaultStr,
 		completedBy: stage.completedBy,
+		showSaveOrComplete: getSaveOrCompleteFlag(
+			stage?.completionTime || '',
+			stage?.saveTime || ''
+		),
 	}));
 });
 
@@ -184,6 +251,14 @@ const getOriginalStageIndex = (stage: any) => {
 	return stages.value.findIndex((s) => s.stageId === stage.stageId);
 };
 
+// 检查阶段是否可以访问
+const isStageAccessible = (stage: any): boolean => {
+	if (!props.stageAccessCheck) {
+		return true; // 如果没有权限检查函数，默认允许访问
+	}
+	return props.stageAccessCheck(stage.stageId);
+};
+
 // 事件处理函数
 const toggleOpen = () => {
 	isOpen.value = !isOpen.value;
@@ -193,7 +268,15 @@ const toggleStagesView = () => {
 	showAllStages.value = !showAllStages.value;
 };
 
-const handleStageClick = (stageId: string) => {
+const handleStageClick = (stageId?: string) => {
+	if (!stageId) return;
+	// 如果提供了权限检查函数，先检查权限
+	if (props.stageAccessCheck && !props.stageAccessCheck(stageId)) {
+		// 权限检查失败，不发送事件，让父组件处理
+		emit('setActiveStage', stageId);
+		return;
+	}
+
 	emit('setActiveStage', stageId);
 };
 
@@ -208,12 +291,109 @@ watch(
 </script>
 
 <style scoped lang="scss">
-:deep(.el-card__body) {
-	@apply p-0;
+/* 统一的头部卡片样式 */
+.progress-header-card {
+	background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+	padding: 10px;
+	color: white;
+	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+
+	&:hover {
+		box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+		transform: translateY(-1px);
+	}
 }
 
-:deep(.el-card__header) {
-	@apply pb-0;
+.progress-title {
+	font-size: 18px;
+	font-weight: 600;
+	margin: 0 0 4px 0;
+}
+
+.progress-subtitle {
+	font-size: 14px;
+	opacity: 0.9;
+	height: 21px;
+}
+
+.progress-info {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	text-align: right;
+}
+
+.progress-percentage {
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1;
+	color: white;
+}
+
+.progress-label {
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.9);
+	margin-top: 2px;
+}
+
+.progress-bar-container {
+	width: 100%;
+}
+
+.progress-bar {
+	width: 100%;
+	height: 8px;
+	background-color: rgba(255, 255, 255, 0.4);
+	overflow: hidden;
+}
+
+.progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #a5b4fc 0%, #6366f1 50%, #4338ca 100%);
+	box-shadow: 0 2px 8px rgba(99, 102, 241, 0.7);
+	transition: width 0.3s ease;
+}
+
+.expand-icon {
+	transition: transform 0.2s ease;
+
+	&.rotated {
+		transform: rotate(90deg);
+	}
+}
+
+/* 暗色主题样式 */
+html.dark {
+	.progress-header-card {
+		background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+		box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);
+	}
+
+	.progress-bar {
+		background-color: rgba(255, 255, 255, 0.3);
+	}
+
+	.progress-fill {
+		background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 50%, #4338ca 100%);
+		box-shadow: 0 2px 10px rgba(139, 92, 246, 0.8);
+	}
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+	.progress-header-card {
+		padding: 16px;
+	}
+
+	.progress-info {
+		align-items: flex-start;
+		text-align: left;
+	}
 }
 
 .rotate-180 {
@@ -225,8 +405,7 @@ watch(
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	max-width: 100%;
-	display: block;
+	width: 100%;
 	cursor: help;
 }
 
@@ -235,7 +414,6 @@ watch(
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	max-width: 100%;
-	display: block;
+	width: 100%;
 }
 </style>

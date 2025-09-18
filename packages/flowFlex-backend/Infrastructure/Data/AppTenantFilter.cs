@@ -24,9 +24,9 @@ namespace FlowFlex.Infrastructure.Data
             // 获取当前租户ID和应用代码，并打印日志
             var tenantId = GetCurrentTenantId(httpContextAccessor);
             var appCode = GetCurrentAppCode(httpContextAccessor);
-            
+
             Console.WriteLine($"[AppTenantFilter] Configuring filters with TenantId: {tenantId}, AppCode: {appCode}");
-            
+
             // 检查 HttpContext 中的请求头
             var httpContext = httpContextAccessor?.HttpContext;
             if (httpContext != null)
@@ -34,14 +34,14 @@ namespace FlowFlex.Infrastructure.Data
                 var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
                 var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
                 Console.WriteLine($"[AppTenantFilter] Request headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
-                
+
                 // 检查 HttpContext.Items 中的值
                 if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) && appContextObj is AppContext appContext)
                 {
                     Console.WriteLine($"[AppTenantFilter] AppContext from HttpContext.Items: TenantId={appContext.TenantId}, AppCode={appContext.AppCode}");
                 }
             }
-            
+
             // Add tenant filter for AbstractEntityBase
             db.QueryFilter.AddTableFilter<AbstractEntityBase>(entity =>
                 entity.TenantId == GetCurrentTenantId(httpContextAccessor));
@@ -60,7 +60,7 @@ namespace FlowFlex.Infrastructure.Data
 
             // Add specific filters for concrete entity types to ensure they work
             // This is needed because SqlSugar inheritance filtering sometimes doesn't work as expected
-            
+
             // Workflow filters
             db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Workflow>(entity =>
                 entity.TenantId == GetCurrentTenantId(httpContextAccessor));
@@ -96,7 +96,7 @@ namespace FlowFlex.Infrastructure.Data
                 entity.TenantId == GetCurrentTenantId(httpContextAccessor));
             db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Questionnaire>(entity =>
                 entity.AppCode == GetCurrentAppCode(httpContextAccessor));
-                
+
             Console.WriteLine($"[AppTenantFilter] Successfully configured {db.QueryFilter.GeFilterList?.Count ?? 0} filters");
         }
 

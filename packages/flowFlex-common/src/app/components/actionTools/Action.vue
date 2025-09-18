@@ -136,7 +136,7 @@ const editAction = async (index: number) => {
 				currentActionForEdit.value = {
 					...res?.data,
 					actionConfig: JSON.parse(res?.data?.actionConfig || '{}'),
-					type: res?.data?.actionType === 1 ? 'python' : 'http',
+					type: res?.data?.actionType,
 				};
 			}
 			nextTick(() => {

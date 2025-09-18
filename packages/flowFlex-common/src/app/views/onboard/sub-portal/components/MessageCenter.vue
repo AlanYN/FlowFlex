@@ -412,7 +412,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .message-center {
 	padding: 20px;
 }
@@ -450,8 +450,8 @@ export default {
 .stat-icon {
 	font-size: 24px;
 	padding: 12px;
-	border-radius: 8px;
 	background-color: #f3f4f6;
+	@apply rounded-xl;
 }
 
 .stat-value {
@@ -576,7 +576,7 @@ export default {
 	background-color: #f9fafb;
 	border-left: 4px solid #e5e7eb;
 	padding: 16px;
-	border-radius: 4px;
+	@apply rounded-xl;
 }
 
 .original-header {

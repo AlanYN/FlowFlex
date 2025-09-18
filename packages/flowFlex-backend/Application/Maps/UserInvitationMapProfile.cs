@@ -26,8 +26,8 @@ namespace FlowFlex.Application.Maps
             // This includes: Pending, Used, Active
             if (status == "Inactive")
                 return "Inactive";
-            
-                return "Active";
+
+            return "Active";
         }
     }
 }

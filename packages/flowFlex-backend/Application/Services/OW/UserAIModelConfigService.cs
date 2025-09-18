@@ -165,21 +165,21 @@ namespace FlowFlex.Application.Services.OW
                 // 从HTTP请求头获取租户信息，实现真正的租户隔离
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
-                
+
                 _logger.LogInformation("Getting AI model configurations for Tenant: {TenantId}, App: {AppCode}", tenantId, appCode);
-                
+
                 var configs = await _repository.GetByTenantAndAppAsync(tenantId, appCode);
-                
+
                 // 解密 API Key 用于返回给前端
                 ProcessApiKeyEncryptionBatch(configs, false);
-                
+
                 return configs;
             }
             catch (Exception ex)
             {
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
-                _logger.LogError(ex, "Failed to get AI model configuration list, Tenant ID: {TenantId}, App Code: {AppCode}", 
+                _logger.LogError(ex, "Failed to get AI model configuration list, Tenant ID: {TenantId}, App Code: {AppCode}",
                     tenantId, appCode);
                 return new List<AIModelConfig>();
             }
@@ -197,24 +197,24 @@ namespace FlowFlex.Application.Services.OW
                 // 从HTTP请求头获取租户信息，实现真正的租户隔离
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
-                
+
                 _logger.LogInformation("Getting default AI model configuration for Tenant: {TenantId}, App: {AppCode}", tenantId, appCode);
-                
+
                 var config = await _repository.GetDefaultByTenantAndAppAsync(tenantId, appCode);
-                
+
                 // 解密 API Key 用于返回给前端
                 if (config != null)
                 {
                     ProcessApiKeyEncryption(config, false);
                 }
-                
+
                 return config;
             }
             catch (Exception ex)
             {
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
-                _logger.LogError(ex, "Failed to get default AI model configuration, Tenant ID: {TenantId}, App Code: {AppCode}", 
+                _logger.LogError(ex, "Failed to get default AI model configuration, Tenant ID: {TenantId}, App Code: {AppCode}",
                     tenantId, appCode);
                 return null;
             }
@@ -231,13 +231,13 @@ namespace FlowFlex.Application.Services.OW
             {
                 // 使用租户隔离，仓储层会自动过滤
                 var config = await _repository.GetByIdAsync(configId);
-                
+
                 // 解密 API Key 用于返回给调用方
                 if (config != null)
                 {
                     ProcessApiKeyEncryption(config, false);
                 }
-                
+
                 return config;
             }
             catch (Exception ex)
@@ -287,12 +287,12 @@ namespace FlowFlex.Application.Services.OW
                 // 从HTTP请求头获取租户信息
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
-                
+
                 // 设置配置的租户信息
                 config.TenantId = tenantId;
                 config.AppCode = appCode;
-                
-                _logger.LogInformation("Creating AI model configuration for Tenant: {TenantId}, App: {AppCode}, Provider: {Provider}", 
+
+                _logger.LogInformation("Creating AI model configuration for Tenant: {TenantId}, App: {AppCode}, Provider: {Provider}",
                     tenantId, appCode, config.Provider);
 
                 // 注释掉提供商重复检查，允许同一租户下同一提供商的多个配置
@@ -303,8 +303,8 @@ namespace FlowFlex.Application.Services.OW
                 //         tenantId, appCode, config.Provider);
                 //     throw new Exception($"Configuration for {config.Provider} provider already exists");
                 // }
-                
-                _logger.LogInformation("Creating new AI model configuration, Tenant ID: {TenantId}, App Code: {AppCode}, Provider: {Provider}", 
+
+                _logger.LogInformation("Creating new AI model configuration, Tenant ID: {TenantId}, App Code: {AppCode}, Provider: {Provider}",
                     tenantId, appCode, config.Provider);
 
                 // 新创建的配置默认不设为默认配置，用户可以通过UI手动设置
@@ -333,7 +333,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
-                _logger.LogError(ex, "Failed to create AI model configuration, Tenant ID: {TenantId}, App Code: {AppCode}, Provider: {Provider}", 
+                _logger.LogError(ex, "Failed to create AI model configuration, Tenant ID: {TenantId}, App Code: {AppCode}, Provider: {Provider}",
                     tenantId, appCode, config.Provider);
                 throw;
             }
@@ -409,10 +409,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // 软删除配置
                 config.IsValid = false;
-                
+
                 // 使用UserContext初始化更新信息
                 config.InitUpdateInfo(_userContext);
-                
+
                 return await _repository.UpdateAsync(config);
             }
             catch (Exception ex)
@@ -434,8 +434,8 @@ namespace FlowFlex.Application.Services.OW
                 // 从HTTP请求头获取租户信息
                 var tenantId = GetCurrentTenantId();
                 var appCode = GetCurrentAppCode();
-                
-                _logger.LogInformation("Setting default AI model configuration for Tenant: {TenantId}, App: {AppCode}, Config ID: {ConfigId}", 
+
+                _logger.LogInformation("Setting default AI model configuration for Tenant: {TenantId}, App: {AppCode}, Config ID: {ConfigId}",
                     tenantId, appCode, configId);
 
                 // 使用租户隔离获取配置
@@ -449,7 +449,7 @@ namespace FlowFlex.Application.Services.OW
                 // 验证配置属于当前租户
                 if (config.TenantId != tenantId || config.AppCode != appCode)
                 {
-                    _logger.LogWarning("Configuration does not belong to current tenant, Config ID: {ConfigId}, Config Tenant: {ConfigTenantId}, Current Tenant: {CurrentTenantId}", 
+                    _logger.LogWarning("Configuration does not belong to current tenant, Config ID: {ConfigId}, Config Tenant: {ConfigTenantId}, Current Tenant: {CurrentTenantId}",
                         configId, config.TenantId, tenantId);
                     return false;
                 }
@@ -521,27 +521,27 @@ namespace FlowFlex.Application.Services.OW
                 // AI services may need more time to respond, especially for initial connections
                 var timeoutSeconds = _aiOptions.ConnectionTest.TimeoutSeconds;
                 httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
-                
+
                 if (_aiOptions.ConnectionTest.EnableDetailedLogging)
                 {
-                    _logger.LogInformation("Starting AI model connection test, Provider: {Provider}, Timeout: {Timeout}s", 
+                    _logger.LogInformation("Starting AI model connection test, Provider: {Provider}, Timeout: {Timeout}s",
                         config.Provider, timeoutSeconds);
                 }
 
                 // Add retry mechanism for connection tests
                 var maxRetries = _aiOptions.ConnectionTest.MaxRetryAttempts;
                 var retryDelay = _aiOptions.ConnectionTest.RetryDelayMs;
-                
+
                 for (int attempt = 1; attempt <= maxRetries + 1; attempt++)
                 {
                     try
                     {
                         if (attempt > 1 && _aiOptions.ConnectionTest.EnableDetailedLogging)
                         {
-                            _logger.LogInformation("Retrying connection test, Attempt: {Attempt}/{MaxAttempts}", 
+                            _logger.LogInformation("Retrying connection test, Attempt: {Attempt}/{MaxAttempts}",
                                 attempt, maxRetries + 1);
                         }
-                        
+
                         // 根据不同的提供商，使用不同的测试端点和方法
                         switch (config.Provider.ToLower())
                         {
@@ -561,13 +561,13 @@ namespace FlowFlex.Application.Services.OW
                                 result.Message = $"Unsupported AI provider: {config.Provider}";
                                 break;
                         }
-                        
+
                         // If successful or this is the last attempt, break the retry loop
                         if (result.Success || attempt >= maxRetries + 1)
                         {
                             break;
                         }
-                        
+
                         // Wait before next retry
                         if (attempt < maxRetries + 1)
                         {
@@ -578,19 +578,19 @@ namespace FlowFlex.Application.Services.OW
                     {
                         result.Success = false;
                         result.Message = $"Connection timeout after {timeoutSeconds} seconds (Attempt {attempt}/{maxRetries + 1}). The AI service may be slow to respond or unavailable.";
-                        
+
                         if (attempt < maxRetries + 1)
                         {
                             if (_aiOptions.ConnectionTest.EnableDetailedLogging)
                             {
-                                _logger.LogWarning("Connection timeout on attempt {Attempt}, retrying in {Delay}ms", 
+                                _logger.LogWarning("Connection timeout on attempt {Attempt}, retrying in {Delay}ms",
                                     attempt, retryDelay);
                             }
                             await Task.Delay(retryDelay);
                             continue;
                         }
-                        
-                        _logger.LogWarning(ex, "AI model connection test timed out after {Attempts} attempts, Provider: {Provider}, Timeout: {Timeout}s", 
+
+                        _logger.LogWarning(ex, "AI model connection test timed out after {Attempts} attempts, Provider: {Provider}, Timeout: {Timeout}s",
                             maxRetries + 1, config.Provider, timeoutSeconds);
                         break;
                     }
@@ -598,19 +598,19 @@ namespace FlowFlex.Application.Services.OW
                     {
                         result.Success = false;
                         result.Message = $"Network error (Attempt {attempt}/{maxRetries + 1}): {ex.Message}";
-                        
+
                         if (attempt < maxRetries + 1)
                         {
                             if (_aiOptions.ConnectionTest.EnableDetailedLogging)
                             {
-                                _logger.LogWarning("Network error on attempt {Attempt}, retrying in {Delay}ms: {Error}", 
+                                _logger.LogWarning("Network error on attempt {Attempt}, retrying in {Delay}ms: {Error}",
                                     attempt, retryDelay, ex.Message);
                             }
                             await Task.Delay(retryDelay);
                             continue;
                         }
-                        
-                        _logger.LogWarning(ex, "Network error during AI model connection test after {Attempts} attempts, Provider: {Provider}", 
+
+                        _logger.LogWarning(ex, "Network error during AI model connection test after {Attempts} attempts, Provider: {Provider}",
                             maxRetries + 1, config.Provider);
                         break;
                     }
@@ -634,7 +634,7 @@ namespace FlowFlex.Application.Services.OW
                 try
                 {
                     var updateResult = await _repository.UpdateAvailabilityAsync(config.Id, result.Success);
-                    _logger.LogInformation("Updated availability status for config ID: {ConfigId}, IsAvailable: {IsAvailable}, UpdateResult: {UpdateResult}", 
+                    _logger.LogInformation("Updated availability status for config ID: {ConfigId}, IsAvailable: {IsAvailable}, UpdateResult: {UpdateResult}",
                         config.Id, result.Success, updateResult);
                 }
                 catch (Exception ex)
@@ -667,11 +667,11 @@ namespace FlowFlex.Application.Services.OW
                 {
                     url = $"{config.BaseUrl.TrimEnd('/')}/chat/completions";
                 }
-                
+
                 // 设置请求头
                 httpClient.DefaultRequestHeaders.Clear();
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
-                
+
                 // 创建测试请求体
                 var testPayload = new
                 {
@@ -683,16 +683,16 @@ namespace FlowFlex.Application.Services.OW
                     max_tokens = 10,
                     temperature = 0.1
                 };
-                
+
                 var jsonContent = new StringContent(
                     System.Text.Json.JsonSerializer.Serialize(testPayload),
                     System.Text.Encoding.UTF8,
                     "application/json"
                 );
-                
+
                 // 发送POST请求测试连接
                 var response = await httpClient.PostAsync(url, jsonContent);
-                
+
                 // 检查响应
                 if (response.IsSuccessStatusCode)
                 {
@@ -728,14 +728,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 // OpenAI的模型列表接口
                 var url = $"{config.BaseUrl.TrimEnd('/')}/v1/models";
-                
+
                 // 设置请求头
                 httpClient.DefaultRequestHeaders.Clear();
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
-                
+
                 // 发送请求
                 var response = await httpClient.GetAsync(url);
-                
+
                 // 检查响应
                 if (response.IsSuccessStatusCode)
                 {
@@ -770,15 +770,15 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Claude的模型列表接口
                 var url = $"{config.BaseUrl.TrimEnd('/')}/v1/models";
-                
+
                 // 设置请求头
                 httpClient.DefaultRequestHeaders.Clear();
                 httpClient.DefaultRequestHeaders.Add("x-api-key", config.ApiKey);
                 httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-                
+
                 // 发送请求
                 var response = await httpClient.GetAsync(url);
-                
+
                 // 检查响应
                 if (response.IsSuccessStatusCode)
                 {
@@ -813,14 +813,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 // DeepSeek的模型列表接口
                 var url = $"{config.BaseUrl.TrimEnd('/')}/v1/models";
-                
+
                 // 设置请求头
                 httpClient.DefaultRequestHeaders.Clear();
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
-                
+
                 // 发送请求
                 var response = await httpClient.GetAsync(url);
-                
+
                 // 检查响应
                 if (response.IsSuccessStatusCode)
                 {
@@ -961,11 +961,11 @@ namespace FlowFlex.Application.Services.OW
             {
                 // 检查是否是有效的Base64字符串（加密后的格式）
                 var buffer = Convert.FromBase64String(apiKey);
-                
+
                 // 加密后的字符串通常会比较长（至少32字符）
                 // 且不会包含典型的API Key格式
-                return apiKey.Length >= 32 && 
-                       buffer.Length >= 16 && 
+                return apiKey.Length >= 32 &&
+                       buffer.Length >= 16 &&
                        !apiKey.Contains(" ") &&
                        !apiKey.StartsWith("sk-") && // OpenAI API key格式
                        !apiKey.StartsWith("glm-") && // ZhipuAI API key格式
@@ -983,4 +983,4 @@ namespace FlowFlex.Application.Services.OW
         #endregion
 
     }
-} 
+}

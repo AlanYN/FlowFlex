@@ -1,16 +1,24 @@
 <template>
-	<div class="create-questionnaire-container rounded-md">
+	<div class="create-questionnaire-container rounded-xl">
 		<!-- 页面头部 -->
-		<QuestionnaireHeader
+		<PageHeader
 			:title="pageTitle"
 			:description="pageDescription"
-			:current-tab="currentTab"
-			:saving="saving"
-			:is-edit-mode="isEditMode"
+			:show-back-button="true"
 			@go-back="handleGoBack"
-			@toggle-preview="togglePreview"
-			@save-questionnaire="handleSaveQuestionnaire"
-		/>
+		>
+			<template #actions>
+				<el-button
+					type="primary"
+					class="page-header-btn page-header-btn-primary"
+					@click="handleSaveQuestionnaire"
+					:loading="saving"
+					:icon="Document"
+				>
+					{{ isEditMode ? 'Update Questionnaire' : 'Save Questionnaire' }}
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<!-- 主要内容区域 -->
 		<div class="main-content">
@@ -29,7 +37,7 @@
 				<!-- 左侧配置面板 -->
 				<div class="config-panel">
 					<el-scrollbar ref="configScrollbarRef">
-						<el-card class="config-card rounded-md">
+						<el-card class="config-card rounded-xl">
 							<!-- 基本信息 -->
 							<QuestionnaireBasicInfo
 								:questionnaire="{
@@ -43,12 +51,29 @@
 
 							<!-- 分区管理 -->
 							<SectionManager
+								v-if="showSectionManagement"
 								:sections="questionnaire.sections"
 								:current-section-index="currentSectionIndex"
 								@add-section="handleAddSection"
 								@remove-section="handleRemoveSection"
 								@set-current-section="setCurrentSection"
+								@drag-end="handleSectionDragEnd"
 							/>
+
+							<!-- 添加分区按钮（仅在简单模式下显示） -->
+							<div v-else class="add-section-simple">
+								<el-button
+									type="primary"
+									:icon="Plus"
+									@click="handleAddSection"
+									class="w-full"
+								>
+									Add Section
+								</el-button>
+								<p class="text-xs text-gray-500 mt-2 text-center">
+									Organize your questions into sections
+								</p>
+							</div>
 
 							<el-divider />
 
@@ -72,9 +97,12 @@
 					>
 						<el-scrollbar ref="editorScrollbarRef">
 							<TabPane value="questions" class="questions-pane">
-								<el-card class="editor-card rounded-md">
+								<el-card class="editor-card rounded-xl">
 									<!-- 当前分区信息 -->
-									<div class="flex items-center justify-between mb-4">
+									<div
+										v-if="showSectionManagement"
+										class="flex items-center justify-between mb-4"
+									>
 										<div v-if="!isEditingTitle" class="title-display">
 											<div class="text-2xl font-bold">
 												{{ currentSection.name || 'Untitled Section' }}
@@ -142,7 +170,11 @@
 										</el-dropdown>
 									</div>
 
-									<el-form :model="currentSection" label-position="top">
+									<el-form
+										v-if="showSectionManagement"
+										:model="currentSection"
+										label-position="top"
+									>
 										<div class="current-section-info">
 											<el-form-item label="Section Description">
 												<el-input
@@ -156,7 +188,7 @@
 
 									<!-- 问题列表 -->
 									<QuestionsList
-										:questions="currentSection.items"
+										:questions="currentSection.questions"
 										:question-types="questionTypes"
 										:sections="sectionsForJumpRules"
 										:current-section-index="currentSectionIndex"
@@ -203,13 +235,13 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { Edit, MoreFilled } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Edit, MoreFilled, Plus, Document } from '@element-plus/icons-vue';
 import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-import QuestionnaireHeader from './components/QuestionnaireHeader.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import QuestionnaireBasicInfo from './components/QuestionnaireBasicInfo.vue';
 import SectionManager from './components/SectionManager.vue';
 import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
@@ -274,8 +306,10 @@ const loadQuestionnaireData = async () => {
 					temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 					name: section.name || 'Untitled Section',
 					description: section.description || '',
-					// 处理questions字段（API返回的是questions，我们内部使用items）
-					items: (section.questions || section.items || []).map((item: any) => ({
+					// 处理 isDefault 字段的兼容性
+					isDefault: !!section.isDefault,
+					// 处理questions字段（API返回的是questions，我们内部也使用questions）
+					questions: (section.questions || []).map((item: any) => ({
 						...item,
 						temporaryId: item?.temporaryId ? item.temporaryId : item.id,
 						type: item?.type || 'short_answer',
@@ -307,7 +341,8 @@ const loadQuestionnaireData = async () => {
 						temporaryId: `section-${Date.now()}`,
 						name: 'Untitled Section',
 						description: '',
-						items: [],
+						questions: [],
+						isDefault: true, // 如果没有分区，创建默认分区
 					},
 				];
 			}
@@ -452,7 +487,8 @@ const questionnaire = reactive({
 			temporaryId: `section-${Date.now()}`,
 			name: 'Untitled Section',
 			description: '',
-			items: [] as Array<{
+			isDefault: true, // 标识为默认分区
+			questions: [] as Array<{
 				temporaryId: string;
 				type: string;
 				question: string;
@@ -475,7 +511,13 @@ const questionnaire = reactive({
 
 // 当前分区
 const currentSection = computed(() => {
-	return questionnaire.sections[currentSectionIndex.value] || questionnaire.sections[0];
+	return questionnaire?.sections[currentSectionIndex.value] || questionnaire?.sections[0];
+});
+
+// 显示控制的计算属性
+const showSectionManagement = computed(() => {
+	// 有多个分区 OR 存在非默认分区 = 显示分区管理
+	return questionnaire.sections.some((section) => !section.isDefault);
 });
 
 // 页面标题和描述
@@ -507,20 +549,20 @@ const previewData = computed(() => {
 		sections: questionnaire.sections || [],
 		totalQuestions:
 			questionnaire.sections?.reduce(
-				(total: number, section) => total + (section.items?.length || 0),
+				(total: number, section) => total + (section.questions?.length || 0),
 				0
 			) || 0,
 		requiredQuestions:
 			questionnaire.sections?.reduce(
 				(total: number, section) =>
-					total + (section.items?.filter((item) => item.required)?.length || 0),
+					total + (section.questions?.filter((item) => item.required)?.length || 0),
 				0
 			) || 0,
 		status: 'draft',
 		version: '1.0',
 		estimatedMinutes: Math.ceil(
 			(questionnaire.sections?.reduce(
-				(total: number, section) => total + (section.items?.length || 0),
+				(total: number, section) => total + (section.questions?.length || 0),
 				0
 			) || 0) * 0.5
 		),
@@ -537,9 +579,8 @@ const sectionsForJumpRules = computed(() => {
 		...section,
 		name: section.name,
 		description: section.description,
-		questions: section.items.map((item) => item.temporaryId).filter(Boolean) as string[],
+		questionIds: section.questions.map((item) => item.temporaryId).filter(Boolean) as string[],
 		order: index,
-		items: section.items,
 	}));
 });
 
@@ -548,35 +589,129 @@ const handleGoBack = () => {
 	router.push('/onboard/questionnaire');
 };
 
-const togglePreview = () => {
-	currentTab.value = currentTab.value === 'questions' ? 'preview' : 'questions';
+const handleAddSection = async () => {
+	// 检查是否是首次启用分区管理（只有默认分区的情况）
+	const hasOnlyDefaultSection =
+		questionnaire.sections.length === 1 && questionnaire.sections[0].isDefault;
+
+	if (hasOnlyDefaultSection) {
+		// 检查默认分区是否有问题
+		const hasQuestions = questionnaire.sections[0].questions.length > 0;
+
+		if (hasQuestions) {
+			try {
+				await ElMessageBox.confirm(
+					'You are about to enable section management. All existing questions will be moved to the new section.',
+					'Enable Section Management',
+					{
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+						customClass: 'section-confirm-dialog',
+					}
+				);
+			} catch {
+				// 用户取消操作
+				return;
+			}
+		}
+
+		// 首次点击：将默认分区转换为用户创建的分区
+		questionnaire.sections[0].isDefault = false;
+		// 可以选择给分区一个更好的默认名称
+		if (questionnaire.sections[0].name === 'Untitled Section') {
+			questionnaire.sections[0].name = 'Section 1';
+		}
+
+		if (hasQuestions) {
+			ElMessage.success(
+				'Section management enabled. Your questions have been moved to Section 1.'
+			);
+		}
+	} else {
+		// 后续点击：正常添加新分区
+		questionnaire.sections.push({
+			temporaryId: `section-${Date.now()}`,
+			name: `Section ${questionnaire.sections.length + 1}`,
+			description: '',
+			questions: [],
+			// 不设置 isDefault，默认为 undefined（非默认分区）
+		});
+		currentSectionIndex.value = questionnaire.sections.length - 1;
+	}
 };
 
-const handleAddSection = () => {
-	questionnaire.sections.push({
-		temporaryId: `section-${Date.now()}`,
-		name: 'Untitled Section',
-		description: '',
-		items: [],
-	});
-	currentSectionIndex.value = questionnaire.sections.length - 1;
-};
+const handleRemoveSection = async (index: number) => {
+	const sectionToRemove = questionnaire.sections[index];
+	const questionCount = sectionToRemove.questions.length;
+	const sectionName = sectionToRemove.name || 'Untitled Section';
 
-const handleRemoveSection = (index: number) => {
-	if (questionnaire.sections.length <= 1) {
-		ElMessage.warning('At least one section must be kept');
+	// 构建确认消息
+	let confirmMessage = `Are you sure you want to delete "${sectionName}"?`;
+	if (questionCount > 0) {
+		confirmMessage += ` This section contains ${questionCount} question${
+			questionCount > 1 ? 's' : ''
+		} that will be permanently deleted.`;
+	}
+
+	try {
+		await ElMessageBox.confirm(confirmMessage, 'Delete Section', {
+			confirmButtonText: 'Delete',
+			cancelButtonText: 'Cancel',
+			type: 'warning',
+			customClass: 'section-delete-dialog',
+		});
+	} catch {
+		// 用户取消操作
 		return;
 	}
 
-	questionnaire.sections.splice(index, 1);
-	if (currentSectionIndex.value >= questionnaire.sections.length) {
-		currentSectionIndex.value = questionnaire.sections.length - 1;
+	// 检查删除后的情况
+	if (questionnaire.sections.length === 1) {
+		// 如果只剩一个分区，将其转换为默认分区（回到简单模式）
+		questionnaire.sections[0].isDefault = true;
+		questionnaire.sections[0].name = 'Untitled Section';
+		questionnaire.sections[0].questions = [];
+		questionnaire.sections[0].temporaryId = `section-${Date.now()}`;
+		questionnaire.sections[0].description = '';
+		currentSectionIndex.value = 0;
+		ElMessage.success('Returned to simple mode. You can start adding questions directly.');
+	} else {
+		questionnaire.sections.splice(index, 1);
+		// 调整当前分区索引
+		if (currentSectionIndex.value >= questionnaire.sections.length) {
+			currentSectionIndex.value = questionnaire.sections.length - 1;
+		}
+		ElMessage.success(`Section "${sectionName}" has been deleted.`);
 	}
 };
 
 const setCurrentSection = (index: number) => {
 	cancelEditQuestion();
 	currentSectionIndex.value = index;
+};
+
+const handleSectionDragEnd = (
+	reorderedSections: Section[],
+	dragInfo: { oldIndex: number; newIndex: number }
+) => {
+	// 更新问卷的分区顺序
+	questionnaire.sections = reorderedSections;
+
+	// 计算新的当前分区索引
+	const { newIndex } = dragInfo;
+
+	// 确保索引在有效范围内
+	if (currentSectionIndex.value >= questionnaire.sections.length) {
+		currentSectionIndex.value = questionnaire.sections.length - 1;
+	} else if (currentSectionIndex.value < 0) {
+		currentSectionIndex.value = 0;
+	} else {
+		currentSectionIndex.value = newIndex;
+	}
+
+	// 取消当前的问题编辑状态（如果有的话）
+	cancelEditQuestion();
 };
 
 const updateCurrentSection = () => {
@@ -604,7 +739,7 @@ const handleAddQuestion = (questionData: any) => {
 		columns: [...questionData.columns],
 	};
 
-	questionnaire.sections[currentSectionIndex.value].items.push(question);
+	questionnaire.sections[currentSectionIndex.value].questions.push(question);
 };
 
 // 当前分区索引（用于文件上传）
@@ -613,7 +748,7 @@ const currentSectionIndexForUpload = ref<number>(0);
 const handleAddContent = async (command: string) => {
 	switch (command) {
 		case 'page-break':
-			questionnaire.sections[currentSectionIndex.value].items.push({
+			questionnaire.sections[currentSectionIndex.value].questions.push({
 				temporaryId: `page-break-${Date.now()}`,
 				type: 'page_break',
 				question: 'Page Break',
@@ -642,24 +777,24 @@ const handleFileUpload = async (type: 'video' | 'image') => {
 				required: false,
 			};
 
-			questionnaire.sections[currentSectionIndexForUpload.value].items.push(mediaItem);
+			questionnaire.sections[currentSectionIndexForUpload.value].questions.push(mediaItem);
 		}
 	});
 };
 
 const handleRemoveQuestion = (index: number) => {
-	questionnaire.sections[currentSectionIndex.value].items.splice(index, 1);
+	questionnaire.sections[currentSectionIndex.value].questions.splice(index, 1);
 };
 
 const handleQuestionDragEnd = (questions: any[]) => {
 	// 更新当前分区的问题列表
-	questionnaire.sections[currentSectionIndex.value].items = questions;
+	questionnaire.sections[currentSectionIndex.value].questions = questions;
 };
 
 const handleUpdateJumpRules = (questionIndex: number, rules: any[]) => {
 	console.log('rules:', rules);
 	// 更新指定问题的跳转规则
-	const question = questionnaire.sections[currentSectionIndex.value].items[questionIndex];
+	const question = questionnaire.sections[currentSectionIndex.value].questions[questionIndex];
 	if (question) {
 		question.jumpRules = rules;
 	}
@@ -680,8 +815,8 @@ const handleSaveQuestionnaire = async () => {
 				temporaryId: section?.temporaryId ? section.temporaryId : section.id,
 				name: section.name,
 				description: section.description,
-				// API期望的是questions字段，不是items
-				questions: section.items.map((item) => ({
+				// API期望的是questions字段
+				questions: section.questions.map((item) => ({
 					...item,
 					temporaryId: item?.temporaryId ? item.temporaryId : item.id,
 					title: item.question, // API期望的是title字段，不是question
@@ -709,12 +844,12 @@ const handleSaveQuestionnaire = async () => {
 
 		// 计算问题统计
 		const totalQuestions = questionnaire.sections.reduce(
-			(total: number, section) => total + section.items.length,
+			(total: number, section) => total + section.questions.length,
 			0
 		);
 		const requiredQuestions = questionnaire.sections.reduce(
 			(total: number, section) =>
-				total + (section.items?.filter((item) => item.required)?.length || 0),
+				total + (section.questions?.filter((item) => item.required)?.length || 0),
 			0
 		);
 
@@ -757,7 +892,7 @@ const isEditingQuestion = ref(false);
 const editingQuestion = ref<any>(null);
 
 const handleEditQuestion = (index: number) => {
-	const question = questionnaire.sections[currentSectionIndex.value].items[index];
+	const question = questionnaire.sections[currentSectionIndex.value].questions[index];
 	if (question) {
 		isEditingQuestion.value = true;
 		editingQuestion.value = { ...question };
@@ -784,18 +919,18 @@ const cancelEditQuestion = () => {
 };
 
 const handleUpdateQuestion = (updatedQuestion: any) => {
-	const index = questionnaire.sections[currentSectionIndex.value].items.findIndex(
+	const index = questionnaire.sections[currentSectionIndex.value].questions.findIndex(
 		(item) => item.temporaryId === updatedQuestion.temporaryId
 	);
 	if (index !== -1) {
-		questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
+		questionnaire.sections[currentSectionIndex.value].questions[index] = updatedQuestion;
 	}
 	isEditingQuestion.value = false;
 	editingQuestion.value = null;
 };
 
 const handleUpdateQuestionFromList = (index: number, updatedQuestion: any) => {
-	questionnaire.sections[currentSectionIndex.value].items[index] = updatedQuestion;
+	questionnaire.sections[currentSectionIndex.value].questions[index] = updatedQuestion;
 };
 
 // 获取所有stages
@@ -820,12 +955,10 @@ onMounted(async () => {
 .create-questionnaire-container {
 	display: flex;
 	flex-direction: column;
-	background-color: var(--el-bg-color-page);
 }
 
 .main-content {
 	flex: 1;
-	padding: 1.5rem 0;
 	overflow: hidden;
 }
 
@@ -907,8 +1040,8 @@ onMounted(async () => {
 	margin-bottom: 1.5rem;
 	padding: 1rem;
 	background-color: var(--primary-50);
-	border-radius: 0.375rem;
 	border: 1px solid var(--primary-100);
+	@apply rounded-xl;
 }
 
 /* 深色模式支持 */
@@ -948,5 +1081,29 @@ onMounted(async () => {
 
 .title-edit {
 	width: 50%;
+}
+
+.add-section-simple {
+	padding: 1rem;
+	text-align: center;
+}
+
+.add-section-simple .el-button {
+	margin-bottom: 0.5rem;
+}
+
+/* 自定义确认对话框样式 */
+:deep(.section-confirm-dialog) {
+	.el-message-box__message {
+		color: var(--el-text-color-primary);
+		line-height: 1.6;
+	}
+}
+
+:deep(.section-delete-dialog) {
+	.el-message-box__message {
+		color: var(--el-text-color-primary);
+		line-height: 1.6;
+	}
 }
 </style>

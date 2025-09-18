@@ -340,10 +340,32 @@ builder.Services.AddGlobalExceptionHandling();
 
 builder.Services.AddClient(builder.Configuration);
 
-// Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces
+// Add distributed cache (use memory cache for development, Redis for production)
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+else
+{
+    // TODO: Configure Redis cache for production
+    // builder.Services.AddStackExchangeRedisCache(options => {
+    //     options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    // });
+    builder.Services.AddDistributedMemoryCache(); // Fallback to memory cache
+}
+
+// Register background task processing service
+builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();
+builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTaskService>();
+
+// Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces  
 // Only register services that are not auto-registered or need special configuration
 
 var app = builder.Build();
+
+// Configure global logger for performance improvement (replace Console.WriteLine)
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+FlowFlex.Infrastructure.Extensions.LoggingExtensions.SetLogger(logger);
 
 // Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())

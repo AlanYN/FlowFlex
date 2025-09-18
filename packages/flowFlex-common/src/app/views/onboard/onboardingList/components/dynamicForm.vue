@@ -1,6 +1,6 @@
 <template>
 	<div class="dynamic-form">
-		<div class="questionnaire-sections mt-4">
+		<div class="questionnaire-sections">
 			<!-- 加载状态 -->
 			<div v-if="loading" class="flex justify-center items-center py-8">
 				<el-icon class="animate-spin mr-2"><Loading /></el-icon>
@@ -9,23 +9,6 @@
 
 			<!-- 问卷内容 -->
 			<template v-else>
-				<!-- 问卷描述 -->
-				<div
-					v-if="
-						formattedQuestionnaires.length > 0 && formattedQuestionnaires[0].description
-					"
-					class="text-sm text-gray-500"
-				>
-					<div>
-						{{ formattedQuestionnaires[0].description }}
-						<span v-if="!!formattedQuestionnaires[0]?.hasError" class="error-indicator">
-							(Load Error)
-						</span>
-					</div>
-
-					<el-divider />
-				</div>
-
 				<!-- 错误状态显示 -->
 				<div v-if="!!formattedQuestionnaires[0]?.hasError" class="questionnaire-error">
 					<el-alert
@@ -39,8 +22,8 @@
 
 				<!-- 当前 Section 内容 -->
 				<div v-if="currentSection" class="space-y-4">
-					<div class="flex flex-col space-y-1.5 p-6 bg-primary-50 section-header">
-						<h4 class="section-title">
+					<div class="flex flex-col space-y-1" v-if="!currentSection.isDefault">
+						<h4 class="section-title" v-if="currentSection.title">
 							{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
 						</h4>
 						<p v-if="currentSection.description" class="section-description">
@@ -55,13 +38,30 @@
 						:class="{ '!bg-white !border-none': question.type == 'page_break' }"
 					>
 						<div class="mb-2" v-if="question.type !== 'page_break'">
-							<span class="text-sm font-medium text-gray-700">
-								{{ currentSectionIndex + 1 }}-{{
-									getQuestionNumber(questionIndex)
-								}}.
-								{{ question.title }}
-								<span v-if="question.required" class="text-red-500">*</span>
-							</span>
+							<div class="flex items-center gap-2">
+								<span class="text-sm font-medium text-gray-700">
+									{{ currentSectionIndex + 1 }}-{{
+										getQuestionNumber(questionIndex)
+									}}.
+									{{ question.title }}
+									<span v-if="question.required" class="text-red-500">*</span>
+								</span>
+								<!-- Action Tag for question -->
+								<ActionTag
+									v-if="
+										question.action &&
+										question.action.id &&
+										question.action.name &&
+										onboardingId
+									"
+									:action="question.action"
+									:trigger-source-id="question.id"
+									trigger-source-type="question"
+									:onboarding-id="onboardingId"
+									type="success"
+									size="small"
+								/>
+							</div>
 							<p v-if="question.description" class="text-xs text-gray-500 mt-1">
 								{{ question.description }}
 							</p>
@@ -92,6 +92,7 @@
 							v-model="formData[question.id]"
 							:maxlength="questionMaxlength"
 							:placeholder="'Enter ' + question.question"
+							:disabled="disabled"
 							@input="handleInputChange(question.id, $event)"
 						/>
 
@@ -102,6 +103,7 @@
 								question.type === 'paragraph' ||
 								question.type === 'textarea'
 							"
+							:disabled="disabled"
 							v-model="formData[question.id]"
 							:maxlength="notesPageTextraMaxLength"
 							type="textarea"
@@ -117,8 +119,11 @@
 								<div
 									v-for="option in question.options"
 									:key="option.id || option.value"
-									class="w-full cursor-pointer flex items-center space-x-2 p-2 hover:bg-gray-50 rounded"
-									@click="handleHasOtherQuestion(question, option.value)"
+									class="w-full flex items-center space-x-2 p-2 hover:bg-gray-50 rounded"
+									:class="{ 'cursor-not-allowed bg-gray-50': disabled }"
+									@click="
+										!disabled && handleHasOtherQuestion(question, option.value)
+									"
 								>
 									<div
 										:class="[
@@ -139,23 +144,41 @@
 									<div v-if="option.isOther">
 										<el-input
 											@click.stop
-											:disabled="formData[question.id] != option.value"
+											:disabled="
+												formData[question.id] != option.value || disabled
+											"
 											v-model="formData[`${question.id}_${option.id}`]"
 											:maxlength="questionMaxlength"
 											placeholder="Enter other"
 										/>
 									</div>
-									<span
-										v-else
-										class="text-sm"
-										:class="{
-											'text-primary-500 font-bold':
-												formData[question.id] ===
-												(option.value || option.label),
-										}"
-									>
-										{{ option.label || option.text || option.value }}
-									</span>
+									<div v-else class="flex items-center gap-2">
+										<span
+											class="text-sm"
+											:class="{
+												'text-primary-500 font-bold':
+													formData[question.id] ===
+													(option.value || option.label),
+											}"
+										>
+											{{ option.label || option.text || option.value }}
+										</span>
+										<!-- Action Tag for option -->
+										<ActionTag
+											v-if="
+												option.action &&
+												option.action.id &&
+												option.action.name &&
+												onboardingId
+											"
+											:action="option.action"
+											:trigger-source-id="option.id || option.temporaryId"
+											trigger-source-type="option"
+											:onboarding-id="onboardingId"
+											type="success"
+											size="small"
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -166,6 +189,7 @@
 							v-model="formData[question.id]"
 							@change="handleHasOtherQuestion(question, $event)"
 							class="w-full"
+							:disabled="disabled"
 						>
 							<div class="space-y-2">
 								<el-checkbox
@@ -177,7 +201,8 @@
 									<div v-if="option.isOther">
 										<el-input
 											:disabled="
-												!formData[question.id]?.includes(option.value)
+												!formData[question.id]?.includes(option.value) ||
+												disabled
 											"
 											v-model="formData[`${question.id}_${option.id}`]"
 											:maxlength="questionMaxlength"
@@ -198,6 +223,7 @@
 							:placeholder="'Select ' + question.question"
 							class="w-full"
 							@change="handleInputChange(question.id, $event)"
+							:disabled="disabled"
 						>
 							<el-option
 								v-for="option in question.options"
@@ -216,6 +242,7 @@
 							class="w-full"
 							:format="projectDate"
 							@change="handleInputChange(question.id, $event)"
+							:disabled="disabled"
 						/>
 
 						<!-- 时间选择 -->
@@ -225,6 +252,7 @@
 							:placeholder="'Select time'"
 							class="w-full"
 							@change="handleInputChange(question.id, $event)"
+							:disabled="disabled"
 						/>
 						<!-- 评分 -->
 						<div
@@ -237,6 +265,7 @@
 								:icons="getSelectedFilledIcon(question.iconType)"
 								:void-icon="getSelectedVoidIcon(question.iconType)"
 								@change="handleInputChange(question.id, $event)"
+								:disabled="disabled"
 							/>
 							<span v-if="question.showText" class="text-sm text-gray-500">
 								({{ question.max || 5 }} stars)
@@ -255,10 +284,11 @@
 								@change="handleInputChange(question.id, $event)"
 								:validate-event="false"
 								show-stops
+								:disabled="disabled"
 							/>
 							<div class="flex justify-between text-xs text-gray-500">
-								<span>{{ question.minLabel || question.min || 1 }}</span>
-								<span>{{ question.maxLabel || question.max || 5 }}</span>
+								<span>{{ question.minLabel || question.min }}</span>
+								<span>{{ question.maxLabel || question.max }}</span>
 							</div>
 						</div>
 
@@ -279,6 +309,7 @@
 								v-model:file-list="formData[question.id]"
 								:accept="question.accept"
 								class="w-full"
+								:disabled="disabled"
 							>
 								<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
 								<div class="el-upload__text">
@@ -328,6 +359,7 @@
 										<el-checkbox-group
 											v-model="formData[`${question.id}_${row.id}`]"
 											@change="handleHasOtherQuestion(question, row.id)"
+											:disabled="disabled"
 										>
 											<el-checkbox :value="column.id" class="grid-checkbox" />
 										</el-checkbox-group>
@@ -402,6 +434,7 @@
 												column.label ||
 												`${rowIndex}_${colIndex}`
 											"
+											:disabled="disabled"
 											@change="handleHasOtherQuestion(question, row.id)"
 											class="grid-radio"
 										/>
@@ -416,7 +449,7 @@
 												"
 												:disabled="
 													formData[`${question.id}_${row.id}`] !=
-													(column.value || column.label)
+														(column.value || column.label) || disabled
 												"
 												placeholder="Enter other"
 												:maxlength="questionMaxlength"
@@ -476,6 +509,7 @@
 												formData[`${question.id}_${column.id}_${row.id}`]
 											"
 											:maxlength="questionMaxlength"
+											:disabled="disabled"
 										/>
 									</div>
 								</div>
@@ -603,6 +637,7 @@ import {
 	notesPageTextraMaxLength,
 	questionMaxlength,
 } from '@/settings/projectSetting';
+import ActionTag from '@/components/actionTools/ActionTag.vue';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -619,6 +654,7 @@ interface Props {
 	questionnaireData?: ComponentData;
 	isStageCompleted?: boolean;
 	questionnaireAnswers?: SectionAnswer;
+	disabled?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -878,16 +914,29 @@ const validateForm = (presentQuestionIndex?: number) => {
 	if (presentQuestionIndex != undefined && presentQuestionIndex != null) {
 		vailSection = [questionnaire.sections[presentQuestionIndex]];
 	} else {
-		vailSection = questionnaire.sections.slice(
-			currentSectionIndex.value,
-			questionnaire.sections.length
-		);
+		vailSection = questionnaire.sections;
 	}
 
-	vailSection.forEach((section: any, sIndex: number) => {
-		if (!section.questions || section.questions.length === 0) {
-			return true;
+	// 用于记录所有已经验证过的section，避免重复验证
+	const validatedSectionIds = new Set<string>();
+
+	for (let sIndex = 0; sIndex < vailSection.length; sIndex++) {
+		const section = vailSection[sIndex];
+
+		// 如果这个section已经被验证过，跳过
+		if (validatedSectionIds.has(section.id)) {
+			continue;
 		}
+
+		if (!section.questions || section.questions.length === 0) {
+			validatedSectionIds.add(section.id);
+			continue;
+		}
+
+		// 标记当前section为已验证
+		validatedSectionIds.add(section.id);
+
+		// 验证当前section的所有问题
 		section.questions
 			?.filter((item) => {
 				return item.type != 'page_break';
@@ -907,9 +956,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}
@@ -933,9 +980,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}
@@ -952,9 +997,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							});
 							if (!allRowsCompleted) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}
@@ -962,9 +1005,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 						const value = formData.value[question.id];
 						if ((typeof value === 'number' && value < 1) || !value) {
 							isValid = false;
-							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-								qIdx + 1
-							}`;
+							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 							errors.push(errorMsg);
 						}
 					} else if (question.type == 'linear_scale') {
@@ -975,9 +1016,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 							value == undefined
 						) {
 							isValid = false;
-							const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-								qIdx + 1
-							}`;
+							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 							errors.push(errorMsg);
 						}
 					} else {
@@ -994,16 +1033,66 @@ const validateForm = (presentQuestionIndex?: number) => {
 
 							if (isEmpty) {
 								isValid = false;
-								const errorMsg = `${sIndex + currentSectionIndex.value + 1} - ${
-									qIdx + 1
-								}`;
+								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);
 							}
 						}
 					}
 				}
 			});
-	});
+
+		// 验证完当前section后，检查是否有跳转逻辑被触发
+		let jumpTargetSectionId = null;
+
+		// 从最后一个问题开始向前查找，找到最后一个有效的跳转规则
+		for (let i = section.questions.length - 1; i >= 0; i--) {
+			const question = section.questions[i];
+
+			// 检查是否是有跳转规则的问题
+			if (
+				(question.type === 'multiple_choice' || question.type === 'checkboxes') &&
+				question.jumpRules &&
+				question.jumpRules.length > 0
+			) {
+				const userAnswer = formData.value[question.id];
+
+				// 检查用户是否已经选择了答案
+				if (userAnswer && userAnswer !== '') {
+					// 查找匹配的跳转规则
+					const matchingRule = question.jumpRules.find((rule) => {
+						return (
+							rule.optionId &&
+							question.options.some(
+								(option) =>
+									(option.id === rule.optionId ||
+										option.temporaryId === rule.optionId) &&
+									(option.value === userAnswer || option.label === userAnswer)
+							)
+						);
+					});
+
+					// 如果找到匹配的跳转规则，记录目标并跳出循环
+					if (matchingRule) {
+						jumpTargetSectionId = matchingRule.targetSectionId;
+						break;
+					}
+				}
+			}
+		}
+
+		// 如果有跳转目标，调整索引直接跳转到目标section
+		if (jumpTargetSectionId) {
+			// 找到目标section在vailSection数组中的位置
+			const targetInVailSections = vailSection.findIndex(
+				(s) => s.id === jumpTargetSectionId || s.temporaryId === jumpTargetSectionId
+			);
+
+			if (targetInVailSections !== -1 && targetInVailSections > sIndex) {
+				// 直接跳转到目标section，跳过中间的section
+				sIndex = targetInVailSections - 1; // -1 是因为for循环会自动+1
+			}
+		}
+	}
 	return { isValid, errors };
 };
 
@@ -1192,7 +1281,8 @@ const getJumpTargetSection = () => {
 						rule.optionId &&
 						question.options.some(
 							(option) =>
-								option.id === rule.optionId &&
+								(option.id === rule.optionId ||
+									option.temporaryId === rule.optionId) &&
 								(option.value === userAnswer || option.label === userAnswer)
 						)
 					);
@@ -1216,7 +1306,9 @@ const findSectionIndexById = (sectionId: string) => {
 	const questionnaire = formattedQuestionnaires.value[0];
 	if (!questionnaire.sections) return -1;
 
-	return questionnaire.sections.findIndex((section) => section.id === sectionId);
+	return questionnaire.sections.findIndex(
+		(section) => section.id === sectionId || section.temporaryId === sectionId
+	);
 };
 
 // 分页控制方法
@@ -1389,8 +1481,8 @@ const getSelectedVoidIcon = (iconType: string) => {
 // 生成slider的刻度标记
 const getSliderMarks = (question: any) => {
 	const marks: Record<number, string> = {};
-	const min = question.min || 1;
-	const max = question.max || 5;
+	const min = question.min;
+	const max = question.max;
 
 	for (let i = min; i <= max; i++) {
 		marks[i] = '';
@@ -1454,8 +1546,8 @@ defineExpose({
 	color: #ef4444;
 	background-color: #fef2f2;
 	padding: 2px 8px;
-	border-radius: 4px;
 	border: 1px solid #fecaca;
+	@apply rounded-xl;
 }
 
 .questionnaire-error {
@@ -1467,12 +1559,12 @@ defineExpose({
 	margin-top: 32px;
 	padding: 20px;
 	background-color: #f9fafb;
-	border-radius: 8px;
 	border: 1px solid #e5e7eb;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	min-height: 60px;
+	@apply rounded-xl;
 }
 
 /* 左侧导航区域 */
@@ -1512,7 +1604,6 @@ defineExpose({
 	border-radius: 50%;
 	border: 2px solid #d1d5db;
 	background-color: #f9fafb;
-	cursor: pointer;
 	transition: all 0.2s ease;
 	padding: 0;
 	outline: none;
@@ -1532,13 +1623,6 @@ defineExpose({
 	display: flex;
 	align-items: center;
 	gap: 4px;
-}
-
-/* Section 标题样式 */
-.section-header {
-	background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
-	border: 1px solid var(--primary-200);
-	border-radius: 8px;
 }
 
 .section-title {
@@ -1564,8 +1648,8 @@ defineExpose({
 .question-item {
 	padding: 16px;
 	border: 1px solid #e5e7eb;
-	border-radius: 8px;
 	background-color: #f9fafb;
+	@apply rounded-xl;
 
 	&:hover {
 		border-color: #d1d5db;
@@ -1637,11 +1721,6 @@ html.dark {
 		}
 	}
 
-	.section-header {
-		background: linear-gradient(135deg, var(--primary-800) 0%, var(--primary-700) 100%);
-		border-color: var(--primary-600);
-	}
-
 	.section-title {
 		color: var(--white-100);
 	}
@@ -1661,8 +1740,8 @@ html.dark {
 
 	.grid-container {
 		border: 1px solid var(--el-border-color);
-		border-radius: 4px;
 		overflow: hidden;
+		@apply rounded-xl;
 	}
 
 	.grid-header {

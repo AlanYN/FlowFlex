@@ -412,6 +412,51 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Start onboarding (activate an inactive onboarding)
+        /// </summary>
+        [HttpPost("{id}/start")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> StartOnboardingAsync(long id, [FromBody] StartOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.StartOnboardingAsync(id, input);
+            return Success(result);
+        }
+
+
+        /// <summary>
+        /// Abort onboarding (terminate the process)
+        /// </summary>
+        [HttpPost("{id}/abort")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> AbortAsync(long id, [FromBody] AbortOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.AbortAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Reactivate onboarding (restart an aborted onboarding)
+        /// </summary>
+        [HttpPost("{id}/reactivate")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ReactivateAsync(long id, [FromBody] ReactivateOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.ReactivateAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Resume onboarding with confirmation
+        /// </summary>
+        [HttpPost("{id}/resume-with-confirmation")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ResumeWithConfirmationAsync(long id, [FromBody] ResumeOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.ResumeWithConfirmationAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Assign onboarding to user
         /// </summary>
         [HttpPost("{id}/assign")]
@@ -531,7 +576,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ExportToExcelAsync([FromBody] OnboardingQueryRequest query)
         {
             var stream = await _onboardingService.ExportToExcelAsync(query);
-            var fileName = $"onboarding_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx"; // local time for filename
+            var fileName = $"Cases_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx"; // local time for filename
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
@@ -577,7 +622,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 Status = status,
                 WorkflowId = workflowId,
                 IsActive = isActive,
-                OnboardingIds = !string.IsNullOrEmpty(onboardingIds) 
+                OnboardingIds = !string.IsNullOrEmpty(onboardingIds)
                     ? onboardingIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
                         .Select(id => long.TryParse(id.Trim(), out var parsedId) ? parsedId : 0)
                         .Where(id => id > 0)
@@ -586,7 +631,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             };
 
             var stream = await _onboardingService.ExportToExcelAsync(query);
-            var fileName = $"onboarding_export_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx"; // local time for filename
+            var fileName = $"Cases_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx"; // local time for filename
             return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
@@ -599,6 +644,18 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> SyncStagesProgressAsync(long id)
         {
             bool result = await _onboardingService.SyncStagesProgressAsync(id);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Update custom fields for a specific stage in onboarding's stagesProgress
+        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// </summary>
+        [HttpPost("{id}/stage/update-custom-fields")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> UpdateStageCustomFieldsAsync(long id, [FromBody] UpdateStageCustomFieldsInputDto input)
+        {
+            bool result = await _onboardingService.UpdateStageCustomFieldsAsync(id, input);
             return Success(result);
         }
 

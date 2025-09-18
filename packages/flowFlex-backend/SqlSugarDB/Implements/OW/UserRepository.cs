@@ -143,9 +143,24 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             string sortField = "CreateDate",
             string sortDirection = "desc")
         {
-            // Global tenant and app filters will be applied automatically by AppTenantFilter
+            // 记录当前请求头
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var headerTenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                var headerAppCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                Console.WriteLine($"[UserRepository] GetPagedAsync with headers: X-Tenant-Id={headerTenantId}, X-App-Code={headerAppCode}");
+            }
+
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            Console.WriteLine($"[UserRepository] GetPagedAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+
+            // 显式添加租户和应用代码过滤条件，确保多租户隔离
             var query = db.Queryable<User>()
-                .Where(u => u.IsValid);
+                .Where(u => u.IsValid && u.TenantId == currentTenantId && u.AppCode == currentAppCode);
 
             // Search text filter (search in username and email)
             if (!string.IsNullOrWhiteSpace(searchText))
@@ -228,9 +243,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<User>> GetUsersWithoutTeamAsync()
         {
-            // Global tenant and app filters will be applied automatically by AppTenantFilter
+            // 获取当前租户ID和应用代码
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            Console.WriteLine($"[UserRepository] GetUsersWithoutTeamAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+
+            // 显式添加租户和应用代码过滤条件，确保多租户隔离
             return await db.Queryable<User>()
-                .Where(u => u.IsValid && (u.Team == null || u.Team == ""))
+                .Where(u => u.IsValid && u.TenantId == currentTenantId && u.AppCode == currentAppCode && (u.Team == null || u.Team == ""))
                 .ToListAsync();
         }
 

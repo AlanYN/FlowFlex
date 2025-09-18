@@ -128,8 +128,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         public async Task<bool> UpdateAvailabilityAsync(long configId, bool isAvailable)
         {
             return await db.Updateable<AIModelConfig>()
-                .SetColumns(x => new AIModelConfig 
-                { 
+                .SetColumns(x => new AIModelConfig
+                {
                     IsAvailable = isAvailable,
                     LastCheckTime = DateTime.UtcNow
                 })
@@ -137,4 +137,4 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .ExecuteCommandAsync() > 0;
         }
     }
-} 
+}

@@ -121,6 +121,41 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <param name="input">Stage summary generation input</param>
         /// <returns>Generated stage summary</returns>
         Task<AIStageSummaryResult> GenerateStageSummaryAsync(AIStageSummaryInput input);
+
+        /// <summary>
+        /// Analyze conversation to extract action insights
+        /// </summary>
+        /// <param name="input">Action analysis input</param>
+        /// <returns>Action analysis result</returns>
+        Task<AIActionAnalysisResult> AnalyzeActionAsync(AIActionAnalysisInput input);
+
+        /// <summary>
+        /// Create action plan based on analysis or description
+        /// </summary>
+        /// <param name="input">Action creation input</param>
+        /// <returns>Action creation result</returns>
+        Task<AIActionCreationResult> CreateActionAsync(AIActionCreationInput input);
+
+        /// <summary>
+        /// Stream analyze action with real-time updates
+        /// </summary>
+        /// <param name="input">Action analysis input</param>
+        /// <returns>Streaming action analysis</returns>
+        IAsyncEnumerable<AIActionStreamResult> StreamAnalyzeActionAsync(AIActionAnalysisInput input);
+
+        /// <summary>
+        /// Stream create action with real-time updates
+        /// </summary>
+        /// <param name="input">Action creation input</param>
+        /// <returns>Streaming action creation</returns>
+        IAsyncEnumerable<AIActionStreamResult> StreamCreateActionAsync(AIActionCreationInput input);
+
+        /// <summary>
+        /// Generate HTTP configuration directly from user input (optimized single-step process)
+        /// </summary>
+        /// <param name="input">HTTP configuration generation input</param>
+        /// <returns>Streaming HTTP configuration generation</returns>
+        IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigAsync(AIHttpConfigGenerationInput input);
     }
 
     /// <summary>
@@ -183,16 +218,16 @@ namespace FlowFlex.Application.Contracts.IServices
         public bool IncludeApprovals { get; set; } = true;
         public bool IncludeNotifications { get; set; } = true;
         public int EstimatedDuration { get; set; } = 0;
-        
+
         // AI Model Information
         public string? ModelId { get; set; }
         public string? ModelProvider { get; set; }
         public string? ModelName { get; set; }
-        
+
         // Conversation History Information
         public List<AIChatMessage>? ConversationHistory { get; set; }
         public string? SessionId { get; set; }
-        
+
         // Additional Context Information
         public ConversationMetadata? ConversationMetadata { get; set; }
     }
@@ -251,6 +286,16 @@ namespace FlowFlex.Application.Contracts.IServices
         public List<AIQuestionGenerationResult> Questions { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
+
+        /// <summary>
+        /// Stage name for association
+        /// </summary>
+        public string StageName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Stage order for association
+        /// </summary>
+        public int StageOrder { get; set; }
     }
 
     public class AIQuestionGenerationResult
@@ -285,6 +330,16 @@ namespace FlowFlex.Application.Contracts.IServices
         public List<AITaskGenerationResult> Tasks { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public double ConfidenceScore { get; set; }
+
+        /// <summary>
+        /// Stage name for association
+        /// </summary>
+        public string StageName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Stage order for association
+        /// </summary>
+        public int StageOrder { get; set; }
     }
 
     public class AITaskGenerationResult
@@ -435,10 +490,10 @@ namespace FlowFlex.Application.Contracts.IServices
     {
         [Newtonsoft.Json.JsonProperty("role")]
         public string Role { get; set; } = string.Empty; // 'user', 'assistant', 'system'
-        
+
         [Newtonsoft.Json.JsonProperty("content")]
         public string Content { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("timestamp")]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
@@ -450,23 +505,23 @@ namespace FlowFlex.Application.Contracts.IServices
     {
         [Newtonsoft.Json.JsonProperty("messages")]
         public List<AIChatMessage> Messages { get; set; } = new();
-        
+
         [Newtonsoft.Json.JsonProperty("context")]
         public string Context { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("sessionId")]
         public string SessionId { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("mode")]
         public string Mode { get; set; } = "general"; // 'workflow_planning', 'general'
-        
+
         // 添加模型相关字段
         [Newtonsoft.Json.JsonProperty("modelId")]
         public string? ModelId { get; set; }
-        
+
         [Newtonsoft.Json.JsonProperty("modelProvider")]
         public string? ModelProvider { get; set; }
-        
+
         [Newtonsoft.Json.JsonProperty("modelName")]
         public string? ModelName { get; set; }
     }
@@ -501,17 +556,502 @@ namespace FlowFlex.Application.Contracts.IServices
         [Newtonsoft.Json.JsonProperty("type")]
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = string.Empty; // 'delta', 'complete', 'error'
-        
+
         [Newtonsoft.Json.JsonProperty("content")]
         [System.Text.Json.Serialization.JsonPropertyName("content")]
         public string Content { get; set; } = string.Empty;
-        
+
         [Newtonsoft.Json.JsonProperty("isComplete")]
         [System.Text.Json.Serialization.JsonPropertyName("isComplete")]
         public bool IsComplete { get; set; }
-        
+
         [Newtonsoft.Json.JsonProperty("sessionId")]
         [System.Text.Json.Serialization.JsonPropertyName("sessionId")]
+        public string SessionId { get; set; } = string.Empty;
+    }
+
+    #endregion
+
+    #region AI HTTP Config DTOs
+
+    /// <summary>
+    /// AI HTTP configuration generation input
+    /// </summary>
+    public class AIHttpConfigGenerationInput
+    {
+        /// <summary>
+        /// User input describing the API requirements
+        /// </summary>
+        public string UserInput { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Additional context for HTTP configuration
+        /// </summary>
+        public string Context { get; set; } = string.Empty;
+
+        /// <summary>
+        /// File content if provided
+        /// </summary>
+        public string? FileContent { get; set; }
+
+        /// <summary>
+        /// File name if provided
+        /// </summary>
+        public string? FileName { get; set; }
+
+        /// <summary>
+        /// Session ID for tracking
+        /// </summary>
+        public string SessionId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// AI model ID to use (optional)
+        /// </summary>
+        public string? ModelId { get; set; }
+
+        /// <summary>
+        /// AI model provider (optional)
+        /// </summary>
+        public string? ModelProvider { get; set; }
+
+        /// <summary>
+        /// AI model name (optional)
+        /// </summary>
+        public string? ModelName { get; set; }
+
+        /// <summary>
+        /// Expected output format (direct_config, action_plan, etc.)
+        /// </summary>
+        public string OutputFormat { get; set; } = "direct_config";
+
+        /// <summary>
+        /// Skip detailed analysis for faster generation
+        /// </summary>
+        public bool SkipDetailedAnalysis { get; set; } = true;
+    }
+
+    #endregion
+
+    #region AI Action DTOs
+
+    /// <summary>
+    /// AI action analysis input
+    /// </summary>
+    public class AIActionAnalysisInput
+    {
+        /// <summary>
+        /// Conversation messages to analyze
+        /// </summary>
+        public List<AIChatMessage> ConversationMessages { get; set; } = new();
+
+        /// <summary>
+        /// Conversation history (alias for ConversationMessages)
+        /// </summary>
+        public List<AIChatMessage> ConversationHistory
+        {
+            get => ConversationMessages;
+            set => ConversationMessages = value;
+        }
+
+        /// <summary>
+        /// Additional context for analysis
+        /// </summary>
+        public string Context { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Focus areas for analysis
+        /// </summary>
+        public List<string> FocusAreas { get; set; } = new();
+
+        /// <summary>
+        /// Session ID for tracking
+        /// </summary>
+        public string SessionId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// AI model ID to use (optional)
+        /// </summary>
+        public string? ModelId { get; set; }
+
+        /// <summary>
+        /// AI model provider (optional)
+        /// </summary>
+        public string? ModelProvider { get; set; }
+
+        /// <summary>
+        /// AI model name (optional)
+        /// </summary>
+        public string? ModelName { get; set; }
+
+        /// <summary>
+        /// Include stakeholder identification
+        /// </summary>
+        public bool IncludeStakeholders { get; set; } = true;
+
+        /// <summary>
+        /// Include priority assessment
+        /// </summary>
+        public bool IncludePriority { get; set; } = true;
+
+        /// <summary>
+        /// Include timeline analysis
+        /// </summary>
+        public bool IncludeTimeline { get; set; } = true;
+
+        /// <summary>
+        /// Include risk assessment
+        /// </summary>
+        public bool IncludeRiskAssessment { get; set; } = true;
+    }
+
+    /// <summary>
+    /// AI action analysis result
+    /// </summary>
+    public class AIActionAnalysisResult
+    {
+        /// <summary>
+        /// Analysis success status
+        /// </summary>
+        public bool Success { get; set; }
+
+        /// <summary>
+        /// Result message
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Extracted action items
+        /// </summary>
+        public List<AIActionItem> ActionItems { get; set; } = new();
+
+        /// <summary>
+        /// Key insights from the conversation
+        /// </summary>
+        public List<string> KeyInsights { get; set; } = new();
+
+        /// <summary>
+        /// Suggested next steps
+        /// </summary>
+        public List<string> NextSteps { get; set; } = new();
+
+        /// <summary>
+        /// Identified stakeholders
+        /// </summary>
+        public List<string> Stakeholders { get; set; } = new();
+
+        /// <summary>
+        /// Priority assessment
+        /// </summary>
+        public string Priority { get; set; } = "Medium";
+
+        /// <summary>
+        /// Conversation summary
+        /// </summary>
+        public string Summary { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Analysis timestamp
+        /// </summary>
+        public DateTime AnalyzedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Confidence score of the analysis (0-1)
+        /// </summary>
+        public double ConfidenceScore { get; set; } = 0.8;
+
+        /// <summary>
+        /// Session ID
+        /// </summary>
+        public string SessionId { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// AI action creation input
+    /// </summary>
+    public class AIActionCreationInput
+    {
+        /// <summary>
+        /// Action analysis result to base creation on
+        /// </summary>
+        public AIActionAnalysisResult? AnalysisResult { get; set; }
+
+        /// <summary>
+        /// Action description (if not using analysis result)
+        /// </summary>
+        public string ActionDescription { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Additional context for creation
+        /// </summary>
+        public string Context { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Stakeholders involved
+        /// </summary>
+        public List<string> Stakeholders { get; set; } = new();
+
+        /// <summary>
+        /// Requirements for action creation
+        /// </summary>
+        public List<string> Requirements { get; set; } = new();
+
+        /// <summary>
+        /// Priority level
+        /// </summary>
+        public string Priority { get; set; } = "Medium";
+
+        /// <summary>
+        /// Due date for the action plan
+        /// </summary>
+        public DateTime? DueDate { get; set; }
+
+        /// <summary>
+        /// AI model ID to use (optional)
+        /// </summary>
+        public string? ModelId { get; set; }
+
+        /// <summary>
+        /// AI model provider (optional)
+        /// </summary>
+        public string? ModelProvider { get; set; }
+
+        /// <summary>
+        /// AI model name (optional)
+        /// </summary>
+        public string? ModelName { get; set; }
+
+        /// <summary>
+        /// Include implementation steps
+        /// </summary>
+        public bool IncludeImplementationSteps { get; set; } = true;
+
+        /// <summary>
+        /// Include risk assessment
+        /// </summary>
+        public bool IncludeRiskAssessment { get; set; } = true;
+
+        /// <summary>
+        /// Include success metrics
+        /// </summary>
+        public bool IncludeSuccessMetrics { get; set; } = true;
+    }
+
+    /// <summary>
+    /// AI action creation result
+    /// </summary>
+    public class AIActionCreationResult
+    {
+        /// <summary>
+        /// Creation success status
+        /// </summary>
+        public bool Success { get; set; }
+
+        /// <summary>
+        /// Result message
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Generated action plan
+        /// </summary>
+        public AIActionPlan? ActionPlan { get; set; }
+
+        /// <summary>
+        /// Implementation steps
+        /// </summary>
+        public List<string> ImplementationSteps { get; set; } = new();
+
+        /// <summary>
+        /// Risk assessment
+        /// </summary>
+        public List<string> RiskAssessment { get; set; } = new();
+
+        /// <summary>
+        /// Risk factors
+        /// </summary>
+        public List<string> RiskFactors { get; set; } = new();
+
+        /// <summary>
+        /// Success metrics
+        /// </summary>
+        public List<string> SuccessMetrics { get; set; } = new();
+
+        /// <summary>
+        /// Creation timestamp
+        /// </summary>
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Confidence score of the creation (0-1)
+        /// </summary>
+        public double ConfidenceScore { get; set; } = 0.8;
+    }
+
+    /// <summary>
+    /// AI action item
+    /// </summary>
+    public class AIActionItem
+    {
+        /// <summary>
+        /// Action item ID
+        /// </summary>
+        public string Id { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Action item title
+        /// </summary>
+        public string Title { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Action item description
+        /// </summary>
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Action category
+        /// </summary>
+        public string Category { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Priority level
+        /// </summary>
+        public string Priority { get; set; } = "Medium";
+
+        /// <summary>
+        /// Status of the action
+        /// </summary>
+        public string Status { get; set; } = "Pending";
+
+        /// <summary>
+        /// Assigned stakeholder
+        /// </summary>
+        public string AssignedTo { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Due date
+        /// </summary>
+        public DateTime? DueDate { get; set; }
+
+        /// <summary>
+        /// Estimated effort (in hours)
+        /// </summary>
+        public int EstimatedHours { get; set; } = 0;
+
+        /// <summary>
+        /// Dependencies
+        /// </summary>
+        public List<string> Dependencies { get; set; } = new();
+
+        /// <summary>
+        /// Action item tags
+        /// </summary>
+        public List<string> Tags { get; set; } = new();
+    }
+
+    /// <summary>
+    /// AI action plan
+    /// </summary>
+    public class AIActionPlan
+    {
+        /// <summary>
+        /// Action plan ID
+        /// </summary>
+        public string Id { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Plan title
+        /// </summary>
+        public string Title { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Plan description
+        /// </summary>
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Plan objective
+        /// </summary>
+        public string Objective { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Priority level
+        /// </summary>
+        public string Priority { get; set; } = "Medium";
+
+        /// <summary>
+        /// Plan status
+        /// </summary>
+        public string Status { get; set; } = "Draft";
+
+        /// <summary>
+        /// Start date
+        /// </summary>
+        public DateTime? StartDate { get; set; }
+
+        /// <summary>
+        /// End date
+        /// </summary>
+        public DateTime? EndDate { get; set; }
+
+        /// <summary>
+        /// Action items in the plan
+        /// </summary>
+        public List<AIActionItem> Actions { get; set; } = new();
+
+        /// <summary>
+        /// Involved stakeholders
+        /// </summary>
+        public List<string> Stakeholders { get; set; } = new();
+
+        /// <summary>
+        /// Plan tags
+        /// </summary>
+        public List<string> Tags { get; set; } = new();
+    }
+
+    /// <summary>
+    /// AI action stream result
+    /// </summary>
+    public class AIActionStreamResult
+    {
+        /// <summary>
+        /// Stream result type
+        /// </summary>
+        public string Type { get; set; } = string.Empty; // "analysis", "creation", "delta", "complete", "error"
+
+        /// <summary>
+        /// Stream content
+        /// </summary>
+        public string Content { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Structured data (for analysis/creation results)
+        /// </summary>
+        public object? Data { get; set; }
+
+        /// <summary>
+        /// Action-specific data
+        /// </summary>
+        public object? ActionData { get; set; }
+
+        /// <summary>
+        /// Progress information (0-100)
+        /// </summary>
+        public double Progress { get; set; } = 0;
+
+        /// <summary>
+        /// Message for the stream
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Whether the stream is complete
+        /// </summary>
+        public bool IsComplete { get; set; }
+
+        /// <summary>
+        /// Session ID
+        /// </summary>
         public string SessionId { get; set; } = string.Empty;
     }
 
@@ -552,10 +1092,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Checklist tasks information (alias for compatibility)
         /// </summary>
-        public List<AISummaryTaskInfo> ChecklistTasks 
-        { 
-            get => Tasks; 
-            set => Tasks = value; 
+        public List<AISummaryTaskInfo> ChecklistTasks
+        {
+            get => Tasks;
+            set => Tasks = value;
         }
 
         /// <summary>
@@ -566,10 +1106,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Questionnaire questions information (alias for compatibility)
         /// </summary>
-        public List<AISummaryQuestionInfo> QuestionnaireQuestions 
-        { 
-            get => Questions; 
-            set => Questions = value; 
+        public List<AISummaryQuestionInfo> QuestionnaireQuestions
+        {
+            get => Questions;
+            set => Questions = value;
         }
 
         /// <summary>
@@ -646,10 +1186,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Task name (alias for TaskTitle)
         /// </summary>
-        public string TaskName 
-        { 
-            get => TaskTitle; 
-            set => TaskTitle = value; 
+        public string TaskName
+        {
+            get => TaskTitle;
+            set => TaskTitle = value;
         }
 
         /// <summary>
@@ -660,10 +1200,10 @@ namespace FlowFlex.Application.Contracts.IServices
         /// <summary>
         /// Description (alias for TaskDescription)
         /// </summary>
-        public string Description 
-        { 
-            get => TaskDescription; 
-            set => TaskDescription = value; 
+        public string Description
+        {
+            get => TaskDescription;
+            set => TaskDescription = value;
         }
 
         /// <summary>
@@ -893,4 +1433,4 @@ namespace FlowFlex.Application.Contracts.IServices
     }
 
     #endregion
-} 
+}

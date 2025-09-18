@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
+using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Domain.Shared.Models
 {
@@ -54,5 +55,11 @@ namespace FlowFlex.Domain.Shared.Models
         /// Names of selected questionnaires (for questionnaire component)
         /// </summary>
         public List<string> QuestionnaireNames { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Customer Portal Access level for this component
+        /// Defines how this component is visible and accessible in the customer portal
+        /// </summary>
+        public PortalPermissionEnum CustomerPortalAccess { get; set; } = PortalPermissionEnum.Viewable;
     }
 }

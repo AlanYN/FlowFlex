@@ -11,7 +11,7 @@
 		<el-select
 			v-model="currentTimeZone"
 			:placeholder="t('sys.placeholder.selectPlaceholder')"
-			class="rounded-lg"
+			class="rounded-xl"
 			:class="{ 'w-[400px] ': props.setting, 'w-[200px] ml-4': !props.setting }"
 			@blur="!props.setting ? saveTimeZone() : null"
 			filterable

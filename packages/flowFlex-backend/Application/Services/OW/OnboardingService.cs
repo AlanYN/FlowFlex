@@ -1,3 +1,4 @@
+using FlowFlex.Infrastructure.Services;
 using AutoMapper;
 using MediatR;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
@@ -21,8 +22,12 @@ using FlowFlex.Domain.Shared.Models;
 using System.Linq.Expressions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Shared.Utils;
 using Microsoft.Extensions.DependencyInjection;
+using FlowFlex.Infrastructure.Extensions;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -47,6 +52,9 @@ namespace FlowFlex.Application.Services.OW
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private readonly IActionManagementService _actionManagementService;
+        private readonly IOperationChangeLogService _operationChangeLogService;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -68,7 +76,10 @@ namespace FlowFlex.Application.Services.OW
             IChecklistService checklistService,
             IQuestionnaireService questionnaireService,
             IOperatorContextService operatorContextService,
-            IServiceScopeFactory serviceScopeFactory)
+            IServiceScopeFactory serviceScopeFactory,
+            IBackgroundTaskQueue backgroundTaskQueue,
+            IActionManagementService actionManagementService,
+            IOperationChangeLogService operationChangeLogService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -86,6 +97,9 @@ namespace FlowFlex.Application.Services.OW
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
             _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
+            _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
+            _actionManagementService = actionManagementService ?? throw new ArgumentNullException(nameof(actionManagementService));
+            _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
         }
 
         /// <summary>
@@ -245,7 +259,10 @@ namespace FlowFlex.Application.Services.OW
                 // Set initial values with explicit null checks
                 entity.CurrentStageId = firstStage?.Id;
                 entity.CurrentStageOrder = firstStage?.Order ?? 0;
-                entity.Status = string.IsNullOrEmpty(entity.Status) ? "Started" : entity.Status;
+                entity.Status = string.IsNullOrEmpty(entity.Status) ? "Inactive" : entity.Status;
+
+                // 添加调试日志
+                LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
                 entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
                 entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
                 entity.CompletionRate = 0;
@@ -486,7 +503,7 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                     // Clear query cache (async execution, doesn't affect main flow)
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
@@ -564,7 +581,7 @@ namespace FlowFlex.Application.Services.OW
                 entity.ModifyDate = DateTimeOffset.UtcNow;
                 entity.ModifyBy = _operatorContextService.GetOperatorDisplayName();
                 entity.ModifyUserId = _operatorContextService.GetOperatorId();
-                                                               // Debug logging handled by structured logging
+                // Debug logging handled by structured logging
                 var result = await SafeUpdateOnboardingAsync(entity);
 
                 // Log onboarding update and clear cache
@@ -586,7 +603,7 @@ namespace FlowFlex.Application.Services.OW
                     });
 
                     // Clear related cache data (async execution, doesn't affect main flow)
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
@@ -779,11 +796,30 @@ namespace FlowFlex.Application.Services.OW
                     var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
                     result.CurrentStageName = stage?.Name;
                     result.CurrentStageEstimatedDays = stage?.EstimatedDuration;
-                    
+
                     // Calculate current stage end time based on start time + estimated days
                     if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
                     {
                         result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
+                    }
+                }
+
+                // Get actions for each stage in stagesProgress
+                if (result.StagesProgress != null)
+                {
+                    foreach (var stageProgress in result.StagesProgress)
+                    {
+                        try
+                        {
+                            var actions = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(stageProgress.StageId);
+                            stageProgress.Actions = actions;
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log error but don't fail the entire request
+                            // Debug logging handled by structured logging
+                            stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
+                        }
                     }
                 }
 
@@ -1004,6 +1040,18 @@ namespace FlowFlex.Application.Services.OW
 
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
+
+                // 添加调试日志 - 检查状态映射
+                LoggingExtensions.WriteLine($"[DEBUG] Query Results Count: {results.Count}");
+                LoggingExtensions.WriteLine($"[DEBUG] Original Entities Count: {pagedEntities.Count}");
+
+                for (int i = 0; i < Math.Min(3, pagedEntities.Count); i++)
+                {
+                    var entity = pagedEntities[i];
+                    var result = results[i];
+                    LoggingExtensions.WriteLine($"[DEBUG] Entity[{i}]: ID={entity.Id}, LeadName={entity.LeadName}, Status={entity.Status}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Result[{i}]: ID={result.Id}, LeadName={result.LeadName}, Status={result.Status}");
+                }
 
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, pagedEntities);
@@ -1638,29 +1686,37 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
+                // Only generate if AI Summary doesn't exist yet
                 try
                 {
-                    var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                    _ = Task.Run(async () =>
+                    LoadStagesProgressFromJson(entity);
+                    var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+
+                    // Only generate AI Summary if it doesn't exist yet
+                    if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
                     {
-                        var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
-                        if (ai != null && ai.Success)
+                        var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            LoadStagesProgressFromJson(entity);
-                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                            if (sp != null)
+                            var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
+                            if (ai != null && ai.Success)
                             {
-                                sp.AiSummary = ai.Summary;
-                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                sp.AiSummaryModel = ai.ModelUsed;
-                                var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                await SafeUpdateOnboardingAsync(entity);
+                                LoadStagesProgressFromJson(entity);
+                                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                                if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
+                                {
+                                    sp.AiSummary = ai.Summary;
+                                    sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                    sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                    sp.AiSummaryModel = ai.ModelUsed;
+                                    var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                    sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                    await SafeUpdateOnboardingAsync(entity);
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
                 catch { /* fire-and-forget */ }
 
@@ -1682,29 +1738,37 @@ namespace FlowFlex.Application.Services.OW
                 entity.CompletionRate = CalculateCompletionRateByStageOrder(entity.StagesProgress);
 
                 // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
+                // Only generate if AI Summary doesn't exist yet
                 try
                 {
-                    var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                    _ = Task.Run(async () =>
+                    LoadStagesProgressFromJson(entity);
+                    var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+
+                    // Only generate AI Summary if it doesn't exist yet
+                    if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
                     {
-                        var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
-                        if (ai != null && ai.Success)
+                        var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            LoadStagesProgressFromJson(entity);
-                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                            if (sp != null)
+                            var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
+                            if (ai != null && ai.Success)
                             {
-                                sp.AiSummary = ai.Summary;
-                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                sp.AiSummaryModel = ai.ModelUsed;
-                                var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                await SafeUpdateOnboardingAsync(entity);
+                                LoadStagesProgressFromJson(entity);
+                                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
+                                if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
+                                {
+                                    sp.AiSummary = ai.Summary;
+                                    sp.AiSummaryGeneratedAt = DateTime.UtcNow;
+                                    sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
+                                    sp.AiSummaryModel = ai.ModelUsed;
+                                    var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
+                                    sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
+                                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                                    await SafeUpdateOnboardingAsync(entity);
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
                 catch { /* fire-and-forget */ }
 
@@ -1734,6 +1798,126 @@ namespace FlowFlex.Application.Services.OW
                 // Debug logging handled by structured logging
                 return result;
             }
+        }
+
+        /// <summary>
+        /// Complete specified stage with validation (supports non-sequential completion) - Internal version without event publishing
+        /// </summary>
+        public async Task<bool> CompleteCurrentStageInternalAsync(long id, CompleteCurrentStageInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            if (entity.Status == "Completed")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
+            }
+
+            // Ensure stages progress is initialized
+            await EnsureStagesProgressInitializedAsync(entity);
+
+            // Get all stages for this workflow
+            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+            var orderedStages = stages.OrderBy(x => x.Order).ToList();
+
+            // Get target stage ID with backward compatibility
+            long stageIdToComplete;
+            try
+            {
+                stageIdToComplete = input.GetTargetStageId();
+            }
+            catch (ArgumentException ex)
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid stage ID parameters: {ex.Message}");
+            }
+
+            // Find the stage to complete
+            var stageToComplete = orderedStages.FirstOrDefault(s => s.Id == stageIdToComplete);
+            if (stageToComplete == null)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage with ID {stageIdToComplete} not found in workflow");
+            }
+
+            // Validate if this stage can be completed
+            (bool canComplete, string validationError) = await ValidateStageCanBeCompletedAsync(entity, stageIdToComplete);
+            if (!canComplete && !input.ForceComplete)
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
+            }
+
+            // Update stages progress
+            await UpdateStagesProgressAsync(entity, stageIdToComplete, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
+
+            // Check if all stages are completed
+            var allStagesCompleted = entity.StagesProgress.All(sp => sp.IsCompleted);
+
+            if (allStagesCompleted)
+            {
+                // Complete the entire onboarding
+                entity.Status = "Completed";
+                entity.CompletionRate = 100;
+                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
+            }
+            else
+            {
+                // Update completion rate
+                entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+
+                // Update current stage if needed
+                if (entity.CurrentStageId == stageToComplete.Id)
+                {
+                    // If we completed the current stage, advance to the next incomplete stage
+                    var nextIncompleteStage = orderedStages
+                        .Where(stage => stage.Order > stageToComplete.Order &&
+                                       !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                        .OrderBy(stage => stage.Order)
+                        .FirstOrDefault();
+
+                    if (nextIncompleteStage != null)
+                    {
+                        entity.CurrentStageId = nextIncompleteStage.Id;
+                        entity.CurrentStageOrder = nextIncompleteStage.Order;
+                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                    }
+                }
+                else if (entity.CurrentStageId != stageToComplete.Id && !input.PreventAutoMove)
+                {
+                    // If we completed a different stage (not the current one), 
+                    // advance to the next incomplete stage AFTER the completed stage (only look forward)
+                    // 但如果 PreventAutoMove 为 true，则不自动移动（用于系统动作的精确控制）
+                    var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
+                    var nextIncompleteStage = orderedStages
+                        .Where(stage => stage.Order > completedStageOrder &&
+                                       !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                        .OrderBy(stage => stage.Order)
+                        .FirstOrDefault();
+
+                    if (nextIncompleteStage != null)
+                    {
+                        entity.CurrentStageId = nextIncompleteStage.Id;
+                        entity.CurrentStageOrder = nextIncompleteStage.Order;
+                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                    }
+                }
+
+                // Add completion notes if provided
+                if (!string.IsNullOrEmpty(input.CompletionNotes))
+                {
+                    var noteText = $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}";
+                    SafeAppendToNotes(entity, noteText);
+                }
+            }
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            // Update the entity using safe method - NO EVENT PUBLISHING
+            var result = await SafeUpdateOnboardingAsync(entity);
+            
+            return result;
         }
 
         /// <summary>
@@ -1868,7 +2052,7 @@ namespace FlowFlex.Application.Services.OW
             //            sp.AiSummaryConfidence = null;
             //            sp.AiSummaryModel = null;
             //            sp.AiSummaryData = null;
-            //            _ = Task.Run(async () =>
+            //            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
             //            {
             //                try
             //                {
@@ -1922,9 +2106,7 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
                     var noteText = $"[Onboarding Completed] Final stage '{stageToComplete.Name}' completed: {input.CompletionNotes}";
-                    entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                        ? noteText
-                        : $"{entity.Notes}\n{noteText}";
+                    SafeAppendToNotes(entity, noteText);
                     // Debug logging handled by structured logging
                 }
             }
@@ -1954,9 +2136,11 @@ namespace FlowFlex.Application.Services.OW
                 else if (entity.CurrentStageId != stageToComplete.Id)
                 {
                     // If we completed a different stage (not the current one), 
-                    // advance to the next incomplete stage
+                    // advance to the next incomplete stage AFTER the completed stage (only look forward)
+                    var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
                     var nextIncompleteStage = orderedStages
-                        .Where(stage => !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                        .Where(stage => stage.Order > completedStageOrder &&
+                                       !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
                         .OrderBy(stage => stage.Order)
                         .FirstOrDefault();
 
@@ -1973,9 +2157,7 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
                     var noteText = $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}";
-                    entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                        ? noteText
-                        : $"{entity.Notes}\n{noteText}";
+                    SafeAppendToNotes(entity, noteText);
                     // Debug logging handled by structured logging
                 }
             }
@@ -2042,7 +2224,7 @@ namespace FlowFlex.Application.Services.OW
             }
             else if (input.AutoMoveToNext)
             {
-                // Move to next stage
+                // Move to next stage (only advance forward in sequence)
                 var nextStage = orderedStages[currentStageIndex + 1];
                 entity.CurrentStageId = nextStage.Id;
                 entity.CurrentStageOrder = nextStage.Order;
@@ -2066,27 +2248,21 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.CompletionNotes))
             {
                 var noteText = $"[Stage Completed] {currentStage.Name}: {input.CompletionNotes}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? noteText
-                    : $"{entity.Notes}\n{noteText}";
+                SafeAppendToNotes(entity, noteText);
             }
 
             // Add rating if provided
             if (input.Rating.HasValue)
             {
                 var ratingText = $"[Stage Rating] {currentStage.Name}: {input.Rating}/5 stars";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? ratingText
-                    : $"{entity.Notes}\n{ratingText}";
+                SafeAppendToNotes(entity, ratingText);
             }
 
             // Add feedback if provided
             if (!string.IsNullOrEmpty(input.Feedback))
             {
                 var feedbackText = $"[Stage Feedback] {currentStage.Name}: {input.Feedback}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? feedbackText
-                    : $"{entity.Notes}\n{feedbackText}";
+                SafeAppendToNotes(entity, feedbackText);
             }
 
             // Update stage tracking info
@@ -2179,7 +2355,19 @@ namespace FlowFlex.Application.Services.OW
             // Update notes with cancellation reason
             if (!string.IsNullOrEmpty(reason))
             {
-                entity.Notes = $"Cancelled: {reason}. {entity.Notes}".Trim();
+                var cancellationNote = $"Cancelled: {reason}";
+                // For cancellation, we want to prepend the note, so we'll handle this specially
+                var currentNotes = entity.Notes ?? string.Empty;
+                var newContent = string.IsNullOrEmpty(currentNotes) 
+                    ? cancellationNote 
+                    : $"{cancellationNote}. {currentNotes}";
+                
+                // Ensure we don't exceed the length limit
+                if (newContent.Length > 1000)
+                {
+                    newContent = newContent.Substring(0, 1000);
+                }
+                entity.Notes = newContent;
                 await SafeUpdateOnboardingAsync(entity);
             }
 
@@ -2187,8 +2375,8 @@ namespace FlowFlex.Application.Services.OW
             await LogOnboardingActionAsync(entity, "Cancel Onboarding", "onboarding_cancel", true, new
             {
                 CancellationReason = reason,
-                                    CancelledAt = DateTimeOffset.UtcNow,
-                    CancelledBy = _operatorContextService.GetOperatorDisplayName()
+                CancelledAt = DateTimeOffset.UtcNow,
+                CancelledBy = _operatorContextService.GetOperatorDisplayName()
             });
 
             return await _onboardingRepository.UpdateStatusAsync(id, "Cancelled");
@@ -2229,9 +2417,7 @@ namespace FlowFlex.Application.Services.OW
             }
             rejectionNote += $" - {(input.TerminateWorkflow ? "Terminated" : "Rejected")} by: {input.RejectedBy} at {currentTime:yyyy-MM-dd HH:mm:ss}";
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? rejectionNote
-                : $"{entity.Notes}\n{rejectionNote}";
+            SafeAppendToNotes(entity, rejectionNote);
 
             // Update stages progress to reflect rejection/termination
             LoadStagesProgressFromJson(entity);
@@ -2379,10 +2565,10 @@ namespace FlowFlex.Application.Services.OW
         {
             var entities = await _onboardingRepository.GetOverdueListAsync();
             var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-            
+
             // Populate workflow/stage names and calculate current stage end time
             await PopulateOnboardingOutputDtoAsync(results, entities);
-            
+
             return results;
         }
 
@@ -2396,7 +2582,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "No onboarding IDs provided");
             }
 
-            var validStatuses = new[] { "Started", "InProgress", "Completed", "Paused", "Cancelled" };
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted",
+                                       "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(status))
             {
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Invalid status");
@@ -2443,7 +2630,7 @@ namespace FlowFlex.Application.Services.OW
             entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
             // Sync isCurrent flag in stagesProgress to match currentStageId
-            LoadStagesProgressFromJson(entity);
+            // Note: Don't reload from JSON here as UpdateStagesProgressAsync may have just updated the data
             if (entity.StagesProgress != null && entity.StagesProgress.Any())
             {
                 foreach (var stage in entity.StagesProgress)
@@ -2451,7 +2638,7 @@ namespace FlowFlex.Application.Services.OW
                     // Update isCurrent flag based on currentStageId
                     stage.IsCurrent = stage.StageId == entity.CurrentStageId;
 
-                    // Update stage status based on completion and current status
+                    // Update stage status based on completion and current status, but preserve IsCompleted status
                     if (stage.IsCompleted)
                     {
                         stage.Status = "Completed";
@@ -2534,9 +2721,7 @@ namespace FlowFlex.Application.Services.OW
                 noteText = $"[{input.Type}] {noteText}";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? noteText
-                : $"{entity.Notes}\n{noteText}";
+            SafeAppendToNotes(entity, noteText);
 
             return await SafeUpdateOnboardingAsync(entity);
         }
@@ -2552,7 +2737,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            var validStatuses = new[] { "Started", "InProgress", "Completed", "Paused", "Cancelled" };
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted",
+                                       "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(input.Status))
             {
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Invalid status");
@@ -2563,9 +2749,7 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.Remarks))
             {
                 var remarkText = $"[Status Update] {input.Remarks}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? remarkText
-                    : $"{entity.Notes}\n{remarkText}";
+                SafeAppendToNotes(entity, remarkText);
             }
 
             // Update stage tracking info
@@ -2597,9 +2781,7 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.Remarks))
             {
                 var remarkText = $"[Priority Update] Priority set to {input.Priority}. {input.Remarks}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? remarkText
-                    : $"{entity.Notes}\n{remarkText}";
+                SafeAppendToNotes(entity, remarkText);
             }
 
             // Update stage tracking info
@@ -2633,27 +2815,21 @@ namespace FlowFlex.Application.Services.OW
             if (!string.IsNullOrEmpty(input.CompletionNotes))
             {
                 var noteText = $"[Completion] {input.CompletionNotes}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? noteText
-                    : $"{entity.Notes}\n{noteText}";
+                SafeAppendToNotes(entity, noteText);
             }
 
             // Add rating if provided
             if (input.Rating.HasValue)
             {
                 var ratingText = $"[Rating] {input.Rating}/5 stars";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? ratingText
-                    : $"{entity.Notes}\n{ratingText}";
+                SafeAppendToNotes(entity, ratingText);
             }
 
             // Add feedback if provided
             if (!string.IsNullOrEmpty(input.Feedback))
             {
                 var feedbackText = $"[Feedback] {input.Feedback}";
-                entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                    ? feedbackText
-                    : $"{entity.Notes}\n{feedbackText}";
+                SafeAppendToNotes(entity, feedbackText);
             }
 
             // Update stage tracking info
@@ -2700,9 +2876,7 @@ namespace FlowFlex.Application.Services.OW
                 restartText += $" - Notes: {input.Notes}";
             }
 
-            entity.Notes = string.IsNullOrEmpty(entity.Notes)
-                ? restartText
-                : $"{entity.Notes}\n{restartText}";
+            SafeAppendToNotes(entity, restartText);
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
@@ -2740,6 +2914,22 @@ namespace FlowFlex.Application.Services.OW
 
             // Map stages progress to DTO
             var stagesProgressDto = _mapper.Map<List<OnboardingStageProgressDto>>(entity.StagesProgress);
+
+            // Get actions for each stage
+            foreach (var stageProgress in stagesProgressDto)
+            {
+                try
+                {
+                    var actions = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(stageProgress.StageId);
+                    stageProgress.Actions = actions;
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the entire request
+                    // Debug logging handled by structured logging
+                    stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
+                }
+            }
 
             return new OnboardingProgressDto
             {
@@ -2923,7 +3113,7 @@ namespace FlowFlex.Application.Services.OW
                 catch { }
 
                 // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
-                _ = Task.Run(async () =>
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -3009,9 +3199,9 @@ namespace FlowFlex.Application.Services.OW
                     onboardingStageCompletedEvent.BusinessContext["Components.RequiredFieldsCount"] = componentsPayload2?.RequiredFields?.Count ?? 0;
                 }
                 catch { }
-                
+
                 // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
-                _ = Task.Run(async () =>
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -3044,9 +3234,9 @@ namespace FlowFlex.Application.Services.OW
         {
             var payload = new StageCompletionComponents();
 
-            Console.WriteLine($"[DEBUG] BuildStageCompletionComponentsAsync - OnboardingId: {onboardingId}, StageId: {stageId}");
-            Console.WriteLine($"[DEBUG] Initial stageComponents count: {stageComponents?.Count ?? 0}");
-            Console.WriteLine($"[DEBUG] Initial componentsJson: {(!string.IsNullOrWhiteSpace(componentsJson) ? "Present" : "Missing")}");
+            LoggingExtensions.WriteLine($"[DEBUG] BuildStageCompletionComponentsAsync - OnboardingId: {onboardingId}, StageId: {stageId}");
+            LoggingExtensions.WriteLine($"[DEBUG] Initial stageComponents count: {stageComponents?.Count ?? 0}");
+            LoggingExtensions.WriteLine($"[DEBUG] Initial componentsJson: {(!string.IsNullOrWhiteSpace(componentsJson) ? "Present" : "Missing")}");
 
             // Ensure we have componentsJson from DB if missing
             if (string.IsNullOrWhiteSpace(componentsJson))
@@ -3057,12 +3247,12 @@ namespace FlowFlex.Application.Services.OW
                     if (!string.IsNullOrWhiteSpace(stageEntity?.ComponentsJson))
                     {
                         componentsJson = stageEntity.ComponentsJson;
-                        Console.WriteLine($"[DEBUG] Retrieved componentsJson from DB: {componentsJson.Substring(0, Math.Min(200, componentsJson.Length))}...");
+                        LoggingExtensions.WriteLine($"[DEBUG] Retrieved componentsJson from DB: {componentsJson.Substring(0, Math.Min(200, componentsJson.Length))}...");
                     }
                 }
-                catch (Exception ex) 
-                { 
-                    Console.WriteLine($"[DEBUG] Error retrieving componentsJson from DB: {ex.Message}");
+                catch (Exception ex)
+                {
+                    LoggingExtensions.WriteLine($"[DEBUG] Error retrieving componentsJson from DB: {ex.Message}");
                 }
             }
 
@@ -3072,15 +3262,15 @@ namespace FlowFlex.Application.Services.OW
                 try
                 {
                     stageComponents = JsonSerializer.Deserialize<List<StageComponent>>(componentsJson) ?? new List<StageComponent>();
-                    Console.WriteLine($"[DEBUG] Standard JSON deserialization successful, components count: {stageComponents.Count}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Standard JSON deserialization successful, components count: {stageComponents.Count}");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[DEBUG] Standard JSON deserialization failed: {ex.Message}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Standard JSON deserialization failed: {ex.Message}");
                     // Fallback: parse components from raw JSON with lenient parsing
-                                            var (parsedComponents, parsedStaticFields) = ParseComponentsFromJson(componentsJson);
+                    var (parsedComponents, parsedStaticFields) = ParseComponentsFromJson(componentsJson);
                     stageComponents = parsedComponents;
-                    Console.WriteLine($"[DEBUG] Lenient parsing successful, components count: {stageComponents.Count}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Lenient parsing successful, components count: {stageComponents.Count}");
                 }
             }
 
@@ -3093,21 +3283,21 @@ namespace FlowFlex.Application.Services.OW
                     if (comps != null && comps.Count > 0)
                     {
                         stageComponents = comps;
-                        Console.WriteLine($"[DEBUG] Retrieved components from service, count: {stageComponents.Count}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Retrieved components from service, count: {stageComponents.Count}");
                     }
                 }
-                catch (Exception ex) 
-                { 
-                    Console.WriteLine($"[DEBUG] Error retrieving components from service: {ex.Message}");
+                catch (Exception ex)
+                {
+                    LoggingExtensions.WriteLine($"[DEBUG] Error retrieving components from service: {ex.Message}");
                 }
             }
 
-            Console.WriteLine($"[DEBUG] Final stageComponents count before processing: {stageComponents?.Count ?? 0}");
+            LoggingExtensions.WriteLine($"[DEBUG] Final stageComponents count before processing: {stageComponents?.Count ?? 0}");
 
             // Process components to populate payload
             await ProcessStageComponentsAsync(onboardingId, stageId, stageComponents, componentsJson, payload);
 
-            Console.WriteLine($"[DEBUG] Final payload counts - Checklists: {payload.Checklists.Count}, Questionnaires: {payload.Questionnaires.Count}, TaskCompletions: {payload.TaskCompletions.Count}, RequiredFields: {payload.RequiredFields.Count}");
+            LoggingExtensions.WriteLine($"[DEBUG] Final payload counts - Checklists: {payload.Checklists.Count}, Questionnaires: {payload.Questionnaires.Count}, TaskCompletions: {payload.TaskCompletions.Count}, RequiredFields: {payload.RequiredFields.Count}");
 
             return payload;
         }
@@ -3126,55 +3316,55 @@ namespace FlowFlex.Application.Services.OW
                 string currentJson = componentsJson;
                 JsonDocument currentDoc = null;
                 int unwrapCount = 0;
-                
+
                 while (true)
                 {
                     currentDoc?.Dispose();
                     currentDoc = JsonDocument.Parse(currentJson);
-                    Console.WriteLine($"[DEBUG] JSON unwrap #{unwrapCount}: root type = {currentDoc.RootElement.ValueKind}");
-                    
+                    LoggingExtensions.WriteLine($"[DEBUG] JSON unwrap #{unwrapCount}: root type = {currentDoc.RootElement.ValueKind}");
+
                     if (currentDoc.RootElement.ValueKind == JsonValueKind.Array)
                     {
-                        Console.WriteLine($"[DEBUG] Found JSON array after {unwrapCount} unwraps");
+                        LoggingExtensions.WriteLine($"[DEBUG] Found JSON array after {unwrapCount} unwraps");
                         break;
                     }
                     else if (currentDoc.RootElement.ValueKind == JsonValueKind.String)
                     {
                         currentJson = currentDoc.RootElement.GetString();
-                        Console.WriteLine($"[DEBUG] Unwrapped JSON string, length: {currentJson?.Length}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Unwrapped JSON string, length: {currentJson?.Length}");
                         unwrapCount++;
-                        
+
                         if (unwrapCount > 5) // Prevent infinite loop
                         {
-                            Console.WriteLine($"[ERROR] Too many JSON unwrap levels, stopping at {unwrapCount}");
+                            LoggingExtensions.WriteLine($"[ERROR] Too many JSON unwrap levels, stopping at {unwrapCount}");
                             break;
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"[ERROR] Unexpected JSON root type: {currentDoc.RootElement.ValueKind}");
+                        LoggingExtensions.WriteLine($"[ERROR] Unexpected JSON root type: {currentDoc.RootElement.ValueKind}");
                         break;
                     }
                 }
-                
+
                 if (currentDoc.RootElement.ValueKind == JsonValueKind.Array)
                 {
-                    Console.WriteLine($"[DEBUG] Processing {currentDoc.RootElement.GetArrayLength()} JSON array elements");
+                    LoggingExtensions.WriteLine($"[DEBUG] Processing {currentDoc.RootElement.GetArrayLength()} JSON array elements");
                     int elementIndex = 0;
                     foreach (var elem in currentDoc.RootElement.EnumerateArray())
                     {
-                        Console.WriteLine($"[DEBUG] Element {elementIndex}: Type={elem.ValueKind}");
-                        if (elem.ValueKind != JsonValueKind.Object) 
+                        LoggingExtensions.WriteLine($"[DEBUG] Element {elementIndex}: Type={elem.ValueKind}");
+                        if (elem.ValueKind != JsonValueKind.Object)
                         {
                             elementIndex++;
                             continue;
                         }
-                        
+
                         // Get key with both camelCase and PascalCase support
                         string key = GetJsonProperty(elem, "key", "Key");
-                        Console.WriteLine($"[DEBUG] Element {elementIndex} - Raw JSON: {elem.GetRawText()}");
-                        Console.WriteLine($"[DEBUG] Element {elementIndex} - Extracted key: '{key}'");
-                        if (string.IsNullOrWhiteSpace(key)) 
+                        LoggingExtensions.WriteLine($"[DEBUG] Element {elementIndex} - Raw JSON: {elem.GetRawText()}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Element {elementIndex} - Extracted key: '{key}'");
+                        if (string.IsNullOrWhiteSpace(key))
                         {
                             elementIndex++;
                             continue;
@@ -3244,24 +3434,24 @@ namespace FlowFlex.Application.Services.OW
                                     }
                                 }
                             }
-                            
+
                             // Also populate the StageComponent
                             component.StaticFields = new List<string>(staticFieldNames);
                         }
 
                         // Add component to list after processing all types
                         stageComponents.Add(component);
-                        Console.WriteLine($"[DEBUG] Added component '{key}' to list, total count: {stageComponents.Count}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Added component '{key}' to list, total count: {stageComponents.Count}");
                         elementIndex++;
                     }
                 }
-                Console.WriteLine($"[DEBUG] ParseComponentsFromJson completed - Components: {stageComponents.Count}, StaticFields: {staticFieldNames.Count}");
-                
+                LoggingExtensions.WriteLine($"[DEBUG] ParseComponentsFromJson completed - Components: {stageComponents.Count}, StaticFields: {staticFieldNames.Count}");
+
                 currentDoc?.Dispose();
             }
-            catch (Exception ex) 
-            { 
-                Console.WriteLine($"[ERROR] ParseComponentsFromJson failed: {ex.Message}");
+            catch (Exception ex)
+            {
+                LoggingExtensions.WriteLine($"[ERROR] ParseComponentsFromJson failed: {ex.Message}");
             }
 
             return (stageComponents, staticFieldNames);
@@ -3322,7 +3512,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Get checklist components - prioritize stageComponents, fallback to JSON parsing
                 var checklistComponents = (stageComponents ?? new List<StageComponent>()).Where(c => c.Key == "checklist").ToList();
-                
+
                 if (checklistComponents.Count == 0 && !string.IsNullOrWhiteSpace(componentsJson))
                 {
                     var (parsedComponents, _) = ParseComponentsFromJson(componentsJson);
@@ -3340,7 +3530,7 @@ namespace FlowFlex.Application.Services.OW
                             var checklistName = (component.ChecklistNames != null && component.ChecklistNames.Count > i)
                                 ? component.ChecklistNames[i]
                                 : $"Checklist {checklistId}";
-                            
+
                             // Get detailed checklist information
                             try
                             {
@@ -3400,7 +3590,7 @@ namespace FlowFlex.Application.Services.OW
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[ERROR] Failed to get checklist details for {checklistId}: {ex.Message}");
+                                LoggingExtensions.WriteLine($"[ERROR] Failed to get checklist details for {checklistId}: {ex.Message}");
                                 // Fallback to basic info
                                 payload.Checklists.Add(new ChecklistComponentInfo
                                 {
@@ -3440,7 +3630,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Get questionnaire components - prioritize stageComponents, fallback to JSON parsing
                 var questionnaireComponents = (stageComponents ?? new List<StageComponent>()).Where(c => c.Key == "questionnaires").ToList();
-                
+
                 if (questionnaireComponents.Count == 0 && !string.IsNullOrWhiteSpace(componentsJson))
                 {
                     var (parsedComponents, _) = ParseComponentsFromJson(componentsJson);
@@ -3458,7 +3648,7 @@ namespace FlowFlex.Application.Services.OW
                             var questionnaireName = (component.QuestionnaireNames != null && component.QuestionnaireNames.Count > i)
                                 ? component.QuestionnaireNames[i]
                                 : $"Questionnaire {questionnaireId}";
-                            
+
                             // Get detailed questionnaire information
                             try
                             {
@@ -3494,7 +3684,7 @@ namespace FlowFlex.Application.Services.OW
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[ERROR] Failed to get questionnaire details for {questionnaireId}: {ex.Message}");
+                                LoggingExtensions.WriteLine($"[ERROR] Failed to get questionnaire details for {questionnaireId}: {ex.Message}");
                                 // Fallback to basic info
                                 payload.Questionnaires.Add(new QuestionnaireComponentInfo
                                 {
@@ -3561,10 +3751,10 @@ namespace FlowFlex.Application.Services.OW
                             foreach (var elem in doc.RootElement.EnumerateArray())
                             {
                                 if (elem.ValueKind != JsonValueKind.Object) continue;
-                                
+
                                 string key = GetJsonProperty(elem, "key", "Key");
                                 if (!string.Equals(key, "fields", StringComparison.OrdinalIgnoreCase)) continue;
-                                
+
                                 var sfArr = GetJsonArrayProperty(elem, "staticFields", "StaticFields");
                                 if (sfArr.HasValue)
                                 {
@@ -3589,7 +3779,7 @@ namespace FlowFlex.Application.Services.OW
                 // Load existing field values
                 var fieldValues = await _staticFieldValueService.GetLatestByOnboardingAndStageAsync(onboardingId, stageId);
                 var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                
+
                 foreach (var f in fieldValues)
                 {
                     payload.RequiredFields.Add(new RequiredFieldInfo
@@ -3640,13 +3830,16 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
+                CustomerName = item.LeadName,
                 Id = item.LeadId,
-                CompanyName = item.LeadName,
+                ContactName = item.ContactPerson,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
-                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                Status = GetDisplayStatus(item.Status),
+                StartDate = FormatDateForExport(item.CurrentStageStartTime),
+                EndDate = FormatDateForExport(item.CurrentStageEndTime),
                 // Keep consistency with frontend index.vue display logic:
                 // Updated By => stageUpdatedBy || modifyBy
                 // Update Time => stageUpdatedTime || modifyDate
@@ -3657,17 +3850,20 @@ namespace FlowFlex.Application.Services.OW
 
             // Generate CSV content
             var csvContent = new StringBuilder();
-            csvContent.AppendLine("Lead ID,Company/Contact Name,Life Cycle Stage,Onboard Workflow,Onboard Stage,Priority,Timeline,Updated By,Update Time");
+            csvContent.AppendLine("Customer Name,Lead ID,Contact Name,Life Cycle Stage,Workflow,Stage,Priority,Status,Start Date,End Date,Updated By,Update Time");
 
             foreach (var item in exportData)
             {
-                csvContent.AppendLine($"\"{item.Id}\"," +
-                    $"\"{item.CompanyName?.Replace("\"", "\"\"")}\"," +
+                csvContent.AppendLine($"\"{item.CustomerName?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.Id}\"," +
+                    $"\"{item.ContactName?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.LifeCycleStage?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.WorkFlow?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.OnboardStage?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.Priority?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.Timeline?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.Status?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.StartDate?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.EndDate?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.UpdatedBy?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.UpdateTime}\"");
             }
@@ -3689,19 +3885,50 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
+                CustomerName = item.LeadName,
                 Id = item.LeadId,
-                CompanyName = item.LeadName,
+                ContactName = item.ContactPerson,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
-                Timeline = item.StartDate.HasValue ? $"Start: {item.StartDate.Value.ToString("MM/dd/yyyy")}" : "",
+                Status = GetDisplayStatus(item.Status),
+                StartDate = FormatDateForExport(item.CurrentStageStartTime),
+                EndDate = FormatDateForExport(item.CurrentStageEndTime),
                 UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
                 UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
                   .ToString("MM/dd/yyyy HH:mm:ss")
             }).ToList();
             // Use EPPlus to generate Excel file (avoid NPOI version conflict)
             return GenerateExcelWithEPPlus(exportData);
+        }
+
+        /// <summary>
+        /// Convert status to display format to match frontend logic
+        /// </summary>
+        private string GetDisplayStatus(string status)
+        {
+            if (string.IsNullOrEmpty(status))
+                return status;
+
+            return status switch
+            {
+                "Active" or "Started" => "InProgress",
+                "Cancelled" => "Aborted",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// Format date to match frontend display format (MM/dd/yyyy HH:mm)
+        /// </summary>
+        private string FormatDateForExport(DateTimeOffset? dateTime)
+        {
+            if (!dateTime.HasValue)
+                return "";
+            
+            // Format as MM/dd/yyyy HH:mm to include time precision to minutes
+            return dateTime.Value.ToString("MM/dd/yyyy HH:mm");
         }
 
         /// <summary>
@@ -3715,8 +3942,8 @@ namespace FlowFlex.Application.Services.OW
             // Set headers
             var headers = new[]
             {
-                "Lead ID", "Company/Contact Name", "Life Cycle Stage", "Onboard Workflow", "Onboard Stage",
-                "Priority", "Timeline", "Updated By", "Update Time"
+                "Customer Name", "Lead ID", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
+                "Priority", "Status", "Start Date", "End Date", "Updated By", "Update Time"
             };
 
             for (int i = 0; i < headers.Length; i++)
@@ -3729,15 +3956,18 @@ namespace FlowFlex.Application.Services.OW
             for (int row = 0; row < data.Count; row++)
             {
                 var item = data[row];
-                worksheet.Cells[row + 2, 1].Value = item.Id;
-                worksheet.Cells[row + 2, 2].Value = item.CompanyName;
-                worksheet.Cells[row + 2, 3].Value = item.LifeCycleStage;
-                worksheet.Cells[row + 2, 4].Value = item.WorkFlow;
-                worksheet.Cells[row + 2, 5].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 6].Value = item.Priority;
-                worksheet.Cells[row + 2, 7].Value = item.Timeline;
-                worksheet.Cells[row + 2, 8].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 9].Value = item.UpdateTime;
+                worksheet.Cells[row + 2, 1].Value = item.CustomerName;
+                worksheet.Cells[row + 2, 2].Value = item.Id;
+                worksheet.Cells[row + 2, 3].Value = item.ContactName;
+                worksheet.Cells[row + 2, 4].Value = item.LifeCycleStage;
+                worksheet.Cells[row + 2, 5].Value = item.WorkFlow;
+                worksheet.Cells[row + 2, 6].Value = item.OnboardStage;
+                worksheet.Cells[row + 2, 7].Value = item.Priority;
+                worksheet.Cells[row + 2, 8].Value = item.Status;
+                worksheet.Cells[row + 2, 9].Value = item.StartDate;
+                worksheet.Cells[row + 2, 10].Value = item.EndDate;
+                worksheet.Cells[row + 2, 11].Value = item.UpdatedBy;
+                worksheet.Cells[row + 2, 12].Value = item.UpdateTime;
             }
 
             // Auto-fit columns
@@ -3833,7 +4063,7 @@ namespace FlowFlex.Application.Services.OW
                         StageId = stage.Id,
                         Status = sequentialOrder == 1 ? "InProgress" : "Pending", // First stage starts as InProgress
                         IsCompleted = false,
-                        StartTime = sequentialOrder == 1 ? currentTime : null, // First stage starts immediately
+                        StartTime = null, // StartTime is now null by default, will be set when stage is saved or completed
                         CompletionTime = null,
                         CompletedById = null,
                         CompletedBy = null,
@@ -3880,13 +4110,13 @@ namespace FlowFlex.Application.Services.OW
                 LoadStagesProgressFromJson(entity);
 
                 // Debug: Check if stageIds are correctly loaded
-                Console.WriteLine($"[DEBUG] UpdateStagesProgressAsync - After LoadStagesProgressFromJson:");
-                Console.WriteLine($"[DEBUG] StagesProgress count: {entity.StagesProgress?.Count ?? 0}");
+                LoggingExtensions.WriteLine($"[DEBUG] UpdateStagesProgressAsync - After LoadStagesProgressFromJson:");
+                LoggingExtensions.WriteLine($"[DEBUG] StagesProgress count: {entity.StagesProgress?.Count ?? 0}");
                 if (entity.StagesProgress != null)
                 {
                     foreach (var sp in entity.StagesProgress)
                     {
-                        Console.WriteLine($"[DEBUG] StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                        LoggingExtensions.WriteLine($"[DEBUG] StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
                     }
                 }
 
@@ -3910,6 +4140,13 @@ namespace FlowFlex.Application.Services.OW
                     completedStage.IsCurrent = false;
                     completedStage.LastUpdatedTime = currentTime;
                     completedStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
+
+                    // Set StartTime if not already set (only during complete operations)
+                    // This ensures StartTime is set when user actually completes work, not during status changes
+                    if (!completedStage.StartTime.HasValue)
+                    {
+                        completedStage.StartTime = currentTime;
+                    }
 
                     if (!string.IsNullOrEmpty(notes))
                     {
@@ -3942,7 +4179,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         // Activate the next incomplete stage
                         nextStage.Status = "InProgress";
-                        nextStage.StartTime = currentTime;
+                        // Don't set StartTime here - only set it during save or complete operations
                         nextStage.IsCurrent = true;
                         nextStage.LastUpdatedTime = currentTime;
                         nextStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
@@ -3951,27 +4188,9 @@ namespace FlowFlex.Application.Services.OW
                     }
                     else
                     {
-                        // Check if there are any incomplete stages with lower order (in case of non-sequential completion)
-                        var earlierIncompleteStage = entity.StagesProgress
-                            .Where(s => !s.IsCompleted)
-                            .OrderBy(s => s.StageOrder)
-                            .FirstOrDefault();
-
-                        if (earlierIncompleteStage != null)
-                        {
-                            // Activate the earliest incomplete stage
-                            earlierIncompleteStage.Status = "InProgress";
-                            earlierIncompleteStage.StartTime = currentTime;
-                            earlierIncompleteStage.IsCurrent = true;
-                            earlierIncompleteStage.LastUpdatedTime = currentTime;
-                            earlierIncompleteStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
-
-                            // Debug logging handled by structured logging");
-                        }
-                        else
-                        {
-                            // Debug logging handled by structured logging
-                        }
+                        // All stages after the completed stage are already completed
+                        // Don't go backward to find incomplete stages - this maintains forward progression
+                        // Debug logging handled by structured logging
                     }
 
                     // Update completion rate based on completed stages
@@ -4000,8 +4219,8 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
                     // Debug: Show input JSON
-                    Console.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Input JSON:");
-                    Console.WriteLine($"[DEBUG] {entity.StagesProgressJson}");
+                    LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Input JSON:");
+                    LoggingExtensions.WriteLine($"[DEBUG] {entity.StagesProgressJson}");
 
                     // Configure JsonSerializer options to handle both formats
                     var options = new JsonSerializerOptions
@@ -4017,10 +4236,10 @@ namespace FlowFlex.Application.Services.OW
                         entity.StagesProgressJson, options) ?? new List<OnboardingStageProgress>();
 
                     // Debug: Show loaded data
-                    Console.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Loaded {entity.StagesProgress.Count} items:");
+                    LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Loaded {entity.StagesProgress.Count} items:");
                     foreach (var sp in entity.StagesProgress)
                     {
-                        Console.WriteLine($"[DEBUG] Loaded StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                        LoggingExtensions.WriteLine($"[DEBUG] Loaded StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
                     }
 
                     // Only fix stage order when needed, avoid unnecessary serialization
@@ -4038,7 +4257,7 @@ namespace FlowFlex.Application.Services.OW
             catch (JsonException jsonEx)
             {
                 // Handle JSON parsing errors specifically
-                Console.WriteLine($"JSON parsing error in LoadStagesProgressFromJson: {jsonEx.Message}");
+                LoggingExtensions.WriteLine($"JSON parsing error in LoadStagesProgressFromJson: {jsonEx.Message}");
                 entity.StagesProgress = new List<OnboardingStageProgress>();
             }
             catch (Exception ex)
@@ -4566,7 +4785,7 @@ namespace FlowFlex.Application.Services.OW
                                     IncludeTaskAnalysis = true,
                                     IncludeQuestionnaireInsights = true
                                 };
-                                _ = Task.Run(async () =>
+                                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                                 {
                                     var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
                                     if (ai != null && ai.Success)
@@ -4608,7 +4827,7 @@ namespace FlowFlex.Application.Services.OW
                                         IncludeTaskAnalysis = true,
                                         IncludeQuestionnaireInsights = true
                                     };
-                                    _ = Task.Run(async () =>
+                                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                                     {
                                         var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
                                         if (ai != null && ai.Success)
@@ -4741,6 +4960,62 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Safely append text to Notes field with length validation
+        /// Ensures the total length doesn't exceed the database constraint (1000 characters)
+        /// </summary>
+        private static void SafeAppendToNotes(Onboarding entity, string noteText)
+        {
+            const int maxNotesLength = 1000;
+            
+            if (string.IsNullOrEmpty(noteText))
+                return;
+
+            var currentNotes = entity.Notes ?? string.Empty;
+            var newContent = string.IsNullOrEmpty(currentNotes) 
+                ? noteText 
+                : $"{currentNotes}\n{noteText}";
+
+            // If the new content exceeds the limit, truncate it intelligently
+            if (newContent.Length > maxNotesLength)
+            {
+                // Try to keep the most recent notes by truncating from the beginning
+                var truncationMessage = "[...truncated older notes...]\n";
+                var availableSpace = maxNotesLength - truncationMessage.Length - noteText.Length - 1; // -1 for newline
+                
+                if (availableSpace > 0 && currentNotes.Length > availableSpace)
+                {
+                    // Keep the most recent part of existing notes
+                    var recentNotes = currentNotes.Substring(currentNotes.Length - availableSpace);
+                    // Find the first newline to avoid cutting in the middle of a note
+                    var firstNewlineIndex = recentNotes.IndexOf('\n');
+                    if (firstNewlineIndex > 0)
+                    {
+                        recentNotes = recentNotes.Substring(firstNewlineIndex + 1);
+                    }
+                    entity.Notes = $"{truncationMessage}{recentNotes}\n{noteText}";
+                }
+                else
+                {
+                    // If even the new note is too long, truncate it
+                    var maxNewNoteLength = maxNotesLength - truncationMessage.Length - 1;
+                    if (maxNewNoteLength > 0)
+                    {
+                        entity.Notes = $"{truncationMessage}{noteText.Substring(0, maxNewNoteLength)}";
+                    }
+                    else
+                    {
+                        // Fallback: just use the first part of the new note
+                        entity.Notes = noteText.Substring(0, Math.Min(noteText.Length, maxNotesLength));
+                    }
+                }
+            }
+            else
+            {
+                entity.Notes = newContent;
+            }
+        }
+
+        /// <summary>
         /// Safely update onboarding entity with JSONB compatibility
         /// This method handles the JSONB type conversion issue for stages_progress_json
         /// </summary>
@@ -4805,7 +5080,7 @@ namespace FlowFlex.Application.Services.OW
                     catch (Exception progressEx)
                     {
                         // Log but don't fail the main update
-                        Console.WriteLine($"Warning: Failed to update stages_progress_json: {progressEx.Message}");
+                        LoggingExtensions.WriteLine($"Warning: Failed to update stages_progress_json: {progressEx.Message}");
                         // Try alternative approach with parameter substitution
                         try
                         {
@@ -4815,7 +5090,7 @@ namespace FlowFlex.Application.Services.OW
                         }
                         catch (Exception directEx)
                         {
-                            Console.WriteLine($"Error: Both parameterized and direct JSONB update failed: {directEx.Message}");
+                            LoggingExtensions.WriteLine($"Error: Both parameterized and direct JSONB update failed: {directEx.Message}");
                         }
                     }
                 }
@@ -4907,10 +5182,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Debug: Check input data before serialization
-                Console.WriteLine($"[DEBUG] SerializeStagesProgress - Input data:");
+                LoggingExtensions.WriteLine($"[DEBUG] SerializeStagesProgress - Input data:");
                 foreach (var sp in stagesProgress)
                 {
-                    Console.WriteLine($"[DEBUG] Input StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Input StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
                 }
 
                 // Serialize OnboardingStageProgress objects with JsonIgnore attributes respected
@@ -4923,8 +5198,8 @@ namespace FlowFlex.Application.Services.OW
                 });
 
                 // Debug: Check final result
-                Console.WriteLine($"[DEBUG] SerializeStagesProgress - Final JSON result:");
-                Console.WriteLine($"[DEBUG] {result}");
+                LoggingExtensions.WriteLine($"[DEBUG] SerializeStagesProgress - Final JSON result:");
+                LoggingExtensions.WriteLine($"[DEBUG] {result}");
 
                 return result;
             }
@@ -4963,10 +5238,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-                
+
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, entities);
-                
+
                 return results;
             }
             catch (Exception ex)
@@ -5002,10 +5277,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-                
+
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, entities);
-                
+
                 return results;
             }
             catch (Exception ex)
@@ -5041,10 +5316,10 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-                
+
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, entities);
-                
+
                 return results;
             }
             catch (Exception ex)
@@ -5170,7 +5445,7 @@ namespace FlowFlex.Application.Services.OW
                 var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
                 if (onboarding == null)
                 {
-                    Console.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
+                    LoggingExtensions.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
                     return false;
                 }
 
@@ -5181,7 +5456,7 @@ namespace FlowFlex.Application.Services.OW
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
                 if (stageProgress == null)
                 {
-                    Console.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId}");
+                    LoggingExtensions.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId}");
                     return false;
                 }
 
@@ -5204,14 +5479,171 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
-                Console.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
-                
+                LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
+                LoggingExtensions.WriteLine($"❌ Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Update custom fields for a specific stage in onboarding's stagesProgress
+        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// </summary>
+        public async Task<bool> UpdateStageCustomFieldsAsync(long onboardingId, UpdateStageCustomFieldsInputDto input)
+        {
+            try
+            {
+                // Get current onboarding
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Load stages progress from JSON
+                LoadStagesProgressFromJson(onboarding);
+
+                // Find the stage progress entry
+                var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == input.StageId);
+                if (stageProgress == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage {input.StageId} not found in onboarding {onboardingId}");
+                }
+
+                // Capture original values for comparison
+                var originalEstimatedDays = stageProgress.CustomEstimatedDays;
+                var originalEndTime = stageProgress.CustomEndTime;
+
+                // Capture before data for change log
+                var beforeData = JsonSerializer.Serialize(new
+                {
+                    CustomEstimatedDays = stageProgress.CustomEstimatedDays,
+                    CustomEndTime = stageProgress.CustomEndTime,
+                    LastUpdatedTime = stageProgress.LastUpdatedTime,
+                    LastUpdatedBy = stageProgress.LastUpdatedBy
+                });
+
+                // Update custom fields
+                stageProgress.CustomEstimatedDays = input.CustomEstimatedDays;
+                stageProgress.CustomEndTime = input.CustomEndTime;
+
+                // Add notes if provided
+                if (!string.IsNullOrEmpty(input.Notes))
+                {
+                    var currentTime = DateTimeOffset.UtcNow;
+                    var currentUser = GetCurrentUserName();
+                    var updateNote = $"[Custom fields updated {currentTime:yyyy-MM-dd HH:mm:ss} by {currentUser}] {input.Notes}";
+                    
+                    if (string.IsNullOrEmpty(stageProgress.Notes))
+                    {
+                        stageProgress.Notes = updateNote;
+                    }
+                    else
+                    {
+                        stageProgress.Notes += $"\n{updateNote}";
+                    }
+                }
+
+                // Update last modified fields
+                stageProgress.LastUpdatedTime = DateTimeOffset.UtcNow;
+                stageProgress.LastUpdatedBy = GetCurrentUserName();
+
+                // Capture after data for change log
+                var afterData = JsonSerializer.Serialize(new
+                {
+                    CustomEstimatedDays = stageProgress.CustomEstimatedDays,
+                    CustomEndTime = stageProgress.CustomEndTime,
+                    LastUpdatedTime = stageProgress.LastUpdatedTime,
+                    LastUpdatedBy = stageProgress.LastUpdatedBy
+                });
+
+                // Save stages progress back to JSON
+                onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
+
+                // Update in database
+                var result = await SafeUpdateOnboardingAsync(onboarding);
+
+                // Log the operation if update was successful
+                if (result)
+                {
+                    var changedFields = new List<string>();
+                    var changeDetails = new List<string>();
+                    
+                    // Check for actual changes in CustomEstimatedDays
+                    if (input.CustomEstimatedDays.HasValue && originalEstimatedDays != input.CustomEstimatedDays) 
+                    {
+                        changedFields.Add("CustomEstimatedDays");
+                        var beforeValue = originalEstimatedDays?.ToString() ?? "null";
+                        changeDetails.Add($"EstimatedDays: {beforeValue} → {input.CustomEstimatedDays}");
+                    }
+                    
+                    // Check for actual changes in CustomEndTime
+                    if (input.CustomEndTime.HasValue && originalEndTime != input.CustomEndTime) 
+                    {
+                        changedFields.Add("CustomEndTime");
+                        var beforeValue = originalEndTime?.ToString("yyyy-MM-dd HH:mm") ?? "null";
+                        changeDetails.Add($"EndTime: {beforeValue} → {input.CustomEndTime?.ToString("yyyy-MM-dd HH:mm")}");
+                    }
+                    
+                    // Check if notes were added
+                    if (!string.IsNullOrEmpty(input.Notes)) 
+                    {
+                        changedFields.Add("Notes");
+                        changeDetails.Add("Notes: Added");
+                    }
+
+                    // Only log if there are actual changes or notes added
+                    if (changeDetails.Any())
+                    {
+                        var operationTitle = $"Update Stage Custom Fields: {string.Join(", ", changeDetails)}";
+                        var operationDescription = $"Updated custom fields for stage {input.StageId} in onboarding {onboardingId}";
+
+                        // Log the stage custom fields update operation
+                        await _operationChangeLogService.LogOperationAsync(
+                            operationType: OperationTypeEnum.StageUpdate,
+                            businessModule: BusinessModuleEnum.Stage,
+                            businessId: input.StageId,
+                            onboardingId: onboardingId,
+                            stageId: input.StageId,
+                            operationTitle: operationTitle,
+                            operationDescription: operationDescription,
+                            beforeData: beforeData,
+                            afterData: afterData,
+                            changedFields: changedFields,
+                            extendedData: JsonSerializer.Serialize(new { 
+                                Notes = input.Notes,
+                                OperationSource = "UpdateStageCustomFieldsAsync",
+                                HasActualChanges = true
+                            })
+                        );
+                    }
+                    // Note: No log entry is created when there are no actual changes
+                    // This reduces log noise and focuses on meaningful operations
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Log the failed operation
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: OperationTypeEnum.StageUpdate,
+                    businessModule: BusinessModuleEnum.Stage,
+                    businessId: input.StageId,
+                    onboardingId: onboardingId,
+                    stageId: input.StageId,
+                    operationTitle: "Update Stage Custom Fields",
+                    operationDescription: $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}",
+                    operationStatus: OperationStatusEnum.Failed,
+                    errorMessage: ex.Message
+                );
+
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}: {ex.Message}");
             }
         }
 
@@ -5246,12 +5678,19 @@ namespace FlowFlex.Application.Services.OW
                 stageProgress.SavedById = GetCurrentUserId()?.ToString();
                 stageProgress.SavedBy = GetCurrentUserName();
 
+                // Set StartTime if not already set (only during save operations)
+                // This ensures StartTime is only set when user actually saves or completes work
+                if (!stageProgress.StartTime.HasValue)
+                {
+                    stageProgress.StartTime = DateTimeOffset.UtcNow;
+                }
+
                 // Save stages progress back to JSON
                 onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
 
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
-                
+
                 return result;
             }
             catch (Exception ex)
@@ -5281,7 +5720,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
                     result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
-                    
+
                     // Calculate current stage end time based on start time + estimated days
                     if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
                     {
@@ -5290,5 +5729,232 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
         }
+
+        #region New Status Management Methods
+
+        /// <summary>
+        /// Start onboarding (activate an inactive onboarding)
+        /// </summary>
+        public async Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Inactive onboardings can be started
+            if (entity.Status != "Inactive")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot start onboarding. Current status is '{entity.Status}'. Only 'Inactive' onboardings can be started.");
+            }
+
+            // Update status to Active
+            entity.Status = "Active";
+            entity.StartDate = DateTimeOffset.UtcNow;
+
+            // Reset progress if requested
+            if (input.ResetProgress)
+            {
+                entity.CurrentStageId = null;
+                entity.CurrentStageOrder = 0;
+                entity.CompletionRate = 0;
+                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+            }
+
+            // Add start notes
+            var startText = $"[Start Onboarding] Onboarding activated";
+            if (!string.IsNullOrEmpty(input.Reason))
+            {
+                startText += $" - Reason: {input.Reason}";
+            }
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                startText += $" - Notes: {input.Notes}";
+            }
+
+            SafeAppendToNotes(entity, startText);
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+
+        /// <summary>
+        /// Abort onboarding (terminate the process)
+        /// </summary>
+        public async Task<bool> AbortAsync(long id, AbortOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - cannot abort already completed or aborted onboardings
+            if (entity.Status == "Completed" || entity.Status == "Aborted")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot abort onboarding with status '{entity.Status}'");
+            }
+
+            // Update status to Aborted
+            entity.Status = "Aborted";
+            entity.EstimatedCompletionDate = null; // Remove ETA
+
+            // Add abort notes
+            var abortText = $"[Abort] Onboarding terminated - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                abortText += $" - Notes: {input.Notes}";
+            }
+
+            SafeAppendToNotes(entity, abortText);
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+        /// <summary>
+        /// Reactivate onboarding (restart an aborted onboarding)
+        /// </summary>
+        public async Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Aborted onboardings can be reactivated
+            if (entity.Status != "Aborted")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot reactivate onboarding. Current status is '{entity.Status}'. Only 'Aborted' onboardings can be reactivated.");
+            }
+
+            // Update status to Active
+            entity.Status = "Active";
+            entity.ActualCompletionDate = null;
+
+            // Reset progress if requested (default is true for reactivation)
+            if (input.ResetProgress)
+            {
+                entity.CurrentStageId = null;
+                entity.CurrentStageOrder = 0;
+                entity.CompletionRate = 0;
+                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+
+                // Reset stages progress but preserve questionnaire answers if requested
+                LoadStagesProgressFromJson(entity);
+                if (entity.StagesProgress != null)
+                {
+                    foreach (var stage in entity.StagesProgress)
+                    {
+                        stage.IsCompleted = false;
+                        stage.Status = "Pending";
+                        stage.CompletionTime = null;
+                        stage.CompletedById = null;
+                        stage.CompletedBy = null;
+                        stage.StartTime = null;
+
+                        // Reset stage to first stage
+                        if (stage.StageOrder == 1)
+                        {
+                            stage.Status = "InProgress";
+                            stage.StartTime = DateTimeOffset.UtcNow; // Set StartTime for system reset operation
+                            stage.IsCurrent = true;
+                            entity.CurrentStageId = stage.StageId;
+                            entity.CurrentStageOrder = 1;
+                        }
+                        else
+                        {
+                            stage.IsCurrent = false;
+                        }
+                    }
+                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                }
+            }
+
+            // Add reactivation notes
+            var reactivateText = $"[Reactivate] Onboarding reactivated from Aborted status - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                reactivateText += $" - Notes: {input.Notes}";
+            }
+            if (input.PreserveAnswers)
+            {
+                reactivateText += " - Questionnaire answers preserved";
+            }
+
+            SafeAppendToNotes(entity, reactivateText);
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+        /// <summary>
+        /// Resume onboarding with confirmation
+        /// </summary>
+        public async Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Paused onboardings can be resumed
+            if (entity.Status != "Paused")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot resume onboarding. Current status is '{entity.Status}'. Only 'Paused' onboardings can be resumed.");
+            }
+
+            // Update status to Active
+            entity.Status = "Active";
+
+            // Restore ETA calculation - resume timing from where it was paused
+            // The current stage timing should continue from where it left off
+            LoadStagesProgressFromJson(entity);
+            if (entity.StagesProgress != null)
+            {
+                var currentStage = entity.StagesProgress.FirstOrDefault(s => s.IsCurrent);
+                if (currentStage != null && currentStage.StartTime.HasValue)
+                {
+                    // Calculate remaining time for current stage
+                    var timeSpentBeforePause = DateTimeOffset.UtcNow - currentStage.StartTime.Value;
+                    // The stage timing continues from where it was paused
+                    // No need to adjust StartTime as it represents the original start
+                }
+            }
+
+            // Add resume notes
+            var resumeText = $"[Resume] Onboarding resumed from Paused status";
+            if (!string.IsNullOrEmpty(input.Reason))
+            {
+                resumeText += $" - Reason: {input.Reason}";
+            }
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                resumeText += $" - Notes: {input.Notes}";
+            }
+
+            SafeAppendToNotes(entity, resumeText);
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+        #endregion
     }
 }

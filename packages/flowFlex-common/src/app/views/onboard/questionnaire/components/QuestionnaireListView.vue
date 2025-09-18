@@ -39,6 +39,9 @@
 									<el-icon><CopyDocument /></el-icon>
 									Duplicate
 								</el-dropdown-item>
+								<el-dropdown-item divided>
+									<HistoryButton :id="row.id" :type="WFEMoudels.Questionnaire" />
+								</el-dropdown-item>
 								<el-dropdown-item
 									@click="$emit('command', 'delete', row)"
 									class="text-red-500"
@@ -154,9 +157,11 @@
 				<template #default="{ row }">
 					<div class="table-cell-content">
 						{{
-							(row.structureJson &&
-								JSON.parse(row.structureJson)?.sections?.length) ||
-							0
+							row.structureJson
+								? JSON.parse(row.structureJson)?.sections?.filter(
+										(section) => !section.isDefault
+								  )?.length || 0
+								: 0
 						}}
 					</div>
 				</template>
@@ -201,6 +206,7 @@ import { Edit, CopyDocument, Delete, View, ArrowDownBold } from '@element-plus/i
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr, tableMaxHeight } from '@/settings/projectSetting';
 import { Questionnaire } from '#/onboard';
+import { WFEMoudels } from '@/enums/appEnum';
 
 // Props
 const props = defineProps<{

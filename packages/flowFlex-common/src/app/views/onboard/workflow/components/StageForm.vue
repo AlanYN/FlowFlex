@@ -57,25 +57,16 @@
 
 					<div class="flex items-center gap-2 w-full">
 						<el-form-item
-							label="Assigned User Group"
-							prop="defaultAssignedGroup"
-							class="w-1/2"
+							label="Default Assignee"
+							prop="defaultAssignee"
+							class="w-full"
 						>
-							<FlowflexUser
-								v-model="formData.defaultAssignedGroup"
-								placeholder="Select user group"
-								:multiple="false"
-								:clearable="true"
-								team-only
-							/>
-						</el-form-item>
-
-						<el-form-item label="Default Assignee" prop="defaultAssignee" class="w-1/2">
 							<FlowflexUser
 								v-model="formData.defaultAssignee"
 								placeholder="Select default assignee"
 								:multiple="false"
 								:clearable="true"
+								selection-type="user"
 							/>
 						</el-form-item>
 					</div>
@@ -232,9 +223,7 @@ const rules = reactive<FormRules>({
 		{ required: true, message: 'Please enter stage name', trigger: 'blur' },
 		{ min: 1, max: 50, message: 'Length should be 1 to 50 characters', trigger: 'blur' },
 	],
-	defaultAssignedGroup: [
-		{ required: true, message: 'Please select user group', trigger: 'change' },
-	],
+
 	estimatedDuration: [
 		{ required: true, message: 'Please enter estimated duration', trigger: 'change' },
 	],
@@ -242,11 +231,7 @@ const rules = reactive<FormRules>({
 
 // 计算属性
 const isFormValid = computed(() => {
-	return (
-		!!formData.value.name &&
-		!!formData.value.defaultAssignedGroup &&
-		!!`${formData.value.estimatedDuration}`
-	);
+	return !!formData.value.name && !isNaN(formData.value.estimatedDuration as number);
 });
 
 // 表单引用
@@ -285,6 +270,7 @@ onMounted(() => {
 
 // Method to update components data
 function updateComponentsData(val: ComponentsData) {
+	console.log('更新的val:', val);
 	formData.value.components = val.components;
 	formData.value.visibleInPortal = val.visibleInPortal ?? false;
 	if (val.portalPermission !== undefined) {

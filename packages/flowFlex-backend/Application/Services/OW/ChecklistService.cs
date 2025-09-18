@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
@@ -15,13 +16,15 @@ using FlowFlex.Domain.Repository.OW;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Services.OW.Extensions;
-using FlowFlex.Application.Contracts.IServices.OW;
 using System.Text.Json;
-using FlowFlex.Domain.Repository.OW;
-
+using System.Linq;
+using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
-using System.Text.Json;
+using FlowFlex.Infrastructure.Services;
+using FlowFlex.Infrastructure.Extensions;
 
 namespace FlowFlex.Application.Service.OW;
 
@@ -37,6 +40,9 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
     private readonly IComponentMappingService _mappingService;
+    private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+    private readonly IOperationChangeLogService _operationChangeLogService;
+    private readonly ILogger<ChecklistService> _logger;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -45,7 +51,10 @@ public class ChecklistService : IChecklistService, IScopedService
         IStageRepository stageRepository,
         UserContext userContext,
         IOperatorContextService operatorContextService,
-        IComponentMappingService mappingService)
+        IComponentMappingService mappingService,
+        IBackgroundTaskQueue backgroundTaskQueue,
+        IOperationChangeLogService operationChangeLogService,
+        ILogger<ChecklistService> logger)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -54,6 +63,9 @@ public class ChecklistService : IChecklistService, IScopedService
         _stageRepository = stageRepository;
         _userContext = userContext;
         _operatorContextService = operatorContextService;
+        _backgroundTaskQueue = backgroundTaskQueue;
+        _operationChangeLogService = operationChangeLogService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -84,6 +96,22 @@ public class ChecklistService : IChecklistService, IScopedService
 
         await _checklistRepository.InsertAsync(entity);
 
+        // Log checklist create operation (fire-and-forget)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _operationChangeLogService.LogChecklistCreateAsync(
+                    checklistId: entity.Id,
+                    checklistName: entity.Name
+                );
+            }
+            catch
+            {
+                // Ignore logging errors to avoid affecting main operation
+            }
+        });
+
         // Sync service is no longer needed as assignments are managed through Stage Components
 
         return entity.Id;
@@ -105,8 +133,12 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.NotFound, $"Checklist with ID {id} not found");
         }
 
-        // Store the original name for cleanup
+        // Store the original values for cleanup and logging
         var originalName = entity.Name;
+        var originalDescription = entity.Description;
+        var originalTeam = entity.Team;
+        var originalEstimatedHours = entity.EstimatedHours;
+        var originalIsActive = entity.IsActive;
 
         // Validate name uniqueness (exclude current record)
         if (await _checklistRepository.IsNameExistsAsync(input.Name, input.Team, id))
@@ -137,7 +169,7 @@ public class ChecklistService : IChecklistService, IScopedService
             {
                 // Soft delete existing checklists with the new name
                 duplicate.IsValid = false;
-            duplicate.ModifyDate = DateTimeOffset.UtcNow;
+                duplicate.ModifyDate = DateTimeOffset.UtcNow;
                 await _checklistRepository.UpdateAsync(duplicate);
             }
         }
@@ -151,28 +183,82 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var result = await _checklistRepository.UpdateAsync(entity);
 
+        // Log checklist update operation if successful (fire-and-forget)
+        if (result)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Prepare before and after data for logging using original values
+                    var beforeData = JsonSerializer.Serialize(new
+                    {
+                        Name = originalName,
+                        Description = originalDescription,
+                        Team = originalTeam,
+                        EstimatedHours = originalEstimatedHours,
+                        IsActive = originalIsActive
+                    });
+
+                    var afterData = JsonSerializer.Serialize(new
+                    {
+                        Name = entity.Name,
+                        Description = entity.Description,
+                        Team = entity.Team,
+                        EstimatedHours = entity.EstimatedHours,
+                        IsActive = entity.IsActive
+                    });
+
+                    // Determine changed fields by comparing original vs current values
+                    var changedFields = new List<string>();
+                    if (originalName != entity.Name) changedFields.Add("Name");
+                    if (originalDescription != entity.Description) changedFields.Add("Description");
+                    if (originalTeam != entity.Team) changedFields.Add("Team");
+                    if (originalEstimatedHours != entity.EstimatedHours) changedFields.Add("EstimatedHours");
+                    if (originalIsActive != entity.IsActive) changedFields.Add("IsActive");
+
+                    // Debug logging
+                    _logger.LogDebug("ChecklistUpdate Debug - Before: {BeforeData}", beforeData);
+                    _logger.LogDebug("ChecklistUpdate Debug - After: {AfterData}", afterData);
+                    _logger.LogDebug("ChecklistUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
+
+                    await _operationChangeLogService.LogChecklistUpdateAsync(
+                        checklistId: entity.Id,
+                        checklistName: entity.Name,
+                        beforeData: beforeData,
+                        afterData: afterData,
+                        changedFields: changedFields
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+        }
+
         // If name changed, sync the new name to all related stages
         if (result && originalName != input.Name)
         {
             try
             {
-                // Use background task to avoid blocking the main operation
-                _ = Task.Run(async () =>
+                // Use background task queue for safe async processing
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
                         await _mappingService.NotifyChecklistNameChangeAsync(id, input.Name);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Console.WriteLine($"[ChecklistService] Error syncing checklist name change: {ex.Message}");
+                        // Error already logged by BackgroundTaskService
                         // Don't throw to avoid breaking the background task
                     }
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ChecklistService] Error starting checklist name sync background task: {ex.Message}");
+                LoggingExtensions.WriteError($"[ChecklistService] Error starting checklist name sync background task: {ex.Message}");
                 // Don't throw to avoid breaking the main operation
             }
         }
@@ -196,11 +282,33 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.CustomError, "Please confirm deletion by setting confirm=true");
         }
 
+        var checklistName = checklist.Name; // Store name before deletion
+
         // Soft delete
         checklist.IsValid = false;
-            checklist.ModifyDate = DateTimeOffset.UtcNow;
+        checklist.ModifyDate = DateTimeOffset.UtcNow;
 
         var result = await _checklistRepository.UpdateAsync(checklist);
+
+        // Log checklist delete operation if successful (fire-and-forget)
+        if (result)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogChecklistDeleteAsync(
+                        checklistId: id,
+                        checklistName: checklistName,
+                        reason: "Checklist deleted via admin portal"
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+        }
 
         // Cache has been removed, no cleanup needed
 
@@ -311,7 +419,7 @@ public class ChecklistService : IChecklistService, IScopedService
         var uniqueName = await EnsureUniqueChecklistNameAsync(baseName, input.TargetTeam ?? sourceChecklist.Team);
 
         // Create new checklist with assignments copied
-            var newChecklist = new Checklist
+        var newChecklist = new Checklist
         {
             Name = uniqueName,
             Description = input.Description ?? sourceChecklist.Description,
@@ -322,15 +430,15 @@ public class ChecklistService : IChecklistService, IScopedService
             TemplateId = sourceChecklist.IsTemplate ? sourceChecklist.Id : sourceChecklist.TemplateId,
             EstimatedHours = sourceChecklist.EstimatedHours,
             IsActive = true,
-                // Assignments are no longer stored in Checklist entity
+            // Assignments are no longer stored in Checklist entity
             // Copy tenant and app information from source checklist
             TenantId = sourceChecklist.TenantId,
             AppCode = sourceChecklist.AppCode
         };
 
         // Initialize create information with proper ID and timestamps
-            newChecklist.InitCreateInfo(_userContext);
-            AuditHelper.ApplyCreateAudit(newChecklist, _operatorContextService);
+        newChecklist.InitCreateInfo(_userContext);
+        AuditHelper.ApplyCreateAudit(newChecklist, _operatorContextService);
 
         var newChecklistId = await _checklistRepository.InsertReturnSnowflakeIdAsync(newChecklist);
 
@@ -378,6 +486,38 @@ public class ChecklistService : IChecklistService, IScopedService
         }
 
         // Cache has been removed, no cleanup needed
+
+        // Log duplicate operation
+        try
+        {
+            await _operationChangeLogService.LogOperationAsync(
+                OperationTypeEnum.ChecklistDuplicate,
+                BusinessModuleEnum.Checklist,
+                newChecklistId,
+                null, // No onboarding context for checklist duplication
+                null, // No stage context for checklist duplication
+                $"Checklist Duplicated",
+                $"Duplicated checklist '{sourceChecklist.Name}' to '{uniqueName}'",
+                sourceChecklist.Name, // beforeData
+                uniqueName, // afterData
+                new List<string> { "Name", "Description", "Team", "Tasks" },
+                JsonConvert.SerializeObject(new
+                {
+                    SourceId = id,
+                    SourceName = sourceChecklist.Name,
+                    NewId = newChecklistId,
+                    NewName = uniqueName,
+                    CopyTasks = input.CopyTasks,
+                    TargetTeam = input.TargetTeam,
+                    SetAsTemplate = input.SetAsTemplate
+                }),
+                OperationStatusEnum.Success
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log checklist duplicate operation for checklist {ChecklistId}", newChecklistId);
+        }
 
         return newChecklistId;
     }
@@ -452,8 +592,8 @@ public class ChecklistService : IChecklistService, IScopedService
         instance.AppCode = template.AppCode;
 
         // Initialize create information with proper ID and timestamps
-            instance.InitCreateInfo(_userContext);
-            AuditHelper.ApplyCreateAudit(instance, _operatorContextService);
+        instance.InitCreateInfo(_userContext);
+        AuditHelper.ApplyCreateAudit(instance, _operatorContextService);
 
         var instanceId = await _checklistRepository.InsertReturnSnowflakeIdAsync(instance);
 
@@ -563,7 +703,7 @@ public class ChecklistService : IChecklistService, IScopedService
         var checklistIds = await GetChecklistIdsByStageIdAsync(stageId);
         if (!checklistIds.Any())
             return new List<ChecklistOutputDto>();
-            
+
         var checklists = await _checklistRepository.GetByIdsAsync(checklistIds);
         var result = _mapper.Map<List<ChecklistOutputDto>>(checklists);
 
@@ -592,10 +732,10 @@ public class ChecklistService : IChecklistService, IScopedService
                 allChecklistIds.Add(id);
             }
         }
-        
+
         if (!allChecklistIds.Any())
             return new List<ChecklistOutputDto>();
-            
+
         var checklists = await _checklistRepository.GetByIdsAsync(allChecklistIds.ToList());
         var result = _mapper.Map<List<ChecklistOutputDto>>(checklists);
 
@@ -679,11 +819,11 @@ ASSIGNMENTS:
 
         var checklistIds = checklists.Select(c => c.Id).ToList();
 
-        Console.WriteLine($"[ChecklistService] Using mapping table to fill assignments for {checklistIds.Count} checklists");
-        
+        LoggingExtensions.WriteLine($"[ChecklistService] Using mapping table to fill assignments for {checklistIds.Count} checklists");
+
         // Get assignments from mapping table (ultra-fast)
         var assignments = await _mappingService.GetChecklistAssignmentsAsync(checklistIds);
-        
+
         // Map assignments to checklists
         foreach (var checklist in checklists)
         {
@@ -709,7 +849,7 @@ ASSIGNMENTS:
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error batch loading tasks for checklists: {ex.Message}");
+            LoggingExtensions.WriteError($"Error batch loading tasks for checklists: {ex.Message}");
             allTasks = new List<ChecklistTask>();
         }
 
@@ -753,18 +893,18 @@ ASSIGNMENTS:
     {
         try
         {
-            Console.WriteLine($"[ChecklistService] Getting checklist IDs for stage {stageId} using ComponentMappingService");
-            
+            LoggingExtensions.WriteLine($"[ChecklistService] Getting checklist IDs for stage {stageId} using ComponentMappingService");
+
             // Use ComponentMappingService for ultra-fast mapping table query
             var checklistIds = await _mappingService.GetChecklistIdsByWorkflowStageAsync(null, stageId);
-            
-            Console.WriteLine($"[ChecklistService] ComponentMappingService found {checklistIds.Count} checklist IDs for stage {stageId}: [{string.Join(", ", checklistIds)}]");
-            
+
+            LoggingExtensions.WriteLine($"[ChecklistService] ComponentMappingService found {checklistIds.Count} checklist IDs for stage {stageId}: [{string.Join(", ", checklistIds)}]");
+
             return checklistIds;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ChecklistService] Error getting checklist IDs for stage {stageId}: {ex.Message}");
+            LoggingExtensions.WriteError($"[ChecklistService] Error getting checklist IDs for stage {stageId}: {ex.Message}");
             return new List<long>();
         }
     }

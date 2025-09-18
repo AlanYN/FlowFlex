@@ -56,7 +56,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     if (hasNotNullConstraint)
                     {
                         Console.WriteLine("🔧 修复 ff_events.next_retry_at 字段约束...");
-                        
+
                         // Drop the NOT NULL constraint on next_retry_at column
                         db.Ado.ExecuteCommand(@"
                             ALTER TABLE ff_events 
@@ -99,4 +99,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

@@ -1,3 +1,4 @@
+using FlowFlex.Infrastructure.Services;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -8,7 +9,12 @@ using FlowFlex.Domain.Entities.OW;
 
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Enums.OW;
 using System.Text.Json;
+using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using JsonException = System.Text.Json.JsonException;
 using System.Linq;
 using System;
 // using Item.Redis; // Redis dependency removed
@@ -42,6 +48,9 @@ namespace FlowFlex.Application.Service.OW
         private readonly UserContext _userContext;
         private readonly IComponentMappingService _mappingService;
         private readonly IActionManagementService _actionManagementService;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly ILogger<QuestionnaireService> _logger;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
@@ -50,7 +59,10 @@ namespace FlowFlex.Application.Service.OW
             UserContext userContext,
             IOperatorContextService operatorContextService,
             IComponentMappingService mappingService,
-            IActionManagementService actionManagementService)
+            IActionManagementService actionManagementService,
+            IBackgroundTaskQueue backgroundTaskQueue,
+            IOperationChangeLogService operationChangeLogService,
+            ILogger<QuestionnaireService> logger)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
@@ -59,6 +71,9 @@ namespace FlowFlex.Application.Service.OW
             _userContext = userContext;
             _operatorContextService = operatorContextService;
             _actionManagementService = actionManagementService;
+            _backgroundTaskQueue = backgroundTaskQueue;
+            _operationChangeLogService = operationChangeLogService;
+            _logger = logger;
         }
         private static string TryUnwrapComponentsJson(string json)
         {
@@ -118,28 +133,28 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Questionnaire name '{input.Name}' already exists");
             }
 
-                    // Assignments are no longer stored in Questionnaire entity
-        // They will be managed through Stage Components only
+            // Assignments are no longer stored in Questionnaire entity
+            // They will be managed through Stage Components only
 
             // Normalize and validate structure JSON
             if (!string.IsNullOrWhiteSpace(input.StructureJson))
             {
                 // Normalize IDs in structure JSON to use snowflake IDs
                 input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
-                
+
                 // No longer create Actions automatically
                 // input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
-                
+
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid questionnaire structure JSON");
                 }
             }
 
-        // Create single questionnaire entity without assignments
+            // Create single questionnaire entity without assignments
             var entity = _mapper.Map<Questionnaire>(input);
 
-        // Note: WorkflowId and StageId fields have been removed - assignments are now managed through Stage Components
+            // Note: WorkflowId and StageId fields have been removed - assignments are now managed through Stage Components
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
@@ -156,9 +171,26 @@ namespace FlowFlex.Application.Service.OW
 
             await _questionnaireRepository.InsertAsync(entity);
 
+            // Log questionnaire create operation (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogQuestionnaireCreateAsync(
+                        questionnaireId: entity.Id,
+                        questionnaireName: entity.Name,
+                        extendedData: entity.Description
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+
             // Sections module removed; ignore input.Sections to keep compatibility
 
-                    // Sync service is no longer needed as assignments are managed through Stage Components
+            // Sync service is no longer needed as assignments are managed through Stage Components
 
             // Cache removed, no need to clean up
 
@@ -178,8 +210,14 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Questionnaire with ID {id} not found");
             }
 
-            // Store the original name for name change detection
+            // Store the original values for change detection and logging
             var originalName = entity.Name;
+            var originalDescription = entity.Description;
+            var originalStatus = entity.Status;
+            var originalCategory = entity.Category;
+            var originalEstimatedMinutes = entity.EstimatedMinutes;
+            var originalIsActive = entity.IsActive;
+            var originalStructureJson = entity.Structure?.ToString(Newtonsoft.Json.Formatting.None);
 
             // Validate name uniqueness (exclude current record)
             if (await _questionnaireRepository.IsNameExistsAsync(input.Name, null, id))
@@ -195,10 +233,10 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Normalize IDs in structure JSON to use snowflake IDs
                 input.StructureJson = NormalizeStructureJsonIds(input.StructureJson);
-                
+
                 // No longer create Actions automatically
                 // input.StructureJson = await ProcessQuestionActionsAsync(input.StructureJson, input.Name);
-                
+
                 if (!await _questionnaireRepository.ValidateStructureAsync(input.StructureJson))
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid questionnaire structure JSON");
@@ -230,6 +268,74 @@ namespace FlowFlex.Application.Service.OW
 
             var result = await _questionnaireRepository.UpdateAsync(entity);
 
+            // Log questionnaire update operation if successful (fire-and-forget)
+            if (result)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Get the updated questionnaire for logging
+                        var updatedQuestionnaire = await _questionnaireRepository.GetByIdAsync(id);
+                        if (updatedQuestionnaire != null)
+                        {
+                            // Prepare before and after data for logging
+                            var beforeData = JsonSerializer.Serialize(new
+                            {
+                                Name = originalName,
+                                Description = originalDescription,
+                                Status = originalStatus,
+                                Category = originalCategory,
+                                EstimatedMinutes = originalEstimatedMinutes,
+                                IsActive = originalIsActive,
+                                StructureJson = originalStructureJson
+                            });
+
+                            var afterData = JsonSerializer.Serialize(new
+                            {
+                                Name = updatedQuestionnaire.Name,
+                                Description = updatedQuestionnaire.Description,
+                                Status = updatedQuestionnaire.Status,
+                                Category = updatedQuestionnaire.Category,
+                                EstimatedMinutes = updatedQuestionnaire.EstimatedMinutes,
+                                IsActive = updatedQuestionnaire.IsActive,
+                                StructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None)
+                            });
+
+                            // Determine changed fields
+                            var changedFields = new List<string>();
+                            if (originalName != updatedQuestionnaire.Name) changedFields.Add("Name");
+                            if (originalDescription != updatedQuestionnaire.Description) changedFields.Add("Description");
+                            if (originalStatus != updatedQuestionnaire.Status) changedFields.Add("Status");
+                            if (originalCategory != updatedQuestionnaire.Category) changedFields.Add("Category");
+                            if (originalEstimatedMinutes != updatedQuestionnaire.EstimatedMinutes) changedFields.Add("EstimatedMinutes");
+                            if (originalIsActive != updatedQuestionnaire.IsActive) changedFields.Add("IsActive");
+
+                            // Check structure changes
+                            var updatedStructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None);
+                            if (originalStructureJson != updatedStructureJson) changedFields.Add("StructureJson");
+
+                            // Debug logging
+                            _logger.LogDebug("QuestionnaireUpdate Debug - Before: {BeforeData}", beforeData);
+                            _logger.LogDebug("QuestionnaireUpdate Debug - After: {AfterData}", afterData);
+                            _logger.LogDebug("QuestionnaireUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
+
+                            await _operationChangeLogService.LogQuestionnaireUpdateAsync(
+                                questionnaireId: id,
+                                questionnaireName: updatedQuestionnaire.Name,
+                                beforeData: beforeData,
+                                afterData: afterData,
+                                changedFields: changedFields
+                            );
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore logging errors to avoid affecting main operation
+                    }
+                });
+            }
+
             // Ensure ActionTriggerMappings exist for all Questions with Action IDs
             await EnsureQuestionActionTriggerMappingsExistAsync(entity);
 
@@ -244,7 +350,7 @@ namespace FlowFlex.Application.Service.OW
                 try
                 {
                     // Use background task to avoid blocking the main operation
-                    _ = Task.Run(async () =>
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
@@ -290,11 +396,33 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete published questionnaire");
             }
 
+            var questionnaireName = entity.Name; // Store name before deletion
+
             // Template validation removed - direct deletion allowed
 
             // Sections module removed; nothing to delete
 
             var result = await _questionnaireRepository.DeleteAsync(entity);
+
+            // Log questionnaire delete operation if successful (fire-and-forget)
+            if (result)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _operationChangeLogService.LogQuestionnaireDeleteAsync(
+                            questionnaireId: id,
+                            questionnaireName: questionnaireName,
+                            reason: "Questionnaire deleted via admin portal"
+                        );
+                    }
+                    catch
+                    {
+                        // Ignore logging errors to avoid affecting main operation
+                    }
+                });
+            }
 
             // Cache removed, no need to clean up
 
@@ -352,7 +480,7 @@ namespace FlowFlex.Application.Service.OW
             var questionnaireIds = await GetQuestionnaireIdsByStageIdAsync(stageId);
             if (!questionnaireIds.Any())
                 return new List<QuestionnaireOutputDto>();
-                
+
             var questionnaires = await _questionnaireRepository.GetByIdsAsync(questionnaireIds);
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(questionnaires);
 
@@ -393,37 +521,37 @@ namespace FlowFlex.Application.Service.OW
         public async Task<PagedResult<QuestionnaireOutputDto>> QueryAsync(QuestionnaireQueryRequest query)
         {
             Console.WriteLine($"[QuestionnaireService] QueryAsync - WorkflowId: {query.WorkflowId}, StageId: {query.StageId}, PageIndex: {query.PageIndex}, PageSize: {query.PageSize}");
-            
+
             List<Questionnaire> filteredItems;
             int totalCount;
 
-                         // If workflowId or stageId filtering is needed, use ComponentMappingService
-             if (query.WorkflowId.HasValue || query.StageId.HasValue)
-             {
-                 Console.WriteLine($"[QuestionnaireService] Using ComponentMappingService for WorkflowId: {query.WorkflowId}, StageId: {query.StageId}");
-                 
-                 // Get questionnaire IDs from mapping table (ultra-fast)
-                 var questionnaireIds = await _mappingService.GetQuestionnaireIdsByWorkflowStageAsync(query.WorkflowId, query.StageId);
-                 Console.WriteLine($"[QuestionnaireService] ComponentMappingService returned {questionnaireIds.Count} questionnaire IDs");
+            // If workflowId or stageId filtering is needed, use ComponentMappingService
+            if (query.WorkflowId.HasValue || query.StageId.HasValue)
+            {
+                Console.WriteLine($"[QuestionnaireService] Using ComponentMappingService for WorkflowId: {query.WorkflowId}, StageId: {query.StageId}");
 
-                 // Get paginated questionnaires by IDs
-                 var (items, count) = await _questionnaireRepository.GetPagedByIdsAsync(
-                     questionnaireIds,
-                     query.PageIndex,
-                     query.PageSize,
-                     query.Name,
-                     query.IsActive,
-                     query.SortField,
-                     query.SortDirection);
-                 
-                 filteredItems = items;
-                 totalCount = count;
-                 Console.WriteLine($"[QuestionnaireService] Mapping table query returned {items.Count} items, total count: {count}");
-             }
+                // Get questionnaire IDs from mapping table (ultra-fast)
+                var questionnaireIds = await _mappingService.GetQuestionnaireIdsByWorkflowStageAsync(query.WorkflowId, query.StageId);
+                Console.WriteLine($"[QuestionnaireService] ComponentMappingService returned {questionnaireIds.Count} questionnaire IDs");
+
+                // Get paginated questionnaires by IDs
+                var (items, count) = await _questionnaireRepository.GetPagedByIdsAsync(
+                    questionnaireIds,
+                    query.PageIndex,
+                    query.PageSize,
+                    query.Name,
+                    query.IsActive,
+                    query.SortField,
+                    query.SortDirection);
+
+                filteredItems = items;
+                totalCount = count;
+                Console.WriteLine($"[QuestionnaireService] Mapping table query returned {items.Count} items, total count: {count}");
+            }
             else
             {
                 Console.WriteLine("[QuestionnaireService] Using repository method for basic filtering (no workflow/stage filtering)");
-                
+
                 // Use repository method for basic filtering (no workflow/stage filtering needed)
                 var (items, count) = await _questionnaireRepository.GetPagedAsync(
                 query.PageIndex,
@@ -460,7 +588,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // For basic queries, now filling assignments (may impact performance for large datasets)
                 Console.WriteLine("[QuestionnaireService] Filling assignments for basic query");
-            await FillAssignmentsAsync(result);
+                await FillAssignmentsAsync(result);
             }
 
             return new PagedResult<QuestionnaireOutputDto>
@@ -498,7 +626,7 @@ namespace FlowFlex.Application.Service.OW
                 Name = uniqueName,
                 Description = input.Description ?? sourceQuestionnaire.Description,
                 Category = input.Category ?? sourceQuestionnaire.Category,
-                            Status = "Draft",
+                Status = "Draft",
                 Structure = string.IsNullOrWhiteSpace(newStructureJson) ? null : Newtonsoft.Json.Linq.JToken.Parse(newStructureJson),
                 Tags = sourceQuestionnaire.Tags != null ? (Newtonsoft.Json.Linq.JToken)sourceQuestionnaire.Tags.DeepClone() : null,
                 EstimatedMinutes = sourceQuestionnaire.EstimatedMinutes,
@@ -519,7 +647,7 @@ namespace FlowFlex.Application.Service.OW
             newQuestionnaire.InitCreateInfo(_userContext);
 
             await _questionnaireRepository.InsertAsync(newQuestionnaire);
-                       
+
             // If we copied structure but statistics are still 0, try to calculate them
             if (input.CopyStructure && newQuestionnaire.TotalQuestions == 0 && !string.IsNullOrWhiteSpace(newStructureJson))
             {
@@ -529,6 +657,38 @@ namespace FlowFlex.Application.Service.OW
                 {
                     await _questionnaireRepository.UpdateStatisticsAsync(newQuestionnaire.Id, newQuestionnaire.TotalQuestions, newQuestionnaire.RequiredQuestions);
                 }
+            }
+
+            // Log duplicate operation
+            try
+            {
+                await _operationChangeLogService.LogOperationAsync(
+                    OperationTypeEnum.QuestionnaireDuplicate,
+                    BusinessModuleEnum.Questionnaire,
+                    newQuestionnaire.Id,
+                    null, // No onboarding context for questionnaire duplication
+                    null, // No stage context for questionnaire duplication
+                    $"Questionnaire Duplicated",
+                    $"Duplicated questionnaire '{sourceQuestionnaire.Name}' to '{uniqueName}'",
+                    sourceQuestionnaire.Name, // beforeData
+                    uniqueName, // afterData
+                    new List<string> { "Name", "Description", "Category", "Structure" },
+                    JsonConvert.SerializeObject(new
+                    {
+                        SourceId = id,
+                        SourceName = sourceQuestionnaire.Name,
+                        NewId = newQuestionnaire.Id,
+                        NewName = uniqueName,
+                        CopyStructure = input.CopyStructure,
+                        TotalQuestions = newQuestionnaire.TotalQuestions,
+                        RequiredQuestions = newQuestionnaire.RequiredQuestions
+                    }),
+                    OperationStatusEnum.Success
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log questionnaire duplicate operation for questionnaire {QuestionnaireId}", newQuestionnaire.Id);
             }
 
             return newQuestionnaire.Id;
@@ -591,6 +751,15 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private object GenerateNewIdsInJsonElement(JsonElement element)
         {
+            var usedIds = new HashSet<string>();
+            return GenerateNewIdsInJsonElementWithTracking(element, usedIds);
+        }
+
+        /// <summary>
+        /// Recursively generate new IDs in JSON structure with duplicate tracking
+        /// </summary>
+        private object GenerateNewIdsInJsonElementWithTracking(JsonElement element, HashSet<string> usedIds)
+        {
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
@@ -598,7 +767,7 @@ namespace FlowFlex.Application.Service.OW
                     bool hasId = false;
                     bool needsId = false;
                     string objectType = null;
-                    
+
                     // First pass: check if this object needs an ID and if it already has one
                     foreach (var property in element.EnumerateObject())
                     {
@@ -622,6 +791,16 @@ namespace FlowFlex.Application.Service.OW
                             objectType = "option";
                             needsId = true;
                         }
+                        else if (property.Name == "label" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            // Check if this is a row or column object
+                            var hasTemporaryId = element.EnumerateObject().Any(p => p.Name == "temporaryId");
+                            if (hasTemporaryId)
+                            {
+                                objectType = "row_or_column";
+                                needsId = true;
+                            }
+                        }
                         else if (property.Name == "title" || property.Name == "order")
                         {
                             if (objectType == null)
@@ -630,7 +809,7 @@ namespace FlowFlex.Application.Service.OW
                             }
                         }
                     }
-                    
+
                     // Second pass: process all properties
                     foreach (var property in element.EnumerateObject())
                     {
@@ -641,39 +820,47 @@ namespace FlowFlex.Application.Service.OW
                         if (key == "id" && value.ValueKind == JsonValueKind.String)
                         {
                             var originalId = value.GetString();
+                            string newId;
+
                             if (!string.IsNullOrEmpty(originalId))
                             {
-                                // Generate snowflake ID for all id fields (sections, questions, options, etc.)
-                                obj[key] = GenerateSnowflakeId().ToString();
+                                // Generate snowflake ID for all id fields (sections, questions, options, rows, columns, etc.)
+                                newId = GenerateUniqueSnowflakeId(usedIds);
+                                Console.WriteLine($"[QuestionnaireService] Generated new ID for duplication '{originalId}' -> '{newId}'");
                             }
                             else
                             {
                                 // Empty ID, generate a new one
-                                obj[key] = GenerateSnowflakeId().ToString();
+                                newId = GenerateUniqueSnowflakeId(usedIds);
+                                Console.WriteLine($"[QuestionnaireService] Generated new ID for empty field in duplication: {newId}");
                             }
+
+                            obj[key] = newId;
+                            usedIds.Add(newId);
                         }
                         else
                         {
-                            obj[key] = GenerateNewIdsInJsonElement(value);
+                            obj[key] = GenerateNewIdsInJsonElementWithTracking(value, usedIds);
                         }
                     }
-                    
+
                     // If this object needs an ID but doesn't have one, generate it
                     if (needsId && !hasId)
                     {
-                        var newId = GenerateSnowflakeId().ToString();
+                        var newId = GenerateUniqueSnowflakeId(usedIds);
                         obj["id"] = newId;
+                        usedIds.Add(newId);
                         var logType = objectType ?? "unknown";
                         Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType} in duplication: {newId}");
                     }
-                    
+
                     return obj;
 
                 case JsonValueKind.Array:
                     var array = new List<object>();
                     foreach (var item in element.EnumerateArray())
                     {
-                        array.Add(GenerateNewIdsInJsonElement(item));
+                        array.Add(GenerateNewIdsInJsonElementWithTracking(item, usedIds));
                     }
                     return array;
 
@@ -750,13 +937,23 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private object NormalizeIdsInJsonElement(JsonElement element)
         {
+            var usedIds = new HashSet<string>();
+            return NormalizeIdsInJsonElementWithTracking(element, usedIds);
+        }
+
+        /// <summary>
+        /// Recursively normalize IDs in JSON structure to use snowflake IDs with duplicate tracking
+        /// </summary>
+        private object NormalizeIdsInJsonElementWithTracking(JsonElement element, HashSet<string> usedIds)
+        {
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
                     var obj = new Dictionary<string, object>();
                     bool hasId = false;
                     bool needsId = false;
-                    
+                    bool isActionObject = false;
+
                     // First pass: check if this object needs an ID and if it already has one
                     string objectType = null;
                     foreach (var property in element.EnumerateObject())
@@ -764,6 +961,20 @@ namespace FlowFlex.Application.Service.OW
                         if (property.Name == "id")
                         {
                             hasId = true;
+                        }
+                        // Detect if this is an action object
+                        else if (property.Name == "name" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            // Check if this looks like an action object by checking for typical action properties
+                            var hasActionId = element.EnumerateObject().Any(p => p.Name == "id");
+                            var propertyCount = element.EnumerateObject().Count();
+                            // Action objects typically have id and name, and sometimes very few other properties
+                            if (hasActionId && propertyCount <= 4)
+                            {
+                                isActionObject = true;
+                                objectType = "action";
+                                Console.WriteLine($"[QuestionnaireService] Detected action object with name: {property.Value.GetString()}");
+                            }
                         }
                         // Detect object type based on properties
                         else if (property.Name == "questions" && property.Value.ValueKind == JsonValueKind.Array)
@@ -782,68 +993,103 @@ namespace FlowFlex.Application.Service.OW
                             objectType = "option";
                             needsId = true;
                         }
+                        else if (property.Name == "label" && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            // Check if this is a row or column object
+                            var hasTemporaryId = element.EnumerateObject().Any(p => p.Name == "temporaryId");
+                            if (hasTemporaryId)
+                            {
+                                objectType = "row_or_column";
+                                needsId = true;
+                            }
+                        }
                         // Also check for other identifying properties
                         else if (property.Name == "title" || property.Name == "order")
                         {
-                            if (objectType == null)
+                            if (objectType == null && !isActionObject)
                             {
                                 needsId = true; // Generic object that might need an ID
                             }
                         }
                     }
-                    
+
                     // Second pass: process all properties
                     foreach (var property in element.EnumerateObject())
                     {
                         var key = property.Name;
                         var value = property.Value;
 
-                        // Normalize ID fields to use snowflake IDs
+                        // Handle ID fields
                         if (key == "id" && value.ValueKind == JsonValueKind.String)
                         {
                             var originalId = value.GetString();
-                            if (!string.IsNullOrEmpty(originalId))
+                            string newId;
+
+                            // Preserve action IDs - do not normalize them
+                            if (isActionObject)
+                            {
+                                newId = originalId;
+                                Console.WriteLine($"[QuestionnaireService] Preserving action ID: {originalId}");
+                            }
+                            else if (!string.IsNullOrEmpty(originalId))
                             {
                                 // Check if ID is already a snowflake ID (pure number)
                                 if (long.TryParse(originalId, out _))
                                 {
-                                    // Already a snowflake ID, keep it
-                                    obj[key] = originalId;
+                                    // Check for duplicate snowflake ID
+                                    if (usedIds.Contains(originalId))
+                                    {
+                                        newId = GenerateUniqueSnowflakeId(usedIds);
+                                        Console.WriteLine($"[QuestionnaireService] Duplicate snowflake ID detected: {originalId}, regenerated as: {newId}");
+                                    }
+                                    else
+                                    {
+                                        newId = originalId;
+                                    }
                                 }
                                 else
                                 {
                                     // Convert prefixed ID to snowflake ID
-                                    obj[key] = GenerateSnowflakeId().ToString();
+                                    newId = GenerateUniqueSnowflakeId(usedIds);
+                                    Console.WriteLine($"[QuestionnaireService] Converted prefixed ID '{originalId}' to snowflake ID: {newId}");
                                 }
                             }
                             else
                             {
                                 // Empty ID, generate a new one
-                                obj[key] = GenerateSnowflakeId().ToString();
+                                newId = GenerateUniqueSnowflakeId(usedIds);
+                                Console.WriteLine($"[QuestionnaireService] Generated new ID for empty field: {newId}");
+                            }
+
+                            obj[key] = newId;
+                            if (!isActionObject) // Don't track action IDs to avoid conflicts
+                            {
+                                usedIds.Add(newId);
                             }
                         }
                         else
                         {
-                            obj[key] = NormalizeIdsInJsonElement(value);
+                            obj[key] = NormalizeIdsInJsonElementWithTracking(value, usedIds);
                         }
                     }
-                    
+
                     // If this object needs an ID but doesn't have one, generate it
-                    if (needsId && !hasId)
+                    if (needsId && !hasId && !isActionObject)
                     {
-                        var newId = GenerateSnowflakeId().ToString();
+                        var newId = GenerateUniqueSnowflakeId(usedIds);
                         obj["id"] = newId;
+                        usedIds.Add(newId);
                         var logType = objectType ?? "unknown";
                         Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType}: {newId}");
                     }
-                    
+
                     return obj;
 
                 case JsonValueKind.Array:
                     var array = new List<object>();
                     foreach (var item in element.EnumerateArray())
                     {
-                        array.Add(NormalizeIdsInJsonElement(item));
+                        array.Add(NormalizeIdsInJsonElementWithTracking(item, usedIds));
                     }
                     return array;
 
@@ -871,6 +1117,35 @@ namespace FlowFlex.Application.Service.OW
                 default:
                     return element.GetRawText();
             }
+        }
+
+        /// <summary>
+        /// Generate a unique snowflake ID that's not in the used IDs set
+        /// </summary>
+        private string GenerateUniqueSnowflakeId(HashSet<string> usedIds)
+        {
+            string newId;
+            int attempts = 0;
+            const int maxAttempts = 10;
+
+            do
+            {
+                newId = GenerateSnowflakeId().ToString();
+                attempts++;
+
+                if (attempts >= maxAttempts)
+                {
+                    // If we can't generate a unique ID after multiple attempts, 
+                    // use timestamp-based approach to ensure uniqueness
+                    var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    var random = new Random().Next(1000, 9999);
+                    newId = $"{timestamp}{random}";
+                    Console.WriteLine($"[QuestionnaireService] Used fallback ID generation after {maxAttempts} attempts: {newId}");
+                    break;
+                }
+            } while (usedIds.Contains(newId));
+
+            return newId;
         }
 
         /// <summary>
@@ -906,6 +1181,34 @@ namespace FlowFlex.Application.Service.OW
         public string TestGenerateNewIdsInStructureJson(string originalStructureJson)
         {
             return GenerateNewIdsInStructureJson(originalStructureJson);
+        }
+
+        /// <summary>
+        /// Test method to verify ID generation for rows and columns specifically (for debugging)
+        /// </summary>
+        public string TestRowColumnIdGeneration(string structureJsonWithRowsColumns)
+        {
+            try
+            {
+                Console.WriteLine("[QuestionnaireService] Testing row/column ID generation...");
+
+                // First normalize the structure
+                var normalizedResult = NormalizeStructureJsonIds(structureJsonWithRowsColumns);
+                Console.WriteLine("[QuestionnaireService] Normalized structure for row/column testing:");
+                Console.WriteLine(normalizedResult);
+
+                // Then test duplication (which should generate completely new IDs)
+                var duplicatedResult = GenerateNewIdsInStructureJson(normalizedResult);
+                Console.WriteLine("[QuestionnaireService] Duplicated structure with new IDs:");
+                Console.WriteLine(duplicatedResult);
+
+                return duplicatedResult;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error in row/column ID generation test: {ex.Message}");
+                return structureJsonWithRowsColumns;
+            }
         }
 
         public async Task<QuestionnaireOutputDto> PreviewAsync(long id)
@@ -1057,13 +1360,13 @@ namespace FlowFlex.Application.Service.OW
                 {
                     var questionnaires = await _questionnaireRepository.GetByIdsAsync(questionnaireIds);
                     var questionnaireDtos = _mapper.Map<List<QuestionnaireOutputDto>>(questionnaires);
-                    
+
                     // Sections removed; keep empty lists
                     foreach (var questionnaire in questionnaireDtos)
                     {
                         questionnaire.Sections = new List<QuestionnaireSectionDto>();
                     }
-                    
+
                     await FillAssignmentsAsync(questionnaireDtos);
                     response.StageQuestionnaires[stageId] = questionnaireDtos;
                 }
@@ -1076,150 +1379,150 @@ namespace FlowFlex.Application.Service.OW
             return response;
         }
 
-            /// <summary>
-    /// Fill assignments for questionnaire output DTOs using ultra-fast mapping table
-    /// </summary>
-    private async Task FillAssignmentsAsync(List<QuestionnaireOutputDto> questionnaires)
-    {
-        if (questionnaires == null || !questionnaires.Any())
-            return;
-
-        var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
-        
-        Console.WriteLine($"[QuestionnaireService] Using mapping table to fill assignments for {questionnaireIds.Count} questionnaires");
-        
-        // Get assignments from mapping table (ultra-fast)
-        var assignments = await _mappingService.GetQuestionnaireAssignmentsAsync(questionnaireIds);
-        
-        // Map assignments to questionnaires
-        foreach (var questionnaire in questionnaires)
-        {
-            if (assignments.TryGetValue(questionnaire.Id, out var questionnaireAssignments))
-            {
-                questionnaire.Assignments = questionnaireAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
-                    {
-                        WorkflowId = a.WorkflowId,
-                    StageId = a.StageId
-                    }).ToList();
-                }
-                else
-                {
-                questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
-            }
-        }
-    }
-
-
-
         /// <summary>
-            /// Fill assignments from filter context (optimized for when we already know the workflow/stage)
+        /// Fill assignments for questionnaire output DTOs using ultra-fast mapping table
         /// </summary>
-    private async Task FillAssignmentsFromFilterContext(List<QuestionnaireOutputDto> questionnaires, long? workflowId, long? stageId)
+        private async Task FillAssignmentsAsync(List<QuestionnaireOutputDto> questionnaires)
         {
-        if (!questionnaires.Any())
+            if (questionnaires == null || !questionnaires.Any())
                 return;
 
-        Console.WriteLine($"[QuestionnaireService] FillAssignmentsFromFilterContext - WorkflowId: {workflowId}, StageId: {stageId}, Questionnaires: {questionnaires.Count}");
-
-        try
-        {
-            // Use the mapping service to get assignments (same as FillAssignmentsAsync but more efficient)
             var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
-            
+
             Console.WriteLine($"[QuestionnaireService] Using mapping table to fill assignments for {questionnaireIds.Count} questionnaires");
-            
+
             // Get assignments from mapping table (ultra-fast)
             var assignments = await _mappingService.GetQuestionnaireAssignmentsAsync(questionnaireIds);
-            
-            // Map assignments to questionnaires, filtering by context if needed
+
+            // Map assignments to questionnaires
             foreach (var questionnaire in questionnaires)
             {
-                Console.WriteLine($"[QuestionnaireService] Processing questionnaire {questionnaire.Id} ({questionnaire.Name})");
-                
                 if (assignments.TryGetValue(questionnaire.Id, out var questionnaireAssignments))
                 {
-                    // Filter assignments based on the context (workflowId/stageId) if provided
-                    var filteredAssignments = questionnaireAssignments.AsEnumerable();
-                    
-                    if (workflowId.HasValue)
-                    {
-                        filteredAssignments = filteredAssignments.Where(a => a.WorkflowId == workflowId.Value);
-                    }
-                    
-                    if (stageId.HasValue)
-                    {
-                        filteredAssignments = filteredAssignments.Where(a => a.StageId == stageId.Value);
-                    }
-                    
-                    questionnaire.Assignments = filteredAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                    questionnaire.Assignments = questionnaireAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
                     {
                         WorkflowId = a.WorkflowId,
                         StageId = a.StageId
                     }).ToList();
-                    
-                    Console.WriteLine($"[QuestionnaireService] Found {questionnaire.Assignments.Count} assignments for questionnaire {questionnaire.Id} after filtering");
                 }
                 else
                 {
                     questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
-                    Console.WriteLine($"[QuestionnaireService] No assignments found for questionnaire {questionnaire.Id}");
                 }
             }
         }
-        catch (Exception ex)
+
+
+
+        /// <summary>
+        /// Fill assignments from filter context (optimized for when we already know the workflow/stage)
+        /// </summary>
+        private async Task FillAssignmentsFromFilterContext(List<QuestionnaireOutputDto> questionnaires, long? workflowId, long? stageId)
         {
-            Console.WriteLine($"[QuestionnaireService] Error filling assignments from filter context: {ex.Message}");
-            // Fallback to empty assignments
-            foreach (var questionnaire in questionnaires)
+            if (!questionnaires.Any())
+                return;
+
+            Console.WriteLine($"[QuestionnaireService] FillAssignmentsFromFilterContext - WorkflowId: {workflowId}, StageId: {stageId}, Questionnaires: {questionnaires.Count}");
+
+            try
             {
-                questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                // Use the mapping service to get assignments (same as FillAssignmentsAsync but more efficient)
+                var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
+
+                Console.WriteLine($"[QuestionnaireService] Using mapping table to fill assignments for {questionnaireIds.Count} questionnaires");
+
+                // Get assignments from mapping table (ultra-fast)
+                var assignments = await _mappingService.GetQuestionnaireAssignmentsAsync(questionnaireIds);
+
+                // Map assignments to questionnaires, filtering by context if needed
+                foreach (var questionnaire in questionnaires)
+                {
+                    Console.WriteLine($"[QuestionnaireService] Processing questionnaire {questionnaire.Id} ({questionnaire.Name})");
+
+                    if (assignments.TryGetValue(questionnaire.Id, out var questionnaireAssignments))
+                    {
+                        // Filter assignments based on the context (workflowId/stageId) if provided
+                        var filteredAssignments = questionnaireAssignments.AsEnumerable();
+
+                        if (workflowId.HasValue)
+                        {
+                            filteredAssignments = filteredAssignments.Where(a => a.WorkflowId == workflowId.Value);
+                        }
+
+                        if (stageId.HasValue)
+                        {
+                            filteredAssignments = filteredAssignments.Where(a => a.StageId == stageId.Value);
+                        }
+
+                        questionnaire.Assignments = filteredAssignments.Select(a => new FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto
+                        {
+                            WorkflowId = a.WorkflowId,
+                            StageId = a.StageId
+                        }).ToList();
+
+                        Console.WriteLine($"[QuestionnaireService] Found {questionnaire.Assignments.Count} assignments for questionnaire {questionnaire.Id} after filtering");
+                    }
+                    else
+                    {
+                        questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                        Console.WriteLine($"[QuestionnaireService] No assignments found for questionnaire {questionnaire.Id}");
+                    }
+                }
             }
-        }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error filling assignments from filter context: {ex.Message}");
+                // Fallback to empty assignments
+                foreach (var questionnaire in questionnaires)
+                {
+                    questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
+                }
+            }
         }
 
         /// <summary>
-    /// Apply sorting to questionnaire list
+        /// Apply sorting to questionnaire list
         /// </summary>
-    private List<Questionnaire> ApplySorting(List<Questionnaire> questionnaires, string sortField, string sortDirection)
+        private List<Questionnaire> ApplySorting(List<Questionnaire> questionnaires, string sortField, string sortDirection)
         {
             if (questionnaires == null || !questionnaires.Any())
-            return questionnaires ?? new List<Questionnaire>();
+                return questionnaires ?? new List<Questionnaire>();
 
-        bool isAsc = sortDirection?.ToLower() == "asc";
+            bool isAsc = sortDirection?.ToLower() == "asc";
 
-        return (sortField?.ToLower()) switch
-        {
-            "name" => isAsc ? questionnaires.OrderBy(q => q.Name).ToList() : questionnaires.OrderByDescending(q => q.Name).ToList(),
-            "createdate" => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList(),
-            "modifydate" => isAsc ? questionnaires.OrderBy(q => q.ModifyDate).ToList() : questionnaires.OrderByDescending(q => q.ModifyDate).ToList(),
-            _ => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList()
-        };
-    }
-
-    /// <summary>
-    /// Get questionnaire IDs by stage ID from mapping table (ultra-fast)
-    /// </summary>
-    private async Task<List<long>> GetQuestionnaireIdsByStageIdAsync(long stageId)
-    {
-        try
-        {
-            Console.WriteLine($"[QuestionnaireService] Getting questionnaire IDs for stage {stageId} using ComponentMappingService");
-            
-            // Use ComponentMappingService for ultra-fast mapping table query
-            var questionnaireIds = await _mappingService.GetQuestionnaireIdsByWorkflowStageAsync(null, stageId);
-            
-            Console.WriteLine($"[QuestionnaireService] ComponentMappingService found {questionnaireIds.Count} questionnaire IDs for stage {stageId}: [{string.Join(", ", questionnaireIds)}]");
-            
-            return questionnaireIds;
+            return (sortField?.ToLower()) switch
+            {
+                "name" => isAsc ? questionnaires.OrderBy(q => q.Name).ToList() : questionnaires.OrderByDescending(q => q.Name).ToList(),
+                "createdate" => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList(),
+                "modifydate" => isAsc ? questionnaires.OrderBy(q => q.ModifyDate).ToList() : questionnaires.OrderByDescending(q => q.ModifyDate).ToList(),
+                _ => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList()
+            };
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[QuestionnaireService] Error getting questionnaire IDs for stage {stageId}: {ex.Message}");
-            return new List<long>();
-        }
-    }
 
-            /// <summary>
+        /// <summary>
+        /// Get questionnaire IDs by stage ID from mapping table (ultra-fast)
+        /// </summary>
+        private async Task<List<long>> GetQuestionnaireIdsByStageIdAsync(long stageId)
+        {
+            try
+            {
+                Console.WriteLine($"[QuestionnaireService] Getting questionnaire IDs for stage {stageId} using ComponentMappingService");
+
+                // Use ComponentMappingService for ultra-fast mapping table query
+                var questionnaireIds = await _mappingService.GetQuestionnaireIdsByWorkflowStageAsync(null, stageId);
+
+                Console.WriteLine($"[QuestionnaireService] ComponentMappingService found {questionnaireIds.Count} questionnaire IDs for stage {stageId}: [{string.Join(", ", questionnaireIds)}]");
+
+                return questionnaireIds;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error getting questionnaire IDs for stage {stageId}: {ex.Message}");
+                return new List<long>();
+            }
+        }
+
+        /// <summary>
         /// Get questionnaire IDs by workflow and/or stage ID using database-level JSONB query
         /// </summary>
         private async Task<List<long>> GetQuestionnaireIdsByWorkflowAndStageAsync(long? workflowId, long? stageId)
@@ -1227,12 +1530,12 @@ namespace FlowFlex.Application.Service.OW
             try
             {
                 Console.WriteLine($"[QuestionnaireService] GetQuestionnaireIdsByWorkflowAndStageAsync using database JSONB query - WorkflowId: {workflowId}, StageId: {stageId}");
-                
+
                 // Use database-level JSONB query for optimal performance
                 var questionnaireIds = await _questionnaireRepository.GetQuestionnaireIdsByStageComponentsAsync(workflowId, stageId);
-                
+
                 Console.WriteLine($"[QuestionnaireService] Database JSONB query found {questionnaireIds.Count} questionnaire IDs");
-                
+
                 return questionnaireIds;
             }
             catch (Exception ex)
@@ -1242,301 +1545,301 @@ namespace FlowFlex.Application.Service.OW
             }
         }
 
-    /// <summary>
-    /// Debug method: Find which stages contain a specific questionnaire ID
-    /// </summary>
-    public async Task<List<Stage>> FindStagesContainingQuestionnaireAsync(long questionnaireId)
-    {
-        var matchingStages = new List<Stage>();
-        
-        try
+        /// <summary>
+        /// Debug method: Find which stages contain a specific questionnaire ID
+        /// </summary>
+        public async Task<List<Stage>> FindStagesContainingQuestionnaireAsync(long questionnaireId)
         {
-            // Get all stages for debugging
-            var allStages = await _stageRepository.GetListAsync();
-            Console.WriteLine($"[QuestionnaireService] Checking {allStages.Count} stages for questionnaire {questionnaireId}");
-            
-            foreach (var stage in allStages)
+            var matchingStages = new List<Stage>();
+
+            try
             {
-                if (string.IsNullOrEmpty(stage.ComponentsJson))
-                    continue;
-                    
-                try
+                // Get all stages for debugging
+                var allStages = await _stageRepository.GetListAsync();
+                Console.WriteLine($"[QuestionnaireService] Checking {allStages.Count} stages for questionnaire {questionnaireId}");
+
+                foreach (var stage in allStages)
                 {
-                    var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
-                    var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, StageJsonOptions);
-                    var hasQuestionnaire = components?.Any(c => c.Key == "questionnaires" && 
-                        c.QuestionnaireIds?.Contains(questionnaireId) == true);
-                        
-                    if (hasQuestionnaire == true)
+                    if (string.IsNullOrEmpty(stage.ComponentsJson))
+                        continue;
+
+                    try
                     {
-                        Console.WriteLine($"[QuestionnaireService] Found questionnaire {questionnaireId} in stage {stage.Id} (Workflow: {stage.WorkflowId})");
-                        matchingStages.Add(stage);
+                        var normalized = TryUnwrapComponentsJson(stage.ComponentsJson);
+                        var components = JsonSerializer.Deserialize<List<StageComponent>>(normalized, StageJsonOptions);
+                        var hasQuestionnaire = components?.Any(c => c.Key == "questionnaires" &&
+                            c.QuestionnaireIds?.Contains(questionnaireId) == true);
+
+                        if (hasQuestionnaire == true)
+                        {
+                            Console.WriteLine($"[QuestionnaireService] Found questionnaire {questionnaireId} in stage {stage.Id} (Workflow: {stage.WorkflowId})");
+                            matchingStages.Add(stage);
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"[QuestionnaireService] Error parsing ComponentsJson for stage {stage.Id}: {ex.Message}");
                     }
                 }
-                catch (JsonException ex)
+
+                if (!matchingStages.Any())
                 {
-                    Console.WriteLine($"[QuestionnaireService] Error parsing ComponentsJson for stage {stage.Id}: {ex.Message}");
+                    Console.WriteLine($"[QuestionnaireService] Questionnaire {questionnaireId} not found in any stage components");
                 }
             }
-            
-            if (!matchingStages.Any())
+            catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Questionnaire {questionnaireId} not found in any stage components");
+                Console.WriteLine($"Error finding stages for questionnaire {questionnaireId}: {ex.Message}");
+            }
+
+            return matchingStages;
+        }
+
+
+
+
+
+
+
+
+
+        /// <summary>
+        /// Create ActionTriggerMapping for Question Action
+        /// </summary>
+        private async Task CreateQuestionActionTriggerMappingAsync(long actionDefinitionId, string questionId, string questionnaireName)
+        {
+            try
+            {
+                var createMappingDto = new CreateActionTriggerMappingDto
+                {
+                    ActionDefinitionId = actionDefinitionId,
+                    TriggerType = "Question",
+                    TriggerSourceId = long.TryParse(questionId, out var qId) ? qId : 0,
+                    WorkFlowId = 0, // This should be determined from context
+                    StageId = 0,    // This should be determined from context
+                    TriggerEvent = "Completed",
+                    ExecutionOrder = 1,
+                    IsEnabled = true
+                };
+
+                await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to create action trigger mapping for question: {ex.Message}");
             }
         }
-        catch (Exception ex)
+
+
+
+
+
+        /// <summary>
+        /// Create ActionTriggerMapping for Option Action
+        /// </summary>
+        private async Task CreateOptionActionTriggerMappingAsync(long actionDefinitionId, long optionIdLong, string optionValue, string questionnaireName)
         {
-            Console.WriteLine($"Error finding stages for questionnaire {questionnaireId}: {ex.Message}");
-        }
-        
-        return matchingStages;
-        }
-
-
-
-
-
-
-
-
-
-    /// <summary>
-    /// Create ActionTriggerMapping for Question Action
-    /// </summary>
-    private async Task CreateQuestionActionTriggerMappingAsync(long actionDefinitionId, string questionId, string questionnaireName)
-    {
-        try
-        {
-            var createMappingDto = new CreateActionTriggerMappingDto
+            try
             {
-                ActionDefinitionId = actionDefinitionId,
-                TriggerType = "Question",
-                TriggerSourceId = long.TryParse(questionId, out var qId) ? qId : 0,
-                WorkFlowId = 0, // This should be determined from context
-                StageId = 0,    // This should be determined from context
-                TriggerEvent = "Completed",
-                ExecutionOrder = 1,
-                IsEnabled = true
-            };
-
-            await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to create action trigger mapping for question: {ex.Message}");
-        }
-    }
-
-
-
-
-
-    /// <summary>
-    /// Create ActionTriggerMapping for Option Action
-    /// </summary>
-    private async Task CreateOptionActionTriggerMappingAsync(long actionDefinitionId, long optionIdLong, string optionValue, string questionnaireName)
-    {
-        try
-        {
-            var createMappingDto = new CreateActionTriggerMappingDto
-            {
-                ActionDefinitionId = actionDefinitionId,
-                TriggerType = "Question",
-                TriggerSourceId = optionIdLong,
-                WorkFlowId = 0, // This should be determined from context
-                StageId = 0,    // This should be determined from context
-                TriggerEvent = "Completed",
-                ExecutionOrder = 1,
-                IsEnabled = true,
-                TriggerConditions = $"{{\"optionValue\": \"{optionValue}\"}}" // Store option value for trigger condition
-            };
-
-            await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to create action trigger mapping for option: {ex.Message}");
-        }
-    }
-
-  
-    /// <summary>
-    /// Ensure ActionTriggerMappings exist for all Questions with Action IDs in the Questionnaire
-    /// </summary>
-    private async Task EnsureQuestionActionTriggerMappingsExistAsync(Questionnaire questionnaire)
-    {
-        if (questionnaire?.Structure == null)
-            return;
-
-        try
-        {
-            var structureJson = questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None);
-            using var document = JsonDocument.Parse(structureJson);
-            var root = document.RootElement;
-
-            if (root.TryGetProperty("sections", out var sectionsElement))
-            {
-                foreach (var section in sectionsElement.EnumerateArray())
+                var createMappingDto = new CreateActionTriggerMappingDto
                 {
-                    await ProcessSectionForActionMappingsAsync(section, questionnaire.Name);
+                    ActionDefinitionId = actionDefinitionId,
+                    TriggerType = "Question",
+                    TriggerSourceId = optionIdLong,
+                    WorkFlowId = 0, // This should be determined from context
+                    StageId = 0,    // This should be determined from context
+                    TriggerEvent = "Completed",
+                    ExecutionOrder = 1,
+                    IsEnabled = true,
+                    TriggerConditions = $"{{\"optionValue\": \"{optionValue}\"}}" // Store option value for trigger condition
+                };
+
+                await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to create action trigger mapping for option: {ex.Message}");
+            }
+        }
+
+
+        /// <summary>
+        /// Ensure ActionTriggerMappings exist for all Questions with Action IDs in the Questionnaire
+        /// </summary>
+        private async Task EnsureQuestionActionTriggerMappingsExistAsync(Questionnaire questionnaire)
+        {
+            if (questionnaire?.Structure == null)
+                return;
+
+            try
+            {
+                var structureJson = questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None);
+                using var document = JsonDocument.Parse(structureJson);
+                var root = document.RootElement;
+
+                if (root.TryGetProperty("sections", out var sectionsElement))
+                {
+                    foreach (var section in sectionsElement.EnumerateArray())
+                    {
+                        await ProcessSectionForActionMappingsAsync(section, questionnaire.Name);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to ensure Question ActionTriggerMappings for questionnaire '{questionnaire.Name}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Process a section to ensure ActionTriggerMappings for its questions
+        /// </summary>
+        private async Task ProcessSectionForActionMappingsAsync(JsonElement section, string questionnaireName)
+        {
+            // Check both "items" and "questions" arrays for Questions
+            await ProcessQuestionArrayForMappingsAsync(section, "items", questionnaireName);
+            await ProcessQuestionArrayForMappingsAsync(section, "questions", questionnaireName);
+        }
+
+        /// <summary>
+        /// Process a question array to ensure ActionTriggerMappings
+        /// </summary>
+        private async Task ProcessQuestionArrayForMappingsAsync(JsonElement section, string arrayName, string questionnaireName)
+        {
+            if (section.TryGetProperty(arrayName, out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var question in questionsElement.EnumerateArray())
+                {
+                    await EnsureSingleQuestionActionMappingAsync(question, questionnaireName);
+
+                    // Also check options for action mappings
+                    await EnsureQuestionOptionsActionMappingsAsync(question, questionnaireName);
                 }
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to ensure Question ActionTriggerMappings for questionnaire '{questionnaire.Name}': {ex.Message}");
-        }
-    }
 
-    /// <summary>
-    /// Process a section to ensure ActionTriggerMappings for its questions
-    /// </summary>
-    private async Task ProcessSectionForActionMappingsAsync(JsonElement section, string questionnaireName)
-    {
-        // Check both "items" and "questions" arrays for Questions
-        await ProcessQuestionArrayForMappingsAsync(section, "items", questionnaireName);
-        await ProcessQuestionArrayForMappingsAsync(section, "questions", questionnaireName);
-    }
-
-    /// <summary>
-    /// Process a question array to ensure ActionTriggerMappings
-    /// </summary>
-    private async Task ProcessQuestionArrayForMappingsAsync(JsonElement section, string arrayName, string questionnaireName)
-    {
-        if (section.TryGetProperty(arrayName, out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
+        /// <summary>
+        /// Ensure ActionTriggerMapping exists for a single Question if it has an Action ID
+        /// </summary>
+        private async Task EnsureSingleQuestionActionMappingAsync(JsonElement question, string questionnaireName)
         {
-            foreach (var question in questionsElement.EnumerateArray())
+            try
             {
-                await EnsureSingleQuestionActionMappingAsync(question, questionnaireName);
-                
-                // Also check options for action mappings
-                await EnsureQuestionOptionsActionMappingsAsync(question, questionnaireName);
+                // Check if this is a question with action
+                if (!question.TryGetProperty("action", out var actionElement))
+                    return;
+
+                // Extract action ID and question ID
+                var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
+                var questionId = question.TryGetProperty("id", out var questionIdEl) ? questionIdEl.GetString() : null;
+
+                if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(questionId))
+                    return;
+
+                if (!long.TryParse(actionId, out var actionIdLong) || !long.TryParse(questionId, out var questionIdLong))
+                    return;
+
+                // Check if ActionTriggerMapping already exists
+                var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(questionIdLong);
+                var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong &&
+                                                          m.TriggerType == "Question" &&
+                                                          m.TriggerSourceId == questionIdLong);
+
+                if (!hasMapping)
+                {
+                    Console.WriteLine($"Creating missing ActionTriggerMapping for Question {questionIdLong} and Action {actionIdLong}");
+
+                    // Create the missing ActionTriggerMapping
+                    await CreateQuestionActionTriggerMappingAsync(actionIdLong, questionId, questionnaireName);
+                }
+                else
+                {
+                    Console.WriteLine($"ActionTriggerMapping already exists for Question {questionIdLong} and Action {actionIdLong}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to ensure ActionTriggerMapping for question: {ex.Message}");
             }
         }
-    }
 
-    /// <summary>
-    /// Ensure ActionTriggerMapping exists for a single Question if it has an Action ID
-    /// </summary>
-    private async Task EnsureSingleQuestionActionMappingAsync(JsonElement question, string questionnaireName)
-    {
-        try
+        /// <summary>
+        /// Ensure ActionTriggerMappings exist for all Options with Action IDs in a Question
+        /// </summary>
+        private async Task EnsureQuestionOptionsActionMappingsAsync(JsonElement question, string questionnaireName)
         {
-            // Check if this is a question with action
-            if (!question.TryGetProperty("action", out var actionElement))
-                return;
-
-            // Extract action ID and question ID
-            var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
-            var questionId = question.TryGetProperty("id", out var questionIdEl) ? questionIdEl.GetString() : null;
-
-            if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(questionId))
-                return;
-
-            if (!long.TryParse(actionId, out var actionIdLong) || !long.TryParse(questionId, out var questionIdLong))
-                return;
-
-            // Check if ActionTriggerMapping already exists
-            var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(questionIdLong);
-            var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong && 
-                                                      m.TriggerType == "Question" && 
-                                                      m.TriggerSourceId == questionIdLong);
-
-            if (!hasMapping)
+            try
             {
-                Console.WriteLine($"Creating missing ActionTriggerMapping for Question {questionIdLong} and Action {actionIdLong}");
-                
-                // Create the missing ActionTriggerMapping
-                await CreateQuestionActionTriggerMappingAsync(actionIdLong, questionId, questionnaireName);
+                // Check if question has options array
+                if (!question.TryGetProperty("options", out var optionsElement) ||
+                    optionsElement.ValueKind != JsonValueKind.Array)
+                    return;
+
+                foreach (var option in optionsElement.EnumerateArray())
+                {
+                    await EnsureSingleOptionActionMappingAsync(option, questionnaireName);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                Console.WriteLine($"ActionTriggerMapping already exists for Question {questionIdLong} and Action {actionIdLong}");
+                Console.WriteLine($"Failed to ensure Option ActionTriggerMappings for question: {ex.Message}");
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to ensure ActionTriggerMapping for question: {ex.Message}");
-        }
-    }
 
-    /// <summary>
-    /// Ensure ActionTriggerMappings exist for all Options with Action IDs in a Question
-    /// </summary>
-    private async Task EnsureQuestionOptionsActionMappingsAsync(JsonElement question, string questionnaireName)
-    {
-        try
+        /// <summary>
+        /// Ensure ActionTriggerMapping exists for a single Option if it has an Action ID
+        /// </summary>
+        private async Task EnsureSingleOptionActionMappingAsync(JsonElement option, string questionnaireName)
         {
-            // Check if question has options array
-            if (!question.TryGetProperty("options", out var optionsElement) || 
-                optionsElement.ValueKind != JsonValueKind.Array)
-                return;
-
-            foreach (var option in optionsElement.EnumerateArray())
+            try
             {
-                await EnsureSingleOptionActionMappingAsync(option, questionnaireName);
+                // Check if this is an option with action
+                if (!option.TryGetProperty("action", out var actionElement))
+                    return;
+
+                // Extract action ID and option information
+                var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
+                var optionValue = option.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
+                // 优先使用正式的 id，如果没有再使用 temporaryId
+                var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() :
+                              option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
+
+                if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(optionId))
+                    return;
+
+                if (!long.TryParse(actionId, out var actionIdLong))
+                    return;
+
+                // Only process options with valid numeric IDs
+                if (!long.TryParse(optionId, out var optionIdLong))
+                {
+                    Console.WriteLine($"Option has non-numeric ID '{optionId}', skipping ActionTriggerMapping creation");
+                    return;
+                }
+
+                // Check if ActionTriggerMapping already exists
+                var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(optionIdLong);
+                var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong &&
+                                                          m.TriggerType == "Question" &&
+                                                          m.TriggerSourceId == optionIdLong);
+
+                if (!hasMapping)
+                {
+                    Console.WriteLine($"Creating missing ActionTriggerMapping for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+
+                    // Create the missing ActionTriggerMapping
+                    await CreateOptionActionTriggerMappingAsync(actionIdLong, optionIdLong, optionValue, questionnaireName);
+                }
+                else
+                {
+                    Console.WriteLine($"ActionTriggerMapping already exists for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to ensure ActionTriggerMapping for option: {ex.Message}");
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to ensure Option ActionTriggerMappings for question: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Ensure ActionTriggerMapping exists for a single Option if it has an Action ID
-    /// </summary>
-    private async Task EnsureSingleOptionActionMappingAsync(JsonElement option, string questionnaireName)
-    {
-        try
-        {
-            // Check if this is an option with action
-            if (!option.TryGetProperty("action", out var actionElement))
-                return;
-
-            // Extract action ID and option information
-            var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
-            var optionValue = option.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
-            // 优先使用正式的 id，如果没有再使用 temporaryId
-            var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() : 
-                          option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
-
-            if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(optionId))
-                return;
-
-            if (!long.TryParse(actionId, out var actionIdLong))
-                return;
-
-            // Only process options with valid numeric IDs
-            if (!long.TryParse(optionId, out var optionIdLong))
-            {
-                Console.WriteLine($"Option has non-numeric ID '{optionId}', skipping ActionTriggerMapping creation");
-                return;
-            }
-
-            // Check if ActionTriggerMapping already exists
-            var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(optionIdLong);
-            var hasMapping = existingMappings.Any(m => m.ActionDefinitionId == actionIdLong && 
-                                                      m.TriggerType == "Question" && 
-                                                      m.TriggerSourceId == optionIdLong);
-
-            if (!hasMapping)
-            {
-                Console.WriteLine($"Creating missing ActionTriggerMapping for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
-                
-                // Create the missing ActionTriggerMapping
-                await CreateOptionActionTriggerMappingAsync(actionIdLong, optionIdLong, optionValue, questionnaireName);
-            }
-            else
-            {
-                Console.WriteLine($"ActionTriggerMapping already exists for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to ensure ActionTriggerMapping for option: {ex.Message}");
-        }
-    }
 
 
 

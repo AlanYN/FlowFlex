@@ -118,18 +118,6 @@
 		}
 	}
 
-	// 按钮相关初始化
-	.el-button {
-		// @apply text-white-100 bg-primary-200;
-		&.is-disabled {
-			@apply border-gray-600 bg-gray-600;
-			&:hover,
-			&:focus {
-				@apply border-gray-600 bg-gray-600 text-white-100;
-			}
-		}
-	}
-
 	.el-button.el-button--primary.is-link {
 		@apply text-primary-600 bg-none border-none;
 		&:hover {
@@ -193,7 +181,7 @@
 
 	// 自定义下拉框
 	.el-dropdown-menu {
-		@apply text-white-100 bg-primary-500;
+		@apply text-white-100 bg-black-200;
 	}
 
 	// sidebar
@@ -332,12 +320,13 @@
 	}
 
 	.customer-block {
+		box-shadow: 0px 0px 12px -1px rgba(225, 225, 225, 0.12);
 		transition:
 			box-shadow 0.3s ease,
 			background-color 0.3s ease;
-		@apply bg-black-400 p-4 rounded-xl ml-2 box-border;
+		@apply bg-black-400 rounded-xl mx-2 box-border;
 		&:hover {
-			box-shadow: 0px 0px 12px rgba(225, 225, 225, 0.12);
+			box-shadow: 0px 0px 12px -1px rgba(225, 225, 225, 0.12);
 		}
 	}
 
@@ -348,7 +337,7 @@
 			0 12px 24px -6px rgba(0, 0, 0, 0.25),
 			0 6px 12px -3px rgba(0, 0, 0, 0.15) !important;
 		border: 1px solid rgba(255, 255, 255, 0.1) !important;
-		border-radius: 8px !important;
+		@apply rounded-xl;
 	}
 
 	.el-popper.is-light .el-popper__arrow::before {

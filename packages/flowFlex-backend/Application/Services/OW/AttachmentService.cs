@@ -60,7 +60,7 @@ namespace FlowFlex.Application.Services.OW
                     RealName = result.OriginalFileName,
                     FileType = result.ContentType,
                     AccessUrl = result.AccessUrl,
-                CreateDate = DateTimeOffset.UtcNow,
+                    CreateDate = DateTimeOffset.UtcNow,
                     TenantId = tenantId,
                     FileSize = result.FileSize,
                     FilePath = result.FilePath,
@@ -80,7 +80,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Find the OnboardingFile that references this attachment ID
                 var onboardingFile = await _onboardingFileRepository.GetByAttachmentIdAsync(Id);
-                
+
                 if (onboardingFile == null)
                 {
                     throw new FileNotFoundException($"Attachment with ID {Id} not found");
@@ -119,7 +119,7 @@ namespace FlowFlex.Application.Services.OW
                     RealName = $"test_{id}.txt",
                     FileType = "text/plain",
                     AccessUrl = $"/files/{id}",
-            CreateDate = DateTimeOffset.UtcNow
+                    CreateDate = DateTimeOffset.UtcNow
                 });
             }
             return result;
@@ -178,7 +178,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Extract file path from AccessUrl or FilePath
                     string filePath;
-                    
+
                     if (!string.IsNullOrEmpty(attachment.FilePath))
                     {
                         filePath = attachment.FilePath.Replace("/uploads/", "");
@@ -197,7 +197,7 @@ namespace FlowFlex.Application.Services.OW
                     // Update attachment info with actual file data
                     attachment.FileType = contentType;
                     attachment.RealName = fileName;
-                    
+
                     return (stream, attachment);
                 }
                 catch (FileNotFoundException ex)

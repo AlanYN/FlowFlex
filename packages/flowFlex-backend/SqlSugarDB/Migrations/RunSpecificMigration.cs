@@ -16,22 +16,22 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("[RunSpecificMigration] Starting encrypted access token migration...");
-                
+
                 // Check if the column already exists
                 var columnExists = CheckColumnExists(db, "ff_user_invitations", "encrypted_access_token");
-                
+
                 if (columnExists)
                 {
                     Console.WriteLine("✓ Column encrypted_access_token already exists, skipping migration");
                     return;
                 }
-                
+
                 // Run the migration
                 AddEncryptedAccessTokenField_20250101000012.Up(db);
-                
+
                 // Mark migration as completed in history
                 MarkMigrationAsCompleted(db, "20250101000012_AddEncryptedAccessTokenField");
-                
+
                 Console.WriteLine("✓ Encrypted access token migration completed successfully");
             }
             catch (Exception ex)
@@ -41,7 +41,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Check if a column exists in a table
         /// </summary>
@@ -54,7 +54,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     FROM information_schema.columns 
                     WHERE table_name = @tableName 
                     AND column_name = @columnName";
-                
+
                 var count = db.Ado.GetInt(sql, new { tableName, columnName });
                 return count > 0;
             }
@@ -64,7 +64,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 return false;
             }
         }
-        
+
         /// <summary>
         /// Mark a migration as completed in the migration history
         /// </summary>
@@ -81,21 +81,21 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         success BOOLEAN DEFAULT TRUE
                     );
                 ");
-                
+
                 // Insert migration record
                 var sql = @"
                     INSERT INTO migration_history (migration_name, applied_at, success) 
                     VALUES (@migrationName, @appliedAt, @success)
                     ON CONFLICT (migration_name) 
                     DO UPDATE SET applied_at = @appliedAt, success = @success";
-                
+
                 db.Ado.ExecuteCommand(sql, new
                 {
                     migrationName,
                     appliedAt = DateTime.UtcNow,
                     success = true
                 });
-                
+
                 Console.WriteLine($"✓ Marked migration {migrationName} as completed");
             }
             catch (Exception ex)
@@ -104,4 +104,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

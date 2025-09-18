@@ -1,0 +1,103 @@
+/**
+ * JSON语法高亮样式
+ * 全局样式，用于JSON内容的语法高亮显示
+ */
+
+/* JSON语法高亮基础样式 */
+.json-key {
+	color: #3b82f6; /* 蓝色 - 键名 */
+	font-weight: 600;
+}
+
+.json-string {
+	color: #f97316; /* 橙色 - 字符串值 */
+}
+
+.json-number {
+	color: #84cc16; /* 黄绿色 - 数字值 */
+	font-weight: 500;
+}
+
+.json-boolean {
+	color: #8b5cf6; /* 紫色 - 布尔值 */
+	font-weight: 500;
+}
+
+.json-null {
+	color: #6b7280; /* 灰色 - null值 */
+	font-style: italic;
+}
+
+.json-punctuation {
+	color: #9ca3af; /* 浅灰色 - 标点符号 */
+}
+
+/* 暗色模式下的语法高亮 */
+html.dark {
+	.json-key {
+		color: #60a5fa; /* 浅蓝色 - 键名 */
+	}
+
+	.json-string {
+		color: #fb923c; /* 浅橙色 - 字符串值 */
+	}
+
+	.json-number {
+		color: #a3e635; /* 浅黄绿色 - 数字值 */
+	}
+
+	.json-boolean {
+		color: #a78bfa; /* 浅紫色 - 布尔值 */
+	}
+
+	.json-null {
+		color: #9ca3af; /* 浅灰色 - null值 */
+	}
+
+	.json-punctuation {
+		color: #d1d5db; /* 浅灰色 - 标点符号 */
+	}
+}
+
+/* JSON内容容器样式 */
+.json-content {
+	font-family: 'Fira Code', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+	background: transparent;
+	border: none;
+	color: var(--el-text-color-primary);
+	padding: 1rem;
+	margin: 0;
+}
+
+/* JSON搜索高亮 */
+.json-search-highlight {
+	background-color: #fef3c7;
+	color: #92400e;
+	padding: 0.125rem 0.25rem;
+	border-radius: 0.25rem;
+}
+
+html.dark .json-search-highlight {
+	background-color: #451a03;
+	color: #fbbf24;
+}
+
+/* JSON行号样式（如果需要） */
+.json-line-numbers {
+	color: #9ca3af;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	text-align: right;
+	padding-right: 0.75rem;
+	border-right: 1px solid #e5e7eb;
+	user-select: none;
+}
+
+html.dark .json-line-numbers {
+	color: #6b7280;
+	border-right-color: #374151;
+}

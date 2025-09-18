@@ -127,7 +127,7 @@
 				v-model="inputValue as string"
 				:default-value="getTimeZoneOffsetForTimezone()"
 				:value-format="computedProperty.valueFormat || projectDate"
-				class="rounded-lg my-date-picker"
+				class="rounded-xl my-date-picker"
 				:style="{ minWidth: inputMinWidth }"
 				:type="computedProperty.dateType"
 				:placeholder="computedProperty.placeholder || t('sys.placeholder.datePlaceholder')"
@@ -577,7 +577,7 @@ const getConnectionValue = (value: any, field: 'value' | 'businessValue') => {
 }
 
 .editText-hover:hover {
-	@apply bg-black-70 border-primary-500 rounded text-primary-500;
+	@apply bg-black-70 border-primary-500 rounded-xl text-primary-500;
 }
 
 .edit-icon {

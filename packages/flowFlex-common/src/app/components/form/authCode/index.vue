@@ -14,7 +14,7 @@
 				@compositionstart="handleCompositionStart"
 				@compositionend="handleCompositionEnd(index, $event)"
 				ref="codeInputs"
-				class="w-10 h-10 rounded-md text-white text-center text-lg bg-white/10 border border-white/20 focus:outline-none focus:border-[#58c7fa] focus:shadow-[0_0_15px_rgba(88,199,250,0.5)]"
+				class="w-10 h-10 rounded-xl text-white text-center text-lg bg-white/10 border border-white/20 focus:outline-none focus:border-[#58c7fa] focus:shadow-[0_0_15px_rgba(88,199,250,0.5)]"
 				:class="{ 'bg-gray-500/50 cursor-not-allowed': disabled }"
 			/>
 		</div>

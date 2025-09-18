@@ -40,18 +40,16 @@ namespace FlowFlex.Domain.Entities.Action
         /// <summary>
         /// Work flow ID
         /// </summary>
-        [Required]
         [SugarColumn(ColumnName = "work_flow_id")]
         [JsonConverter(typeof(LongToStringConverter))]
-        public long WorkFlowId { get; set; }
+        public long? WorkFlowId { get; set; }
 
         /// <summary>
         /// Stage ID
         /// </summary>
-        [Required]
         [SugarColumn(ColumnName = "stage_id")]
         [JsonConverter(typeof(LongToStringConverter))]
-        public long StageId { get; set; }
+        public long? StageId { get; set; }
 
         /// <summary>
         /// Trigger event (Completed, Created, Updated, Answered)

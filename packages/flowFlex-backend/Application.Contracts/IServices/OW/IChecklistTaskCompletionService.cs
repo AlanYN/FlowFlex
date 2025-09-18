@@ -49,4 +49,9 @@ public interface IChecklistTaskCompletionService : IScopedService
     /// Toggle task completion
     /// </summary>
     Task<bool> ToggleTaskCompletionAsync(long onboardingId, long taskId, bool isCompleted, string completionNotes = "", string filesJson = "[]");
+
+    /// <summary>
+    /// Process checklist component actions and publish action trigger events for completed tasks
+    /// </summary>
+    Task<ChecklistActionProcessingResultDto> ProcessChecklistComponentActionsAsync(ProcessChecklistActionsRequestDto request);
 }

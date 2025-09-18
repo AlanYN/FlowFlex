@@ -211,7 +211,7 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
     public async Task<Dictionary<long, ChecklistTaskNotesSummaryDto>> BatchGetNotesSummaryAsync(List<long> taskIds, long onboardingId)
     {
         var result = new Dictionary<long, ChecklistTaskNotesSummaryDto>();
-        
+
         foreach (var taskId in taskIds)
         {
             var summary = await GetNotesSummaryAsync(taskId, onboardingId);

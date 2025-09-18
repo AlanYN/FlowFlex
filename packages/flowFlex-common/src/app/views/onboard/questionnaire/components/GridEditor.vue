@@ -321,8 +321,8 @@ const saveColumnEdit = (id: string) => {
 	margin-top: 1.5rem;
 	padding: 1rem;
 	border: 1px solid var(--primary-200);
-	border-radius: 0.375rem;
 	background-color: var(--primary-25);
+	@apply rounded-xl;
 }
 
 .grid-section {
@@ -378,8 +378,8 @@ const saveColumnEdit = (id: string) => {
 	justify-content: space-between;
 	gap: 0.75rem;
 	padding: 0.5rem;
-	border-radius: 0.375rem;
 	transition: background-color 0.2s;
+	@apply rounded-xl;
 }
 
 .grid-editor-item:hover {
@@ -457,8 +457,8 @@ const saveColumnEdit = (id: string) => {
 	gap: 0.75rem;
 	padding: 0.5rem;
 	border: 1px dashed var(--primary-200);
-	border-radius: 0.375rem;
 	margin-top: 0.5rem;
+	@apply rounded-xl;
 }
 
 .grid-add-input {
@@ -473,7 +473,7 @@ const saveColumnEdit = (id: string) => {
 	padding: 0.75rem;
 	background-color: var(--el-color-success-light-9);
 	border: 1px dashed var(--el-color-success-light-7);
-	border-radius: 0.375rem;
+	@apply rounded-xl;
 }
 
 .add-other-btn {

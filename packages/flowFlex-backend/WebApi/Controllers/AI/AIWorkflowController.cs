@@ -47,7 +47,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             Console.WriteLine($"[AI Workflow] Selected AI Model: {input.ModelProvider} {input.ModelName} (ID: {input.ModelId})");
             Console.WriteLine($"[AI Workflow] Session ID: {input.SessionId}");
             Console.WriteLine($"[AI Workflow] Conversation History: {input.ConversationHistory?.Count ?? 0} messages");
-            
+
             if (input.ConversationMetadata != null)
             {
                 Console.WriteLine($"[AI Workflow] Conversation Metadata:");
@@ -72,10 +72,10 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             // 设置流式响应头
             Response.ContentType = "text/event-stream";
-            Response.Headers.Add("Cache-Control", "no-cache");
-            Response.Headers.Add("Connection", "keep-alive");
-            Response.Headers.Add("Access-Control-Allow-Origin", "*");
-            
+            Response.Headers.Append("Cache-Control", "no-cache");
+            Response.Headers.Append("Connection", "keep-alive");
+            Response.Headers.Append("Access-Control-Allow-Origin", "*");
+
             if (input == null || string.IsNullOrEmpty(input.Description))
             {
                 var errorData = new AIWorkflowStreamResult
@@ -84,7 +84,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                     Message = "Workflow description is required",
                     IsComplete = true
                 };
-                
+
                 await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(errorData)}\n\n");
                 await Response.Body.FlushAsync();
                 return;
@@ -100,31 +100,31 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 var controllerStartTime = DateTime.UtcNow;
                 var messageCount = 0;
-                
+
                 // 使用同步写入避免缓冲区问题
-                
+
                 var enumeratorStartTime = DateTime.UtcNow;
                 Console.WriteLine("[Controller] Starting await foreach enumeration...");
-                
+
                 await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
                 {
                     var iterationStartTime = DateTime.UtcNow;
                     var iterationDuration = (iterationStartTime - enumeratorStartTime).TotalMilliseconds;
-                    
+
                     messageCount++;
                     Console.WriteLine($"[Controller] Iteration #{messageCount}: {iterationDuration}ms since last, type: {result.Type}");
-                    
+
                     var writeStartTime = DateTime.UtcNow;
-                    
+
                     // 同步写入，避免缓冲区问题
                     try
                     {
                         var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
                         var sseData = $"data: {jsonData}\n\n";
-                        
+
                         // 直接写入，不使用Task.Run避免缓冲区竞争
                         await Response.WriteAsync(sseData);
-                        
+
                         var writeDuration = (DateTime.UtcNow - writeStartTime).TotalMilliseconds;
                         if (writeDuration > 50)
                         {
@@ -135,19 +135,19 @@ namespace FlowFlex.WebApi.Controllers.AI
                     {
                         Console.WriteLine($"[Controller] Write error #{messageCount}: {ex.Message}");
                     }
-                    
+
                     // 更新下次迭代的起始时间
                     enumeratorStartTime = DateTime.UtcNow;
-                    
+
                     if (messageCount % 5 == 0)
                     {
                         var totalDuration = (DateTime.UtcNow - controllerStartTime).TotalMilliseconds;
                         Console.WriteLine($"[Controller] Processed {messageCount} messages in {totalDuration}ms");
                     }
                 }
-                
+
                 Console.WriteLine($"[Controller] All {messageCount} messages processed synchronously");
-                
+
                 // Send completion signal with timeout
                 try
                 {
@@ -162,7 +162,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 {
                     Console.WriteLine("[Controller] DONE signal timeout, but continuing...");
                 }
-                
+
                 var controllerEndTime = DateTime.UtcNow;
                 var totalControllerTime = (controllerEndTime - controllerStartTime).TotalMilliseconds;
                 Console.WriteLine($"[Controller] Total optimized time: {totalControllerTime}ms, Messages: {messageCount}");
@@ -175,7 +175,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                     Message = $"Stream error: {ex.Message}",
                     IsComplete = true
                 };
-                
+
                 var jsonData = System.Text.Json.JsonSerializer.Serialize(errorData);
                 await Response.WriteAsync($"data: {jsonData}\n\n");
                 await Response.Body.FlushAsync();
@@ -286,12 +286,12 @@ namespace FlowFlex.WebApi.Controllers.AI
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
         public async Task<IActionResult> ModifyWorkflow(
-            [FromRoute] long workflowId, 
+            [FromRoute] long workflowId,
             [FromBody] AIWorkflowModificationInput input)
         {
             Console.WriteLine($"[DEBUG] ModifyWorkflow called with workflowId: {workflowId}");
             Console.WriteLine($"[DEBUG] Input: {System.Text.Json.JsonSerializer.Serialize(input)}");
-            
+
             if (input == null || string.IsNullOrEmpty(input.Description))
             {
                 return BadRequest("Modification description is required");
@@ -306,11 +306,11 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             input.WorkflowId = workflowId;
             Console.WriteLine($"[DEBUG] Final input WorkflowId: {input.WorkflowId}");
-            
+
             var result = await _aiService.EnhanceWorkflowAsync(input);
-            
+
             Console.WriteLine($"[DEBUG] AI Service result: Success={result.Success}, WorkflowName={result.GeneratedWorkflow?.Name}");
-            
+
             return Success(result);
         }
 
@@ -385,7 +385,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         public string Context { get; set; } = string.Empty;
     }
 
-        public class ParseRequirementsRequest
+    public class ParseRequirementsRequest
     {
         /// <summary>
         /// Natural language requirements description
@@ -398,12 +398,12 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// </summary>
         public string Context { get; set; } = string.Empty;
 
-            /// <summary>
-            /// Optional explicit AI model override
-            /// </summary>
-            public string? ModelProvider { get; set; }
-            public string? ModelName { get; set; }
-            public string? ModelId { get; set; }
+        /// <summary>
+        /// Optional explicit AI model override
+        /// </summary>
+        public string? ModelProvider { get; set; }
+        public string? ModelName { get; set; }
+        public string? ModelId { get; set; }
     }
 
     public class AIServiceStatus
@@ -417,4 +417,4 @@ namespace FlowFlex.WebApi.Controllers.AI
     }
 
     #endregion
-} 
+}

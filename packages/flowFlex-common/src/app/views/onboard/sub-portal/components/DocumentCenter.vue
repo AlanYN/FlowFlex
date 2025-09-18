@@ -216,7 +216,12 @@
 		</div>
 
 		<!-- 文档预览对话框 -->
-		<el-dialog title="文档预览" v-model:visible="previewDialogVisible" width="80%" top="5vh">
+		<el-dialog
+			title="文档预览"
+			v-model:visible="previewDialogVisible"
+			:width="moreDialogWidth"
+			top="5vh"
+		>
 			<div v-if="previewDocument" class="preview-content">
 				<div v-if="previewDocument.type === 'image'" class="image-preview">
 					<img
@@ -255,6 +260,8 @@
 </template>
 
 <script>
+import { moreDialogWidth } from '@/settings/projectSetting';
+
 export default {
 	name: 'DocumentCenter',
 	props: {
@@ -269,6 +276,7 @@ export default {
 	},
 	data() {
 		return {
+			moreDialogWidth,
 			searchQuery: '',
 			stageFilter: '',
 			statusFilter: '',
@@ -433,7 +441,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .document-center {
 	padding: 20px;
 }
@@ -471,8 +479,8 @@ export default {
 .stat-icon {
 	font-size: 24px;
 	padding: 12px;
-	border-radius: 8px;
 	background-color: #f3f4f6;
+	@apply rounded-xl;
 }
 
 .stat-value {

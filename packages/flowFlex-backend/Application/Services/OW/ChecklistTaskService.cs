@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -28,6 +29,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IChecklistTaskCompletionRepository _completionRepository;
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
+    private readonly IDistributedCacheService _cacheService;
 
     public ChecklistTaskService(
         IChecklistTaskRepository checklistTaskRepository,
@@ -37,7 +39,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IChecklistTaskNoteRepository noteRepository,
         IChecklistTaskCompletionRepository completionRepository,
         IMapper mapper,
-        UserContext userContext)
+        UserContext userContext,
+        IDistributedCacheService cacheService)
     {
         _checklistTaskRepository = checklistTaskRepository;
         _checklistRepository = checklistRepository;
@@ -47,6 +50,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _completionRepository = completionRepository;
         _mapper = mapper;
         _userContext = userContext;
+        _cacheService = cacheService;
     }
 
     /// <summary>
@@ -86,6 +90,23 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         await _checklistTaskRepository.InsertAsync(entity);
 
+        // Log checklist task create operation (fire-and-forget)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _operationChangeLogService.LogChecklistTaskCreateAsync(
+                    taskId: entity.Id,
+                    taskName: entity.Name,
+                    checklistId: entity.ChecklistId
+                );
+            }
+            catch
+            {
+                // Ignore logging errors to avoid affecting main operation
+            }
+        });
+
         // Update checklist completion rate
         await _checklistService.CalculateCompletionAsync(input.ChecklistId);
 
@@ -104,6 +125,26 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             throw new CRMException(ErrorCodeEnum.NotFound, "Task not found");
         }
 
+        // Store original values for change detection and logging
+        var originalTask = new
+        {
+            Name = existingTask.Name,
+            Description = existingTask.Description,
+            Status = existingTask.Status,
+            Priority = existingTask.Priority,
+            IsCompleted = existingTask.IsCompleted,
+            IsRequired = existingTask.IsRequired,
+            AssigneeId = existingTask.AssigneeId,
+            AssigneeName = existingTask.AssigneeName,
+            Order = existingTask.Order,
+            EstimatedHours = existingTask.EstimatedHours,
+            DueDate = existingTask.DueDate,
+            DependsOnTaskId = existingTask.DependsOnTaskId,
+            ActionId = existingTask.ActionId,
+            ActionName = existingTask.ActionName,
+            ActionMappingId = existingTask.ActionMappingId
+        };
+
         // Validate dependent task if specified
         if (input.DependsOnTaskId.HasValue)
         {
@@ -118,10 +159,99 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _mapper.Map(input, existingTask);
         existingTask.InitUpdateInfo(_userContext);
 
+        // Check if there are any actual changes
+        var hasChanges =
+            originalTask.Name != existingTask.Name ||
+            originalTask.Description != existingTask.Description ||
+            originalTask.Status != existingTask.Status ||
+            originalTask.Priority != existingTask.Priority ||
+            originalTask.IsCompleted != existingTask.IsCompleted ||
+            originalTask.IsRequired != existingTask.IsRequired ||
+            originalTask.AssigneeId != existingTask.AssigneeId ||
+            originalTask.AssigneeName != existingTask.AssigneeName ||
+            originalTask.Order != existingTask.Order ||
+            originalTask.EstimatedHours != existingTask.EstimatedHours ||
+            originalTask.DueDate != existingTask.DueDate ||
+            originalTask.DependsOnTaskId != existingTask.DependsOnTaskId ||
+            originalTask.ActionId != existingTask.ActionId ||
+            originalTask.ActionName != existingTask.ActionName ||
+            originalTask.ActionMappingId != existingTask.ActionMappingId;
+
+        if (!hasChanges)
+        {
+            // No actual changes, return true without database operations
+            return true;
+        }
+
         var result = await _checklistTaskRepository.UpdateAsync(existingTask);
 
-        // Update checklist completion rate
-        await _checklistService.CalculateCompletionAsync(existingTask.ChecklistId);
+        if (result)
+        {
+            // Determine which completion-related fields changed
+            var completionChanged = originalTask.IsCompleted != existingTask.IsCompleted;
+
+            // Handle cache clearing and background operations asynchronously
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Clear caches
+                    var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+                    await _cacheService.RemoveAsync(cacheKey);
+
+                    var checklistCacheKey = $"checklist_task:get_by_checklist_id:{existingTask.ChecklistId}:{_userContext.AppCode}";
+                    await _cacheService.RemoveAsync(checklistCacheKey);
+
+                    // Only recalculate completion rate if completion status changed
+                    if (completionChanged)
+                    {
+                        await _checklistService.CalculateCompletionAsync(existingTask.ChecklistId);
+                    }
+
+                    // Log the operation - use current task data instead of additional DB query
+                    var beforeData = System.Text.Json.JsonSerializer.Serialize(originalTask);
+                    var afterData = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        Name = existingTask.Name,
+                        Description = existingTask.Description,
+                        Status = existingTask.Status,
+                        Priority = existingTask.Priority,
+                        IsCompleted = existingTask.IsCompleted
+                    });
+
+                    // Determine changed fields
+                    var changedFields = new List<string>();
+                    if (originalTask.Name != existingTask.Name) changedFields.Add("Name");
+                    if (originalTask.Description != existingTask.Description) changedFields.Add("Description");
+                    if (originalTask.Status != existingTask.Status) changedFields.Add("Status");
+                    if (originalTask.Priority != existingTask.Priority) changedFields.Add("Priority");
+                    if (originalTask.IsCompleted != existingTask.IsCompleted) changedFields.Add("IsCompleted");
+                    if (originalTask.IsRequired != existingTask.IsRequired) changedFields.Add("IsRequired");
+                    if (originalTask.AssigneeId != existingTask.AssigneeId) changedFields.Add("AssigneeId");
+                    if (originalTask.AssigneeName != existingTask.AssigneeName) changedFields.Add("AssigneeName");
+                    if (originalTask.Order != existingTask.Order) changedFields.Add("Order");
+                    if (originalTask.EstimatedHours != existingTask.EstimatedHours) changedFields.Add("EstimatedHours");
+                    if (originalTask.DueDate != existingTask.DueDate) changedFields.Add("DueDate");
+                    if (originalTask.DependsOnTaskId != existingTask.DependsOnTaskId) changedFields.Add("DependsOnTaskId");
+
+                    if (changedFields.Any())
+                    {
+                        await _operationChangeLogService.LogChecklistTaskUpdateAsync(
+                            taskId: id,
+                            taskName: existingTask.Name,
+                            beforeData: beforeData,
+                            afterData: afterData,
+                            changedFields: changedFields,
+                            checklistId: existingTask.ChecklistId
+                        );
+                    }
+                }
+                catch
+                {
+                    // Ignore errors in background operations
+                }
+            });
+        }
 
         return result;
     }
@@ -151,11 +281,43 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                 $"Cannot delete task that has {dependentTasks.Count} dependent tasks");
         }
 
+        var taskName = task.Name; // Store name before deletion
+        var checklistId = task.ChecklistId; // Store checklist ID before deletion
+
         // Soft delete
         task.IsValid = false;
         task.InitUpdateInfo(_userContext);
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
+
+        // Clear related cache after successful deletion
+        if (result)
+        {
+            // Log checklist task delete operation (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogChecklistTaskDeleteAsync(
+                        taskId: id,
+                        taskName: taskName,
+                        checklistId: checklistId,
+                        reason: "Checklist task deleted via admin portal"
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
+
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(cacheKey);
+
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(checklistCacheKey);
+        }
 
         // Update checklist completion rate
         await _checklistService.CalculateCompletionAsync(task.ChecklistId);
@@ -168,13 +330,20 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     /// </summary>
     public async Task<ChecklistTaskOutputDto> GetByIdAsync(long id)
     {
+        var cacheKey = $"checklist_task:get_by_id:{id}";
+        var cachedResult = await _cacheService.GetAsync<ChecklistTaskOutputDto>(cacheKey);
+        if (cachedResult != null)
+            return cachedResult;
+
         var task = await _checklistTaskRepository.GetByIdAsync(id);
         if (task == null)
         {
             throw new CRMException(ErrorCodeEnum.CustomError, "Task not found");
         }
 
-        return _mapper.Map<ChecklistTaskOutputDto>(task);
+        var result = _mapper.Map<ChecklistTaskOutputDto>(task);
+        await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(10));
+        return result;
     }
 
     /// <summary>
@@ -183,12 +352,18 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     /// </summary>
     public async Task<List<ChecklistTaskOutputDto>> GetListByChecklistIdAsync(long checklistId)
     {
+        var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}";
+        var cachedResult = await _cacheService.GetAsync<List<ChecklistTaskOutputDto>>(cacheKey);
+        if (cachedResult != null)
+            return cachedResult;
+
         var tasks = await _checklistTaskRepository.GetByChecklistIdAsync(checklistId);
         var taskDtos = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
-        
+
         // Fill files and notes count for each task
         await FillFilesAndNotesCountAsync(taskDtos);
-        
+
+        await _cacheService.SetAsync(cacheKey, taskDtos, TimeSpan.FromMinutes(10));
         return taskDtos;
     }
 
@@ -221,13 +396,24 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         var checklist = await _checklistRepository.GetByIdAsync(task.ChecklistId);
 
         task.IsCompleted = true;
-            task.CompletedDate = input.CompletedDate ?? DateTimeOffset.UtcNow;
+        task.CompletedDate = input.CompletedDate ?? DateTimeOffset.UtcNow;
         task.CompletionNotes = input.CompletionNotes;
         task.ActualHours = input.ActualHours;
         task.Status = "Completed";
         task.InitUpdateInfo(_userContext);
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
+
+        // Clear related cache after successful completion
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(cacheKey);
+
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(checklistCacheKey);
+        }
 
         // Log the operation
         if (result)
@@ -287,6 +473,17 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         task.InitUpdateInfo(_userContext);
 
         var result = await _checklistTaskRepository.UpdateAsync(task);
+
+        // Clear related cache after successful uncomplete
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(cacheKey);
+
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(checklistCacheKey);
+        }
 
         // Log the operation
         if (result)
@@ -405,7 +602,16 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             }
         }
 
-        return await _checklistTaskRepository.UpdateOrderAsync(checklistId, taskOrders);
+        var result = await _checklistTaskRepository.UpdateOrderAsync(checklistId, taskOrders);
+
+        // Clear related cache after successful order update
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_checklist_id:{checklistId}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(cacheKey);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -421,9 +627,22 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         task.AssigneeId = assigneeId;
         task.AssigneeName = assigneeName;
-            task.ModifyDate = DateTimeOffset.UtcNow;
+        task.ModifyDate = DateTimeOffset.UtcNow;
 
-        return await _checklistTaskRepository.UpdateAsync(task);
+        var result = await _checklistTaskRepository.UpdateAsync(task);
+
+        // Clear related cache after successful assignment
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(cacheKey);
+
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(checklistCacheKey);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -443,7 +662,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             task.AssigneeId = assignee.UserId;
             task.AssigneeName = assignee.Name;
             task.AssignedTeam = assignee.Team;
-            
+
             // Serialize to JSON with proper options
             var options = new System.Text.Json.JsonSerializerOptions
             {
@@ -463,7 +682,20 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         task.InitUpdateInfo(_userContext);
 
-        return await _checklistTaskRepository.UpdateAsync(task);
+        var result = await _checklistTaskRepository.UpdateAsync(task);
+
+        // Clear related cache after successful assignee update
+        if (result)
+        {
+            var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(cacheKey);
+
+            // Also clear checklist-level cache
+            var checklistCacheKey = $"checklist_task:get_by_checklist_id:{task.ChecklistId}:{_userContext.AppCode}";
+            await _cacheService.RemoveAsync(checklistCacheKey);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -562,7 +794,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         // Get files count from ChecklistTaskCompletion
         var completions = await _completionRepository.GetByTaskIdsAsync(taskIds);
         var filesCountMap = new Dictionary<long, int>();
-        
+
         foreach (var completion in completions)
         {
             var filesCount = GetFilesCountFromJson(completion.FilesJson);
@@ -593,13 +825,13 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private async Task<Dictionary<long, int>> GetNotesCountByTaskIdsAsync(List<long> taskIds)
     {
         var notesCountMap = new Dictionary<long, int>();
-        
+
         foreach (var taskId in taskIds)
         {
             var count = await _noteRepository.CountByTaskIdAsync(taskId);
             notesCountMap[taskId] = count;
         }
-        
+
         return notesCountMap;
     }
 

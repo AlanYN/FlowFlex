@@ -213,7 +213,7 @@ const submitForm = async () => {
 const emit = defineEmits(['submit', 'cancel']);
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .combine-stages-form {
 	padding: 10px;
 }
@@ -222,7 +222,7 @@ const emit = defineEmits(['submit', 'cancel']);
 	margin-bottom: 20px;
 	padding: 10px;
 	background-color: #f5f7fa;
-	border-radius: 4px;
+	@apply rounded-xl;
 }
 
 .selected-stages h4 {

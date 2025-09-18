@@ -1,3 +1,5 @@
+import { ActionListItem } from './action';
+
 export interface Questionnaire {
 	allowDraft: boolean;
 	allowMultipleSubmissions: boolean;
@@ -45,6 +47,7 @@ export interface OnboardingItem {
 	modifyBy: string;
 	modifyDate: string;
 	priority: string;
+	status: string; // 添加状态字段
 	workflowName: string;
 	timelineDays: number;
 	workflowId: string;
@@ -216,6 +219,7 @@ export interface ComponentData {
 	type: string;
 	version: number;
 	hasError?: boolean;
+	customerPortalAccess?: number;
 }
 
 export type StageComponentData = {
@@ -228,6 +232,7 @@ export type StageComponentData = {
 	questionnaireIds: string[];
 	questionnaireNames?: string[];
 	files?: string[];
+	customerPortalAccess?: number;
 };
 
 export interface StageInfo {
@@ -245,6 +250,7 @@ export interface StageInfo {
 	aiSummaryConfidence?: number;
 	aiSummaryModel?: string;
 	aiSummaryData?: string;
+	visibleInPortal?: boolean;
 }
 
 export interface ComponentsData {
@@ -268,27 +274,12 @@ export interface SelectedItem {
 	type: 'fields' | 'checklist' | 'questionnaires' | 'files';
 	order: number;
 	key: string;
+	customerPortalAccess?: number;
 }
 
 export interface FieldTag {
 	key: string;
 	label: string;
-}
-
-// 类型定义
-export interface Stage {
-	id: string;
-	name: string;
-	description?: string;
-	defaultAssignedGroup: string;
-	defaultAssignee: string;
-	estimatedDuration: number;
-	requiredFieldsJson: string;
-	staticFields?: string[];
-	components: ComponentData[];
-	order: number;
-	selected?: boolean;
-	color?: string;
 }
 
 export interface Workflow {
@@ -335,6 +326,8 @@ export interface Stage {
 	defaultAssignee: string;
 	estimatedDuration: number;
 	requiredFieldsJson: string;
+	staticFields?: string[];
+	components: ComponentData[];
 	order: number;
 	selected?: boolean;
 	color?: string;
@@ -348,6 +341,23 @@ export interface Stage {
 	aiSummaryConfidence?: number;
 	aiSummaryModel?: string;
 	aiSummaryData?: any;
+	endTime?: string;
+	estimatedDays?: number;
+	isCompleted?: boolean;
+	isCurrent?: boolean;
+	isSaved?: boolean;
+	savedById?: string;
+	stageDescription?: string;
+	stageId?: string;
+	stageName?: string;
+	stageOrder?: number;
+	startTime?: string;
+	status?: string;
+	saveTime?: string;
+	savedBy?: string;
+	completionTime?: string;
+	completedBy?: string;
+	actions?: ActionListItem[];
 }
 
 // 检查清单任务完成记录相关类型定义
@@ -435,6 +445,8 @@ export interface TaskData {
 	createBy: string;
 	filesCount: number;
 	notesCount: number;
+	actionId?: string | null; // Action绑定ID
+	actionName?: string | null; // Action名称
 }
 
 // API返回的Checklist数据结构

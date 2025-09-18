@@ -156,6 +156,7 @@ const closeOffice = () => {
 .office_block {
 	@apply fixed inset-0 z-50 flex items-center justify-center;
 	background-color: rgba(0, 0, 0, 0.3);
+	z-index: 9999;
 }
 
 .office_block-item {
@@ -164,8 +165,8 @@ const closeOffice = () => {
 	background-color: #f5f5f5;
 	display: flex;
 	flex-direction: column;
-	border-radius: 8px;
 	overflow: hidden;
+	@apply rounded-xl;
 }
 
 .preview-toolbar {
@@ -197,7 +198,7 @@ const closeOffice = () => {
 
 	&::-webkit-scrollbar-thumb {
 		background: #ccc;
-		border-radius: 3px;
+		@apply rounded-xl;
 		&:hover {
 			background: #999;
 		}
@@ -401,7 +402,7 @@ const closeOffice = () => {
 	.office_block-item {
 		width: 100vw;
 		height: 100vh;
-		border-radius: 0;
+		@apply rounded-xl;
 	}
 
 	:deep(.docx-wrapper) {

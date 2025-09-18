@@ -6,6 +6,7 @@ using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using System.Net;
 
@@ -21,13 +22,16 @@ namespace FlowFlex.WebApi.Controllers.Action
     {
         private readonly IActionManagementService _actionManagementService;
         private readonly IActionExecutionService _actionExecutionService;
+        private readonly ILogger<ActionController> _logger;
 
         public ActionController(
             IActionManagementService actionManagementService,
-            IActionExecutionService actionExecutionService)
+            IActionExecutionService actionExecutionService,
+            ILogger<ActionController> logger)
         {
             _actionManagementService = actionManagementService;
             _actionExecutionService = actionExecutionService;
+            _logger = logger;
         }
 
         #region Action Definition Management
@@ -72,8 +76,16 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null)
+            bool? isTools = null,
+            bool? isSystemTools = null)
         {
+            // If isSystemTools is true, override actionType to System and ignore isTools
+            if (isSystemTools == true)
+            {
+                actionType = ActionTypeEnum.System;
+                isTools = null; // Ignore isTools when isSystemTools is true
+            }
+
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
                 actionType,
                 pageIndex,
@@ -123,16 +135,63 @@ namespace FlowFlex.WebApi.Controllers.Action
         [ProducesResponseType<SuccessResponse<ActionDefinitionDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
-        public async Task<IActionResult> UpdateActionDefinition(long id, UpdateActionDefinitionDto dto)
+        public async Task<IActionResult> UpdateActionDefinition(long id, [FromBody] JObject requestData)
         {
+            _logger.LogInformation("Received PUT request for action definition ID: {ActionId} with data: {Data}", id, requestData);
+            
             try
             {
+                // Extract basic DTO fields
+                var dto = new UpdateActionDefinitionDto
+                {
+                    Name = requestData["name"]?.ToString() ?? "",
+                    Description = requestData["description"]?.ToString() ?? "",
+                    ActionType = (ActionTypeEnum)(requestData["actionType"]?.ToObject<int>() ?? 0),
+                    ActionConfig = requestData["actionConfig"]?.ToString() ?? "{}",
+                    IsEnabled = requestData["isEnabled"]?.ToObject<bool>() ?? true,
+                    IsTools = requestData["isTools"]?.ToObject<bool>() ?? false
+                };
+
                 var result = await _actionManagementService.UpdateActionDefinitionAsync(id, dto);
+                
+                // Handle triggerMappings for System Actions
+                if (dto.ActionType == ActionTypeEnum.System && requestData["triggerMappings"] != null)
+                {
+                    _logger.LogInformation("Processing triggerMappings update for System Action {ActionId}", id);
+                    
+                    var triggerMappings = requestData["triggerMappings"]?.ToObject<List<JObject>>();
+                    if (triggerMappings != null && triggerMappings.Any())
+                    {
+                        // For now, we'll just log the trigger mappings
+                        // In a full implementation, you might want to update existing mappings
+                        foreach (var mapping in triggerMappings)
+                        {
+                            var mappingId = mapping["id"]?.ToString();
+                            var isEnabled = mapping["isEnabled"]?.ToObject<bool>() ?? true;
+                            
+                            _logger.LogInformation("TriggerMapping {MappingId} - IsEnabled: {IsEnabled}", mappingId, isEnabled);
+                            
+                            // Update mapping status if needed
+                            if (long.TryParse(mappingId, out var mappingIdLong))
+                            {
+                                await _actionManagementService.UpdateActionTriggerMappingStatusAsync(mappingIdLong, isEnabled);
+                            }
+                        }
+                    }
+                }
+                
+                _logger.LogInformation("Successfully updated action definition with ID: {ActionId}", id);
                 return Success(result);
             }
             catch (ArgumentException ex)
             {
-                return NotFound();
+                _logger.LogWarning("Action definition not found for ID: {ActionId}, Error: {ErrorMessage}", id, ex.Message);
+                return NotFound(new { message = $"Action definition with ID {id} not found", error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating action definition with ID: {ActionId}", id);
+                return BadRequest(new { message = "Error updating action definition", error = ex.Message });
             }
         }
 
@@ -174,9 +233,17 @@ namespace FlowFlex.WebApi.Controllers.Action
         }
 
         /// <summary>
-        /// Export factoring company
+        /// Export action definitions
         /// </summary>
-        /// <param name="request">Export request parameters</param>
+        /// <param name="search">Search keyword</param>
+        /// <param name="actionType">Action type filter</param>
+        /// <param name="isAssignmentStage">Assignment stage filter</param>
+        /// <param name="isAssignmentChecklist">Assignment checklist filter</param>
+        /// <param name="isAssignmentQuestionnaire">Assignment questionnaire filter</param>
+        /// <param name="isAssignmentWorkflow">Assignment workflow filter</param>
+        /// <param name="isTools">Tools filter</param>
+        /// <param name="isSystemTools">System tools filter</param>
+        /// <param name="actionIds">Comma-separated list of action IDs for selected export</param>
         /// <returns>Exported file</returns>
         [HttpGet("definitions/export")]
         [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
@@ -186,14 +253,26 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
-            bool? isAssignmentWorkflow = null)
+            bool? isAssignmentWorkflow = null,
+            bool? isTools = null,
+            bool? isSystemTools = null,
+            string? actionIds = null)
         {
+            // If isSystemTools is true, override actionType to System and ignore isTools
+            if (isSystemTools == true)
+            {
+                actionType = ActionTypeEnum.System;
+                isTools = null; // Ignore isTools when isSystemTools is true
+            }
+
             return File(await _actionManagementService.ExportAsync(search,
                 actionType,
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
-                isAssignmentWorkflow), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Action_{DateTimeOffset.Now.LocalDateTime:yyyyMMddHHmmss}.xlsx");
+                isAssignmentWorkflow,
+                isTools,
+                actionIds), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Action_{DateTimeOffset.Now.LocalDateTime:yyyyMMddHHmmss}.xlsx");
         }
 
         #endregion
@@ -426,6 +505,163 @@ namespace FlowFlex.WebApi.Controllers.Action
             var result = await _actionExecutionService.GetExecutionsByTriggerSourceIdAsync(
                 triggerSourceId, request.PageIndex, request.PageSize, request.JsonConditions);
             return Success(result);
+        }
+
+        #endregion
+
+        #region System Predefined Actions
+
+        /// <summary>
+        /// Get system predefined actions
+        /// </summary>
+        /// <returns>List of system predefined actions</returns>
+        [HttpGet("system/predefined")]
+        [ProducesResponseType<SuccessResponse<List<SystemActionDefinitionDto>>>((int)HttpStatusCode.OK)]
+        public IActionResult GetSystemPredefinedActions()
+        {
+            var systemActions = new List<SystemActionDefinitionDto>
+            {
+                new SystemActionDefinitionDto
+                {
+                    ActionName = "CompleteStage",
+                    DisplayName = "Complete Stage",
+                    Description = "Complete a specific stage in the workflow",
+                    TriggerType = TriggerTypeEnum.Task, // 在Task完成时触发
+                     ConfigSchema = new
+                     {
+                         actionName = "CompleteStage",
+                         stageId = "Optional: Stage ID to complete (can be extracted from trigger context)",
+                         onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
+                         completionNotes = "Optional: Completion notes (default: 'Completed by system action')",
+                         autoMoveToNext = "Optional: Auto move to next stage (default: true)"
+                     },
+                     ExampleConfig = @"{
+  ""actionName"": ""CompleteStage"",
+  ""completionNotes"": ""Stage completed automatically"",
+  ""autoMoveToNext"": true
+}"
+                },
+                new SystemActionDefinitionDto
+                {
+                    ActionName = "MoveToStage",
+                    DisplayName = "Move to Stage",
+                    Description = "Move onboarding to a specific stage",
+                    TriggerType = TriggerTypeEnum.Stage, // 在Stage完成时触发
+                    ConfigSchema = new
+                    {
+                        actionName = "MoveToStage",
+                        targetStageId = "Required: Target stage ID to move to",
+                        onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
+                        notes = "Optional: Move notes (default: 'Moved by system action')"
+                    },
+                    ExampleConfig = @"{
+  ""actionName"": ""MoveToStage"",
+  ""targetStageId"": 123,
+  ""notes"": ""Moved to next stage automatically""
+}"
+                },
+                new SystemActionDefinitionDto
+                {
+                    ActionName = "AssignOnboarding",
+                    DisplayName = "Assign Onboarding",
+                    Description = "Assign an onboarding to a specific user",
+                    TriggerType = TriggerTypeEnum.Workflow, // 在Workflow级别触发
+                    ConfigSchema = new
+                    {
+                        actionName = "AssignOnboarding",
+                        onboardingId = "Optional: Onboarding ID (can be extracted from trigger context)",
+                        assigneeId = "Required: User ID to assign",
+                        assigneeName = "Optional: User name",
+                        team = "Optional: Team name",
+                        notes = "Optional: Assignment notes (default: 'Assigned by system action')"
+                    },
+                    ExampleConfig = @"{
+  ""actionName"": ""AssignOnboarding"",
+  ""assigneeId"": 123,
+  ""assigneeName"": ""John Doe"",
+  ""team"": ""Support Team"",
+  ""notes"": ""Onboarding assigned automatically""
+}"
+                }
+            };
+
+            return Success(systemActions);
+        }
+
+        /// <summary>
+        /// Get system action configuration template
+        /// </summary>
+        /// <param name="actionName">System action name</param>
+        /// <returns>Configuration template</returns>
+        [HttpGet("system/template/{actionName}")]
+        [ProducesResponseType<SuccessResponse<SystemActionTemplateDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        public IActionResult GetSystemActionTemplate(string actionName)
+        {
+            var templates = new Dictionary<string, SystemActionTemplateDto>
+            {
+                ["CompleteStage"] = new SystemActionTemplateDto
+                {
+                    ActionName = "CompleteStage",
+                     Template = @"{
+   ""actionName"": ""CompleteStage"",
+   ""stageId"": null,
+   ""onboardingId"": null,
+   ""completionNotes"": ""Completed by system action"",
+   ""autoMoveToNext"": true
+ }",
+                     Parameters = new List<SystemActionParameterDto>
+                     {
+                         new SystemActionParameterDto { Name = "stageId", Type = "number", Required = false, Description = "Stage ID to complete (can be extracted from trigger context)" },
+                         new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
+                         new SystemActionParameterDto { Name = "completionNotes", Type = "string", Required = false, Description = "Completion notes" },
+                         new SystemActionParameterDto { Name = "autoMoveToNext", Type = "boolean", Required = false, Description = "Auto move to next stage" }
+                     }
+                },
+                ["MoveToStage"] = new SystemActionTemplateDto
+                {
+                    ActionName = "MoveToStage",
+                    Template = @"{
+  ""actionName"": ""MoveToStage"",
+  ""targetStageId"": null,
+  ""onboardingId"": null,
+  ""notes"": ""Moved by system action""
+}",
+                    Parameters = new List<SystemActionParameterDto>
+                    {
+                        new SystemActionParameterDto { Name = "targetStageId", Type = "number", Required = true, Description = "Target stage ID to move to" },
+                        new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
+                        new SystemActionParameterDto { Name = "notes", Type = "string", Required = false, Description = "Move notes" }
+                    }
+                },
+                ["AssignOnboarding"] = new SystemActionTemplateDto
+                {
+                    ActionName = "AssignOnboarding",
+                    Template = @"{
+  ""actionName"": ""AssignOnboarding"",
+  ""onboardingId"": null,
+  ""assigneeId"": null,
+  ""assigneeName"": null,
+  ""team"": null,
+  ""notes"": ""Assigned by system action""
+}",
+                    Parameters = new List<SystemActionParameterDto>
+                    {
+                        new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },
+                        new SystemActionParameterDto { Name = "assigneeId", Type = "number", Required = true, Description = "User ID to assign" },
+                        new SystemActionParameterDto { Name = "assigneeName", Type = "string", Required = false, Description = "User name" },
+                        new SystemActionParameterDto { Name = "team", Type = "string", Required = false, Description = "Team name" },
+                        new SystemActionParameterDto { Name = "notes", Type = "string", Required = false, Description = "Assignment notes" }
+                    }
+                }
+            };
+
+            if (!templates.TryGetValue(actionName, out var template))
+            {
+                return NotFound($"System action template '{actionName}' not found");
+            }
+
+            return Success(template);
         }
 
         #endregion

@@ -80,5 +80,12 @@ namespace FlowFlex.Domain.Repository.Action
         /// <param name="triggerSourceId"></param>
         /// <returns></returns>
         Task<List<ActionTriggerMappingWithActionDetails>> GetMappingsWithActionDetailsByTriggerSourceIdAsync(long triggerSourceId);
+
+        /// <summary>
+        /// Get action definitions by IDs
+        /// </summary>
+        /// <param name="ids">List of action definition IDs</param>
+        /// <returns>List of action definitions</returns>
+        Task<List<ActionDefinition>> GetByIdsAsync(List<long> ids);
     }
 }

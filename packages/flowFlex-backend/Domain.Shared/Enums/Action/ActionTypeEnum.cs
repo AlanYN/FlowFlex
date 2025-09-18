@@ -23,6 +23,12 @@ namespace FlowFlex.Domain.Shared.Enums.Action
         /// Email sending
         /// </summary>
         [Description("Email")]
-        SendEmail = 3
+        SendEmail = 3,
+
+        /// <summary>
+        /// System predefined actions
+        /// </summary>
+        [Description("System Action")]
+        System = 4
     }
 }

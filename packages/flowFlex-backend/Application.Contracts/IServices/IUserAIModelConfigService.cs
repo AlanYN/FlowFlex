@@ -100,4 +100,4 @@ namespace FlowFlex.Application.Contracts.IServices
         /// </summary>
         public long ResponseTime { get; set; }
     }
-} 
+}

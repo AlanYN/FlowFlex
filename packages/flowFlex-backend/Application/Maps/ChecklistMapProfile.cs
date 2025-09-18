@@ -30,7 +30,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
-                // Assignments removed from entity - handled through Stage Components
+            // Assignments removed from entity - handled through Stage Components
         }
     }
 }

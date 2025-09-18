@@ -58,6 +58,12 @@
 												<el-icon class="mr-2"><CopyDocument /></el-icon>
 												Duplicate
 											</el-dropdown-item>
+											<el-dropdown-item divided>
+												<HistoryButton
+													:id="questionnaire.id"
+													:type="WFEMoudels.Questionnaire"
+												/>
+											</el-dropdown-item>
 											<el-dropdown-item
 												divided
 												command="delete"
@@ -202,10 +208,13 @@
 										/>
 										<span class="card-value font-medium">
 											{{
-												(questionnaire.structureJson &&
-													JSON.parse(questionnaire.structureJson)
-														?.sections?.length) ||
-												0
+												questionnaire.structureJson
+													? JSON.parse(
+															questionnaire.structureJson
+													  )?.sections?.filter(
+															(section) => !section.isDefault
+													  )?.length || 0
+													: 0
 											}}
 										</span>
 									</div>
@@ -261,7 +270,7 @@
 		<!-- 空状态 -->
 		<div
 			v-if="questionnaires.length === 0 && !loading"
-			class="empty-state flex flex-col items-center justify-center py-12 text-center rounded-lg shadow-sm"
+			class="empty-state flex flex-col items-center justify-center py-12 text-center rounded-xl shadow-sm"
 		>
 			<div class="empty-icon-bg p-4 rounded-full mb-4">
 				<el-icon class="h-12 w-12 empty-icon"><Document /></el-icon>
@@ -293,6 +302,7 @@ import {
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr } from '@/settings/projectSetting';
+import { WFEMoudels } from '@/enums/appEnum';
 
 // Props
 const props = defineProps<{

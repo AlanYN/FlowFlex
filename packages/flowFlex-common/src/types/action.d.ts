@@ -1,3 +1,6 @@
+import { ActionType } from '@/apis/action';
+import { TriggerTypeEnum } from '@/enums/appEnum';
+
 export interface ActionDefinition {
 	id?: string;
 	actionCode?: string;
@@ -6,6 +9,8 @@ export interface ActionDefinition {
 	actionType: number;
 	actionConfig: string;
 	isEnabled?: boolean;
+	isAIGenerated?: boolean;
+	actionTriggerType?: string; // Action本身的触发类型(Stage, Task, Question, Workflow)
 	createdAt?: string;
 	updatedAt?: string;
 	triggerMappings?: TriggerMapping[];
@@ -40,6 +45,8 @@ export interface ActionQueryRequest {
 	pageIndex?: number;
 	pageSize?: number;
 	isTools?: boolean;
+	isSystemTools?: boolean;
+	actionIds?: string; // Comma-separated list of action IDs for selected export
 }
 
 export interface ApiResponse<T> {
@@ -63,7 +70,7 @@ export interface ActionConfig {
 export interface ActionItem {
 	id: string;
 	name: string;
-	type: 'python' | 'http';
+	actionType: ActionType;
 	description: string;
 	condition: string;
 	actionConfig: ActionConfig;
@@ -83,4 +90,56 @@ export interface ActionListItem {
 	updatedAt: string;
 	actionName?: string;
 	actionDefinitionId?: string;
+}
+
+// Action execution result interface
+export interface ActionExecutionResult {
+	id: string;
+	actionDefinitionId: string;
+	actionCode: string;
+	executionId: string;
+	actionTriggerMappingId: string;
+	actionName: string;
+	actionType: string;
+	triggerContext: string;
+	executionStatus: string;
+	startedAt: string;
+	completedAt: string;
+	executionInput: string;
+	executionOutput: string;
+	errorMessage: string;
+	errorStackTrace: string;
+	executorInfo: string;
+	createdAt: string;
+	createdBy: string;
+	// Computed properties
+	status?: string; // Derived from executionStatus
+	duration?: number; // Computed from startedAt and completedAt
+	triggerSource?: string; // Derived from triggerContext
+}
+
+// System action definition interface
+export interface SystemActionDefinitionDto {
+	actionName: string;
+	displayName: string;
+	description: string;
+	configSchema: object;
+	exampleConfig: string;
+	triggerType: TriggerTypeEnum;
+}
+
+// System action template interface
+export interface SystemActionTemplateDto {
+	actionName: string;
+	template: string;
+	parameters: SystemActionParameterDto[];
+}
+
+// System action parameter interface
+export interface SystemActionParameterDto {
+	name: string;
+	type: string;
+	required: boolean;
+	description: string;
+	defaultValue?: any;
 }

@@ -19,7 +19,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     private readonly ILogger<ChecklistRepository> _logger;
 
     public ChecklistRepository(
-        ISqlSugarClient sqlSugarClient, 
+        ISqlSugarClient sqlSugarClient,
         IHttpContextAccessor httpContextAccessor,
         ILogger<ChecklistRepository> logger) : base(sqlSugarClient)
     {
@@ -43,21 +43,21 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
 
         // 显式添加租户和应用过滤条件
         var query = db.Queryable<Checklist>().Where(x => x.IsValid == true);
-        
+
         // 获取当前租户ID和应用代码
         var currentTenantId = GetCurrentTenantId();
         var currentAppCode = GetCurrentAppCode();
-        
+
         _logger.LogInformation($"[ChecklistRepository] Applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-        
+
         // 显式添加过滤条件
         query = query.Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
-        
+
         // 执行查询
         var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync(cancellationToken);
-        
+
         _logger.LogInformation($"[ChecklistRepository] Query returned {result.Count} checklists with TenantId={currentTenantId}, AppCode={currentAppCode}");
-        
+
         return result;
     }
 
@@ -69,9 +69,9 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
         // 获取当前租户ID和应用代码
         var currentTenantId = GetCurrentTenantId();
         var currentAppCode = GetCurrentAppCode();
-        
+
         _logger.LogInformation($"[ChecklistRepository] GetByTeamAsync with team={team}, TenantId={currentTenantId}, AppCode={currentAppCode}");
-        
+
         return await db.Queryable<Checklist>()
             .WhereIF(!string.IsNullOrEmpty(team), x => x.Team == team)
             .Where(x => x.IsValid == true)
@@ -104,9 +104,9 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
         // 获取当前租户ID和应用代码
         var currentTenantId = GetCurrentTenantId();
         var currentAppCode = GetCurrentAppCode();
-        
+
         _logger.LogInformation($"[ChecklistRepository] GetTemplatesAsync with TenantId={currentTenantId}, AppCode={currentAppCode}");
-        
+
         return await db.Queryable<Checklist>()
             .Where(x => x.IsTemplate == true && x.IsValid == true)
             .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode) // 显式添加过滤条件
@@ -133,9 +133,9 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
         // 获取当前租户ID和应用代码
         var currentTenantId = GetCurrentTenantId();
         var currentAppCode = GetCurrentAppCode();
-        
+
         _logger.LogInformation($"[ChecklistRepository] IsNameExistsAsync with name={name}, team={team}, TenantId={currentTenantId}, AppCode={currentAppCode}");
-        
+
         var whereExpression = Expressionable.Create<Checklist>()
             .And(x => x.Name == name)
             .And(x => x.Team == team)
@@ -186,9 +186,9 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
         // 获取当前租户ID和应用代码
         var currentTenantId = GetCurrentTenantId();
         var currentAppCode = GetCurrentAppCode();
-        
+
         _logger.LogInformation($"[ChecklistRepository] GetPagedAsync applying explicit filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
-        
+
         // 添加租户和应用过滤条件
         whereExpressions.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
@@ -321,22 +321,22 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     public async Task<List<Checklist>> GetListWithExplicitFiltersAsync(string tenantId, string appCode)
     {
         _logger.LogInformation($"[ChecklistRepository] GetListWithExplicitFiltersAsync with explicit TenantId={tenantId}, AppCode={appCode}");
-        
+
         // 临时禁用全局过滤器
         db.QueryFilter.ClearAndBackup();
-        
+
         try
         {
             // 使用显式过滤条件
             var query = db.Queryable<Checklist>()
                 .Where(x => x.IsValid == true)
                 .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
-            
+
             // 执行查询
             var result = await query.OrderBy(x => x.CreateDate, OrderByType.Desc).ToListAsync();
-            
+
             _logger.LogInformation($"[ChecklistRepository] Query returned {result.Count} checklists with explicit filters");
-            
+
             return result;
         }
         finally

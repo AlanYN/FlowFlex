@@ -155,7 +155,7 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
 
         // Save file using file storage service
         var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
-        
+
         if (!storageResult.Success)
         {
             return BadRequest($"File upload failed: {storageResult.ErrorMessage}");
@@ -164,8 +164,8 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
         // Get current gateway/host information
         var request = HttpContext.Request;
         var gateway = $"{request.Scheme}://{request.Host}";
-        var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
-            ? storageResult.AccessUrl 
+        var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
+            ? storageResult.AccessUrl
             : $"{gateway}{storageResult.AccessUrl}";
 
         // Create comprehensive response
@@ -264,8 +264,8 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
             }
 
             // Success case
-            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true 
-                ? storageResult.AccessUrl 
+            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
+                ? storageResult.AccessUrl
                 : $"{gateway}{storageResult.AccessUrl}";
 
             response.Success = storageResult.Success;
@@ -293,6 +293,17 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
         var summary = await _noteService.GetNotesSummaryAsync(taskId, onboardingId);
         return Success(summary);
     }
+
+    /// <summary>
+    /// Process checklist components and publish action trigger events for completed tasks
+    /// </summary>
+    [HttpPost("process-checklist-actions")]
+    [ProducesResponseType<SuccessResponse<ChecklistActionProcessingResultDto>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ProcessChecklistActions([FromBody] ProcessChecklistActionsRequestDto request)
+    {
+        var result = await _completionService.ProcessChecklistComponentActionsAsync(request);
+        return Success(result);
+    }
 }
 
 /// <summary>
@@ -315,4 +326,5 @@ public class ToggleTaskCompletionRequest
     /// </summary>
     public string FilesJson { get; set; } = "[]";
 }
+
 

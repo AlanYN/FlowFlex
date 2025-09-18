@@ -9,14 +9,14 @@
 				@click="selectQuestionType(type.id)"
 				:class="{ active: selectedType === type.id }"
 			>
-				<Icon :icon="type.icon" class="type-icon" />
-				<div class="type-info">
-					<div class="type-content">
-						<span class="type-name">{{ type.name }}</span>
-						<el-tag v-if="type.isNew" size="small" type="success" class="type-new-tag">
-							New
-						</el-tag>
-					</div>
+				<el-tag v-if="type.isNew" size="small" type="success" class="type-new-tag">
+					New
+				</el-tag>
+				<div class="type-content">
+					<Icon :icon="type.icon" class="type-icon" />
+					<span class="type-name">
+						{{ type.name }}
+					</span>
 				</div>
 			</div>
 		</div>
@@ -69,18 +69,18 @@ const selectQuestionType = (typeId: string) => {
 }
 
 .question-type-item {
+	position: relative;
 	display: flex;
 	align-items: center;
-	padding: 0.75rem;
+	padding: 0.5rem 0.75rem;
 	border: 1px solid var(--primary-100);
-	border-radius: 0.375rem;
 	cursor: pointer;
 	transition: all 0.2s;
-	min-height: 3rem;
+	min-height: 2.5rem;
 	width: 100%;
 	min-width: 0;
 	box-sizing: border-box;
-	@apply dark:border-black-200;
+	@apply dark:border-black-200 rounded-xl;
 }
 
 .question-type-item:hover {
@@ -95,47 +95,42 @@ const selectQuestionType = (typeId: string) => {
 	@apply dark:bg-primary-700 dark:border-primary-400;
 }
 
-.type-icon {
-	color: var(--primary-600);
-	margin-right: 0.5rem;
-}
-
-.type-info {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-}
-
 .type-content {
 	display: flex;
 	align-items: center;
-	gap: 0.375rem;
-	min-height: 1.5rem;
-	width: 100%;
+	flex: 1;
 	min-width: 0;
+	gap: 0.5rem;
+}
+
+.type-icon {
+	color: var(--primary-600);
+	flex-shrink: 0;
+	font-size: 1rem;
 }
 
 .type-name {
-	font-size: 0.875rem;
+	font-size: 0.75rem;
 	font-weight: 500;
 	color: var(--primary-800);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+	line-height: 1.3;
 	flex: 1;
 	min-width: 0;
-	line-height: 1.25;
-	max-width: 100%;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	hyphens: auto;
 	@apply dark:text-primary-200;
 }
 
 .type-new-tag {
-	flex-shrink: 0;
-	font-size: 0.625rem;
-	height: 1.125rem;
+	position: absolute;
+	top: -0.25rem;
+	right: -0.25rem;
+	font-size: 0.5rem;
+	height: 1rem;
 	line-height: 1;
 	padding: 0.125rem 0.25rem;
-	margin-left: auto;
+	z-index: 1;
 }
 
 /* 深色模式支持 */
@@ -156,6 +151,10 @@ const selectQuestionType = (typeId: string) => {
 .dark .question-type-item.active {
 	background-color: var(--primary-600);
 	border-color: var(--primary-400);
+}
+
+.dark .type-icon {
+	color: var(--primary-400);
 }
 
 .dark .type-name {

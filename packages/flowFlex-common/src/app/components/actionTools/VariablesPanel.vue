@@ -1,7 +1,7 @@
 <template>
 	<div class="variables-panel">
 		<!-- Header Section -->
-		<div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+		<div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
 			<div class="flex items-center justify-between mb-3">
 				<div class="flex items-center space-x-2">
 					<icon icon="tabler:variable-plus" class="text-primary-500" />
@@ -18,7 +18,7 @@
 			<!-- Variables and Examples Section -->
 			<el-tabs v-model="activeTab" type="">
 				<el-tab-pane label="All" name="all">
-					<div class="context-structure-section p-4 rounded-lg">
+					<div class="context-structure-section p-4 rounded-xl">
 						<div class="bg-gray-50 dark:bg-gray-800 p-4">
 							<div
 								class="flex items-center justify-between cursor-pointer transition-colors"
@@ -31,7 +31,6 @@
 								</div>
 								<div class="flex items-center space-x-2">
 									<el-button
-										size="small"
 										type="primary"
 										:icon="DocumentCopy"
 										@click.stop="copyStructure(contextStructure)"
@@ -79,12 +78,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -114,12 +108,7 @@
 											{{ variable.description }}
 										</span>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -147,12 +136,7 @@
 											{{ variable.description }}
 										</span>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -182,12 +166,7 @@
 											{{ variable.description }}
 										</span>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -221,12 +200,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -256,12 +230,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -291,12 +260,7 @@
 											{{ variable.description }}
 										</div>
 									</div>
-									<el-button
-										size="small"
-										text
-										:icon="DocumentCopy"
-										class="copy-btn"
-									/>
+									<el-button text :icon="DocumentCopy" class="copy-btn" />
 								</div>
 							</div>
 						</div>
@@ -315,7 +279,6 @@
 							<div class="example-code">
 								<pre>{{ example.code }}</pre>
 								<el-button
-									size="small"
 									text
 									:icon="DocumentCopy"
 									@click="copyToClipboard(example.code)"
@@ -336,6 +299,7 @@
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { User, Flag, Document, DocumentCopy } from '@element-plus/icons-vue';
+import { ActionType } from '@/apis/action';
 
 interface Variable {
 	name: string;
@@ -345,12 +309,12 @@ interface Variable {
 
 interface Props {
 	stageId?: string;
-	actionType?: 'python' | 'http';
+	actionType?: ActionType;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	stageId: '',
-	actionType: 'python',
+	actionType: ActionType.PYTHON_SCRIPT,
 });
 
 // State
@@ -645,7 +609,7 @@ const contextStructure = computed(() => {
 
 // Examples based on action type
 const variableExamples = computed(() => {
-	if (props.actionType === 'python') {
+	if (props.actionType === ActionType.PYTHON_SCRIPT) {
 		return [
 			{
 				title: 'Access Basic Event Information',
@@ -658,7 +622,7 @@ const variableExamples = computed(() => {
 				code: `import json\nanswers = context.get('components', {}).get('questionnaireAnswers', [])\nfor a in answers:\n    data = json.loads(a.get('answer', '{}'))\n    for r in data.get('responses', []):\n        print(r.get('question'), r.get('answer'))`,
 			},
 		];
-	} else {
+	} else if (props.actionType === ActionType.HTTP_API) {
 		return [
 			{
 				title: 'Dynamic URL',
@@ -671,6 +635,8 @@ const variableExamples = computed(() => {
 				code: `{"event_id":"{{context.eventId}}","workflow":"{{context.workflowName}}"}`,
 			},
 		];
+	} else {
+		return [];
 	}
 });
 
@@ -718,7 +684,7 @@ const copyToClipboard = async (text: string) => {
 }
 
 .context-code-block {
-	@apply rounded-lg  bg-white dark:bg-gray-900;
+	@apply rounded-xl  bg-white dark:bg-gray-900;
 }
 
 .context-structure-section {
@@ -738,7 +704,7 @@ const copyToClipboard = async (text: string) => {
 }
 
 .variable-item {
-	@apply flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50 dark:hover:bg-gray-700 cursor-pointer transition-all;
+	@apply flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50 dark:hover:bg-gray-700 cursor-pointer transition-all;
 	min-width: 0; /* 允许flex子元素收缩 */
 }
 
@@ -785,7 +751,7 @@ const copyToClipboard = async (text: string) => {
 }
 
 .json-preview {
-	@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto border border-gray-200 dark:border-gray-600 font-mono;
+	@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-xl overflow-x-auto border border-gray-200 dark:border-gray-600 font-mono;
 }
 
 .examples-section {
@@ -808,7 +774,7 @@ const copyToClipboard = async (text: string) => {
 	@apply relative;
 
 	pre {
-		@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto border border-gray-200 dark:border-gray-600 font-mono;
+		@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-xl overflow-x-auto border border-gray-200 dark:border-gray-600 font-mono;
 	}
 }
 
@@ -833,7 +799,7 @@ const copyToClipboard = async (text: string) => {
 }
 
 .context-structure-pre {
-	@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-auto font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap;
+	@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-xl overflow-auto font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap;
 }
 
 // Dark mode

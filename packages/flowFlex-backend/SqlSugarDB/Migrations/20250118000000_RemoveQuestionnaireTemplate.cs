@@ -35,9 +35,9 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         END IF;
                     END $$;
                 ";
-                
+
                 db.Ado.ExecuteCommand(sql);
-                
+
                 Console.WriteLine("Successfully removed template-related columns from ff_questionnaire table");
             }
             catch (Exception ex)
@@ -74,9 +74,9 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         END IF;
                     END $$;
                 ";
-                
+
                 db.Ado.ExecuteCommand(sql);
-                
+
                 Console.WriteLine("Successfully restored template-related columns to ff_questionnaire table");
             }
             catch (Exception ex)

@@ -18,7 +18,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 var owEntityTables = new[]
                 {
                     "ff_access_tokens",
-                    "ff_operation_change_log", 
+                    "ff_operation_change_log",
                     "ff_users",
                     "ff_user_invitations",
                     "ff_internal_notes"
@@ -51,7 +51,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                                 var dataType = idColumnInfo.Rows[0]["data_type"]?.ToString();
 
                                 // Check if it's currently using auto-increment (serial/sequence)
-                                if (!string.IsNullOrEmpty(columnDefault) && 
+                                if (!string.IsNullOrEmpty(columnDefault) &&
                                     (columnDefault.Contains("nextval") || dataType?.ToLower().Contains("serial") == true))
                                 {
                                     Console.WriteLine($"[ConvertOwEntityBaseTablesToSnowflakeId] {tableName} has auto-increment ID, converting to snowflake ID...");
@@ -70,7 +70,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                                 else
                                 {
                                     Console.WriteLine($"[ConvertOwEntityBaseTablesToSnowflakeId] {tableName} already uses non-auto-increment ID, checking if it's BIGINT...");
-                                    
+
                                     // Just ensure it's BIGINT and PRIMARY KEY
                                     if (dataType?.ToLower() != "bigint")
                                     {
@@ -122,7 +122,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 var owEntityTables = new[]
                 {
                     "ff_access_tokens",
-                    "ff_operation_change_log", 
+                    "ff_operation_change_log",
                     "ff_users",
                     "ff_user_invitations",
                     "ff_internal_notes"
@@ -144,7 +144,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                                 ALTER TABLE {tableName} DROP COLUMN IF EXISTS id CASCADE;
                                 ALTER TABLE {tableName} ADD COLUMN id BIGSERIAL PRIMARY KEY;
                             ");
-                            
+
                             Console.WriteLine($"[ConvertOwEntityBaseTablesToSnowflakeId] Reverted {tableName} to use BIGSERIAL");
                         }
                     }

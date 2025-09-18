@@ -1,29 +1,33 @@
 <template>
 	<div class="questionnaire-container">
 		<!-- 页面头部 -->
-		<div class="page-header rounded-lg p-6 mb-6">
-			<div class="flex justify-between items-center">
-				<div>
-					<h1 class="text-3xl font-bold page-title">Questionnaire Setup</h1>
-					<p class="page-subtitle mt-1">
-						Create and manage questionnaires for different workflow stages
-					</p>
-				</div>
-				<div class="flex space-x-2">
-					<el-button
-						type="primary"
-						@click="() => handleNewQuestionnaire()"
-						class="primary-button"
-					>
-						<el-icon class="mr-2"><Plus /></el-icon>
-						New Questionnaire
-					</el-button>
-				</div>
-			</div>
-		</div>
+		<PageHeader
+			title="Questionnaires"
+			description="Create and manage questionnaires for different workflow stages"
+		>
+			<template #actions>
+				<!-- Tab切换器 -->
+				<TabButtonGroup
+					v-model="activeView"
+					:tabs="tabsConfig"
+					size="small"
+					type="adaptive"
+					class="mr-4"
+					@tab-change="handleViewChange"
+				/>
+				<el-button
+					type="primary"
+					@click="() => handleNewQuestionnaire()"
+					class="page-header-btn page-header-btn-primary"
+					:icon="Plus"
+				>
+					New Questionnaire
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<!-- 搜索和筛选区域 -->
-		<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+		<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<div class="space-y-2">
 					<label class="filter-label text-sm font-medium">Search</label>
@@ -33,7 +37,7 @@
 						style-type="normal"
 						:limit="10"
 						@change="handleSearchTagsChange"
-						class="w-full rounded-md"
+						class="w-full rounded-xl"
 					/>
 				</div>
 
@@ -82,6 +86,7 @@
 			:tabs="tabsConfig"
 			type="adaptive"
 			size="default"
+			:hidden-tab="true"
 			@tab-change="handleViewChange"
 		>
 			<!-- 卡片视图 -->
@@ -185,6 +190,7 @@ import QuestionnaireCardView from './components/QuestionnaireCardView.vue';
 import QuestionnaireListView from './components/QuestionnaireListView.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import InputTag from '@/components/global/u-input-tags/index.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 
 // 引入问卷相关API接口
 import {
@@ -197,7 +203,7 @@ import { getWorkflows, getStagesByWorkflow, getAllStages } from '@/apis/ow';
 import { Questionnaire } from '#/onboard';
 import { useRouter } from 'vue-router';
 import { smallDialogWidth } from '@/settings/projectSetting';
-import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 
@@ -237,10 +243,10 @@ const selectedQuestionnaireId = ref('');
 const selectedQuestionnaireData = ref<any>(null);
 
 // 视图切换
-const activeView = ref('card');
+const activeView = ref('list');
 const tabsConfig = ref([
-	{ label: 'Card View', value: 'card', icon: markRaw(TableViewIcon) },
-	{ label: 'List View', value: 'list', icon: markRaw(ProgressViewIcon) },
+	{ label: 'Table View', value: 'list', icon: markRaw(TableViewIcon) },
+	{ label: 'Card View', value: 'card', icon: markRaw(ProgressViewIcon) },
 ]);
 
 // 方法
@@ -414,8 +420,8 @@ const handlePreviewQuestionnaire = async (id: string) => {
 					temporaryId: section?.temporaryId || `section-${Date.now()}-${Math.random()}`,
 					title: section.title || 'Untitled Section',
 					description: section.description || '',
-					// 处理questions字段（API返回的是questions，PreviewContent期望的是items）
-					items: (section.questions || section.items || []).map((item: any) => ({
+					// 处理questions字段（API返回的是questions，PreviewContent也使用questions）
+					questions: (section.questions || []).map((item: any) => ({
 						id: item?.id || null,
 						temporaryId: item?.temporaryId || `question-${Date.now()}-${Math.random()}`,
 						type: item.type || 'text',
@@ -574,32 +580,6 @@ const handleSortChange = (sort: any) => {
 	display: flex;
 	flex-direction: column;
 }
-/* 页面头部样式 */
-.page-header {
-	@apply dark:from-primary-600 dark:to-primary-500;
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
-	flex-shrink: 0;
-}
-
-.page-title {
-	color: var(--primary-500);
-	@apply dark:text-white;
-}
-
-.page-subtitle {
-	color: var(--primary-600);
-}
-
-.primary-button {
-	background-color: var(--primary-500) !important;
-	border-color: var(--primary-500) !important;
-	color: white !important;
-}
-
-.primary-button:hover {
-	background-color: var(--primary-600) !important;
-	border-color: var(--primary-600) !important;
-}
 
 /* 筛选面板样式 */
 .filter-panel {
@@ -650,7 +630,6 @@ const handleSortChange = (sort: any) => {
 :deep(.filter-panel .layout) {
 	min-height: 32px;
 	border: 1px solid var(--el-border-color, #dcdfe6);
-	border-radius: 8px;
 	padding: 4px 11px;
 	background-color: var(--el-fill-color-blank, #ffffff);
 	transition: all var(--el-transition-duration, 0.2s);
@@ -660,6 +639,7 @@ const handleSortChange = (sort: any) => {
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 4px;
+	@apply rounded-xl;
 }
 
 :deep(.filter-panel .layout:hover) {
@@ -692,13 +672,13 @@ const handleSortChange = (sort: any) => {
 :deep(.filter-panel .label-box) {
 	height: 24px;
 	margin: 0;
-	border-radius: 12px;
 	background-color: var(--el-fill-color-light, #f5f7fa);
 	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
 	display: inline-flex;
 	align-items: center;
 	padding: 0 8px;
 	transition: all 0.2s ease;
+	@apply rounded-xl;
 }
 
 :deep(.filter-panel .label-title) {
@@ -759,7 +739,7 @@ const handleSortChange = (sort: any) => {
 
 /* 自定义卡片样式 */
 :deep(.el-card) {
-	/* border-radius removed - using rounded-md class */
+	/* border-radius removed - using rounded-xl class */
 	box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 	@apply dark:shadow-black-50;
 }

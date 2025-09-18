@@ -47,10 +47,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public string DefaultAssignedGroup { get; set; }
 
         /// <summary>
-        /// 默认分配人
+        /// 默认分配人（支持多个分配人）
         /// </summary>
-        [StringLength(100)]
-        public string DefaultAssignee { get; set; }
+        public List<string> DefaultAssignee { get; set; }
 
         /// <summary>
         /// 预计持续天数（支持小数）

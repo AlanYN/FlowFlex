@@ -2,7 +2,7 @@
 	<div
 		class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4"
 	>
-		<div class="max-w-md w-full bg-white rounded-lg shadow-lg overflow-hidden">
+		<div class="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden">
 			<!-- Header -->
 			<div class="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
 				<h1 class="text-xl font-semibold text-white text-center">
@@ -359,7 +359,7 @@ const handleAutoRegisterAndRedirect = async () => {
 
 		const onboardingId = localStorage.getItem('onboarding_id');
 		if (!onboardingId) {
-			throw new Error('Onboarding ID not found');
+			throw new Error('Case ID not found');
 		}
 
 		// 检查用户是否已存在

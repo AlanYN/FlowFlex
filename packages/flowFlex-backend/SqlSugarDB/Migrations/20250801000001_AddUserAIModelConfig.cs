@@ -35,23 +35,23 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     // 创建索引以提高查询性能
                     Console.WriteLine("Creating indexes on AIModelConfig...");
-                    
+
                     // 使用新的表名 ff_aimodel_config
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_user_ai_model_config_user_id 
                         ON ff_aimodel_config (user_id);
                     ");
-                    
+
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_user_ai_model_config_provider 
                         ON ff_aimodel_config (provider);
                     ");
-                    
+
                     db.Ado.ExecuteCommand(@"
                         CREATE INDEX IF NOT EXISTS idx_user_ai_model_config_is_default 
                         ON ff_aimodel_config (is_default);
                     ");
-                    
+
                     Console.WriteLine("Indexes created successfully.");
                 }
                 else
@@ -76,37 +76,37 @@ namespace FlowFlex.SqlSugarDB.Migrations
             try
             {
                 Console.WriteLine("Rolling back AddUserAIModelConfig migration...");
-                
+
                 // 先删除索引
                 Console.WriteLine("Dropping indexes on AIModelConfig...");
-                
+
                 db.Ado.ExecuteCommand(@"
                     DROP INDEX IF EXISTS idx_user_ai_model_config_user_id;
                 ");
-                
+
                 db.Ado.ExecuteCommand(@"
                     DROP INDEX IF EXISTS idx_user_ai_model_config_provider;
                 ");
-                
+
                 db.Ado.ExecuteCommand(@"
                     DROP INDEX IF EXISTS idx_user_ai_model_config_is_default;
                 ");
-                
+
                 // 检查表是否存在
                 if (db.DbMaintenance.IsAnyTable("ff_aimodel_config", false))
                 {
                     // 删除表
                     Console.WriteLine("Dropping AIModelConfig table...");
-                    
+
                     db.DbMaintenance.DropTable("ff_aimodel_config");
-                    
+
                     Console.WriteLine("AIModelConfig table dropped successfully.");
                 }
                 else
                 {
                     Console.WriteLine("AIModelConfig table does not exist, skipping removal.");
                 }
-                
+
                 Console.WriteLine("AddUserAIModelConfig migration rollback completed.");
             }
             catch (Exception ex)
@@ -116,4 +116,4 @@ namespace FlowFlex.SqlSugarDB.Migrations
             }
         }
     }
-} 
+}

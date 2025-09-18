@@ -1,6 +1,7 @@
 using FlowFlex.Domain.Repository;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Domain.Repository.OW
 {
@@ -38,6 +39,20 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="businessId">Business ID</param>
         /// <returns>Operation log list</returns>
         Task<List<OperationChangeLog>> GetByBusinessAsync(string businessModule, long businessId);
+
+        /// <summary>
+        /// Get operation logs by business ID (without specifying business module)
+        /// </summary>
+        /// <param name="businessId">Business ID</param>
+        /// <returns>Operation log list</returns>
+        Task<List<OperationChangeLog>> GetByBusinessIdAsync(long businessId);
+
+        /// <summary>
+        /// Get operation logs by multiple business IDs (batch query)
+        /// </summary>
+        /// <param name="businessIds">List of business IDs</param>
+        /// <returns>Operation log list</returns>
+        Task<List<OperationChangeLog>> GetByBusinessIdsAsync(List<long> businessIds);
 
         /// <summary>
         /// Get operation logs by operation type
@@ -109,12 +124,42 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="pageSize">Page size</param>
         /// <returns>Paginated operation log list</returns>
         Task<(List<OperationChangeLog> logs, int totalCount)> GetStageComponentLogsPaginatedAsync(
-            long? onboardingId, 
-            long stageId, 
-            List<long> taskIds, 
-            List<long> questionIds, 
-            string operationType, 
-            int pageIndex, 
+            long? onboardingId,
+            long stageId,
+            List<long> taskIds,
+            List<long> questionIds,
+            string operationType,
+            int pageIndex,
             int pageSize);
+
+        /// <summary>
+        /// Get workflow and related stage logs by workflow ID
+        /// This includes both workflow operations and operations on stages that belong to the workflow
+        /// </summary>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation logs</returns>
+        Task<PagedResult<OperationChangeLog>> GetWorkflowWithRelatedLogsAsync(long workflowId, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Get questionnaire and related ActionMapping logs by questionnaire ID
+        /// This includes both questionnaire operations and ActionMapping operations with Question trigger type
+        /// </summary>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation logs</returns>
+        Task<PagedResult<OperationChangeLog>> GetQuestionnaireWithRelatedLogsAsync(long questionnaireId, int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Get checklist and related checklist task logs by checklist ID
+        /// This includes both checklist operations and operations on tasks that belong to the checklist
+        /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="pageIndex">Page index</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation logs</returns>
+        Task<PagedResult<OperationChangeLog>> GetChecklistWithRelatedLogsAsync(long checklistId, int pageIndex = 1, int pageSize = 20);
     }
 }

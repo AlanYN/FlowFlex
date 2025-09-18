@@ -5,7 +5,7 @@
 				v-for="item in colorArr"
 				:key="item.name"
 				:style="`background:${item.color}`"
-				class="w-[50px] h-[50px] rounded-md"
+				class="w-[50px] h-[50px] rounded-xl"
 				@click="setPrimary(item.name)"
 			></div>
 		</div>

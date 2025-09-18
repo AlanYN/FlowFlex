@@ -1,272 +1,85 @@
 <template>
 	<div class="pb-6 bg-gray-50 dark:bg-black-400">
-		<!-- 顶部导航栏 -->
-		<div class="flex justify-between items-center mb-6">
-			<div class="flex items-center">
-				<el-button
-					link
-					size="small"
-					@click="handleBack"
-					class="mr-2 !p-1 hover:bg-gray-100 dark:hover:bg-black-200 rounded"
-				>
-					<el-icon class="text-lg">
-						<ArrowLeft />
-					</el-icon>
-					Back
-				</el-button>
-				<h1 class="text-2xl font-bold text-gray-900 dark:text-white-100">
-					Onboarding Details: {{ onboardingData?.leadId }} {{ onboardingData?.leadName }}
-				</h1>
-			</div>
-			<div class="flex items-center space-x-2">
+		<!-- 页面头部 -->
+		<PageHeader
+			:title="`${onboardingData?.leadId || ''} - ${onboardingData?.leadName || ''}`"
+			:show-back-button="true"
+			@go-back="handleBack"
+		>
+			<template #description>
+				<!-- 状态显示 -->
+				<div class="flex items-center" v-if="onboardingData?.status">
+					<GradientTag
+						:type="statusTagType"
+						:text="statusDisplayText"
+						:pulse="statusShouldPulse"
+						size="small"
+					/>
+				</div>
+			</template>
+			<template #actions>
 				<el-button
 					type="primary"
 					@click="saveQuestionnaireAndField"
 					:loading="saveAllLoading"
+					:disabled="isSaveDisabled"
 					:icon="Document"
+					class="page-header-btn page-header-btn-primary"
 				>
 					Save
 				</el-button>
-				<el-button type="primary" @click="handleCompleteStage" :loading="completing">
-					<el-icon class="mr-1">
-						<Check />
-					</el-icon>
-					Complete Stage
+				<el-button
+					type="primary"
+					@click="handleCompleteStage"
+					:loading="completing"
+					:disabled="isCompleteStageDisabled"
+					class="page-header-btn page-header-btn-primary"
+					:icon="Check"
+				>
+					Complete
 				</el-button>
-				<el-button @click="handleCustomerOverview">Customer Overview</el-button>
-				<el-button @click="portalAccessDialogVisible = true">
-					<el-icon>
-						<User />
-					</el-icon>
-					&nbsp;&nbsp;Portal Access Management
+				<el-button
+					@click="handleCustomerOverview"
+					class="page-header-btn page-header-btn-secondary"
+					:icon="View"
+				>
+					Overview
 				</el-button>
-				<!-- <el-button type="primary" @click="messageDialogVisible = true">
-					<el-icon>
-						<ChatDotSquare />
-					</el-icon>
-					&nbsp;&nbsp;Send Message
-				</el-button> -->
-			</div>
-		</div>
+				<el-button
+					@click="portalAccessDialogVisible = true"
+					class="page-header-btn page-header-btn-secondary"
+					:icon="User"
+				>
+					Share
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<!-- 主要内容区域 -->
-		<div class="flex w-full gap-6">
+		<div class="flex w-full">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
-			<div class="flex-[2] min-w-0 overflow-hidden">
-				<div class="rounded-md el-card is-always-shadow rounded-md el-card__header">
-					<div
-						class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
-					>
-						<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
-					</div>
-				</div>
-				<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4 w-full">
-					<div class="space-y-6 mt-4">
-						<!-- AI Summary 展示（当前阶段） -->
-						<div
-							v-if="showAISummarySection"
-							class="ai-summary-container relative overflow-hidden ml-2"
-						>
-							<!-- AI装饰性背景元素 -->
-							<div class="ai-bg-decoration"></div>
-							<div class="ai-circuit-pattern"></div>
-
-							<!-- 主要内容区域 -->
-							<div
-								class="relative z-10 bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 backdrop-blur-sm rounded-lg ai-gradient-border shadow-lg"
-							>
-								<!-- Header区域 -->
-								<div
-									class="ai-summary-header px-6 py-4 border-b border-blue-200/50 dark:border-blue-400/20"
-								>
-									<div class="flex items-center justify-between">
-										<div class="flex items-center space-x-3">
-											<!-- AI图标 -->
-											<div class="ai-icon-container">
-												<div class="ai-icon">
-													<svg
-														width="24"
-														height="24"
-														viewBox="0 0 24 24"
-														fill="none"
-														xmlns="http://www.w3.org/2000/svg"
-													>
-														<path
-															d="M12 2L13.09 5.5L16 6L13.09 6.5L12 10L10.91 6.5L8 6L10.91 5.5L12 2Z"
-															fill="currentColor"
-														/>
-														<path
-															d="M18 8L18.82 10.5L21 11L18.82 11.5L18 14L17.18 11.5L15 11L17.18 10.5L18 8Z"
-															fill="currentColor"
-														/>
-														<path
-															d="M6 14L6.82 16.5L9 17L6.82 17.5L6 20L5.18 17.5L3 17L5.18 16.5L6 14Z"
-															fill="currentColor"
-														/>
-													</svg>
-												</div>
-												<div class="ai-pulse-ring"></div>
-											</div>
-
-											<!-- 标题和状态 -->
-											<div>
-												<h3
-													class="ai-title font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 dark:from-blue-400 dark:via-purple-400 dark:to-indigo-400"
-												>
-													AI Summary
-												</h3>
-												<div class="flex items-center space-x-2 mt-1">
-													<div
-														v-if="aiSummaryLoading"
-														class="ai-status-badge generating"
-													>
-														<div class="status-dot"></div>
-														<span class="text-xs">Generating...</span>
-													</div>
-													<div
-														v-else-if="currentAISummary"
-														class="ai-status-badge ready"
-													>
-														<div class="status-dot"></div>
-														<span class="text-xs">Ready</span>
-													</div>
-													<div v-else class="ai-status-badge idle">
-														<div class="status-dot"></div>
-														<span class="text-xs">Idle</span>
-													</div>
-													<!-- 时间戳移到Ready状态后面 -->
-													<div
-														v-if="
-															currentAISummaryGeneratedAt &&
-															currentAISummary
-														"
-														class="text-xs text-gray-400 dark:text-gray-500 ml-2"
-													>
-														Generated:
-														{{
-															formatUsDate(
-																currentAISummaryGeneratedAt
-															)
-														}}
-													</div>
-												</div>
-											</div>
-										</div>
-
-										<!-- 刷新按钮 -->
-										<el-button
-											:icon="Refresh"
-											size="small"
-											circle
-											:loading="aiSummaryLoading"
-											@click="refreshAISummary"
-											title="Regenerate AI Summary"
-											class="ai-refresh-btn"
-										/>
-									</div>
-								</div>
-
-								<!-- 内容区域 -->
-								<div class="ai-summary-body px-6 py-4">
-									<!-- AI Summary content (always visible if exists) -->
-									<div v-if="currentAISummary" class="ai-summary-content">
-										<div class="ai-content-wrapper">
-											<p
-												class="break-words word-wrap text-sm leading-7 text-gray-800 dark:text-gray-100 overflow-hidden"
-												:class="{ 'ai-streaming': aiSummaryLoading }"
-											>
-												{{ currentAISummary }}
-												<span
-													v-if="aiSummaryLoading"
-													class="ai-typing-cursor"
-												>
-													|
-												</span>
-											</p>
-										</div>
-									</div>
-
-									<!-- Loading state (only when no content yet) -->
-									<div v-else-if="aiSummaryLoading" class="ai-loading-state">
-										<div class="ai-loading-animation">
-											<div class="loading-brain">
-												<div class="brain-wave"></div>
-												<div class="brain-wave"></div>
-												<div class="brain-wave"></div>
-											</div>
-										</div>
-										<div class="ai-loading-text">
-											<div
-												class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-											>
-												AI is analyzing your data
-											</div>
-											<div class="text-xs text-gray-500 dark:text-gray-400">
-												{{ aiSummaryLoadingText }}
-											</div>
-										</div>
-										<div class="ai-loading-progress">
-											<div class="progress-bar"></div>
-										</div>
-									</div>
-
-									<!-- Empty state -->
-									<div v-else class="ai-empty-state">
-										<div class="empty-icon">
-											<svg
-												width="48"
-												height="48"
-												viewBox="0 0 24 24"
-												fill="none"
-												xmlns="http://www.w3.org/2000/svg"
-											>
-												<path
-													d="M12 2L13.09 5.5L16 6L13.09 6.5L12 10L10.91 6.5L8 6L10.91 5.5L12 2Z"
-													fill="currentColor"
-													opacity="0.3"
-												/>
-												<path
-													d="M18 8L18.82 10.5L21 11L18.82 11.5L18 14L17.18 11.5L15 11L17.18 10.5L18 8Z"
-													fill="currentColor"
-													opacity="0.3"
-												/>
-												<path
-													d="M6 14L6.82 16.5L9 17L6.82 17.5L6 20L5.18 17.5L3 17L5.18 16.5L6 14Z"
-													fill="currentColor"
-													opacity="0.3"
-												/>
-											</svg>
-										</div>
-										<div class="text-sm text-gray-500 dark:text-gray-400 mb-1">
-											No AI insights available
-										</div>
-										<div class="text-xs text-gray-400 dark:text-gray-500">
-											Click the refresh button to generate intelligent summary
-										</div>
-									</div>
-
-									<!-- Loading indicator when streaming content -->
-									<div
-										v-if="aiSummaryLoading && currentAISummary"
-										class="ai-streaming-indicator"
-									>
-										<div class="streaming-dots">
-											<div class="dot"></div>
-											<div class="dot"></div>
-											<div class="dot"></div>
-										</div>
-										<span class="text-xs text-blue-600 dark:text-blue-400 ml-2">
-											{{ aiSummaryLoadingText }}
-										</span>
-									</div>
-								</div>
-							</div>
-						</div>
+			<div class="flex-[2] min-w-0 overflow-hidden customer-block">
+				<EditableStageHeader
+					:current-stage="onboardingActiveStageInfo"
+					:disabled="isAbortedReadonly || onboardingStageStatus"
+					@update:stage-data="handleStageDataUpdate"
+				/>
+				<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
+					<div class="space-y-4 mt-4">
+						<!-- AI Summary 组件 -->
+						<AISummary
+							:show-a-i-summary-section="showAISummarySection"
+							:loading="aiSummaryLoading"
+							:loading-text="aiSummaryLoadingText"
+							:current-a-i-summary="currentAISummary"
+							:current-a-i-summary-generated-at="currentAISummaryGeneratedAt"
+							@refresh="refreshAISummary"
+						/>
 
 						<!-- Stage Details 加载状态 -->
 						<div
 							v-if="stageDataLoading"
-							class="bg-white dark:bg-black-300 rounded-md p-8"
+							class="bg-white dark:bg-black-300 rounded-xl p-8"
 						>
 							<div class="flex flex-col items-center justify-center space-y-4">
 								<el-icon class="is-loading text-4xl text-primary-500">
@@ -296,6 +109,7 @@
 									:static-fields="component.staticFields"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
+									:disabled="isAbortedReadonly"
 									@save-success="refreshChangeLog"
 								/>
 
@@ -310,6 +124,7 @@
 									:stage-id="activeStage"
 									:checklist-data="getChecklistDataForComponent(component)"
 									:onboarding-id="onboardingId"
+									:disabled="isAbortedReadonly"
 									@task-toggled="handleTaskToggled"
 									@refresh-checklist="loadCheckListData"
 								/>
@@ -325,6 +140,7 @@
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
+									:disabled="isAbortedReadonly"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
@@ -342,6 +158,7 @@
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									:component="component"
+									:disabled="isAbortedReadonly"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -354,31 +171,26 @@
 			</div>
 
 			<!-- 右侧进度和笔记 (1/3 宽度) -->
-			<div class="flex-1 flex-shrink-0">
-				<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
-					<div class="space-y-6">
+			<div class="flex-1 flex-shrink-0 min-w-0">
+				<el-scrollbar ref="rightScrollbarRef" class="h-full">
+					<div class="space-y-4">
 						<!-- OnboardingProgress组件 -->
-						<div class="rounded-md overflow-hidden">
-							<OnboardingProgress
-								v-if="onboardingData && onboardingId"
-								:active-stage="activeStage"
-								:onboarding-data="onboardingData"
-								:workflow-stages="workflowStages"
-								@set-active-stage="setActiveStage"
-								@stage-completed="loadOnboardingDetail"
-								class="bg-white dark:bg-black-300 rounded-md shadow-lg border border-gray-200 dark:border-gray-600"
-							/>
-						</div>
+						<OnboardingProgress
+							v-if="onboardingData && onboardingId"
+							:active-stage="activeStage"
+							:onboarding-data="onboardingData"
+							:workflow-stages="workflowStages"
+							@set-active-stage="setActiveStage"
+							@stage-completed="loadOnboardingDetail"
+						/>
 
 						<!-- 笔记区域 -->
-						<div class="rounded-md overflow-hidden">
-							<InternalNotes
-								v-if="activeStage && onboardingId"
-								:onboarding-id="onboardingId"
-								:stage-id="activeStage"
-								@note-added="handleNoteAdded"
-							/>
-						</div>
+						<InternalNotes
+							v-if="activeStage && onboardingId"
+							:onboarding-id="onboardingId"
+							:stage-id="activeStage"
+							@note-added="handleNoteAdded"
+						/>
 					</div>
 				</el-scrollbar>
 			</div>
@@ -413,7 +225,7 @@
 import { ref, computed, onMounted, nextTick, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Loading, User, Document, Refresh, Check } from '@element-plus/icons-vue';
+import { Loading, User, Document, Check, View } from '@element-plus/icons-vue';
 import { getTokenobj } from '@/utils/auth';
 import { getTimeZoneInfo } from '@/hooks/time';
 import { useGlobSetting } from '@/settings';
@@ -426,13 +238,17 @@ import {
 	getQuestionIds,
 	getQuestionnaireAnswer,
 	completeCurrentStage,
+	onboardingSave,
+	updateStageFields,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
+import { OnboardingItem, ComponentData, SectionAnswer, Stage } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
 import { useUserStore } from '@/stores/modules/user';
 // 导入组件
+import PageHeader from '@/components/global/PageHeader/index.vue';
+import GradientTag from '@/components/global/GradientTag/index.vue';
 import OnboardingProgress from './components/OnboardingProgress.vue';
 import QuestionnaireDetails from './components/QuestionnaireDetails.vue';
 import InternalNotes from './components/InternalNotes.vue';
@@ -442,6 +258,8 @@ import CheckList from './components/CheckList.vue';
 import Documents from './components/Documents.vue';
 import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
+import AISummary from './components/AISummary.vue';
+import EditableStageHeader from './components/EditableStageHeader.vue';
 
 const { t } = useI18n();
 const userStore = useUserStore();
@@ -454,7 +272,7 @@ const route = useRoute();
 // 响应式数据
 const onboardingData = ref<OnboardingItem | null>(null);
 const activeStage = ref<string>(''); // 初始为空，等待从服务器获取当前阶段
-const workflowStages = ref<any[]>([]);
+const workflowStages = ref<Stage[]>([]);
 const messageDialogVisible = ref(false);
 const portalAccessDialogVisible = ref(false);
 
@@ -474,6 +292,8 @@ const aiSummaryLoadingText = ref('Generating AI summary...');
 const currentAISummary = ref('');
 const currentAISummaryGeneratedAt = ref('');
 const showAISummarySection = ref(true);
+// 用于取消AI摘要请求的AbortController
+let aiSummaryAbortController: AbortController | null = null;
 
 // 使用自适应滚动条 hook
 const { scrollbarRef: leftScrollbarRef } = useAdaptiveScrollbar(100);
@@ -488,10 +308,85 @@ const onboardingId = computed(() => {
 	return id;
 });
 
+// 状态显示映射
+const statusTagType = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return 'default';
+
+	switch (status) {
+		case 'Inactive':
+			return 'info';
+		case 'Active':
+		case 'InProgress':
+		case 'Started':
+			return 'primary';
+		case 'Completed':
+			return 'success';
+		case 'Paused':
+			return 'warning';
+		case 'Aborted':
+		case 'Cancelled':
+			return 'danger';
+		default:
+			return 'info';
+	}
+});
+
+const statusDisplayText = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return defaultStr;
+
+	switch (status) {
+		case 'Active':
+		case 'Started':
+			return 'In progress';
+		case 'Cancelled':
+			return 'Aborted';
+		default:
+			return status;
+	}
+});
+
+const statusShouldPulse = computed(() => {
+	const status = onboardingData.value?.status;
+	return ['Active', 'InProgress', 'Started', 'Paused'].includes(status || '');
+});
+
+// 计算是否禁用保存按钮
+const isSaveDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return false;
+
+	// 对于已中止或已取消的状态，禁用保存
+	return ['Aborted', 'Cancelled'].includes(status);
+});
+
+// 计算是否禁用完成阶段按钮
+const isCompleteStageDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return false;
+
+	// 对于已中止、已取消或暂停的状态，禁用完成阶段
+	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
+});
+
+// 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
+const isAbortedReadonly = computed(() => {
+	const status = onboardingData.value?.status;
+	return !!status && ['Aborted', 'Cancelled'].includes(status);
+});
+
+const onboardingStageStatus = computed(() => {
+	const onboardingActiveStage = workflowStages.value.find(
+		(stage) => stage?.stageId === activeStage?.value
+	);
+	return !!onboardingActiveStage?.completedBy;
+});
+
 // 添加组件引用
 const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
-const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+const onboardingActiveStageInfo = ref<Stage | null>(null);
 const documentsRef = ref<any[]>([]);
 
 // 在组件更新前重置 refs，避免多次渲染导致重复收集
@@ -585,21 +480,14 @@ const processOnboardingData = (responseData: any) => {
 	const newStageId =
 		firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
 
-	onboardingActiveStageInfo.value = workflowStages.value.find(
-		(stage) => stage.stageId === newStageId
-	);
+	onboardingActiveStageInfo.value =
+		workflowStages.value.find((stage) => stage.stageId === newStageId) || null;
 
 	// 更新AI Summary显示
 	updateAISummaryFromStageInfo();
 
 	return newStageId;
 };
-
-// 计算属性
-const currentStageTitle = computed(() => {
-	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
-	return currentStage?.stageName || defaultStr;
-});
 
 // API调用函数
 const loadOnboardingDetail = async () => {
@@ -856,11 +744,17 @@ const setActiveStage = async (stageId: string) => {
 		return;
 	}
 
+	// 取消当前正在进行的AI摘要生成（如果有）
+	if (aiSummaryAbortController) {
+		aiSummaryAbortController.abort();
+		aiSummaryLoading.value = false;
+		console.log('🚫 [Stage Switch] Cancelled AI summary generation due to stage change');
+	}
+
 	// 更新activeStage
 	activeStage.value = stageId;
-	onboardingActiveStageInfo.value = workflowStages.value.find(
-		(stage) => stage.stageId === stageId
-	);
+	onboardingActiveStageInfo.value =
+		workflowStages.value.find((stage) => stage.stageId === stageId) || null;
 
 	// 更新AI Summary显示
 	updateAISummaryFromStageInfo();
@@ -869,7 +763,15 @@ const setActiveStage = async (stageId: string) => {
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues(); // 添加加载字段值的调用
 
-	// 检查并自动生成AI Summary
+	// 页面切换时自动检查并生成AI Summary
+	console.log(
+		'🔄 [Stage Switch] Stage switched to:',
+		stageId,
+		'AI Summary exists:',
+		!!onboardingActiveStageInfo.value?.aiSummary
+	);
+
+	// 自动检查并生成AI Summary（如果不存在）
 	await checkAndGenerateAISummary();
 };
 
@@ -927,6 +829,9 @@ const handleTaskToggled = async (task: any) => {
 						checklist.completedTasks = completedTasks;
 						checklist.completionRate =
 							totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+					}
+					if (task.actionId) {
+						loadOnboardingDetail();
 					}
 				}
 			});
@@ -1065,6 +970,10 @@ const saveQuestionnaireAndField = async () => {
 	const res = await saveAllForm(false);
 	if (res) {
 		ElMessage.success(t('sys.api.operationSuccess'));
+		await onboardingSave(onboardingId.value, {
+			onboardingId: onboardingId.value,
+			stageId: activeStage.value,
+		});
 		loadOnboardingDetail();
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));
@@ -1077,21 +986,25 @@ const refreshChangeLog = () => {
 	changeLogRef.value.loadChangeLogs();
 };
 
-const formatUsDate = (value?: string | Date) => {
-	if (!value) return '';
+// 处理阶段数据更新
+const handleStageDataUpdate = async (updateData: {
+	stageId: string;
+	customEstimatedDays: number;
+	customEndTime: string;
+}) => {
 	try {
-		const d = typeof value === 'string' ? new Date(value) : value;
-		return new Intl.DateTimeFormat('en-US', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false,
-		}).format(d);
-	} catch {
-		return String(value);
+		// 这里应该调用API来更新阶段数据
+		// 暂时先更新本地数据，实际项目中需要调用相应的API
+		const res = await updateStageFields(onboardingId.value, updateData);
+		if (res.code === '200') {
+			ElMessage.success('Stage data updated successfully');
+			loadOnboardingDetail();
+		} else {
+			ElMessage.error(res.msg || 'Failed to update stage data');
+		}
+	} catch (error) {
+		console.error('Error updating stage data:', error);
+		ElMessage.error('Failed to update stage data');
 	}
 };
 
@@ -1113,11 +1026,21 @@ const refreshAISummary = async () => {
 		return;
 	}
 
+	// 取消之前的请求（如果存在）
+	if (aiSummaryAbortController) {
+		aiSummaryAbortController.abort();
+		console.log('🚫 [AI Summary] Cancelled previous request');
+	}
+
+	// 创建新的AbortController
+	aiSummaryAbortController = new AbortController();
+	const currentStageId = activeStage.value; // 保存当前阶段ID，用于验证
+
 	// 重置状态，开始流式生成
 	aiSummaryLoading.value = true;
 	aiSummaryLoadingText.value = 'Starting AI summary generation...';
 	currentAISummary.value = ''; // 清空现有内容，准备流式显示
-	console.log('🔄 [AI Summary] Starting generation, loading =', aiSummaryLoading.value);
+	console.log('🔄 [AI Summary] Starting generation for stage:', currentStageId);
 
 	try {
 		// 获取认证信息
@@ -1148,10 +1071,11 @@ const refreshAISummary = async () => {
 		}
 
 		// 使用fetch进行POST流式请求
-		const url = `/api/ow/stages/v1/${activeStage.value}/ai-summary/stream?onboardingId=${onboardingId.value}`;
+		const url = `/api/ow/stages/v1/${currentStageId}/ai-summary/stream?onboardingId=${onboardingId.value}`;
 		const response = await fetch(url, {
 			method: 'POST',
 			headers,
+			signal: aiSummaryAbortController.signal,
 		});
 
 		if (!response.ok) {
@@ -1171,6 +1095,15 @@ const refreshAISummary = async () => {
 			done = isDone;
 			if (done) break;
 
+			// 检查当前阶段是否已经改变
+			if (activeStage.value !== currentStageId) {
+				console.log(
+					'🚫 [AI Summary] Stage changed during generation, stopping stream processing'
+				);
+				aiSummaryLoading.value = false;
+				return;
+			}
+
 			const chunk = decoder.decode(value, { stream: true });
 
 			// 检查是否是错误信息
@@ -1188,30 +1121,70 @@ const refreshAISummary = async () => {
 			}
 		}
 
+		// 最终验证阶段是否仍然是开始时的阶段
+		if (activeStage.value !== currentStageId) {
+			console.log(
+				'🚫 [AI Summary] Stage changed after generation completed, discarding result'
+			);
+			aiSummaryLoading.value = false;
+			return;
+		}
+
 		// 流结束，设置状态
-		console.log('✅ [AI Summary] Stream completed');
+		console.log('✅ [AI Summary] Stream completed for stage:', currentStageId);
 		currentAISummaryGeneratedAt.value = new Date().toISOString();
 		aiSummaryLoading.value = false;
 		ElMessage.success('AI Summary generated successfully');
 
-		// 更新本地stage信息
-		if (onboardingActiveStageInfo.value) {
+		// 更新本地stage信息 - 再次验证阶段
+		if (onboardingActiveStageInfo.value && activeStage.value === currentStageId) {
 			onboardingActiveStageInfo.value.aiSummary = currentAISummary.value;
 			onboardingActiveStageInfo.value.aiSummaryGeneratedAt =
 				currentAISummaryGeneratedAt.value;
-			console.log('📝 [AI Summary] Updated stage info');
+			console.log('📝 [AI Summary] Updated stage info for stage:', currentStageId);
+		} else {
+			console.log('⚠️ [AI Summary] Skipped updating stage info due to stage change');
 		}
-	} catch (error) {
+	} catch (error: any) {
+		// 检查是否是用户取消的请求
+		if (error.name === 'AbortError') {
+			console.log('🚫 [AI Summary] Request was cancelled');
+			aiSummaryLoading.value = false;
+			return;
+		}
+
 		console.error('Error generating AI summary:', error);
 		aiSummaryLoading.value = false;
 		ElMessage.error('Failed to generate AI summary');
+	} finally {
+		// 清理AbortController引用
+		aiSummaryAbortController = null;
 	}
 };
 
 const checkAndGenerateAISummary = async () => {
 	// 检查当前阶段是否有AI Summary，如果没有则自动生成
-	if (!onboardingActiveStageInfo.value?.aiSummary && !aiSummaryLoading.value) {
+	// 只有在stagesProgress中确实没有aiSummary时才自动生成
+	if (
+		!onboardingActiveStageInfo.value?.aiSummary &&
+		!aiSummaryLoading.value &&
+		onboardingActiveStageInfo.value &&
+		activeStage.value
+	) {
+		console.log(
+			'🤖 [AI Summary] Auto-generating for stage without existing summary:',
+			activeStage.value
+		);
 		await refreshAISummary();
+	} else if (onboardingActiveStageInfo.value?.aiSummary) {
+		console.log('✅ [AI Summary] Stage already has AI summary, skipping auto-generation');
+	} else {
+		console.log('⏸️ [AI Summary] Skipping auto-generation:', {
+			hasAiSummary: !!onboardingActiveStageInfo.value?.aiSummary,
+			isLoading: aiSummaryLoading.value,
+			hasStageInfo: !!onboardingActiveStageInfo.value,
+			hasActiveStage: !!activeStage.value,
+		});
 	}
 };
 
@@ -1230,458 +1203,6 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-/* AI Summary 容器样式 */
-.ai-summary-container {
-	position: relative;
-	margin-bottom: 1.5rem;
-}
-
-/* AI渐变边框 */
-.ai-gradient-border {
-	position: relative;
-	border: 2px solid transparent;
-	background:
-		linear-gradient(white, white) padding-box,
-		linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #06b6d4 50%, #10b981 75%, #3b82f6 100%)
-			border-box;
-	animation: ai-border-flow 4s ease-in-out infinite;
-	box-shadow:
-		0 0 20px rgba(59, 130, 246, 0.15),
-		0 0 40px rgba(139, 92, 246, 0.1),
-		0 4px 24px rgba(0, 0, 0, 0.1);
-	transition: all 0.3s ease;
-}
-
-.ai-gradient-border:hover {
-	box-shadow:
-		0 0 30px rgba(59, 130, 246, 0.25),
-		0 0 60px rgba(139, 92, 246, 0.15),
-		0 8px 32px rgba(0, 0, 0, 0.15);
-	transform: translateY(-1px);
-}
-
-.dark .ai-gradient-border {
-	background:
-		linear-gradient(135deg, rgb(51, 65, 85), rgb(30, 41, 59)) padding-box,
-		linear-gradient(135deg, #60a5fa 0%, #a78bfa 25%, #22d3ee 50%, #34d399 75%, #60a5fa 100%)
-			border-box;
-	box-shadow:
-		0 0 25px rgba(96, 165, 250, 0.2),
-		0 0 50px rgba(167, 139, 250, 0.12),
-		0 4px 28px rgba(0, 0, 0, 0.3);
-}
-
-.dark .ai-gradient-border:hover {
-	box-shadow:
-		0 0 35px rgba(96, 165, 250, 0.3),
-		0 0 70px rgba(167, 139, 250, 0.18),
-		0 8px 36px rgba(0, 0, 0, 0.4);
-}
-
-/* AI装饰性背景 */
-.ai-bg-decoration {
-	position: absolute;
-	top: -10px;
-	right: -10px;
-	width: 100px;
-	height: 100px;
-	background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
-	border-radius: 50%;
-	pointer-events: none;
-	animation: pulse-glow 3s ease-in-out infinite;
-}
-
-.ai-circuit-pattern {
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background-image: linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px),
-		linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px);
-	background-size: 20px 20px;
-	pointer-events: none;
-	opacity: 0.5;
-}
-
-/* AI图标容器 */
-.ai-icon-container {
-	position: relative;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.ai-icon {
-	width: 32px;
-	height: 32px;
-	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%);
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: white;
-	position: relative;
-	z-index: 2;
-	box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
-	animation: float 3s ease-in-out infinite;
-}
-
-.ai-pulse-ring {
-	position: absolute;
-	width: 40px;
-	height: 40px;
-	border: 2px solid rgba(59, 130, 246, 0.4);
-	border-radius: 50%;
-	animation: pulse-ring 2s linear infinite;
-}
-
-/* AI标题 */
-.ai-title {
-	font-size: 16px;
-	letter-spacing: 0.5px;
-}
-
-/* 状态徽章 */
-.ai-status-badge {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 4px 8px;
-	border-radius: 12px;
-	font-weight: 500;
-
-	.status-dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		margin-right: 4px;
-		animation: status-pulse 2s ease-in-out infinite;
-	}
-
-	&.generating {
-		background: rgba(245, 158, 11, 0.1);
-		color: #f59e0b;
-
-		.status-dot {
-			background: #f59e0b;
-		}
-	}
-
-	&.ready {
-		background: rgba(34, 197, 94, 0.1);
-		color: #22c55e;
-
-		.status-dot {
-			background: #22c55e;
-		}
-	}
-
-	&.idle {
-		background: rgba(107, 114, 128, 0.1);
-		color: #6b7280;
-
-		.status-dot {
-			background: #6b7280;
-		}
-	}
-}
-
-/* 刷新按钮 */
-.ai-refresh-btn {
-	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-	border: none;
-	color: white;
-	transition: all 0.3s ease;
-
-	&:hover {
-		transform: translateY(-1px);
-		box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-	}
-}
-
-/* AI内容样式 */
-.ai-content-wrapper {
-	position: relative;
-	border-radius: 8px;
-	width: 100%;
-	max-width: 100%;
-	overflow-wrap: break-word;
-	word-break: break-word;
-}
-
-.ai-streaming {
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgba(59, 130, 246, 0.08) 50%,
-		transparent 100%
-	);
-	background-size: 200% 100%;
-	animation: ai-shimmer 2s infinite;
-	border-radius: 6px;
-	padding: 8px;
-}
-
-.ai-typing-cursor {
-	color: #3b82f6;
-	font-weight: bold;
-	animation: typing-blink 1s infinite;
-}
-
-/* 加载状态 */
-.ai-loading-state {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	padding: 2rem;
-	text-align: center;
-}
-
-.ai-loading-animation {
-	margin-bottom: 1rem;
-}
-
-.loading-brain {
-	width: 48px;
-	height: 48px;
-	position: relative;
-
-	.brain-wave {
-		position: absolute;
-		width: 100%;
-		height: 4px;
-		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%);
-		border-radius: 2px;
-		animation: brain-wave-animation 1.5s ease-in-out infinite;
-
-		&:nth-child(1) {
-			top: 12px;
-			animation-delay: 0s;
-		}
-
-		&:nth-child(2) {
-			top: 22px;
-			animation-delay: 0.3s;
-		}
-
-		&:nth-child(3) {
-			top: 32px;
-			animation-delay: 0.6s;
-		}
-	}
-}
-
-.ai-loading-progress {
-	width: 100%;
-	max-width: 200px;
-	height: 3px;
-	background: rgba(59, 130, 246, 0.1);
-	border-radius: 2px;
-	overflow: hidden;
-	margin-top: 1rem;
-
-	.progress-bar {
-		height: 100%;
-		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
-		border-radius: 2px;
-		animation: progress-flow 2s ease-in-out infinite;
-	}
-}
-
-/* 空状态 */
-.ai-empty-state {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	padding: 2rem;
-	text-align: center;
-
-	.empty-icon {
-		margin-bottom: 1rem;
-		color: #9ca3af;
-		opacity: 0.7;
-		animation: float 4s ease-in-out infinite;
-	}
-}
-
-/* 流式指示器 */
-.ai-streaming-indicator {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 8px;
-	margin-top: 8px;
-	background: rgba(59, 130, 246, 0.05);
-	border-radius: 6px;
-}
-
-.streaming-dots {
-	display: flex;
-	gap: 4px;
-
-	.dot {
-		width: 4px;
-		height: 4px;
-		background: #3b82f6;
-		border-radius: 50%;
-		animation: dot-bounce 1.4s ease-in-out infinite both;
-
-		&:nth-child(1) {
-			animation-delay: -0.32s;
-		}
-		&:nth-child(2) {
-			animation-delay: -0.16s;
-		}
-		&:nth-child(3) {
-			animation-delay: 0s;
-		}
-	}
-}
-
-/* Powered by AI徽章 */
-.ai-powered-badge {
-	padding: 4px 8px;
-	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-	color: white;
-	border-radius: 8px;
-	font-size: 10px;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	opacity: 0.8;
-}
-
-/* 动画定义 */
-@keyframes pulse-glow {
-	0%,
-	100% {
-		opacity: 0.5;
-		transform: scale(1);
-	}
-	50% {
-		opacity: 0.8;
-		transform: scale(1.1);
-	}
-}
-
-@keyframes pulse-ring {
-	0% {
-		transform: scale(0.8);
-		opacity: 1;
-	}
-	100% {
-		transform: scale(1.4);
-		opacity: 0;
-	}
-}
-
-@keyframes float {
-	0%,
-	100% {
-		transform: translateY(0px);
-	}
-	50% {
-		transform: translateY(-4px);
-	}
-}
-
-@keyframes status-pulse {
-	0%,
-	100% {
-		opacity: 1;
-	}
-	50% {
-		opacity: 0.6;
-	}
-}
-
-@keyframes ai-shimmer {
-	0% {
-		background-position: -200% 0;
-	}
-	100% {
-		background-position: 200% 0;
-	}
-}
-
-@keyframes typing-blink {
-	0%,
-	50% {
-		opacity: 1;
-	}
-	51%,
-	100% {
-		opacity: 0;
-	}
-}
-
-@keyframes brain-wave-animation {
-	0%,
-	100% {
-		transform: scaleX(0.5);
-		opacity: 0.5;
-	}
-	50% {
-		transform: scaleX(1);
-		opacity: 1;
-	}
-}
-
-@keyframes progress-flow {
-	0% {
-		transform: translateX(-100%);
-	}
-	100% {
-		transform: translateX(200%);
-	}
-}
-
-@keyframes dot-bounce {
-	0%,
-	80%,
-	100% {
-		transform: scale(0);
-	}
-	40% {
-		transform: scale(1);
-	}
-}
-
-@keyframes ai-border-flow {
-	0% {
-		background:
-			linear-gradient(white, white) padding-box,
-			linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #06b6d4 50%, #10b981 75%, #3b82f6 100%)
-				border-box;
-	}
-	25% {
-		background:
-			linear-gradient(white, white) padding-box,
-			linear-gradient(135deg, #10b981 0%, #3b82f6 25%, #8b5cf6 50%, #06b6d4 75%, #10b981 100%)
-				border-box;
-	}
-	50% {
-		background:
-			linear-gradient(white, white) padding-box,
-			linear-gradient(135deg, #06b6d4 0%, #10b981 25%, #3b82f6 50%, #8b5cf6 75%, #06b6d4 100%)
-				border-box;
-	}
-	75% {
-		background:
-			linear-gradient(white, white) padding-box,
-			linear-gradient(135deg, #8b5cf6 0%, #06b6d4 25%, #10b981 50%, #3b82f6 75%, #8b5cf6 100%)
-				border-box;
-	}
-	100% {
-		background:
-			linear-gradient(white, white) padding-box,
-			linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #06b6d4 50%, #10b981 75%, #3b82f6 100%)
-				border-box;
-	}
-}
-
 /* 滚动条样式 */
 :deep(.el-scrollbar__view) {
 	padding: 0;
@@ -1711,19 +1232,6 @@ onMounted(async () => {
 
 /* 暗色主题样式 */
 html.dark {
-	.bg-gray-50 {
-		@apply bg-black-400 !important;
-	}
-
-	.text-gray-900 {
-		@apply text-white-100 !important;
-	}
-
-	.text-gray-600,
-	.text-gray-500 {
-		@apply text-gray-300 !important;
-	}
-
 	:deep(.el-scrollbar__thumb) {
 		background-color: rgba(255, 255, 255, 0.2);
 	}

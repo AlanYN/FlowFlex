@@ -3,54 +3,58 @@
 		<!-- 加载状态 -->
 		<div>
 			<!-- 页面头部 -->
-			<div class="page-header rounded-lg p-6 mb-6">
-				<div class="flex justify-between items-center">
-					<div>
-						<h1 class="text-3xl font-bold page-title">Checklist Management</h1>
-						<p class="page-subtitle mt-1">
-							Task checklists for different teams during the onboarding process
-						</p>
-					</div>
-					<div class="flex space-x-2">
-						<el-button @click="openCreateDialog" type="primary" size="default">
-							<el-icon class="mr-2"><Plus /></el-icon>
-							New Checklist
-						</el-button>
-					</div>
-				</div>
-			</div>
+			<PageHeader
+				title="Checklist Management"
+				description="Task checklists for different teams during the onboarding process"
+			>
+				<template #actions>
+					<!-- Tab切换器 -->
+					<TabButtonGroup
+						v-model="activeView"
+						:tabs="tabsConfig"
+						size="small"
+						type="adaptive"
+						class="mr-4"
+						@tab-change="handleViewChange"
+					/>
+					<el-button
+						@click="openCreateDialog"
+						type="primary"
+						size="default"
+						class="page-header-btn page-header-btn-primary"
+						:icon="Plus"
+					>
+						New Checklist
+					</el-button>
+				</template>
+			</PageHeader>
 
 			<!-- 搜索和筛选区域 -->
-			<div class="filter-panel rounded-lg shadow-sm p-4 mb-6">
+			<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div class="space-y-2">
 						<label class="filter-label text-sm font-medium">Search</label>
-						<el-input-tag
+						<InputTag
 							v-model="searchTags"
 							placeholder="Enter checklist name and press enter"
-							:max="10"
 							:disabled="loading"
+							style-type="normal"
+							:limit="10"
 							@change="handleSearchTagsChange"
-							class="w-full"
+							class="w-full rounded-xl"
 						/>
 					</div>
 
 					<div class="space-y-2">
 						<label class="filter-label text-sm font-medium">Team</label>
-						<el-select
+						<FlowflexUserSelector
 							v-model="selectedTeam"
 							placeholder="Select team"
-							class="w-full filter-select"
+							selectionType="team"
+							:clearable="true"
+							:max-count="1"
 							@change="handleSearchTagsChange"
-						>
-							<el-option label="All Teams" value="all" />
-							<el-option
-								v-for="team in defaultAssignedGroup"
-								:key="team.key"
-								:label="team.value"
-								:value="team.key"
-							/>
-						</el-select>
+						/>
 					</div>
 				</div>
 			</div>
@@ -61,6 +65,7 @@
 				:tabs="tabsConfig"
 				type="adaptive"
 				size="default"
+				:hidden-tab="true"
 				@tab-change="handleViewChange"
 			>
 				<!-- 卡片视图 -->
@@ -148,7 +153,7 @@
 		>
 			<template #header>
 				<div>
-					<h3 class="text-lg font-medium text-gray-900">{{ dialogConfig.title }}</h3>
+					<h3 class="text-lg font-medium">{{ dialogConfig.title }}</h3>
 					<p class="text-sm text-gray-600 mt-1">{{ dialogConfig.description }}</p>
 				</div>
 			</template>
@@ -168,14 +173,13 @@
 				</el-form-item>
 
 				<el-form-item label="Team" required>
-					<el-select v-model="formData.team" placeholder="Select team" class="w-full">
-						<el-option
-							v-for="team in defaultAssignedGroup"
-							:key="team.value"
-							:label="team.key"
-							:value="team.value"
-						/>
-					</el-select>
+					<FlowflexUserSelector
+						v-model="formData.team"
+						selectionType="team"
+						placeholder="Select team"
+						:clearable="true"
+						:max-count="1"
+					/>
 				</el-form-item>
 			</el-form>
 
@@ -209,19 +213,21 @@ import {
 import { getWorkflows, getAllStages } from '@/apis/ow';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { defaultAssignedGroup } from '@/enums/dealsAndLeadsOptions';
 import { exportChecklistToPdf } from '@/utils/pdfExport';
-import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import { Plus } from '@element-plus/icons-vue';
 import ChecklistCardView from './components/ChecklistCardView.vue';
 import ChecklistListView from './components/ChecklistListView.vue';
 import TaskList from './components/TaskList.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import { Checklist } from '#/checklist';
 import { dialogWidth, bigDialogWidth } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
+import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 
 interface Workflow {
 	id: string;
@@ -251,10 +257,10 @@ const showTaskDialog = ref(false);
 const currentChecklist = ref<Checklist | null>(null);
 
 // 视图切换
-const activeView = ref('card');
+const activeView = ref('list');
 const tabsConfig = ref([
+	{ label: 'Table View', value: 'list', icon: markRaw(TableViewIcon) },
 	{ label: 'Card View', value: 'card', icon: markRaw(ProgressViewIcon) },
-	{ label: 'List View', value: 'list', icon: markRaw(TableViewIcon) },
 ]);
 
 // 使用自适应滚动条 hook
@@ -724,22 +730,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* 页面头部样式 */
-.page-header {
-	@apply dark:from-primary-600 dark:to-primary-500;
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
-	flex-shrink: 0;
-}
-
-.page-title {
-	color: var(--primary-500);
-	@apply dark:text-white;
-}
-
-.page-subtitle {
-	color: var(--primary-600);
-}
-
 /* 筛选面板样式 */
 .filter-panel {
 	@apply bg-white dark:bg-black-400;

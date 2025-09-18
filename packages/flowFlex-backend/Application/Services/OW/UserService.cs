@@ -35,6 +35,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly EmailOptions _emailOptions;
         private readonly IUserContextService _userContextService;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
         public UserService(
             IUserRepository userRepository,
@@ -45,7 +46,8 @@ namespace FlowFlex.Application.Services.OW
             ILogger<UserService> logger,
             IHttpContextAccessor httpContextAccessor,
             IOptions<EmailOptions> emailOptions,
-            IUserContextService userContextService)
+            IUserContextService userContextService,
+            IBackgroundTaskQueue backgroundTaskQueue)
         {
             _userRepository = userRepository;
             _emailService = emailService;
@@ -56,6 +58,7 @@ namespace FlowFlex.Application.Services.OW
             _httpContextAccessor = httpContextAccessor;
             _emailOptions = emailOptions.Value;
             _userContextService = userContextService;
+            _backgroundTaskQueue = backgroundTaskQueue;
         }
 
         /// <summary>
@@ -96,26 +99,27 @@ namespace FlowFlex.Application.Services.OW
                     await _userRepository.UpdateAsync(existingUser);
 
                     // Send appropriate email based on previous verification status (non-blocking)
-                    _ = Task.Run(async () =>
-                    {
-                        try
+                    // Background task queued
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                         {
-                            if (wasAlreadyVerified)
+                            try
                             {
-                                // Send password reset confirmation for already verified users
-                                await _emailService.SendPasswordResetConfirmationAsync(existingUser.Email, existingUser.Username);
+                                if (wasAlreadyVerified)
+                                {
+                                    // Send password reset confirmation for already verified users
+                                    await _emailService.SendPasswordResetConfirmationAsync(existingUser.Email, existingUser.Username);
+                                }
+                                else
+                                {
+                                    // Send welcome email for first-time verified users
+                                    await _emailService.SendWelcomeEmailAsync(existingUser.Email, existingUser.Username);
+                                }
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                // Send welcome email for first-time verified users
-                                await _emailService.SendWelcomeEmailAsync(existingUser.Email, existingUser.Username);
+                                _logger.LogWarning(ex, "Failed to send email to {Email}", existingUser.Email);
                             }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to send email to {Email}", existingUser.Email);
-                        }
-                    });
+                        });
 
                     _logger.LogInformation("Portal user registration/password reset completed successfully for: {Email}", request.Email);
                     return _mapper.Map<UserDto>(existingUser);
@@ -144,17 +148,18 @@ namespace FlowFlex.Application.Services.OW
                             await _userRepository.UpdateAsync(existingUser);
 
                             // Send password reset confirmation email (non-blocking)
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await _emailService.SendPasswordResetConfirmationAsync(existingUser.Email, existingUser.Username);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogWarning(ex, "Failed to send password reset confirmation email to {Email}", existingUser.Email);
-                                }
-                            });
+                            // Background task queued
+                            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                                        {
+                                            try
+                                            {
+                                                await _emailService.SendPasswordResetConfirmationAsync(existingUser.Email, existingUser.Username);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                _logger.LogWarning(ex, "Failed to send password reset confirmation email to {Email}", existingUser.Email);
+                                            }
+                                        });
 
                             _logger.LogInformation("Password reset completed successfully for verified user: {Email}", request.Email);
                             return _mapper.Map<UserDto>(existingUser);
@@ -224,7 +229,8 @@ namespace FlowFlex.Application.Services.OW
                 await _userRepository.InsertAsync(newUser);
 
                 // Send welcome email (non-blocking)
-                _ = Task.Run(async () =>
+                // Background task queued
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
@@ -1314,7 +1320,7 @@ namespace FlowFlex.Application.Services.OW
 
                 var userDto = _mapper.Map<UserDto>(user);
                 _logger.LogInformation("GetUserByIdAsync completed successfully for userId: {UserId}", userId);
-                
+
                 return userDto;
             }
             catch (CRMException)

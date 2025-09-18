@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -11,7 +13,11 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Enums.OW;
 using System.Text.Json;
+using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using JsonException = System.Text.Json.JsonException;
 using System.Text;
 using System.IO;
 using System.Linq;
@@ -33,8 +39,10 @@ namespace FlowFlex.Application.Service.OW
         private readonly ILogger<WorkflowService> _logger;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IComponentMappingService _componentMappingService;
+        private readonly IDistributedCacheService _cacheService;
+        private readonly IOperationChangeLogService _operationChangeLogService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IOperationChangeLogService operationChangeLogService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -43,6 +51,8 @@ namespace FlowFlex.Application.Service.OW
             _logger = logger;
             _operatorContextService = operatorContextService;
             _componentMappingService = componentMappingService;
+            _cacheService = cacheService;
+            _operationChangeLogService = operationChangeLogService;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -89,16 +99,16 @@ namespace FlowFlex.Application.Service.OW
                 {
                     var stage = _mapper.Map<Stage>(stageInput);
                     stage.WorkflowId = entity.Id;
-                    
+
                     // Initialize create information
                     stage.InitCreateInfo(_userContext);
                     AuditHelper.ApplyCreateAudit(stage, _operatorContextService);
-                    
+
                     await _stageRepository.InsertAsync(stage);
                 }
-                
+
                 _logger.LogInformation("Created {StageCount} stages for workflow {WorkflowId}", input.Stages.Count, entity.Id);
-                
+
                 // Sync component mappings for all stages in the workflow
                 try
                 {
@@ -111,6 +121,23 @@ namespace FlowFlex.Application.Service.OW
                     // Don't fail the workflow creation if mapping sync fails
                 }
             }
+
+            // Log workflow create operation (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _operationChangeLogService.LogWorkflowCreateAsync(
+                        workflowId: entity.Id,
+                        workflowName: entity.Name,
+                        workflowDescription: entity.Description
+                    );
+                }
+                catch
+                {
+                    // Ignore logging errors to avoid affecting main operation
+                }
+            });
 
             return entity.Id;
         }
@@ -145,7 +172,7 @@ namespace FlowFlex.Application.Service.OW
             // Only handle IsDefault changes if explicitly provided in the input
             // For AI-generated updates, we preserve the existing IsDefault state
             bool shouldUpdateDefaultStatus = ShouldUpdateDefaultStatus(input, entity);
-            
+
             if (shouldUpdateDefaultStatus)
             {
                 // If set as default, need to cancel other default workflows first
@@ -163,6 +190,15 @@ namespace FlowFlex.Application.Service.OW
                 // Preserve existing IsDefault state for AI updates
                 input.IsDefault = entity.IsDefault;
             }
+
+            // Store original values for change detection and logging BEFORE mapping
+            var originalName = entity.Name;
+            var originalDescription = entity.Description;
+            var originalStatus = entity.Status;
+            var originalIsDefault = entity.IsDefault;
+            var originalIsActive = entity.IsActive;
+            var originalStartDate = entity.StartDate;
+            var originalEndDate = entity.EndDate;
 
             // Only create version history record when there are actual changes
             if (hasChanges)
@@ -185,23 +221,23 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Get existing stages
                 var existingStages = await _stageRepository.GetByWorkflowIdAsync(id);
-                
+
                 // Delete existing stages that are not in the input
-                var stagesToDelete = existingStages.Where(existing => 
-                    !input.Stages.Any(inputStage => 
+                var stagesToDelete = existingStages.Where(existing =>
+                    !input.Stages.Any(inputStage =>
                         inputStage.Name.Equals(existing.Name, StringComparison.OrdinalIgnoreCase))).ToList();
-                
+
                 foreach (var stageToDelete in stagesToDelete)
                 {
                     await _stageRepository.DeleteAsync(stageToDelete);
                 }
-                
+
                 // Update or create stages
                 foreach (var stageInput in input.Stages.OrderBy(s => s.Order))
                 {
-                    var existingStage = existingStages.FirstOrDefault(s => 
+                    var existingStage = existingStages.FirstOrDefault(s =>
                         s.Name.Equals(stageInput.Name, StringComparison.OrdinalIgnoreCase));
-                    
+
                     if (existingStage != null)
                     {
                         // Update existing stage
@@ -209,7 +245,7 @@ namespace FlowFlex.Application.Service.OW
                         existingStage.WorkflowId = id;
                         existingStage.InitUpdateInfo(_userContext);
                         AuditHelper.ApplyModifyAudit(existingStage, _operatorContextService);
-                        
+
                         await _stageRepository.UpdateAsync(existingStage);
                     }
                     else
@@ -219,12 +255,12 @@ namespace FlowFlex.Application.Service.OW
                         newStage.WorkflowId = id;
                         newStage.InitCreateInfo(_userContext);
                         AuditHelper.ApplyCreateAudit(newStage, _operatorContextService);
-                        
+
                         await _stageRepository.InsertAsync(newStage);
                     }
                 }
-                
-                _logger.LogInformation("Updated stages for workflow {WorkflowId}: {StageCount} stages processed", 
+
+                _logger.LogInformation("Updated stages for workflow {WorkflowId}: {StageCount} stages processed",
                     id, input.Stages.Count);
             }
 
@@ -239,6 +275,81 @@ namespace FlowFlex.Application.Service.OW
             // }
 
             // Cache cleanup removed
+
+            if (updateResult)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow update operation if there were actual changes (fire-and-forget)
+                if (hasChanges)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // Get the updated workflow for logging
+                            var updatedWorkflow = await _workflowRepository.GetByIdAsync(id);
+                            if (updatedWorkflow != null)
+                            {
+                                // Prepare before and after data for logging using original values
+                                var beforeData = JsonSerializer.Serialize(new
+                                {
+                                    Name = originalName,
+                                    Description = originalDescription,
+                                    Status = originalStatus,
+                                    IsDefault = originalIsDefault,
+                                    IsActive = originalIsActive,
+                                    StartDate = originalStartDate,
+                                    EndDate = originalEndDate
+                                });
+
+                                var afterData = JsonSerializer.Serialize(new
+                                {
+                                    Name = updatedWorkflow.Name,
+                                    Description = updatedWorkflow.Description,
+                                    Status = updatedWorkflow.Status,
+                                    IsDefault = updatedWorkflow.IsDefault,
+                                    IsActive = updatedWorkflow.IsActive,
+                                    StartDate = updatedWorkflow.StartDate,
+                                    EndDate = updatedWorkflow.EndDate
+                                });
+
+                                // Determine changed fields by comparing original vs updated values
+                                var changedFields = new List<string>();
+                                if (originalName != updatedWorkflow.Name) changedFields.Add("Name");
+                                if (originalDescription != updatedWorkflow.Description) changedFields.Add("Description");
+                                if (originalStatus != updatedWorkflow.Status) changedFields.Add("Status");
+                                if (originalIsDefault != updatedWorkflow.IsDefault) changedFields.Add("IsDefault");
+                                if (originalIsActive != updatedWorkflow.IsActive) changedFields.Add("IsActive");
+                                if (originalStartDate != updatedWorkflow.StartDate) changedFields.Add("StartDate");
+                                if (originalEndDate != updatedWorkflow.EndDate) changedFields.Add("EndDate");
+
+                                // Alternative: Use auto-detection (experimental)
+                                // var autoDetectedFields = AutoDetectChangedFields(beforeData, afterData);
+                                // if (autoDetectedFields.Any()) changedFields = autoDetectedFields;
+
+                                // Debug logging
+                                _logger.LogDebug("WorkflowUpdate Debug - Before: {BeforeData}", beforeData);
+                                _logger.LogDebug("WorkflowUpdate Debug - After: {AfterData}", afterData);
+                                _logger.LogDebug("WorkflowUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
+
+                                await _operationChangeLogService.LogWorkflowUpdateAsync(
+                                    workflowId: id,
+                                    workflowName: updatedWorkflow.Name,
+                                    beforeData: beforeData,
+                                    afterData: afterData,
+                                    changedFields: changedFields
+                                );
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore logging errors to avoid affecting main operation
+                        }
+                    });
+                }
+            }
 
             return updateResult;
         }
@@ -301,13 +412,53 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete workflow with existing stages");
             }
 
-            return await _workflowRepository.DeleteAsync(entity);
+            var workflowName = entity.Name; // Store name before deletion
+
+            var result = await _workflowRepository.DeleteAsync(entity);
+
+            // Clear related cache after successful deletion
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow delete operation (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _operationChangeLogService.LogWorkflowDeleteAsync(
+                            workflowId: id,
+                            workflowName: workflowName,
+                            reason: "Workflow deleted via admin portal"
+                        );
+                    }
+                    catch
+                    {
+                        // Ignore logging errors to avoid affecting main operation
+                    }
+                });
+            }
+
+            return result;
         }
 
         public async Task<WorkflowOutputDto> GetByIdAsync(long id)
         {
+            var cacheKey = $"workflow:get_by_id:{id}";
+            var cachedResult = await _cacheService.GetAsync<WorkflowOutputDto>(cacheKey);
+            if (cachedResult != null)
+                return cachedResult;
+
             var entity = await _workflowRepository.GetWithStagesAsync(id);
-            return _mapper.Map<WorkflowOutputDto>(entity);
+            var result = _mapper.Map<WorkflowOutputDto>(entity);
+
+            if (result != null)
+            {
+                await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(15));
+            }
+
+            return result;
         }
 
         public async Task<List<WorkflowOutputDto>> GetListAsync()
@@ -316,14 +467,14 @@ namespace FlowFlex.Application.Service.OW
             // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
             var result = _mapper.Map<List<WorkflowOutputDto>>(list);
-            
+
             // 为了优化性能，工作流列表接口不返回Stage数据
             // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
             foreach (var workflow in result)
             {
                 workflow.Stages = new List<StageOutputDto>();
             }
-            
+
             return result;
         }
 
@@ -411,7 +562,23 @@ namespace FlowFlex.Application.Service.OW
             entity.Status = "active";
             var result = await _workflowRepository.UpdateAsync(entity);
 
-            // Cache cleanup removed
+            // Clear related cache after successful activation
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow activation
+                try
+                {
+                    await _operationChangeLogService.LogWorkflowActivateAsync(id, entity.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log workflow activation for workflow {WorkflowId}", id);
+                    // Don't fail the operation if logging fails
+                }
+            }
 
             return result;
         }
@@ -428,7 +595,23 @@ namespace FlowFlex.Application.Service.OW
             entity.Status = "inactive";
             var result = await _workflowRepository.UpdateAsync(entity);
 
-            // Cache cleanup removed
+            // Clear related cache after successful deactivation
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                await _cacheService.RemoveAsync(cacheKey);
+
+                // Log workflow deactivation
+                try
+                {
+                    await _operationChangeLogService.LogWorkflowDeactivateAsync(id, entity.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log workflow deactivation for workflow {WorkflowId}", id);
+                    // Don't fail the operation if logging fails
+                }
+            }
 
             return result;
         }
@@ -503,6 +686,36 @@ namespace FlowFlex.Application.Service.OW
                 await _stageRepository.InsertAsync(duplicatedStage);
             }
 
+            // Log duplicate operation
+            try
+            {
+                await _operationChangeLogService.LogOperationAsync(
+                    OperationTypeEnum.WorkflowDuplicate,
+                    BusinessModuleEnum.Workflow,
+                    newWorkflowId,
+                    null, // No onboarding context for workflow duplication
+                    null, // No stage context for workflow duplication
+                    $"Workflow Duplicated",
+                    $"Duplicated workflow '{originalWorkflow.Name}' to '{uniqueName}'",
+                    originalWorkflow.Name, // beforeData
+                    uniqueName, // afterData
+                    new List<string> { "Name", "Description", "StartDate", "EndDate", "Stages" },
+                    JsonConvert.SerializeObject(new
+                    {
+                        SourceId = id,
+                        SourceName = originalWorkflow.Name,
+                        NewId = newWorkflowId,
+                        NewName = uniqueName,
+                        DuplicatedStagesCount = originalStages.Count()
+                    }),
+                    OperationStatusEnum.Success
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log workflow duplicate operation for workflow {WorkflowId}", newWorkflowId);
+            }
+
             return newWorkflowId;
         }
 
@@ -532,6 +745,10 @@ namespace FlowFlex.Application.Service.OW
                     if (updated)
                     {
                         processedCount++;
+
+                        // Clear related cache after successful update
+                        var cacheKey = $"workflow:get_by_id:{workflow.Id}:{workflow.AppCode}";
+                        await _cacheService.RemoveAsync(cacheKey);
 
                         // 记录日志
                         // Debug logging handled by structured logging has been set to inactive due to expiration. End Date: {workflow.EndDate}");
@@ -602,7 +819,7 @@ namespace FlowFlex.Application.Service.OW
             // 使用专门?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportMultipleToExcel(workflows);
         }
-      
+
         /// <summary>
         /// Create workflow from version with stages
         /// </summary>
@@ -645,7 +862,7 @@ namespace FlowFlex.Application.Service.OW
                 Description = input.Description,
                 IsDefault = input.IsDefault,
                 Status = input.Status,
-            StartDate = input.StartDate == default ? DateTimeOffset.UtcNow : input.StartDate,
+                StartDate = input.StartDate == default ? DateTimeOffset.UtcNow : input.StartDate,
                 EndDate = input.EndDate,
                 Version = 1,
                 IsActive = input.IsActive
@@ -664,7 +881,9 @@ namespace FlowFlex.Application.Service.OW
                         Name = stageInput.Name,
                         Description = stageInput.Description,
                         DefaultAssignedGroup = stageInput.DefaultAssignedGroup,
-                        DefaultAssignee = stageInput.DefaultAssignee,
+                        DefaultAssignee = stageInput.DefaultAssignee != null && stageInput.DefaultAssignee.Any()
+                            ? string.Join(",", stageInput.DefaultAssignee)
+                            : null,
                         EstimatedDuration = stageInput.EstimatedDuration,
                         Order = stageInput.Order,
                         ChecklistId = stageInput.ChecklistId,
@@ -709,9 +928,16 @@ namespace FlowFlex.Application.Service.OW
             AuditHelper.ApplyModifyAudit(workflow, _operatorContextService);
             var result = await _workflowRepository.UpdateAsync(workflow);
 
+            // Clear related cache after successful version creation
+            if (result)
+            {
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                await _cacheService.RemoveAsync(cacheKey);
+            }
+
             // Create version history record (including stage snapshot) after updating workflow
-            var reason = !string.IsNullOrEmpty(changeReason) 
-                ? changeReason 
+            var reason = !string.IsNullOrEmpty(changeReason)
+                ? changeReason
                 : "Manual version creation";
 
             // await _workflowVersionRepository.CreateVersionHistoryWithStagesAsync( // Removed
@@ -757,7 +983,7 @@ namespace FlowFlex.Application.Service.OW
                 // This looks like an AI workflow modification - preserve existing default state
                 return false;
             }
-            
+
             // For regular user updates, allow IsDefault changes
             return true;
         }

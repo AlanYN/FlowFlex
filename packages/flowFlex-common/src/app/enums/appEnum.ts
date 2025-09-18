@@ -195,3 +195,24 @@ export enum TriggerTypeEnum {
 	Questionnaire = 'Question',
 	Workflow = 'Workflow',
 }
+
+export enum WFEMoudels {
+	Workflow = 1,
+	Stage = 2,
+	Checklist = 3,
+	Questionnaire = 4,
+	ChecklistTask = 5,
+}
+
+export enum StageComponentPortal {
+	Hidden = 0,
+	Viewable = 1,
+	Completable = 2,
+}
+
+export enum ToolsType {
+	UseTool = 1,
+	MyTool = 2,
+	NewTool = 3,
+	SystemTools = 4,
+}

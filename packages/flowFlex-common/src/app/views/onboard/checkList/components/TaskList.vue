@@ -13,7 +13,7 @@
 		<!-- 任务已加载完成时显示 -->
 		<div v-if="tasksLoaded">
 			<div class="flex items-center mb-4">
-				<h4 class="text-sm font-medium text-gray-900">Tasks</h4>
+				<h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">Tasks</h4>
 			</div>
 
 			<!-- 任务列表 -->
@@ -31,7 +31,7 @@
 				>
 					<template #item="{ element: task }">
 						<div
-							class="flex items-center gap-3 p-3 transition-all duration-200 border border-transparent rounded-lg task-item max-w-full"
+							class="flex items-center gap-3 p-3 transition-all duration-200 border border-transparent rounded-xl task-item max-w-full"
 							:class="{
 								'task-disabled':
 									isDragging && draggingChecklistId !== props.checklist.id,
@@ -61,7 +61,7 @@
 									<!-- Task name -->
 									<div class="flex-1 min-w-0 pr-3">
 										<span
-											class="text-sm text-gray-900 truncate block"
+											class="text-sm truncate block text-gray-900 dark:text-gray-100"
 											:title="task?.name || ''"
 										>
 											{{ task.name }}
@@ -69,21 +69,13 @@
 									</div>
 
 									<!-- Right side items -->
-									<div
-										class="flex items-center gap-1 flex-shrink-0"
-										v-if="task.assigneeName"
-									>
-										<!-- Assignee 缩写 -->
-										<icon
-											icon="material-symbols:person-2-outline"
-											style="color: var(--primary-500)"
+									<div class="flex items-center gap-1 flex-shrink-0">
+										<FlowflexUserSelector
+											v-if="task.assigneeId"
+											v-model="task.assigneeId"
+											selection-type="user"
+											readonly
 										/>
-										<span
-											class="text-xs font-medium text-primary-500"
-											:title="task.assigneeName"
-										>
-											{{ getAssigneeInitials(task.assigneeName) }}
-										</span>
 
 										<!-- Action 绑定状态图标 -->
 										<el-tag v-if="task.actionId" type="success" size="small">
@@ -113,33 +105,26 @@
 										<template #dropdown>
 											<el-dropdown-menu>
 												<!-- 如果已绑定 action，显示编辑和删除选项 -->
-												<template v-if="true">
-													<el-dropdown-item
-														@click="openActionEditor(task)"
-													>
-														<div class="flex items-center gap-2">
-															<Icon
-																icon="tabler:edit"
-																class="w-4 h-4"
-															/>
-															<span class="text-xs">Edit Action</span>
-														</div>
-													</el-dropdown-item>
-													<el-dropdown-item
-														v-if="task.actionId"
-														@click="removeActionBinding(task)"
-													>
-														<div class="flex items-center gap-2">
-															<Icon
-																icon="tabler:unlink"
-																class="w-4 h-4 text-red-500"
-															/>
-															<span class="text-xs text-red-500">
-																Remove Action
-															</span>
-														</div>
-													</el-dropdown-item>
-												</template>
+												<el-dropdown-item @click="openActionEditor(task)">
+													<div class="flex items-center gap-2">
+														<Icon icon="tabler:edit" class="w-4 h-4" />
+														<span class="text-xs">Edit Action</span>
+													</div>
+												</el-dropdown-item>
+												<el-dropdown-item
+													v-if="task.actionId"
+													@click="removeActionBinding(task)"
+												>
+													<div class="flex items-center gap-2">
+														<Icon
+															icon="tabler:unlink"
+															class="w-4 h-4 text-red-500"
+														/>
+														<span class="text-xs text-red-500">
+															Remove Action
+														</span>
+													</div>
+												</el-dropdown-item>
 											</el-dropdown-menu>
 										</template>
 									</el-dropdown>
@@ -169,7 +154,6 @@
 												(val) => updateTaskFormData('name', val)
 											"
 											placeholder="Task name"
-											size="small"
 										/>
 									</div>
 									<div class="flex-1 flex-shrink-0">
@@ -181,7 +165,7 @@
 											"
 											placeholder="Select assignee"
 											:clearable="true"
-											size="small"
+											:max-count="1"
 										/>
 									</div>
 								</div>
@@ -199,7 +183,7 @@
 					</template>
 				</draggable>
 			</div>
-			<div v-else class="text-center py-8 text-gray-500">
+			<div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
 				<p class="text-sm">
 					No tasks added yet. Click the "Add Task" button to add a task.
 				</p>
@@ -208,12 +192,12 @@
 			<!-- 添加任务表单 -->
 			<div
 				v-if="addingTaskTo === props.checklist.id"
-				class="border border-gray-200 rounded-lg p-2 mt-4 bg-gray-50"
+				class="border border-gray-200 dark:border-gray-600 rounded-xl p-2 mt-4 bg-gray-50 dark:bg-gray-800"
 			>
 				<div class="">
 					<div class="flex items-center gap-3">
 						<div class="flex-1 min-w-0 flex flex-col gap-2">
-							<div class="">Task name</div>
+							<div class="text-gray-700 dark:text-gray-300">Task name</div>
 							<el-input
 								v-model="newTaskText"
 								placeholder="Enter task name..."
@@ -221,11 +205,12 @@
 							/>
 						</div>
 						<div class="flex-1 min-w-0 flex-shrink-0 flex flex-col gap-2">
-							<div class="">Assignee</div>
+							<div class="text-gray-700 dark:text-gray-300">Assignee</div>
 							<flowflex-user-selector
 								ref="newTaskAssigneeSelectorRef"
 								v-model="newTaskAssignee"
 								placeholder="Select assignee"
+								:max-count="1"
 								:clearable="true"
 							/>
 						</div>
@@ -572,23 +557,6 @@ const updateTaskFormData = (field, value) => {
 	taskFormData.value[field] = value;
 };
 
-// 获取分配人姓名的缩写
-const getAssigneeInitials = (fullName) => {
-	if (!fullName) return '';
-
-	const names = fullName.trim().split(/\s+/);
-	if (names.length === 1) {
-		// 单个名字，取前两个字符
-		return names[0].substring(0, 2).toUpperCase();
-	} else {
-		// 多个名字，取每个名字的首字母
-		return names
-			.map((name) => name.charAt(0).toUpperCase())
-			.join('')
-			.substring(0, 3); // 最多3个字母
-	}
-};
-
 // 从 FlowflexUser 组件获取选中用户的姓名
 const getAssigneeNameFromSelector = (selectorRef, assigneeId) => {
 	if (!selectorRef.value || !assigneeId) return null;
@@ -642,7 +610,7 @@ const openActionEditor = async (task) => {
 				actionInfo.value = {
 					...actionDetailRes?.data,
 					actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
-					type: actionDetailRes?.data?.actionType === 1 ? 'python' : 'http',
+					type: actionDetailRes?.data?.actionType,
 				};
 			}
 		} catch (error) {
@@ -784,10 +752,10 @@ defineExpose({
 	transition: all 0.3s ease;
 	background-color: #ffffff;
 	border: 1px solid transparent;
-	border-radius: 8px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	position: relative;
 	cursor: pointer;
+	@apply rounded-xl;
 }
 
 .task-item:hover:not(.task-disabled):not(.task-sorting) {
@@ -845,11 +813,27 @@ defineExpose({
 /* 暗色主题 */
 html.dark {
 	.task-item {
-		@apply bg-black-300;
+		@apply bg-gray-800;
+		border-color: #374151;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 	}
 
 	.task-item:hover:not(.task-disabled):not(.task-sorting) {
-		@apply bg-black-200;
+		@apply bg-gray-700 !important;
+		border-color: #4b5563 !important;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+		transform: translateY(-1px);
+	}
+
+	.drag-handle:hover:not(.drag-disabled):not(.drag-sorting) {
+		background-color: #4b5563 !important;
+		color: #d1d5db !important;
+	}
+
+	.ghost-task {
+		background: #1e3a8a !important;
+		border: 1px dashed #3b82f6 !important;
+		box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 	}
 }
 </style>

@@ -47,6 +47,12 @@
 										<el-icon class="mr-2"><CopyDocument /></el-icon>
 										{{ duplicateLoading ? 'Duplicating...' : 'Duplicate' }}
 									</el-dropdown-item>
+									<el-dropdown-item divided>
+										<HistoryButton
+											:id="checklist.id"
+											:type="WFEMoudels.Checklist"
+										/>
+									</el-dropdown-item>
 									<el-dropdown-item
 										divided
 										command="delete"
@@ -235,6 +241,7 @@ import { Edit, CopyDocument, Delete, MoreFilled, Download } from '@element-plus/
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr } from '@/settings/projectSetting';
+import { WFEMoudels } from '@/enums/appEnum';
 
 // Props
 const props = defineProps({
