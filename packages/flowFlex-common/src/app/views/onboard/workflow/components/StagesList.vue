@@ -264,7 +264,7 @@
 								<!-- Stage Details Section -->
 								<div class="stage-info-section">
 									<div class="flex items-center space-x-6 mt-4">
-										<div class="flex items-center">
+										<!-- <div class="flex items-center">
 											<Users
 												:style="{
 													color:
@@ -284,7 +284,7 @@
 													}}
 												</span>
 											</div>
-										</div>
+										</div> -->
 										<div class="flex items-center">
 											<Users
 												:style="{
