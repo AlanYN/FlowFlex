@@ -436,7 +436,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick, watch, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import { Loading, Check, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
@@ -447,6 +447,7 @@ import {
 	getQuestionIds,
 	getQuestionnaireAnswer,
 	completeCurrentStage,
+	getOnboardingFilesByStage,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -614,7 +615,7 @@ const currentStageTitle = computed(() => {
 
 const stagePortalPermission = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
-	return currentStage?.portalPermission == 1 ? true : false;
+	return currentStage?.portalPermission == 1 || currentStage?.isCompleted ? true : false;
 });
 
 // 状态显示映射
@@ -679,14 +680,18 @@ const sortedComponents = computed(() => {
 					component?.customerPortalAccess != StageComponentPortal.Hidden))
 	);
 	return [...validComponents].sort((a, b) => {
-		if (a.key === 'fields' && b.key !== 'fields') {
-			return -1;
-		}
-		if (a.key !== 'fields' && b.key === 'fields') {
-			return 1;
-		}
 		return a.order - b.order;
 	});
+});
+
+// 获取所有启用的组件（包括隐藏组件），用于隐藏组件校验
+const allComponents = computed(() => {
+	if (!onboardingActiveStageInfo.value?.components) {
+		return [];
+	}
+	return [...onboardingActiveStageInfo.value.components]
+		.filter((component) => component.isEnabled)
+		.sort((a, b) => a.order - b.order);
 });
 
 // AI Summary相关状态
@@ -875,6 +880,500 @@ const checkAndGenerateAISummary = async () => {
 			hasActiveStage: !!activeStage.value,
 		});
 	}
+};
+
+// 隐藏组件校验函数
+// 静态字段数据校验函数
+const validateStaticFieldsData = async (
+	component: any
+): Promise<{ isValid: boolean; errors: string[] }> => {
+	if (component.key !== 'fields' || !component.staticFields?.length) {
+		return { isValid: true, errors: [] };
+	}
+
+	const errors: string[] = [];
+	try {
+		// 获取当前静态字段值
+		const response = await getStaticFieldValuesByOnboarding(onboardingId.value);
+		const fieldValues = response.code === '200' ? response.data : null;
+
+		// 必填字段定义（复用StaticForm中的定义）
+		const requiredFields = new Set([
+			'leadId',
+			'customerName',
+			'priority',
+			'requestedCreditLimit',
+			'approvedCreditLimit',
+			'salesApprovedCreditLimit',
+			'salesApprovalNotes',
+			'paymentTerm',
+			'status',
+			'accountHolderCategory',
+			'assignee',
+			'assigneeLocation',
+		]);
+
+		// 字段标签映射（用于友好的错误提示）
+		const fieldLabelMap: Record<string, string> = {
+			LEADID: 'Lead ID',
+			CUSTOMERNAME: 'Customer Name',
+			PRIORITY: 'Priority',
+			REQUESTEDCREDITLIMIT: 'Requested Credit Limit',
+			APPROVEDCREDITLIMIT: 'Approved Credit Limit',
+			SALESAPPROVEDCREDITLIMIT: 'Sales Approved Credit Limit',
+			SALESAPPROVALNOTES: 'Sales Approval Notes',
+			PAYMENTTERM: 'Payment Term',
+			STATUS: 'Status',
+			ACCOUNTHOLDERCATEGORY: "Account Holder's Category",
+			ASSIGNEE: 'Assignee',
+			ASSIGNEELOCATION: "Assignee's Responsible Location",
+		};
+
+		// 表单字段到API字段的映射
+		const formToApiFieldsMap: Record<string, string> = {
+			leadId: 'LEADID',
+			customerName: 'CUSTOMERNAME',
+			priority: 'PRIORITY',
+			requestedCreditLimit: 'REQUESTEDCREDITLIMIT',
+			approvedCreditLimit: 'APPROVEDCREDITLIMIT',
+			salesApprovedCreditLimit: 'SALESAPPROVEDCREDITLIMIT',
+			salesApprovalNotes: 'SALESAPPROVALNOTES',
+			paymentTerm: 'PAYMENTTERM',
+			status: 'STATUS',
+			accountHolderCategory: 'ACCOUNTHOLDERCATEGORY',
+			assignee: 'ASSIGNEE',
+			assigneeLocation: 'ASSIGNEELOCATION',
+		};
+
+		// 检查每个静态字段的必填项
+		component.staticFields.forEach((apiFieldKey: string) => {
+			// 找到对应的表单字段名
+			const formFieldName = Object.keys(formToApiFieldsMap).find(
+				(key) => formToApiFieldsMap[key] === apiFieldKey
+			);
+
+			if (formFieldName && requiredFields.has(formFieldName)) {
+				// 检查字段值是否存在且不为空
+				let fieldValue: any = null;
+				if (Array.isArray(fieldValues)) {
+					// 新格式：数组格式
+					const field = fieldValues.find((f: any) => f.fieldName === apiFieldKey);
+					if (field && field.fieldValueJson !== undefined) {
+						try {
+							// fieldValueJson 是JSON字符串，需要解析
+							fieldValue = JSON.parse(field.fieldValueJson);
+						} catch {
+							// 解析失败时使用原值
+							fieldValue = field.fieldValueJson;
+						}
+					}
+				} else if (fieldValues && typeof fieldValues === 'object') {
+					// 旧格式：对象格式
+					fieldValue = fieldValues[apiFieldKey];
+					// 如果是JSON字符串，尝试解析
+					if (typeof fieldValue === 'string') {
+						try {
+							fieldValue = JSON.parse(fieldValue);
+						} catch {
+							// 保持原值
+						}
+					}
+				}
+
+				// 验证字段值 - 特别处理不同类型的字段
+				let isEmpty = false;
+				if (Array.isArray(fieldValue)) {
+					// 数组类型字段（如assignee）
+					isEmpty = fieldValue.length === 0;
+				} else if (typeof fieldValue === 'string') {
+					// 字符串类型字段
+					isEmpty =
+						fieldValue.trim() === '' ||
+						fieldValue === 'null' ||
+						fieldValue === 'undefined';
+				} else {
+					// 其他类型字段
+					isEmpty = fieldValue === null || fieldValue === undefined;
+				}
+
+				if (isEmpty) {
+					const fieldLabel = fieldLabelMap[apiFieldKey] || apiFieldKey;
+					errors.push(`${fieldLabel} is required`);
+				}
+			}
+		});
+
+		return { isValid: errors.length === 0, errors };
+	} catch (error) {
+		console.error('Error validating static fields:', error);
+		return { isValid: true, errors: [] }; // 出错时不阻止操作
+	}
+};
+
+// 问卷数据校验函数
+const validateQuestionnaireData = (component: any): { isValid: boolean; errors: string[] } => {
+	if (component.key !== 'questionnaires' || !component.questionnaireIds?.length) {
+		return { isValid: true, errors: [] };
+	}
+
+	const errors: string[] = [];
+
+	// 遍历所有问卷进行校验
+	component.questionnaireIds.forEach((questionnaireId: string) => {
+		const questionnaire = questionnairesData.value.find((q) => q.id === questionnaireId);
+		const answers = questionnaireAnswersMap.value[questionnaireId];
+
+		if (!questionnaire) {
+			console.warn(`Questionnaire not found: ${questionnaireId}`);
+			return;
+		}
+
+		// 从structureJson解析问卷结构
+		let structure: any = {};
+		try {
+			if (questionnaire.structureJson) {
+				structure = JSON.parse(questionnaire.structureJson);
+			}
+		} catch (error) {
+			console.error(
+				`Error parsing structureJson for questionnaire ${questionnaireId}:`,
+				error
+			);
+			return;
+		}
+
+		if (!structure?.sections || !Array.isArray(structure.sections)) {
+			console.warn(`Questionnaire has no valid sections: ${questionnaireId}`);
+			return;
+		}
+
+		structure.sections.forEach((section: any, sIndex: number) => {
+			section.questions?.forEach((question: any, qIndex: number) => {
+				if (!question.required) return;
+
+				// 查找问题的答案
+				const answerData = answers?.answer?.find(
+					(ans: any) => ans.questionId === question.id
+				);
+				const value = answerData?.answer;
+
+				// 根据问题类型检查答案是否为空
+				let isEmpty = false;
+
+				switch (question.type) {
+					case 'short_answer':
+					case 'paragraph':
+						isEmpty = !value || (typeof value === 'string' && value.trim() === '');
+						break;
+
+					case 'multiple_choice':
+						isEmpty = !value || value === '';
+						break;
+
+					case 'checkboxes':
+						isEmpty = !Array.isArray(value) || value.length === 0;
+						break;
+
+					case 'number':
+						isEmpty = value === null || value === undefined || value === '';
+						break;
+
+					case 'date':
+					case 'time':
+						isEmpty = value === null || value === undefined;
+						break;
+
+					case 'rating':
+						isEmpty = !value || (typeof value === 'number' && value < 1);
+						break;
+
+					case 'linear_scale':
+						isEmpty =
+							value === null ||
+							value === undefined ||
+							(typeof value === 'number' && value <= (question.min || 0));
+						break;
+
+					case 'slider':
+						isEmpty = value === null || value === undefined;
+						break;
+
+					case 'file':
+					case 'file_upload':
+						isEmpty = !Array.isArray(value) || value.length === 0;
+						break;
+
+					case 'multiple_choice_grid':
+						// 多选网格：检查每一行是否都有选择
+						if (question.rows && question.rows.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								// 查找该行的答案
+								const gridAnswerData = answers?.answer?.find(
+									(ans: any) =>
+										ans.questionId === `${question.id}_${row.id || rowIndex}`
+								);
+								const gridValue = gridAnswerData?.answer;
+								if (!Array.isArray(gridValue) || gridValue.length === 0) {
+									allRowsCompleted = false;
+								}
+							});
+							isEmpty = !allRowsCompleted;
+						} else {
+							isEmpty = !Array.isArray(value) || value.length === 0;
+						}
+						break;
+
+					case 'checkbox_grid':
+						// 单选网格：检查每一行是否都有选择
+						if (question.rows && question.rows.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								// 查找该行的答案
+								const gridAnswerData = answers?.answer?.find(
+									(ans: any) =>
+										ans.questionId === `${question.id}_${row.id || rowIndex}`
+								);
+								const gridValue = gridAnswerData?.answer;
+								if (!gridValue || gridValue === '') {
+									allRowsCompleted = false;
+								}
+							});
+							isEmpty = !allRowsCompleted;
+						}
+						break;
+
+					case 'short_answer_grid':
+						// 短答案网格：检查每一行是否至少有一个单元格有内容
+						if (question.rows && question.columns && question.columns.length > 0) {
+							let allRowsCompleted = true;
+							question.rows.forEach((row: any, rowIndex: number) => {
+								let rowHasValue = false;
+								question.columns.forEach((column: any, columnIndex: number) => {
+									// 查找该单元格的答案
+									const cellAnswerData = answers?.answer?.find(
+										(ans: any) =>
+											ans.questionId ===
+											`${question.id}_${column.id}_${row.id}`
+									);
+									const cellValue = cellAnswerData?.answer;
+									if (
+										cellValue &&
+										typeof cellValue === 'string' &&
+										cellValue.trim() !== ''
+									) {
+										rowHasValue = true;
+									}
+								});
+								if (!rowHasValue) {
+									allRowsCompleted = false;
+								}
+							});
+							isEmpty = !allRowsCompleted;
+						}
+						break;
+
+					case 'divider':
+					case 'description':
+					case 'image':
+					case 'video':
+						// 这些类型不需要校验
+						isEmpty = false;
+						break;
+
+					default:
+						// 其他类型的通用校验
+						isEmpty =
+							value === null ||
+							value === undefined ||
+							value === '' ||
+							(typeof value === 'string' && value.trim() === '') ||
+							(Array.isArray(value) && value.length === 0);
+				}
+
+				if (isEmpty) {
+					const questionnaireTitle =
+						questionnaire.name || structure.name || `Questionnaire ${questionnaireId}`;
+					const sectionTitle = section.name || section.title || `Section ${sIndex + 1}`;
+					const questionTitle =
+						question.title || question.question || `Question ${qIndex + 1}`;
+					errors.push(`${questionnaireTitle} - ${sectionTitle} - ${questionTitle}`);
+				}
+			});
+		});
+	});
+
+	return { isValid: errors.length === 0, errors };
+};
+
+// 检查清单数据校验函数
+const validateChecklistData = (component: any): { isValid: boolean; errors: string[] } => {
+	if (component.key !== 'checklist' || !component.checklistIds?.length) {
+		return { isValid: true, errors: [] };
+	}
+
+	const errors: string[] = [];
+
+	component.checklistIds.forEach((checklistId: string) => {
+		const checklist = checklistsData.value.find((c) => c.id === checklistId);
+		if (!checklist?.tasks) return;
+
+		// 查找必填且未完成的任务
+		const incompleteRequiredTasks = checklist.tasks.filter(
+			(task: any) => task.isRequired !== false && !task.isCompleted
+		);
+
+		if (incompleteRequiredTasks.length > 0) {
+			const taskNames = incompleteRequiredTasks
+				.map((task: any) => task.name || `Task ${task.id}`)
+				.join(', ');
+			errors.push(
+				`${checklist.name}: ${incompleteRequiredTasks.length} required tasks not completed (${taskNames})`
+			);
+		}
+	});
+
+	return { isValid: errors.length === 0, errors };
+};
+
+// 文件组件数据校验函数
+const validateDocumentsData = async (
+	component: any
+): Promise<{ isValid: boolean; errors: string[] }> => {
+	if (component.key !== 'files') {
+		return { isValid: true, errors: [] };
+	}
+
+	try {
+		// 对于隐藏的文件组件，需要调用接口获取文件列表
+		// 因为隐藏组件不会渲染Documents组件，无法自动获取文件数据
+		const response = await getOnboardingFilesByStage(
+			onboardingId.value,
+			onboardingActiveStageInfo.value?.stageId || ''
+		);
+		const documents = response.code === '200' ? response.data || [] : [];
+
+		// 复用Documents.vue中的vailComponent逻辑
+		if (component.isEnabled && documents.length <= 0) {
+			return {
+				isValid: false,
+				errors: ['At least one document is required'],
+			};
+		}
+
+		return { isValid: true, errors: [] };
+	} catch (error) {
+		console.error('Error validating documents:', error);
+		// 出现错误时返回通过状态，不阻止其他校验
+		return { isValid: true, errors: [] };
+	}
+};
+
+// 隐藏组件校验错误接口
+interface HiddenValidationError {
+	componentType: string;
+	componentName: string;
+	errors: string[];
+}
+
+// 隐藏组件校验主函数
+const validateHiddenComponents = async (): Promise<{
+	isValid: boolean;
+	hiddenValidationErrors: HiddenValidationError[];
+}> => {
+	// 筛选出被隐藏的组件
+	const hiddenComponents = allComponents.value.filter(
+		(component) => component.customerPortalAccess === StageComponentPortal.Hidden
+	);
+
+	if (hiddenComponents.length === 0) {
+		return { isValid: true, hiddenValidationErrors: [] };
+	}
+
+	const allErrors: HiddenValidationError[] = [];
+
+	// 遍历所有隐藏组件进行校验
+	for (const component of hiddenComponents) {
+		let validationResult: { isValid: boolean; errors: string[] } = {
+			isValid: true,
+			errors: [],
+		};
+		let componentTypeName = '';
+
+		switch (component.key) {
+			case 'fields':
+				validationResult = await validateStaticFieldsData(component);
+				componentTypeName = 'Static Fields';
+				break;
+			case 'questionnaires':
+				validationResult = validateQuestionnaireData(component);
+				componentTypeName = 'Questionnaire';
+				break;
+			case 'checklist':
+				validationResult = validateChecklistData(component);
+				componentTypeName = 'Checklist';
+				break;
+			case 'files':
+				validationResult = await validateDocumentsData(component);
+				componentTypeName = 'Documents';
+				break;
+			default:
+				// 未知组件类型，跳过校验
+				continue;
+		}
+
+		if (!validationResult.isValid && validationResult.errors.length > 0) {
+			allErrors.push({
+				componentType: componentTypeName,
+				componentName: component.name || componentTypeName,
+				errors: validationResult.errors,
+			});
+		}
+	}
+
+	return {
+		isValid: allErrors.length === 0,
+		hiddenValidationErrors: allErrors,
+	};
+};
+
+// 友好错误提示函数
+const showHiddenComponentErrors = (errors: HiddenValidationError[]) => {
+	if (errors.length === 0) return;
+
+	const errorGroups = '';
+	// errors
+	// 	.map(
+	// 		(error) =>
+	// 			`<div class="mb-2">
+	//     <strong class="text-red-600">${error.componentType}:</strong>
+	//     <ul class="ml-4 mt-1">
+	//       ${error.errors.map((err) => `<li>• ${err}</li>`).join('')}
+	//     </ul>
+	//   </div>`
+	// 	)
+	// 	.join('');
+
+	const fullMessage = `
+    <div class="text-sm">
+      <p class="mb-3 text-gray-700">
+        Some hidden required fields need to be completed by administrators before this stage can be finished:
+      </p>
+      ${errorGroups}
+      <p class="mt-3 text-xs text-gray-500">
+        Please contact your administrator to complete these required items.
+      </p>
+    </div>
+  `;
+
+	ElNotification({
+		title: 'Hidden Required Fields Not Completed',
+		message: fullMessage,
+		type: 'warning',
+		duration: 12000,
+		dangerouslyUseHTMLString: true,
+		customClass: 'hidden-validation-notification',
+	});
 };
 
 // 事件处理函数
@@ -1257,7 +1756,6 @@ const isStageAccessible = (stageId: string): boolean => {
 	if (activeStage.value === stageId) {
 		return true;
 	}
-
 	// 查找目标阶段
 	const targetStage = workflowStages.value.find((stage) => stage.stageId === stageId);
 	if (!targetStage) {
@@ -1386,13 +1884,23 @@ const handleCompleteStage = async () => {
 					instance.confirmButtonText = 'Completing...';
 					completing.value = true;
 					try {
-						// 先保存所有表单数据
+						// 1. 先进行隐藏组件校验
+						const hiddenValidation = await validateHiddenComponents();
+						if (!hiddenValidation.isValid) {
+							showHiddenComponentErrors(hiddenValidation.hiddenValidationErrors);
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Complete Stage';
+							done();
+							return; // 不关闭对话框，让用户知道问题
+						}
+
+						// 2. 再进行常规可见组件校验和保存
 						const res = await saveAllForm();
 						if (!res) {
 							instance.confirmButtonLoading = false;
 							instance.confirmButtonText = 'Complete Stage';
 						} else {
-							// 保存成功后再完成阶段
+							// 3. 执行Complete Stage操作
 							const res = await completeCurrentStage(onboardingId.value, {
 								currentStageId: activeStage.value,
 							});
