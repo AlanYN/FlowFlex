@@ -14,7 +14,7 @@
 						class="!text-white hover:bg-white/10 p-2 transition-colors"
 						@click="handleEdit"
 						:icon="Edit"
-						:disabled="disabled"
+						:disabled="disabled || !currentStage?.startTime"
 					/>
 				</div>
 				<el-divider class="my-4" />
@@ -168,10 +168,12 @@ const displayETA = computed(() => {
 	}
 
 	try {
-		return timeZoneConvert(
-			props.currentStage?.customEndTime || '',
-			false,
-			projectTenMinutesSsecondsDate
+		return (
+			timeZoneConvert(
+				props.currentStage?.customEndTime || props.currentStage?.endTime || '',
+				false,
+				projectTenMinutesSsecondsDate
+			) || defaultStr
 		);
 	} catch (error) {
 		console.error('Error calculating ETA:', error);
