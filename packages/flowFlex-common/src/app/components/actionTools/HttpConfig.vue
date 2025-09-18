@@ -694,8 +694,8 @@
 											@click="formatRawContent"
 											:disabled="disabled || !formConfig.body.trim()"
 											class="format-btn"
+											:icon="DocumentCopy"
 										>
-											<el-icon><DocumentCopy /></el-icon>
 											Beautify
 										</el-button>
 									</div>
