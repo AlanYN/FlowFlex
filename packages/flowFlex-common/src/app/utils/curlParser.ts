@@ -430,6 +430,14 @@ export function parseCurl(curlCommand: string): ParsedCurlConfig {
 			// 清理数据：移除引号和不必要的转义字符
 			rawData = removeQuotes(rawData);
 
+			// 特殊处理 CMD JSON 格式
+			if (rawData && typeof rawData === 'string') {
+				// 检查是否是 CMD 格式的 JSON (包含 ^{ 或 ^[ 等)
+				if (rawData.includes('^{') || rawData.includes('^[') || rawData.includes('^\\^"')) {
+					rawData = processCmdJsonFormat('^"' + rawData + '^"').replace(/^"|"$/g, '');
+				}
+			}
+
 			// 进一步清理JSON数据中的格式问题
 			if (rawData && typeof rawData === 'string') {
 				// 移除可能的BOM和其他隐藏字符
