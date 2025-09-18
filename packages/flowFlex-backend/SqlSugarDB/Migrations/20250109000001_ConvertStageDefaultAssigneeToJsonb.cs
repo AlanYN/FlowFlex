@@ -124,6 +124,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             int migratedCount = 0;
             int errorCount = 0;
+            int nullifiedCount = 0;
 
             foreach (System.Data.DataRow row in stages.Rows)
             {
@@ -134,13 +135,20 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                     if (!string.IsNullOrWhiteSpace(assigneeString))
                     {
-                        List<string> assigneeList;
+                        List<string> assigneeList = null;
 
                         // Parse existing data (could be JSON or comma-separated)
                         if (assigneeString.TrimStart().StartsWith("["))
                         {
-                            // Already JSON format
-                            assigneeList = JsonSerializer.Deserialize<List<string>>(assigneeString);
+                            try
+                            {
+                                // Already JSON format
+                                assigneeList = JsonSerializer.Deserialize<List<string>>(assigneeString);
+                            }
+                            catch (JsonException)
+                            {
+                                Console.WriteLine($"Warning: Invalid JSON format for stage {id}, setting to null");
+                            }
                         }
                         else
                         {
@@ -164,16 +172,41 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                             migratedCount++;
                         }
+                        else
+                        {
+                            // Set to NULL for empty or invalid data
+                            db.Ado.ExecuteCommand(
+                                "UPDATE ff_stage SET default_assignee_jsonb = NULL WHERE id = @id",
+                                new { id = id }
+                            );
+                            nullifiedCount++;
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     errorCount++;
                     Console.WriteLine($"Error migrating stage {row["id"]}: {ex.Message}");
+                    
+                    // Set problematic records to NULL to prevent index issues
+                    try
+                    {
+                        var id = Convert.ToInt64(row["id"]);
+                        db.Ado.ExecuteCommand(
+                            "UPDATE ff_stage SET default_assignee_jsonb = NULL WHERE id = @id",
+                            new { id = id }
+                        );
+                        nullifiedCount++;
+                    }
+                    catch
+                    {
+                        // If even setting to NULL fails, log it
+                        Console.WriteLine($"Failed to nullify problematic record for stage {row["id"]}");
+                    }
                 }
             }
 
-            Console.WriteLine($"Data migration completed: {migratedCount} successful, {errorCount} errors");
+            Console.WriteLine($"Data migration completed: {migratedCount} successful, {errorCount} errors, {nullifiedCount} nullified");
         }
 
         /// <summary>
@@ -233,13 +266,15 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 db.Ado.ExecuteCommand(createIndexSql);
                 Console.WriteLine("Created GIN index for default_assignee JSONB column");
 
-                // Create index for array length queries
+                // Create index for array length queries with proper NULL and type checking
                 var createLengthIndexSql = @"
                     CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ff_stage_default_assignee_length 
-                    ON ff_stage (jsonb_array_length(default_assignee));
+                    ON ff_stage (jsonb_array_length(default_assignee)) 
+                    WHERE default_assignee IS NOT NULL 
+                    AND jsonb_typeof(default_assignee) = 'array';
                 ";
                 db.Ado.ExecuteCommand(createLengthIndexSql);
-                Console.WriteLine("Created array length index for default_assignee");
+                Console.WriteLine("Created array length index for default_assignee with type checking");
             }
             catch (Exception ex)
             {

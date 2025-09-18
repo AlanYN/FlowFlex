@@ -254,6 +254,8 @@ namespace FlowFlex.Application.Services.OW
         public async Task<List<StaticFieldValueOutputDto>> GetByOnboardingIdAsync(long onboardingId)
         {
             List<StaticFieldValue> entities = await _staticFieldValueRepository.GetByOnboardingIdAsync(onboardingId);
+            // Filter out records with StageId = 0
+            entities = entities.Where(e => e.StageId != 0).ToList();
             return _mapper.Map<List<StaticFieldValueOutputDto>>(entities);
         }
 
