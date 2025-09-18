@@ -634,9 +634,9 @@ const getPortalPermissionIcon = (permission?: number) => {
 // 获取Portal权限工具提示文本
 const getPortalPermissionTooltip = (permission?: number) => {
 	if (permission === PortalPermissionEnum.Completable) {
-		return 'Completable in portal';
+		return 'Available in portal (Completable)';
 	}
-	return 'Viewable only in portal';
+	return 'Available in portal (view only)';
 };
 </script>
 
