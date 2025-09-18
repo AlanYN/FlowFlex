@@ -21,7 +21,10 @@
 					:loading="exportLoading"
 					:icon="Download"
 				>
-					<span>Export</span>
+					<span>
+						Export
+						{{ selectedActions.length > 0 ? `(${selectedActions.length})` : 'All' }}
+					</span>
 				</el-button>
 				<el-button
 					class="page-header-btn page-header-btn-primary"
