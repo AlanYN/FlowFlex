@@ -4764,7 +4764,17 @@ namespace FlowFlex.Application.Services.OW
                         // Populate fields from Stage entity
                         stageProgress.StageName = stage.Name;
                         stageProgress.StageDescription = stage.Description;
-                        stageProgress.EstimatedDays = stage.EstimatedDuration;
+                        
+                        // IMPORTANT: Only update EstimatedDays if CustomEstimatedDays is not set
+                        // This preserves the custom values set by users and maintains the correct priority:
+                        // CustomEstimatedDays > EstimatedDays (from Stage)
+                        if (!stageProgress.CustomEstimatedDays.HasValue)
+                        {
+                            stageProgress.EstimatedDays = stage.EstimatedDuration;
+                        }
+                        // If CustomEstimatedDays exists, EstimatedDays should show the custom value
+                        // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
+                        
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
