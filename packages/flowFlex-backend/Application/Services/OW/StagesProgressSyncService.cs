@@ -601,6 +601,9 @@ namespace FlowFlex.Application.Services.OW
                     p.CompletedBy,
                     p.Notes,
                     p.IsCurrent,
+                    // IMPORTANT: Preserve custom fields to prevent data loss during sync
+                    p.CustomEstimatedDays,
+                    p.CustomEndTime,
                     // Preserve AI Summary fields to prevent data loss during sync
                     p.AiSummary,
                     p.AiSummaryGeneratedAt,
