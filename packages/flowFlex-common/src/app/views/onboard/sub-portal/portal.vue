@@ -467,6 +467,7 @@ import AISummary from '../onboardingList/components/AISummary.vue';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { StageComponentPortal } from '@/enums/appEnum';
 import GradientTag from '@/components/global/GradientTag/index.vue';
+import { PortalPermissionEnum } from '@/enums/portalPermissionEnum';
 
 // 图标组件
 const HomeIcon = {
@@ -615,7 +616,10 @@ const currentStageTitle = computed(() => {
 
 const stagePortalPermission = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
-	return currentStage?.portalPermission == 1 || currentStage?.isCompleted ? true : false;
+	return currentStage?.portalPermission == PortalPermissionEnum.Viewable ||
+		currentStage?.isCompleted
+		? true
+		: false;
 });
 
 // 状态显示映射
