@@ -119,7 +119,9 @@
 		<!-- 选择弹窗 -->
 		<el-dialog
 			v-model="modalVisible"
-			title="Select Users"
+			:title="`${selectionType === 'user' ? 'Select User' : 'Select Team'}${
+				maxCount != 1 ? 's' : ''
+			}`"
 			:width="800"
 			:before-close="handleModalClose"
 			append-to-body
