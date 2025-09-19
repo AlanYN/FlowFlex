@@ -1,24 +1,23 @@
 <template>
 	<div class="ai-workflow-page">
 		<!-- Page Header -->
-		<div class="page-header mb-6">
-			<div class="flex items-center justify-between">
-				<div>
-					<h1 class="text-2xl font-bold text-gray-900">AI Workflow Generator</h1>
-					<p class="text-gray-600 mt-1">
-						Use artificial intelligence to quickly create and optimize workflows
-					</p>
-				</div>
-				<div class="flex space-x-2">
-					<el-button @click="showAIConfig" type="success">
-						<el-icon class="mr-1">
-							<Setting />
-						</el-icon>
-						AI Model Config
-					</el-button>
-				</div>
-			</div>
-		</div>
+
+		<PageHeader
+			title="AI Workflow Generator"
+			description="Use artificial intelligence to quickly create and optimize workflows"
+		>
+			<template #actions>
+				<el-button
+					@click="showAIConfig"
+					type="primary"
+					size="default"
+					class="page-header-btn page-header-btn-primary"
+					:icon="Setting"
+				>
+					AI Model Config
+				</el-button>
+			</template>
+		</PageHeader>
 
 		<div class="grid grid-cols-12 gap-6">
 			<!-- AI Generator -->
@@ -125,6 +124,7 @@ import { useRouter } from 'vue-router';
 // Components
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import AIWorkflowGenerator from '@/components/ai/AIWorkflowGenerator.vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import AIModelConfig from './ai-config.vue';
 
 // APIs
@@ -225,54 +225,8 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .ai-workflow-page {
-	padding: 24px;
 	max-width: 1400px;
 	margin: 0 auto;
-}
-
-.page-header {
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	color: white;
-	padding: 24px;
-	margin-bottom: 24px;
-	@apply rounded-xl;
-}
-
-.page-header h1,
-.page-header p {
-	color: white;
-}
-
-.grid {
-	display: grid;
-}
-
-.grid-cols-12 {
-	grid-template-columns: repeat(12, minmax(0, 1fr));
-}
-
-.col-span-8 {
-	grid-column: span 8 / span 8;
-}
-
-.col-span-4 {
-	grid-column: span 4 / span 4;
-}
-
-.col-span-12 {
-	grid-column: span 12 / span 12;
-}
-
-.gap-6 {
-	gap: 1.5rem;
-}
-
-.space-y-3 > * + * {
-	margin-top: 0.75rem;
-}
-
-.space-y-4 > * + * {
-	margin-top: 1rem;
 }
 
 .transition-colors {
