@@ -1,4 +1,6 @@
-:root.sub-app-body {
+/* 使用多选择器减少重复代码 */
+:root,
+.flowflex-app {
 	--black-5: #ffffff0d;
 	--black-10: #ffffff1a;
 	--black-20: #ffffff33;
@@ -20,7 +22,9 @@
 	--el-border-color-light: #e4e7ed;
 }
 
-:root.dark.sub-app-body {
+/* 暗色主题变量 */
+:root.dark,
+.flowflex-app.dark {
 	--black-5: #0000000d;
 	--black-10: #0000001a;
 	--black-20: #00000033;
@@ -43,7 +47,9 @@
 	--el-border-radius-base: 12px;
 }
 
-:root.blue.sub-app-body {
+/* 蓝色主题变量 */
+:root.blue,
+.flowflex-app.blue {
 	--primary-10: #eff6ff;
 	--primary-50: #e6f1fa;
 	--primary-100: #cce2f6;
@@ -59,7 +65,9 @@
 	--primary-500-rgb: 0, 110, 208; // RGB 值
 }
 
-:root.pruple.sub-app-body {
+/* 紫色主题变量 */
+:root.purple,
+.flowflex-app.purple {
 	--primary-10: #f5f3ff;
 	--primary-50: #e9d9fd;
 	--primary-100: #d3b2fa;
