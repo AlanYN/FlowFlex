@@ -436,7 +436,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick, watch, onBeforeUpdate } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Loading, Check, Document } from '@element-plus/icons-vue';
 import {
 	getOnboardingByLead,
@@ -1370,13 +1370,14 @@ const showHiddenComponentErrors = (errors: HiddenValidationError[]) => {
     </div>
   `;
 
-	ElNotification({
-		title: 'Hidden Required Fields Not Completed',
-		message: fullMessage,
+	ElMessageBox.alert(fullMessage, 'Hidden Required Fields Not Completed', {
 		type: 'warning',
-		duration: 12000,
 		dangerouslyUseHTMLString: true,
 		customClass: 'hidden-validation-notification',
+		confirmButtonText: 'Confirm',
+		showCancelButton: false,
+		closeOnClickModal: false,
+		closeOnPressEscape: true,
 	});
 };
 
