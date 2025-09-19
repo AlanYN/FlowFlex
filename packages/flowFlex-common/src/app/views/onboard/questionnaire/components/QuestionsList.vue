@@ -95,7 +95,10 @@
 													</div>
 												</el-dropdown-item>
 												<el-dropdown-item
-													v-if="item.type === 'multiple_choice'"
+													v-if="
+														item.type === 'multiple_choice' &&
+														setGoToSection
+													"
 													@click="openJumpRuleEditor(index)"
 													divided
 												>
@@ -340,6 +343,7 @@ interface Props {
 	questionTypes: QuestionType[];
 	sections: Section[];
 	currentSectionIndex: number;
+	setGoToSection?: boolean;
 }
 
 const props = defineProps<Props>();
