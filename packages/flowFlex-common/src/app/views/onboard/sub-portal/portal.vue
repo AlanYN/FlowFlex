@@ -205,9 +205,9 @@
 					</PageHeader>
 
 					<!-- 主要内容区域 -->
-					<div class="flex gap-6">
+					<div class="flex w-full">
 						<!-- 左侧阶段详情 (2/3 宽度) -->
-						<div class="flex-[2] min-w-0 overflow-hidden">
+						<div class="flex-[2] min-w-0 overflow-hidden customer-block">
 							<div
 								class="rounded-xl el-card is-always-shadow rounded-xl el-card__header"
 							>
@@ -217,8 +217,8 @@
 									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 								</div>
 							</div>
-							<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
-								<div class="space-y-6 mt-4">
+							<el-scrollbar ref="leftScrollbarRef" class="h-full px-2">
+								<div class="space-y-4 mt-4">
 									<!-- AI Summary 组件 -->
 									<AISummary
 										:show-a-i-summary-section="showAISummarySection"
@@ -349,26 +349,18 @@
 
 						<!-- 右侧进度和笔记 (1/3 宽度) -->
 						<div class="flex-1">
-							<el-scrollbar ref="rightScrollbarRef" class="h-full pr-4">
-								<div class="space-y-6">
+							<el-scrollbar ref="rightScrollbarRef" class="h-full">
+								<div class="space-y-4">
 									<!-- OnboardingProgress组件 -->
-									<div class="rounded-xl overflow-hidden">
-										<OnboardingProgress
-											v-if="onboardingData && onboardingId"
-											:active-stage="activeStage"
-											:onboarding-data="onboardingData"
-											:workflow-stages="workflowStages"
-											@set-active-stage="setActiveStageWithData"
-											@stage-completed="loadOnboardingDetail"
-											class="bg-white dark:bg-black-300 rounded-xl shadow-lg border border-gray-200 dark:border-gray-600"
-										/>
-									</div>
-
-									<!-- 笔记区域 -->
-									<!-- <div class="rounded-xl overflow-hidden">
-										<InternalNotes v-if="activeStage && onboardingId" :onboarding-id="onboardingId"
-											:stage-id="activeStage" @note-added="handleNoteAdded" />
-									</div> -->
+									<OnboardingProgress
+										v-if="onboardingData && onboardingId"
+										:active-stage="activeStage"
+										:onboarding-data="onboardingData"
+										:workflow-stages="workflowStages"
+										@set-active-stage="setActiveStageWithData"
+										@stage-completed="loadOnboardingDetail"
+										class="bg-white dark:bg-black-300 rounded-xl shadow-lg border border-gray-200 dark:border-gray-600"
+									/>
 								</div>
 							</el-scrollbar>
 						</div>
