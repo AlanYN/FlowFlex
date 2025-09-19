@@ -1,6 +1,3 @@
-// import * as curlconverter from 'curlconverter';
-import parser from 'yargs-parser/browser';
-
 // 长选项替换映射（完全参考Hoppscotch）
 const replaceables: Record<string, string> = {
 	'--request': '-X',
@@ -20,30 +17,48 @@ const replaceables: Record<string, string> = {
  */
 function processCmdJsonFormat(text: string): string {
 	// 处理 Windows CMD 格式的 JSON 转义
-	// 例如：^"^[^\^"1958417766709071872^\^"^]^" -> ["1958417766709071872"]
-	// 或者：^"{\n    \"Data\": {\n        \"UserName\": \"...\"\n    }\n}^" -> 标准JSON
+	// 例如：^"^{^\^"key^\^":^\^"value^\^"^}^" -> {"key":"value"}
+	// 复杂格式：^{"workflowId":"123","array":^["item1","item2"^]^}
 
 	let result = text;
 
-	// 处理数组格式：^"^[^\^"content^\^"^]^" -> ["content"]
-	const arrayPattern = /\^"\^\[\^\\\^"([^"]*?)\^\\\^"\^\]\^"/g;
-	result = result.replace(arrayPattern, '["$1"]');
+	console.log('processCmdJsonFormat 输入:', result.substring(0, 200) + '...');
 
-	// 处理简单的整体引用格式：^"content^" -> content (但保留内部的转义)
-	// 这种情况下，内容可能是一个复杂的 JSON 对象
-	const simplePattern = /^\^"(.+)\^"$/s;
-	if (simplePattern.test(result)) {
-		result = result.replace(simplePattern, '$1');
-
-		// 进一步清理内部的 CMD 转义
-		result = result
-			.replace(/\^\\\^"/g, '"') // 处理内部的 ^\^" -> "
-			.replace(/\^"/g, '"') // 处理简单的 ^" -> "
-			.replace(/\^'/g, "'") // 处理简单的 ^' -> '
-			.replace(/\\\n/g, '\n') // 处理转义的换行符
-			.replace(/\^%/g, '%') // 处理 ^% -> %
-			.replace(/\^&/g, '&'); // 处理 ^& -> &
+	// 首先移除最外层的 ^"...^" 包装（如果存在）
+	if (result.startsWith('^"') && result.endsWith('^"')) {
+		result = result.slice(2, -2);
+		console.log('移除外层包装后:', result.substring(0, 100) + '...');
 	}
+
+	// 按顺序处理各种 CMD 转义模式
+	// 1. 处理最复杂的 ^\^" 模式 -> "
+	result = result.replace(/\^\\\^"/g, '"');
+
+	// 2. 处理 ^{ 和 ^} 模式
+	result = result.replace(/\^\{/g, '{');
+	result = result.replace(/\^\}/g, '}');
+
+	// 3. 处理 ^[ 和 ^] 模式
+	result = result.replace(/\^\[/g, '[');
+	result = result.replace(/\^\]/g, ']');
+
+	// 4. 处理 ^: 模式 -> :
+	result = result.replace(/\^:/g, ':');
+
+	// 5. 处理 ^, 模式 -> ,
+	result = result.replace(/\^,/g, ',');
+
+	// 6. 处理简单的 ^" 模式 -> "
+	result = result.replace(/\^"/g, '"');
+	// 7. 处理其他转义字符
+	result = result
+		.replace(/\^'/g, "'") // 处理 ^' -> '
+		.replace(/\\\n/g, '\n') // 处理转义的换行符
+		.replace(/\^%/g, '%') // 处理 ^% -> %
+		.replace(/\^&/g, '&') // 处理 ^& -> &
+		.replace(/\^#/g, '#'); // 处理 ^# -> #
+
+	console.log('processCmdJsonFormat 输出:', result.substring(0, 200) + '...');
 
 	return result;
 }
@@ -151,215 +166,6 @@ function removeQuotes(str: string): string {
 	return cleaned;
 }
 
-/**
- * 解析单个header字符串为键值对（参考Hoppscotch，增强引号处理）
- */
-function getHeaderPair(headerString: string): [string, string] | null {
-	// 先移除整个header字符串的首尾引号
-	const cleanHeader = removeQuotes(headerString);
-
-	// 查找第一个冒号的位置来分割key和value
-	const colonIndex = cleanHeader.indexOf(':');
-	if (colonIndex === -1) {
-		return null;
-	}
-
-	// 分割key和value
-	let key = cleanHeader.substring(0, colonIndex).trim();
-	let value = cleanHeader.substring(colonIndex + 1).trim();
-
-	// 递归移除key和value中的引号
-	key = removeQuotes(key);
-	value = removeQuotes(value);
-
-	// 确保key不为空
-	if (!key) {
-		return null;
-	}
-
-	return [key, value];
-}
-
-/**
- * 从yargs-parser结果中提取HTTP请求头（完全参考Hoppscotch的实现）
- * @param args yargs-parser解析结果
- * @returns HTTP请求头对象和原始Content-Type
- */
-function extractHeaders(args: any): { headers: Record<string, string>; rawContentType: string } {
-	const headers: Record<string, string> = {};
-
-	// 处理-H选项（参考Hoppscotch的逻辑）
-	let headerStrings: string[] = [];
-
-	if (typeof args.H === 'string') {
-		headerStrings = [args.H];
-	} else if (Array.isArray(args.H)) {
-		headerStrings = args.H;
-	}
-
-	// 解析所有header字符串
-	headerStrings.forEach((headerString) => {
-		const pair = getHeaderPair(headerString);
-		if (pair) {
-			headers[pair[0]] = pair[1];
-		}
-	});
-
-	// 处理User-Agent（参考Hoppscotch）
-	if (args.A || args['user-agent']) {
-		headers['User-Agent'] = args.A ?? args['user-agent'];
-	}
-
-	// 获取原始Content-Type
-	const rawContentType = headers['Content-Type'] ?? headers['content-type'] ?? '';
-
-	return {
-		headers,
-		rawContentType,
-	};
-}
-
-/**
- * 从-X参数获取HTTP方法（参考Hoppscotch）
- */
-function getMethodFromXArg(args: any): string | null {
-	if (typeof args.X === 'string') {
-		const xarg = args.X.trim();
-		const methodMatch = xarg.match(/GET|POST|PUT|PATCH|DELETE|HEAD|CONNECT|OPTIONS|TRACE/i);
-		if (methodMatch) {
-			return methodMatch[0];
-		}
-		// 如果没有匹配到标准方法，尝试匹配任何字母
-		const anyMethodMatch = xarg.match(/[a-zA-Z]+/);
-		if (anyMethodMatch) {
-			return anyMethodMatch[0];
-		}
-	}
-	return null;
-}
-
-/**
- * 通过其他参数推断HTTP方法（参考Hoppscotch）
- */
-function getMethodByDeduction(args: any): string | null {
-	// 如果有上传文件参数，推断为PUT
-	if (args.T || args['upload-file']) {
-		return 'PUT';
-	}
-	// 如果有head参数，推断为HEAD
-	if (args.I || args.head) {
-		return 'HEAD';
-	}
-	// 如果有-G参数，推断为GET
-	if (args.G) {
-		return 'GET';
-	}
-	// 如果有数据或表单参数，推断为POST
-	if (args.d || args.F) {
-		return 'POST';
-	}
-	return null;
-}
-
-/**
- * 提取HTTP方法（完全参考Hoppscotch的实现）
- */
-function extractMethod(args: any): string {
-	// 首先尝试从-X参数获取
-	const methodFromX = getMethodFromXArg(args);
-	if (methodFromX) {
-		return methodFromX;
-	}
-
-	// 然后尝试通过其他参数推断
-	const methodByDeduction = getMethodByDeduction(args);
-	if (methodByDeduction) {
-		return methodByDeduction;
-	}
-
-	// 默认返回GET
-	return 'GET';
-}
-
-/**
- * 检查URL是否有效
- */
-function isURLValid(urlString: string): boolean {
-	try {
-		new URL(urlString);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-/**
- * 为本地URL添加协议
- */
-function getProtocolFromURL(url: string): string {
-	const match = /^([^\s:@]+:[^\s:@]+@)?([^:/\s]+)([:]*)/.exec(url);
-	if (match && match.length > 1) {
-		const baseUrl = match[2];
-		// 为本地URL设置http协议
-		if (
-			baseUrl === 'localhost' ||
-			baseUrl === '2130706433' ||
-			/127(\.0){0,2}\.1/.test(baseUrl) ||
-			/192\.168(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){2}/.test(baseUrl) ||
-			/10(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}/.test(baseUrl)
-		) {
-			return 'http://' + url;
-		} else {
-			return 'https://' + url;
-		}
-	}
-	return url;
-}
-
-/**
- * 解析URL字符串
- */
-function parseURL(urlText: string | number): URL | null {
-	if (!urlText) return null;
-
-	// 预处理URL字符串
-	let urlString = urlText
-		.toString()
-		.replace(/^'|'$/g, '') // 移除首尾引号
-		.replace(/[^a-zA-Z0-9_\-./?&=:@%+#,;()'<>\s]/g, ''); // 移除特殊字符
-
-	if (urlString.length === 0) return null;
-
-	// 检查是否有协议
-	if (!/^[^:\s]+(?=:\/\/)/.test(urlString)) {
-		urlString = getProtocolFromURL(urlString);
-	}
-
-	if (isURLValid(urlString)) {
-		return new URL(urlString);
-	}
-
-	return null;
-}
-
-/**
- * 提取URL对象（参考Hoppscotch的实现）
- */
-function extractURL(args: any): URL {
-	// 从非选项参数中查找URL（跳过第一个参数，通常是curl命令本身）
-	const urlCandidates = [...args._.slice(1), args.location].filter(Boolean);
-
-	for (const candidate of urlCandidates) {
-		const url = parseURL(candidate);
-		if (url) {
-			return url;
-		}
-	}
-
-	// 如果没有找到有效URL，返回默认URL
-	return new URL('');
-}
-
 export interface ParsedCurlConfig {
 	url: string;
 	method: string;
@@ -372,60 +178,120 @@ export interface ParsedCurlConfig {
 	rawFormat?: string;
 }
 
+/**
+ * 基于正则表达式的 curl 解析器（替代 yargs-parser）
+ */
+function parseCurlWithRegex(curlCommand: string): {
+	url: string;
+	method: string;
+	headers: Record<string, string>;
+	data: string | null;
+} {
+	const result = {
+		url: '',
+		method: 'GET',
+		headers: {} as Record<string, string>,
+		data: null as string | null,
+	};
+
+	// 1. 提取 URL
+	const urlPatterns = [
+		// 匹配引号包围的 URL
+		/curl\s+["']([^"']+)["']/,
+		// 匹配非引号的 URL (第一个非选项参数)
+		/curl\s+([^\s-][^\s]*?)(?=\s+-|$)/,
+	];
+
+	for (const pattern of urlPatterns) {
+		const urlMatch = curlCommand.match(pattern);
+		if (urlMatch) {
+			result.url = removeQuotes(urlMatch[1]);
+			break;
+		}
+	}
+
+	// 2. 提取 HTTP 方法
+	const methodMatch = curlCommand.match(/-X\s+["']?([A-Z]+)["']?/i);
+	if (methodMatch) {
+		result.method = methodMatch[1].toUpperCase();
+	}
+
+	// 3. 提取所有头部信息
+	const headerPattern = /-H\s+["']([^"']+)["']/g;
+	let headerMatch;
+	while ((headerMatch = headerPattern.exec(curlCommand)) !== null) {
+		const headerStr = headerMatch[1];
+		const colonIndex = headerStr.indexOf(':');
+		if (colonIndex !== -1) {
+			const key = headerStr.substring(0, colonIndex).trim();
+			const value = headerStr.substring(colonIndex + 1).trim();
+			result.headers[key] = value;
+		}
+	}
+
+	// 4. 提取数据内容
+	const dataPatterns = [
+		/--data-raw\s+(.+?)(?=\s+-[a-zA-Z]|$)/s,
+		/-d\s+(.+?)(?=\s+-[a-zA-Z]|$)/s,
+		/--data\s+(.+?)(?=\s+-[a-zA-Z]|$)/s,
+	];
+
+	for (const pattern of dataPatterns) {
+		const dataMatch = curlCommand.match(pattern);
+		if (dataMatch) {
+			result.data = dataMatch[1].trim();
+			break;
+		}
+	}
+
+	console.log('正则表达式解析结果:');
+	console.log('URL:', result.url);
+	console.log('Method:', result.method);
+	console.log('Headers count:', Object.keys(result.headers).length);
+	console.log('Data length:', result.data ? result.data.length : 'null');
+	if (result.data) {
+		console.log('Data preview:', result.data.substring(0, 100) + '...');
+	}
+
+	return result;
+}
+
 export function parseCurl(curlCommand: string): ParsedCurlConfig {
 	try {
 		// 清理curl命令，移除多余的空白字符
-		const cleanCommand = preProcessCurlCommand(curlCommand);
+		const preprocessedCommand = preProcessCurlCommand(curlCommand);
 
-		if (!cleanCommand) {
+		if (!preprocessedCommand) {
 			throw new Error('cURL command cannot be empty');
 		}
 
-		// 使用yargs-parser解析curl命令，替代JSON.parse
-		const args = parser(cleanCommand);
+		// 使用基于正则表达式的解析器
+		const parsed = parseCurlWithRegex(preprocessedCommand);
 
-		// 使用Hoppscotch风格的提取函数
-		const urlObj = extractURL(args);
+		// 解析 URL 和查询参数
+		const urlObj = parsed.url ? new URL(parsed.url) : new URL('');
 		const params: Record<string, string> = {};
 		urlObj.searchParams.forEach((value, key) => {
 			params[key] = value;
 		});
 
-		// 提取HTTP请求头
-		const headerResult = extractHeaders(args);
-		const headers = headerResult.headers;
-		const rawContentType = headerResult.rawContentType;
+		// 使用解析出的 headers
+		const headers = parsed.headers;
+		const rawContentType = headers['Content-Type'] || headers['content-type'] || '';
 
-		// 提取HTTP方法
-		const method = extractMethod(args);
+		// 使用解析出的 method
+		const method = parsed.method;
 
-		// 简化的body处理（使用rawContentType来推断格式）
+		// 处理 body 数据
 		let bodyType: ParsedCurlConfig['bodyType'] = 'none';
 		let formData: Record<string, string> | undefined;
 		let urlEncoded: Record<string, string> | undefined;
 		let rawBody: string | undefined;
 		let rawFormat = 'json';
 
-		// 检查是否有form数据
-		const formArgs = args.F || args.form;
-		if (formArgs) {
-			bodyType = 'form-data';
-			formData = {};
-			const formList = Array.isArray(formArgs) ? formArgs : [formArgs];
-			formList.forEach((formItem: string) => {
-				if (formItem && typeof formItem === 'string') {
-					const [key, ...valueParts] = formItem.split('=');
-					if (key && formData) {
-						formData[key] = valueParts.join('=') || '';
-					}
-				}
-			});
-		}
-
-		// 检查是否有data数据
-		const dataArgs = args.d || args.data;
-		if (dataArgs && !formArgs) {
-			let rawData = Array.isArray(dataArgs) ? dataArgs.join('') : dataArgs;
+		// 检查是否有数据
+		if (parsed.data) {
+			let rawData = parsed.data;
 
 			// 清理数据：移除引号和不必要的转义字符
 			rawData = removeQuotes(rawData);
@@ -433,8 +299,15 @@ export function parseCurl(curlCommand: string): ParsedCurlConfig {
 			// 特殊处理 CMD JSON 格式
 			if (rawData && typeof rawData === 'string') {
 				// 检查是否是 CMD 格式的 JSON (包含 ^{ 或 ^[ 等)
-				if (rawData.includes('^{') || rawData.includes('^[') || rawData.includes('^\\^"')) {
-					rawData = processCmdJsonFormat('^"' + rawData + '^"').replace(/^"|"$/g, '');
+				if (
+					rawData.includes('^{') ||
+					rawData.includes('^[') ||
+					rawData.includes('^\\^"') ||
+					rawData.includes('^"')
+				) {
+					console.log('检测到 CMD 格式，开始处理转义...');
+					// 不需要添加额外的引号，直接处理
+					rawData = processCmdJsonFormat(rawData);
 				}
 			}
 
