@@ -10,7 +10,7 @@ export default {
 	],
 	// 添加作用域前缀，确保 Tailwind 样式只作用于我们的应用
 	prefix: '',
-	important: '.flowflex-app',
+	important: ['.sub-app-body', '.flowflex-app'],
 	theme: {
 		extend: {
 			colors: {

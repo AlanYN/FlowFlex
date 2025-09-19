@@ -608,13 +608,13 @@
 														]
 													"
 													:disabled="
-														!previewData[
+														previewData[
 															getGridKey(
 																sectionIndex,
 																itemIndex,
 																rowIndex
 															)
-														]
+														] != (column.value || column.label)
 													"
 													placeholder="Enter other"
 													size="small"
@@ -677,7 +677,9 @@
 													previewData[
 														getGridKey(
 															sectionIndex,
-															column.id,
+															column?.id ||
+																column?.temporaryId ||
+																column?.label,
 															rowIndex
 														)
 													]
