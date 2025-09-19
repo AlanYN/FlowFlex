@@ -8,6 +8,9 @@ export default {
 		'./src/**/*.{js,ts,vue}',
 		'./node_modules/tw-elements/dist/js/**/*.js',
 	],
+	// 添加作用域前缀，确保 Tailwind 样式只作用于我们的应用
+	prefix: '',
+	important: '.flowflex-app',
 	theme: {
 		extend: {
 			colors: {
