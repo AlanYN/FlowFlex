@@ -138,19 +138,6 @@
 												Resume
 											</el-dropdown-item>
 
-											<!-- Force Complete - 对进行中状态和暂停状态显示 -->
-											<el-dropdown-item
-												v-if="
-													isInProgressStatus(row.status) ||
-													row.status === 'Paused'
-												"
-												@click="handleForceComplete(row)"
-												class="text-green-500"
-											>
-												<el-icon><Check /></el-icon>
-												Force Complete
-											</el-dropdown-item>
-
 											<!-- Abort - 对进行中状态和暂停状态显示 -->
 											<el-dropdown-item
 												v-if="
