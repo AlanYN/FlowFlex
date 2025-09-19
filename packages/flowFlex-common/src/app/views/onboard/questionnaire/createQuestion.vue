@@ -192,6 +192,7 @@
 										:question-types="questionTypes"
 										:sections="sectionsForJumpRules"
 										:current-section-index="currentSectionIndex"
+										:setGoToSection="showSectionManagement"
 										@remove-question="handleRemoveQuestion"
 										@edit-question="handleEditQuestion"
 										@drag-end="handleQuestionDragEnd"
