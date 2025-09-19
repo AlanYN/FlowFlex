@@ -1,15 +1,9 @@
-// FlowFlex 应用根容器样式
-.flowflex-app {
+body {
 	font-size: 16px;
-	font-family: 'Helvetica Now', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	font-family: 'Helvetica Now';
 	width: auto;
-	height: 100%;
+  height: 100%;
 	position: relative;
-	
-	// 确保所有样式都在 .flowflex-app 作用域内
-	* {
-		box-sizing: border-box;
-	}
 }
 
 .search-form {
