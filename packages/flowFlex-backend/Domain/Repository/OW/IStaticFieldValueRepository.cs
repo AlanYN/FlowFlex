@@ -33,6 +33,14 @@ namespace FlowFlex.Domain.Repository.OW
         Task<StaticFieldValue?> GetByOnboardingStageAndFieldAsync(long onboardingId, long stageId, string fieldName);
 
         /// <summary>
+        /// Get static field value by Onboarding ID and field name (ignore Stage ID)
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="fieldName">Field name</param>
+        /// <returns>Static field value</returns>
+        Task<StaticFieldValue?> GetByOnboardingAndFieldAsync(long onboardingId, string fieldName);
+
+        /// <summary>
         /// Get latest version of static field values
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
