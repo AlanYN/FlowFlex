@@ -1,7 +1,9 @@
 <template>
-	<ElConfigProvider :popup-container="getPopupContainer">
-		<router-view :key="routeKey" />
-	</ElConfigProvider>
+	<div class="flowflex-app" id="flowflex-root">
+		<ElConfigProvider :popup-container="getPopupContainer">
+			<router-view :key="routeKey" />
+		</ElConfigProvider>
+	</div>
 </template>
 
 <script lang="ts" setup>
