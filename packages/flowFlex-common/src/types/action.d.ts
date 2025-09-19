@@ -46,6 +46,7 @@ export interface ActionQueryRequest {
 	pageSize?: number;
 	isTools?: boolean;
 	isSystemTools?: boolean;
+	actionIds?: string; // Comma-separated list of action IDs for selected export
 }
 
 export interface ApiResponse<T> {

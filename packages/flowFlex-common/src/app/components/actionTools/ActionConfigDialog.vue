@@ -832,7 +832,7 @@ defineExpose({
 .variables-toggle-external {
 	position: fixed;
 	left: v-bind(buttonLeftPosition);
-	top: 10vh;
+	top: 10rem;
 	transform: translateY(-50%);
 	z-index: v-bind(variablesButtonZIndex);
 	transition: left 0.3s ease;

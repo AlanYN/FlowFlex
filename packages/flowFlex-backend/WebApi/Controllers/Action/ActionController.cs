@@ -233,9 +233,17 @@ namespace FlowFlex.WebApi.Controllers.Action
         }
 
         /// <summary>
-        /// Export factoring company
+        /// Export action definitions
         /// </summary>
-        /// <param name="request">Export request parameters</param>
+        /// <param name="search">Search keyword</param>
+        /// <param name="actionType">Action type filter</param>
+        /// <param name="isAssignmentStage">Assignment stage filter</param>
+        /// <param name="isAssignmentChecklist">Assignment checklist filter</param>
+        /// <param name="isAssignmentQuestionnaire">Assignment questionnaire filter</param>
+        /// <param name="isAssignmentWorkflow">Assignment workflow filter</param>
+        /// <param name="isTools">Tools filter</param>
+        /// <param name="isSystemTools">System tools filter</param>
+        /// <param name="actionIds">Comma-separated list of action IDs for selected export</param>
         /// <returns>Exported file</returns>
         [HttpGet("definitions/export")]
         [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
@@ -247,7 +255,8 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
             bool? isTools = null,
-            bool? isSystemTools = null)
+            bool? isSystemTools = null,
+            string? actionIds = null)
         {
             // If isSystemTools is true, override actionType to System and ignore isTools
             if (isSystemTools == true)
@@ -262,7 +271,8 @@ namespace FlowFlex.WebApi.Controllers.Action
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
                 isAssignmentWorkflow,
-                isTools), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Action_{DateTimeOffset.Now.LocalDateTime:yyyyMMddHHmmss}.xlsx");
+                isTools,
+                actionIds), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Action_{DateTimeOffset.Now.LocalDateTime:yyyyMMddHHmmss}.xlsx");
         }
 
         #endregion

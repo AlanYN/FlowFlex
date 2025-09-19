@@ -317,6 +317,27 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
 
             return await query.ToListAsync();
         }
+
+        /// <summary>
+        /// Get action definitions by IDs
+        /// </summary>
+        /// <param name="ids">List of action definition IDs</param>
+        /// <returns>List of action definitions</returns>
+        public async Task<List<ActionDefinition>> GetByIdsAsync(List<long> ids)
+        {
+            if (ids == null || !ids.Any())
+            {
+                return new List<ActionDefinition>();
+            }
+
+            return await db.Queryable<ActionDefinition>()
+                .Where(x => x.IsValid
+                         && x.TenantId == _userContext.TenantId
+                         && x.AppCode == _userContext.AppCode)
+                .In(x => x.Id, ids)
+                .OrderBy(x => x.ActionName)
+                .ToListAsync();
+        }
     }
 
 }

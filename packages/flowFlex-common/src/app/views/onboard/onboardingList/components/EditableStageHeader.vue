@@ -14,7 +14,7 @@
 						class="!text-white hover:bg-white/10 p-2 transition-colors"
 						@click="handleEdit"
 						:icon="Edit"
-						:disabled="disabled"
+						:disabled="disabled || !currentStage?.startTime"
 					/>
 				</div>
 				<el-divider class="my-4" />
@@ -79,6 +79,8 @@
 							placeholder="Enter days"
 							class="w-full stage-edit-input"
 							:disabled="saving"
+							:decimalPlaces="2"
+							:minNumber="0.01"
 							@change="handleEstimatedDaysChange"
 						/>
 					</div>
@@ -168,10 +170,13 @@ const displayETA = computed(() => {
 	}
 
 	try {
-		const startDate = new Date(props.currentStage.startTime);
-		const etaDate = new Date(startDate);
-		etaDate.setDate(startDate.getDate() + props.currentStage.estimatedDays);
-		return timeZoneConvert(etaDate.toString(), false, projectTenMinutesSsecondsDate);
+		return (
+			timeZoneConvert(
+				props.currentStage?.customEndTime || props.currentStage?.endTime || '',
+				false,
+				projectTenMinutesSsecondsDate
+			) || defaultStr
+		);
 	} catch (error) {
 		console.error('Error calculating ETA:', error);
 		return defaultStr;
@@ -181,7 +186,6 @@ const displayETA = computed(() => {
 // 初始化编辑表单
 const initEditForm = () => {
 	if (!props.currentStage) return;
-
 	editForm.value = {
 		customEstimatedDays: props.currentStage.estimatedDays || null,
 		customEndTime: null, // 可以直接编辑结束时间
@@ -192,11 +196,9 @@ const initEditForm = () => {
 		try {
 			// 直接使用原始的ISO时间字符串创建Date对象
 			const startDate = new Date(props.currentStage.startTime);
-
 			// 使用毫秒计算支持小数天数，保持原始时分秒
 			const millisecondsToAdd = editForm.value.customEstimatedDays * 24 * 60 * 60 * 1000;
 			const endDate = new Date(startDate.getTime() + millisecondsToAdd);
-
 			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
 			const endTimeFormatted = timeZoneConvert(
 				endDate.toString(),
@@ -215,9 +217,8 @@ const initEditForm = () => {
 watch(
 	() => props.currentStage,
 	() => {
-		if (!isEditing.value) {
-			initEditForm();
-		}
+		isEditing.value = false;
+		initEditForm();
 	},
 	{ immediate: true }
 );
@@ -286,7 +287,6 @@ const handleEndTimeChange = (endTime: string | Date | null) => {
 			// 直接使用原始的ISO时间字符串创建Date对象
 			const startDate = new Date(props.currentStage.startTime);
 			const endDate = new Date(endTime);
-
 			// 验证结束时间不能小于开始时间
 			if (endDate < startDate) {
 				ElMessage.error('End time cannot be earlier than start time');
@@ -300,9 +300,9 @@ const handleEndTimeChange = (endTime: string | Date | null) => {
 			const timeDiff = endDate.getTime() - startDate.getTime();
 			const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
 
-			// 更新预估天数，保留一位小数
+			// 更新预估天数，保留两位小数
 			editForm.value.customEstimatedDays =
-				daysDiff > 0 ? Math.round(daysDiff * 10) / 10 : 0.1;
+				daysDiff > 0 ? Math.round(daysDiff * 100) / 100 : 0.01;
 		} catch (error) {
 			console.error('Error calculating estimated days from end time:', error);
 			editForm.value.customEstimatedDays = null;
@@ -331,8 +331,8 @@ const handleSave = async () => {
 	}
 
 	// 表单验证
-	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 0.1) {
-		ElMessage.error('Estimated duration must be at least 0.1 day');
+	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 0.01) {
+		ElMessage.error('Estimated duration must be at least 0.01 day');
 		return;
 	}
 
@@ -364,12 +364,7 @@ const handleSave = async () => {
 	try {
 		// 准备更新数据，使用 timeZoneConvert 处理时间格式
 		// 将格式化的时间字符串转换为Date对象，再转为ISO字符串，最后转换为UTC格式
-		const endTimeDate = new Date(editForm.value.customEndTime);
-		const customEndTimeStr = timeZoneConvert(
-			endTimeDate.toString(),
-			true,
-			projectTenMinutesSsecondsDate
-		);
+		const customEndTimeStr = timeZoneConvert(editForm.value.customEndTime, true);
 		const updateData = {
 			stageId: props.currentStage.stageId,
 			customEstimatedDays: editForm.value.customEstimatedDays,
@@ -381,11 +376,6 @@ const handleSave = async () => {
 
 		// 退出编辑模式
 		isEditing.value = false;
-
-		ElMessage.success('Stage information updated successfully');
-	} catch (error) {
-		console.error('Error saving stage data:', error);
-		ElMessage.error('Failed to save stage information');
 	} finally {
 		saving.value = false;
 	}

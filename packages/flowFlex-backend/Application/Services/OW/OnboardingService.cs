@@ -2582,7 +2582,7 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "No onboarding IDs provided");
             }
 
-            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted",
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Force Completed", "Paused", "Aborted",
                                        "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(status))
             {
@@ -2737,7 +2737,7 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            var validStatuses = new[] { "Inactive", "Active", "Completed", "Paused", "Aborted",
+            var validStatuses = new[] { "Inactive", "Active", "Completed", "Force Completed", "Paused", "Aborted",
                                        "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
             if (!validStatuses.Contains(input.Status))
             {
@@ -3915,6 +3915,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 "Active" or "Started" => "InProgress",
                 "Cancelled" => "Aborted",
+                "Force Completed" => "Force Completed",
                 _ => status
             };
         }
@@ -4764,7 +4765,17 @@ namespace FlowFlex.Application.Services.OW
                         // Populate fields from Stage entity
                         stageProgress.StageName = stage.Name;
                         stageProgress.StageDescription = stage.Description;
-                        stageProgress.EstimatedDays = stage.EstimatedDuration;
+                        
+                        // IMPORTANT: Only update EstimatedDays if CustomEstimatedDays is not set
+                        // This preserves the custom values set by users and maintains the correct priority:
+                        // CustomEstimatedDays > EstimatedDays (from Stage)
+                        if (!stageProgress.CustomEstimatedDays.HasValue)
+                        {
+                            stageProgress.EstimatedDays = stage.EstimatedDuration;
+                        }
+                        // If CustomEstimatedDays exists, EstimatedDays should show the custom value
+                        // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
+                        
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
@@ -5951,6 +5962,66 @@ namespace FlowFlex.Application.Services.OW
 
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
+
+            return await SafeUpdateOnboardingAsync(entity);
+        }
+
+        /// <summary>
+        /// Force complete onboarding (bypass normal validation and set to Force Completed status)
+        /// </summary>
+        public async Task<bool> ForceCompleteAsync(long id, ForceCompleteOnboardingInputDto input)
+        {
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - cannot force complete already completed or force completed onboardings
+            if (entity.Status == "Completed" || entity.Status == "Force Completed")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot force complete onboarding with status '{entity.Status}'");
+            }
+
+            // Update status to Force Completed
+            entity.Status = "Force Completed";
+            entity.ActualCompletionDate = DateTimeOffset.UtcNow;
+            entity.CompletionRate = 100; // Set completion rate to 100%
+
+            // Add completion notes
+            var completionText = $"[Force Complete] Onboarding force completed - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.CompletionNotes))
+            {
+                completionText += $" - Notes: {input.CompletionNotes}";
+            }
+            if (input.Rating.HasValue)
+            {
+                completionText += $" - Rating: {input.Rating}/5";
+            }
+            if (!string.IsNullOrEmpty(input.Feedback))
+            {
+                completionText += $" - Feedback: {input.Feedback}";
+            }
+
+            SafeAppendToNotes(entity, completionText);
+
+            // Important: Do NOT modify stagesProgress data - keep it as is
+            // This ensures that the stage progress remains unchanged as per requirement
+
+            // Update stage tracking info
+            await UpdateStageTrackingInfoAsync(entity);
+
+            // Log the force completion action
+            await LogOnboardingActionAsync(entity, "Force Complete", "Status Change", true, new
+            {
+                Reason = input.Reason,
+                CompletionNotes = input.CompletionNotes,
+                Rating = input.Rating,
+                Feedback = input.Feedback,
+                CompletedBy = GetCurrentUserFullName(),
+                CompletedAt = DateTimeOffset.UtcNow
+            });
 
             return await SafeUpdateOnboardingAsync(entity);
         }

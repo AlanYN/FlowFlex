@@ -437,17 +437,47 @@ namespace FlowFlex.Application.Services.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null)
+            bool? isTools = null,
+            string? actionIds = null)
         {
-            var (data, total) = await _actionDefinitionRepository.GetPagedAsync(1,
-                10000,
-                actionType.ToString(),
-                search,
-                isAssignmentStage,
-                isAssignmentChecklist,
-                isAssignmentQuestionnaire,
-                isAssignmentWorkflow,
-                isTools);
+            List<ActionDefinition> data;
+
+            // If actionIds is provided, export specific actions by IDs
+            if (!string.IsNullOrWhiteSpace(actionIds))
+            {
+                var ids = actionIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                 .Select(id => long.TryParse(id.Trim(), out var parsedId) ? parsedId : (long?)null)
+                                 .Where(id => id.HasValue)
+                                 .Select(id => id.Value)
+                                 .ToList();
+
+                if (ids.Any())
+                {
+                    data = await _actionDefinitionRepository.GetByIdsAsync(ids);
+                    _logger.LogInformation("Exporting {Count} specific actions by IDs: {ActionIds}", data.Count, actionIds);
+                }
+                else
+                {
+                    _logger.LogWarning("No valid action IDs found in actionIds parameter: {ActionIds}", actionIds);
+                    data = new List<ActionDefinition>();
+                }
+            }
+            else
+            {
+                // Export with filtering conditions (existing logic)
+                var (pagedData, total) = await _actionDefinitionRepository.GetPagedAsync(1,
+                    10000,
+                    actionType.ToString(),
+                    search,
+                    isAssignmentStage,
+                    isAssignmentChecklist,
+                    isAssignmentQuestionnaire,
+                    isAssignmentWorkflow,
+                    isTools);
+
+                data = pagedData;
+                _logger.LogInformation("Exporting {Count} actions with filter conditions", data.Count);
+            }
 
             var map = _mapper.Map<List<ActionDefinitionDto>>(data);
             Stream result = ExcelHelper<ActionDefinitionDto>.ExportExcel(map);

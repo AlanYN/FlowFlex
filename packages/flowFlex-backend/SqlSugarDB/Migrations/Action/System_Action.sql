@@ -1,20 +1,7 @@
--- Fix sequence and insert system actions with short codes
+-- Insert system actions with short codes
+-- Note: FlowFlex uses SnowFlake ID generator, not database sequences
 DO $$
-DECLARE
-    max_id BIGINT;
-    seq_val BIGINT;
 BEGIN
-    -- Get current max ID from the table
-    SELECT COALESCE(MAX(id), 0) INTO max_id FROM ff_action_definitions;
-    
-    -- Get current sequence value
-    SELECT last_value INTO seq_val FROM ff_action_definitions_id_seq;
-    
-    -- If sequence is behind, restart it
-    IF seq_val <= max_id THEN
-        PERFORM setval('ff_action_definitions_id_seq', max_id + 1);
-        RAISE NOTICE 'Sequence restarted from % to %', seq_val, max_id + 1;
-    END IF;
     
     -- Add action_code column if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
@@ -22,6 +9,30 @@ BEGIN
                    AND column_name = 'action_code') THEN
         ALTER TABLE ff_action_definitions ADD COLUMN action_code VARCHAR(20);
         RAISE NOTICE 'Added action_code column';
+    END IF;
+    
+    -- Add is_tools column if it doesn't exist (from ActionDefinition entity)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'ff_action_definitions' 
+                   AND column_name = 'is_tools') THEN
+        ALTER TABLE ff_action_definitions ADD COLUMN is_tools BOOLEAN DEFAULT FALSE;
+        RAISE NOTICE 'Added is_tools column';
+    END IF;
+    
+    -- Add is_ai_generated column if it doesn't exist (from ActionDefinition entity)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'ff_action_definitions' 
+                   AND column_name = 'is_ai_generated') THEN
+        ALTER TABLE ff_action_definitions ADD COLUMN is_ai_generated BOOLEAN DEFAULT FALSE;
+        RAISE NOTICE 'Added is_ai_generated column';
+    END IF;
+    
+    -- Add trigger_type column if it doesn't exist (from ActionDefinition entity)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'ff_action_definitions' 
+                   AND column_name = 'trigger_type') THEN
+        ALTER TABLE ff_action_definitions ADD COLUMN trigger_type VARCHAR(50) DEFAULT 'Task';
+        RAISE NOTICE 'Added trigger_type column';
     END IF;
     
     -- Create unique constraint if it doesn't exist
@@ -35,12 +46,14 @@ BEGIN
 END $$;
 
 -- Insert system actions with short codes
+-- Using specific SnowFlake IDs to ensure consistent records across deployments
 INSERT INTO ff_action_definitions (
-    action_code, action_name, description, action_type, action_config, 
+    id, action_code, action_name, description, action_type, action_config, 
     is_enabled, create_date, modify_date, tenant_id, app_code, 
-    create_user_id, modify_user_id, version, is_valid, is_tools
+    create_user_id, modify_user_id, is_valid
 ) VALUES 
 (
+    1753249000001,
     'SYS-COMP-STG',
     'Complete Stage',
     'Complete current stage with validation',
@@ -53,11 +66,10 @@ INSERT INTO ff_action_definitions (
     'crm-web',
     1753248912142,
     1753248912142,
-    999,
-    true,
-    false
+    true
 ),
 (
+    1753249000002,
     'SYS-MOVE-STG',
     'Move to Stage', 
     'Move onboarding to a specific stage',
@@ -70,11 +82,10 @@ INSERT INTO ff_action_definitions (
     'crm-web',
     1753248912142,
     1753248912142,
-    999,
-    true,
-    false
+    true
 ),
 (
+    1753249000003,
     'SYS-ASSIGN-OB',
     'Assign Onboarding',
     'Assign onboarding to a user or team',
@@ -87,9 +98,7 @@ INSERT INTO ff_action_definitions (
     'crm-web',
     1753248912142,
     1753248912142,
-    999,
-    true,
-    false
+    true
 )
 ON CONFLICT (action_code) DO UPDATE SET
     action_name = EXCLUDED.action_name,

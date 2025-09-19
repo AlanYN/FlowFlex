@@ -457,6 +457,17 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Force complete onboarding (bypass normal validation and set to Force Completed status)
+        /// </summary>
+        [HttpPost("{id}/force-complete")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ForceCompleteAsync(long id, [FromBody] ForceCompleteOnboardingInputDto input)
+        {
+            bool result = await _onboardingService.ForceCompleteAsync(id, input);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Assign onboarding to user
         /// </summary>
         [HttpPost("{id}/assign")]

@@ -58,12 +58,16 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
     /// <summary>
     /// Save or update task completion
     /// </summary>
-    public async Task<bool> SaveTaskCompletionAsync(ChecklistTaskCompletion completion)
+    /// <returns>Tuple indicating success and whether completion status actually changed</returns>
+    public async Task<(bool success, bool statusChanged)> SaveTaskCompletionAsync(ChecklistTaskCompletion completion)
     {
         var existing = await GetTaskCompletionAsync(completion.OnboardingId, completion.TaskId);
 
         if (existing != null)
         {
+            // Check if the completion status is actually changing
+            bool statusChanged = existing.IsCompleted != completion.IsCompleted;
+
             // Update existing - only update isCompleted and completion time, preserve other data
             existing.IsCompleted = completion.IsCompleted;
             existing.CompletedTime = completion.IsCompleted ? (completion.CompletedTime ?? DateTimeOffset.Now) : null;
@@ -88,22 +92,27 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
             existing.ModifyBy = completion.ModifyBy;
             existing.ModifyUserId = completion.ModifyUserId;
 
-            return await UpdateAsync(existing);
+            var updateResult = await UpdateAsync(existing);
+            return (updateResult, statusChanged);
         }
         else
         {
-            // Insert new
+            // Insert new - this is always a status change since it's creating a new completion record
             await InsertAsync(completion);
-            return true;
+            return (true, true);
         }
     }
 
     /// <summary>
     /// Batch save task completions
     /// </summary>
-    public async Task<bool> BatchSaveTaskCompletionsAsync(List<ChecklistTaskCompletion> completions)
+    /// <returns>List of tuples indicating success and status change for each completion</returns>
+    public async Task<List<(bool success, bool statusChanged)>> BatchSaveTaskCompletionsAsync(List<ChecklistTaskCompletion> completions)
     {
-        if (!completions.Any()) return true;
+        var results = new List<(bool success, bool statusChanged)>();
+        
+        if (!completions.Any()) 
+            return results;
 
         try
         {
@@ -111,11 +120,12 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
 
             foreach (var completion in completions)
             {
-                await SaveTaskCompletionAsync(completion);
+                var result = await SaveTaskCompletionAsync(completion);
+                results.Add(result);
             }
 
             await db.Ado.CommitTranAsync();
-            return true;
+            return results;
         }
         catch
         {

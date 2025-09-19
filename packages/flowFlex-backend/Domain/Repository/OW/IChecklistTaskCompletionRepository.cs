@@ -30,12 +30,14 @@ namespace FlowFlex.Domain.Repository.OW
         /// <summary>
         /// Save or update task completion
         /// </summary>
-        Task<bool> SaveTaskCompletionAsync(ChecklistTaskCompletion completion);
+        /// <returns>Tuple indicating success and whether completion status actually changed</returns>
+        Task<(bool success, bool statusChanged)> SaveTaskCompletionAsync(ChecklistTaskCompletion completion);
 
         /// <summary>
         /// Batch save task completions
         /// </summary>
-        Task<bool> BatchSaveTaskCompletionsAsync(List<ChecklistTaskCompletion> completions);
+        /// <returns>List of tuples indicating success and status change for each completion</returns>
+        Task<List<(bool success, bool statusChanged)>> BatchSaveTaskCompletionsAsync(List<ChecklistTaskCompletion> completions);
 
         /// <summary>
         /// Get completion statistics for checklist

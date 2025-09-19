@@ -42,10 +42,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 
                 if (!triggerTypeExists)
                 {
-                    // 添加trigger_type字段
+                    // 添加trigger_type字段（可空，不设置默认值）
                     db.Ado.ExecuteCommand(@"
                         ALTER TABLE ff_action_definitions 
-                        ADD COLUMN trigger_type VARCHAR(50) NOT NULL DEFAULT 'Task';
+                        ADD COLUMN trigger_type VARCHAR(50) NULL;
                     ");
                     Console.WriteLine("✅ Added trigger_type column to ff_action_definitions table");
                 }
@@ -74,6 +74,52 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 catch (Exception ex)
                 {
                     Console.WriteLine($"⚠️ Index creation failed (may already exist): {ex.Message}");
+                }
+
+                // 检查是否存在默认的system action，如果不存在则创建
+                try
+                {
+                    var systemActionExists = db.Ado.GetInt(@"
+                        SELECT COUNT(*) FROM ff_action_definitions 
+                        WHERE action_code = 'SYS-COMP-STG' AND tenant_id = 'Cyntest-UT'
+                    ");
+
+                    if (systemActionExists == 0)
+                    {
+                        // 插入默认的system action
+                        db.Ado.ExecuteCommand(@"
+                            INSERT INTO ff_action_definitions (
+                                id, action_code, action_name, description, action_type, action_config, 
+                                is_enabled, create_date, modify_date, tenant_id, app_code, 
+                                create_user_id, modify_user_id, is_valid, trigger_type
+                            ) VALUES (
+                                1753249000001,
+                                'SYS-COMP-STG',
+                                'Complete Stage',
+                                'Complete current stage with validation',
+                                '4',
+                                '{""actionName"":""CompleteStage"",""useValidationApi"":true}',
+                                true,
+                                NOW(),
+                                NOW(),
+                                'Cyntest-UT',
+                                'crm-web',
+                                1753248912142,
+                                1753248912142,
+                                true,
+                                'Task'
+                            );
+                        ");
+                        Console.WriteLine("✅ Inserted default system action 'SYS-COMP-STG'");
+                    }
+                    else
+                    {
+                        Console.WriteLine("ℹ️ Default system action 'SYS-COMP-STG' already exists, skipping");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Failed to insert default system action: {ex.Message}");
                 }
 
                 // 更新已存在的AI生成的Actions（如果有的话）
@@ -109,6 +155,22 @@ namespace FlowFlex.SqlSugarDB.Migrations
         {
             try
             {
+                // 删除此迁移中插入的默认system action
+                try
+                {
+                    var deletedCount = db.Ado.ExecuteCommand(@"
+                        DELETE FROM ff_action_definitions 
+                        WHERE id = 1753249000001 
+                          AND action_code = 'SYS-COMP-STG' 
+                          AND tenant_id = 'Cyntest-UT';
+                    ");
+                    Console.WriteLine($"✅ Deleted {deletedCount} default system action(s) inserted by this migration");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Failed to delete default system action: {ex.Message}");
+                }
+
                 // 删除索引
                 try
                 {

@@ -207,6 +207,7 @@ namespace FlowFlex.Application.Maps
 
         /// <summary>
         /// Serialize assignee list to JSONB format for database storage
+        /// Ensures the result is always a valid JSON array or null to prevent scalar value issues
         /// </summary>
         private static string SerializeDefaultAssignee(List<string> assigneeList)
         {
@@ -215,10 +216,30 @@ namespace FlowFlex.Application.Maps
 
             try
             {
-                return JsonSerializer.Serialize(assigneeList, _jsonOptions);
+                // Filter out any invalid entries and ensure we have at least one valid ID
+                var validAssignees = assigneeList
+                    .Where(id => !string.IsNullOrWhiteSpace(id) && id.Trim().Length >= 10)
+                    .Select(id => id.Trim())
+                    .Distinct()
+                    .ToList();
+
+                if (!validAssignees.Any())
+                    return null;
+
+                var jsonResult = JsonSerializer.Serialize(validAssignees, _jsonOptions);
+                
+                // Verify the result is valid JSON array format
+                if (!jsonResult.TrimStart().StartsWith("[") || !jsonResult.TrimEnd().EndsWith("]"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Warning: Serialized assignee list is not a valid JSON array: {jsonResult}");
+                    return null;
+                }
+
+                return jsonResult;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error serializing assignee list: {ex.Message}");
                 return null;
             }
         }

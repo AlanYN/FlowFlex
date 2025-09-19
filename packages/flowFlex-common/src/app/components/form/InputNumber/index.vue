@@ -49,6 +49,10 @@ export default {
 			type: Boolean,
 			default: false, // 是否使用财务格式
 		},
+		decimalPlaces: {
+			type: Number,
+			default: 5, // 小数位数，默认2位
+		},
 	},
 	setup(props, { emit, expose }) {
 		const fieldProperty = computed(() => {
@@ -105,7 +109,7 @@ export default {
 
 			// 处理数字输入
 			const processedValue = props.isFoloat
-				? toFloatNumber(cleanValue, props.minNumber, props.minusNumber)
+				? toFloatNumber(cleanValue, props.minNumber, props.minusNumber, props.decimalPlaces)
 				: toIntegerNumber(cleanValue, props.minNumber, props.minusNumber);
 
 			emit('update:modelValue', processedValue);
