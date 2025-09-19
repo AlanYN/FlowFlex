@@ -1,5 +1,5 @@
 /* 使用多选择器减少重复代码 */
-:root,
+:root.sub-app-body,
 .flowflex-app {
 	--black-5: #ffffff0d;
 	--black-10: #ffffff1a;
@@ -23,7 +23,7 @@
 }
 
 /* 暗色主题变量 */
-:root.dark,
+:root.sub-app-body.dark,
 .flowflex-app.dark {
 	--black-5: #0000000d;
 	--black-10: #0000001a;
@@ -48,7 +48,7 @@
 }
 
 /* 蓝色主题变量 */
-:root.blue,
+:root.sub-app-body.blue,
 .flowflex-app.blue {
 	--primary-10: #eff6ff;
 	--primary-50: #e6f1fa;
@@ -66,7 +66,7 @@
 }
 
 /* 紫色主题变量 */
-:root.purple,
+:root.sub-app-body.purple,
 .flowflex-app.purple {
 	--primary-10: #f5f3ff;
 	--primary-50: #e9d9fd;
