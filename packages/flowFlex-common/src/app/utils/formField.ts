@@ -22,13 +22,19 @@ export const handleInputNumberChangeReplaceString = (event) => {
 };
 
 /**
- * 转为5位浮点小数 （不支持 - ）
- * @param val
- * @param minus 是否可以是小数
+ * 转为指定位数的浮点小数
+ * @param val 输入值
+ * @param minNumber 最小值
+ * @param minus 是否可以是负数
+ * @param decimalPlaces 小数位数，默认5位
  * @returns {string}
  * e.g. 12.34a => 12.34
  */
-export const toFloatNumber = (val, minNumber, minus = false) => {
+export const toFloatNumber = (val, minNumber, minus = false, decimalPlaces = 5) => {
+	// 创建动态的正则表达式，根据小数位数
+	const decimalRegex = new RegExp(`^(-?\\d+)\\.(\\d{${decimalPlaces}}).*$`);
+	const positiveDecimalRegex = new RegExp(`^(\\d+)\\.(\\d{${decimalPlaces}}).+$`);
+
 	const newValue = minus
 		? val
 				.toString()
@@ -37,7 +43,7 @@ export const toFloatNumber = (val, minNumber, minus = false) => {
 				.replace(/^(-?)0+(\d)/, '$1$2') // 如果第一位是0，且后面是数字，保留负号，过滤掉0
 				.replace(/^\./, '0.') // 如果输入的第一位为小数点，则替换成 0.
 				.replace(/^-?\./, '-0.') // 如果负号后面是小数点，则替换成 -0.
-				.replace(/^(-?\d+)\.(\d{5}).*$/, '$1.$2') // 只保留第一个"."，清除多余的"."
+				.replace(decimalRegex, '$1.$2') // 只保留指定位数的小数
 				.replace(/(?!^)-/g, '') // 移除所有非开头位置的负号
 		: val
 				.toString()
@@ -48,7 +54,7 @@ export const toFloatNumber = (val, minNumber, minus = false) => {
 				.replace('.', '$#$')
 				.replace(/\./g, '')
 				.replace('$#$', '.')
-				.replace(/^(\d+)\.(\d{5}).+$/, '$1.$2'); // 只保留第一个".", 清除多余的"."
+				.replace(positiveDecimalRegex, '$1.$2'); // 只保留指定位数的小数
 	// .match(/^\d*(\.?\d{0,9})/g)[0] || ""; // 第五步：最终匹配得到结果 以数字开头，只有一个小数点，而且小数点后面只能有1到9位小数
 	if (!minus && newValue < minNumber) {
 		return minNumber;

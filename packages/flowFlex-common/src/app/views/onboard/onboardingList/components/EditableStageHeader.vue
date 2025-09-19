@@ -79,6 +79,8 @@
 							placeholder="Enter days"
 							class="w-full stage-edit-input"
 							:disabled="saving"
+							:decimalPlaces="2"
+							:minNumber="0.01"
 							@change="handleEstimatedDaysChange"
 						/>
 					</div>
@@ -298,9 +300,9 @@ const handleEndTimeChange = (endTime: string | Date | null) => {
 			const timeDiff = endDate.getTime() - startDate.getTime();
 			const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
 
-			// 更新预估天数，保留一位小数
+			// 更新预估天数，保留两位小数
 			editForm.value.customEstimatedDays =
-				daysDiff > 0 ? Math.round(daysDiff * 10) / 10 : 0.1;
+				daysDiff > 0 ? Math.round(daysDiff * 100) / 100 : 0.01;
 		} catch (error) {
 			console.error('Error calculating estimated days from end time:', error);
 			editForm.value.customEstimatedDays = null;
@@ -329,8 +331,8 @@ const handleSave = async () => {
 	}
 
 	// 表单验证
-	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 0.1) {
-		ElMessage.error('Estimated duration must be at least 0.1 day');
+	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 0.01) {
+		ElMessage.error('Estimated duration must be at least 0.01 day');
 		return;
 	}
 
