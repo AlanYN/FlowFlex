@@ -41,6 +41,14 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                 .FirstAsync();
         }
 
+        public async Task<StaticFieldValue?> GetByOnboardingAndFieldAsync(long onboardingId, string fieldName)
+        {
+            return await db.Queryable<StaticFieldValue>()
+                .Where(x => x.OnboardingId == onboardingId && x.FieldName == fieldName && x.IsValid)
+                .OrderByDescending(x => x.CreateDate)
+                .FirstAsync();
+        }
+
         public async Task<List<StaticFieldValue>> GetLatestByOnboardingAndStageAsync(long onboardingId, long stageId)
         {
             return await db.Queryable<StaticFieldValue>()

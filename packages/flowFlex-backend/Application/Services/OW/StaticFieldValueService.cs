@@ -101,14 +101,14 @@ namespace FlowFlex.Application.Services.OW
             // Ensure FieldValueJson is properly formatted as JSON
             entity.FieldValueJson = EnsureValidJson(entity.FieldValueJson);
 
-            // Check if record exists
-            var existingEntity = await _staticFieldValueRepository.GetByOnboardingStageAndFieldAsync(
-                entity.OnboardingId, entity.StageId, entity.FieldName);
+            // Check if record exists by OnboardingId and FieldName (ignore StageId for updates)
+            var existingEntity = await _staticFieldValueRepository.GetByOnboardingAndFieldAsync(
+                entity.OnboardingId, entity.FieldName);
 
             if (existingEntity != null)
             {
-                // Update existing record
-                entity.Id = input.Id.Value;
+                // Update existing record and replace StageId
+                entity.Id = existingEntity.Id;
                 entity.InitUpdateInfo(_userContext);
                 entity.Version = existingEntity.Version + 1;
                 entity.IsLatest = true;
@@ -184,11 +184,10 @@ namespace FlowFlex.Application.Services.OW
                     fieldLabelMap[entity.FieldName] = fieldValue.FieldLabel;
                 }
 
-                // Get old entity by business key
-                var businessKey = $"{input.OnboardingId}_{input.StageId}_{entity.FieldName}";
-                var oldEntity = await _staticFieldValueRepository.GetByOnboardingStageAndFieldAsync(
+                // Get old entity by business key (OnboardingId and FieldName only)
+                var businessKey = $"{input.OnboardingId}_{entity.FieldName}";
+                var oldEntity = await _staticFieldValueRepository.GetByOnboardingAndFieldAsync(
                     input.OnboardingId,
-                    input.StageId,
                     entity.FieldName
                 );
 
@@ -209,7 +208,7 @@ namespace FlowFlex.Application.Services.OW
                 foreach (var entity in entities)
                 {
                     // Find corresponding old entity by business key
-                    var businessKey = $"{entity.OnboardingId}_{entity.StageId}_{entity.FieldName}";
+                    var businessKey = $"{entity.OnboardingId}_{entity.FieldName}";
                     StaticFieldValue oldEntity = null;
                     if (oldEntitiesMap.ContainsKey(businessKey))
                     {
@@ -254,8 +253,6 @@ namespace FlowFlex.Application.Services.OW
         public async Task<List<StaticFieldValueOutputDto>> GetByOnboardingIdAsync(long onboardingId)
         {
             List<StaticFieldValue> entities = await _staticFieldValueRepository.GetByOnboardingIdAsync(onboardingId);
-            // Filter out records with StageId = 0
-            entities = entities.Where(e => e.StageId != 0).ToList();
             return _mapper.Map<List<StaticFieldValueOutputDto>>(entities);
         }
 
