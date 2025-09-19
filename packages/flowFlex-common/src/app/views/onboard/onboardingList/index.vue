@@ -106,9 +106,14 @@
 												Proceed
 											</el-dropdown-item>
 
-											<!-- View - 对Completed状态显示 -->
+											<!-- View - 对Completed、Force Completed、Paused、Aborted状态显示 -->
 											<el-dropdown-item
-												v-if="row.status === 'Completed'"
+												v-if="
+													row.status === 'Completed' ||
+													row.status === 'Force Completed' ||
+													row.status === 'Paused' ||
+													isAbortedStatus(row.status)
+												"
 												@click="handleEdit(row.id)"
 											>
 												<el-icon><View /></el-icon>
@@ -131,6 +136,19 @@
 											>
 												<el-icon><VideoPlay /></el-icon>
 												Resume
+											</el-dropdown-item>
+
+											<!-- Force Complete - 对进行中状态和暂停状态显示 -->
+											<el-dropdown-item
+												v-if="
+													isInProgressStatus(row.status) ||
+													row.status === 'Paused'
+												"
+												@click="handleForceComplete(row)"
+												class="text-green-500"
+											>
+												<el-icon><Check /></el-icon>
+												Force Complete
 											</el-dropdown-item>
 
 											<!-- Abort - 对进行中状态和暂停状态显示 -->
@@ -592,6 +610,7 @@ import {
 	View,
 	Warning,
 	Download,
+	Check,
 } from '@element-plus/icons-vue';
 import {
 	queryOnboardings,
@@ -604,6 +623,7 @@ import {
 	reactivateOnboarding,
 	pauseOnboarding,
 	resumeOnboardingWithConfirmation,
+	forceCompleteOnboarding,
 } from '@/apis/ow/onboarding';
 import { getAllStages, getWorkflowList } from '@/apis/ow';
 import { OnboardingItem, SearchParams, OnboardingQueryRequest, ApiResponse } from '#/onboard';
@@ -932,6 +952,8 @@ const getStatusTagType = (status: string) => {
 			return 'primary';
 		case 'Completed':
 			return 'success';
+		case 'Force Completed':
+			return 'success';
 		case 'Paused':
 			return 'warning';
 		case 'Aborted':
@@ -955,6 +977,8 @@ const getDisplayStatus = (status: string) => {
 			return 'InProgress';
 		case 'Cancelled':
 			return 'Aborted';
+		case 'Force Completed':
+			return 'Force Completed';
 		default:
 			return status;
 	}
@@ -1294,6 +1318,58 @@ const handleReactivate = async (row: OnboardingItem) => {
 					} finally {
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Reactivate';
+					}
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
+};
+
+const handleForceComplete = async (row: OnboardingItem) => {
+	ElMessageBox.prompt(
+		`Are you sure you want to force complete the onboarding process for "${row.leadName}"? This action will bypass all validation and mark the onboarding as Force Completed. Please provide a reason for this action.`,
+		'⚠️ Force Complete Onboarding',
+		{
+			confirmButtonText: 'Force Complete',
+			cancelButtonText: 'Cancel',
+			inputPlaceholder: 'Enter reason for force completion...',
+			inputValidator: (value) => {
+				if (!value || value.trim().length === 0) {
+					return 'Reason is required for force completion';
+				}
+				return true;
+			},
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					const reason = instance.inputValue?.trim();
+					if (!reason) {
+						return;
+					}
+
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Force Completing...';
+
+					try {
+						const res = await forceCompleteOnboarding(row.id, {
+							reason: reason,
+							completionNotes: 'Force completed from onboarding list',
+						});
+
+						if (res.code === '200') {
+							ElMessage.success('Onboarding force completed successfully');
+							await loadOnboardingList();
+						} else {
+							ElMessage.error(res.msg || 'Failed to force complete onboarding');
+						}
+					} catch (error) {
+						console.error('❌ [Force Complete] Error:', error);
+						ElMessage.error('Failed to force complete onboarding');
+					} finally {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Force Complete';
 					}
 					done();
 				} else {

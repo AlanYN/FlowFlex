@@ -249,5 +249,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Resume onboarding with confirmation
         /// </summary>
         Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input);
+
+        /// <summary>
+        /// Force complete onboarding (bypass normal validation and set to Force Completed status)
+        /// </summary>
+        Task<bool> ForceCompleteAsync(long id, ForceCompleteOnboardingInputDto input);
     }
 }

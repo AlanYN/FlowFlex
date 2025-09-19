@@ -295,6 +295,24 @@ export function onboardingSave(
 	return defHttp.post({ url: `${Api(onboardingId).onboardingSave}`, params });
 }
 
+/**
+ * 强制完成入职
+ * @param id 入职ID
+ * @param params 强制完成参数
+ * @returns bool
+ */
+export function forceCompleteOnboarding(
+	id: string | number,
+	params: {
+		reason: string;
+		completionNotes?: string;
+		rating?: number;
+		feedback?: string;
+	}
+) {
+	return defHttp.post({ url: `${Api(id).onboardingForceComplete}`, params });
+}
+
 // ========================= Lead同步相关接口 =========================
 
 /**
@@ -705,16 +723,6 @@ export function uploadOnboardingFile(
  */
 export function startOnboarding(onboardingId: string, params: any) {
 	return defHttp.post({ url: `${Api(onboardingId).onboardingStart}`, params });
-}
-
-/**
- * 强制完成入职流程 (Force Complete)
- * @param onboardingId 入职ID
- * @param params 强制完成参数
- * @returns boolean
- */
-export function forceCompleteOnboarding(onboardingId: string, params: any) {
-	return defHttp.post({ url: `${Api(onboardingId).onboardingForceComplete}`, params });
 }
 
 /**
