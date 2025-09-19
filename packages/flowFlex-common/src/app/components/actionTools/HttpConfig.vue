@@ -964,7 +964,7 @@ const formatRawContent = () => {
 					const parsed = JSON.parse(content);
 					formattedContent = JSON.stringify(parsed, null, 2);
 				} catch (error) {
-					ElMessage.error(t('sys.api.formatInvalidJson'));
+					ElMessage.warning(t('sys.api.formatInvalidJson'));
 					return;
 				}
 				break;
@@ -989,8 +989,7 @@ const formatRawContent = () => {
 		setBody(formattedContent);
 		ElMessage.success(t('sys.api.formatSuccess'));
 	} catch (error) {
-		console.error('格式化失败:', error);
-		ElMessage.error(t('sys.api.formatFailed'));
+		ElMessage.warning(t('sys.api.formatFailed'));
 	}
 };
 
