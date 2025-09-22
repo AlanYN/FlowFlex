@@ -38,7 +38,7 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full min-h-8 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-1.5 bg-white dark:bg-gray-800 cursor-pointer transition-colors duration-200 flex items-center"
+			class="w-full min-h-8 border border-[var(--el-border-color)] dark:border-gray-600 rounded-xl px-3 py-1.5 bg-white dark:bg-black-200 cursor-pointer transition-colors duration-200 flex items-center"
 			:class="[
 				disabled
 					? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed'
