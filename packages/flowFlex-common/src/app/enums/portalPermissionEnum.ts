@@ -14,12 +14,12 @@ export enum PortalPermissionEnum {
  */
 export const portalPermissionOptions = [
 	{
-		label: 'Viewable only in portal',
+		label: 'View only',
 		value: PortalPermissionEnum.Viewable,
 		key: 'viewable',
 	},
 	{
-		label: 'Completable in portal',
+		label: 'Completable',
 		value: PortalPermissionEnum.Completable,
 		key: 'completable',
 	},
