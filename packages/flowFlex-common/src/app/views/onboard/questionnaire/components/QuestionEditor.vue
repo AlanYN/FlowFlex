@@ -571,8 +571,8 @@ defineExpose({
 
 /* 深色模式支持 */
 .dark .new-question-editor {
-	background-color: var(--primary-700);
-	border-color: var(--primary-600);
+	background-color: var(--black-400);
+	border-color: var(--black-600);
 }
 
 .dark .editor-title {

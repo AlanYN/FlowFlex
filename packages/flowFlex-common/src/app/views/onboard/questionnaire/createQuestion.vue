@@ -1048,7 +1048,7 @@ onMounted(async () => {
 /* 深色模式支持 */
 .dark .config-card {
 	border-color: var(--primary-600);
-	background-color: var(--primary-800);
+	background-color: var(--black-400);
 }
 
 .dark .section-title {

@@ -139,18 +139,18 @@ const selectQuestionType = (typeId: string) => {
 }
 
 .dark .question-type-item {
-	border-color: var(--primary-600);
-	background-color: var(--primary-800);
+	border-color: var(--black-600);
+	background-color: var(--black-400);
 }
 
 .dark .question-type-item:hover {
-	background-color: var(--primary-700);
-	border-color: var(--primary-500);
+	background-color: var(--primary-500);
+	border-color: var(--black-600);
 }
 
 .dark .question-type-item.active {
-	background-color: var(--primary-600);
-	border-color: var(--primary-400);
+	background-color: var(--primary-500);
+	border-color: var(--black-600);
 }
 
 .dark .type-icon {
