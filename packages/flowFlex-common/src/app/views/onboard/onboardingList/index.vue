@@ -540,10 +540,10 @@
 					</el-select>
 				</el-form-item>
 
-				<el-form-item label="Work flow" prop="workFlowId">
+				<el-form-item label="Workflow" prop="workFlowId">
 					<el-select
 						v-model="formData.workFlowId"
-						placeholder="Select Work Flow"
+						placeholder="Select Workflow"
 						clearable
 						class="w-full rounded-xl"
 					>
@@ -689,7 +689,7 @@ const formRules = {
 		{ required: true, message: 'Contact Email is required', trigger: 'blur' },
 		{ type: 'email', message: 'Please enter a valid email address', trigger: 'blur' },
 	], // 必填，且需要验证邮箱格式
-	workFlowId: [{ required: true, message: 'Work Flow is required', trigger: 'blur' }],
+	workFlowId: [{ required: true, message: 'Workflow is required', trigger: 'blur' }],
 };
 
 const changeLifeCycleStage = (value: string) => {

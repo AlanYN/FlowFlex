@@ -65,7 +65,7 @@
 					@update:stage-data="handleStageDataUpdate"
 				/>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
-					<div class="space-y-4 mt-4">
+					<div class="space-y-4 my-4">
 						<!-- AI Summary 组件 -->
 						<AISummary
 							:show-a-i-summary-section="showAISummarySection"

@@ -14,7 +14,7 @@ export enum PortalPermissionEnum {
  */
 export const portalPermissionOptions = [
 	{
-		label: 'View only',
+		label: 'View Only',
 		value: PortalPermissionEnum.Viewable,
 		key: 'viewable',
 	},

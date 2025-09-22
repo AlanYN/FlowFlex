@@ -217,8 +217,8 @@
 									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 								</div>
 							</div>
-							<el-scrollbar ref="leftScrollbarRef" class="h-full px-2">
-								<div class="space-y-4 mt-4">
+							<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
+								<div class="space-y-6 my-4">
 									<!-- AI Summary 组件 -->
 									<AISummary
 										:show-a-i-summary-section="showAISummarySection"

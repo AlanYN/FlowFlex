@@ -47,7 +47,7 @@
 							v-if="isItemTenant && element?.one_time_charge_fee"
 							class="flex items-center gap-x-2"
 						>
-							<div class="font-bold">One-time charge fee:</div>
+							<div class="font-bold">One-Time Charge Fee:</div>
 							<div class="text-[#606266]">
 								$ {{ formatToFinancial(element.one_time_charge_fee) }}
 							</div>
@@ -56,7 +56,7 @@
 							v-if="isItemTenant && element?.monthly_charge_fee"
 							class="flex items-center gap-x-2"
 						>
-							<div class="font-bold">Monthly charge fee:</div>
+							<div class="font-bold">Monthly Charge Fee:</div>
 							<div class="text-[#606266]">
 								$ {{ formatToFinancial(element.monthly_charge_fee) }}
 							</div>
@@ -121,8 +121,8 @@
 		<div class="total-footer bg-white dark:bg-black-200" style="margin-top: 100px">
 			<div>Total: $ {{ calculateTotal(list) }}</div>
 			<template v-if="isItemTenant">
-				<div>One-time charge fee: $ {{ calculateOneTimeTotal(list) }}</div>
-				<div>Monthly charge fee: $ {{ calculateMonthlyTotal(list) }}</div>
+				<div>One-Time Charge Fee: $ {{ calculateOneTimeTotal(list) }}</div>
+				<div>Monthly Charge Fee: $ {{ calculateMonthlyTotal(list) }}</div>
 			</template>
 		</div>
 	</div>
