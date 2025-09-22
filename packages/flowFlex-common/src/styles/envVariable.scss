@@ -23,8 +23,8 @@
 }
 
 /* 暗色主题变量 */
-:root.sub-app-body.dark,
-.flowflex-app.dark {
+:root.dark.sub-app-body,
+.flowflex-app {
 	--black-5: #0000000d;
 	--black-10: #0000001a;
 	--black-20: #00000033;
@@ -48,8 +48,8 @@
 }
 
 /* 蓝色主题变量 */
-:root.sub-app-body.blue,
-.flowflex-app.blue {
+:root.blue.sub-app-body,
+.flowflex-app {
 	--primary-10: #eff6ff;
 	--primary-50: #e6f1fa;
 	--primary-100: #cce2f6;
@@ -66,8 +66,8 @@
 }
 
 /* 紫色主题变量 */
-:root.sub-app-body.purple,
-.flowflex-app.purple {
+:root.purple.sub-app-body,
+.flowflex-app {
 	--primary-10: #f5f3ff;
 	--primary-50: #e9d9fd;
 	--primary-100: #d3b2fa;

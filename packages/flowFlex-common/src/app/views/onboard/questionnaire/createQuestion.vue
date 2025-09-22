@@ -391,7 +391,7 @@ const questionEditorRef = ref<any>(null);
 const questionTypes = [
 	{
 		id: 'short_answer',
-		name: 'Short answer',
+		name: 'Short Answer',
 		icon: 'mdi-light:pencil',
 	},
 	{
@@ -401,7 +401,7 @@ const questionTypes = [
 	},
 	{
 		id: 'multiple_choice',
-		name: 'Multiple choice',
+		name: 'Multiple Choice',
 		icon: 'mdi:checkbox-marked-circle-outline',
 	},
 	{
@@ -416,12 +416,12 @@ const questionTypes = [
 	},
 	{
 		id: 'file_upload',
-		name: 'File upload',
+		name: 'File Upload',
 		icon: 'ic:outline-drive-folder-upload',
 	},
 	{
 		id: 'linear_scale',
-		name: 'Linear scale',
+		name: 'Linear Scale',
 		icon: 'material-symbols:scan-outline-sharp',
 	},
 	{
@@ -431,12 +431,12 @@ const questionTypes = [
 	},
 	{
 		id: 'multiple_choice_grid',
-		name: 'Multiple choice grid',
+		name: 'Multiple Choice Grid',
 		icon: 'tabler:grid-dots',
 	},
 	{
 		id: 'checkbox_grid',
-		name: 'Checkbox grid',
+		name: 'Checkbox Grid',
 		icon: 'gridicons:grid',
 	},
 	{
@@ -451,7 +451,7 @@ const questionTypes = [
 	},
 	{
 		id: 'short_answer_grid',
-		name: 'Short answer grid',
+		name: 'Short Answer Grid',
 		icon: 'ph:grid-nine-light',
 		isNew: true,
 	},

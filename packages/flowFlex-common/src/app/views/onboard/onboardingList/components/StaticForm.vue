@@ -12,7 +12,7 @@
 						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
 							<ArrowRight />
 						</el-icon>
-						<h3 class="static-form-title">Request fields</h3>
+						<h3 class="static-form-title">Request Fields</h3>
 					</div>
 					<div class="static-form-subtitle">Static form fields</div>
 				</div>

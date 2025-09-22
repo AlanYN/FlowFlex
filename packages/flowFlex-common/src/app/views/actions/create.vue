@@ -110,7 +110,7 @@
 								@test="handleTestRun"
 							/>
 							<div class="template-variables">
-								<span class="variable-label">Available variables:</span>
+								<span class="variable-label">Available Variables:</span>
 								<el-tag
 									v-for="variable in emailVariables"
 									:key="variable"

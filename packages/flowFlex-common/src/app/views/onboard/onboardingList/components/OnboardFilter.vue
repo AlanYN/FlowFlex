@@ -54,12 +54,12 @@
 					<label class="filter-label text-sm font-medium">Workflow</label>
 					<el-select
 						v-model="searchParams.workFlowId"
-						placeholder="Select Work Flow"
+						placeholder="Select Workflow"
 						clearable
 						class="w-full filter-select"
 						@change="handleWorkflowChangeWithSearch"
 					>
-						<el-option label="All Work Flows" value="" />
+						<el-option label="All Workflows" value="" />
 						<el-option
 							v-for="workflow in allWorkflows"
 							:key="workflow.id"

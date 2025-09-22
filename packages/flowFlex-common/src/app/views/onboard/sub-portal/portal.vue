@@ -218,7 +218,7 @@
 								</div>
 							</div>
 							<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
-								<div class="space-y-6 mt-4">
+								<div class="space-y-6 my-4">
 									<!-- AI Summary 组件 -->
 									<AISummary
 										:show-a-i-summary-section="showAISummarySection"
