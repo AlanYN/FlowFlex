@@ -844,7 +844,7 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 
 /* 深色模式支持 */
 .dark .question-item {
-	background-color: var(--primary-800);
+	background-color: var(--black-400);
 	border-color: var(--primary-600);
 }
 
