@@ -47,9 +47,11 @@
 	--el-border-radius-base: 12px;
 }
 
+
+
+
 /* 蓝色主题变量 */
-:root.blue.sub-app-body,
-.flowflex-app {
+:root.blue{
 	--primary-10: #eff6ff;
 	--primary-50: #e6f1fa;
 	--primary-100: #cce2f6;
@@ -66,8 +68,7 @@
 }
 
 /* 紫色主题变量 */
-:root.purple.sub-app-body,
-.flowflex-app {
+:root.purple{
 	--primary-10: #f5f3ff;
 	--primary-50: #e9d9fd;
 	--primary-100: #d3b2fa;
