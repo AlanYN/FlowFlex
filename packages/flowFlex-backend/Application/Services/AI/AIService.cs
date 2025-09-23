@@ -8688,7 +8688,14 @@ Please return the results in JSON format with the following structure:
 
                     // Generate fallback config
                     httpConfigResult = GenerateFallbackHttpConfig(input);
+                    if (httpConfigResult == null)
+                    {
+                        resultMessage = "Unable to generate HTTP configuration. Please provide more specific API details including URL and method.";
+                    }
+                    else
+                    {
                     resultMessage = "HTTP configuration generated (fallback mode)!";
+                    }
                 }
 
                 // Send completion result
@@ -8732,10 +8739,14 @@ Please return the results in JSON format with the following structure:
             {
                 // Generate fallback config if no content received
                 var fallbackConfig = GenerateFallbackHttpConfig(input);
+                var message = fallbackConfig == null 
+                    ? "Unable to generate HTTP configuration. Please provide more specific API details including URL and method."
+                    : "HTTP configuration generated (fallback mode)!";
+                    
                 yield return new AIActionStreamResult
                 {
                     Type = "complete",
-                    Content = "HTTP configuration generated (fallback mode)!",
+                    Content = message,
                     IsComplete = true,
                     SessionId = sessionId,
                     Progress = 100,
@@ -8766,18 +8777,57 @@ Please return the results in JSON format with the following structure:
                 fileContentText = $"\n\nFILE CONTENT ({input.FileName ?? "uploaded file"}):\n{content}";
             }
 
-            return $@"Extract HTTP config from: {userInput}{fileContentText}
+            return $@"Extract HTTP configuration from the following input and return ONLY valid JSON:
 
-Return JSON only:
-{{""actionPlan"":{{""actions"":[{{""httpConfig"":{{""method"":""GET"",""url"":""https://api.example.com"",""headers"":{{""Content-Type"":""application/json""}},""bodyType"":""none"",""body"":"""",""rawFormat"":""json"",""actionName"":""api_action""}}}}]}}}}
+INPUT: {userInput}{fileContentText}
 
-Rules:
-- Extract method from: GET/POST/PUT/DELETE/PATCH
-- Extract full URL from curl -X or http://
-- Headers from -H flags or authentication
-- Body from -d flag or json payload
-- Generate actionName from URL path
-- Keep response under 100 words";
+CRITICAL REQUIREMENTS:
+1. Extract the ACTUAL URL from the input - DO NOT use placeholder URLs
+2. Extract the ACTUAL HTTP method from the input
+3. If no valid URL is found in input, return null instead of generating fake URLs
+
+REQUIRED OUTPUT FORMAT (JSON only, no markdown, no explanation):
+{{
+    ""actionPlan"": {{
+        ""actions"": [{{
+            ""httpConfig"": {{
+                ""method"": ""[EXTRACTED_METHOD]"",
+                ""url"": ""[EXTRACTED_URL]"",
+                ""headers"": {{
+                    ""Content-Type"": ""application/json"",
+                    ""Accept"": ""application/json""
+                }},
+                ""bodyType"": ""none"",
+                ""body"": """",
+                ""rawFormat"": ""json"",
+                ""actionName"": ""[GENERATED_ACTION_NAME]"",
+                ""timeout"": 30,
+                ""followRedirects"": true
+            }}
+        }}]
+    }}
+}}
+
+EXTRACTION RULES:
+1. method: Extract from curl -X, HTTP verb, or default to GET
+2. url: Must be complete valid URL with protocol (https:// or http://) - EXTRACT FROM INPUT ONLY
+3. headers: Extract from -H flags, Content-Type required
+4. body: Extract from -d flag or JSON payload, empty string if none
+5. bodyType: ""raw"" for POST/PUT/PATCH with body, ""none"" for GET/DELETE
+6. actionName: Generate from URL path (e.g., get_users, post_data)
+7. timeout: Default to 30 seconds
+8. followRedirects: Default to true
+
+VALIDATION REQUIREMENTS:
+- url MUST be extracted from input - NO PLACEHOLDER URLS
+- method MUST be one of: GET, POST, PUT, DELETE, PATCH
+- headers MUST be object with string values
+- body MUST be string (empty if no body)
+- actionName MUST be valid identifier (alphanumeric + underscore)
+
+IMPORTANT: If no valid URL can be extracted from the input, return null instead of any placeholder URL.
+
+Return ONLY the JSON object, no additional text or formatting.";
         }
 
         /// <summary>
@@ -8806,12 +8856,18 @@ Rules:
                     };
                 }
 
-                return JsonSerializer.Deserialize<object>(aiResponse) ?? GenerateFallbackHttpConfig(input);
+                var deserializedResult = JsonSerializer.Deserialize<object>(aiResponse);
+                return deserializedResult ?? GenerateFallbackHttpConfig(input);
             }
             catch (JsonException)
             {
                 _logger.LogWarning("Failed to parse HTTP config JSON response, generating fallback");
-                return GenerateFallbackHttpConfig(input);
+                var fallbackResult = GenerateFallbackHttpConfig(input);
+                if (fallbackResult == null)
+                {
+                    _logger.LogWarning("Fallback config generation also failed - no valid URL found in input");
+                }
+                return fallbackResult;
             }
         }
 
@@ -8822,17 +8878,17 @@ Rules:
         {
             var userInput = input.UserInput?.ToLowerInvariant() ?? "";
             var method = "GET";
-            var url = "https://api.example.com/endpoint";
+            string url = null;
             var actionName = "api_request";
 
-            // Simple method detection
-            if (userInput.Contains("post")) method = "POST";
-            else if (userInput.Contains("put")) method = "PUT";
-            else if (userInput.Contains("delete")) method = "DELETE";
-            else if (userInput.Contains("patch")) method = "PATCH";
+            // Enhanced method detection
+            if (userInput.Contains("post") || userInput.Contains("create") || userInput.Contains("submit")) method = "POST";
+            else if (userInput.Contains("put") || userInput.Contains("update")) method = "PUT";
+            else if (userInput.Contains("delete") || userInput.Contains("remove")) method = "DELETE";
+            else if (userInput.Contains("patch") || userInput.Contains("modify")) method = "PATCH";
 
-            // Simple URL extraction
-            var urlMatch = System.Text.RegularExpressions.Regex.Match(userInput, @"https?://[^\s'""]+");
+            // Enhanced URL extraction - only use if found in input
+            var urlMatch = System.Text.RegularExpressions.Regex.Match(input.UserInput ?? "", @"https?://[^\s'""<>\[\]{}|\\^`]+");
             if (urlMatch.Success)
             {
                 url = urlMatch.Value;
@@ -8850,30 +8906,49 @@ Rules:
                     // Ignore URI parsing errors
                 }
             }
+            else
+            {
+                // Try to find relative paths
+                var pathMatch = System.Text.RegularExpressions.Regex.Match(input.UserInput ?? "", @"/[a-zA-Z0-9\-_/]+");
+                if (pathMatch.Success)
+                {
+                    // Found a path but no domain - this is still not a complete URL
+                    // According to user requirements, don't provide default domain
+                    return null;
+                }
+                else
+                {
+                    // No URL found at all - return null instead of default
+                    return null;
+                }
+            }
+
+            // Only proceed if we have a valid URL
+            if (string.IsNullOrEmpty(url))
+            {
+                return null;
+            }
 
             return new
             {
-                id = "http_config_001",
-                title = "HTTP API Configuration",
-                description = "Generated HTTP configuration",
+                actionPlan = new {
                 actions = new[] {
                     new {
-                        id = "action_001",
-                        title = "API Configuration",
-                        description = $"HTTP API configuration with method: {method}, endpoint: {url}",
-                        category = "API",
-                        priority = "High",
                         httpConfig = new {
                             method = method,
                             url = url,
-                            headers = new {
-                                ContentType = "application/json",
-                                Accept = "application/json"
-                            },
-                            bodyType = method == "GET" ? "none" : "raw",
+                                headers = new Dictionary<string, string>
+                                {
+                                    ["Content-Type"] = "application/json",
+                                    ["Accept"] = "application/json"
+                                },
+                                bodyType = method == "GET" || method == "DELETE" ? "none" : "raw",
                             body = "",
                             rawFormat = "json",
-                            actionName = actionName
+                                actionName = actionName,
+                                timeout = 30,
+                                followRedirects = true
+                            }
                         }
                     }
                 }

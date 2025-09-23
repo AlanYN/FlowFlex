@@ -273,7 +273,9 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														stagePortalPermission)
+														stagePortalPermission) ||
+													component.customerPortalAccess ===
+														StageComponentPortal.Viewable
 												"
 												@save-success="refreshChangeLog"
 											/>
@@ -294,7 +296,9 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														stagePortalPermission)
+														stagePortalPermission) ||
+													component.customerPortalAccess ===
+														StageComponentPortal.Viewable
 												"
 												@task-toggled="handleTaskToggled"
 												@refresh-checklist="loadCheckListData"
@@ -314,7 +318,9 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														stagePortalPermission)
+														stagePortalPermission) ||
+													component.customerPortalAccess ===
+														StageComponentPortal.Viewable
 												"
 												:questionnaire-data="
 													getQuestionnaireDataForComponent(component)
@@ -336,7 +342,9 @@
 												:disabled="
 													isAbortedReadonly ||
 													(onboardingActiveStageInfo.visibleInPortal &&
-														stagePortalPermission)
+														stagePortalPermission) ||
+													component.customerPortalAccess ===
+														StageComponentPortal.Viewable
 												"
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
@@ -431,6 +439,7 @@ import {
 	getQuestionnaireAnswer,
 	completeCurrentStage,
 	getOnboardingFilesByStage,
+	onboardingSave,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -598,7 +607,14 @@ const currentStageTitle = computed(() => {
 });
 
 const stagePortalPermission = computed(() => {
+	const status = onboardingData.value?.status;
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+
+	// 如果是Paused状态，直接禁用
+	if (status && ['Paused'].includes(status)) {
+		return true;
+	}
+
 	return currentStage?.portalPermission == PortalPermissionEnum.Viewable ||
 		currentStage?.isCompleted
 		? true
@@ -618,6 +634,8 @@ const statusTagType = computed(() => {
 		case 'Started':
 			return 'primary';
 		case 'Completed':
+			return 'success';
+		case 'Force Completed':
 			return 'success';
 		case 'Paused':
 			return 'warning';
@@ -639,6 +657,8 @@ const statusDisplayText = computed(() => {
 			return 'In progress';
 		case 'Cancelled':
 			return 'Aborted';
+		case 'Force Completed':
+			return 'Force Completed';
 		default:
 			return status;
 	}
@@ -652,7 +672,7 @@ const statusShouldPulse = computed(() => {
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
 const isAbortedReadonly = computed(() => {
 	const status = onboardingData.value?.status;
-	return status && ['Aborted', 'Cancelled'].includes(status);
+	return status && ['Aborted', 'Cancelled', 'Paused'].includes(status);
 });
 
 const sortedComponents = computed(() => {
@@ -1896,6 +1916,10 @@ const saveQuestionnaireAndField = async () => {
 	const res = await saveAllForm(false);
 	if (res) {
 		ElMessage.success(t('sys.api.operationSuccess'));
+		await onboardingSave(onboardingId.value, {
+			onboardingId: onboardingId.value,
+			stageId: activeStage.value,
+		});
 		loadOnboardingDetail();
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));

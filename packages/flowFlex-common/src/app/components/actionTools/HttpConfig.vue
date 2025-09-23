@@ -747,7 +747,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted } from 'vue';
 import { Delete, DocumentCopy, Paperclip, Document, Close } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from '@/hooks/useI18n';
 import { getTokenobj } from '@/utils/auth';
 import { useUserStoreWithOut } from '@/stores/modules/user';
@@ -2151,6 +2151,52 @@ const streamGenerateHttpConfigDirect = async (
 									try {
 										const parsed = JSON.parse(data);
 										console.log('✨ Parsed JSON data:', parsed);
+
+										// 检查并应用HTTP配置 (仅在HTTP配置生成流程中)
+										if (parsed.type === 'complete' && parsed.actionData) {
+											console.log(
+												'🎯 Complete event with actionData received'
+											);
+
+											// 在流式处理完成时自动应用配置
+											const httpConfig = extractHttpConfigFromActionPlan(
+												parsed.actionData
+											);
+											if (httpConfig) {
+												console.log(
+													'🔧 Auto-applying HTTP config from stream:',
+													httpConfig
+												);
+												try {
+													await applyGeneratedConfig(httpConfig);
+													console.log(
+														'✅ HTTP configuration auto-applied successfully'
+													);
+												} catch (error) {
+													console.error(
+														'❌ Error auto-applying configuration:',
+														error
+													);
+													// 不要阻止流继续处理，只记录错误
+												}
+											} else {
+												// 如果无法提取有效的HTTP配置，给出说明和建议
+												console.warn(
+													'⚠️ No valid HTTP configuration found in AI response'
+												);
+												showConfigurationSuggestions(parsed.actionData);
+											}
+										} else if (
+											parsed.type === 'complete' &&
+											!parsed.actionData
+										) {
+											// 如果完成但没有actionData，也给出建议
+											console.warn(
+												'⚠️ AI generation completed but no configuration data received'
+											);
+											showNoConfigurationDataSuggestions();
+										}
+
 										onChunk(parsed);
 
 										if (parsed.type === 'complete') {
@@ -2159,12 +2205,18 @@ const streamGenerateHttpConfigDirect = async (
 											return;
 										} else if (parsed.type === 'error') {
 											console.error('❌ Stream error:', parsed.content);
-											reject(new Error(parsed.content));
+											reject(
+												new Error(
+													parsed.content ||
+														parsed.message ||
+														'Stream processing error'
+												)
+											);
 											return;
 										}
 									} catch (e) {
 										console.warn('⚠️ Failed to parse JSON:', data, e);
-										// Skip invalid JSON
+										// Skip invalid JSON but continue processing
 										continue;
 									}
 								}
@@ -2667,10 +2719,62 @@ const parseCurlCommand = (input: string) => {
 };
 
 const extractHttpConfigFromActionPlan = (actionPlan: any) => {
-	// 从AI生成的行动计划中提取HTTP配置信息，同时从原始用户输入中解析curl命令
+	// 从AI生成的行动计划中提取HTTP配置信息
 	console.log('🔧 Extracting HTTP config from action plan:', actionPlan);
 
-	// 首先尝试从用户的原始输入中解析curl命令
+	if (!actionPlan || typeof actionPlan !== 'object') {
+		console.warn('⚠️ Invalid action plan provided');
+		return null;
+	}
+
+	// 检查新的标准格式：{ actionPlan: { actions: [{ httpConfig: ... }] } }
+	if (actionPlan.actionPlan?.actions) {
+		const actions = actionPlan.actionPlan.actions;
+		if (Array.isArray(actions) && actions.length > 0) {
+			for (const action of actions) {
+				if (action.httpConfig) {
+					console.log('✅ Found httpConfig in actionPlan.actions[].httpConfig');
+					const config = action.httpConfig;
+					// 确保actionName存在
+					if (!config.actionName && config.url) {
+						config.actionName = generateActionName(config.url, config.method || 'GET');
+					}
+					return config;
+				}
+			}
+		}
+	}
+
+	// 检查简化格式：{ actions: [{ httpConfig: ... }] }
+	if (actionPlan.actions) {
+		const actions = actionPlan.actions;
+		if (Array.isArray(actions) && actions.length > 0) {
+			for (const action of actions) {
+				if (action.httpConfig) {
+					console.log('✅ Found httpConfig in actions[].httpConfig');
+					const config = action.httpConfig;
+					// 确保actionName存在
+					if (!config.actionName && config.url) {
+						config.actionName = generateActionName(config.url, config.method || 'GET');
+					}
+					return config;
+				}
+			}
+		}
+	}
+
+	// 检查直接httpConfig格式：{ httpConfig: ... }
+	if (actionPlan.httpConfig) {
+		console.log('✅ Found httpConfig at root level');
+		const config = actionPlan.httpConfig;
+		// 确保actionName存在
+		if (!config.actionName && config.url) {
+			config.actionName = generateActionName(config.url, config.method || 'GET');
+		}
+		return config;
+	}
+
+	// 首先尝试从用户的原始输入中解析curl命令（作为后备方案）
 	const userInput = aiChatMessages.value.find((msg) => msg.role === 'user')?.content || '';
 	console.log('📝 User input for parsing:', userInput);
 
@@ -2682,7 +2786,7 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		return curlConfig;
 	}
 
-	// 如果curl解析失败，回退到从AI响应中解析
+	// 如果以上都失败，回退到从旧格式AI响应中解析
 	const actions = actionPlan.ActionItems || actionPlan.actions || [];
 	console.log('🔍 Searching in ActionItems/actions:', actions);
 
@@ -2741,17 +2845,19 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			}
 		}
 
-		// 如果没有找到完整URL，尝试构建一个基础URL
+		// 如果没有找到完整URL，检查是否有路径可以构建
 		if (!config.url || config.url === '') {
 			// 查找API路径
 			const pathMatch =
 				fullText.match(/\/api\/[^\s\n]*/i) || fullText.match(/\/[a-zA-Z0-9\-_/]+/);
 			if (pathMatch) {
+				// 只有找到明确的API路径才构建URL
 				config.url = `https://api.example.com${pathMatch[0]}`;
 				console.log('🔧 Constructed URL from path:', config.url);
 			} else {
-				config.url = 'https://api.example.com/endpoint';
-				console.log('🔧 Using default URL');
+				// 根据用户要求，不提供默认URL
+				console.log('⚠️ No valid URL found, cannot create configuration');
+				return null;
 			}
 		}
 
@@ -2793,20 +2899,9 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		return config;
 	}
 
-	console.log('⚠️ No HTTP action found, using default config');
-	// 默认配置
-	const defaultConfig = {
-		method: 'GET',
-		url: 'https://api.example.com/endpoint',
-		headers: {
-			'Content-Type': 'application/json',
-			Accept: 'application/json',
-		},
-		bodyType: 'none',
-		body: '',
-		actionName: 'custom_api_action',
-	};
-	return defaultConfig;
+	console.log('⚠️ No HTTP action found, cannot extract valid configuration');
+	// 根据用户要求，不返回默认配置，而是返回null
+	return null;
 };
 
 // Enhanced file content reading functions
@@ -3185,13 +3280,119 @@ const generateActionName = (url: string, method: string): string => {
 	}
 };
 
+const validateHttpConfig = (httpConfig: any): { isValid: boolean; errors: string[] } => {
+	const errors: string[] = [];
+
+	if (!httpConfig || typeof httpConfig !== 'object') {
+		errors.push('Configuration must be a valid object');
+		return { isValid: false, errors };
+	}
+
+	// Validate URL
+	if (!httpConfig.url || typeof httpConfig.url !== 'string' || httpConfig.url.trim() === '') {
+		errors.push('URL is required and must be a non-empty string');
+	} else {
+		const url = httpConfig.url.trim();
+		if (!url.match(/^https?:\/\//) && !url.startsWith('/')) {
+			errors.push(
+				'URL must start with http://, https://, or be a relative path starting with /'
+			);
+		}
+	}
+
+	// Validate method
+	if (!httpConfig.method || typeof httpConfig.method !== 'string') {
+		errors.push('HTTP method is required');
+	} else {
+		const validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+		if (!validMethods.includes(httpConfig.method.toUpperCase())) {
+			errors.push(`HTTP method must be one of: ${validMethods.join(', ')}`);
+		}
+	}
+
+	// Validate headers
+	if (httpConfig.headers && typeof httpConfig.headers !== 'object') {
+		errors.push('Headers must be an object');
+	}
+
+	// Validate timeout
+	if (httpConfig.timeout !== undefined) {
+		if (typeof httpConfig.timeout !== 'number' || httpConfig.timeout <= 0) {
+			errors.push('Timeout must be a positive number');
+		}
+	}
+
+	// Validate actionName
+	if (httpConfig.actionName && typeof httpConfig.actionName !== 'string') {
+		errors.push('Action name must be a string');
+	} else if (httpConfig.actionName && !httpConfig.actionName.match(/^[a-zA-Z][a-zA-Z0-9_]*$/)) {
+		errors.push('Action name must be a valid identifier (letters, numbers, underscore)');
+	}
+
+	return { isValid: errors.length === 0, errors };
+};
+
+// 当AI无法生成有效配置时，提供用户建议
+const showConfigurationSuggestions = (actionData: any) => {
+	console.log('💡 Showing configuration suggestions for:', actionData);
+
+	ElMessageBox.alert(
+		`AI could not extract valid HTTP configuration from your input. Please try the following suggestions:
+
+• Provide more detailed API description with complete URL and HTTP method
+• Use cURL command format, for example: curl -X GET https://api.example.com/users
+• Clearly specify the request method (GET, POST, PUT, DELETE, etc.)
+• Include complete API endpoint URL (with protocol http:// or https://)
+• For POST/PUT requests, specify request body format (JSON, form, etc.)
+
+You can also switch to the "From cURL" tab to directly paste and import cURL commands.`,
+		'Unable to Generate HTTP Configuration',
+		{
+			type: 'warning',
+			confirmButtonText: 'Got it',
+		}
+	);
+};
+
+// 当AI完全没有返回配置数据时的建议
+const showNoConfigurationDataSuggestions = () => {
+	console.log('💡 Showing no configuration data suggestions');
+
+	ElMessageBox.alert(
+		`AI processing completed but no configuration data was returned. Please check your input and try:
+
+• Ensure input contains API-related information
+• Provide specific HTTP request description
+• Use standard cURL command format
+• Check network connection is working properly
+• If the problem persists, try refreshing the page and retry
+
+We recommend using the "From cURL" feature to import existing cURL commands directly.`,
+		'No Configuration Data Received',
+		{
+			type: 'info',
+			confirmButtonText: 'Got it',
+		}
+	);
+};
+
 const applyGeneratedConfig = async (httpConfig: any) => {
 	console.log('🔧 Applying generated HTTP config:', httpConfig);
 
 	// 验证配置有效性
-	if (!httpConfig || typeof httpConfig !== 'object') {
-		console.error('❌ Invalid HTTP config provided:', httpConfig);
-		ElMessage.error('Invalid HTTP configuration provided');
+	const validation = validateHttpConfig(httpConfig);
+	if (!validation.isValid) {
+		console.error('❌ HTTP config validation failed:', validation.errors);
+		ElMessage.error(`Configuration validation failed: ${validation.errors.join(', ')}`);
+
+		// 显示详细错误信息
+		ElMessageBox.alert(
+			`The generated HTTP configuration has the following issues:\n\n${validation.errors
+				.map((error) => `• ${error}`)
+				.join('\n')}\n\nPlease check your input and try again.`,
+			'Configuration Validation Failed',
+			{ type: 'error' }
+		);
 		return;
 	}
 
@@ -3207,7 +3408,8 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 			if (validUrl.startsWith('//')) {
 				validUrl = 'https:' + validUrl;
 			} else if (validUrl.startsWith('/')) {
-				validUrl = 'https://api.example.com' + validUrl;
+				// 相对路径需要基础域名，但不使用示例域名
+				validUrl = 'https://localhost' + validUrl;
 			} else if (!validUrl.includes('://')) {
 				validUrl = 'https://' + validUrl;
 			}
@@ -3215,8 +3417,9 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 		newConfig.url = validUrl;
 		console.log('✅ Applied URL:', validUrl);
 	} else {
-		console.warn('⚠️ No valid URL provided, using default');
-		newConfig.url = 'https://api.example.com/endpoint';
+		console.error('❌ No valid URL provided in configuration');
+		// 这种情况不应该发生，因为配置在到达这里之前已经验证过了
+		throw new Error('Invalid configuration: URL is required');
 	}
 
 	// 应用HTTP方法
@@ -3254,6 +3457,24 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 			console.warn('⚠️ Invalid body type:', httpConfig.bodyType, 'using none');
 			newConfig.bodyType = 'none';
 		}
+	}
+
+	// 应用timeout
+	if (httpConfig.timeout && typeof httpConfig.timeout === 'number' && httpConfig.timeout > 0) {
+		newConfig.timeout = httpConfig.timeout;
+		console.log('✅ Applied Timeout:', httpConfig.timeout);
+	} else if (httpConfig.timeout !== undefined) {
+		console.warn('⚠️ Invalid timeout value:', httpConfig.timeout, 'using default 30');
+		newConfig.timeout = 30;
+	}
+
+	// 应用followRedirects
+	if (
+		httpConfig.followRedirects !== undefined &&
+		typeof httpConfig.followRedirects === 'boolean'
+	) {
+		newConfig.followRedirects = httpConfig.followRedirects;
+		console.log('✅ Applied Follow Redirects:', httpConfig.followRedirects);
 	}
 
 	// 应用Body内容

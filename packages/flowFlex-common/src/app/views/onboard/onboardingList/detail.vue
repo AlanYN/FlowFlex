@@ -240,7 +240,6 @@ import {
 	completeCurrentStage,
 	onboardingSave,
 	updateStageFields,
-	forceCompleteOnboarding,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, ComponentData, SectionAnswer, Stage } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -362,8 +361,8 @@ const isSaveDisabled = computed(() => {
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
-	// 对于已中止、已取消或强制完成的状态，禁用保存
-	return ['Aborted', 'Cancelled', 'Force Completed'].includes(status);
+	// 对于已中止、已取消、暂停或强制完成的状态，禁用保存
+	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 // 计算是否禁用完成阶段按钮
@@ -378,7 +377,7 @@ const isCompleteStageDisabled = computed(() => {
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
 const isAbortedReadonly = computed(() => {
 	const status = onboardingData.value?.status;
-	return !!status && ['Aborted', 'Cancelled', 'Force Completed'].includes(status);
+	return !!status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 const onboardingStageStatus = computed(() => {
@@ -386,15 +385,6 @@ const onboardingStageStatus = computed(() => {
 		(stage) => stage?.stageId === activeStage?.value
 	);
 	return !!onboardingActiveStage?.completedBy;
-});
-
-// 计算是否可以强制完成
-const canForceComplete = computed(() => {
-	const status = onboardingData.value?.status;
-	if (!status) return false;
-
-	// 只有Active、Paused状态的onboarding可以强制完成
-	return ['Active', 'Paused', 'InProgress', 'Started'].includes(status);
 });
 
 // 添加组件引用
@@ -933,7 +923,6 @@ const saveAllForm = async (isValidate: boolean = true) => {
 };
 
 const completing = ref(false);
-const forceCompleting = ref(false);
 const handleCompleteStage = async () => {
 	ElMessageBox.confirm(
 		`Are you sure you want to mark this stage as complete? This action will record your name and the current time as the completion signature.`,
@@ -993,61 +982,6 @@ const saveQuestionnaireAndField = async () => {
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));
 	}
-};
-
-const handleForceComplete = async () => {
-	ElMessageBox.prompt(
-		'Please provide a reason for force completing this onboarding. This action will bypass all validation and mark the onboarding as Force Completed.',
-		'⚠️ Force Complete Onboarding',
-		{
-			confirmButtonText: 'Force Complete',
-			cancelButtonText: 'Cancel',
-			inputPlaceholder: 'Enter reason for force completion...',
-			inputValidator: (value) => {
-				if (!value || value.trim().length === 0) {
-					return 'Reason is required';
-				}
-				return true;
-			},
-			beforeClose: async (action, instance, done) => {
-				if (action === 'confirm') {
-					const reason = instance.inputValue?.trim();
-					if (!reason) {
-						return;
-					}
-
-					// 显示loading状态
-					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Force Completing...';
-					forceCompleting.value = true;
-
-					try {
-						const res = await forceCompleteOnboarding(onboardingId.value, {
-							reason: reason,
-							completionNotes: 'Force completed via detail page',
-						});
-
-						if (res.code === '200') {
-							ElMessage.success('Onboarding force completed successfully');
-							loadOnboardingDetail();
-						} else {
-							ElMessage.error(res.msg || 'Failed to force complete onboarding');
-						}
-						done();
-					} catch (error) {
-						console.error('Error force completing onboarding:', error);
-						ElMessage.error('Failed to force complete onboarding');
-					} finally {
-						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Force Complete';
-						forceCompleting.value = false;
-					}
-				} else {
-					done();
-				}
-			},
-		}
-	);
 };
 
 const changeLogRef = ref<InstanceType<typeof ChangeLog>>();
