@@ -2555,129 +2555,82 @@ const parseCurlCommand = (input: string) => {
 		body: '',
 	};
 
-	// 查找curl命令
+	// 查找curl命令 - 支持多种引号格式
 	const curlMatch = input.match(
-		/curl\s+[^']*'([^']+)'|curl\s+--location\s+'([^']+)'|curl\s+([^\s\\]+)/
+		/curl\s+[^'"^]*['"^]([^'"^]+)['"^]|curl\s+--location\s+['"^]([^'"^]+)['"^]|curl\s+([^\s\\]+)/
 	);
 	if (curlMatch) {
 		config.url = curlMatch[1] || curlMatch[2] || curlMatch[3];
 		console.log('📍 Found URL:', config.url);
 	}
 
-	// 解析HTTP方法
-	const methodMatch = input.match(/--request\s+(\w+)|-X\s+(\w+)/i);
+	// 解析HTTP方法 - 支持引号格式
+	const methodMatch = input.match(/(?:--request|-X)\s+['"^]*(\w+)['"^]*/i);
 	if (methodMatch) {
-		config.method = (methodMatch[1] || methodMatch[2]).toUpperCase();
+		config.method = methodMatch[1].toUpperCase();
 	} else {
 		// 默认GET，除非有数据
 		config.method = input.includes('--data') ? 'POST' : 'GET';
 	}
 	console.log('🔧 HTTP Method:', config.method);
 
-	// 解析headers
-	const headerMatches = input.matchAll(/--header\s+'([^']+)'|--header\s+"([^"]+)"/g);
+	// 解析headers - 支持 -H 和 --header 两种格式
+	const headerMatches = input.matchAll(/(?:--header|-H)\s+['"^]*([^'"\n\r^]+)['"^]*/g);
 	for (const match of headerMatches) {
-		const headerValue = match[1] || match[2];
-		const [key, ...valueParts] = headerValue.split(':');
-		if (key && valueParts.length > 0) {
-			const value = valueParts.join(':').trim();
-			config.headers[key.trim()] = value;
+		const headerValue = match[1];
+		if (headerValue) {
+			const colonIndex = headerValue.indexOf(':');
+			if (colonIndex > 0) {
+				const key = headerValue.substring(0, colonIndex).trim();
+				const value = headerValue.substring(colonIndex + 1).trim();
+				if (key && value) {
+					config.headers[key] = value;
+				}
+			}
 		}
 	}
 	console.log('📋 Headers:', config.headers);
 
-	// 解析请求体 - 使用更简单但更有效的方法
+	// 解析请求体 - 支持Windows cURL的特殊引号格式
 	let bodyContent = '';
 
 	// 查找 --data-raw 或 --data 的位置
-	const dataRawIndex = input.indexOf('--data-raw');
-	const dataIndex = input.indexOf('--data');
+	const dataRawMatch = input.match(/--data-raw\s+['"^]*([^]*)/);
+	const dataMatch = input.match(/--data\s+['"^]*([^]*)/);
 
-	let startIndex = -1;
-	if (dataRawIndex !== -1) {
-		startIndex = dataRawIndex;
-		console.log('📦 Found --data-raw at index:', startIndex);
-	} else if (dataIndex !== -1) {
-		startIndex = dataIndex;
-		console.log('📦 Found --data at index:', startIndex);
+	let dataContent = '';
+	if (dataRawMatch) {
+		dataContent = dataRawMatch[1];
+		console.log('📦 Found --data-raw content');
+	} else if (dataMatch) {
+		dataContent = dataMatch[1];
+		console.log('📦 Found --data content');
 	}
 
-	if (startIndex !== -1) {
-		// 从 --data-raw 或 --data 开始查找
-		const fromDataStart = input.substring(startIndex);
-		console.log('📦 Content from data start:', fromDataStart.substring(0, 100) + '...');
+	if (dataContent) {
+		console.log('📦 Raw data content length:', dataContent.length);
+		console.log('📦 Raw data start:', dataContent.substring(0, 100) + '...');
 
-		// 查找第一个引号并确定引号类型 - 移除$锚点以匹配整个剩余内容
-		const singleQuoteMatch = fromDataStart.match(/--data(?:-raw)?\s+'([\s\S]*)/);
-		const doubleQuoteMatch = fromDataStart.match(/--data(?:-raw)?\s+"([\s\S]*)/);
+		// 处理Windows cURL的特殊引号格式（^"...^"）和普通引号
+		let cleanContent = dataContent;
 
-		console.log('📦 Single quote match result:', singleQuoteMatch ? 'Found' : 'Not found');
-		console.log('📦 Double quote match result:', doubleQuoteMatch ? 'Found' : 'Not found');
+		// 移除开头的转义字符和引号
+		cleanContent = cleanContent.replace(/^[\s^]*["']/, '');
 
-		let rawContent = '';
-		let quoteChar = '';
+		// 移除结尾的转义字符和引号
+		cleanContent = cleanContent.replace(/["'][\s^]*$/, '');
 
-		if (singleQuoteMatch) {
-			rawContent = singleQuoteMatch[1];
-			quoteChar = "'";
-			console.log('📦 Found single quote format');
-		} else if (doubleQuoteMatch) {
-			rawContent = doubleQuoteMatch[1];
-			quoteChar = '"';
-			console.log('📦 Found double quote format');
-		}
+		// 移除结尾可能的额外空白和特殊字符
+		cleanContent = cleanContent.trim();
 
-		if (rawContent && quoteChar) {
-			console.log('📦 Raw content length:', rawContent.length);
-			console.log('📦 Raw content after quote:', rawContent.substring(0, 100) + '...');
-			console.log('📦 Raw content last 100 chars:', rawContent.slice(-100));
+		// 替换 Windows cURL 的转义字符
+		cleanContent = cleanContent.replace(/\^\^/g, '^');
+		cleanContent = cleanContent.replace(/\^"/g, '"');
+		cleanContent = cleanContent.replace(/\^'/g, "'");
 
-			// 从末尾开始查找匹配的结束引号，但要确保它不在 JSON 字符串内部
-			// 简单的方法：查找行末的引号
-			const lines = rawContent.split('\n');
-			console.log('📦 Total lines in raw content:', lines.length);
-			let endQuoteLineIndex = -1;
-
-			// 从最后一行开始向前查找，寻找只包含引号和空白字符的行
-			for (let i = lines.length - 1; i >= 0; i--) {
-				const line = lines[i].trim();
-				console.log(`📦 Checking line ${i}: "${line}"`);
-				if (line === quoteChar || line.endsWith(quoteChar)) {
-					endQuoteLineIndex = i;
-					console.log('📦 Found ending quote at line:', i);
-					break;
-				}
-			}
-
-			if (endQuoteLineIndex !== -1) {
-				// 提取到结束引号行之前的所有内容
-				const contentLines = lines.slice(0, endQuoteLineIndex);
-				// 如果最后一行以引号结尾，需要移除引号
-				if (
-					endQuoteLineIndex < lines.length &&
-					lines[endQuoteLineIndex].trim() !== quoteChar
-				) {
-					const lastLine = lines[endQuoteLineIndex];
-					const quoteIndex = lastLine.lastIndexOf(quoteChar);
-					if (quoteIndex !== -1) {
-						contentLines.push(lastLine.substring(0, quoteIndex));
-					}
-				}
-				bodyContent = contentLines.join('\n');
-				console.log('📦 Extracted body content (lines 0 to ' + endQuoteLineIndex + ')');
-			} else {
-				// 如果找不到结束引号，使用整个内容
-				bodyContent = rawContent;
-				console.log('📦 No ending quote found, using entire content');
-			}
-
-			console.log('📦 Final body content length:', bodyContent.length);
-			console.log(
-				'📦 Final extracted content preview:',
-				bodyContent.substring(0, 200) + '...'
-			);
-			console.log('📦 Content ends with:', bodyContent.slice(-100));
-		}
+		bodyContent = cleanContent;
+		console.log('📦 Cleaned body content length:', bodyContent.length);
+		console.log('📦 Body preview:', bodyContent.substring(0, 200) + '...');
 	}
 
 	if (bodyContent.trim()) {

@@ -354,7 +354,9 @@ namespace FlowFlex.WebApi.Controllers.AI
                     var json = JsonSerializer.Serialize(result, new JsonSerializerOptions
                     {
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                        WriteIndented = false
+                        WriteIndented = false,
+                        MaxDepth = 64,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                     });
                     
                     await Response.WriteAsync($"data: {json}\n\n");
@@ -386,7 +388,9 @@ namespace FlowFlex.WebApi.Controllers.AI
                 
                 var errorJson = JsonSerializer.Serialize(errorResult, new JsonSerializerOptions
                 {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    MaxDepth = 64,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
                 
                 await Response.WriteAsync($"data: {errorJson}\n\n");

@@ -3395,7 +3395,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 model = config.ModelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
-                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000
             };
 
             var json = JsonSerializer.Serialize(requestBody);
@@ -3464,7 +3464,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             var requestBody = new
             {
                 model = config.ModelName,
-                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000,
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
                 messages = claudeMessages
             };
@@ -3530,7 +3530,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 model = config.ModelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
-                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000
             };
 
             var json = JsonSerializer.Serialize(requestBody);
@@ -3731,7 +3731,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
                 model = config.ModelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
-                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000,
                 stream = true // Enable streaming
             };
 
@@ -3775,7 +3775,7 @@ RETURN ONLY THE JSON - NO EXPLANATORY TEXT.";
             using var reader = new StreamReader(stream);
 
             string line;
-            var lineTimeout = TimeSpan.FromSeconds(5); // 每行最多等待5秒
+            var lineTimeout = TimeSpan.FromSeconds(30); // 增加超时时间以支持更长的响应
 
             while (true)
             {
@@ -7606,11 +7606,11 @@ Please return the results in JSON format with the following structure:
                     model = config.ModelName,
                     messages = new[]
                     {
-                        new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. Be concise and precise." },
+                        new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns like 'Ord...', 'ExtendProperty...', etc. Include ALL data fields completely without any omissions. Complete JSON is mandatory." },
                         new { role = "user", content = prompt }
                     },
                     temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8), // Lower temperature for more consistent results
-                    max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 1500, 2000), // Reasonable limit for Action operations
+                    max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 3000, 4000), // Increased limit for complete JSON responses
                     stream = false
                 };
 
@@ -8390,11 +8390,11 @@ Please return the results in JSON format with the following structure:
                 model = config.ModelName,
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. Be concise and precise." },
+                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns like 'Ord...', 'ExtendProperty...', etc. Include ALL data fields completely without any omissions. Complete JSON is mandatory." },
                     new { role = "user", content = prompt }
                 },
                 temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8),
-                max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 1500, 2000),
+                max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 3000, 4000),
                 stream = true
             };
 
@@ -8468,9 +8468,14 @@ Please return the results in JSON format with the following structure:
                         var data = line.Substring(6);
                         if (data == "[DONE]") break;
 
+                        // Log raw AI response data for debugging
+                        _logger.LogDebug("🔍 AI raw data chunk: {Data}", data.Length > 200 ? data.Substring(0, 200) + "..." : data);
+
                         var contentText = ParseStreamingJsonContent(data);
                         if (!string.IsNullOrEmpty(contentText))
                         {
+                            // Log the actual content being yielded
+                            _logger.LogDebug("📤 AI yielding content: {Content}", contentText.Length > 100 ? contentText.Substring(0, 100) + "..." : contentText);
                             yield return contentText;
                         }
                     }
@@ -8492,11 +8497,11 @@ Please return the results in JSON format with the following structure:
                 model = config.ModelName,
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. Be concise and precise." },
+                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns like 'Ord...', 'ExtendProperty...', etc. Include ALL data fields completely without any omissions. Complete JSON is mandatory." },
                     new { role = "user", content = prompt }
                 },
                 temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8),
-                max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 1500, 2000),
+                max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 3000, 4000),
                 stream = true
             };
 
@@ -8569,9 +8574,14 @@ Please return the results in JSON format with the following structure:
                         var data = line.Substring(6);
                         if (data == "[DONE]") break;
 
+                        // Log raw AI response data for debugging
+                        _logger.LogDebug("🔍 AI raw data chunk: {Data}", data.Length > 200 ? data.Substring(0, 200) + "..." : data);
+
                         var contentText = ParseStreamingJsonContent(data);
                         if (!string.IsNullOrEmpty(contentText))
                         {
+                            // Log the actual content being yielded
+                            _logger.LogDebug("📤 AI yielding content: {Content}", contentText.Length > 100 ? contentText.Substring(0, 100) + "..." : contentText);
                             yield return contentText;
                         }
                     }
@@ -8590,7 +8600,13 @@ Please return the results in JSON format with the following structure:
         {
             try
             {
-                var parsedData = JsonSerializer.Deserialize<JsonElement>(jsonData);
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    MaxDepth = 64,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                
+                var parsedData = JsonSerializer.Deserialize<JsonElement>(jsonData, jsonOptions);
                 if (parsedData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                 {
                     var choice = choices[0];
@@ -8644,6 +8660,15 @@ Please return the results in JSON format with the following structure:
         private async IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigInternalAsync(
             AIHttpConfigGenerationInput input, string prompt, string sessionId, DateTime startTime)
         {
+            // Log input data for debugging
+            _logger.LogInformation("🔍 Input UserInput length: {Length}, FileContent length: {FileLength}", 
+                input.UserInput?.Length ?? 0, input.FileContent?.Length ?? 0);
+            if (!string.IsNullOrEmpty(input.UserInput))
+            {
+                _logger.LogInformation("📋 UserInput preview: {Preview}", 
+                    input.UserInput.Length > 300 ? input.UserInput.Substring(0, 300) + "..." : input.UserInput);
+            }
+            
             var streamingContent = new StringBuilder();
             var hasReceivedContent = false;
             Exception? processingException = null;
@@ -8671,7 +8696,18 @@ Please return the results in JSON format with the following structure:
             if (hasReceivedContent)
             {
                 var fullContent = streamingContent.ToString();
-                _logger.LogInformation("Processing HTTP config generation response, length: {Length}", fullContent.Length);
+                _logger.LogInformation("📋 DeepSeek full response content length: {Length} chars", fullContent.Length);
+                
+                // Log a portion of the response for debugging (focus on the end where truncation occurs)
+                if (fullContent.Length > 1000)
+                {
+                    var endContent = fullContent.Substring(fullContent.Length - 500);
+                    _logger.LogInformation("📋 DeepSeek response ending: ...{EndContent}", endContent);
+                }
+                else
+                {
+                    _logger.LogInformation("📋 DeepSeek response full: {Content}", fullContent);
+                }
 
                 object? httpConfigResult = null;
                 string resultMessage = "HTTP configuration generated successfully!";
@@ -8760,12 +8796,16 @@ Please return the results in JSON format with the following structure:
         /// </summary>
         private string BuildHttpConfigGenerationPrompt(AIHttpConfigGenerationInput input)
         {
-            var userInput = input.UserInput?.Length > 1000 
-                ? input.UserInput.Substring(0, 1000) + "..." 
+            var originalInputLength = input.UserInput?.Length ?? 0;
+            var userInput = input.UserInput?.Length > 10000 
+                ? input.UserInput.Substring(0, 10000) + "..." 
                 : input.UserInput ?? "";
             
-            var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 500 
-                ? input.Context.Substring(0, 500) + "..." 
+            _logger.LogInformation("📝 User input length: {OriginalLength}, truncated: {IsTruncated}", 
+                originalInputLength, originalInputLength > 10000);
+            
+            var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 2000 
+                ? input.Context.Substring(0, 2000) + "..." 
                 : input.Context ?? "";
 
             var fileContentText = "";
@@ -8777,7 +8817,19 @@ Please return the results in JSON format with the following structure:
                 fileContentText = $"\n\nFILE CONTENT ({input.FileName ?? "uploaded file"}):\n{content}";
             }
 
-            return $@"Extract HTTP configuration from the following input and return ONLY valid JSON:
+            return $@"CRITICAL: Extract HTTP configuration from the following input and return ONLY valid JSON. DO NOT TRUNCATE OR USE '...' IN JSON FIELDS. Provide COMPLETE data content.
+
+HEADER PARSING REQUIREMENTS:
+- Parse ALL headers from the input, not just Content-Type and Accept
+- Include headers like: authorization, cache-control, origin, referer, user-agent, accept-language, pragma, priority, sec-*, time-zone, etc.
+- Each -H flag in cURL represents a header that MUST be included
+- Headers object should contain ALL found headers with their exact values
+
+BODY PARSING REQUIREMENTS:
+- Extract the COMPLETE body content without any truncation
+- Include ALL JSON properties and nested objects in their entirety
+- Pay special attention to complex objects like 'components', 'defaultAssignee', 'estimatedDuration', etc.
+- Windows cURL uses ^"" for escaping quotes - handle this correctly
 
 INPUT: {userInput}{fileContentText}
 
@@ -8796,6 +8848,7 @@ REQUIRED OUTPUT FORMAT (JSON only, no markdown, no explanation):
                 ""headers"": {{
                     ""Content-Type"": ""application/json"",
                     ""Accept"": ""application/json""
+                    // INCLUDE ALL HEADERS found in the input (authorization, cache-control, origin, referer, user-agent, etc.)
                 }},
                 ""bodyType"": ""none"",
                 ""body"": """",
@@ -8812,7 +8865,7 @@ EXTRACTION RULES:
 1. method: Extract from curl -X, HTTP verb, or default to GET
 2. url: Must be complete valid URL with protocol (https:// or http://) - EXTRACT FROM INPUT ONLY
 3. headers: Extract from -H flags, Content-Type required
-4. body: Extract from -d flag or JSON payload, empty string if none
+4. body: Extract from -d flag or JSON payload, empty string if none - EXTRACT AND INCLUDE THE COMPLETE BODY CONTENT, DO NOT TRUNCATE JSON DATA
 5. bodyType: ""raw"" for POST/PUT/PATCH with body, ""none"" for GET/DELETE
 6. actionName: Generate from URL path (e.g., get_users, post_data)
 7. timeout: Default to 30 seconds
@@ -8824,6 +8877,22 @@ VALIDATION REQUIREMENTS:
 - headers MUST be object with string values
 - body MUST be string (empty if no body)
 - actionName MUST be valid identifier (alphanumeric + underscore)
+
+CRITICAL: Extract and include the COMPLETE body content from the input, do not truncate JSON data. Ensure all JSON content in the body field is complete and valid.
+
+FORBIDDEN PATTERNS: 
+- Do NOT use ""..."" or ""...anything"" to indicate omitted content
+- Do NOT truncate any part of the JSON data
+- Do NOT end JSON fields with ""Ord..."", ""ExtendProperty..."" or similar patterns
+- Do NOT limit headers to only Content-Type and Accept
+- Include ALL properties and values completely
+- Include ALL headers found in the cURL command
+
+EXAMPLE OF WHAT NOT TO DO:
+""ExtendProperty"": {{ ""Order_Property"": """", ""Ord...""}}
+
+CORRECT APPROACH:
+""ExtendProperty"": {{ ""Order_Property"": """", ""Order_Status"": ""pending"", ""Order_Notes"": ""sample""}}
 
 IMPORTANT: If no valid URL can be extracted from the input, return null instead of any placeholder URL.
 
@@ -8837,7 +8906,15 @@ Return ONLY the JSON object, no additional text or formatting.";
         {
             try
             {
-                var jsonResponse = JsonSerializer.Deserialize<JsonElement>(aiResponse);
+                // Configure JSON serializer options to prevent truncation
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    MaxDepth = 64,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+
+                var jsonResponse = JsonSerializer.Deserialize<JsonElement>(aiResponse, jsonOptions);
                 
                 if (jsonResponse.TryGetProperty("actionPlan", out var actionPlan))
                 {
@@ -8852,11 +8929,11 @@ Return ONLY the JSON object, no additional text or formatting.";
                         id = "http_config_001",
                         title = "HTTP API Configuration",
                         description = "Generated HTTP configuration",
-                        actions = JsonSerializer.Deserialize<object[]>(actions.GetRawText())
+                        actions = JsonSerializer.Deserialize<object[]>(actions.GetRawText(), jsonOptions)
                     };
                 }
 
-                var deserializedResult = JsonSerializer.Deserialize<object>(aiResponse);
+                var deserializedResult = JsonSerializer.Deserialize<object>(aiResponse, jsonOptions);
                 return deserializedResult ?? GenerateFallbackHttpConfig(input);
             }
             catch (JsonException)
