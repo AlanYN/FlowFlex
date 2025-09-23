@@ -8,9 +8,9 @@ public static class IdentityConstants
 
 public static class AuthSchemes
 {
-    public const string ApiKey = "crm.apikey";
+    public const string ApiKey = "wfe.apikey";
 
-    public const string Identification = "crm.identify";
+    public const string Identification = "wfe.identify";
 
     public const string PassIdentification = "pass.identify";
 

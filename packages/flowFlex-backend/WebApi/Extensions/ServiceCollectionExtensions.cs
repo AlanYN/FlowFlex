@@ -31,6 +31,7 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
+using Item.ThirdParty;
 
 namespace FlowFlex.WebApi.Extensions
 {
@@ -338,6 +339,9 @@ namespace FlowFlex.WebApi.Extensions
 
             // Register distributed cache service
             services.AddScoped<IDistributedCacheService, FlowFlex.Infrastructure.Services.RedisCacheService>();
+
+            services.AddMemoryCache();
+            services.AddIdentityHubService(configuration);
 
             // Auto-register services based on lifetime marker interfaces
             RegisterServicesByLifetime(services);
