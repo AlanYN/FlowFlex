@@ -451,6 +451,7 @@ import PageHeader from '@/components/global/PageHeader/index.vue';
 import { StageComponentPortal } from '@/enums/appEnum';
 import GradientTag from '@/components/global/GradientTag/index.vue';
 import { PortalPermissionEnum } from '@/enums/portalPermissionEnum';
+import { getAppCode } from '@/utils/threePartyLogin';
 
 // 图标组件
 const HomeIcon = {
@@ -744,9 +745,7 @@ const refreshAISummary = async () => {
 		}
 
 		// 添加用户相关头信息
-		if (userInfo?.appCode) {
-			headers['X-App-Code'] = String(userInfo.appCode);
-		}
+		headers['X-App-Code'] = getAppCode();
 		if (userInfo?.tenantId) {
 			headers['X-Tenant-Id'] = String(userInfo.tenantId);
 		}

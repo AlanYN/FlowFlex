@@ -25,6 +25,13 @@ export enum SessionTimeoutProcessingEnum {
 	PAGE_COVERAGE,
 }
 
+export enum CompanyCode {
+	UF = 'LT',
+	UT = 'SBFH',
+	CW = 'CW',
+	OTHER = 'OTHER',
+}
+
 export const SexEnum = {
 	0: 'Male',
 	1: 'Female',
@@ -59,6 +66,7 @@ export enum RouterTransitionEnum {
 export enum ProjectEnum {
 	CRM = '1',
 	VRM = '2',
+	WFE = '5',
 }
 
 export enum ReleationType {

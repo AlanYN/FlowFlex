@@ -3,8 +3,7 @@ import type { Menu, RoleMenu, AppRouteRecordRaw } from '@/router/types';
 
 import { defineStore } from 'pinia';
 import { store } from '@/stores';
-import { useUserStore } from './user';
-// import { flatMultiLevelRoutes } from '@/router/helper/routeHelper';
+import { userPermissions } from '@/apis/global';
 
 import { Routes } from '@/router/routers';
 
@@ -110,10 +109,10 @@ export const usePermissionStore = defineStore({
 		// 构建路由
 		async buildRoutesAction(): Promise<AppRouteRecordRaw[]> {
 			this.resetState();
-			const userStore = useUserStore();
 			let roledsMenu = [] as any[];
 			try {
-				roledsMenu = [];
+				const { data = [] } = await userPermissions();
+				roledsMenu = data;
 			} catch {
 				roledsMenu = [];
 			}
@@ -139,7 +138,6 @@ export const usePermissionStore = defineStore({
 			 * */
 			const patchHomeAffix = (routes: RouteRecordNormalized[]) => {
 				if (!routes || routes.length === 0) return;
-				const homePath = userStore.getUserInfo.homePath || (PageEnum.BASE_HOME as string);
 
 				function patcher(routes: RouteRecordNormalized[], parentPath = '') {
 					if (parentPath) parentPath = parentPath + '/';
@@ -148,7 +146,7 @@ export const usePermissionStore = defineStore({
 						const { path, children } = route;
 						const currentPath = path.startsWith('/') ? path : parentPath + path;
 						if (currentPath === '/') {
-							route.redirect = homePath;
+							route.redirect = PageEnum.BASE_HOME as string;
 							break; // 直接结束循环
 						}
 						children &&

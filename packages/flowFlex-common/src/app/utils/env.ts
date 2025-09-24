@@ -42,6 +42,7 @@ export function getAppEnvConfig() {
 		VITE_GLOB_SSOURL,
 		VITE_GLOB_ENVIRONMENT,
 		VITE_GLOB_DOMAIN_URL,
+		VITE_GLOB_IDM_URL,
 	} = ENV;
 	let { VITE_GLOB_API_URL } = ENV;
 	if (localStorage.getItem(API_ADDRESS)) {
@@ -57,6 +58,7 @@ export function getAppEnvConfig() {
 		VITE_GLOB_SSOURL,
 		VITE_GLOB_ENVIRONMENT,
 		VITE_GLOB_DOMAIN_URL,
+		VITE_GLOB_IDM_URL,
 	};
 }
 

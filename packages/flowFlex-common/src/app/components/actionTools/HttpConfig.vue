@@ -758,6 +758,7 @@ import PrototypeTabs from '@/components/PrototypeTabs/index.vue';
 import TabPane from '@/components/PrototypeTabs/TabPane.vue';
 import { parseCurl, type ParsedCurlConfig } from '@/utils/curlParser';
 import * as XLSX from 'xlsx-js-style';
+import { getAppCode } from '@/utils/threePartyLogin';
 
 // External library loaders (CDN-based to avoid local dependency issues)
 const PDF_JS_VERSION = '3.11.174';
@@ -2089,9 +2090,7 @@ const streamGenerateHttpConfigDirect = async (
 	}
 
 	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
+	headers['X-App-Code'] = getAppCode();
 	if (userInfo?.tenantId) {
 		headers['X-Tenant-Id'] = String(userInfo.tenantId);
 	}
@@ -3359,9 +3358,7 @@ const initializeAIModels = async () => {
 		}
 
 		// 添加用户相关头信息
-		if (userInfo?.appCode) {
-			headers['X-App-Code'] = String(userInfo.appCode);
-		}
+		headers['X-App-Code'] = getAppCode();
 		if (userInfo?.tenantId) {
 			headers['X-Tenant-Id'] = String(userInfo.tenantId);
 		}

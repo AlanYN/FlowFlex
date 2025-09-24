@@ -4,6 +4,8 @@
  */
 
 import { useUserStoreWithOut } from '@/stores/modules/user';
+import { getAppCode } from '@/utils/threePartyLogin';
+import { UserInfo } from '#/config';
 
 /**
  * 从URL参数中提取租户信息并设置到用户store
@@ -24,7 +26,7 @@ export function extractAndSetTenantInfoFromUrl(): void {
 			...(appCode && { appCode }),
 		};
 
-		userStore.setUserInfo(updatedUserInfo);
+		userStore.setUserInfo(updatedUserInfo as UserInfo);
 
 		console.log('[Portal Access] Updated tenant info from URL:', {
 			tenantId,
@@ -60,12 +62,10 @@ export function getTenantHeaders(): Record<string, string> {
 	const headers: Record<string, string> = {};
 
 	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = userInfo.tenantId;
+		headers['X-Tenant-Id'] = userInfo.tenantId.toString();
 	}
 
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
+	headers['X-App-Code'] = getAppCode();
 
 	return headers;
 }

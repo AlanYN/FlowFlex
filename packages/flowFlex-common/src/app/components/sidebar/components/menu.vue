@@ -50,9 +50,8 @@
 					</el-menu-item>
 				</template>
 			</el-sub-menu>
-
 			<el-menu-item
-				:index="`${item.path}/index`"
+				:index="`${item.redirect}`"
 				:disabled="!item.meta.status"
 				:title="t(item?.meta?.title)"
 				v-else-if="!item.meta.hidden"

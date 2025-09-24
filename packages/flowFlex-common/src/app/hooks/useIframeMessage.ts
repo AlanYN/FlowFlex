@@ -4,7 +4,7 @@ import { useGlobSetting } from '@/settings';
 export function useIframeMessage() {
 	const handleMessage = (event: MessageEvent) => {
 		const globSetting = useGlobSetting();
-		const allowedOrigin = globSetting.iamUrl;
+		const allowedOrigin = globSetting.idmUrl;
 
 		// 验证消息来源
 		if (!allowedOrigin || !event.origin.includes(allowedOrigin)) {
