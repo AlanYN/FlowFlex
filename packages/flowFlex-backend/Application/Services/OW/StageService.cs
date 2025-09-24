@@ -313,19 +313,29 @@ namespace FlowFlex.Application.Service.OW
                         // AI summary generation removed - Stage entity no longer contains AI summary fields
                     }
 
-                    // Sync stages progress for all onboardings in this workflow (outside transaction)
-                    // Background task queued
-                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                    {
-                        try
-                        {
-                            await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stageInTransaction.WorkflowId, id);
-                        }
-                        catch
-                        {
-                            // Ignore sync errors to avoid impacting the main operation
-                        }
-                    });
+                    // DISABLED: Stages progress sync after stage update to prevent data loss
+                    // The sync was causing onboarding stages progress to be cleared or modified
+                    // when stages are updated. Keeping onboarding progress data intact.
+                    
+                    _logger.LogInformation("Stage update completed for workflow {WorkflowId}, stage {StageId}. " +
+                        "Stages progress sync is DISABLED to preserve existing onboarding data.", 
+                        stageInTransaction.WorkflowId, id);
+                        
+                    // Note: If sync is absolutely necessary, it should be done manually or
+                    // with explicit user confirmation to prevent accidental data loss
+                    
+                    // Original sync code (DISABLED):
+                    // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                    // {
+                    //     try
+                    //     {
+                    //         await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stageInTransaction.WorkflowId, id);
+                    //     }
+                    //     catch
+                    //     {
+                    //         // Ignore sync errors to avoid impacting the main operation
+                    //     }
+                    // });
                 }
 
                 // Clear related cache after successful update
@@ -520,20 +530,24 @@ namespace FlowFlex.Application.Service.OW
                     }
                 });
 
-                // Sync stages progress for all onboardings in this workflow
-                // This is done asynchronously to avoid impacting the main operation
-                // Background task queued
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-            {
-                try
-                {
-                    await _stagesProgressSyncService.SyncAfterStageDeleteAsync(workflowId, id);
-                }
-                catch
-                {
-                    // Ignore sync errors to avoid impacting the main operation
-                }
-            });
+                // DISABLED: Stages progress sync after stage deletion to prevent data loss
+                // The sync was causing onboarding stages progress to be modified when stages are deleted.
+                _logger.LogInformation("Stage deleted for workflow {WorkflowId}, stage {StageId}. " +
+                    "Stages progress sync is DISABLED to preserve existing onboarding data.", 
+                    workflowId, id);
+                    
+                // Original sync code (DISABLED):
+                // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                // {
+                //     try
+                //     {
+                //         await _stagesProgressSyncService.SyncAfterStageDeleteAsync(workflowId, id);
+                //     }
+                //     catch
+                //     {
+                //         // Ignore sync errors to avoid impacting the main operation
+                //     }
+                // });
             }
 
             return deleteResult;
@@ -642,20 +656,24 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{input.WorkflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
 
-                // Sync stages progress for all onboardings in this workflow
-                // This is done asynchronously to avoid impacting the main operation
-                // Background task queued
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-            {
-                try
-                {
-                    await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
-                }
-                catch
-                {
-                    // Ignore sync errors to avoid impacting the main operation
-                }
-            });
+                // DISABLED: Stages progress sync after stage sorting to prevent data loss
+                // The sync was causing onboarding stages progress to be modified when stages are reordered.
+                _logger.LogInformation("Stages sorted for workflow {WorkflowId}. " +
+                    "Stages progress sync is DISABLED to preserve existing onboarding data.", 
+                    input.WorkflowId);
+                    
+                // Original sync code (DISABLED):
+                // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                // {
+                //     try
+                //     {
+                //         await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
+                //     }
+                //     catch
+                //     {
+                //         // Ignore sync errors to avoid impacting the main operation
+                //     }
+                // });
             }
 
             return result;
@@ -719,20 +737,24 @@ namespace FlowFlex.Application.Service.OW
             // Create new WorkflowVersion (after stage combination) - Disabled automatic version creation
             // await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stages combined into '{input.NewStageName}'");
 
-            // Sync stages progress for all onboardings in this workflow
-            // This is done asynchronously to avoid impacting the main operation
-            // Background task queued
-            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-    {
-        try
-        {
-            await _stagesProgressSyncService.SyncAfterStagesCombineAsync(workflowId, input.StageIds, newStage.Id);
-        }
-        catch
-        {
-            // Ignore sync errors to avoid impacting the main operation
-        }
-    });
+        // DISABLED: Stages progress sync after stage combination to prevent data loss
+        // The sync was causing onboarding stages progress to be modified when stages are combined.
+        _logger.LogInformation("Stages combined for workflow {WorkflowId}, new stage {NewStageId}. " +
+            "Stages progress sync is DISABLED to preserve existing onboarding data.", 
+            workflowId, newStage.Id);
+            
+        // Original sync code (DISABLED):
+        // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+        // {
+        //     try
+        //     {
+        //         await _stagesProgressSyncService.SyncAfterStagesCombineAsync(workflowId, input.StageIds, newStage.Id);
+        //     }
+        //     catch
+        //     {
+        //         // Ignore sync errors to avoid impacting the main operation
+        //     }
+        // });
 
             return newStage.Id;
         }

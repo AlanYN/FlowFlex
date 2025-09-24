@@ -6008,9 +6008,16 @@ namespace FlowFlex.Application.Services.OW
 
             // Important: Do NOT modify stagesProgress data - keep it as is
             // This ensures that the stage progress remains unchanged as per requirement
+            // Preserve the original stages progress data to prevent any changes
+            var originalStagesProgressJson = entity.StagesProgressJson;
+            var originalStagesProgress = entity.StagesProgress?.ToList(); // Create a copy
 
-            // Update stage tracking info
+            // Update stage tracking info (this may modify stages progress, so we'll restore it afterward)
             await UpdateStageTrackingInfoAsync(entity);
+
+            // CRITICAL: Restore the original stages progress to ensure no changes
+            entity.StagesProgressJson = originalStagesProgressJson;
+            entity.StagesProgress = originalStagesProgress;
 
             // Log the force completion action
             await LogOnboardingActionAsync(entity, "Force Complete", "Status Change", true, new
@@ -6023,7 +6030,101 @@ namespace FlowFlex.Application.Services.OW
                 CompletedAt = DateTimeOffset.UtcNow
             });
 
-            return await SafeUpdateOnboardingAsync(entity);
+            // Use special update method that excludes stages_progress_json field
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
+        }
+
+        /// <summary>
+        /// Safely update onboarding entity without modifying stages_progress_json
+        /// This method is specifically designed for operations where stages progress should not be changed
+        /// </summary>
+        private async Task<bool> SafeUpdateOnboardingWithoutStagesProgressAsync(Onboarding entity, string preserveStagesProgressJson)
+        {
+            try
+            {
+                // Always use the JSONB-safe approach to avoid type conversion errors
+                var db = _onboardingRepository.GetSqlSugarClient();
+
+                // Update all fields except stages_progress_json first
+                var result = await _onboardingRepository.UpdateAsync(entity,
+                    it => new
+                    {
+                        it.WorkflowId,
+                        it.CurrentStageId,
+                        it.CurrentStageOrder,
+                        it.LeadId,
+                        it.LeadName,
+                        it.LeadEmail,
+                        it.LeadPhone,
+                        it.ContactPerson,
+                        it.ContactEmail,
+                        it.LifeCycleStageId,
+                        it.LifeCycleStageName,
+                        it.Status,
+                        it.CompletionRate,
+                        it.StartDate,
+                        it.EstimatedCompletionDate,
+                        it.ActualCompletionDate,
+                        it.CurrentAssigneeId,
+                        it.CurrentAssigneeName,
+                        it.CurrentTeam,
+                        it.StageUpdatedById,
+                        it.StageUpdatedBy,
+                        it.StageUpdatedByEmail,
+                        it.StageUpdatedTime,
+                        it.CurrentStageStartTime,
+                        it.Priority,
+                        it.IsPrioritySet,
+                        it.CustomFieldsJson,
+                        it.Notes,
+                        it.IsActive,
+                        it.ModifyDate,
+                        it.ModifyBy,
+                        it.ModifyUserId,
+                        it.IsValid
+                    });
+
+                // IMPORTANT: Restore the original stages_progress_json to ensure no changes to stages progress
+                if (!string.IsNullOrEmpty(preserveStagesProgressJson))
+                {
+                    try
+                    {
+                        var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
+                        await db.Ado.ExecuteCommandAsync(progressSql, new
+                        {
+                            StagesProgressJson = preserveStagesProgressJson,
+                            Id = entity.Id
+                        });
+                        
+                        LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id}");
+                    }
+                    catch (Exception progressEx)
+                    {
+                        // Log but don't fail the main update
+                        LoggingExtensions.WriteLine($"Warning: Failed to preserve stages_progress_json: {progressEx.Message}");
+                        // Try alternative approach with parameter substitution
+                        try
+                        {
+                            var escapedJson = preserveStagesProgressJson.Replace("'", "''");
+                            var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
+                            await db.Ado.ExecuteCommandAsync(directSql);
+                            
+                            LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id} using direct SQL");
+                        }
+                        catch (Exception directEx)
+                        {
+                            LoggingExtensions.WriteLine($"Error: Both parameterized and direct JSONB preserve failed: {directEx.Message}");
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    $"Failed to safely update onboarding without stages progress changes: {ex.Message}");
+            }
         }
 
         #endregion
