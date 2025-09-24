@@ -314,16 +314,25 @@ namespace FlowFlex.Application.Service.OW
                     }
 
                     // Sync stages progress for all onboardings in this workflow (outside transaction)
-                    // Background task queued
+                    // Background task queued with enhanced error handling and logging
                     _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
                         try
                         {
+                            _logger.LogInformation("Starting background sync after stage update for workflow {WorkflowId}, stage {StageId}", 
+                                stageInTransaction.WorkflowId, id);
+                            
                             await _stagesProgressSyncService.SyncAfterStageUpdateAsync(stageInTransaction.WorkflowId, id);
+                            
+                            _logger.LogInformation("Completed background sync after stage update for workflow {WorkflowId}, stage {StageId}", 
+                                stageInTransaction.WorkflowId, id);
                         }
-                        catch
+                        catch (Exception syncEx)
                         {
-                            // Ignore sync errors to avoid impacting the main operation
+                            // Enhanced error logging for better debugging
+                            _logger.LogError(syncEx, "CRITICAL: Background sync failed after stage update for workflow {WorkflowId}, stage {StageId}. " +
+                                "This may cause data inconsistency between stages and onboarding progress.", 
+                                stageInTransaction.WorkflowId, id);
                         }
                     });
                 }
