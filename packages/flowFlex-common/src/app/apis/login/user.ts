@@ -12,6 +12,8 @@ export const UnisApi = () => {
 		getNewToken: `${globSetting.idmUrl}/api/v1/oauth/token`,
 
 		verifyTicket: `${globSetting.idmUrl}/api/v1/oauth/ticket`,
+
+		switchingCompany: `${globSetting.idmUrl}/api/v1/users/current/tenant`,
 	};
 };
 
@@ -47,4 +49,8 @@ export function registerApi(params: {
 	verificationCode: string;
 }) {
 	return defHttp.post({ url: Api().register, params });
+}
+
+export function switchingCompany(params) {
+	return defHttp.put({ url: `${UnisApi().switchingCompany}/${params}` });
 }
