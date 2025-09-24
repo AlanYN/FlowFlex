@@ -13,7 +13,7 @@ const user: AppRouteModule = {
 		hideChildrenInMenu: true,
 		icon: userIcon,
 		title: t('sys.router.userManagement'),
-		code: 'USER',
+		// code: 'USER',
 		ordinal: 8,
 		hidden: false,
 		status: true,
@@ -25,7 +25,7 @@ const user: AppRouteModule = {
 			component: () => import('@/views/authorityManagement/user.vue'),
 			meta: {
 				title: t('sys.router.userManagement'),
-				code: 'USER',
+				// code: 'USER',
 				ordinal: 1,
 				hidden: false,
 				status: true,
