@@ -46,29 +46,29 @@ namespace WebApi.Authorization
             await Task.CompletedTask;
             if (context.User.Identity is not null && context.User.Identity.IsAuthenticated)
             {
-                var claims = context.User.Claims.ToList();
-                var scheme = _userContext.Schema;
-                if (scheme is not AuthSchemes.Identification)
-                {
-                    return true;
-                }
+                //var claims = context.User.Claims.ToList();
+                //var scheme = _userContext.Schema;
+                //if (scheme is not AuthSchemes.Identification)
+                //{
+                //    return true;
+                //}
 
-                var tokenCategory = claims!.FirstOrDefault(x => x.Type == "token_category")?.Value;
-                var userId = claims!
-                    .FirstOrDefault(x => x.Type is "userId" or JwtRegisteredClaimNames.NameId)?.Value;
-                if (userId == null)
-                {
-                    return false;
-                }
+                //var tokenCategory = claims!.FirstOrDefault(x => x.Type == "token_category")?.Value;
+                //var userId = claims!
+                //    .FirstOrDefault(x => x.Type is "userId" or JwtRegisteredClaimNames.NameId)?.Value;
+                //if (userId == null)
+                //{
+                //    return false;
+                //}
 
-                if (tokenCategory != null)
-                {
-                    var appId = claims.FirstOrDefault(x => x.Type == "app_id")?.Value;
-                    if (appId != _options.ApplicationId)
-                    {
-                        return false;
-                    }
-                }
+                //if (tokenCategory != null)
+                //{
+                //    var appId = claims.FirstOrDefault(x => x.Type == "app_id")?.Value;
+                //    if (appId != _options.ApplicationId)
+                //    {
+                //        return false;
+                //    }
+                //}
 
                 return true;
             }
