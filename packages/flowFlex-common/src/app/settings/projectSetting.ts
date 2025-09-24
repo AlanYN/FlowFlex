@@ -51,3 +51,5 @@ export const changeThemeButton = true; // 是否显示切换主题按钮
 export const settingButton = false; // 是否显示设置按钮
 
 export const changeTimeZoneButton = false; // 是否显示切换时区按钮
+
+export const changeCompanyButton = true; // 是否显示切换公司按钮

@@ -31,6 +31,7 @@
 			<el-button v-if="searchButton" :icon="Search" circle />
 			<Lauguage v-if="changeI18nButton" />
 			<Setting v-if="settingButton" />
+			<Company v-if="changeCompanyButton" />
 			<UserLayout />
 		</div>
 	</div>
@@ -48,6 +49,7 @@ import {
 	changeI18nButton,
 	changeThemeButton,
 	settingButton,
+	changeCompanyButton,
 	changeTimeZoneButton,
 } from '@/settings/projectSetting';
 
@@ -55,6 +57,7 @@ import Lauguage from '@/components/navbarCompanents/language.vue';
 import TimeZone from '@/components/navbarCompanents/timeZone.vue';
 import UserLayout from '@/components/navbarCompanents/userLayout.vue';
 import Setting from '@/components/navbarCompanents/setting.vue';
+import Company from '@/components/navbarCompanents/company.vue';
 
 const Router = useRoute();
 
