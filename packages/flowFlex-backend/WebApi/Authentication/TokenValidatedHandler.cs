@@ -89,6 +89,7 @@ namespace WebApi.Authentication
 
                     userContext.CompanyId = "";
                     userContext.Schema = AuthSchemes.Identification;
+                    userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
                 }
             }
             catch
