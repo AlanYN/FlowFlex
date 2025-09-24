@@ -192,6 +192,7 @@ async function handleTripartiteToken() {
 			return;
 		}
 		setAppCode(appCode);
+		debugger;
 		if (ticket) {
 			setEnvironment('unissso');
 			await formIDMLogin(ticket, oauth);
