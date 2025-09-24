@@ -22,7 +22,7 @@
 					type="primary"
 					@click="saveQuestionnaireAndField"
 					:loading="saveAllLoading"
-					:disabled="isSaveDisabled || onboardingStageStatus"
+					:disabled="isSaveDisabled"
 					:icon="Document"
 					class="page-header-btn page-header-btn-primary"
 				>
@@ -32,7 +32,7 @@
 					type="primary"
 					@click="handleCompleteStage"
 					:loading="completing"
-					:disabled="isCompleteStageDisabled || onboardingStageStatus"
+					:disabled="isCompleteStageDisabled"
 					class="page-header-btn page-header-btn-primary"
 					:icon="Check"
 				>
@@ -109,7 +109,7 @@
 									:static-fields="component.staticFields"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
-									:disabled="isAbortedReadonly || onboardingStageStatus"
+									:disabled="isAbortedReadonly"
 									@save-success="refreshChangeLog"
 								/>
 
@@ -124,7 +124,7 @@
 									:stage-id="activeStage"
 									:checklist-data="getChecklistDataForComponent(component)"
 									:onboarding-id="onboardingId"
-									:disabled="isAbortedReadonly || onboardingStageStatus"
+									:disabled="isAbortedReadonly"
 									@task-toggled="handleTaskToggled"
 									@refresh-checklist="loadCheckListData"
 								/>
@@ -140,7 +140,7 @@
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
-									:disabled="isAbortedReadonly || onboardingStageStatus"
+									:disabled="isAbortedReadonly"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
@@ -158,7 +158,7 @@
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									:component="component"
-									:disabled="isAbortedReadonly || onboardingStageStatus"
+									:disabled="isAbortedReadonly"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -260,6 +260,7 @@ import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
 import AISummary from './components/AISummary.vue';
 import EditableStageHeader from './components/EditableStageHeader.vue';
+import { getAppCode } from '@/utils/threePartyLogin';
 
 const { t } = useI18n();
 const userStore = useUserStore();
@@ -322,8 +323,6 @@ const statusTagType = computed(() => {
 			return 'primary';
 		case 'Completed':
 			return 'success';
-		case 'Force Completed':
-			return 'success';
 		case 'Paused':
 			return 'warning';
 		case 'Aborted':
@@ -344,8 +343,6 @@ const statusDisplayText = computed(() => {
 			return 'In progress';
 		case 'Cancelled':
 			return 'Aborted';
-		case 'Force Completed':
-			return 'Force Completed';
 		default:
 			return status;
 	}
@@ -370,8 +367,8 @@ const isCompleteStageDisabled = computed(() => {
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
-	// 对于已中止、已取消、暂停或强制完成的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+	// 对于已中止、已取消或暂停的状态，禁用完成阶段
+	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
 });
 
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
@@ -1067,9 +1064,7 @@ const refreshAISummary = async () => {
 		}
 
 		// 添加用户相关头信息
-		if (userInfo?.appCode) {
-			headers['X-App-Code'] = String(userInfo.appCode);
-		}
+		headers['X-App-Code'] = getAppCode();
 		if (userInfo?.tenantId) {
 			headers['X-Tenant-Id'] = String(userInfo.tenantId);
 		}

@@ -610,7 +610,6 @@ import {
 	View,
 	Warning,
 	Download,
-	Check,
 } from '@element-plus/icons-vue';
 import {
 	queryOnboardings,

@@ -162,7 +162,7 @@ export interface GlobConfig {
 	// 使用的api项目名称
 	apiProName?: string;
 	// 调用iam的接口域名
-	iamUrl?: string;
+	idmUrl?: string;
 	// 门户访问地址
 	domainUrl?: string;
 }
@@ -184,6 +184,8 @@ export interface GlobEnvConfig {
 	VITE_GLOB_ENVIRONMENT?: string;
 	// 门户访问地址
 	VITE_GLOB_DOMAIN_URL?: string;
+	// 调用idm的接口域名
+	VITE_GLOB_IDM_URL?: string;
 }
 
 export interface RoleMenu {
@@ -204,7 +206,7 @@ export interface CompanyEnum {
 }
 
 export interface UserInfo {
-	tenantId?: string;
+	tenantId?: number;
 	userId?: string | number;
 	userName?: string;
 	realName?: string;
@@ -219,7 +221,7 @@ export interface UserInfo {
 	defaultTimeZone?: string;
 	attachmentId?: string;
 	avatarUrl?: string;
-	appCode?: string;
+	tenantDisplayType?: string;
 }
 
 export interface ILayout {
@@ -252,6 +254,8 @@ export interface ParametersToken {
 	loginType?: string;
 	code?: string;
 	state?: string;
+	appCode?: string;
+	tenantId?: string;
 }
 
 export interface FileList {

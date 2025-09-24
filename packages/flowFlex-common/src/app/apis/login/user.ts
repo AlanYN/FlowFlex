@@ -6,14 +6,12 @@ const globSetting = useGlobSetting();
 
 export const UnisApi = () => {
 	return {
-		UserInfo: `${globSetting.apiProName}/permission-center/${globSetting.apiVersion}/users/user-info`,
+		UserInfo: `${globSetting.idmUrl}/api/v1/users/current/info`,
 
 		// 获取新token
-		getNewToken: `${globSetting.apiProName}/ow/users/refresh-access-token`,
+		getNewToken: `${globSetting.idmUrl}/api/v1/oauth/token`,
 
-		getSSOToken: `${globSetting.iamUrl}/${globSetting.apiVersion}/oauth/item-iam/token`,
-
-		userGeneral: `${globSetting.iamUrl}/${globSetting.apiVersion}/users/user-general`,
+		verifyTicket: `${globSetting.idmUrl}/api/v1/oauth/ticket`,
 	};
 };
 
@@ -38,16 +36,8 @@ export function userInfoApi() {
 	return defHttp.get<GetUserInfoModel>({ url: UnisApi().UserInfo });
 }
 
-export function getSSOToken(params) {
-	return defHttp.post({ url: UnisApi().getSSOToken, params });
-}
-
-export function setUserGeneral(params) {
-	return defHttp.put({ url: UnisApi().userGeneral, params });
-}
-
-export function getUserGeneral(params) {
-	return defHttp.get({ url: UnisApi().userGeneral, params });
+export function verifyTicket(params) {
+	return defHttp.post({ url: UnisApi().verifyTicket, params });
 }
 
 export function registerApi(params: {

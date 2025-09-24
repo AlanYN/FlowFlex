@@ -21,6 +21,10 @@ const Api = (id?: string | number) => {
 		flowflexUser: `${globSetting.apiProName}/ow/users/tree`,
 
 		changeLog: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}/business`,
+
+		userPermissionsByMenu: `${globSetting.idmUrl}/api/v1/menus`,
+
+		userPermissions: `${globSetting.idmUrl}/api/v1/users/current/permissions`,
 	};
 };
 
@@ -72,4 +76,12 @@ export function getFlowflexUser(params: {
 
 export function getChangeLogs(id, params) {
 	return defHttp.get({ url: `${Api().changeLog}/${id}`, params });
+}
+
+export function menuFunctionPermission(menuId: string) {
+	return defHttp.get({ url: `${Api().userPermissionsByMenu}/${menuId}/permissions` });
+}
+
+export function userPermissions() {
+	return defHttp.get({ url: `${Api().userPermissions}` });
 }

@@ -6,21 +6,22 @@ import { createStateGuard } from './stateGuard';
 import { usePermissionStoreWithOut } from '@/stores/modules/permission';
 import { Routes } from '@/router/routers';
 import { getMenuListPath } from '@/utils';
-import { PageEnum } from '@/enums/pageEnum';
 import { AxiosCanceler } from '@/apis/axios/axiosCancel';
-import { useGlobSetting } from '@/settings';
 import { ParametersToken } from '#/config';
 import { isIframe, parseUrlSearch, objectToQueryString } from '@/utils/utils';
-import { passSsoToken, setEnvironment, wujieCrmToken } from '@/utils/threePartyLogin';
+import {
+	formIDMLogin,
+	toIDMLogin,
+	setEnvironment,
+	wujieCrmToken,
+	setAppCode,
+} from '@/utils/threePartyLogin';
 
 import { getTokenobj } from '@/utils/auth';
 
 import nProgress from 'nprogress';
 
-const LOGIN_PATH = PageEnum.BASE_LOGIN;
-const HOME_PATH = PageEnum.BASE_HOME;
 const allPagePaths = getMenuListPath(Routes);
-const globSetting = useGlobSetting();
 
 export async function setupRouterGuard(router: Router) {
 	await handleTripartiteToken();
@@ -33,6 +34,7 @@ export async function setupRouterGuard(router: Router) {
 
 		if (handleTokenCheck(to, next)) return;
 		await handleNavigateWatchForm(next);
+		await handleRouterRoles(to);
 		await handlePermissionGuard(to, from, next);
 	});
 
@@ -77,31 +79,12 @@ function handleTokenCheck(to, next) {
 		return false;
 	}
 
-	if (!accessToken) {
-		redirectToLogin(to, next);
-		return true;
-	} else if (to.path === '/login') {
-		next({ path: HOME_PATH });
+	if (!accessToken || to.path === '/login') {
+		toIDMLogin('login');
 		return true;
 	}
 
 	return false;
-}
-
-function redirectToLogin(to, next) {
-	if (to.path !== '/login' && !window?.__POWERED_BY_WUJIE__) {
-		const redirectData = {
-			path: LOGIN_PATH,
-			replace: true,
-			query: {
-				...to.query,
-				redirect: to.fullPath,
-			},
-		};
-		next(redirectData);
-	} else {
-		next();
-	}
 }
 
 async function handleNavigateWatchForm(next) {
@@ -136,6 +119,19 @@ async function handleNavigateWatchForm(next) {
 	}
 }
 
+async function handleRouterRoles(to) {
+	console.log('to.meta.menuId:', to.meta.menuId);
+	if (!to.meta.menuId) return;
+
+	try {
+		// TODO: 根据路由切换 权限codes获取
+		const menuRolesStore = menuRoles();
+		await menuRolesStore.setFunctionIds(to.meta.menuId as string);
+	} catch (error) {
+		console.log('Error in handleRouterRoles:', error);
+	}
+}
+
 async function createDynamicRoutes(router: Router) {
 	try {
 		const accessToken = getTokenobj()?.accessToken.token;
@@ -166,7 +162,7 @@ async function handleTripartiteToken() {
 	if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
 		console.log('无界环境处理 token');
 		console.log('window.$wujie.props:', window.$wujie.props);
-		if (userStore.getUserInfo.appCode && getTokenobj()?.accessToken?.token) return;
+		if (getTokenobj()?.accessToken?.token) return;
 		const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
 		if (appCode && tenantId && authorizationToken) {
 			try {
@@ -183,7 +179,7 @@ async function handleTripartiteToken() {
 			}
 		}
 	} else if (!window.__POWERED_BY_WUJIE__ && parameterObj) {
-		const { loginType, code = '', state = '', hideEditMenu, hideMenu } = parameterObj;
+		const { loginType, appCode, ticket = '', oauth, hideEditMenu, hideMenu } = parameterObj;
 
 		userStore.setLayout({
 			hideMenu: hideMenu || isIframe(),
@@ -195,16 +191,10 @@ async function handleTripartiteToken() {
 			await userStore.logout(true);
 			return;
 		}
-
-		switch (globSetting.environment) {
-			case 'ITEM':
-				if (code) {
-					setEnvironment('item');
-					await passSsoToken(code, state);
-				}
-				break;
-			default:
-				break;
+		setAppCode(appCode);
+		if (ticket) {
+			setEnvironment('unissso');
+			await formIDMLogin(ticket, oauth);
 		}
 	}
 }
