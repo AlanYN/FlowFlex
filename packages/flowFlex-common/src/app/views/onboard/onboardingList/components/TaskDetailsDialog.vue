@@ -37,9 +37,9 @@
 					</h3>
 					<el-button
 						type="primary"
-						size="small"
 						@click="showAddNoteInput = !showAddNoteInput"
 						:icon="Plus"
+						:disabled="disabled"
 					>
 						Add Note
 					</el-button>
@@ -55,13 +55,13 @@
 						class="add-note-textarea"
 					/>
 					<div class="add-note-actions">
-						<el-button type="primary" size="small" @click="addNote">Add</el-button>
-						<el-button size="small" @click="cancelAddNote">Cancel</el-button>
+						<el-button type="primary" @click="addNote">Add</el-button>
+						<el-button @click="cancelAddNote">Cancel</el-button>
 					</div>
 				</div>
 
 				<!-- Notes 列表 -->
-				<div class="notes-content" v-loading="notesLoading" v-if="!showAddNoteInput">
+				<div v-loading="notesLoading">
 					<template v-if="notes && notes.length > 0">
 						<el-scrollbar class="notes-scrollbar" max-height="300px">
 							<div class="notes-list">
@@ -87,8 +87,6 @@
 										<div class="note-actions">
 											<el-button
 												type="primary"
-												size="small"
-												text
 												@click="editNote(index)"
 												link
 												:icon="Edit"
@@ -96,8 +94,6 @@
 
 											<el-button
 												type="danger"
-												size="small"
-												text
 												@click="removeNote(index)"
 												link
 												:icon="Delete"
@@ -117,12 +113,11 @@
 											<div class="edit-note-actions">
 												<el-button
 													type="primary"
-													size="small"
 													@click="saveEditNote(index)"
 												>
 													Save
 												</el-button>
-												<el-button size="small" @click="cancelEditNote">
+												<el-button @click="cancelEditNote">
 													Cancel
 												</el-button>
 											</div>
@@ -132,7 +127,7 @@
 							</div>
 						</el-scrollbar>
 					</template>
-					<template v-else>
+					<template v-else-if="notes.length <= 0 && !showAddNoteInput">
 						<div class="no-notes">
 							<el-icon><Edit /></el-icon>
 							<span>No notes added yet</span>
@@ -148,7 +143,12 @@
 						<el-icon><Paperclip /></el-icon>
 						Attachments
 					</h3>
-					<el-button type="primary" size="small" @click="triggerUpload" :icon="Plus">
+					<el-button
+						type="primary"
+						:disabled="disabled"
+						@click="triggerUpload"
+						:icon="Plus"
+					>
 						Add Attachment
 					</el-button>
 					<!-- 隐藏的上传组件 -->
@@ -194,18 +194,16 @@
 									<div class="attachment-actions">
 										<el-button
 											type="primary"
-											size="small"
-											text
 											@click="downloadAttachment(attachment)"
 											link
+											:disabled="disabled"
 											:icon="Download"
 										/>
 										<el-button
 											type="danger"
-											size="small"
-											text
 											@click="removeAttachment(index)"
 											link
+											:disabled="disabled"
 											:icon="Delete"
 										/>
 									</div>
@@ -227,7 +225,9 @@
 		<template #footer>
 			<div class="dialog-footer">
 				<el-button @click="handleClose">Cancel</el-button>
-				<el-button type="primary" @click="handleSave">Save Changes</el-button>
+				<el-button type="primary" @click="handleSave" :disabled="disabled">
+					Save Changes
+				</el-button>
 			</div>
 		</template>
 
@@ -297,6 +297,7 @@ interface Props {
 	task: TaskData | null;
 	onboardingId?: string | number;
 	stageId: string | number;
+	disabled?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -871,10 +872,6 @@ const formatFileSize = (bytes: number): string => {
 
 /* Notes 区域 */
 .notes-section {
-	.notes-content {
-		min-height: 60px;
-	}
-
 	.add-note-section {
 		margin-bottom: 16px;
 		padding: 12px;
@@ -889,7 +886,7 @@ const formatFileSize = (bytes: number): string => {
 
 	.add-note-actions {
 		display: flex;
-		gap: 8px;
+		justify-content: flex-end;
 	}
 
 	.notes-scrollbar {
@@ -966,7 +963,7 @@ const formatFileSize = (bytes: number): string => {
 
 		.edit-note-actions {
 			display: flex;
-			gap: 8px;
+			justify-content: flex-end;
 		}
 	}
 
