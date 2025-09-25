@@ -126,13 +126,13 @@
 									</div>
 								</div>
 								<div class="right-section">
-									<div
+									<!-- <div
 										v-if="element.defaultAssignedGroup"
 										class="stage-tag stage-group-tag"
 										:title="element.defaultAssignedGroup"
 									>
 										{{ element.defaultAssignedGroup }}
-									</div>
+									</div> -->
 									<div
 										class="stage-tag stage-duration-tag"
 										:title="`${element.estimatedDuration} ${
