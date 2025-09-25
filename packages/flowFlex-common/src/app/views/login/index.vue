@@ -75,7 +75,7 @@
 						<el-input
 							v-model="loginForm.email"
 							:placeholder="t('sys.login.accountPlaceholder')"
-							class="!bg-white/10 !text-white !placeholder-white/50"
+							class="text-white !placeholder-white/50"
 							@keyup.enter="handleLogin"
 						/>
 					</el-form-item>
@@ -88,7 +88,7 @@
 							type="password"
 							:placeholder="t('sys.login.passwordPlaceholder')"
 							show-password
-							class="!bg-white/10 !text-white !placeholder-white/50"
+							class="text-white !placeholder-white/50"
 							@keyup.enter="handleLogin"
 						/>
 					</el-form-item>
@@ -459,7 +459,7 @@ const handleRegister = async () => {
 // inputEnd no longer needed
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 @keyframes float {
 	0%,
 	100% {
@@ -527,5 +527,8 @@ const handleRegister = async () => {
 	color: #fff;
 	font-size: 18px;
 	letter-spacing: 2px;
+}
+:deep(.el-input__inner) {
+	@apply text-white;
 }
 </style>

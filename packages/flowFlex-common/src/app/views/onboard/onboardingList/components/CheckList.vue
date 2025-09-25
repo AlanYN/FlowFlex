@@ -117,7 +117,6 @@
 									class="action-button details-button"
 									@click.stop="openTaskDetails(task)"
 									color="#e6f1fa"
-									:disabled="disabled"
 								>
 									Details
 								</el-button>
@@ -142,6 +141,7 @@
 			:task="selectedTask"
 			:onboarding-id="onboardingId"
 			:stage-id="stageId"
+			:disabled="disabled"
 			@update:task="handleTaskUpdate"
 		/>
 	</div>
