@@ -37,7 +37,7 @@
 				<!-- 左侧配置面板 -->
 				<div class="config-panel">
 					<el-scrollbar ref="configScrollbarRef">
-						<el-card class="config-card rounded-xl">
+						<el-card class="config-card rounded-xl bg-white dark:bg-black-400">
 							<!-- 基本信息 -->
 							<QuestionnaireBasicInfo
 								:questionnaire="{
@@ -97,7 +97,7 @@
 					>
 						<el-scrollbar ref="editorScrollbarRef">
 							<TabPane value="questions" class="questions-pane">
-								<el-card class="editor-card rounded-xl">
+								<el-card class="editor-card rounded-xl bg-white dark:bg-black-400">
 									<!-- 当前分区信息 -->
 									<div
 										v-if="showSectionManagement"
@@ -110,7 +110,6 @@
 											<el-button
 												type="primary"
 												link
-												size="large"
 												@click="isEditingTitle = true"
 												class="edit-btn"
 												:icon="Edit"
@@ -1072,8 +1071,15 @@ onMounted(async () => {
 }
 
 .edit-btn {
-	opacity: 0.6;
-	transition: opacity 0.2s;
+	:deep(.el-icon) {
+		width: 1.5rem !important;
+		height: 1.5rem !important;
+
+		svg {
+			width: 1.5rem !important;
+			height: 1.5rem !important;
+		}
+	}
 }
 
 .edit-btn:hover {
