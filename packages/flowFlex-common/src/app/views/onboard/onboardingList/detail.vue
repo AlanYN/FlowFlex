@@ -22,7 +22,7 @@
 					type="primary"
 					@click="saveQuestionnaireAndField"
 					:loading="saveAllLoading"
-					:disabled="isSaveDisabled"
+					:disabled="isSaveDisabled || stageCanCompleted"
 					:icon="Document"
 					class="page-header-btn page-header-btn-primary"
 				>
@@ -32,7 +32,7 @@
 					type="primary"
 					@click="handleCompleteStage"
 					:loading="completing"
-					:disabled="isCompleteStageDisabled"
+					:disabled="isCompleteStageDisabled || stageCanCompleted"
 					class="page-header-btn page-header-btn-primary"
 					:icon="Check"
 				>
@@ -109,7 +109,7 @@
 									:static-fields="component.staticFields"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									@save-success="refreshChangeLog"
 								/>
 
@@ -124,7 +124,7 @@
 									:stage-id="activeStage"
 									:checklist-data="getChecklistDataForComponent(component)"
 									:onboarding-id="onboardingId"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									@task-toggled="handleTaskToggled"
 									@refresh-checklist="loadCheckListData"
 								/>
@@ -140,7 +140,7 @@
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
@@ -158,7 +158,7 @@
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									:component="component"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -376,6 +376,11 @@ const isCompleteStageDisabled = computed(() => {
 const isAbortedReadonly = computed(() => {
 	const status = onboardingData.value?.status;
 	return !!status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+});
+
+const stageCanCompleted = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.isCompleted;
 });
 
 const onboardingStageStatus = computed(() => {
