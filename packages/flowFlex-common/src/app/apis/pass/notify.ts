@@ -6,7 +6,7 @@ const itemApi = () => {
 	const globSetting = useGlobSetting();
 	return {
 		// sso Activities
-		ssoLoginActivity: `${globSetting.iamUrl}/api/idm-app/user/sso/add-login-activity`,
+		ssoLoginActivity: `${globSetting.idmUrl}/api/idm-app/user/sso/add-login-activity`,
 
 		wujieCrmToken: `${globSetting.apiProName}/ow/users/third-party-login`,
 	};

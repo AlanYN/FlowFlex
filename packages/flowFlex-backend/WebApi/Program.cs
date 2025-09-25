@@ -18,6 +18,11 @@ using FlowFlex.Application.Client;
 using Item.Redis.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using WebApi.Authentication;
+using Item.Internal.Auth.Authorization;
+using FlowFlex.Domain.Shared.Const;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.Extensions.DependencyInjection;
+using WebApi.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -149,7 +154,12 @@ var jwtSecretKey = builder.Configuration["Security:JwtSecretKey"];
 var jwtIssuer = builder.Configuration["Security:JwtIssuer"];
 var jwtAudience = builder.Configuration["Security:JwtAudience"];
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+var schemes = new List<string> { JwtBearerDefaults.AuthenticationScheme };
+var authenticationBuilder = builder.Services.AddAuthentication(options =>
+{
+    JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -216,6 +226,44 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         }
     };
 });
+
+var identityHubConfigOptions = builder.Configuration.GetSection("IdentityHubConfig").Get<IdentityHubConfigOptions>();
+if (identityHubConfigOptions.EnableIdentityHub)
+{
+    schemes.Add(AuthSchemes.Identification);
+    authenticationBuilder.AddJwtBearer(AuthSchemes.Identification, config =>
+    {
+        config.Authority = identityHubConfigOptions.Authority;
+        config.RequireHttpsMetadata = identityHubConfigOptions.RequireHttpsMetadata;
+        config.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = identityHubConfigOptions.Issuer,
+            ValidateAudience = false,
+            ValidateIssuerSigningKey = identityHubConfigOptions.ValidateIssuerSigningKey
+        };
+        config.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = TokenValidatedHandler.OnIdmTokenValidated,
+            OnAuthenticationFailed = (c) =>
+            {
+                Console.WriteLine("123123");
+                return Task.FromResult(true);
+            },
+            OnChallenge = (c) =>
+            {
+                Console.WriteLine("13345345");
+                return Task.FromResult(true);
+            },
+            OnForbidden = (c) =>
+            {
+                Console.WriteLine("fasdf");
+                return Task.FromResult(true);
+            }
+        };
+    });
+}
+
+builder.Services.AddAuthorization<WfeAuthorizationHandler>(schemes.ToArray());
 
 // Register HTTP context accessor
 builder.Services.AddHttpContextAccessor();
@@ -353,6 +401,9 @@ else
     // });
     builder.Services.AddDistributedMemoryCache(); // Fallback to memory cache
 }
+
+// Add IMemoryCache for IdentityHubClient dependency
+builder.Services.AddMemoryCache();
 
 // Register background task processing service
 builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();

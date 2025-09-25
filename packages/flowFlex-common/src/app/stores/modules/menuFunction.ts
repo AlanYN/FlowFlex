@@ -3,7 +3,7 @@ import { store } from '@/stores';
 import { getAuthCache, setAuthCache } from '@/utils/auth';
 import { MENU_MENUTYPE } from '@/enums/cacheEnum';
 import { isFunction } from 'lodash-es';
-import { getFlowflexUser } from '@/apis/global';
+import { getFlowflexUser, menuFunctionPermission } from '@/apis/global';
 import type { FlowflexUser } from '#/golbal';
 
 interface MenuRoles {
@@ -70,7 +70,13 @@ export const MenuFunctionStore = defineStore({
 		},
 		async setFunctionIds(menuId: string) {
 			this.menuId = menuId;
-			this.functionIds = [];
+			try {
+				const { data } = await menuFunctionPermission(menuId);
+				const functionCodeList = data.map((item) => item.code);
+				this.functionIds = functionCodeList;
+			} catch (error) {
+				this.functionIds = [];
+			}
 		},
 		setMenuType(menuType: string) {
 			this.menuType = menuType;

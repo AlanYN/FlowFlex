@@ -12,14 +12,8 @@ import { AxiosCanceler } from './axiosCancel';
 import { isFunction } from '@/utils/is';
 import { cloneDeep } from 'lodash-es';
 import { ContentTypeEnum, RequestEnum } from '@/enums/httpEnum';
-import { getTokenobj, setAuthCache } from '@/utils/auth';
-import { TOKENOBJ_KEY } from '@/enums/cacheEnum';
-import { parseJWT } from '@/utils';
-import { useUserStoreWithOut } from '@/stores/modules/user';
-import { UnisApi } from '@/apis/login/user';
-import { isoldEnvironment } from '@/utils/threePartyLogin';
-// import { ElMessage } from 'element-plus';
-import dayjs from 'dayjs';
+import { getTokenobj } from '@/utils/auth';
+
 import qs from 'qs';
 
 export * from './axiosTransform';
@@ -30,7 +24,6 @@ export * from './axiosTransform';
 export class VAxios {
 	private axiosInstance: AxiosInstance;
 	private readonly options: CreateAxiosOptions;
-	private refreshPromise: Promise<any> | null = null;
 
 	constructor(options: CreateAxiosOptions) {
 		this.options = options;
@@ -241,68 +234,6 @@ export class VAxios {
 		conf.requestOptions = opt;
 		conf = this.supportFormData(conf);
 
-		// 暂时没有刷新token 先注释掉下边内容
-
-		const useUserStore = useUserStoreWithOut();
-		const tokenObj = getTokenobj() as TokenObj;
-		if (tokenObj) {
-			let currentDate = dayjs(new Date()).unix();
-			const givenDate = +tokenObj.accessToken.expire;
-			if ((givenDate < currentDate || isNaN(givenDate)) && tokenObj.refreshToken) {
-				// console.log('检测本地token过期了,过期时间：', givenDate, 'token是：', tokenObj);
-				if (!this.refreshPromise) {
-					this.refreshPromise = this.getNewToken({
-						refreshToken: tokenObj.refreshToken,
-						accessToken: tokenObj.accessToken.token,
-					});
-				}
-				try {
-					const res = await this.refreshPromise;
-					this.refreshPromise = null;
-					const isOldEnv = isoldEnvironment();
-					if (isOldEnv && res.data.data.refreshToken) {
-						const { accessToken, refreshToken } = res.data.data;
-						currentDate = dayjs(new Date()).unix();
-						setAuthCache(TOKENOBJ_KEY, {
-							accessToken: {
-								token: accessToken.token,
-								expire: +currentDate + +parseJWT(accessToken.token).exp,
-								tokenType: 'Bearer',
-							},
-							refreshToken: refreshToken.token,
-						});
-					} else if (!isOldEnv && res.data.refreshToken) {
-						const { expiresIn, refreshToken, token, tokenType } = res.data;
-						currentDate = dayjs(new Date()).unix();
-						setAuthCache(TOKENOBJ_KEY, {
-							accessToken: {
-								token: token,
-								expire: +currentDate + +expiresIn,
-								tokenType: tokenType,
-							},
-							refreshToken: refreshToken,
-						});
-					} else if (!isOldEnv && res.data.refresh_token) {
-						const { access_token, expires_in, refresh_token, token_type } = res.data;
-						currentDate = dayjs(new Date()).unix();
-						setAuthCache(TOKENOBJ_KEY, {
-							accessToken: {
-								token: access_token,
-								expire: +currentDate + +expires_in,
-								tokenType: token_type,
-							},
-							refreshToken: refresh_token,
-						});
-					} else {
-						useUserStore.logout(true);
-					}
-				} catch (error) {
-					this.refreshPromise = null;
-					useUserStore.logout(true);
-				}
-			}
-		}
-
 		if (isfetch) {
 			const tokenObj = getTokenobj() as TokenObj;
 			const token = tokenObj?.accessToken?.token;
@@ -376,21 +307,6 @@ export class VAxios {
 						// rewrite error message from axios in here
 					}
 					reject(e);
-				});
-		});
-	}
-
-	async getNewToken(parms): Promise<any> {
-		return new Promise((resolve, reject) => {
-			const RefreshTokenUrl = UnisApi().getNewToken;
-			this.axiosInstance
-				.put(RefreshTokenUrl, parms)
-				.then((res) => {
-					console.log('换取token成功');
-					resolve(res);
-				})
-				.catch((err) => {
-					reject(err);
 				});
 		});
 	}

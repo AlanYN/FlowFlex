@@ -3,6 +3,7 @@ import { useGlobSetting } from '@/settings';
 import { getTokenobj } from '@/utils/auth';
 import { useUserStoreWithOut } from '@/stores/modules/user';
 import { getTimeZoneInfo } from '@/hooks/time';
+import { getAppCode } from '@/utils/threePartyLogin';
 
 const globSetting = useGlobSetting();
 
@@ -107,16 +108,6 @@ export async function streamGenerateAIWorkflowNative(
 		console.log('✅ Added Authorization header:', `${tokenType} ${token.substring(0, 20)}...`);
 	} else {
 		console.warn('❌ No token found in tokenObj');
-	}
-
-	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = userInfo.appCode;
-		console.log('✅ Added X-App-Code:', userInfo.appCode);
-	}
-	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = userInfo.tenantId;
-		console.log('✅ Added X-Tenant-Id:', userInfo.tenantId);
 	}
 
 	console.log('🔑 Final request headers:', headers);
@@ -477,13 +468,9 @@ export async function streamAIChatMessageNative(
 		console.warn('❌ No token found in tokenObj');
 	}
 
-	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = userInfo.appCode;
-		console.log('✅ Added X-App-Code:', userInfo.appCode);
-	}
+	headers['X-App-Code'] = getAppCode();
 	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = userInfo.tenantId;
+		headers['X-Tenant-Id'] = userInfo.tenantId.toString();
 		console.log('✅ Added X-Tenant-Id:', userInfo.tenantId);
 	}
 

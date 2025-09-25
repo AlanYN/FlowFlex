@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using FlowFlex.Application.Contracts.Dtos.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Shared;
 
@@ -34,6 +35,31 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="stageIds">List of stage IDs that were reordered</param>
         /// <returns>Number of onboarding records synced</returns>
         Task<int> SyncAfterStagesSortAsync(long workflowId, List<long> stageIds);
+
+        /// <summary>
+        /// Validate and repair stages progress data for a specific onboarding
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID to validate and repair</param>
+        /// <param name="autoRepair">Whether to automatically repair detected issues</param>
+        /// <returns>Validation and repair result</returns>
+        Task<StagesProgressValidationResult> ValidateAndRepairOnboardingAsync(long onboardingId, bool autoRepair = true);
+
+        /// <summary>
+        /// Batch validate and repair stages progress data for multiple onboardings
+        /// </summary>
+        /// <param name="onboardingIds">List of onboarding IDs to validate</param>
+        /// <param name="autoRepair">Whether to automatically repair detected issues</param>
+        /// <returns>List of validation results</returns>
+        Task<List<StagesProgressValidationResult>> BatchValidateAndRepairAsync(List<long> onboardingIds, bool autoRepair = true);
+
+        /// <summary>
+        /// Emergency recovery method to restore stages progress from workflow stages
+        /// Use this method when stages progress data is corrupted or lost
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID to recover</param>
+        /// <param name="preserveCompletedStages">Whether to try to preserve completed stage information</param>
+        /// <returns>Recovery result</returns>
+        Task<StagesProgressRecoveryResult> EmergencyRecoverStagesProgressAsync(long onboardingId, bool preserveCompletedStages = true);
 
         /// <summary>
         /// Sync stages progress for all onboardings in a specific workflow after stage combination
