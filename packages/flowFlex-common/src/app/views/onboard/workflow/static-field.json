@@ -103,12 +103,6 @@
         "category": "Basic Info"
       },
       {
-        "label": "Customer Name",
-        "vIfKey": "CUSTOMERNAME",
-        "formProp": "customerName",
-        "category": "Basic Info"
-      },
-      {
         "label": "Status",
         "vIfKey": "STATUS",
         "formProp": "status",
